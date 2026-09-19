@@ -49,6 +49,7 @@ const TABS = [
   { id: "utilities", label: "Utilities" },
   { id: "insurance", label: "Insurance" },
   { id: "financials", label: "Financials" },
+  { id: "taxes", label: "Taxes" },
   { id: "policies", label: "Policies" },
   { id: "amenities", label: "Amenities" },
   { id: "appliances", label: "Appliances" },
@@ -166,9 +167,15 @@ export default function PropertyDetailPage() {
       {tab === "overview" && <OverviewTab property={property} />}
       {tab === "units" && <UnitsTab units={units} propertyId={propertyId} canEdit={canEdit} />}
       {tab === "history" && <HistoryTab propertyId={propertyId} />}
-      {tab !== "overview" && tab !== "units" && tab !== "history" && (
-        <ComingSoonTab name={TABS.find((t) => t.id === tab)?.label || ""} />
-      )}
+      {tab === "financials" && <FinancialsTab property={property} propertyId={propertyId} canEdit={canEdit} />}
+      {tab === "taxes" && <TaxesTab propertyId={propertyId} canEdit={canDelete} />}
+      {tab !== "overview" &&
+        tab !== "units" &&
+        tab !== "history" &&
+        tab !== "financials" &&
+        tab !== "taxes" && (
+          <ComingSoonTab name={TABS.find((t) => t.id === tab)?.label || ""} />
+        )}
     </div>
   );
 }
@@ -341,5 +348,556 @@ function Row({ label, value }: { label: string; value: string | number | null | 
       <span className="text-slate-500">{label}</span>
       <span className="text-slate-900 font-medium">{value || "—"}</span>
     </div>
+  );
+}
+
+
+
+// ------------------------------------------------------------
+// FINANCIALS TAB
+// ------------------------------------------------------------
+function FinancialsTab({
+  property,
+  propertyId,
+  canEdit,
+}: {
+  property: Property & Record<string, unknown>;
+  propertyId: number;
+  canEdit: boolean;
+}) {
+  const [taxes, setTaxes] = useState<{ annual_amount: string | null }[]>([]);
+
+  useEffect(() => {
+    apiGet(`/properties/${propertyId}/taxes`)
+      .then(setTaxes)
+      .catch(() => setTaxes([]));
+  }, [propertyId]);
+
+  const totalAnnualTax = taxes.reduce(
+    (sum, t) => sum + (t.annual_amount ? Number(t.annual_amount) : 0),
+    0
+  );
+  const monthlyTax = totalAnnualTax / 12;
+
+  return (
+    <div className="space-y-6">
+      {canEdit && (
+        <div className="text-right">
+          <Link
+            href={`/dashboard/properties/${propertyId}/edit`}
+            className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700"
+          >
+            Edit Financials
+          </Link>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Section title="Purchase">
+          <Row label="Purchase Date" value={property.purchase_date as string} />
+          <Row
+            label="Purchase Price"
+            value={property.purchase_price ? `$${Number(property.purchase_price).toLocaleString()}` : null}
+          />
+          <Row
+            label="Current Market Value"
+            value={property.current_market_value ? `$${Number(property.current_market_value).toLocaleString()}` : null}
+          />
+          <Row label="Ownership" value={property.ownership_status?.replace("_", " ")} />
+          {property.payoff_date ? <Row label="Payoff Date" value={property.payoff_date as string} /> : null}
+          {property.payoff_amount ? (
+            <Row label="Payoff Amount" value={`$${Number(property.payoff_amount).toLocaleString()}`} />
+          ) : null}
+        </Section>
+
+        <Section title="Mortgage">
+          <Row label="Lender" value={property.mortgage_lender as string} />
+          <Row label="Account #" value={property.mortgage_account_number as string} />
+          <Row
+            label="Original Amount"
+            value={property.mortgage_original_amount ? `$${Number(property.mortgage_original_amount).toLocaleString()}` : null}
+          />
+          <Row
+            label="Current Balance"
+            value={property.mortgage_current_balance ? `$${Number(property.mortgage_current_balance).toLocaleString()}` : null}
+          />
+          <Row
+            label="Interest Rate"
+            value={property.mortgage_interest_rate ? `${property.mortgage_interest_rate}%` : null}
+          />
+          <Row
+            label="Term"
+            value={property.mortgage_term_months ? `${property.mortgage_term_months} months` : null}
+          />
+          <Row label="Started" value={property.mortgage_start_date as string} />
+          <Row
+            label="Monthly Payment"
+            value={property.mortgage_monthly_payment ? `$${Number(property.mortgage_monthly_payment).toLocaleString()}` : null}
+          />
+          <Row label="Escrow Included" value={property.mortgage_escrow_included ? "Yes" : "No"} />
+        </Section>
+
+        <Section title="Taxes (summary)" full>
+          {taxes.length === 0 ? (
+            <p className="text-slate-500 text-sm">
+              No tax records yet. Add them in the Taxes tab.
+            </p>
+          ) : (
+            <>
+              <Row
+                label="Total Annual Tax"
+                value={`$${totalAnnualTax.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+              />
+              <Row
+                label="Monthly Equivalent"
+                value={`$${monthlyTax.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+              />
+              <Row label="Tax Authorities" value={taxes.length} />
+              <p className="text-xs text-slate-500 mt-4">
+                View and manage individual tax records in the <strong>Taxes</strong> tab.
+              </p>
+            </>
+          )}
+        </Section>
+      </div>
+    </div>
+  );
+}
+
+
+// ------------------------------------------------------------
+// TAXES TAB
+// ------------------------------------------------------------
+type TaxRecord = {
+  id: number;
+  property_id: number;
+  tax_authority: string;
+  tax_type: string;
+  parcel_number: string | null;
+  assessed_value: string | null;
+  tax_rate_percent: string | null;
+  annual_amount: string | null;
+  payment_frequency: string;
+  payment_amount: string | null;
+  next_due_date: string | null;
+  escrow_included: boolean;
+  is_active: boolean;
+  notes: string | null;
+};
+
+function TaxesTab({ propertyId, canEdit }: { propertyId: number; canEdit: boolean }) {
+  const [taxes, setTaxes] = useState<TaxRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [error, setError] = useState("");
+
+  async function load() {
+    setLoading(true);
+    try {
+      const data = await apiGet(`/properties/${propertyId}/taxes`);
+      setTaxes(data);
+    } catch {
+      setTaxes([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyId]);
+
+  async function handleDelete(id: number) {
+    if (!confirm("Delete this tax record?")) return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `http://127.0.0.1:8000/properties/${propertyId}/taxes/${id}`,
+        { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) throw new Error("Delete failed");
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Delete failed");
+    }
+  }
+
+  if (loading) return <p className="text-slate-500">Loading…</p>;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-slate-600">
+          {taxes.length} tax {taxes.length === 1 ? "record" : "records"}
+        </p>
+        {canEdit && (
+          <button
+            onClick={() => {
+              setEditingId(null);
+              setShowForm(true);
+            }}
+            className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700"
+          >
+            + Add Tax Record
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-4">
+          {error}
+        </div>
+      )}
+
+      {showForm && (
+        <TaxForm
+          propertyId={propertyId}
+          taxId={editingId}
+          onCancel={() => {
+            setShowForm(false);
+            setEditingId(null);
+          }}
+          onSaved={() => {
+            setShowForm(false);
+            setEditingId(null);
+            load();
+          }}
+        />
+      )}
+
+      {taxes.length === 0 && !showForm ? (
+        <p className="text-slate-500">No tax records yet.</p>
+      ) : (
+        <div className="space-y-4">
+          {taxes.map((t) => (
+            <div key={t.id} className="bg-white rounded-xl border border-slate-200 p-6">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <h3 className="font-semibold text-slate-900">{t.tax_authority}</h3>
+                  <p className="text-xs text-slate-500 uppercase mt-0.5">
+                    {t.tax_type.replace("_", " ")}
+                  </p>
+                </div>
+                {canEdit && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingId(t.id);
+                        setShowForm(true);
+                      }}
+                      className="text-xs px-3 py-1 border border-slate-200 rounded-lg hover:bg-slate-50"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(t.id)}
+                      className="text-xs px-3 py-1 border border-red-200 text-red-700 rounded-lg hover:bg-red-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <p className="text-slate-500">Assessed Value</p>
+                  <p className="font-medium text-slate-900">
+                    {t.assessed_value ? `$${Number(t.assessed_value).toLocaleString()}` : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Tax Rate</p>
+                  <p className="font-medium text-slate-900">
+                    {t.tax_rate_percent ? `${t.tax_rate_percent}%` : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Annual Amount</p>
+                  <p className="font-medium text-slate-900">
+                    {t.annual_amount ? `$${Number(t.annual_amount).toLocaleString()}` : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Frequency</p>
+                  <p className="font-medium text-slate-900">
+                    {t.payment_frequency.replace("_", " ")}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Payment Amount</p>
+                  <p className="font-medium text-slate-900">
+                    {t.payment_amount ? `$${Number(t.payment_amount).toLocaleString()}` : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Next Due</p>
+                  <p className="font-medium text-slate-900">{t.next_due_date || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Escrow</p>
+                  <p className="font-medium text-slate-900">
+                    {t.escrow_included ? "Yes" : "No"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Parcel #</p>
+                  <p className="font-medium text-slate-900">{t.parcel_number || "—"}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ------------------------------------------------------------
+// TAX FORM
+// ------------------------------------------------------------
+function TaxForm({
+  propertyId,
+  taxId,
+  onCancel,
+  onSaved,
+}: {
+  propertyId: number;
+  taxId: number | null;
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const [taxAuthority, setTaxAuthority] = useState("");
+  const [taxType, setTaxType] = useState("county");
+  const [parcelNumber, setParcelNumber] = useState("");
+  const [assessedValue, setAssessedValue] = useState("");
+  const [taxRate, setTaxRate] = useState("");
+  const [annualAmount, setAnnualAmount] = useState("");
+  const [frequency, setFrequency] = useState("annual");
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [nextDueDate, setNextDueDate] = useState("");
+  const [escrowIncluded, setEscrowIncluded] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (taxId === null) return;
+    apiGet(`/properties/${propertyId}/taxes/${taxId}`).then((t) => {
+      setTaxAuthority(t.tax_authority || "");
+      setTaxType(t.tax_type || "county");
+      setParcelNumber(t.parcel_number || "");
+      setAssessedValue(t.assessed_value?.toString() || "");
+      setTaxRate(t.tax_rate_percent?.toString() || "");
+      setAnnualAmount(t.annual_amount?.toString() || "");
+      setFrequency(t.payment_frequency || "annual");
+      setPaymentAmount(t.payment_amount?.toString() || "");
+      setNextDueDate(t.next_due_date || "");
+      setEscrowIncluded(t.escrow_included ?? false);
+      setNotes(t.notes || "");
+    });
+  }, [taxId, propertyId]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setSaving(true);
+    try {
+      const body = {
+        tax_authority: taxAuthority,
+        tax_type: taxType,
+        parcel_number: parcelNumber || null,
+        assessed_value: assessedValue ? Number(assessedValue) : null,
+        tax_rate_percent: taxRate ? Number(taxRate) : null,
+        annual_amount: annualAmount ? Number(annualAmount) : null,
+        payment_frequency: frequency,
+        payment_amount: paymentAmount ? Number(paymentAmount) : null,
+        next_due_date: nextDueDate || null,
+        escrow_included: escrowIncluded,
+        notes: notes || null,
+      };
+
+      const token = localStorage.getItem("token");
+      const url = taxId
+        ? `http://127.0.0.1:8000/properties/${propertyId}/taxes/${taxId}`
+        : `http://127.0.0.1:8000/properties/${propertyId}/taxes`;
+      const method = taxId ? "PATCH" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || "Save failed");
+      }
+
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200 p-6 mb-6 space-y-5">
+      <h3 className="font-semibold text-slate-900">
+        {taxId ? "Edit Tax Record" : "New Tax Record"}
+      </h3>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="col-span-2">
+          <label className="block text-sm font-medium text-slate-700 mb-1">Tax Authority</label>
+          <input
+            type="text"
+            required
+            value={taxAuthority}
+            onChange={(e) => setTaxAuthority(e.target.value)}
+            placeholder="Travis County"
+            className="input"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Tax Type</label>
+          <select value={taxType} onChange={(e) => setTaxType(e.target.value)} className="input">
+            <option value="county">County</option>
+            <option value="school">School District</option>
+            <option value="municipal">Municipal</option>
+            <option value="special_district">Special District</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Parcel #</label>
+          <input
+            type="text"
+            value={parcelNumber}
+            onChange={(e) => setParcelNumber(e.target.value)}
+            className="input"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Assessed Value ($)</label>
+          <input
+            type="number"
+            step="0.01"
+            value={assessedValue}
+            onChange={(e) => setAssessedValue(e.target.value)}
+            className="input"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Tax Rate (%)</label>
+          <input
+            type="number"
+            step="0.0001"
+            value={taxRate}
+            onChange={(e) => setTaxRate(e.target.value)}
+            className="input"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Annual Amount ($)</label>
+          <input
+            type="number"
+            step="0.01"
+            value={annualAmount}
+            onChange={(e) => setAnnualAmount(e.target.value)}
+            className="input"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Payment Frequency</label>
+          <select value={frequency} onChange={(e) => setFrequency(e.target.value)} className="input">
+            <option value="monthly">Monthly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="semi_annual">Semi-Annual</option>
+            <option value="annual">Annual</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Payment Amount ($)</label>
+          <input
+            type="number"
+            step="0.01"
+            value={paymentAmount}
+            onChange={(e) => setPaymentAmount(e.target.value)}
+            className="input"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Next Due Date</label>
+          <input
+            type="date"
+            value={nextDueDate}
+            onChange={(e) => setNextDueDate(e.target.value)}
+            className="input"
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          id="escrow"
+          checked={escrowIncluded}
+          onChange={(e) => setEscrowIncluded(e.target.checked)}
+          className="w-4 h-4"
+        />
+        <label htmlFor="escrow" className="text-sm text-slate-700">
+          Paid from mortgage escrow
+        </label>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={2}
+          className="input"
+        />
+      </div>
+
+      <div className="flex gap-3">
+        <button
+          type="submit"
+          disabled={saving}
+          className="bg-slate-900 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-slate-700 disabled:opacity-50"
+        >
+          {saving ? "Saving…" : taxId ? "Update" : "Add Tax Record"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-6 py-2.5 rounded-lg font-medium border border-slate-300 hover:bg-slate-50"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
