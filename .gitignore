@@ -58,3 +58,7 @@ yarn-error.log*
 coverage/
 htmlcov/
 .coverage
+# --- Test files ---
+test-upload.*
+make_org.py
+
