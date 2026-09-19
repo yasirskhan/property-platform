@@ -35,6 +35,31 @@ class PropertyBase(BaseModel):
     estimated_rent: Optional[Decimal] = None
     security_deposit: Optional[Decimal] = None
     ownership_status: Optional[str] = None
+
+    # Policies
+    pets_allowed: bool = False
+    pet_types_allowed: Optional[str] = None
+    max_pets: Optional[int] = None
+    weight_limit_lbs: Optional[int] = None
+    breed_restrictions: Optional[str] = None
+    pet_deposit: Optional[Decimal] = None
+    pet_rent: Optional[Decimal] = None
+    smoking_allowed: bool = False
+    lease_term_months: Optional[int] = None
+    available_from: Optional[date] = None
+
+    # Tenant Insurance
+    renters_insurance_required: bool = False
+    renters_insurance_min_coverage: Optional[Decimal] = None
+    renters_insurance_required_at_movein: bool = False
+    renters_insurance_notes: Optional[str] = None
+
+    # Laundry
+    laundry_type: Optional[str] = None
+    shared_laundry_location: Optional[str] = None
+    shared_laundry_cost: Optional[str] = None
+    shared_laundry_notes: Optional[str] = None
+
     description: Optional[str] = None
     notes: Optional[str] = None
 
@@ -61,6 +86,31 @@ class PropertyUpdate(BaseModel):
     estimated_rent: Optional[Decimal] = None
     security_deposit: Optional[Decimal] = None
     ownership_status: Optional[str] = None
+
+    # Policies
+    pets_allowed: Optional[bool] = None
+    pet_types_allowed: Optional[str] = None
+    max_pets: Optional[int] = None
+    weight_limit_lbs: Optional[int] = None
+    breed_restrictions: Optional[str] = None
+    pet_deposit: Optional[Decimal] = None
+    pet_rent: Optional[Decimal] = None
+    smoking_allowed: Optional[bool] = None
+    lease_term_months: Optional[int] = None
+    available_from: Optional[date] = None
+
+    # Tenant Insurance
+    renters_insurance_required: Optional[bool] = None
+    renters_insurance_min_coverage: Optional[Decimal] = None
+    renters_insurance_required_at_movein: Optional[bool] = None
+    renters_insurance_notes: Optional[str] = None
+
+    # Laundry
+    laundry_type: Optional[str] = None
+    shared_laundry_location: Optional[str] = None
+    shared_laundry_cost: Optional[str] = None
+    shared_laundry_notes: Optional[str] = None
+
     description: Optional[str] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None

@@ -83,6 +83,31 @@ class Property(Base):
     security_deposit = Column(Numeric(10, 2), nullable=True)
     ownership_status = Column(String(50), nullable=True)
 
+    
+    # --- Policies ---
+    pets_allowed = Column(Boolean, default=False)
+    pet_types_allowed = Column(String(100), nullable=True)
+    max_pets = Column(Integer, nullable=True)
+    weight_limit_lbs = Column(Integer, nullable=True)
+    breed_restrictions = Column(Text, nullable=True)
+    pet_deposit = Column(Numeric(10, 2), nullable=True)
+    pet_rent = Column(Numeric(10, 2), nullable=True)
+    smoking_allowed = Column(Boolean, default=False)
+    lease_term_months = Column(Integer, nullable=True)
+    available_from = Column(Date, nullable=True)
+
+    # --- Tenant Insurance ---
+    renters_insurance_required = Column(Boolean, default=False)
+    renters_insurance_min_coverage = Column(Numeric(12, 2), nullable=True)
+    renters_insurance_required_at_movein = Column(Boolean, default=False)
+    renters_insurance_notes = Column(Text, nullable=True)
+
+    # --- Laundry ---
+    laundry_type = Column(String(50), nullable=True)  # in_unit, shared_on_site, hookups_only, none
+    shared_laundry_location = Column(String(255), nullable=True)
+    shared_laundry_cost = Column(String(100), nullable=True)
+    shared_laundry_notes = Column(Text, nullable=True)
+
     # --- Description ---
     description = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)

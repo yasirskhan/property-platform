@@ -37,6 +37,24 @@ export default function EditPropertyPage() {
   const [estimatedRent, setEstimatedRent] = useState("");
   const [securityDeposit, setSecurityDeposit] = useState("");
   const [ownershipStatus, setOwnershipStatus] = useState("");
+  const [petsAllowed, setPetsAllowed] = useState(false);
+  const [petTypesAllowed, setPetTypesAllowed] = useState("");
+  const [maxPets, setMaxPets] = useState("");
+  const [weightLimit, setWeightLimit] = useState("");
+  const [breedRestrictions, setBreedRestrictions] = useState("");
+  const [petDeposit, setPetDeposit] = useState("");
+  const [petRent, setPetRent] = useState("");
+  const [smokingAllowed, setSmokingAllowed] = useState(false);
+  const [leaseTermMonths, setLeaseTermMonths] = useState("");
+  const [availableFrom, setAvailableFrom] = useState("");
+  const [rentersInsuranceRequired, setRentersInsuranceRequired] = useState(false);
+  const [rentersInsuranceMinCoverage, setRentersInsuranceMinCoverage] = useState("");
+  const [rentersInsuranceAtMovein, setRentersInsuranceAtMovein] = useState(false);
+  const [rentersInsuranceNotes, setRentersInsuranceNotes] = useState("");
+  const [laundryType, setLaundryType] = useState("");
+  const [sharedLaundryLocation, setSharedLaundryLocation] = useState("");
+  const [sharedLaundryCost, setSharedLaundryCost] = useState("");
+  const [sharedLaundryNotes, setSharedLaundryNotes] = useState("");
   const [description, setDescription] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -70,6 +88,24 @@ export default function EditPropertyPage() {
         setEstimatedRent(prop.estimated_rent?.toString() || "");
         setSecurityDeposit(prop.security_deposit?.toString() || "");
         setOwnershipStatus(prop.ownership_status || "");
+        setPetsAllowed(prop.pets_allowed ?? false);
+        setPetTypesAllowed(prop.pet_types_allowed || "");
+        setMaxPets(prop.max_pets?.toString() || "");
+        setWeightLimit(prop.weight_limit_lbs?.toString() || "");
+        setBreedRestrictions(prop.breed_restrictions || "");
+        setPetDeposit(prop.pet_deposit?.toString() || "");
+        setPetRent(prop.pet_rent?.toString() || "");
+        setSmokingAllowed(prop.smoking_allowed ?? false);
+        setLeaseTermMonths(prop.lease_term_months?.toString() || "");
+        setAvailableFrom(prop.available_from || "");
+        setRentersInsuranceRequired(prop.renters_insurance_required ?? false);
+        setRentersInsuranceMinCoverage(prop.renters_insurance_min_coverage?.toString() || "");
+        setRentersInsuranceAtMovein(prop.renters_insurance_required_at_movein ?? false);
+        setRentersInsuranceNotes(prop.renters_insurance_notes || "");
+        setLaundryType(prop.laundry_type || "");
+        setSharedLaundryLocation(prop.shared_laundry_location || "");
+        setSharedLaundryCost(prop.shared_laundry_cost || "");
+        setSharedLaundryNotes(prop.shared_laundry_notes || "");
         setDescription(prop.description || "");
         setNotes(prop.notes || "");
       } catch (err) {
@@ -104,6 +140,24 @@ export default function EditPropertyPage() {
         ownership_status: ownershipStatus || null,
         description: description || null,
         notes: notes || null,
+        pets_allowed: petsAllowed,
+        pet_types_allowed: petTypesAllowed || null,
+        max_pets: maxPets ? Number(maxPets) : null,
+        weight_limit_lbs: weightLimit ? Number(weightLimit) : null,
+        breed_restrictions: breedRestrictions || null,
+        pet_deposit: petDeposit ? Number(petDeposit) : null,
+        pet_rent: petRent ? Number(petRent) : null,
+        smoking_allowed: smokingAllowed,
+        lease_term_months: leaseTermMonths ? Number(leaseTermMonths) : null,
+        available_from: availableFrom || null,
+        renters_insurance_required: rentersInsuranceRequired,
+        renters_insurance_min_coverage: rentersInsuranceMinCoverage ? Number(rentersInsuranceMinCoverage) : null,
+        renters_insurance_required_at_movein: rentersInsuranceAtMovein,
+        renters_insurance_notes: rentersInsuranceNotes || null,
+        laundry_type: laundryType || null,
+        shared_laundry_location: sharedLaundryLocation || null,
+        shared_laundry_cost: sharedLaundryCost || null,
+        shared_laundry_notes: sharedLaundryNotes || null,
       };
 
       await apiPatch(`/properties/${propertyId}`, body);
@@ -371,6 +425,168 @@ export default function EditPropertyPage() {
               <option value="other">Other</option>
             </select>
           </Field>
+        </div>
+
+        {/* POLICIES */}
+        <div id="policies" className="scroll-mt-4 bg-white rounded-xl border border-slate-200 p-6 space-y-5">
+          <h2 className="font-semibold text-slate-900">Policies</h2>
+
+          {/* Pets */}
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="petsAllowed"
+              checked={petsAllowed}
+              onChange={(e) => setPetsAllowed(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <label htmlFor="petsAllowed" className="text-sm text-slate-700 font-medium">
+              Pets Allowed
+            </label>
+          </div>
+
+          {petsAllowed && (
+            <div className="grid grid-cols-2 gap-4 pl-7">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Pet Types Allowed</label>
+                <select value={petTypesAllowed} onChange={(e) => setPetTypesAllowed(e.target.value)} className="input">
+                  <option value="">— Select —</option>
+                  <option value="cats">Cats</option>
+                  <option value="dogs">Dogs</option>
+                  <option value="both">Both</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Max Pets</label>
+                <input type="number" min="0" value={maxPets} onChange={(e) => setMaxPets(e.target.value)} className="input" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Weight Limit (lbs)</label>
+                <input type="number" min="0" value={weightLimit} onChange={(e) => setWeightLimit(e.target.value)} className="input" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Pet Deposit ($)</label>
+                <input type="number" step="0.01" value={petDeposit} onChange={(e) => setPetDeposit(e.target.value)} className="input" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Pet Rent ($/mo)</label>
+                <input type="number" step="0.01" value={petRent} onChange={(e) => setPetRent(e.target.value)} className="input" />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Breed Restrictions</label>
+                <textarea value={breedRestrictions} onChange={(e) => setBreedRestrictions(e.target.value)} rows={2} className="input" />
+              </div>
+            </div>
+          )}
+
+          <hr className="border-slate-100" />
+
+          {/* Smoking */}
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="smokingAllowed"
+              checked={smokingAllowed}
+              onChange={(e) => setSmokingAllowed(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <label htmlFor="smokingAllowed" className="text-sm text-slate-700 font-medium">
+              Smoking Allowed
+            </label>
+          </div>
+
+          <hr className="border-slate-100" />
+
+          {/* Lease terms */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Lease Term (months)</label>
+              <input type="number" value={leaseTermMonths} onChange={(e) => setLeaseTermMonths(e.target.value)} className="input" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Available From</label>
+              <input type="date" value={availableFrom} onChange={(e) => setAvailableFrom(e.target.value)} className="input" />
+            </div>
+          </div>
+
+          <hr className="border-slate-100" />
+
+          {/* Tenant Insurance */}
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <input
+                type="checkbox"
+                id="rentersInsurance"
+                checked={rentersInsuranceRequired}
+                onChange={(e) => setRentersInsuranceRequired(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <label htmlFor="rentersInsurance" className="text-sm text-slate-700 font-medium">
+                Renters Insurance Required
+              </label>
+            </div>
+
+            {rentersInsuranceRequired && (
+              <div className="grid grid-cols-2 gap-4 pl-7">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Minimum Coverage ($)
+                  </label>
+                  <input type="number" step="0.01" value={rentersInsuranceMinCoverage} onChange={(e) => setRentersInsuranceMinCoverage(e.target.value)} className="input" />
+                </div>
+                <div className="flex items-end">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="reqMovein"
+                      checked={rentersInsuranceAtMovein}
+                      onChange={(e) => setRentersInsuranceAtMovein(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <label htmlFor="reqMovein" className="text-sm text-slate-700">
+                      Required at move-in
+                    </label>
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Insurance Notes</label>
+                  <textarea value={rentersInsuranceNotes} onChange={(e) => setRentersInsuranceNotes(e.target.value)} rows={2} className="input" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <hr className="border-slate-100" />
+
+          {/* Laundry */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Laundry</label>
+            <select value={laundryType} onChange={(e) => setLaundryType(e.target.value)} className="input">
+              <option value="">— Select —</option>
+              <option value="in_unit">In-Unit</option>
+              <option value="shared_on_site">Shared (On Site)</option>
+              <option value="hookups_only">Hookups Only</option>
+              <option value="none">None</option>
+            </select>
+          </div>
+
+          {laundryType === "shared_on_site" && (
+            <div className="grid grid-cols-2 gap-4 pl-4">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Shared Laundry Location</label>
+                <input type="text" value={sharedLaundryLocation} onChange={(e) => setSharedLaundryLocation(e.target.value)} placeholder="Basement, 2nd floor, etc." className="input" />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Cost</label>
+                <input type="text" value={sharedLaundryCost} onChange={(e) => setSharedLaundryCost(e.target.value)} placeholder="Free, $2.00/wash, etc." className="input" />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+                <textarea value={sharedLaundryNotes} onChange={(e) => setSharedLaundryNotes(e.target.value)} rows={2} className="input" />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* DESCRIPTION */}

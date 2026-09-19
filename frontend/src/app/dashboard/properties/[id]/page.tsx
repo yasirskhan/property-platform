@@ -28,6 +28,25 @@ type Property = {
   notes: string | null;
   is_active: boolean;
   created_at: string;
+  // Policies
+  pets_allowed?: boolean;
+  pet_types_allowed?: string | null;
+  max_pets?: number | null;
+  weight_limit_lbs?: number | null;
+  breed_restrictions?: string | null;
+  pet_deposit?: string | null;
+  pet_rent?: string | null;
+  smoking_allowed?: boolean;
+  lease_term_months?: number | null;
+  available_from?: string | null;
+  renters_insurance_required?: boolean;
+  renters_insurance_min_coverage?: string | null;
+  renters_insurance_required_at_movein?: boolean;
+  renters_insurance_notes?: string | null;
+  laundry_type?: string | null;
+  shared_laundry_location?: string | null;
+  shared_laundry_cost?: string | null;
+  shared_laundry_notes?: string | null;
 };
 
 type Unit = {
@@ -169,11 +188,13 @@ export default function PropertyDetailPage() {
       {tab === "history" && <HistoryTab propertyId={propertyId} />}
       {tab === "financials" && <FinancialsTab property={property} propertyId={propertyId} canEdit={canEdit} />}
       {tab === "taxes" && <TaxesTab propertyId={propertyId} canEdit={canDelete} />}
+      {tab === "policies" && <PoliciesTab property={property} propertyId={propertyId} canEdit={canEdit} />}
       {tab !== "overview" &&
         tab !== "units" &&
         tab !== "history" &&
         tab !== "financials" &&
-        tab !== "taxes" && (
+        tab !== "taxes" &&
+        tab !== "policies" && (
           <ComingSoonTab name={TABS.find((t) => t.id === tab)?.label || ""} />
         )}
     </div>
@@ -350,7 +371,6 @@ function Row({ label, value }: { label: string; value: string | number | null | 
     </div>
   );
 }
-
 
 
 // ------------------------------------------------------------
@@ -899,5 +919,111 @@ function TaxForm({
         </button>
       </div>
     </form>
+  );
+}
+
+
+// ------------------------------------------------------------
+// POLICIES TAB
+// ------------------------------------------------------------
+function PoliciesTab({
+  property,
+  propertyId,
+  canEdit,
+}: {
+  property: Property;
+  propertyId: number;
+  canEdit: boolean;
+}) {
+  const p = property as Property & Record<string, unknown>;
+
+  return (
+    <div className="space-y-6">
+      {canEdit && (
+        <div className="text-right">
+          <Link
+            href={`/dashboard/properties/${propertyId}/edit`}
+            className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700"
+          >
+            Edit Policies
+          </Link>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Section title="Pets">
+          <Row label="Pets Allowed" value={p.pets_allowed ? "Yes" : "No"} />
+          {p.pets_allowed ? (
+            <>
+              <Row label="Pet Types Allowed" value={p.pet_types_allowed as string} />
+              <Row label="Max Pets" value={p.max_pets as number} />
+              <Row
+                label="Weight Limit"
+                value={p.weight_limit_lbs ? `${p.weight_limit_lbs} lbs` : null}
+              />
+              <Row label="Breed Restrictions" value={p.breed_restrictions as string} />
+              <Row
+                label="Pet Deposit"
+                value={p.pet_deposit ? `$${Number(p.pet_deposit).toLocaleString()}` : null}
+              />
+              <Row
+                label="Pet Rent"
+                value={p.pet_rent ? `$${Number(p.pet_rent).toLocaleString()}/mo` : null}
+              />
+            </>
+          ) : null}
+        </Section>
+
+        <Section title="Smoking">
+          <Row label="Smoking Allowed" value={p.smoking_allowed ? "Yes" : "No"} />
+        </Section>
+
+        <Section title="Lease Terms">
+          <Row
+            label="Standard Lease Term"
+            value={p.lease_term_months ? `${p.lease_term_months} months` : null}
+          />
+          <Row label="Available From" value={p.available_from as string} />
+        </Section>
+
+        <Section title="Tenant Insurance">
+          <Row
+            label="Required"
+            value={p.renters_insurance_required ? "Yes" : "No"}
+          />
+          {p.renters_insurance_required ? (
+            <>
+              <Row
+                label="Minimum Coverage"
+                value={
+                  p.renters_insurance_min_coverage
+                    ? `$${Number(p.renters_insurance_min_coverage).toLocaleString()}`
+                    : null
+                }
+              />
+              <Row
+                label="Required at Move-In"
+                value={p.renters_insurance_required_at_movein ? "Yes" : "No"}
+              />
+              <Row label="Notes" value={p.renters_insurance_notes as string} />
+            </>
+          ) : null}
+        </Section>
+
+        <Section title="Laundry" full>
+          <Row
+            label="Laundry Type"
+            value={(p.laundry_type as string)?.replace("_", " ")}
+          />
+          {p.laundry_type === "shared_on_site" ? (
+            <>
+              <Row label="Shared Location" value={p.shared_laundry_location as string} />
+              <Row label="Shared Cost" value={p.shared_laundry_cost as string} />
+              <Row label="Notes" value={p.shared_laundry_notes as string} />
+            </>
+          ) : null}
+        </Section>
+      </div>
+    </div>
   );
 }
