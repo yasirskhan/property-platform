@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { apiGet } from "@/lib/api";
+import { useEffect, useRef, useState } from "react";
+import { apiGet, apiUpload, fileUrl } from "@/lib/api";
 
 type Insurance = {
   id: number;
@@ -230,6 +230,19 @@ export default function InsuranceTab({
                 </div>
               </div>
 
+              {p.document_url && (
+                <div className="mt-3 pt-3 border-t border-slate-100">
+                  <a
+                    href={fileUrl(p.document_url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    📄 View policy document
+                  </a>
+                </div>
+              )}
+
               {p.notes && (
                 <p className="text-sm text-slate-600 mt-3 pt-3 border-t border-slate-100">
                   {p.notes}
@@ -271,6 +284,10 @@ function InsuranceForm({
   const [agentEmail, setAgentEmail] = useState("");
   const [documentUrl, setDocumentUrl] = useState("");
   const [notes, setNotes] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [reading, setReading] = useState(false);
+  const [extractMessage, setExtractMessage] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -293,6 +310,70 @@ function InsuranceForm({
       setNotes(p.notes || "");
     });
   }, [policyId, propertyId]);
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setExtractMessage("");
+    try {
+      const result = await apiUpload(file);
+      setDocumentUrl(result.url);
+    } catch (err) {
+      setExtractMessage(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleReadDocument() {
+    if (!policyId) {
+      setExtractMessage("Save the policy first, then click Read Document.");
+      return;
+    }
+    if (!documentUrl) {
+      setExtractMessage("Upload a document first.");
+      return;
+    }
+    setReading(true);
+    setExtractMessage("");
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `http://127.0.0.1:8000/properties/${propertyId}/insurance/${policyId}/extract`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || "Extraction failed");
+      }
+
+      if (data.status === "success") {
+        if (data.provider_name) setProvider(data.provider_name);
+        if (data.policy_number) setPolicyNumber(data.policy_number);
+        if (data.coverage_amount) setCoverageAmount(String(data.coverage_amount));
+        if (data.effective_date) setStartDate(data.effective_date);
+        if (data.expiration_date) setEndDate(data.expiration_date);
+        setExtractMessage(
+          "Fields extracted. Review the values and click Update to save."
+        );
+      } else if (data.status === "not_configured") {
+        setExtractMessage(
+          "OCR is not configured. Ask your admin to set it up in Settings → OCR."
+        );
+      } else {
+        setExtractMessage(data.message || "Could not read this document.");
+      }
+    } catch (err) {
+      setExtractMessage(err instanceof Error ? err.message : "Extraction failed");
+    } finally {
+      setReading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -464,16 +545,60 @@ function InsuranceForm({
             className="input"
           />
         </div>
+
         <div className="col-span-2">
-          <label className="block text-sm font-medium text-slate-700 mb-1">Document URL (optional)</label>
-          <input
-            type="text"
-            value={documentUrl}
-            onChange={(e) => setDocumentUrl(e.target.value)}
-            placeholder="Path to uploaded policy PDF"
-            className="input"
-          />
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Policy Document
+          </label>
+          <div className="flex items-center gap-3 flex-wrap">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf,image/*"
+              onChange={handleUpload}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="px-4 py-2 text-sm bg-slate-100 rounded-lg hover:bg-slate-200 disabled:opacity-50"
+            >
+              {uploading ? "Uploading…" : documentUrl ? "Replace Document" : "Upload Document"}
+            </button>
+            {documentUrl && (
+              <>
+                <a
+                  href={fileUrl(documentUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:underline"
+                >
+                  View uploaded file
+                </a>
+                {policyId && (
+                  <button
+                    type="button"
+                    onClick={handleReadDocument}
+                    disabled={reading}
+                    className="px-4 py-2 text-sm bg-slate-900 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50"
+                  >
+                    {reading ? "Reading…" : "Read Document"}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+          <p className="text-xs text-slate-500 mt-1">
+            PDF or image. If OCR is configured, click <strong>Read Document</strong> to auto-fill fields.
+          </p>
+          {extractMessage && (
+            <p className="text-xs text-slate-700 mt-2 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+              {extractMessage}
+            </p>
+          )}
         </div>
+
         <div className="col-span-2">
           <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="input" />
