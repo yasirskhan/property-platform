@@ -8,13 +8,14 @@
 # ============================================================
 
 import enum
-from datetime import datetime
+from datetime import datetime, date
 
 from sqlalchemy import (
     Column,
     Integer,
     String,
     DateTime,
+    Date,
     ForeignKey,
     Boolean,
     Numeric,
@@ -69,12 +70,30 @@ class Property(Base):
     zip_code = Column(String(20), nullable=False)
     country = Column(String(100), nullable=False, default="USA")
 
-    # --- Optional details ---
+    # --- Physical details ---
     year_built = Column(Integer, nullable=True)
+    year_renovated = Column(Integer, nullable=True)
+    square_feet = Column(Integer, nullable=True)
+    stories = Column(Integer, nullable=True)
+    parking_spaces = Column(Integer, nullable=True)
+    parking_type = Column(String(50), nullable=True)  # garage, off_street, on_street, none
+
+    # --- Financial ---
+    estimated_rent = Column(Numeric(10, 2), nullable=True)
+    security_deposit = Column(Numeric(10, 2), nullable=True)
+    ownership_status = Column(String(50), nullable=True)
+
+    # --- Description ---
+    description = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
 
     # --- Status ---
     is_active = Column(Boolean, default=True)
+
+    # --- Soft delete ---
+    deleted_at = Column(DateTime, nullable=True)
+    deleted_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    delete_reason = Column(Text, nullable=True)
 
     # --- Timestamps ---
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -111,13 +130,27 @@ class Unit(Base):
     bathrooms = Column(Numeric(3, 1), nullable=False, default=0)
     square_feet = Column(Integer, nullable=True)
 
-    # --- Rent ---
+    # --- Rent & fees ---
     monthly_rent = Column(Numeric(10, 2), nullable=False, default=0.00)
     security_deposit = Column(Numeric(10, 2), nullable=True)
+    pet_deposit = Column(Numeric(10, 2), nullable=True)
+    pet_rent = Column(Numeric(10, 2), nullable=True)
+    application_fee = Column(Numeric(10, 2), nullable=True)
+    admin_fee = Column(Numeric(10, 2), nullable=True)
+
+    # --- Availability ---
+    is_available = Column(Boolean, default=True)
+    available_from = Column(Date, nullable=True)
+    lease_term_months = Column(Integer, nullable=True)
+    is_listed = Column(Boolean, default=False)
 
     # --- Status ---
-    is_available = Column(Boolean, default=True)
     is_active = Column(Boolean, default=True)
+
+    # --- Soft delete ---
+    deleted_at = Column(DateTime, nullable=True)
+    deleted_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    delete_reason = Column(Text, nullable=True)
 
     # --- Timestamps ---
     created_at = Column(DateTime, default=datetime.utcnow)

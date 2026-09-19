@@ -67,12 +67,20 @@ export default function DashboardLayout({
               {(user.role === "admin" ||
                 user.role === "owner" ||
                 user.role === "manager") && (
-                <Link
-                  href="/dashboard/team"
-                  className="text-sm text-slate-600 hover:text-slate-900"
-                >
-                  Team
-                </Link>
+                <>
+                  <Link
+                    href="/dashboard/properties"
+                    className="text-sm text-slate-600 hover:text-slate-900"
+                  >
+                    Properties
+                  </Link>
+                  <Link
+                    href="/dashboard/team"
+                    className="text-sm text-slate-600 hover:text-slate-900"
+                  >
+                    Team
+                  </Link>
+                </>
               )}
             </nav>
             <span className="text-xs px-2 py-1 bg-slate-100 text-slate-600 rounded-full uppercase tracking-wide">

@@ -1,12 +1,10 @@
 # ============================================================
 # schemas/property.py
 # ------------------------------------------------------------
-# Shapes for data going in and out of the API for:
-#   - Properties
-#   - Units
+# Shapes for property and unit data in/out of the API.
 # ============================================================
 
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional, List
 
@@ -29,16 +27,23 @@ class PropertyBase(BaseModel):
     zip_code: str = Field(..., min_length=1, max_length=20)
     country: str = "USA"
     year_built: Optional[int] = None
+    year_renovated: Optional[int] = None
+    square_feet: Optional[int] = None
+    stories: Optional[int] = None
+    parking_spaces: Optional[int] = None
+    parking_type: Optional[str] = None
+    estimated_rent: Optional[Decimal] = None
+    security_deposit: Optional[Decimal] = None
+    ownership_status: Optional[str] = None
+    description: Optional[str] = None
     notes: Optional[str] = None
 
 
 class PropertyCreate(PropertyBase):
-    """What the client sends to create a property."""
     organization_id: int
 
 
 class PropertyUpdate(BaseModel):
-    """All fields optional — send only what you want to change."""
     name: Optional[str] = None
     property_type: Optional[PropertyType] = None
     address_line1: Optional[str] = None
@@ -48,12 +53,20 @@ class PropertyUpdate(BaseModel):
     zip_code: Optional[str] = None
     country: Optional[str] = None
     year_built: Optional[int] = None
+    year_renovated: Optional[int] = None
+    square_feet: Optional[int] = None
+    stories: Optional[int] = None
+    parking_spaces: Optional[int] = None
+    parking_type: Optional[str] = None
+    estimated_rent: Optional[Decimal] = None
+    security_deposit: Optional[Decimal] = None
+    ownership_status: Optional[str] = None
+    description: Optional[str] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
 
 
 class PropertyOut(PropertyBase):
-    """What the API returns for a property."""
     id: int
     organization_id: int
     is_active: bool
@@ -75,11 +88,17 @@ class UnitBase(BaseModel):
     square_feet: Optional[int] = None
     monthly_rent: Decimal = Field(Decimal("0.00"), ge=0)
     security_deposit: Optional[Decimal] = None
+    pet_deposit: Optional[Decimal] = None
+    pet_rent: Optional[Decimal] = None
+    application_fee: Optional[Decimal] = None
+    admin_fee: Optional[Decimal] = None
+    available_from: Optional[date] = None
+    lease_term_months: Optional[int] = None
+    is_listed: bool = False
 
 
 class UnitCreate(UnitBase):
-    """What the client sends to create a unit."""
-    pass  # property_id comes from the URL
+    pass
 
 
 class UnitUpdate(BaseModel):
@@ -89,12 +108,18 @@ class UnitUpdate(BaseModel):
     square_feet: Optional[int] = None
     monthly_rent: Optional[Decimal] = None
     security_deposit: Optional[Decimal] = None
+    pet_deposit: Optional[Decimal] = None
+    pet_rent: Optional[Decimal] = None
+    application_fee: Optional[Decimal] = None
+    admin_fee: Optional[Decimal] = None
     is_available: Optional[bool] = None
+    available_from: Optional[date] = None
+    lease_term_months: Optional[int] = None
+    is_listed: Optional[bool] = None
     is_active: Optional[bool] = None
 
 
 class UnitOut(UnitBase):
-    """What the API returns for a unit."""
     id: int
     property_id: int
     is_available: bool
@@ -107,9 +132,8 @@ class UnitOut(UnitBase):
 
 
 # ============================================================
-# NESTED OUTPUT (property + its units together)
+# NESTED OUTPUT
 # ============================================================
 
 class PropertyWithUnits(PropertyOut):
-    """Property with its units included."""
     units: List[UnitOut] = []

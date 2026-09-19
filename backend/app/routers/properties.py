@@ -1,19 +1,19 @@
 # ============================================================
 # routers/properties.py
 # ------------------------------------------------------------
-# HTTP routes for properties and units:
-#
 #   POST   /properties                          create
-#   GET    /properties                          list (filtered by role)
+#   GET    /properties                          list
 #   GET    /properties/{id}                     get one
 #   PATCH  /properties/{id}                     update
 #   DELETE /properties/{id}                     soft-delete
+#   POST   /properties/{id}/restore             restore
+#   GET    /properties/{id}/history             audit log
 #
 #   POST   /properties/{id}/units               create unit
 #   GET    /properties/{id}/units               list units
 #   PATCH  /properties/{id}/units/{unit_id}     update unit
 #
-# PERMISSION RULES (the important part):
+# PERMISSION RULES:
 #   - Admin sees everything.
 #   - Owner sees only properties in their organization.
 #   - Manager sees only properties they're assigned to.
@@ -21,12 +21,15 @@
 #   - Tenant: blocked from these endpoints entirely.
 # ============================================================
 
+from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.audit import log_action
 from app.core.database import get_db
+from app.models.audit_log import AuditLog
 from app.models.property import Property, Unit, PropertyAssignment
 from app.models.user import User, UserRole
 from app.routers.auth import get_current_user
@@ -65,17 +68,14 @@ def check_property_access(db: Session, user: User, property_id: int) -> Property
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
 
-    # Admin sees everything
     if user.role == UserRole.ADMIN:
         return prop
 
-    # Owner: must be in same organization
     if user.role == UserRole.OWNER:
         if prop.organization_id != user.organization_id:
             raise HTTPException(status_code=403, detail="Not your property")
         return prop
 
-    # Manager / Crew: must be assigned to this property
     if user.role in (UserRole.MANAGER, UserRole.CREW):
         assigned = (
             db.query(PropertyAssignment)
@@ -94,14 +94,11 @@ def check_property_access(db: Session, user: User, property_id: int) -> Property
 
 
 def visible_properties_query(db: Session, user: User):
-    """
-    Return a SQLAlchemy query pre-filtered so the user only sees
-    the properties they're allowed to see.
-    """
+    """Return a SQLAlchemy query pre-filtered by role."""
     q = db.query(Property)
 
     if user.role == UserRole.ADMIN:
-        return q  # no filter
+        return q
 
     if user.role == UserRole.OWNER:
         return q.filter(Property.organization_id == user.organization_id)
@@ -115,12 +112,11 @@ def visible_properties_query(db: Session, user: User):
             )
         )
 
-    # Tenants should never reach here
-    return q.filter(Property.id == -1)  # empty result
+    return q.filter(Property.id == -1)
 
 
 # ------------------------------------------------------------
-# PROPERTY ROUTES
+# CREATE
 # ------------------------------------------------------------
 @router.post("", response_model=PropertyOut, status_code=status.HTTP_201_CREATED)
 def create_property(
@@ -128,16 +124,12 @@ def create_property(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Create a new property.
-    Only Admin and Owner can create properties.
-    """
+    """Create a new property. Admin and Owner only."""
     require_non_tenant(current_user)
 
     if current_user.role not in (UserRole.ADMIN, UserRole.OWNER):
         raise HTTPException(status_code=403, detail="Only admins and owners can create properties")
 
-    # Owner can only create in their own organization
     if current_user.role == UserRole.OWNER:
         if payload.organization_id != current_user.organization_id:
             raise HTTPException(status_code=403, detail="Can only create properties in your organization")
@@ -146,30 +138,54 @@ def create_property(
     db.add(prop)
     db.commit()
     db.refresh(prop)
+
+    log_action(
+        db, current_user,
+        entity_type="property",
+        entity_id=prop.id,
+        action="created",
+        new_value={
+            "name": prop.name,
+            "address": f"{prop.address_line1}, {prop.city}, {prop.state}",
+        },
+    )
+
     return prop
 
 
+# ------------------------------------------------------------
+# LIST
+# ------------------------------------------------------------
 @router.get("", response_model=List[PropertyOut])
 def list_properties(
+    include_deleted: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List all properties the current user is allowed to see."""
+    """List properties. By default excludes soft-deleted ones."""
     require_non_tenant(current_user)
-    return visible_properties_query(db, current_user).all()
+    q = visible_properties_query(db, current_user)
+    if not include_deleted:
+        q = q.filter(Property.is_active == True)  # noqa: E712
+    return q.all()
 
 
+# ------------------------------------------------------------
+# GET ONE
+# ------------------------------------------------------------
 @router.get("/{property_id}", response_model=PropertyWithUnits)
 def get_property(
     property_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get a single property with its units."""
     require_non_tenant(current_user)
     return check_property_access(db, current_user, property_id)
 
 
+# ------------------------------------------------------------
+# UPDATE
+# ------------------------------------------------------------
 @router.patch("/{property_id}", response_model=PropertyOut)
 def update_property(
     property_id: int,
@@ -177,7 +193,7 @@ def update_property(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Update a property. Only Admin and Owner."""
+    """Update a property. Admin and Owner only."""
     require_non_tenant(current_user)
 
     if current_user.role not in (UserRole.ADMIN, UserRole.OWNER):
@@ -185,30 +201,139 @@ def update_property(
 
     prop = check_property_access(db, current_user, property_id)
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(prop, field, value)
+    changes = payload.model_dump(exclude_unset=True)
+    for field, value in changes.items():
+        old = getattr(prop, field)
+        if old != value:
+            setattr(prop, field, value)
+            log_action(
+                db, current_user,
+                entity_type="property",
+                entity_id=prop.id,
+                action="updated",
+                field_name=field,
+                old_value=old,
+                new_value=value,
+            )
 
     db.commit()
     db.refresh(prop)
     return prop
 
 
+# ------------------------------------------------------------
+# SOFT DELETE
+# ------------------------------------------------------------
 @router.delete("/{property_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_property(
     property_id: int,
+    reason: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Soft-delete a property (set is_active=False). Only Admin and Owner."""
+    """Soft-delete a property. Set is_active=False, record who/why."""
     require_non_tenant(current_user)
 
     if current_user.role not in (UserRole.ADMIN, UserRole.OWNER):
         raise HTTPException(status_code=403, detail="Only admins and owners can delete properties")
 
     prop = check_property_access(db, current_user, property_id)
+
+    old_active = prop.is_active
     prop.is_active = False
+    prop.deleted_at = datetime.utcnow()
+    prop.deleted_by_id = current_user.id
+    prop.delete_reason = reason
     db.commit()
+
+    log_action(
+        db, current_user,
+        entity_type="property",
+        entity_id=prop.id,
+        action="deleted",
+        field_name="is_active",
+        old_value=old_active,
+        new_value=False,
+    )
+
     return None
+
+
+# ------------------------------------------------------------
+# RESTORE
+# ------------------------------------------------------------
+@router.post("/{property_id}/restore", response_model=PropertyOut)
+def restore_property(
+    property_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Restore a soft-deleted property."""
+    require_non_tenant(current_user)
+
+    if current_user.role not in (UserRole.ADMIN, UserRole.OWNER):
+        raise HTTPException(status_code=403, detail="Only admins and owners can restore")
+
+    prop = db.query(Property).filter(Property.id == property_id).first()
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    if current_user.role == UserRole.OWNER and prop.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=403, detail="Not your property")
+
+    prop.is_active = True
+    prop.deleted_at = None
+    prop.deleted_by_id = None
+    prop.delete_reason = None
+    db.commit()
+
+    log_action(
+        db, current_user,
+        entity_type="property",
+        entity_id=prop.id,
+        action="restored",
+    )
+
+    db.refresh(prop)
+    return prop
+
+
+# ------------------------------------------------------------
+# HISTORY
+# ------------------------------------------------------------
+@router.get("/{property_id}/history", response_model=List[dict])
+def get_property_history(
+    property_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get the audit log for a property."""
+    require_non_tenant(current_user)
+    check_property_access(db, current_user, property_id)
+
+    logs = (
+        db.query(AuditLog)
+        .filter(AuditLog.entity_type == "property", AuditLog.entity_id == property_id)
+        .order_by(AuditLog.created_at.desc())
+        .all()
+    )
+
+    result = []
+    for log in logs:
+        u = None
+        if log.user_id:
+            u = db.query(User).filter(User.id == log.user_id).first()
+        result.append({
+            "id": log.id,
+            "action": log.action,
+            "field_name": log.field_name,
+            "old_value": log.old_value,
+            "new_value": log.new_value,
+            "created_at": log.created_at.isoformat(),
+            "user_name": f"{u.first_name} {u.last_name}" if u else "System",
+            "user_id": log.user_id,
+        })
+    return result
 
 
 # ------------------------------------------------------------
@@ -229,7 +354,6 @@ def create_unit(
 
     prop = check_property_access(db, current_user, property_id)
 
-    # Check unit_number uniqueness within property
     existing = (
         db.query(Unit)
         .filter(Unit.property_id == prop.id, Unit.unit_number == payload.unit_number)
@@ -242,19 +366,32 @@ def create_unit(
     db.add(unit)
     db.commit()
     db.refresh(unit)
+
+    log_action(
+        db, current_user,
+        entity_type="unit",
+        entity_id=unit.id,
+        action="created",
+        new_value={"unit_number": unit.unit_number, "property_id": prop.id},
+    )
+
     return unit
 
 
 @router.get("/{property_id}/units", response_model=List[UnitOut])
 def list_units(
     property_id: int,
+    include_deleted: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List all units inside a property."""
+    """List all units inside a property. Excludes soft-deleted by default."""
     require_non_tenant(current_user)
     prop = check_property_access(db, current_user, property_id)
-    return db.query(Unit).filter(Unit.property_id == prop.id).all()
+    q = db.query(Unit).filter(Unit.property_id == prop.id)
+    if not include_deleted:
+        q = q.filter(Unit.is_active == True)  # noqa: E712
+    return q.all()
 
 
 @router.patch("/{property_id}/units/{unit_id}", response_model=UnitOut)
@@ -276,9 +413,121 @@ def update_unit(
     if not unit:
         raise HTTPException(status_code=404, detail="Unit not found")
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(unit, field, value)
+    changes = payload.model_dump(exclude_unset=True)
+    for field, value in changes.items():
+        old = getattr(unit, field)
+        if old != value:
+            setattr(unit, field, value)
+            log_action(
+                db, current_user,
+                entity_type="unit",
+                entity_id=unit.id,
+                action="updated",
+                field_name=field,
+                old_value=old,
+                new_value=value,
+            )
 
     db.commit()
+    db.refresh(unit)
+    return unit
+
+   
+   
+
+# ------------------------------------------------------------
+# GET ONE UNIT
+# ------------------------------------------------------------
+@router.get("/{property_id}/units/{unit_id}", response_model=UnitOut)
+def get_unit(
+    property_id: int,
+    unit_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get a single unit."""
+    require_non_tenant(current_user)
+    prop = check_property_access(db, current_user, property_id)
+    unit = db.query(Unit).filter(Unit.id == unit_id, Unit.property_id == prop.id).first()
+    if not unit:
+        raise HTTPException(status_code=404, detail="Unit not found")
+    return unit
+
+
+# ------------------------------------------------------------
+# DELETE UNIT (soft delete)
+# ------------------------------------------------------------
+@router.delete("/{property_id}/units/{unit_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_unit(
+    property_id: int,
+    unit_id: int,
+    reason: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Soft-delete a unit."""
+    require_non_tenant(current_user)
+
+    if current_user.role not in (UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER):
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    prop = check_property_access(db, current_user, property_id)
+    unit = db.query(Unit).filter(Unit.id == unit_id, Unit.property_id == prop.id).first()
+    if not unit:
+        raise HTTPException(status_code=404, detail="Unit not found")
+
+    unit.is_active = False
+    unit.deleted_at = datetime.utcnow()
+    unit.deleted_by_id = current_user.id
+    unit.delete_reason = reason
+    db.commit()
+
+    log_action(
+        db, current_user,
+        entity_type="unit",
+        entity_id=unit.id,
+        action="deleted",
+        field_name="is_active",
+        old_value=True,
+        new_value=False,
+    )
+
+    return None
+
+
+# ------------------------------------------------------------
+# RESTORE UNIT
+# ------------------------------------------------------------
+@router.post("/{property_id}/units/{unit_id}/restore", response_model=UnitOut)
+def restore_unit(
+    property_id: int,
+    unit_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Restore a soft-deleted unit."""
+    require_non_tenant(current_user)
+
+    if current_user.role not in (UserRole.ADMIN, UserRole.OWNER):
+        raise HTTPException(status_code=403, detail="Only admins and owners can restore")
+
+    prop = check_property_access(db, current_user, property_id)
+    unit = db.query(Unit).filter(Unit.id == unit_id, Unit.property_id == prop.id).first()
+    if not unit:
+        raise HTTPException(status_code=404, detail="Unit not found")
+
+    unit.is_active = True
+    unit.deleted_at = None
+    unit.deleted_by_id = None
+    unit.delete_reason = None
+    db.commit()
+
+    log_action(
+        db, current_user,
+        entity_type="unit",
+        entity_id=unit.id,
+        action="restored",
+    )
+
     db.refresh(unit)
     return unit

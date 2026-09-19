@@ -18,6 +18,7 @@ from app.models.lease import Lease, RentInvoice, Payment  # noqa: F401
 from app.models.work_order import WorkOrder, WorkOrderUpdate  # noqa: F401
 from app.models.password_reset import PasswordResetToken  # noqa: F401
 from app.models.org_email import OrganizationEmailSettings  # noqa: F401
+from app.models.audit_log import AuditLog  # noqa: F401
 
 
 def create_tables():
