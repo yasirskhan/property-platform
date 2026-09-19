@@ -29,6 +29,9 @@ from app.models.insurance import PropertyInsurance  # noqa: F401
 from app.models.expense import PropertyExpense  # noqa: F401
 from app.models.tenant_insurance import TenantInsurance  # noqa: F401
 from app.models.platform_settings import PlatformSetting  # noqa: F401
+from app.models.income import PropertyIncome  # noqa: F401
+from app.models.application import LeaseApplication, ApplicationPayment  # noqa: F401
+from app.models.screening import ScreeningProvider, OrganizationScreeningSettings  # noqa: F401
 
 
 def create_tables():

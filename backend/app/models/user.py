@@ -33,11 +33,12 @@ from app.core.database import Base
 # The order roughly matches the hierarchy you described.
 # ------------------------------------------------------------
 class UserRole(str, enum.Enum):
-    ADMIN = "admin"          # Platform owner (you)
-    OWNER = "owner"          # Property owner / landlord
-    MANAGER = "manager"      # Property manager
-    CREW = "crew"            # Maintenance / vendor
-    TENANT = "tenant"        # Renter
+    ADMIN = "admin"
+    OWNER = "owner"
+    MANAGER = "manager"
+    CREW = "crew"
+    TENANT = "tenant"
+    APPLICANT = "applicant"
 
 
 # ------------------------------------------------------------
