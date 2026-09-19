@@ -297,9 +297,7 @@ function HistoryTab({ propertyId }: { propertyId: number }) {
               <span className="text-xs px-2 py-1 bg-slate-100 text-slate-700 rounded-full uppercase">
                 {log.action as string}
               </span>
-              <span className="text-sm text-slate-600">
-                {log.user_name as string}
-              </span>
+              <span className="text-sm text-slate-600">{log.user_name as string}</span>
             </div>
             <span className="text-xs text-slate-500">
               {new Date(log.created_at as string).toLocaleString()}
@@ -308,7 +306,7 @@ function HistoryTab({ propertyId }: { propertyId: number }) {
           {log.field_name && (
             <p className="text-sm text-slate-700 mt-2">
               <strong>{log.field_name as string}</strong>:{" "}
-              <span className="text-slate-400">{log.field_name as string ? (log.old_value as string) || "—" : ""}</span>
+              <span className="text-slate-400">{(log.old_value as string) || "—"}</span>
               {" → "}
               <span className="text-slate-900">{(log.new_value as string) || "—"}</span>
             </p>
