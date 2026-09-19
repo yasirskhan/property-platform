@@ -59,10 +59,22 @@ export default function DashboardLayout({
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-8">
+ <div className="flex items-center gap-8">
             <Link href="/dashboard" className="font-bold text-slate-900">
               Property Platform
             </Link>
+            <nav className="flex items-center gap-6">
+              {(user.role === "admin" ||
+                user.role === "owner" ||
+                user.role === "manager") && (
+                <Link
+                  href="/dashboard/team"
+                  className="text-sm text-slate-600 hover:text-slate-900"
+                >
+                  Team
+                </Link>
+              )}
+            </nav>
             <span className="text-xs px-2 py-1 bg-slate-100 text-slate-600 rounded-full uppercase tracking-wide">
               {user.role}
             </span>
