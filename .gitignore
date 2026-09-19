@@ -62,3 +62,7 @@ htmlcov/
 test-upload.*
 make_org.py
 
+
+# --- Stray files ---
+backend/src/
+
