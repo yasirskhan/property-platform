@@ -6,6 +6,7 @@ import Link from "next/link";
 import { apiGet, apiDelete } from "@/lib/api";
 import UtilitiesTab from "@/components/property/UtilitiesTab";
 import InsuranceTab from "@/components/property/InsuranceTab";
+import ExpensesTab from "@/components/property/ExpensesTab";
 
 type Property = {
   id: number;
@@ -193,6 +194,7 @@ export default function PropertyDetailPage() {
       {tab === "policies" && <PoliciesTab property={property} propertyId={propertyId} canEdit={canEdit} />}
       {tab === "utilities" && <UtilitiesTab propertyId={propertyId} canEdit={canEdit} />}
       {tab === "insurance" && <InsuranceTab propertyId={propertyId} canEdit={canDelete} />}
+      {tab === "expenses" && <ExpensesTab propertyId={propertyId} canEdit={canDelete} />}
       {tab !== "overview" &&
         tab !== "units" &&
         tab !== "history" &&
@@ -200,7 +202,8 @@ export default function PropertyDetailPage() {
         tab !== "taxes" &&
         tab !== "policies" &&
         tab !== "utilities" &&
-        tab !== "insurance" && (
+        tab !== "insurance" &&
+        tab !== "expenses" && (
           <ComingSoonTab name={TABS.find((t) => t.id === tab)?.label || ""} />
         )}
     </div>
@@ -948,7 +951,7 @@ function PoliciesTab({
       {canEdit && (
         <div className="text-right">
           <Link
-            href={`/dashboard/properties/${propertyId}/edit`}
+            href={`/dashboard/properties/${propertyId}/edit#policies`}
             className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700"
           >
             Edit Policies

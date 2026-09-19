@@ -29,6 +29,7 @@ from app.routers import utilities as utilities_router
 from app.routers import insurance as insurance_router
 from app.routers import expenses as expenses_router
 from app.routers import tenant_insurance as tenant_insurance_router
+from app.routers import platform_settings as platform_settings_router
 
 # ------------------------------------------------------------
 # Create the FastAPI app
@@ -76,6 +77,7 @@ app.include_router(utilities_router.router)
 app.include_router(insurance_router.router)
 app.include_router(expenses_router.router)
 app.include_router(tenant_insurance_router.router)
+app.include_router(platform_settings_router.router)
 
 
 
