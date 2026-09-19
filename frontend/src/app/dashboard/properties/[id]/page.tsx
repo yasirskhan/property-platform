@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiGet, apiDelete } from "@/lib/api";
+import UtilitiesTab from "@/components/property/UtilitiesTab";
 
 type Property = {
   id: number;
@@ -189,12 +190,14 @@ export default function PropertyDetailPage() {
       {tab === "financials" && <FinancialsTab property={property} propertyId={propertyId} canEdit={canEdit} />}
       {tab === "taxes" && <TaxesTab propertyId={propertyId} canEdit={canDelete} />}
       {tab === "policies" && <PoliciesTab property={property} propertyId={propertyId} canEdit={canEdit} />}
+      {tab === "utilities" && <UtilitiesTab propertyId={propertyId} canEdit={canEdit} />}
       {tab !== "overview" &&
         tab !== "units" &&
         tab !== "history" &&
         tab !== "financials" &&
         tab !== "taxes" &&
-        tab !== "policies" && (
+        tab !== "policies" &&
+        tab !== "utilities" && (
           <ComingSoonTab name={TABS.find((t) => t.id === tab)?.label || ""} />
         )}
     </div>

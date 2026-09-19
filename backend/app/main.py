@@ -25,6 +25,7 @@ from app.routers import password_reset as password_reset_router
 from app.routers import org_email as org_email_router
 from app.routers import uploads as uploads_router
 from app.routers import taxes as taxes_router
+from app.routers import utilities as utilities_router
 
 
 # ------------------------------------------------------------
@@ -69,6 +70,7 @@ app.include_router(password_reset_router.router)
 app.include_router(org_email_router.router)
 app.include_router(uploads_router.router)
 app.include_router(taxes_router.router)
+app.include_router(utilities_router.router)
 
 
 
