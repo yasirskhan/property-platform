@@ -25,6 +25,9 @@ from app.models.utility import (  # noqa: F401
     UtilityBill,
     TrashPickupSchedule,
 )
+from app.models.insurance import PropertyInsurance  # noqa: F401
+from app.models.expense import PropertyExpense  # noqa: F401
+from app.models.tenant_insurance import TenantInsurance  # noqa: F40
 
 
 def create_tables():

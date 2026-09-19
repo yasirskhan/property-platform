@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiGet, apiDelete } from "@/lib/api";
 import UtilitiesTab from "@/components/property/UtilitiesTab";
+import InsuranceTab from "@/components/property/InsuranceTab";
 
 type Property = {
   id: number;
@@ -191,13 +192,15 @@ export default function PropertyDetailPage() {
       {tab === "taxes" && <TaxesTab propertyId={propertyId} canEdit={canDelete} />}
       {tab === "policies" && <PoliciesTab property={property} propertyId={propertyId} canEdit={canEdit} />}
       {tab === "utilities" && <UtilitiesTab propertyId={propertyId} canEdit={canEdit} />}
+      {tab === "insurance" && <InsuranceTab propertyId={propertyId} canEdit={canDelete} />}
       {tab !== "overview" &&
         tab !== "units" &&
         tab !== "history" &&
         tab !== "financials" &&
         tab !== "taxes" &&
         tab !== "policies" &&
-        tab !== "utilities" && (
+        tab !== "utilities" &&
+        tab !== "insurance" && (
           <ComingSoonTab name={TABS.find((t) => t.id === tab)?.label || ""} />
         )}
     </div>

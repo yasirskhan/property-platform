@@ -26,7 +26,9 @@ from app.routers import org_email as org_email_router
 from app.routers import uploads as uploads_router
 from app.routers import taxes as taxes_router
 from app.routers import utilities as utilities_router
-
+from app.routers import insurance as insurance_router
+from app.routers import expenses as expenses_router
+from app.routers import tenant_insurance as tenant_insurance_router
 
 # ------------------------------------------------------------
 # Create the FastAPI app
@@ -71,6 +73,9 @@ app.include_router(org_email_router.router)
 app.include_router(uploads_router.router)
 app.include_router(taxes_router.router)
 app.include_router(utilities_router.router)
+app.include_router(insurance_router.router)
+app.include_router(expenses_router.router)
+app.include_router(tenant_insurance_router.router)
 
 
 
