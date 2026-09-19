@@ -20,6 +20,7 @@ type Property = {
   square_feet: number | null;
   stories: number | null;
   parking_spaces: number | null;
+  parking_type: string | null;
   estimated_rent: string | null;
   security_deposit: string | null;
   ownership_status: string | null;
@@ -181,6 +182,7 @@ function OverviewTab({ property }: { property: Property }) {
         <Row label="Year Renovated" value={property.year_renovated} />
         <Row label="Square Feet" value={property.square_feet ? `${property.square_feet} sq ft` : null} />
         <Row label="Stories" value={property.stories} />
+        <Row label="Parking Type" value={property.parking_type?.replace("_", " ")} />
         <Row label="Parking Spaces" value={property.parking_spaces} />
       </Section>
 
@@ -243,8 +245,15 @@ function UnitsTab({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {units.map((u) => (
-                <tr key={u.id}>
-                  <td className="px-6 py-4 font-medium text-slate-900">{u.unit_number}</td>
+                <tr key={u.id} className="hover:bg-slate-50">
+                  <td className="px-6 py-4 font-medium">
+                    <Link
+                      href={`/dashboard/properties/${propertyId}/units/${u.id}/edit`}
+                      className="text-slate-900 hover:text-slate-600 hover:underline"
+                    >
+                      {u.unit_number}
+                    </Link>
+                  </td>
                   <td className="px-6 py-4 text-slate-600">{u.bedrooms} bd / {u.bathrooms} ba</td>
                   <td className="px-6 py-4 text-slate-600">{u.square_feet || "—"}</td>
                   <td className="px-6 py-4 text-slate-600">${u.monthly_rent}</td>
@@ -299,9 +308,9 @@ function HistoryTab({ propertyId }: { propertyId: number }) {
           {log.field_name && (
             <p className="text-sm text-slate-700 mt-2">
               <strong>{log.field_name as string}</strong>:{" "}
-              <span className="text-slate-400">{log.old_value as string || "—"}</span>
+              <span className="text-slate-400">{log.field_name as string ? (log.old_value as string) || "—" : ""}</span>
               {" → "}
-              <span className="text-slate-900">{log.new_value as string || "—"}</span>
+              <span className="text-slate-900">{(log.new_value as string) || "—"}</span>
             </p>
           )}
         </div>
