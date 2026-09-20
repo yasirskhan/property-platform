@@ -42,6 +42,10 @@ from app.models.gl_entry import GLEntry  # noqa: F401
 from app.models.receipt import Receipt  # noqa: F401
 from app.models.receipt_line import ReceiptLine  # noqa: F401
 
+# ---- Bills (Phase 2 Step 6) ----
+from app.models.bill import Bill  # noqa: F401
+from app.models.bill_line import BillLine  # noqa: F401
+
 
 def create_tables():
     print("Creating database tables...")
