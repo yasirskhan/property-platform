@@ -1,12 +1,20 @@
 # ============================================================
 # user.py
 # ------------------------------------------------------------
-# This file defines our database tables for users and
-# organizations (a property owner company = one organization).
+# Database tables for users and organizations.
 #
-# Every person who logs in — admin, owner, manager, crew,
-# tenant — is stored in the SAME users table, distinguished
-# by their "role" column.
+# Every CUSTOMER-SIDE person who logs in (admin, owner, manager,
+# crew, tenant, vendor, applicant) lives in the same `users`
+# table, distinguished by their role column.
+#
+# Every one of those users belongs to EXACTLY ONE organization.
+# That includes ADMIN — the admin is the boss of THEIR OWN
+# customer company, not of the platform.
+#
+# The PLATFORM side (us: sales, billing, tech, support, dev)
+# lives in a completely separate table called `platform_users`,
+# which will be built in a later phase. Nothing in this file
+# ever touches platform staff.
 # ============================================================
 
 import enum
@@ -27,25 +35,33 @@ from app.core.database import Base
 
 
 # ------------------------------------------------------------
-# ROLES
+# ROLES (customer-side)
 # ------------------------------------------------------------
-# This is the list of roles in the system.
-# The order roughly matches the hierarchy you described.
+# These are the roles a CUSTOMER company can have.
+# Values are UPPERCASE because that is what the database has
+# always stored and what every other part of the system
+# (menu_permissions, resolver, matrix) expects.
 # ------------------------------------------------------------
 class UserRole(str, enum.Enum):
-    ADMIN = "admin"
-    OWNER = "owner"
-    MANAGER = "manager"
-    CREW = "crew"
-    TENANT = "tenant"
-    APPLICANT = "applicant"
+    ADMIN = "ADMIN"
+    OWNER = "OWNER"
+    MANAGER = "MANAGER"
+    CREW = "CREW"
+    TENANT = "TENANT"
+    VENDOR = "VENDOR"
+    VENDOR_CREW = "VENDOR_CREW"
+    APPLICANT = "APPLICANT"
 
 
 # ------------------------------------------------------------
 # ORGANIZATION
 # ------------------------------------------------------------
-# Each property owner company is an "Organization".
-# This is what keeps data separated between different owners.
+# Each customer company is an "Organization".
+# This is what isolates their data from every other customer.
+#
+# `state` drives the subscription lifecycle. It is not enforced
+# anywhere yet — that comes in Phase 10 (Subscription & Billing).
+# We add the column now so the schema is ready.
 # ------------------------------------------------------------
 class Organization(Base):
     __tablename__ = "organizations"
@@ -55,18 +71,22 @@ class Organization(Base):
     slug = Column(String(100), unique=True, index=True, nullable=False)
     is_active = Column(Boolean, default=True)
 
+    # Subscription state placeholder.
+    # ACTIVE | PAST_DUE | RESTRICTED | SUSPENDED | CANCELLED
+    state = Column(String(20), nullable=False, default="ACTIVE", index=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationships (who belongs to this organization)
     users = relationship("User", back_populates="organization")
 
 
 # ------------------------------------------------------------
 # USER
 # ------------------------------------------------------------
-# Every person who logs in. The "role" column decides what
-# they can see and do.
+# Every CUSTOMER-side person who logs in.
+# The role column decides what they can see and do.
+# Every user belongs to exactly one organization.
 # ------------------------------------------------------------
 class User(Base):
     __tablename__ = "users"
@@ -86,12 +106,14 @@ class User(Base):
     # --- Role and organization ---
     role = Column(SqlEnum(UserRole), nullable=False, default=UserRole.TENANT)
 
-    # Admin is NOT tied to any single organization (they oversee all).
-    # Everyone else (owner, manager, crew, tenant) belongs to one org.
+    # Every user belongs to one organization.
+    # Nullable at the DB level only because the migration has to
+    # tolerate legacy rows; the application enforces NOT NULL for
+    # all new signups. The backfill migration fixes the legacy rows.
     organization_id = Column(
         Integer,
         ForeignKey("organizations.id"),
-        nullable=True,  # nullable so admin can exist without an org
+        nullable=True,
         index=True,
     )
 
@@ -107,4 +129,5 @@ class User(Base):
     organization = relationship("Organization", back_populates="users")
 
     def __repr__(self):
-        return f"<User {self.email} ({self.role.value})>"
+        role_value = self.role.value if hasattr(self.role, "value") else self.role
+        return f"<User {self.email} ({role_value})>"

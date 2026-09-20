@@ -31,6 +31,13 @@ from app.routers import expenses as expenses_router
 from app.routers import tenant_insurance as tenant_insurance_router
 from app.routers import platform_settings as platform_settings_router
 from app.routers import screening_settings as screening_settings_router
+from app.routers import sidebar_preference as sidebar_preference_router
+from app.routers import menu_permissions as menu_permissions_router
+from app.routers import organizations as organizations_router
+from app.routers import gl_accounts as gl_accounts_router
+from app.routers import gl_transactions as gl_transactions_router
+from app.routers import gl_reports as gl_reports_router
+from app.routers import receipts as receipts_router
 
 # ------------------------------------------------------------
 # Create the FastAPI app
@@ -44,10 +51,6 @@ app = FastAPI(
 
 # ------------------------------------------------------------
 # CORS
-# ------------------------------------------------------------
-# Lets the frontend (Next.js) talk to this backend.
-# During development we allow common localhost ports.
-# We'll tighten this up before going to production.
 # ------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
@@ -80,7 +83,13 @@ app.include_router(expenses_router.router)
 app.include_router(tenant_insurance_router.router)
 app.include_router(platform_settings_router.router)
 app.include_router(screening_settings_router.router)
-
+app.include_router(sidebar_preference_router.router)
+app.include_router(menu_permissions_router.router)
+app.include_router(organizations_router.router)
+app.include_router(gl_accounts_router.router)
+app.include_router(gl_transactions_router.router)
+app.include_router(gl_reports_router.router)
+app.include_router(receipts_router.router)
 
 
 # ------------------------------------------------------------

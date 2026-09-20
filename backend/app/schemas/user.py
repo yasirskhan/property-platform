@@ -1,11 +1,10 @@
 # ============================================================
 # schemas/user.py
 # ------------------------------------------------------------
-# These are "schemas" — they define the shape of data
-# going in and out of the API.
+# Shape of data going in and out of the users API.
 #
 # Nothing here talks to the database directly.
-# They are just validation + formatting rules.
+# These are just validation + formatting rules.
 # ============================================================
 
 from datetime import datetime
@@ -17,7 +16,7 @@ from app.models.user import UserRole
 
 
 # ------------------------------------------------------------
-# Base schema — fields shared by other user schemas
+# Base — fields shared by other user schemas
 # ------------------------------------------------------------
 class UserBase(BaseModel):
     email: EmailStr
@@ -27,18 +26,28 @@ class UserBase(BaseModel):
 
 
 # ------------------------------------------------------------
-# Schema for CREATING a user (signup)
-# Includes password — will never be returned to client.
+# CREATE — used by signup
+#
+# Two signup paths:
+#
+#  1. Brand-new company (ADMIN or OWNER with no organization_id):
+#     must include `organization_name`. The backend creates
+#     the organization and links the user to it.
+#
+#  2. Invited user (any role WITH organization_id):
+#     joins an existing organization. `organization_name` ignored.
+#
+#  Anything else is refused by create_user().
 # ------------------------------------------------------------
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8, max_length=128)
     role: UserRole = UserRole.TENANT
     organization_id: Optional[int] = None
+    organization_name: Optional[str] = Field(None, min_length=2, max_length=255)
 
 
 # ------------------------------------------------------------
-# Schema for UPDATING a user
-# All fields optional so client can send only what changed.
+# UPDATE
 # ------------------------------------------------------------
 class UserUpdate(BaseModel):
     first_name: Optional[str] = None
@@ -48,8 +57,7 @@ class UserUpdate(BaseModel):
 
 
 # ------------------------------------------------------------
-# Schema for RETURNING a user to the client
-# Notice: NO password field. Ever.
+# OUT — returned to the client. No password field ever.
 # ------------------------------------------------------------
 class UserOut(UserBase):
     id: int
@@ -61,4 +69,4 @@ class UserOut(UserBase):
     profile_photo_url: Optional[str] = None
 
     class Config:
-        from_attributes = True  # lets Pydantic read SQLAlchemy objects
+        from_attributes = True
