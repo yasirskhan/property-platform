@@ -220,18 +220,14 @@ That closes Phase 2. Then Phase 3 (Property Detail placeholders).
 1. DONE: Chart of Accounts
 2. DONE: General Ledger
 3. Universal Notes + Attachments (Step 3) — deferred
-4. Bank Accounts (Step 4)
+4. Bank Accounts (Step 4) — NEXT
 5. DONE: Receipts (Step 5)
 6. DONE: Bills / Payables (Step 6)
 7. DONE: Bank Deposits (Step 7)
 8. DONE: Financial Diagnostics (Step 8) — includes owner sub-ledger
 9. DONE: Management Fees (Step 9)
 10. DONE: Owner Statements (Step 10)
-4. Bank Accounts (Step 4) — NEXT
 11. Manual Journal Entry form (Step 2b) — after Step 4
-9. Management Fees (Step 9)
-10. Owner Statements (Step 10)
-11. Manual Journal Entry form (Step 2b)
 
 ## B3. AFTER PHASE 2
 
@@ -443,7 +439,7 @@ Hard rules:
 
 # SECTION 10 — DATABASE
 
-Tables (~36):
+Tables (~45):
 Core: organizations, users, audit_log, platform_settings, sidebar_preferences
 Menu Permissions: menu_permissions, user_permissions
 Accounting: gl_accounts, gl_transactions, gl_entries, receipts,
@@ -649,7 +645,8 @@ CRM: Track prospects, marketing effectiveness.
 # SECTION 19 — ACCOUNTING MODULE (the spine)
 
 Top tabs: Receipts | Bills | Bank Accounts | Journal Entries |
-Bank Transfers | GL Accounts | Diagnostics | Online Payments
+Bank Transfers | GL Accounts | Diagnostics | Online Payments |
+Management Fees | Owner Statements | Bank Deposits
 
 Chart of Accounts: 61 accounts. Each: GL Number, Name, Type, Sub-account
 of, Offset Account, Subject to Mgmt Fees, Include on Cash Flow.
@@ -1065,7 +1062,7 @@ Phase 2  — Accounting: IN PROGRESS
   4. Bank Accounts (Operating + Escrow) <- NEXT
   5. DONE Receipts (tenant + owner + other)
   6. DONE Bills / Payables (two-step accrual)
-  7. Bank Deposits (batching, NSF) <- NEXT
+  7. DONE Bank Deposits (batching, NSF)
   8. DONE Financial Diagnostics (6 checks, includes 3-way recon)
   9. DONE Management Fees (AppFolio two-step: creates a Bill)
  10. DONE Owner Statements
@@ -1151,7 +1148,7 @@ Then paste this entire file.
 
 # SECTION 42 — MENU PERMISSIONS SYSTEM (BUILT)
 
-Canonical menu keys: app/constants/menu_keys.py. 46 keys. Format:
+Canonical menu keys: app/constants/menu_keys.py. 61 keys (46 original + ACCOUNTING.DEPOSITS + ACCOUNTING.MANAGEMENT_FEES + ACCOUNTING.OWNER_STATEMENTS + the previous additions). Format:
 PARENT or PARENT.CHILD, uppercase. Frontend display info in
 src/lib/menuConfig.ts.
 
