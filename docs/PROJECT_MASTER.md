@@ -12,7 +12,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase 2 (Accounting). Steps 1, 2, 4, 5, 6, 7, 8, 9, 10 COMPLETE. Next is Step 2b (Manual Journal Entry).
+**Current activity:** Phase 2 (Accounting) COMPLETE. Next is Phase 3 (Property Detail Placeholders).
 
 **Last completed work:**
 - Phase 1 (Menu Permissions) shipped and working
@@ -63,10 +63,19 @@
   routing #, account #, ACH format. List + edit modal.
   New bank_accounts table; ACCOUNTING.BANK_ACCOUNTS menu key
   (already existed, just pointed at the real page).
+- Phase 2 Step 2b (Manual Journal Entry) — public write
+  endpoint POST /api/accounting/journal-entries. Routes
+  through post_transaction() with type JOURNAL_ENTRY. List
+  endpoint GET /api/accounting/journal-entries. Frontend:
+  list page + New Journal Entry form with live balance check.
+  Detail page reuses /dashboard/accounting/journal-entries/{id}.
+  PHASE 2 COMPLETE.
 
 **What's NOT built yet (designed, not coded):**
-- Phase 2 remaining: Universal Notes + Attachments (Step 3),
-  Manual Journal Entry form (Step 2b)
+- Phase 2 deferred: Universal Notes + Attachments (Step 3)
+- All of Phase 3 onward (Property Detail placeholders, Vendors,
+  Smart Maintenance, Messaging, Portals, Integrations,
+  Internal Team, Billing, AWS, Mobile)
 - Write Checks flow (find bills -> confirm -> print) — after Step 7
 - Recurring Bills (Section 19)
 - Convert Work Order -> Bill (one click) — after Phase 5
@@ -179,34 +188,25 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Phase 2 Step 2b: Manual Journal Entry form.**
+**Phase 3 — Property Detail Placeholders (~4 sessions).**
 
-The last deferred item from Step 2. Manager creates a balanced
-GL transaction by hand.
+Fill in the property detail tabs that currently show
+placeholder content. Section 34 lists every tab. The full
+list is large — we'll do the most important ones first:
 
-Deliverable:
-- POST /api/accounting/journal-entries  (public write endpoint)
-  Takes: date, memo, reference, and 2+ lines
-  Each line: gl_account_id, property_id?, unit_id?, owner_id?,
-  description, debit XOR credit
-  Validates via post_transaction(transaction_type="JOURNAL_ENTRY")
-  Optional source_type = "manual_je"
-- GET /api/accounting/journal-entries (list) — can reuse existing
-  /gl-transactions filtered by type=JOURNAL_ENTRY
-- Frontend: /dashboard/accounting/journal-entries/new
-  - Date, memo, reference
-  - Multi-line table (account, description, debit, credit)
-  - Balance check live
-  - Post button
-- Existing /dashboard/accounting/journal-entries/{id} detail page
-  already works (generic GL detail)
+Priority tabs:
+1. Overview (already partially there — polish)
+2. Amenities (add/edit)
+3. Appliances (add/edit)
+4. Improvements (renovation history)
+5. Keys (physical keys tracking)
+6. Maintenance Info (property-specific notes)
+7. Statement Settings (owner statement toggles)
+8. Fixed Assets
 
-Roughly 1 session.
+Each tab is a small CRUD panel. None touches the GL.
 
-## B1b. AFTER STEP 2b
-
-Phase 2 is complete. Move to Phase 3 — Property Detail
-Placeholders (~4 sessions).
+Roughly 4 sessions. Can be split into sub-steps 3a, 3b, 3c.
 
 ## B2. AFTER THAT (Phase 2 continued)
 
@@ -220,7 +220,9 @@ Placeholders (~4 sessions).
 8. DONE: Financial Diagnostics (Step 8) — includes owner sub-ledger
 9. DONE: Management Fees (Step 9)
 10. DONE: Owner Statements (Step 10)
-11. Manual Journal Entry form (Step 2b) — NEXT
+11. DONE: Manual Journal Entry form (Step 2b)
+
+PHASE 2 COMPLETE. Next: Phase 3 — Property Detail Placeholders.
 
 ## B3. AFTER PHASE 2
 
@@ -441,6 +443,8 @@ Ownership: property_owners (join table for co-ownership)
 Fees: management_fee_runs (one row per property per fee period)
 Statements: owner_statements (frozen snapshot documents)
 Banking: bank_accounts (physical accounts mapped to GL cash)
+JE: (no new table — manual JEs use gl_transactions
+  with transaction_type=JOURNAL_ENTRY, source_type=manual_je)
 Properties: properties, units, property_assignments, property_taxes,
 property_tax_payments, property_utilities, utility_bills,
 trash_pickup_schedule, property_insurance, property_expenses,
@@ -1747,6 +1751,63 @@ Phase 1, just pointed at the real page now.
 
 Bank Reconciliation (Section 37) is a separate future step that
 will use these accounts.
+
+
+---
+
+# SECTION 56 — MANUAL JOURNAL ENTRY (BUILT — Phase 2 Step 2b)
+
+The public write endpoint for GL transactions that was
+deferred from Step 2.
+
+Routes through the same post_transaction() validation as
+everything else — balance, valid accounts, org scope, etc.
+
+Endpoints under /api/accounting/journal-entries:
+- GET  ""   list (transaction_type = JOURNAL_ENTRY only)
+- POST ""   create + post a manual JE
+
+Request body (POST):
+  {
+    "transaction_date": "YYYY-MM-DD",
+    "reference_number": "optional",
+    "memo": "optional",
+    "lines": [
+      {gl_account_id, property_id?, unit_id?, owner_id?,
+       description?, debit, credit},
+      ...
+    ]
+  }
+
+Validation (enforced in both the Pydantic schema and
+post_transaction):
+  * At least 2 lines
+  * Each line: exactly one of debit/credit > 0
+  * Sum(debits) == Sum(credits) within 0.01
+  * All accounts belong to org and are active
+  * All properties belong to org
+  * All units belong to given property
+
+On success: creates a GLTransaction with
+  transaction_type = "JOURNAL_ENTRY"
+  source_type = "manual_je"
+
+Reading a JE uses the existing
+/dashboard/accounting/journal-entries/{id} detail page and
+GET /api/accounting/gl-transactions/{id}.
+
+Frontend:
+- /dashboard/accounting/journal-entries       list
+- /dashboard/accounting/journal-entries/new   form with live
+  balance check
+- /dashboard/accounting/journal-entries/{id}  detail (existing)
+
+Menu: ACCOUNTING.JOURNAL_ENTRIES -> Journal Entries
+(href /dashboard/accounting/journal-entries) — key existed
+from Phase 1; just wired to the real list page.
+
+No new migration — manual JEs reuse gl_transactions and
+gl_entries.
 
 # END OF PROJECT_MASTER.md
        '''

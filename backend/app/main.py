@@ -44,6 +44,7 @@ from app.routers import diagnostics as diagnostics_router
 from app.routers import management_fees as management_fees_router
 from app.routers import owner_statements as owner_statements_router
 from app.routers import bank_accounts as bank_accounts_router
+from app.routers import journal_entries as journal_entries_router
 
 # ------------------------------------------------------------
 # Create the FastAPI app
@@ -102,6 +103,7 @@ app.include_router(diagnostics_router.router)
 app.include_router(management_fees_router.router)
 app.include_router(owner_statements_router.router)
 app.include_router(bank_accounts_router.router)
+app.include_router(journal_entries_router.router)
 
 
 # ------------------------------------------------------------
