@@ -46,6 +46,10 @@ from app.models.receipt_line import ReceiptLine  # noqa: F401
 from app.models.bill import Bill  # noqa: F401
 from app.models.bill_line import BillLine  # noqa: F401
 
+# ---- Deposits (Phase 2 Step 7) ----
+from app.models.deposit import Deposit  # noqa: F401
+from app.models.deposit_line import DepositLine  # noqa: F401
+
 
 def create_tables():
     print("Creating database tables...")
