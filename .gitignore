@@ -69,3 +69,7 @@ backend/src/
 # Throwaway diagnostic / smoke-test scripts (not part of the app)
 /backend/check_*.py
 /backend/smoke_*.py
+
+# Throwaway patch scripts (master doc rebuilds, one-off fixes)
+/backend/patch_master*.py
+/backend/rebuild_master*.py
