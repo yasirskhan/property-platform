@@ -12,7 +12,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase 2 (Accounting). Steps 1, 2, 5, 6, 7, 8, 9, 10 COMPLETE. Next is Step 4 (Bank Accounts) then Step 2b (Manual Journal Entry).
+**Current activity:** Phase 2 (Accounting). Steps 1, 2, 4, 5, 6, 7, 8, 9, 10 COMPLETE. Next is Step 2b (Manual Journal Entry).
 
 **Last completed work:**
 - Phase 1 (Menu Permissions) shipped and working
@@ -57,10 +57,16 @@
   balance per transaction, ending cash. Global print CSS hides
   sidebar/top bar so Print gives a clean statement. New
   owner_statements table; ACCOUNTING.OWNER_STATEMENTS menu key.
+- Phase 2 Step 4 (Bank Accounts) — physical bank account model.
+  Two seeded per org: Client Trust (OPERATING) ↔ GL 1150,
+  Security Deposit Trust (ESCROW) ↔ GL 1160. Bank name,
+  routing #, account #, ACH format. List + edit modal.
+  New bank_accounts table; ACCOUNTING.BANK_ACCOUNTS menu key
+  (already existed, just pointed at the real page).
 
 **What's NOT built yet (designed, not coded):**
 - Phase 2 remaining: Universal Notes + Attachments (Step 3),
-  Bank Accounts (Step 4), Manual Journal Entry form (Step 2b)
+  Manual Journal Entry form (Step 2b)
 - Write Checks flow (find bills -> confirm -> print) — after Step 7
 - Recurring Bills (Section 19)
 - Convert Work Order -> Bill (one click) — after Phase 5
@@ -173,61 +179,48 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Phase 2 Step 4: Bank Accounts.**
-
-Model the two physical trust accounts (Client Trust / Operating
-and Security Deposit Trust / Escrow) that map to GL 1150 and
-1160. Track bank name, routing #, account #, and (later) ACH
-format.
-
-Deliverable:
-- `bank_accounts` table (id, organization_id, name,
-  bank_name, routing_number, account_number, gl_account_id,
-  account_type (OPERATING | ESCROW), ach_format (CSV | NACHA),
-  is_active, timestamps)
-- Migration: seed the two standard accounts (Client Trust ↔ 1150,
-  Security Deposit Trust ↔ 1160) for every existing org
-- Backend: model + schema + router
-- Frontend: Bank Accounts list + edit pages
-- Wire into ACCOUNTING.BANK_ACCOUNTS menu link
-
-Design notes (from Section 13, Section 33):
-- Routing # and Account # are sensitive → mark in UI, but
-  store plaintext for now (dev). Encrypt at rest in Phase 11.
-- ACH setup fields (File Format, Header Options) come with
-  the Bank Reconciliation step later; leave columns nullable.
-- Link to GL account is required and unique per (org, gl).
-
-Roughly 1 session.
-
-## B1b. AFTER BANK ACCOUNTS
-
 **Phase 2 Step 2b: Manual Journal Entry form.**
 
-The public "create a transaction" endpoint we deferred from
-Step 2. Manager picks a date, memo, and at least two lines
-(account, debit OR credit, property/unit optional). Must
-balance. POST /api/accounting/journal-entries.
+The last deferred item from Step 2. Manager creates a balanced
+GL transaction by hand.
 
-Frontend: /dashboard/accounting/journal-entries/new
+Deliverable:
+- POST /api/accounting/journal-entries  (public write endpoint)
+  Takes: date, memo, reference, and 2+ lines
+  Each line: gl_account_id, property_id?, unit_id?, owner_id?,
+  description, debit XOR credit
+  Validates via post_transaction(transaction_type="JOURNAL_ENTRY")
+  Optional source_type = "manual_je"
+- GET /api/accounting/journal-entries (list) — can reuse existing
+  /gl-transactions filtered by type=JOURNAL_ENTRY
+- Frontend: /dashboard/accounting/journal-entries/new
+  - Date, memo, reference
+  - Multi-line table (account, description, debit, credit)
+  - Balance check live
+  - Post button
+- Existing /dashboard/accounting/journal-entries/{id} detail page
+  already works (generic GL detail)
 
 Roughly 1 session.
 
-That closes Phase 2. Then Phase 3 (Property Detail placeholders).
+## B1b. AFTER STEP 2b
+
+Phase 2 is complete. Move to Phase 3 — Property Detail
+Placeholders (~4 sessions).
 
 ## B2. AFTER THAT (Phase 2 continued)
 
 1. DONE: Chart of Accounts
 2. DONE: General Ledger
 3. Universal Notes + Attachments (Step 3) — deferred
-4. Bank Accounts (Step 4) — NEXT
+4. DONE: Bank Accounts (Step 4)
 5. DONE: Receipts (Step 5)
 6. DONE: Bills / Payables (Step 6)
 7. DONE: Bank Deposits (Step 7)
 8. DONE: Financial Diagnostics (Step 8) — includes owner sub-ledger
 9. DONE: Management Fees (Step 9)
 10. DONE: Owner Statements (Step 10)
-11. Manual Journal Entry form (Step 2b) — after Step 4
+11. Manual Journal Entry form (Step 2b) — NEXT
 
 ## B3. AFTER PHASE 2
 
@@ -447,6 +440,7 @@ Accounting: gl_accounts, gl_transactions, gl_entries, receipts,
 Ownership: property_owners (join table for co-ownership)
 Fees: management_fee_runs (one row per property per fee period)
 Statements: owner_statements (frozen snapshot documents)
+Banking: bank_accounts (physical accounts mapped to GL cash)
 Properties: properties, units, property_assignments, property_taxes,
 property_tax_payments, property_utilities, utility_bills,
 trash_pickup_schedule, property_insurance, property_expenses,
@@ -488,7 +482,8 @@ Chain:
 - bdc8b2be19d9_add_property_owners_and_ownership
 - 0cf6edacce77_add_management_fee_runs_and_property_fee_fields
 - 4aa1c77e213c_add_owner_statements
-- HEAD: 4aa1c77e213c
+- 7ca4251074bc_add_bank_accounts
+- HEAD: 7ca4251074bc
 
 ---
 
@@ -1059,14 +1054,14 @@ Phase 2  — Accounting: IN PROGRESS
   1. DONE Chart of Accounts (60 accounts, seeded; +2100 AP in Step 6)
   2. DONE General Ledger (reversal support)
   3. Universal Notes + Attachments (deferred)
-  4. Bank Accounts (Operating + Escrow) <- NEXT
+  4. DONE Bank Accounts (Operating + Escrow)
   5. DONE Receipts (tenant + owner + other)
   6. DONE Bills / Payables (two-step accrual)
   7. DONE Bank Deposits (batching, NSF)
   8. DONE Financial Diagnostics (6 checks, includes 3-way recon)
   9. DONE Management Fees (AppFolio two-step: creates a Bill)
  10. DONE Owner Statements
- 11. Manual Journal Entry form (Step 2b)
+ 11. Manual Journal Entry form (Step 2b) <- NEXT
 Phase 3  — Property Detail Placeholders (~4 sessions)
 Phase 4  — Vendors (~6 sessions)
 Phase 5  — Smart Maintenance (~20 sessions)
@@ -1708,6 +1703,50 @@ Print CSS:
 
 Menu: ACCOUNTING.OWNER_STATEMENTS -> Owner Statements
 (href /dashboard/accounting/owner-statements).
+
+
+---
+
+# SECTION 55 — BANK ACCOUNTS (BUILT — Phase 2 Step 4)
+
+Physical bank accounts mapped to GL cash accounts.
+
+AppFolio parity:
+- Client Trust (OPERATING) ↔ GL 1150 Rental Trust
+- Security Deposit Trust (ESCROW) ↔ GL 1160 Security Deposit Cash
+
+Both are seeded automatically for every org by migration
+7ca4251074bc_add_bank_accounts.
+
+Table: bank_accounts
+- id, organization_id
+- name ("Client Trust", "Security Deposit Trust")
+- bank_name, routing_number, account_number (all nullable)
+- gl_account_id (required, unique per (org, gl))
+- account_type — OPERATING | ESCROW
+- ach_format — CSV | NACHA (nullable, set later)
+- notes
+- is_active, created_by_id, timestamps
+
+Routing and account numbers are stored as strings (leading
+zeros matter). Encrypt at rest in Phase 11.
+
+Endpoints under /api/accounting/bank-accounts:
+- GET    ""                       list
+- GET    /{id}                    detail
+- POST   ""                       create
+- PATCH  /{id}                    update
+- DELETE /{id}                    soft delete (is_active=False)
+
+Frontend:
+- /dashboard/accounting/bank-accounts — list + centered edit modal
+
+Menu: ACCOUNTING.BANK_ACCOUNTS -> Bank Accounts
+(href /dashboard/accounting/bank-accounts) — key existed from
+Phase 1, just pointed at the real page now.
+
+Bank Reconciliation (Section 37) is a separate future step that
+will use these accounts.
 
 # END OF PROJECT_MASTER.md
        '''
