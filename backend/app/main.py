@@ -42,6 +42,7 @@ from app.routers import bills as bills_router
 from app.routers import deposits as deposits_router
 from app.routers import diagnostics as diagnostics_router
 from app.routers import management_fees as management_fees_router
+from app.routers import owner_statements as owner_statements_router
 
 # ------------------------------------------------------------
 # Create the FastAPI app
@@ -98,6 +99,7 @@ app.include_router(bills_router.router)
 app.include_router(deposits_router.router)
 app.include_router(diagnostics_router.router)
 app.include_router(management_fees_router.router)
+app.include_router(owner_statements_router.router)
 
 
 # ------------------------------------------------------------

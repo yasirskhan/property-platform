@@ -50,6 +50,12 @@ from app.models.bill_line import BillLine  # noqa: F401
 from app.models.deposit import Deposit  # noqa: F401
 from app.models.deposit_line import DepositLine  # noqa: F401
 
+# ---- Management Fees (Phase 2 Step 9) ----
+from app.models.management_fee_run import ManagementFeeRun  # noqa: F401
+
+# ---- Owner Statements (Phase 2 Step 10) ----
+from app.models.owner_statement import OwnerStatement  # noqa: F401
+
 
 def create_tables():
     print("Creating database tables...")

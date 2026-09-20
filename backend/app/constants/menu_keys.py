@@ -9,9 +9,6 @@
 #   - the Alembic seed migration (initial row creation)
 #   - the backend resolver (Layer 2 checks)
 #   - the frontend sidebar (labels + icons, via /api/menu/me)
-#
-# If you add a key here, add it to the frontend constants too
-# (frontend/src/constants/menuKeys.ts) so labels + icons match.
 # ============================================================
 
 # Ordered list of every menu key, parents first, then children.
@@ -58,6 +55,7 @@ MENU_KEYS = [
     "ACCOUNTING.ONLINE_PAYMENTS",
     "ACCOUNTING.DEPOSITS",
     "ACCOUNTING.MANAGEMENT_FEES",
+    "ACCOUNTING.OWNER_STATEMENTS",
 
     # ---------- maintenance ----------
     "MAINTENANCE.WORK_ORDERS",
@@ -97,10 +95,6 @@ ROLES = [
 
 # Default visibility per role. Only the keys listed are visible.
 # Anything not listed defaults to False for that role.
-#
-# This mirrors the DEFAULT_MATRIX baked into the Alembic seed
-# migration. If you change one, change both. Future orgs are
-# seeded from here; existing orgs would need a new migration.
 DEFAULT_MATRIX = {
     "ADMIN": set(MENU_KEYS),  # admin sees everything
     "OWNER": set(MENU_KEYS) - {"PEOPLE.TEAM", "ACCOUNTING.ONLINE_PAYMENTS"},
@@ -120,11 +114,7 @@ DEFAULT_MATRIX = {
         "ACCOUNTING.BANK_ACCOUNTS", "ACCOUNTING.JOURNAL_ENTRIES",
         "ACCOUNTING.BANK_TRANSFERS", "ACCOUNTING.GL_ACCOUNTS",
         "ACCOUNTING.DIAGNOSTICS", "ACCOUNTING.DEPOSITS",
-        "ACCOUNTING", "ACCOUNTING.RECEIVABLES", "ACCOUNTING.PAYABLES",
-        "ACCOUNTING.BANK_ACCOUNTS", "ACCOUNTING.JOURNAL_ENTRIES",
-        "ACCOUNTING.BANK_TRANSFERS", "ACCOUNTING.GL_ACCOUNTS",
-        "ACCOUNTING.DIAGNOSTICS", "ACCOUNTING.DEPOSITS",
-        "ACCOUNTING.MANAGEMENT_FEES",
+        "ACCOUNTING.MANAGEMENT_FEES", "ACCOUNTING.OWNER_STATEMENTS",
 
         "MAINTENANCE", "MAINTENANCE.WORK_ORDERS", "MAINTENANCE.RECURRING",
         "MAINTENANCE.INSPECTIONS", "MAINTENANCE.UNIT_TURNS",
@@ -182,14 +172,10 @@ DEFAULT_MATRIX = {
 
 
 # Roles that a given editor is allowed to edit in the Roles tab.
-# Admin and Owner edit everyone below them. Manager edits only
-# crew/tenant/vendor for their own properties (scope enforced in
-# the router, this is just the outer boundary).
 EDITOR_CAN_EDIT = {
     "ADMIN":     {"OWNER", "MANAGER", "CREW", "TENANT", "VENDOR", "VENDOR_CREW", "APPLICANT"},
     "OWNER":     {"MANAGER", "CREW", "TENANT", "VENDOR", "VENDOR_CREW", "APPLICANT"},
     "MANAGER":   {"CREW", "TENANT", "VENDOR", "VENDOR_CREW"},
-    # everything below can only touch their own preferences
     "CREW":      set(),
     "TENANT":    set(),
     "VENDOR":    set(),
@@ -199,5 +185,4 @@ EDITOR_CAN_EDIT = {
 
 
 # Roles for which the role matrix is never editable in the UI.
-# Prevents admin from accidentally locking themselves out.
 IMMUTABLE_ROLES = {"ADMIN"}

@@ -36,3 +36,51 @@ body {
   border-color: #0f172a;
   box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.1);
 }
+
+/* ============================================================
+   PRINT STYLES
+   ------------------------------------------------------------
+   When the user prints, hide everything except the main
+   content area. Sidebar, top bar, right panels, action
+   buttons, and fixed modals are all removed.
+   ============================================================ */
+@media print {
+  /* Hide global chrome */
+  aside,
+  nav,
+  header,
+  footer,
+  [data-print-hide="true"] {
+    display: none !important;
+  }
+
+  /* Reset colors */
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Un-fix sticky/fixed elements so content flows */
+  .fixed {
+    position: static !important;
+  }
+
+  /* Let the main content use the full page */
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* No page breaks inside statement blocks or tables */
+  table {
+    page-break-inside: avoid;
+  }
+
+  /* Links: plain black, no underline */
+  a {
+    color: #000 !important;
+    text-decoration: none !important;
+  }
+}
