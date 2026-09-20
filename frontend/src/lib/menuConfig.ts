@@ -65,6 +65,7 @@ export const MENU_ENTRIES: Record<string, MenuEntry> = {
   "ACCOUNTING.GL_ACCOUNTS":     { key: "ACCOUNTING.GL_ACCOUNTS",     label: "GL Accounts",       href: "/dashboard/accounting/gl-accounts",     icon: "" },
   "ACCOUNTING.DIAGNOSTICS":     { key: "ACCOUNTING.DIAGNOSTICS",     label: "Diagnostics",       href: "/dashboard/accounting/diagnostics",     icon: "" },
   "ACCOUNTING.ONLINE_PAYMENTS": { key: "ACCOUNTING.ONLINE_PAYMENTS", label: "Online Payments",   href: "/dashboard/accounting/online-payments", icon: "" },
+  "ACCOUNTING.DEPOSITS":        { key: "ACCOUNTING.DEPOSITS",        label: "Bank Deposits",     href: "/dashboard/accounting/deposits",        icon: "" },
 
   // ---------- maintenance children ----------
   "MAINTENANCE.WORK_ORDERS":     { key: "MAINTENANCE.WORK_ORDERS",     label: "Work Orders",           href: "/dashboard/maintenance/work-orders",     icon: "" },

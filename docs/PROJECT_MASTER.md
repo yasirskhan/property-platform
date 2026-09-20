@@ -12,7 +12,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase 2 (Accounting). Steps 1, 2, 5, 6 COMPLETE. Next is Step 7 (Bank Deposits).
+**Current activity:** Phase 2 (Accounting). Steps 1, 2, 5, 6, 7 COMPLETE. Next is Step 8 (Financial Diagnostics).
 
 **Last completed work:**
 - Phase 1 (Menu Permissions) shipped and working
@@ -28,12 +28,17 @@
   enter bill + pay bill + reverse, added GL account 2100
   Accounts Payable, list + new pages, centered detail modal,
   wired into ACCOUNTING.PAYABLES menu link (labelled "Bills")
+- Phase 2 Step 7 (Bank Deposits) — group un-deposited receipts
+  into batches, tag receipts as deposited via deposit_lines,
+  list + new pages with centered detail modal, new
+  ACCOUNTING.DEPOSITS menu key added. Deposits do NOT post
+  to the GL (receipts already credited cash).
 
 **What's NOT built yet (designed, not coded):**
 - Phase 2 remaining: Universal Notes + Attachments (Step 3), Bank
-  Accounts (Step 4), Bank Deposits (Step 7),
-  Diagnostics (Step 8), Management Fees (Step 9),
-  Owner Statements (Step 10), Manual Journal Entry form (Step 2b)
+  Accounts (Step 4), Diagnostics (Step 8),
+  Management Fees (Step 9), Owner Statements (Step 10),
+  Manual Journal Entry form (Step 2b)
 - Write Checks flow (find bills -> confirm -> print) — after Step 7
 - Recurring Bills (Section 19)
 - Convert Work Order -> Bill (one click) — after Phase 5
@@ -122,11 +127,15 @@ Deployment target (Phase 11):
   later ("Plumbing — kitchen sink" from GL account + free text).
 - Reverse confirmation still uses window.confirm(). Fine for now;
   upgrade to a styled modal when we do the polish pass.
-- Back-navigation: Trial Balance has a smart-back button (browser
-  history if present, else /dashboard). Roll this pattern out to
-  other pages during the polish pass.
+- Back-navigation: Trial Balance and Deposits have a smart-back
+  button (browser history if present, else /dashboard). Roll this
+  out to Receipts/Bills/GL Accounts during the polish pass.
 - Mobile: desktop-first for manager app; portals mobile-first
   (Phase 7); native app = Phase 12 (see Section 46).
+- Bank Deposits do NOT post to the GL. If we later add a "cash on
+  hand" GL account (undeposited funds), we'd add a DR Bank / CR
+  Cash on Hand posting in create_deposit(). Documented in
+  Section 50.
 
 ---
 
@@ -136,33 +145,32 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Phase 2 Step 7: Bank Deposits.**
+**Phase 2 Step 8: Financial Diagnostics.**
 
-Group un-deposited receipts into a single bank deposit. Bank account,
-deposit date, deposit #, description, checkbox list of receipts,
-All/None, Make Deposit. Once deposited, a receipt is locked from
-being re-deposited.
+Six automatic checks that find bookkeeping problems in the
+ledger. Each returns a pass/fail and, when failing, a list of
+offending accounts/amounts. Some can be auto-fixed with a
+"Refund Negative Diagnostic" posting.
+
+The six checks (from Section 35):
+  1. Security Deposit Funds Mismatch
+  2. Escrow Cash Account Balance Mismatch
+  3. Non-Zero Security Clearing Account Balances
+  4. Negative Balance on Fee GL Accounts
+  5. Positive Balance on Fee GL Accounts
+  6. Trust Account 3-Way Reconciliation
 
 Deliverable:
-- deposits table + deposit_lines table (many receipts -> one deposit)
-- Alembic migration (hand-written)
-- Backend: model + schema + router + post_deposit() service
-- Frontend: Deposits list page + New Deposit page (receipt picker)
-- Migration to add is_deposited + deposit_id to receipts table
+- No new tables needed (checks read existing GL data)
+- Backend: `app/services/diagnostics.py` with one function per
+  check, each returning {passed, severity, message, rows}
+- Router: GET /api/accounting/diagnostics (returns all six)
+- Router: POST /api/accounting/diagnostics/refund-negative
+  (auto-posts a "Refund Negative Diagnostic" correction)
+- Frontend: replace the placeholder
+  /dashboard/accounting/diagnostics page with a real report
 
-Design notes (from Section 19, "Bank Deposits"):
-- Bank Account, Deposit Date, Deposit #
-- Description
-- List of un-deposited receipts with checkboxes
-- All / None quick-select
-- Cannot be reversed — corrections happen via journal entry
-- GL: receipts already credited cash; deposits usually tag receipts
-  for reconciliation rather than moving cash between accounts.
-  A BANK_DEPOSIT transaction may be added if a cash-on-hand ->
-  cash-at-bank transfer is modeled later.
-- Future: bank reconciliation (Step 8 / Section 37)
-
-Roughly 2-3 sessions.
+Roughly 2 sessions.
 
 ## B2. AFTER THAT (Phase 2 continued)
 
@@ -172,8 +180,8 @@ Roughly 2-3 sessions.
 4. Bank Accounts (Step 4)
 5. DONE: Receipts (Step 5)
 6. DONE: Bills / Payables (Step 6)
-7. **Bank Deposits (Step 7) — NEXT**
-8. Financial Diagnostics (Step 8)
+7. DONE: Bank Deposits (Step 7)
+8. **Financial Diagnostics (Step 8) — NEXT**
 9. Management Fees (Step 9)
 10. Owner Statements (Step 10)
 11. Manual Journal Entry form (Step 2b)
@@ -392,7 +400,7 @@ Tables (~36):
 Core: organizations, users, audit_log, platform_settings, sidebar_preferences
 Menu Permissions: menu_permissions, user_permissions
 Accounting: gl_accounts, gl_transactions, gl_entries, receipts,
-  receipt_lines, bills, bill_lines
+  receipt_lines, bills, bill_lines, deposits, deposit_lines
 Properties: properties, units, property_assignments, property_taxes,
 property_tax_payments, property_utilities, utility_bills,
 trash_pickup_schedule, property_insurance, property_expenses,
@@ -429,7 +437,8 @@ Chain:
 - b2d5f9e1c3a7_add_gl_transactions_and_gl_entries
 - 64dec42acecf_add_receipts_and_receipt_lines
 - 71eda8a9ba77_add_bills_and_bill_lines_and_ap_account
-- HEAD: 71eda8a9ba77
+- e266f7c76a7c_add_deposits_and_deposit_lines
+- HEAD: e266f7c76a7c
 
 ---
 
@@ -1003,7 +1012,7 @@ Phase 2  — Accounting: IN PROGRESS
   5. DONE Receipts (tenant + owner + other)
   6. DONE Bills / Payables (two-step accrual)
   7. Bank Deposits (batching, NSF) <- NEXT
-  8. Financial Diagnostics (6 checks)
+  8. Financial Diagnostics (6 checks) <- NEXT
   9. Management Fees (two-tier: 9% + 100%)
  10. Owner Statements
  11. Manual Journal Entry form (Step 2b)
@@ -1372,7 +1381,72 @@ Instead, use a Python rebuild script. Pattern:
        MASTER = Path(r"C:\Projects\property-platform\docs\PROJECT_MASTER.md")
        CONTENT = r'''# PROJECT MASTER
        ... entire file contents here ...
-       # END OF PROJECT_MASTER.md
+       
+---
+
+# SECTION 50 — BANK DEPOSITS (BUILT — Phase 2 Step 7)
+
+Group un-deposited receipts into a batch for the bank.
+
+IMPORTANT: Deposits do NOT post to the GL. Receipts already
+credit the cash GL account when they are posted. Deposits
+simply tag receipts as deposited by inserting rows into
+deposit_lines.
+
+deposit_lines is the SINGLE SOURCE OF TRUTH for "is this
+receipt deposited?". We do NOT store is_deposited on receipts.
+This avoids SQLite batch_alter_table FK pain and stays
+consistent on Postgres. Membership in a deposit IS the fact.
+
+Tables:
+- deposits — id, organization_id, bank_gl_account_id,
+  deposit_date, deposit_number (auto D-00001 if blank),
+  description, total, notes, is_active, created_by_id,
+  timestamps
+- deposit_lines — id, organization_id, deposit_id, receipt_id,
+  created_at. UNIQUE index on receipt_id (a receipt can be in
+  at most one deposit).
+
+Migration: e266f7c76a7c_add_deposits_and_deposit_lines
+(down_revision = 71eda8a9ba77). Also seeds the new
+ACCOUNTING.DEPOSITS menu key for every existing org
+(visible to ADMIN/OWNER/MANAGER; hidden from CREW/TENANT/
+VENDOR/VENDOR_CREW/APPLICANT).
+
+Menu key added to app/constants/menu_keys.py (MENU_KEYS
+list) and to DEFAULT_MATRIX["MANAGER"]. ADMIN and OWNER see
+it automatically because they use set(MENU_KEYS).
+
+Services (app/services/deposit_posting.py):
+- create_deposit() — validates receipts (exist, same org,
+  not reversed, not already deposited), computes total from
+  receipts, saves deposit + deposit_lines, auto-numbers as
+  D-NNNNN if blank. Raises PostingError on any issue.
+- list_undeposited_receipts() — returns receipts not in any
+  deposit_lines row. Optional bank_gl_account_id filter.
+
+No GL posting. Reverse not supported — corrections via
+journal entry (Section 19). If we later model "cash on hand"
+as a separate GL account, a DR Bank / CR Cash on Hand posting
+would be added inside create_deposit().
+
+Endpoints under /api/accounting/deposits:
+- GET  ""                          list (date/bank filters)
+- GET  /undeposited-receipts       picker (optional bank filter)
+- GET  /{deposit_id}               detail + receipts
+- POST ""                          create deposit
+
+Note: the /undeposited-receipts route MUST be defined before
+/{deposit_id} or FastAPI will try to parse the string as int.
+
+Frontend pages:
+- /dashboard/accounting/deposits        list + centered detail modal
+- /dashboard/accounting/deposits/new    picker with All/None
+
+Menu: ACCOUNTING.DEPOSITS -> Bank Deposits
+(href /dashboard/accounting/deposits).
+
+# END OF PROJECT_MASTER.md
        '''
        def main():
            MASTER.parent.mkdir(parents=True, exist_ok=True)
