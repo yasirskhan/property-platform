@@ -12,7 +12,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase 2 (Accounting). Steps 1, 2, 5, 6, 7 COMPLETE. Next is Step 8 (Financial Diagnostics).
+**Current activity:** Phase 2 (Accounting). Steps 1, 2, 5, 6, 7, 8 COMPLETE. Next is Step 9 (Management Fees).
 
 **Last completed work:**
 - Phase 1 (Menu Permissions) shipped and working
@@ -33,12 +33,20 @@
   list + new pages with centered detail modal, new
   ACCOUNTING.DEPOSITS menu key added. Deposits do NOT post
   to the GL (receipts already credited cash).
+- Phase 2 Step 8a (Owner Sub-Ledger Foundation) — added
+  owner_id to receipts/bills/gl_entries; created property_owners
+  join table + Property.owner_id + ownership_pct for
+  AppFolio-parity co-ownership; built owner_ledger service
+  (get_owner_subledger, get_all_owner_subledger_totals).
+- Phase 2 Step 8b (Financial Diagnostics) — six checks
+  (Security Deposit Mismatch, Escrow Cash Mismatch, Clearing
+  Accounts, Negative Fee, Positive Fee, Trust 3-Way
+  Reconciliation); endpoint + report page replace placeholder.
 
 **What's NOT built yet (designed, not coded):**
-- Phase 2 remaining: Universal Notes + Attachments (Step 3), Bank
-  Accounts (Step 4), Diagnostics (Step 8),
-  Management Fees (Step 9), Owner Statements (Step 10),
-  Manual Journal Entry form (Step 2b)
+- Phase 2 remaining: Universal Notes + Attachments (Step 3),
+  Bank Accounts (Step 4), Management Fees (Step 9),
+  Owner Statements (Step 10), Manual Journal Entry form (Step 2b)
 - Write Checks flow (find bills -> confirm -> print) — after Step 7
 - Recurring Bills (Section 19)
 - Convert Work Order -> Bill (one click) — after Phase 5
@@ -136,6 +144,12 @@ Deployment target (Phase 11):
   hand" GL account (undeposited funds), we'd add a DR Bank / CR
   Cash on Hand posting in create_deposit(). Documented in
   Section 50.
+- Diagnostics currently flag real issues (e.g. the $1,234 tenant
+  receipt misclassified as income instead of security-deposit
+  liability). Auto-fix postings (e.g. "Refund Negative Diagnostic")
+  are deferred; the report is detection only for now.
+- Section 12 says 61 GL accounts, but the header comment in
+  gl_account.py still says 57. Fix in the next cleanup pass.
 
 ---
 
@@ -145,32 +159,31 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Phase 2 Step 8: Financial Diagnostics.**
+**Phase 2 Step 9: Management Fees.**
 
-Six automatic checks that find bookkeeping problems in the
-ledger. Each returns a pass/fail and, when failing, a list of
-offending accounts/amounts. Some can be auto-fixed with a
-"Refund Negative Diagnostic" posting.
+The two-tier fee engine (Section 14):
+- 9% on Rent Income (GL 4100)
+- 100% on additional fee income
 
-The six checks (from Section 35):
-  1. Security Deposit Funds Mismatch
-  2. Escrow Cash Account Balance Mismatch
-  3. Non-Zero Security Clearing Account Balances
-  4. Negative Balance on Fee GL Accounts
-  5. Positive Balance on Fee GL Accounts
-  6. Trust Account 3-Way Reconciliation
+Pay Management Fees posts to the GL:
+  DR Management Fee Expense (6001)
+  CR the income accounts (net to manager's own account)
+
+Actually: AppFolio's model is the manager collects rent into
+trust, then transfers their fee from trust to their operating
+account. So:
+  DR 6001 Management Fees
+  CR 1150 Rental Trust
+And the "9% + 100% additional" calculation determines the total.
 
 Deliverable:
-- No new tables needed (checks read existing GL data)
-- Backend: `app/services/diagnostics.py` with one function per
-  check, each returning {passed, severity, message, rows}
-- Router: GET /api/accounting/diagnostics (returns all six)
-- Router: POST /api/accounting/diagnostics/refund-negative
-  (auto-posts a "Refund Negative Diagnostic" correction)
-- Frontend: replace the placeholder
-  /dashboard/accounting/diagnostics page with a real report
+- `management_fee_runs` table (one row per fee cycle)
+- Backend service: compute fee per property per period
+- Endpoint: POST /api/accounting/management-fees/run
+- Frontend: Pay Management Fees page
+- Uses `subject_to_mgmt_fees` flag already on gl_accounts
 
-Roughly 2 sessions.
+Roughly 2-3 sessions.
 
 ## B2. AFTER THAT (Phase 2 continued)
 
@@ -181,7 +194,8 @@ Roughly 2 sessions.
 5. DONE: Receipts (Step 5)
 6. DONE: Bills / Payables (Step 6)
 7. DONE: Bank Deposits (Step 7)
-8. **Financial Diagnostics (Step 8) — NEXT**
+8. DONE: Financial Diagnostics (Step 8) — includes owner sub-ledger
+9. **Management Fees (Step 9) — NEXT**
 9. Management Fees (Step 9)
 10. Owner Statements (Step 10)
 11. Manual Journal Entry form (Step 2b)
@@ -401,6 +415,7 @@ Core: organizations, users, audit_log, platform_settings, sidebar_preferences
 Menu Permissions: menu_permissions, user_permissions
 Accounting: gl_accounts, gl_transactions, gl_entries, receipts,
   receipt_lines, bills, bill_lines, deposits, deposit_lines
+Ownership: property_owners (join table for co-ownership)
 Properties: properties, units, property_assignments, property_taxes,
 property_tax_payments, property_utilities, utility_bills,
 trash_pickup_schedule, property_insurance, property_expenses,
@@ -438,7 +453,9 @@ Chain:
 - 64dec42acecf_add_receipts_and_receipt_lines
 - 71eda8a9ba77_add_bills_and_bill_lines_and_ap_account
 - e266f7c76a7c_add_deposits_and_deposit_lines
-- HEAD: e266f7c76a7c
+- 3b50fb7fd91a_add_owner_id_to_receipts_bills_gl_entries
+- bdc8b2be19d9_add_property_owners_and_ownership
+- HEAD: bdc8b2be19d9
 
 ---
 
@@ -1012,8 +1029,8 @@ Phase 2  — Accounting: IN PROGRESS
   5. DONE Receipts (tenant + owner + other)
   6. DONE Bills / Payables (two-step accrual)
   7. Bank Deposits (batching, NSF) <- NEXT
-  8. Financial Diagnostics (6 checks) <- NEXT
-  9. Management Fees (two-tier: 9% + 100%)
+  8. DONE Financial Diagnostics (6 checks, includes 3-way recon)
+  9. Management Fees (two-tier: 9% + 100%) <- NEXT
  10. Owner Statements
  11. Manual Journal Entry form (Step 2b)
 Phase 3  — Property Detail Placeholders (~4 sessions)
@@ -1445,6 +1462,71 @@ Frontend pages:
 
 Menu: ACCOUNTING.DEPOSITS -> Bank Deposits
 (href /dashboard/accounting/deposits).
+
+
+---
+
+# SECTION 51 — OWNER SUB-LEDGER (BUILT — Phase 2 Step 8a)
+
+AppFolio-parity owner scoping. This is the "third leg" of the
+trust account three-way reconciliation.
+
+Data model:
+- receipts.owner_id (nullable FK to users)
+- bills.owner_id (nullable FK to users)
+- gl_entries.owner_id (nullable FK to users)  <- the tag that matters
+- properties.owner_id (nullable FK, primary owner) + ownership_pct
+- property_owners (property_id, user_id, ownership_pct, is_primary)
+  join table for co-ownership / split 1099s
+
+Migration IDs:
+- 3b50fb7fd91a_add_owner_id_to_receipts_bills_gl_entries
+- bdc8b2be19d9_add_property_owners_and_ownership
+
+Service: app/services/owner_ledger.py
+- get_owner_subledger(db, org, owner_id) -> one owner's balance + properties
+- get_all_owner_subledger_totals(db, org) -> per-owner list + grand total
+- get_owner_subledger_total(db, org) -> convenience (just the total)
+
+Sign convention:
+- INCOME credited -> increases what owner is owed
+- EXPENSE debited -> decreases what owner is owed
+- ASSET debited -> increases owner equity
+- LIABILITY credited -> decreases owner equity
+- EQUITY credited -> increases owner equity
+
+Company-level GL lines (owner_id = NULL) are excluded from the
+sub-ledger and surface as "unallocated" in the reconciliation.
+
+When more postings carry owner_id, the sub-ledger total converges
+to the trust cash balance.
+
+---
+
+# SECTION 52 — FINANCIAL DIAGNOSTICS (BUILT — Phase 2 Step 8b)
+
+Six financial health checks. Endpoint:
+  GET /api/accounting/diagnostics
+
+Service: app/services/diagnostics.py
+- check_security_deposit_mismatch()  — GL 2101 vs GL 1160
+- check_escrow_cash_mismatch()       — GL 1160.offset_account check
+- check_clearing_accounts()          — any "Clearing" account must net to $0
+- check_negative_fee_accounts()      — 44xx INCOME never negative
+- check_positive_fee_accounts()      — placeholder (no must_clear flag yet)
+- check_three_way_reconciliation()   — trust cash 1150 vs owner sub-ledger total
+- run_all_diagnostics()              — runs all, returns summary
+
+Each check returns:
+  {key, label, passed, severity, message, details[]}
+severity is "ok" | "warning" | "error".
+
+Frontend:
+- src/lib/diagnostics.ts        — client
+- src/app/dashboard/accounting/diagnostics/page.tsx
+  — real report page (replaces placeholder)
+
+Read-only. Auto-fix (e.g. "Refund Negative Diagnostic") is deferred.
 
 # END OF PROJECT_MASTER.md
        '''

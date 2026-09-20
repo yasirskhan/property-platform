@@ -66,3 +66,6 @@ make_org.py
 # --- Stray files ---
 backend/src/
 
+# Throwaway diagnostic / smoke-test scripts (not part of the app)
+/backend/check_*.py
+/backend/smoke_*.py
