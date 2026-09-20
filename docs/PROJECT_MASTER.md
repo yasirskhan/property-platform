@@ -12,7 +12,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase 2 (Accounting). Steps 1, 2, 5, 6, 7, 8 COMPLETE. Next is Step 9 (Management Fees).
+**Current activity:** Phase 2 (Accounting). Steps 1, 2, 5, 6, 7, 8, 9 COMPLETE. Next is Step 10 (Owner Statements).
 
 **Last completed work:**
 - Phase 1 (Menu Permissions) shipped and working
@@ -42,11 +42,20 @@
   (Security Deposit Mismatch, Escrow Cash Mismatch, Clearing
   Accounts, Negative Fee, Positive Fee, Trust 3-Way
   Reconciliation); endpoint + report page replace placeholder.
+- Phase 2 Step 9 (Management Fees) — AppFolio-parity two-step
+  flow: Run creates a Bill (DR 6001 Management Fees / CR 2100
+  Accounts Payable), the manager pays the Bill separately
+  (existing Bills flow → DR 2100 AP / CR 1150 Rental Trust).
+  Two-tier rate (9% rent + 100% other eligible income).
+  Respects subject_to_mgmt_fees, exclude_from_mgmt_fee,
+  mgmt_fee_end_date, and mgmt_fee_flat/min overrides.
+  new management_fee_runs table; ACCOUNTING.MANAGEMENT_FEES
+  menu key.
 
 **What's NOT built yet (designed, not coded):**
 - Phase 2 remaining: Universal Notes + Attachments (Step 3),
-  Bank Accounts (Step 4), Management Fees (Step 9),
-  Owner Statements (Step 10), Manual Journal Entry form (Step 2b)
+  Bank Accounts (Step 4), Owner Statements (Step 10),
+  Manual Journal Entry form (Step 2b)
 - Write Checks flow (find bills -> confirm -> print) — after Step 7
 - Recurring Bills (Section 19)
 - Convert Work Order -> Bill (one click) — after Phase 5
@@ -159,31 +168,28 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Phase 2 Step 9: Management Fees.**
+**Phase 2 Step 10: Owner Statements.**
 
-The two-tier fee engine (Section 14):
-- 9% on Rent Income (GL 4100)
-- 100% on additional fee income
+The final accounting deliverable. For each owner and each period,
+produce a statement showing:
+  - Transactions in the period (Date, Payee/Payer, Check#, Description,
+    Income, Expense, Balance)
+  - Beginning cash, ending cash
+  - Property cash summary (Required Reserves, Prepaid Rent)
 
-Pay Management Fees posts to the GL:
-  DR Management Fee Expense (6001)
-  CR the income accounts (net to manager's own account)
-
-Actually: AppFolio's model is the manager collects rent into
-trust, then transfers their fee from trust to their operating
-account. So:
-  DR 6001 Management Fees
-  CR 1150 Rental Trust
-And the "9% + 100% additional" calculation determines the total.
+Uses:
+  - property_owners (ownership splits)
+  - gl_entries.owner_id (the owner sub-ledger)
+  - The trust cash GL balance per property
 
 Deliverable:
-- `management_fee_runs` table (one row per fee cycle)
-- Backend service: compute fee per property per period
-- Endpoint: POST /api/accounting/management-fees/run
-- Frontend: Pay Management Fees page
-- Uses `subject_to_mgmt_fees` flag already on gl_accounts
+- `owner_statements` table (one row per owner per period)
+- Backend: `app/services/owner_statements.py` with
+  `generate_statement(db, org, owner_id, period_start, period_end)`
+- Endpoint: GET /api/accounting/owner-statements/{owner_id}
+- Frontend: Owner Statements page (pick owner + period → view)
 
-Roughly 2-3 sessions.
+Roughly 2–3 sessions.
 
 ## B2. AFTER THAT (Phase 2 continued)
 
@@ -195,7 +201,8 @@ Roughly 2-3 sessions.
 6. DONE: Bills / Payables (Step 6)
 7. DONE: Bank Deposits (Step 7)
 8. DONE: Financial Diagnostics (Step 8) — includes owner sub-ledger
-9. **Management Fees (Step 9) — NEXT**
+9. DONE: Management Fees (Step 9)
+10. **Owner Statements (Step 10) — NEXT**
 9. Management Fees (Step 9)
 10. Owner Statements (Step 10)
 11. Manual Journal Entry form (Step 2b)
@@ -416,6 +423,7 @@ Menu Permissions: menu_permissions, user_permissions
 Accounting: gl_accounts, gl_transactions, gl_entries, receipts,
   receipt_lines, bills, bill_lines, deposits, deposit_lines
 Ownership: property_owners (join table for co-ownership)
+Fees: management_fee_runs (one row per property per fee period)
 Properties: properties, units, property_assignments, property_taxes,
 property_tax_payments, property_utilities, utility_bills,
 trash_pickup_schedule, property_insurance, property_expenses,
@@ -455,7 +463,8 @@ Chain:
 - e266f7c76a7c_add_deposits_and_deposit_lines
 - 3b50fb7fd91a_add_owner_id_to_receipts_bills_gl_entries
 - bdc8b2be19d9_add_property_owners_and_ownership
-- HEAD: bdc8b2be19d9
+- 0cf6edacce77_add_management_fee_runs_and_property_fee_fields
+- HEAD: 0cf6edacce77
 
 ---
 
@@ -1030,8 +1039,8 @@ Phase 2  — Accounting: IN PROGRESS
   6. DONE Bills / Payables (two-step accrual)
   7. Bank Deposits (batching, NSF) <- NEXT
   8. DONE Financial Diagnostics (6 checks, includes 3-way recon)
-  9. Management Fees (two-tier: 9% + 100%) <- NEXT
- 10. Owner Statements
+  9. DONE Management Fees (AppFolio two-step: creates a Bill)
+ 10. Owner Statements <- NEXT
  11. Manual Journal Entry form (Step 2b)
 Phase 3  — Property Detail Placeholders (~4 sessions)
 Phase 4  — Vendors (~6 sessions)
@@ -1527,6 +1536,75 @@ Frontend:
   — real report page (replaces placeholder)
 
 Read-only. Auto-fix (e.g. "Refund Negative Diagnostic") is deferred.
+
+
+---
+
+# SECTION 53 — MANAGEMENT FEES (BUILT — Phase 2 Step 9)
+
+AppFolio-parity two-step flow:
+
+  1. Pay Management Fees -> creates a BILL
+       DR 6001 Management Fees
+       CR 2100 Accounts Payable
+  2. Pay the Bill (existing Bills flow)
+       DR 2100 Accounts Payable
+       CR 1150 Rental Trust
+
+This mirrors how AppFolio hands you a Bill for the management
+fees and lets you pay it like any other payable.
+
+Two-tier rate:
+- Rent income (GL 4100 Rent, 4105 Section 8) -> property.mgmt_fee_pct
+  (default 9.00, overridable per property)
+- Other eligible income -> 100.00 always
+
+Eligibility rules:
+- Only GL accounts with `subject_to_mgmt_fees = True`
+- Only GL entries that came from a Receipt (source_type = "receipt")
+- Receipt.exclude_from_mgmt_fee = False
+- Receipt.is_reversed = False
+- Transaction date within [period_start, period_end]
+
+Overrides:
+- property.mgmt_fee_flat (if set) -> ignore percentages, charge flat
+- property.mgmt_fee_min  (if set) -> never charge less than the floor
+- property.mgmt_fee_end_date -> no fees if period_end is after this
+
+Tables:
+- management_fee_runs — one row per property per fee period.
+  Fields: id, organization_id, property_id, period_start, period_end,
+  rent_income_total, other_fee_income_total, rent_fee_pct, other_fee_pct,
+  rent_fee_amount, other_fee_amount, total_fee, expense_gl_account_id,
+  cash_gl_account_id (stores the AP account id on the credit side),
+  gl_transaction_id, notes, is_reversed, reversal_of_id, is_active,
+  created_by_id, timestamps
+
+Migration: 0cf6edacce77_add_management_fee_runs_and_property_fee_fields
+(down_revision = bdc8b2be19d9). Also seeds
+ACCOUNTING.MANAGEMENT_FEES menu key.
+
+Property new columns: mgmt_fee_pct, mgmt_fee_flat, mgmt_fee_min,
+mgmt_fee_end_date.
+
+Service: app/services/management_fee_posting.py
+- preview_management_fee()     -> read-only calculation
+- run_management_fee()         -> posts GL + creates a Bill + saves run
+- reverse_management_fee_run() -> flips the GL txn
+
+Endpoints under /api/accounting/management-fees:
+- POST /preview             compute (read-only)
+- POST /run                 post (creates run + Bill + GL txn)
+- GET  ""                   list
+- GET  /{run_id}            detail
+- POST /{run_id}/reverse    reverse
+
+Frontend:
+- /dashboard/accounting/management-fees        list + centered modal
+- /dashboard/accounting/management-fees/new    preview + post flow
+
+Menu: ACCOUNTING.MANAGEMENT_FEES -> Management Fees
+(href /dashboard/accounting/management-fees).
 
 # END OF PROJECT_MASTER.md
        '''

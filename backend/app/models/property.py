@@ -101,6 +101,18 @@ class Property(Base):
         server_default="100.00",
     )
 
+    # --- Management Fee config (AppFolio parity, Step 9) ---
+    # Percentage of eligible income (e.g. 9.00).
+    # Flat fee override (nullable — used if percent is 0).
+    # Minimum fee floor (nullable — never charge less than this).
+    # Mgmt End Date — no fees after this date.
+    mgmt_fee_pct = Column(
+        Numeric(5, 2), nullable=True, default=0, server_default="0.00"
+    )
+    mgmt_fee_flat = Column(Numeric(14, 2), nullable=True)
+    mgmt_fee_min = Column(Numeric(14, 2), nullable=True)
+    mgmt_fee_end_date = Column(Date, nullable=True)
+
     # --- Policies ---
     pets_allowed = Column(Boolean, default=False)
     pet_types_allowed = Column(String(100), nullable=True)
