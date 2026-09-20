@@ -12,6 +12,10 @@
 #
 # All routes are org-scoped. The current user's organization
 # is the only one they can see or touch.
+#
+# As of Step 8a, owner_id is passed through from the ORM to
+# the response so the trust sub-ledger and reconciliation
+# have the tag available on every receipt.
 # ============================================================
 
 from datetime import date
@@ -80,6 +84,7 @@ def _receipt_to_out(r: Receipt) -> ReceiptOut:
         exclude_from_mgmt_fee=r.exclude_from_mgmt_fee,
         property_id=r.property_id,
         unit_id=r.unit_id,
+        owner_id=r.owner_id,
         reference_number=r.reference_number,
         remarks=r.remarks,
         notes=r.notes,

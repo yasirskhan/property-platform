@@ -9,6 +9,9 @@
 # Writing to the ledger is NOT exposed here. Only the internal
 # posting service writes. The public "create a transaction"
 # endpoint (for manual journal entries) comes in Step 2b.
+#
+# As of Step 8a, GLEntryOut includes owner_id so the trust
+# sub-ledger and diagnostics can group GL activity by owner.
 # ============================================================
 
 from datetime import date
@@ -150,6 +153,7 @@ def get_transaction(
                 gl_account_name=e.gl_account.name if e.gl_account else None,
                 property_id=e.property_id,
                 unit_id=e.unit_id,
+                owner_id=e.owner_id,
                 description=e.description,
                 debit=e.debit,
                 credit=e.credit,

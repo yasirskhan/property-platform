@@ -10,6 +10,9 @@
 #
 # Every function calls post_transaction() from gl_posting.py.
 # Nothing writes to gl_transactions / gl_entries directly.
+#
+# As of Step 8a, owner_id (nullable) is carried on the bill
+# and on every GL line it produces.
 # ============================================================
 
 from __future__ import annotations
@@ -131,6 +134,7 @@ def post_bill(
                 gl_account_id=ln.gl_account_id,
                 property_id=ln.property_id or payload.property_id,
                 unit_id=ln.unit_id or payload.unit_id,
+                owner_id=payload.owner_id,
                 description=ln.description or payload.payee_name,
                 debit=Decimal(ln.amount),
                 credit=Decimal("0"),
@@ -142,6 +146,7 @@ def post_bill(
             gl_account_id=payable_acct.id,
             property_id=payload.property_id,
             unit_id=payload.unit_id,
+            owner_id=payload.owner_id,
             description=f"Payable: {payload.payee_name}",
             debit=Decimal("0"),
             credit=total,
@@ -186,6 +191,7 @@ def post_bill(
             status="UNPAID",
             property_id=payload.property_id,
             unit_id=payload.unit_id,
+            owner_id=payload.owner_id,
             payable_gl_account_id=payable_acct.id,
             remarks=payload.remarks,
             source_type=payload.source_type,
@@ -291,6 +297,7 @@ def pay_bill(
             gl_account_id=bill.payable_gl_account_id,
             property_id=bill.property_id,
             unit_id=bill.unit_id,
+            owner_id=bill.owner_id,
             description=f"Payment: {bill.payee_name}",
             debit=pay_amount,
             credit=Decimal("0"),
@@ -299,6 +306,7 @@ def pay_bill(
             gl_account_id=payload.cash_gl_account_id,
             property_id=bill.property_id,
             unit_id=bill.unit_id,
+            owner_id=bill.owner_id,
             description=f"Payment: {bill.payee_name}",
             debit=Decimal("0"),
             credit=pay_amount,
@@ -417,6 +425,7 @@ def reverse_bill(
             status="VOID",
             property_id=original.property_id,
             unit_id=original.unit_id,
+            owner_id=original.owner_id,
             payable_gl_account_id=original.payable_gl_account_id,
             remarks=memo or f"Reversal of bill #{original.id}",
             source_type=original.source_type,

@@ -5,6 +5,7 @@
 #   - Properties (buildings owned by an organization)
 #   - Units (individual rentable spaces inside a property)
 #   - PropertyAssignments (which manager/crew works at which property)
+#   - PropertyOwners (AppFolio-parity ownership: primary + splits)
 # ============================================================
 
 import enum
@@ -83,7 +84,23 @@ class Property(Base):
     security_deposit = Column(Numeric(10, 2), nullable=True)
     ownership_status = Column(String(50), nullable=True)
 
-    
+    # --- Ownership (AppFolio parity, Step 8a) ---
+    # Primary owner (fast path — 95%+ of properties have one owner).
+    owner_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    # Share the primary owner holds. Defaults to 100% but can be
+    # less when co-owned (see property_owners join table).
+    ownership_pct = Column(
+        Numeric(5, 2),
+        nullable=True,
+        default=100,
+        server_default="100.00",
+    )
+
     # --- Policies ---
     pets_allowed = Column(Boolean, default=False)
     pet_types_allowed = Column(String(100), nullable=True)
@@ -127,6 +144,14 @@ class Property(Base):
     # --- Relationships ---
     units = relationship("Unit", back_populates="property", cascade="all, delete-orphan")
     assignments = relationship("PropertyAssignment", back_populates="property", cascade="all, delete-orphan")
+    # Primary owner (User)
+    owner = relationship("User", foreign_keys=[owner_id])
+    # Full ownership list (primary + splits) — see PropertyOwner below
+    ownerships = relationship(
+        "PropertyOwner",
+        back_populates="property",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self):
         return f"<Property {self.name} ({self.city}, {self.state})>"
@@ -193,7 +218,7 @@ class Unit(Base):
 
 
 # ------------------------------------------------------------
-# PROPERTY ASSIGNMENT
+# PROPERTY ASSIGNMENT (staff — manager/crew)
 # ------------------------------------------------------------
 class PropertyAssignment(Base):
     __tablename__ = "property_assignments"
@@ -227,3 +252,71 @@ class PropertyAssignment(Base):
 
     def __repr__(self):
         return f"<PropertyAssignment user={self.user_id} property={self.property_id} role={self.role.value}>"
+
+
+# ------------------------------------------------------------
+# PROPERTY OWNER (AppFolio-parity ownership: primary + splits)
+# ------------------------------------------------------------
+class PropertyOwner(Base):
+    """
+    Join table for property ownership.
+
+    A property can have one owner (common) or many (co-ownership).
+    The primary owner is also reflected on Property.owner_id for
+    fast access; the full list lives here so split 1099 reporting
+    and per-owner trust sub-ledgers work exactly like AppFolio.
+    """
+    __tablename__ = "property_owners"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    property_id = Column(
+        Integer,
+        ForeignKey("properties.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # This owner's share of the property (e.g. 50.00 = 50%).
+    ownership_pct = Column(
+        Numeric(5, 2),
+        nullable=False,
+        default=100,
+        server_default="100.00",
+    )
+
+    # True for the primary owner. Exactly one primary per property.
+    is_primary = Column(Boolean, nullable=False, default=False)
+
+    is_active = Column(Boolean, nullable=False, default=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # --- Relationships ---
+    property = relationship("Property", back_populates="ownerships")
+    user = relationship("User", foreign_keys=[user_id])
+
+    __table_args__ = (
+        UniqueConstraint(
+            "property_id", "user_id", name="uq_property_owners_property_user"
+        ),
+    )
+
+    def __repr__(self):
+        return (
+            f"<PropertyOwner property={self.property_id} "
+            f"user={self.user_id} pct={self.ownership_pct}>"
+        )

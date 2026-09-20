@@ -14,6 +14,10 @@
 #   Pay    -> DR AP     / CR Cash
 #
 # All routes are org-scoped.
+#
+# As of Step 8a, owner_id is passed through from the ORM to
+# the response so the trust sub-ledger and reconciliation
+# have the tag available on every bill.
 # ============================================================
 
 from datetime import date
@@ -78,6 +82,7 @@ def _bill_to_out(b: Bill) -> BillOut:
         status=b.status,
         property_id=b.property_id,
         unit_id=b.unit_id,
+        owner_id=b.owner_id,
         payable_gl_account_id=b.payable_gl_account_id,
         payable_gl_account_number=(
             b.payable_gl_account.gl_number if b.payable_gl_account else None

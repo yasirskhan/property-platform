@@ -13,9 +13,13 @@
 #   * Never both, never zero on both.
 #   * For a transaction: SUM(debit) == SUM(credit).
 #
-# property_id and unit_id are optional. Company-wide entries
-# (bank fees, inter-property transfers on the parent leg)
-# leave them null. Property-scoped reports filter on them.
+# property_id, unit_id, and owner_id are optional. Company-wide
+# entries (bank fees, inter-property transfers on the parent
+# leg) leave them null. Property-scoped and owner-scoped reports
+# filter on them.
+#
+# The owner_id tag is what powers the trust sub-ledger and the
+# 3-way reconciliation (AppFolio parity).
 # ============================================================
 
 from datetime import datetime
@@ -74,6 +78,19 @@ class GLEntry(Base):
         nullable=True,
     )
 
+    # ---------------- Owner scoping (AppFolio parity) ----------------
+    # The owner this GL line economically belongs to. Nullable
+    # because company-level entries (bank fees, transfers between
+    # properties) have no owner. This is the tag that lets us
+    # group GL activity by owner — the foundation of the trust
+    # sub-ledger and the 3-way reconciliation.
+    owner_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     description = Column(String(500), nullable=True)
 
     debit = Column(Numeric(12, 2), nullable=False, default=0)
@@ -86,6 +103,7 @@ class GLEntry(Base):
     gl_account = relationship("GLAccount")
     property = relationship("Property")
     unit = relationship("Unit")
+    owner = relationship("User", foreign_keys=[owner_id])
 
     def __repr__(self) -> str:
         side = "DR" if (self.debit or 0) else "CR"

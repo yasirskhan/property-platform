@@ -1,5 +1,12 @@
 # Alembic environment for property-platform
 # Full replacement — connects Alembic to our SQLAlchemy Base and models
+#
+# IMPORTANT: Every model module must be imported below. If a
+# model isn't imported, Alembic won't see its table. This matters
+# for two things:
+#   1. Any future autogenerate attempt (we don't use it, but
+#      a future session might try).
+#   2. Consistency — the list here should match init_db.py.
 
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
@@ -13,24 +20,49 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 # Import our Base and ALL models so Alembic can see every table
 from app.core.database import Base
 
-# Import every model module here — this is critical
-# If a model isn't imported, Alembic won't know its table exists
+# ---- Core ----
 import app.models.user
+import app.models.audit_log
+import app.models.platform_settings
+import app.models.sidebar_preference
+import app.models.menu_permission
+import app.models.user_permission
+
+# ---- Properties / leases / operations ----
 import app.models.property
 import app.models.lease
 import app.models.work_order
-import app.models.password_reset
-import app.models.org_email
-import app.models.audit_log
 import app.models.tax
 import app.models.utility
 import app.models.insurance
 import app.models.expense
 import app.models.income
+
+# ---- Applications / screening / insurance ----
 import app.models.application
 import app.models.tenant_insurance
 import app.models.screening
-import app.models.platform_settings
+
+# ---- Auth / settings ----
+import app.models.password_reset
+import app.models.org_email
+
+# ---- Accounting: General Ledger ----
+import app.models.gl_account
+import app.models.gl_transaction
+import app.models.gl_entry
+
+# ---- Accounting: Receipts ----
+import app.models.receipt
+import app.models.receipt_line
+
+# ---- Accounting: Bills ----
+import app.models.bill
+import app.models.bill_line
+
+# ---- Accounting: Deposits ----
+import app.models.deposit
+import app.models.deposit_line
 
 # Alembic Config object
 config = context.config

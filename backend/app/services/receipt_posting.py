@@ -17,6 +17,11 @@
 #
 # If anything fails, we roll back. Either the whole receipt
 # lands (GL + Receipt + lines) or nothing does.
+#
+# As of Step 8a, owner_id (nullable) is carried on the receipt
+# and on every GL line it produces. Company-level receipts leave
+# it null. This tag powers the trust sub-ledger and 3-way
+# reconciliation (AppFolio parity).
 # ============================================================
 
 from __future__ import annotations
@@ -88,6 +93,7 @@ def _build_posting_lines(
         gl_account_id=payload.cash_gl_account_id,
         property_id=payload.property_id,
         unit_id=payload.unit_id,
+        owner_id=payload.owner_id,
         description=f"{payload.type.title()} receipt",
         debit=Decimal(payload.amount),
         credit=Decimal("0"),
@@ -114,6 +120,7 @@ def _build_posting_lines(
                     gl_account_id=ln.gl_account_id,
                     property_id=ln.property_id or payload.property_id,
                     unit_id=ln.unit_id or payload.unit_id,
+                    owner_id=payload.owner_id,
                     description=ln.description or "Tenant payment",
                     debit=Decimal("0"),
                     credit=Decimal(ln.amount_to_pay),
@@ -140,6 +147,7 @@ def _build_posting_lines(
                 gl_account_id=payload.income_gl_account_id,
                 property_id=payload.property_id,
                 unit_id=payload.unit_id,
+                owner_id=payload.owner_id,
                 description=payload.payer_name or "Owner contribution",
                 debit=Decimal("0"),
                 credit=Decimal(payload.amount),
@@ -157,6 +165,7 @@ def _build_posting_lines(
                 gl_account_id=payload.income_gl_account_id,
                 property_id=payload.property_id,
                 unit_id=payload.unit_id,
+                owner_id=payload.owner_id,
                 description=payload.received_from or "Other receipt",
                 debit=Decimal("0"),
                 credit=Decimal(payload.amount),
@@ -224,6 +233,7 @@ def post_receipt(
             cash_gl_account_id=payload.cash_gl_account_id,
             tenant_user_id=payload.tenant_user_id,
             owner_user_id=payload.owner_user_id,
+            owner_id=payload.owner_id,
             income_gl_account_id=payload.income_gl_account_id,
             payer_name=payload.payer_name,
             received_from=payload.received_from,
@@ -372,10 +382,11 @@ def reverse_receipt(
             organization_id=original.organization_id,
             type=original.type,
             receipt_date=reversal_date,
-            amount=-Decimal(original.amount) if False else Decimal(original.amount),
+            amount=Decimal(original.amount),
             cash_gl_account_id=original.cash_gl_account_id,
             tenant_user_id=original.tenant_user_id,
             owner_user_id=original.owner_user_id,
+            owner_id=original.owner_id,
             income_gl_account_id=original.income_gl_account_id,
             payer_name=original.payer_name,
             received_from=original.received_from,

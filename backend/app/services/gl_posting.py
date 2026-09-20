@@ -16,6 +16,10 @@
 #
 # If you ever feel tempted to write directly to the tables,
 # stop. Add a feature to post_transaction() instead.
+#
+# As of Step 8a (Phase 2), each line also carries an optional
+# owner_id tag (AppFolio parity — powers the trust sub-ledger
+# and 3-way reconciliation).
 # ============================================================
 
 from __future__ import annotations
@@ -254,6 +258,7 @@ def post_transaction(
                 gl_account_id=line.gl_account_id,
                 property_id=line.property_id,
                 unit_id=line.unit_id,
+                owner_id=line.owner_id,
                 description=line.description,
                 debit=Decimal(line.debit or 0),
                 credit=Decimal(line.credit or 0),
@@ -304,6 +309,9 @@ def reverse_transaction(
     Creates a new transaction with every line flipped
     (debit <-> credit). Marks the original is_reversed=True.
     The two transactions net to zero.
+
+    owner_id is carried forward on each flipped line so the
+    owner sub-ledger nets to zero too.
     """
     if original.is_reversed:
         raise PostingError("This transaction has already been reversed.")
@@ -316,6 +324,7 @@ def reverse_transaction(
                 gl_account_id=e.gl_account_id,
                 property_id=e.property_id,
                 unit_id=e.unit_id,
+                owner_id=e.owner_id,
                 description=f"Reversal: {e.description or ''}".strip(),
                 debit=Decimal(e.credit or 0),
                 credit=Decimal(e.debit or 0),

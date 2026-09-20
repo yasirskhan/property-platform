@@ -68,6 +68,18 @@ class Bill(Base):
         index=True,
     )
 
+    # ---------------- Owner scoping (AppFolio parity) ----------------
+    # The owner this bill economically belongs to. Nullable because
+    # company-level bills (bank fees, office supplies) have no
+    # owner, and multi-owner properties require explicit choice.
+    # Used by the trust sub-ledger and the 3-way reconciliation.
+    owner_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     # Business date of the bill (when it was incurred).
     bill_date = Column(Date, nullable=False, index=True)
 
@@ -152,7 +164,11 @@ class Bill(Base):
 
     # ---------------- Relationships ----------------
     organization = relationship("Organization")
+    # Two distinct FKs to users:
+    #   payee_user   -> payee_user_id  (who is being paid)
+    #   scoped_owner -> owner_id       (economic owner for the GL)
     payee_user = relationship("User", foreign_keys=[payee_user_id])
+    scoped_owner = relationship("User", foreign_keys=[owner_id])
     payable_gl_account = relationship(
         "GLAccount", foreign_keys=[payable_gl_account_id]
     )

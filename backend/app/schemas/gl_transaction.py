@@ -3,11 +3,12 @@
 # ------------------------------------------------------------
 # Pydantic shapes for the General Ledger API.
 #
-# Read-only shapes for now. The write shape (PostingLine and
-# the request that wraps it) will live here too, but the
-# public "create a transaction" endpoint is deferred to Step 2b
-# after receipts and bills exist. The internal posting service
-# uses PostingLine directly.
+# PostingLine is the internal write shape used by
+# services/gl_posting.py. Read shapes cover transactions,
+# entries, ledger, balance, and trial balance.
+#
+# owner_id was added in Phase 2 Step 8a for AppFolio-parity
+# trust accounting (the third leg of the 3-way reconciliation).
 # ============================================================
 
 from datetime import date, datetime
@@ -26,6 +27,10 @@ class PostingLine(BaseModel):
     gl_account_id: int
     property_id: Optional[int] = None
     unit_id: Optional[int] = None
+    # Owner scoping (AppFolio parity). Optional — company-level
+    # lines have no owner. When set, this tag powers the trust
+    # sub-ledger and the 3-way reconciliation.
+    owner_id: Optional[int] = None
     description: Optional[str] = Field(None, max_length=500)
     debit: Decimal = Decimal("0")
     credit: Decimal = Decimal("0")
@@ -43,6 +48,7 @@ class GLEntryOut(BaseModel):
     gl_account_name: Optional[str] = None
     property_id: Optional[int] = None
     unit_id: Optional[int] = None
+    owner_id: Optional[int] = None
     description: Optional[str] = None
     debit: Decimal
     credit: Decimal
@@ -98,6 +104,7 @@ class LedgerLineOut(BaseModel):
     description: Optional[str] = None
     property_id: Optional[int] = None
     unit_id: Optional[int] = None
+    owner_id: Optional[int] = None
     debit: Decimal
     credit: Decimal
     running_balance: Decimal

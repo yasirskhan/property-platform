@@ -14,6 +14,9 @@
 # so the client can format it as needed.
 #
 # Everything is scoped to the caller's org.
+#
+# As of Step 8a, LedgerLineOut includes owner_id so trust
+# sub-ledger reporting can drill into the owner dimension.
 # ============================================================
 
 from datetime import date
@@ -142,6 +145,7 @@ def get_account_ledger(
                 description=entry.description,
                 property_id=entry.property_id,
                 unit_id=entry.unit_id,
+                owner_id=entry.owner_id,
                 debit=d,
                 credit=c,
                 running_balance=running,

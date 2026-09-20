@@ -46,6 +46,10 @@ class BillCreateIn(BaseModel):
 
     property_id: Optional[int] = None
     unit_id: Optional[int] = None
+    # Owner scoping (AppFolio parity). Optional — company-level
+    # bills leave it null. When set, tags the bill and every GL
+    # line it produces.
+    owner_id: Optional[int] = None
 
     remarks: Optional[str] = None
     notes: Optional[str] = None
@@ -114,6 +118,7 @@ class BillOut(BaseModel):
 
     property_id: Optional[int] = None
     unit_id: Optional[int] = None
+    owner_id: Optional[int] = None
 
     payable_gl_account_id: int
     payable_gl_account_number: Optional[str] = None

@@ -10,6 +10,10 @@
 #
 # All money fields are Decimal (never float) so we never
 # lose pennies. All dates are Python date objects.
+#
+# As of Step 8a (Phase 2), receipts also carry an optional
+# owner_id tag (AppFolio parity — powers the trust sub-ledger
+# and the 3-way reconciliation).
 # ============================================================
 
 from datetime import date, datetime
@@ -70,6 +74,10 @@ class ReceiptCreateIn(BaseModel):
     # Common
     property_id: Optional[int] = None
     unit_id: Optional[int] = None
+    # Owner scoping (AppFolio parity). Optional — company-level
+    # receipts leave it null. When set, tags the receipt and
+    # every GL line it produces.
+    owner_id: Optional[int] = None
     reference_number: Optional[str] = Field(None, max_length=60)
     remarks: Optional[str] = None
     notes: Optional[str] = None
@@ -137,6 +145,7 @@ class ReceiptOut(BaseModel):
 
     property_id: Optional[int] = None
     unit_id: Optional[int] = None
+    owner_id: Optional[int] = None
     reference_number: Optional[str] = None
     remarks: Optional[str] = None
     notes: Optional[str] = None

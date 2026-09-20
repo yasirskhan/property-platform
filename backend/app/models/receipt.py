@@ -79,7 +79,21 @@ class Receipt(Base):
         index=True,
     )
 
-    # ---------------- OWNER fields ----------------
+    # ---------------- Owner scoping (AppFolio parity) ----------------
+    # The owner this receipt economically belongs to. Nullable
+    # because company-level receipts (bank fees, misc) have no
+    # owner, and multi-owner properties require explicit choice.
+    # Used by the trust sub-ledger and the 3-way reconciliation.
+    owner_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    # ---------------- OWNER receipt fields ----------------
+    # (The "who paid" pointer for OWNER-type receipts. Distinct
+    #  from owner_id, which is the economic scoping tag.)
     owner_user_id = Column(
         Integer,
         ForeignKey("users.id", ondelete="SET NULL"),
@@ -155,7 +169,11 @@ class Receipt(Base):
         "GLAccount", foreign_keys=[income_gl_account_id]
     )
     tenant = relationship("User", foreign_keys=[tenant_user_id])
+    # Two distinct FKs to users:
+    #   owner       -> owner_user_id  (the OWNER-receipt payer)
+    #   scoped_owner-> owner_id       (economic owner for the GL)
     owner = relationship("User", foreign_keys=[owner_user_id])
+    scoped_owner = relationship("User", foreign_keys=[owner_id])
     property = relationship("Property")
     unit = relationship("Unit")
     gl_transaction = relationship("GLTransaction")
