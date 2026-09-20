@@ -1,16 +1,28 @@
 // ============================================================
 // Dashboard Layout
 // ------------------------------------------------------------
-// Wraps every dashboard page with a shared top nav bar.
-// Shows the user's avatar, name, and a Log Out button.
+// Three-zone shell that wraps every dashboard page.
+//
+//   ┌─────────┬────────────────────────┬─────────┐
+//   │ Sidebar │  TopBar                │  Right  │
+//   │         ├────────────────────────┤  Panel  │
+//   │         │  Page content          │         │
+//   └─────────┴────────────────────────┴─────────┘
+//
+// Right panel is hidden by default — pages opt in later.
+//
+// Menu permissions come from <MenuProvider>, which loads the
+// resolved menu from the backend once per session.
 // ============================================================
 
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { apiGet, clearToken, isLoggedIn, fileUrl } from "@/lib/api";
+import { apiGet, clearToken, isLoggedIn } from "@/lib/api";
+import Sidebar from "@/components/shell/Sidebar";
+import TopBar from "@/components/shell/TopBar";
+import { MenuProvider } from "@/contexts/MenuContext";
 
 type User = {
   id: number;
@@ -19,6 +31,12 @@ type User = {
   last_name: string;
   role: string;
   profile_photo_url: string | null;
+  organization_id: number | null;
+};
+
+type OrgInfo = {
+  id: number;
+  name: string;
 };
 
 export default function DashboardLayout({
@@ -28,24 +46,36 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [orgName, setOrgName] = useState<string>("");
 
   useEffect(() => {
     if (!isLoggedIn()) {
       router.push("/login");
       return;
     }
+
     apiGet("/auth/me")
-      .then(setUser)
+      .then(async (u: User) => {
+        setUser(u);
+
+        if (u.organization_id) {
+          try {
+            const org: OrgInfo = await apiGet(
+              `/organizations/${u.organization_id}`
+            );
+            setOrgName(org.name);
+          } catch {
+            setOrgName("My Organization");
+          }
+        } else {
+          setOrgName("My Organization");
+        }
+      })
       .catch(() => {
         clearToken();
         router.push("/login");
       });
   }, [router]);
-
-  function handleLogout() {
-    clearToken();
-    router.push("/login");
-  }
 
   if (!user) {
     return (
@@ -56,68 +86,19 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
- <div className="flex items-center gap-8">
-            <Link href="/dashboard" className="font-bold text-slate-900">
-              Property Platform
-            </Link>
-            <nav className="flex items-center gap-6">
-              {(user.role === "admin" ||
-                user.role === "owner" ||
-                user.role === "manager") && (
-                <>
-                  <Link
-                    href="/dashboard/properties"
-                    className="text-sm text-slate-600 hover:text-slate-900"
-                  >
-                    Properties
-                  </Link>
-                  <Link
-                    href="/dashboard/team"
-                    className="text-sm text-slate-600 hover:text-slate-900"
-                  >
-                    Team
-                  </Link>
-                </>
-              )}
-            </nav>
-            <span className="text-xs px-2 py-1 bg-slate-100 text-slate-600 rounded-full uppercase tracking-wide">
-              {user.role}
-            </span>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/dashboard/profile"
-              className="flex items-center gap-3 hover:opacity-80"
-            >
-              {user.profile_photo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={fileUrl(user.profile_photo_url)}
-                  alt={user.first_name}
-                  className="w-8 h-8 rounded-full object-cover border border-slate-200"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-medium">
-                  {user.first_name.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <span className="text-sm text-slate-600">
-                {user.first_name} {user.last_name}
-              </span>
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="text-sm text-slate-500 hover:text-slate-900"
-            >
-              Log out
-            </button>
-          </div>
+    <MenuProvider>
+      <div className="min-h-screen flex bg-slate-50">
+        {/* LEFT: sidebar */}
+        <Sidebar orgName={orgName} />
+
+        {/* RIGHT OF SIDEBAR: topbar + content */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <TopBar user={user} />
+          <main className="flex-1 overflow-auto">
+            <div className="p-6">{children}</div>
+          </main>
         </div>
-      </header>
-      <main className="max-w-6xl mx-auto px-6 py-8">{children}</main>
-    </div>
+      </div>
+    </MenuProvider>
   );
 }

@@ -63,6 +63,16 @@ export async function apiPatch(path: string, body?: unknown) {
   return res.json();
 }
 
+export async function apiPut(path: string, body?: unknown) {
+  const res = await apiFetch(path, {
+    method: "PUT",
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error(await errorMessage(res));
+  if (res.status === 204) return null;
+  return res.json();
+}
+
 export async function apiDelete(path: string) {
   const res = await apiFetch(path, { method: "DELETE" });
   if (!res.ok) throw new Error(await errorMessage(res));
@@ -104,6 +114,7 @@ export function getToken(): string | null {
 export function isLoggedIn(): boolean {
   return !!getToken();
 }
+
 // ------------------------------------------------------------
 // File upload helper (multipart/form-data)
 // ------------------------------------------------------------

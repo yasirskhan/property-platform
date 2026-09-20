@@ -36,15 +36,20 @@ export default function OwnerDashboard() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Owner Dashboard</h1>
-        <Link
-          href="/dashboard/owner/settings/email"
-          className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700"
-        >
-          Email Settings
-        </Link>
-      </div>
+        <div className="flex gap-3">
+          <Link
+            href="/dashboard/owner/settings/email"
+            className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700"
+          >
+            Email Settings
+          </Link>
+          <Link
+            href="/dashboard/owner/settings/screening"
+            className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700"
+          >
+            Screening Settings
+          </Link>
+        </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard label="Properties" value={stats.properties} />

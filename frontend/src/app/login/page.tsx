@@ -1,8 +1,10 @@
 // ============================================================
 // Login Page
 // ------------------------------------------------------------
-// Users enter email + password, we call the backend,
-// store the JWT, and redirect based on role.
+// Users enter email + password, we call the backend, store the
+// JWT, and redirect based on role.
+//
+// Roles come back from the backend UPPERCASE (ADMIN, OWNER, ...).
 // ============================================================
 
 "use client";
@@ -11,6 +13,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiPost, saveToken, apiGet } from "@/lib/api";
+
+type Me = {
+  id: number;
+  email: string;
+  role: string;
+  organization_id: number | null;
+};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,20 +38,13 @@ export default function LoginPage() {
       const loginResult = await apiPost("/auth/login", { email, password });
       saveToken(loginResult.access_token);
 
-      // 2. Fetch the user's profile to know their role
-      const me = await apiGet("/auth/me");
+      // 2. Fetch the user's profile
+      const me: Me = await apiGet("/auth/me");
 
-      // 3. Redirect based on role
-      const roleRoutes: Record<string, string> = {
-        admin: "/dashboard/admin",
-        owner: "/dashboard/owner",
-        manager: "/dashboard/manager",
-        crew: "/dashboard/crew",
-        tenant: "/dashboard/tenant",
-      };
-
-      const target = roleRoutes[me.role] || "/dashboard";
-      router.push(target);
+      // 3. Everyone lands on the shared dashboard.
+      //    The dashboard layout reads the role and renders the
+      //    right sidebar items based on menu permissions.
+      router.push("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
       setLoading(false);
@@ -54,7 +56,9 @@ export default function LoginPage() {
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-slate-900">Welcome back</h1>
-          <p className="text-slate-500 mt-1">Log in to your Property Platform account</p>
+          <p className="text-slate-500 mt-1">
+            Log in to your Property Platform account
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -86,10 +90,14 @@ export default function LoginPage() {
             />
           </div>
           <div className="text-right">
-            <Link href="/forgot-password" className="text-sm text-slate-500 hover:underline">
+            <Link
+              href="/forgot-password"
+              className="text-sm text-slate-500 hover:underline"
+            >
               Forgot password?
             </Link>
           </div>
+
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
               {error}
@@ -105,14 +113,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-slate-500">
-          Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-slate-900 font-medium hover:underline">
-            Sign up
-          </Link>
-        </p>
-
-        <p className="mt-2 text-center text-sm">
+        <p className="mt-6 text-center text-sm">
           <Link href="/" className="text-slate-500 hover:underline">
             ← Back to home
           </Link>
