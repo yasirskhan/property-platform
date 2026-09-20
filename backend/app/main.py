@@ -40,6 +40,7 @@ from app.routers import gl_reports as gl_reports_router
 from app.routers import receipts as receipts_router
 from app.routers import bills as bills_router
 from app.routers import deposits as deposits_router
+from app.routers import diagnostics as diagnostics_router
 
 # ------------------------------------------------------------
 # Create the FastAPI app
@@ -94,6 +95,7 @@ app.include_router(gl_reports_router.router)
 app.include_router(receipts_router.router)
 app.include_router(bills_router.router)
 app.include_router(deposits_router.router)
+app.include_router(diagnostics_router.router)
 
 
 # ------------------------------------------------------------
