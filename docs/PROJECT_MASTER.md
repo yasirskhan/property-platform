@@ -11,41 +11,54 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase 3 (Property Detail tabs). Steps 3a, 3b, 3c
-COMPLETE. All Phase 3 tabs now match AppFolio (except Attachments,
-deferred to Phase 3.7). Next: 3d (Photos).
+**Current activity:** Phase 3 (Property Detail tabs) is COMPLETE.
+Steps 3a (Amenities), 3b (Appliances), 3c (Improvements), and
+3d (Photos) are all done. All Phase 3 tabs now match AppFolio
+(except Attachments, deferred to Phase 3.7).
+
+**Next:** Display settings (Section 58) + per-org currency
+(Section 59). Infrastructure first, then close Phase 3 with a
+master doc check + commit.
 
 **Last completed work (this session):**
 - Phase 3 Step 3a (Amenities) — added `fee_amount` and
   `availability_status` to match AppFolio.
-- Phase 3 Step 3b (Appliances) — added `condition` to match AppFolio.
-- Phase 3 Step 3c (Improvements) — added `warranty_expires` to match
+- Phase 3 Step 3b (Appliances) — added `condition` to match
   AppFolio.
+- Phase 3 Step 3c (Improvements) — added `warranty_expires` to
+  match AppFolio.
+- Phase 3 Step 3d (Photos) — upload, cover flag, marketing flag,
+  bulk upload, captions, sort_order, lightbox, styled delete
+  modal. No image editor yet — that's Phase 3.5.
 - Universal `delete_reason` — added to property_amenities,
   property_appliances, property_improvements.
-- `gl_accounts.must_clear` — added for the real Positive Fee diagnostic.
-- Migration HEAD now: `59a25b856f18_add_phase3_parity_fields`.
-- Section 57 (AppFolio Feature Parity Audit) added — 100+ items.
-- Section 38 rebuilt with Phases 3.5, 3.6, 3.7, 4.5.
+- `gl_accounts.must_clear` — added for the real Positive Fee
+  diagnostic.
+- Migration HEAD now: `00bc0d143eac_add_property_photos`.
+- Section 57 (AppFolio Feature Parity Audit) updated — Photos
+  marked built.
+- Section 38 updated — Phase 3 marked DONE.
+- Section 64 (Property Photos) added.
 
 **What's NOT built yet (designed, not coded):**
-- Phase 3d: Photos tab (upload, cover flag, marketing flag, bulk
-  upload, captions, sort, styled delete modal). No image editor —
-  that's Phase 3.5.
 - Display settings — one page under Settings with Layout mode
-  (Tabs vs Vertical), Theme (Light/Dark/Auto), Density, Date format,
-  Number format, Currency format, Font size, Accent color, Reduce
-  motion. Layout + Theme wired first; rest are shown as "Coming soon"
-  but their table columns exist so no re-migration is needed.
-- Per-org currency — each customer uses their own currency end-to-end.
-  No exchange, no conversion. Org picks INR / USD / GBP / EUR / etc.
+  (Tabs vs Vertical), Theme (Light/Dark/Auto), Density, Date
+  format, Number format, Currency format, Font size, Accent
+  color, Reduce motion. Layout + Theme wired first; rest are
+  shown as "Coming soon" but their table columns exist so no
+  re-migration is needed.
+- Per-org currency — each customer uses their own currency
+  end-to-end. No exchange, no conversion. Org picks
+  INR / USD / GBP / EUR / etc.
 - All Phase 3.5, 3.6, 3.7, 4, 4.5, 5-12 items — see Section 38.
 
 **Customer-facing impact:**
 - Attachments (Phase 3.7) and Vendor link (Phase 4) are the only
   remaining gaps on the Amenities/Appliances/Improvements tabs.
-- Display settings + per-org currency are what international clients
-  (India, UK, EU) will look for first.
+- Photos tab is complete. Image editor + drag-to-reorder land
+  in Phase 3.5.
+- Display settings + per-org currency are what international
+  clients (India, UK, EU) will look for first.
 - All gaps are scheduled in this doc. Nothing is unplanned.
 
 ## A2. WHAT'S BUILT (WORKING)
@@ -70,6 +83,7 @@ deferred to Phase 3.7). Next: 3d (Photos).
 - Phase 3 Step 3a — Amenities (fee + availability)
 - Phase 3 Step 3b — Appliances (condition)
 - Phase 3 Step 3c — Improvements (warranty_expires)
+- Phase 3 Step 3d — Photos (upload, cover, marketing, lightbox)
 
 ## A3. TECH STACK
 
@@ -146,16 +160,13 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Continue Phase 3 — Step 3d (Photos), then Display settings.**
+**Phase 3 is complete. Build Display settings + per-org currency.**
 
 Order:
-1. Step 3d: Photos tab (upload, cover flag, marketing flag, bulk
-   upload, captions, sort, styled delete modal). No image editor —
-   that's Phase 3.5.
-2. Display settings section (Section 58) + per-org currency
-   (Section 59) — build the infrastructure first so Photos and
-   every future module inherits both.
-3. Close Phase 3 — master doc check + commit.
+1. Display settings section (Section 58) + per-org currency
+   (Section 59) — build the infrastructure first so every
+   future module inherits both.
+2. Close Phase 3 — master doc check + commit.
 
 ## B2. AFTER THAT (Phase 3.5 onward)
 
@@ -1009,7 +1020,7 @@ Phase 3  — Property Detail tabs: IN PROGRESS
   3a. DONE Amenities
   3b. DONE Appliances
   3c. DONE Improvements
-  3d. Photos (NEXT)
+  3d. DONE Photos
 Phase 3.5 — Property Detail Polish
   - Amenities: fee_amount, availability_status
   - Appliances: condition
@@ -1984,7 +1995,7 @@ Status legend:
 - ✅ Amenities tab (fee + availability) — done
 - ✅ Appliances tab (condition) — done
 - ✅ Improvements tab (warranty) — done
-- ⬜ Photos tab (build it) — Phase 3d
+- ✅ Photos tab (upload, cover, marketing, lightbox, sort)
 - ⬜ Amenities / Appliances / Improvements attachments — Phase 3.7
 - ⬜ Keys tracking tab — Phase 3.5
 - ⬜ Fixed Assets tab — Phase 5
@@ -2533,5 +2544,223 @@ Remaining gaps on this tab:
 
 Menu: none — Photos is a tab inside Property Detail.
 
+
+# SECTION 65 — HANDOFF PROCEDURE (HOW TO CONTINUE IN A NEW CHAT)
+
+This section is the complete, self-contained procedure for
+starting a new chat and picking up exactly where we left off.
+Follow it every time.
+
+## What you paste in the new chat (in this order)
+
+1. The handoff prompt (from Section 41):
+
+       I'm continuing to build a property management platform (AppFolio clone).
+
+       Read this PROJECT_MASTER.md file fully. It has three parts:
+       - Part A: Current state
+       - Part B: Next action
+       - Part C: Full reference
+
+       Then continue from the immediate next action listed in Part B1.
+
+       Rules you must follow:
+       - I am a non-coder. Never ask me to write code.
+       - Give whole files, not fragments. I select-all, delete, paste, save.
+       - Label every command BACKEND or FRONTEND.
+       - One step at a time. Wait for me to run and report back.
+       - If I paste an error, fix it and give the next command.
+       - Backend venv is at backend\venv (not .venv). DB is property_platform.db.
+       - Role values are UPPERCASE. Menu keys are UPPERCASE and dotted.
+       - Every GL posting goes through post_transaction().
+
+2. The whole PROJECT_MASTER.md — paste it right after.
+
+3. The whole APPFOLIO_PARITY_CHECKLIST.json — paste it right after that.
+
+That's three pastes. That's it.
+
+## What each file is for (so the new agent understands)
+
+### PROJECT_MASTER.md (the doc)
+
+The full history and reference. It contains:
+
+- Part A — current state (what we've built, what's next)
+- Part B — immediate next action (what to do right now)
+- Part C — 65+ sections of full reference (every module, every
+  rule, every design decision)
+
+How it gets updated: via a Python script that replaces blocks
+(find-and-replace on # SECTION markers) or appends new sections
+before # END OF PROJECT_MASTER.md. Never edited by hand.
+
+### APPFOLIO_PARITY_CHECKLIST.json (the checklist)
+
+The complete inventory of every AppFolio feature and its status:
+
+- built — we have it and it works
+- in_progress — being built now
+- scheduled — has a phase assigned
+
+Every scheduled item MUST have a phase field.
+No item can be unplanned.
+
+Why it exists: so nothing gets lost. If a feature isn't in the
+checklist, it doesn't exist as far as the process is concerned.
+When you ask "does this match AppFolio?", the checklist answers
+with certainty.
+
+How it gets updated: by editing the JSON directly (adding new
+items, changing statuses).
+
+### check_parity.py (the enforcement script)
+
+Reads the checklist, prints a summary, and fails (exit code 1)
+if:
+
+- Any item has status unplanned or planned_no_phase
+- Any scheduled item is missing a phase
+
+How it gets run: `python check_parity.py` from the backend
+folder, venv active. Must print CLEAN before every push.
+
+## The three workflows (how each thing gets updated)
+
+### Workflow 1 — Update the master doc
+
+Pattern: Two small scripts (part 1 and part 2) that either
+replace a block of the doc or append new sections before
+# END OF PROJECT_MASTER.md.
+
+Why two scripts: the doc is 85+ KB. Pasted as one giant script,
+the paste truncates. Split into two, each part is small enough
+to paste safely.
+
+Steps:
+
+1. In backend, create `update_master_p1.py` — a Python script
+   that:
+   - Reads PROJECT_MASTER.md
+   - Replaces a block between two markers (# PART A ... # PART B,
+     for example)
+   - Writes the file back
+2. Run it: `python update_master_p1.py`
+3. Create `update_master_p2.py` — a second script that:
+   - Appends new sections before # END OF PROJECT_MASTER.md
+4. Run it: `python update_master_p2.py`
+5. Verify:
+       Select-String -Path ...\PROJECT_MASTER.md -Pattern "^# SECTION" | Measure-Object | Select-Object -ExpandProperty Count
+   Section count must equal the last section number.
+6. Delete the scripts:
+       Remove-Item update_master_p1.py, update_master_p2.py
+7. Push: double-click push.bat
+
+Common pitfalls:
+
+- Marker not found -> the exact text in the doc doesn't match
+  what the script expects. Fix = read the actual text on disk
+  and match it exactly.
+- Duplicate sections -> running the append script twice.
+  Fix = a small cleanup script that removes the second
+  occurrence.
+
+Where the script lives: in backend\ at the project root.
+Never committed — added to .gitignore.
+
+### Workflow 2 — Update the parity checklist
+
+Pattern: Open the JSON in VS Code, add/edit items, save.
+
+Steps:
+
+1. `code C:\Projects\property-platform\docs\APPFOLIO_PARITY_CHECKLIST.json`
+2. Find the item you want to change (Ctrl+F the id)
+3. Change "status" or "phase"
+4. To add a new item, copy an existing item and edit its fields
+5. Save
+6. Verify: `python check_parity.py` — must still print CLEAN
+7. Push: double-click push.bat
+
+JSON item format:
+
+    {
+      "id": "properties.tabs.photos",
+      "area": "Properties / Tabs",
+      "feature": "Photos tab (upload, cover, marketing, bulk, captions, sort)",
+      "status": "built",
+      "phase": "3d"
+    }
+
+- id — unique, dotted, lowercase (e.g. accounting.receipts.process_nsf)
+- area — the module (e.g. Accounting / Receipts)
+- feature — human description
+- status — built, in_progress, scheduled
+- phase — required if status is scheduled (e.g. 3.5, 4, 5, 7, 8)
+
+Rule: if you build a feature and don't update the checklist,
+check_parity.py still says CLEAN — but it's lying. The checklist
+is only as good as its upkeep.
+
+### Workflow 3 — Push to GitHub
+
+Pattern: push.bat on the desktop. One double-click. Done.
+
+What push.bat does:
+
+1. cd into C:\Projects\property-platform
+2. `git add .` — stage everything that changed
+3. `git commit -m "auto-push <date> <time>"` — commit with a timestamp
+4. `git push` — send to GitHub
+5. Prints `DONE. Everything is on GitHub.` on success
+6. Waits for a keypress before closing
+
+When to use it: always, unless you want a custom commit message.
+
+When to use a custom message: for significant milestones, open
+PowerShell, cd C:\Projects\property-platform, then:
+
+    git add . ; git commit -m "Phase 3 complete: Photos tab + parity checklist" ; git push
+
+What's NOT pushed (via .gitignore):
+
+- property_platform.db and backups
+- venv\, node_modules\, .next\
+- One-off scripts: update_master*.py, fix_*.py, add_*.py,
+  patch_*.py, rebuild_*.py
+- __pycache__
+
+Common errors:
+
+- Everything up-to-date -> nothing changed, but it still pushed
+  (safe)
+- rejected (non-fast-forward) -> someone else pushed. Run
+  `git pull --rebase` then push.bat again.
+- Auth prompt -> GitHub opens a browser for login. Sign in once,
+  it remembers.
+
+## Before every push, this checklist
+
+1. `python check_parity.py` -> must say CLEAN
+2. If a feature was completed -> update its checklist item to built
+3. If a new feature was added -> add it to the checklist with
+   status + phase
+4. If a phase was completed -> update Part B1 of the master doc
+5. Delete any one-off scripts from backend\
+6. Double-click push.bat
+
+If all six are done, nothing gets lost. Ever.
+
+## What to paste next time (recap)
+
+Three pastes, in this order:
+
+1. The Section 41 handoff prompt (above)
+2. The entire PROJECT_MASTER.md
+3. The entire APPFOLIO_PARITY_CHECKLIST.json
+
+The new agent reads everything, follows the rules, starts from
+Part B1, and uses the three workflows above to keep everything
+current.
 
 # END OF PROJECT_MASTER.md
