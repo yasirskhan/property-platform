@@ -50,8 +50,10 @@ from app.routers import property_appliances as property_appliances_router
 from app.routers import property_improvements as property_improvements_router
 from app.routers import property_photos as property_photos_router
 from app.models.user_display_preference import UserDisplayPreference  # noqa: F401
+from app.models.charge import Charge  # noqa: F401
 from app.routers import settings_display as settings_display_router
 from app.routers import currencies as currencies_router
+from app.routers import charges as charges_router
 
 # ------------------------------------------------------------
 # Create the FastAPI app
@@ -117,6 +119,8 @@ app.include_router(property_improvements_router.router)
 app.include_router(property_photos_router.router)
 app.include_router(settings_display_router.router)
 app.include_router(currencies_router.router)
+app.include_router(charges_router.router)
+
 
 # ------------------------------------------------------------
 # Root + health check

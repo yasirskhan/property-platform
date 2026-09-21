@@ -59,6 +59,7 @@ export const MENU_ENTRIES: Record<string, MenuEntry> = {
 
   // ---------- accounting children ----------
   "ACCOUNTING.RECEIVABLES":     { key: "ACCOUNTING.RECEIVABLES",     label: "Receipts",          href: "/dashboard/accounting/receipts",        icon: "" },
+  "ACCOUNTING.CHARGES":         { key: "ACCOUNTING.CHARGES",         label: "Charges",           href: "/dashboard/accounting/charges",         icon: "" },
   "ACCOUNTING.PAYABLES":        { key: "ACCOUNTING.PAYABLES",        label: "Bills",             href: "/dashboard/accounting/bills",           icon: "" },
   "ACCOUNTING.BANK_ACCOUNTS":   { key: "ACCOUNTING.BANK_ACCOUNTS",   label: "Bank Accounts",     href: "/dashboard/accounting/bank-accounts",   icon: "" },
   "ACCOUNTING.JOURNAL_ENTRIES": { key: "ACCOUNTING.JOURNAL_ENTRIES", label: "Journal Entries",   href: "/dashboard/accounting/journal-entries", icon: "" },
