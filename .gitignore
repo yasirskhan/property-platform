@@ -73,3 +73,10 @@ backend/src/
 # Throwaway patch scripts (master doc rebuilds, one-off fixes)
 /backend/patch_master*.py
 /backend/rebuild_master*.py
+
+# Throwaway master-doc scripts (regenerated per session)
+/backend/update_master*.py
+/backend/fix_*.py
+/backend/add_*.py
+/backend/patch_*.py
+/backend/rebuild_*.py
