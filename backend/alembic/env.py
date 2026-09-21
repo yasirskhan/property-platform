@@ -64,6 +64,9 @@ import app.models.bill_line
 import app.models.deposit
 import app.models.deposit_line
 
+# ---- Property Detail tabs (Phase 3) ----
+import app.models.property_amenity
+
 # Alembic Config object
 config = context.config
 

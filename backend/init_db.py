@@ -59,6 +59,9 @@ from app.models.owner_statement import OwnerStatement  # noqa: F401
 # ---- Bank Accounts (Phase 2 Step 4) ----
 from app.models.bank_account import BankAccount  # noqa: F401
 
+# ---- Property Detail tabs (Phase 3) ----
+from app.models.property_amenity import PropertyAmenity  # noqa: F401
+
 
 def create_tables():
     print("Creating database tables...")
