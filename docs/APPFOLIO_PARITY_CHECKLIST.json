@@ -9,12 +9,12 @@
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
     "last_updated": "2026-09-21",
-    "migration_head": "8e1243432666",
+    "migration_head": "3909fd7c7792",
     "roadmap_section": "PROJECT_MASTER.md Section 57 (summary) + Section 38 (build order)",
     "canonical_note": "This JSON is the single source of truth for feature coverage and phase. Every item must have a status and, if scheduled, a phase. check_parity.py enforces this.",
     "total_items": 385,
-    "built_count": 98,
-    "scheduled_count": 287,
+    "built_count": 101,
+    "scheduled_count": 284,
     "in_progress_count": 0
   },
   "items": [
@@ -2055,22 +2055,25 @@
       "id": "accounting.charges.enter_charge",
       "area": "Accounting / Charges",
       "feature": "Enter Charge (standalone form)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Standalone Enter Charge form + /api/accounting/charges POST."
     },
     {
       "id": "accounting.charges.list_view",
       "area": "Accounting / Charges",
       "feature": "Charges list view (From/To date, Show, drill-down)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Charges list page + GET /api/accounting/charges with filters."
     },
     {
       "id": "accounting.charges.edit_rules",
       "area": "Accounting / Charges",
       "feature": "Charge edit rules (paid floor, no charge->credit conversion)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "PATCH enforces paid floor; DELETE refuses paid charges."
     },
     {
       "id": "accounting.bills.cash_account_field",

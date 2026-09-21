@@ -161,21 +161,33 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Phase 3.5 in progress. Next: Phase 3.6 (Accounting Polish).**
+**Phase 3.6 (Accounting Polish) in progress. 1 of ~70 items shipped.**
 
-The 70 items in Phase 3.6 are listed in the JSON (area -> phase 3.6).
-Start with the ones nearest to what's already built:
+SHIPPED this session (2026-09-21):
+  - Charges feature (accounting.charges.enter_charge,
+    accounting.charges.list_view, accounting.charges.edit_rules)
+  - Table `charges`, model Charge, router /api/accounting/charges
+  - Pages /dashboard/accounting/charges and .../charges/new
+  - Menu key ACCOUNTING.CHARGES
+  - Migration head: 3909fd7c7792
 
-1. Frontend sweep: replace hardcoded $"USD" formatting with
-   formatMoney() from lib/money.ts (TODAY'S smaller task).
-2. Journal Entries: sub-tabs (History | Recurring) — the AppFolio
-   PDF asks for this, JSON id accounting.je.sub_tabs.
+NEXT — pick one, in this order:
+1. Frontend sweep: replace hardcoded $ / "USD" formatting with
+   formatMoney() from lib/money.ts. Touches ~20-30 call sites.
+   JSON items: none specific; it's a polish pass.
+2. Journal Entries: sub-tabs (History | Recurring).
+   JSON id: accounting.je.sub_tabs.
 3. Receipts: Print / Repeat / edit-lock-after-deposit.
-4. Charges: Enter Charge + list view.
-5. Bank Account: Adjustments.
-6. Owner Held Security Deposits (whole feature).
+   JSON ids: accounting.receipts.print, accounting.receipts.repeat,
+   accounting.receipts.edit_lock_after_deposit.
+4. Bank Account: Adjustments.
+   JSON id: accounting.bank_accounts.adjustments.
+5. Owner Held Security Deposits (whole feature).
+   JSON id: accounting.owners.owner_held_security_deposits.
 
 Read Section 69 (FILE MAP) to know where every file is.
+Read docs/FILE_CATALOG.md to know what's inside every file.
+Regenerate the catalog with: cd backend ; python generate_file_catalog.py
 
 ## B2. AFTER THAT (Phase 3.5 onward)
 
@@ -3088,6 +3100,23 @@ USD, EUR, GBP, INR, AUD, CAD, NZD, SGD, AED.
 # SECTION 69 — FILE MAP (where everything lives)
 
 **Root:** C:\Projects\property-platform\
+
+## Companion document: docs/FILE_CATALOG.md
+
+`FILE_CATALOG.md` is an auto-generated inventory of every
+source file in the project - classes, routes, exports, and
+the migration chain, all extracted from the real code.
+
+Regenerate it any time with:
+
+    cd backend
+    python generate_file_catalog.py
+
+Section 67 requires regenerating it at the end of any session
+that added, renamed, or deleted source files.
+
+**Use this section (69) to know WHERE things live.
+Use FILE_CATALOG.md to know WHAT is inside each file.**
 
 ## Companion document: docs/FILE_CATALOG.md
 
