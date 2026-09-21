@@ -5,17 +5,11 @@
       "built": "Feature exists in our code and is verified working",
       "in_progress": "Currently being built",
       "scheduled": "Has a specific phase assigned",
-      "planned_no_phase": "Planned but no phase assigned yet -- THIS IS A BUG",
-      "unplanned": "Not planned at all -- THIS IS A BUG"
+      "planned_no_phase": "Planned but no phase assigned yet — THIS IS A BUG",
+      "unplanned": "Not planned at all — THIS IS A BUG"
     },
-    "last_updated": "2026-09-21",
-    "migration_head": "00bc0d143eac",
-    "roadmap_section": "PROJECT_MASTER.md Section 57 (summary) + Section 38 (build order)",
-    "canonical_note": "This JSON is the single source of truth for feature coverage and phase. Every item must have a status and, if scheduled, a phase. check_parity.py enforces this.",
-    "total_items": 377,
-    "built_count": 81,
-    "scheduled_count": 296,
-    "in_progress_count": 0
+    "last_updated": "2026-09-20",
+    "migration_head": "59a25b856f18"
   },
   "items": [
     {
@@ -82,6 +76,7 @@
       "status": "built",
       "phase": "2.1"
     },
+
     {
       "id": "accounting.gl.double_entry",
       "area": "Accounting / General Ledger",
@@ -180,6 +175,7 @@
       "status": "scheduled",
       "phase": "3.6"
     },
+
     {
       "id": "accounting.receipts.tenant",
       "area": "Accounting / Receipts",
@@ -278,6 +274,7 @@
       "status": "scheduled",
       "phase": "8"
     },
+
     {
       "id": "accounting.bills.enter",
       "area": "Accounting / Bills",
@@ -398,6 +395,7 @@
       "status": "scheduled",
       "phase": "3.6"
     },
+
     {
       "id": "accounting.deposits.batch",
       "area": "Accounting / Deposits",
@@ -433,6 +431,7 @@
       "status": "scheduled",
       "phase": "3.7"
     },
+
     {
       "id": "accounting.banks.operating",
       "area": "Accounting / Bank Accounts",
@@ -531,6 +530,7 @@
       "status": "scheduled",
       "phase": "3.7"
     },
+
     {
       "id": "accounting.mgmt_fees.two_tier",
       "area": "Accounting / Management Fees",
@@ -609,6 +609,7 @@
       "status": "scheduled",
       "phase": "3.6"
     },
+
     {
       "id": "accounting.owner_statements.snapshot",
       "area": "Accounting / Owner Statements",
@@ -700,6 +701,7 @@
       "status": "scheduled",
       "phase": "3.7"
     },
+
     {
       "id": "accounting.diagnostics.security_mismatch",
       "area": "Accounting / Diagnostics",
@@ -764,6 +766,7 @@
       "status": "scheduled",
       "phase": "3.6"
     },
+
     {
       "id": "accounting.je.manual",
       "area": "Accounting / Journal Entries",
@@ -806,6 +809,7 @@
       "status": "scheduled",
       "phase": "3.6"
     },
+
     {
       "id": "properties.core.crud",
       "area": "Properties / Core",
@@ -1037,6 +1041,7 @@
       "status": "scheduled",
       "phase": "3.7"
     },
+
     {
       "id": "units.crud",
       "area": "Units",
@@ -1065,6 +1070,7 @@
       "status": "scheduled",
       "phase": "3.7"
     },
+
     {
       "id": "people.tenants.crud",
       "area": "People / Tenants",
@@ -1191,6 +1197,7 @@
       "status": "scheduled",
       "phase": "3.5"
     },
+
     {
       "id": "people.owners.crud",
       "area": "People / Owners",
@@ -1233,6 +1240,7 @@
       "status": "scheduled",
       "phase": "3.7"
     },
+
     {
       "id": "people.vendors.entity",
       "area": "People / Vendors",
@@ -1275,6 +1283,7 @@
       "status": "scheduled",
       "phase": "7"
     },
+
     {
       "id": "people.contacts.crud",
       "area": "People / Contacts",
@@ -1296,6 +1305,7 @@
       "status": "scheduled",
       "phase": "4"
     },
+
     {
       "id": "leasing.listings",
       "area": "Leasing / Listings",
@@ -1345,6 +1355,7 @@
       "status": "scheduled",
       "phase": "7"
     },
+
     {
       "id": "maintenance.work_orders.basic",
       "area": "Maintenance / Work Orders",
@@ -1471,6 +1482,7 @@
       "status": "scheduled",
       "phase": "3.7"
     },
+
     {
       "id": "communication.in_app_chat",
       "area": "Communication",
@@ -1520,6 +1532,7 @@
       "status": "scheduled",
       "phase": "3.5"
     },
+
     {
       "id": "reporting.custom_builder",
       "area": "Reporting",
@@ -1527,6 +1540,7 @@
       "status": "scheduled",
       "phase": "3.7"
     },
+
     {
       "id": "settings.general",
       "area": "Settings / General",
@@ -1737,6 +1751,7 @@
       "status": "built",
       "phase": "session"
     },
+
     {
       "id": "portals.tenant",
       "area": "Portals",
@@ -1772,6 +1787,7 @@
       "status": "scheduled",
       "phase": "7"
     },
+
     {
       "id": "billing.plans",
       "area": "Billing",
@@ -1800,6 +1816,7 @@
       "status": "scheduled",
       "phase": "10"
     },
+
     {
       "id": "compliance.hoa",
       "area": "Compliance",
@@ -1842,6 +1859,7 @@
       "status": "scheduled",
       "phase": "4"
     },
+
     {
       "id": "integrations.stripe_payments",
       "area": "Integrations",
@@ -1884,6 +1902,7 @@
       "status": "scheduled",
       "phase": "8"
     },
+
     {
       "id": "universal.soft_delete",
       "area": "Universal Patterns",
@@ -1944,6 +1963,7 @@
       "phase": "3.5",
       "notes": "Done on Amenities/Appliances/Improvements; roll out everywhere"
     },
+
     {
       "id": "internal.platform_users",
       "area": "Internal Team",
@@ -1972,699 +1992,13 @@
       "status": "scheduled",
       "phase": "9"
     },
+
     {
       "id": "mobile.native_app",
       "area": "Native Mobile",
       "feature": "iOS + Android app (React Native)",
       "status": "scheduled",
       "phase": "12"
-    },
-    {
-      "id": "accounting.coa.recalculate_balances",
-      "area": "Accounting / Chart of Accounts",
-      "feature": "Recalculate Balances button (rebuild cached balances after COA edits)",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.coa.hide_semantics",
-      "area": "Accounting / Chart of Accounts",
-      "feature": "GL account Hide (excluded from pickers, still on reports)",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.je.sub_tabs",
-      "area": "Accounting / Journal Entries",
-      "feature": "Journal Entry sub-tabs (History | Recurring)",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.je.manually_post",
-      "area": "Accounting / Journal Entries",
-      "feature": "Manually Post Journal Entries (search + post)",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.je.remarks_vs_description",
-      "area": "Accounting / Journal Entries",
-      "feature": "Remarks (statement-level) vs Description (line-level) rule",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.receipts.print",
-      "area": "Accounting / Receipts",
-      "feature": "Print receipt",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.receipts.repeat",
-      "area": "Accounting / Receipts",
-      "feature": "Repeat Receipt button",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.receipts.edit_lock_after_deposit",
-      "area": "Accounting / Receipts",
-      "feature": "Lock GL Account + Cash Account after deposit",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.receipts.cash_account_automatic",
-      "area": "Accounting / Receipts",
-      "feature": "Cash Account 'Automatic' default (uses property default bank)",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.charges.enter_charge",
-      "area": "Accounting / Charges",
-      "feature": "Enter Charge (standalone form)",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.charges.list_view",
-      "area": "Accounting / Charges",
-      "feature": "Charges list view (From/To date, Show, drill-down)",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.charges.edit_rules",
-      "area": "Accounting / Charges",
-      "feature": "Charge edit rules (paid floor, no charge->credit conversion)",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.bills.cash_account_field",
-      "area": "Accounting / Bills",
-      "feature": "Cash Account field on Enter Bill (not only Pay step)",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.bills.post_codes",
-      "area": "Accounting / Bills",
-      "feature": "Post Codes for recurring bills",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.bills.manually_post",
-      "area": "Accounting / Bills",
-      "feature": "Manually Post Bills (search + select + Post)",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.bills.delete_rules",
-      "area": "Accounting / Bills",
-      "feature": "Delete Bill only if unpaid (link visibility rule)",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.checks.list_view",
-      "area": "Accounting / Checks",
-      "feature": "Checks list view (From/To date, Show, drill-down)",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.checks.void",
-      "area": "Accounting / Checks",
-      "feature": "Void Check (Void Payment link + confirmation)",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.transfer_funds",
-      "area": "Accounting / Transfer Funds",
-      "feature": "Transfer Funds (from property, to property, direction arrow, amount, date)",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.deposits.print",
-      "area": "Accounting / Deposits",
-      "feature": "Print Bank Deposit (deposit slip)",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.deposits.date_warning",
-      "area": "Accounting / Deposits",
-      "feature": "Receipt-vs-deposit date mismatch warning dialog",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.deposits.number_per_bank",
-      "area": "Accounting / Deposits",
-      "feature": "Deposit number auto-increment per bank account",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.deposits.edit",
-      "area": "Accounting / Deposits",
-      "feature": "Edit bank deposit after creation",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.bank_accounts.adjustments",
-      "area": "Accounting / Bank Accounts",
-      "feature": "Bank Account Adjustments (entity + sub-tab list + Make Adjustment)",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.banks.zero_dollar_test_file",
-      "area": "Accounting / Bank Accounts",
-      "feature": "$0 ACH Test File generation",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.owners.owner_held_security_deposits",
-      "area": "Accounting / Owners",
-      "feature": "Owner Held Security Deposits (GL setup + Key Accounts + Move In use)",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "accounting.reports.security_deposit_detail",
-      "area": "Accounting / Reports",
-      "feature": "Security Deposit Funds Detail report",
-      "status": "scheduled",
-      "phase": "3.7"
-    },
-    {
-      "id": "accounting.reports.aged_receivables",
-      "area": "Accounting / Reports",
-      "feature": "Aged Receivables Summary report",
-      "status": "scheduled",
-      "phase": "3.7"
-    },
-    {
-      "id": "accounting.reports.charge_detail",
-      "area": "Accounting / Reports",
-      "feature": "Charge Detail report",
-      "status": "scheduled",
-      "phase": "3.7"
-    },
-    {
-      "id": "accounting.reports.expense_register",
-      "area": "Accounting / Reports",
-      "feature": "Expense Register report",
-      "status": "scheduled",
-      "phase": "3.7"
-    },
-    {
-      "id": "accounting.reports.income_register",
-      "area": "Accounting / Reports",
-      "feature": "Income Register report",
-      "status": "scheduled",
-      "phase": "3.7"
-    },
-    {
-      "id": "settings.accounting.accounting_basis",
-      "area": "Settings / Accounting",
-      "feature": "Accounting Basis toggle (Accrual default | Cash) — report layer only",
-      "status": "scheduled",
-      "phase": "3.6"
-    },
-    {
-      "id": "people.tenants.adjust_move_out_disposition",
-      "area": "People / Tenants",
-      "feature": "Adjust Move Out Disposition (new charges/credits post-move-out)",
-      "status": "scheduled",
-      "phase": "3.5"
-    },
-    {
-      "id": "people.vendors.list_view",
-      "area": "People / Vendors",
-      "feature": "Vendor list view with filters (trade, 1099, insurance expiring)",
-      "status": "scheduled",
-      "phase": "4"
-    },
-    {
-      "id": "reporting.framework",
-      "area": "Reporting",
-      "feature": "Report framework (standard vs enhanced, tabs vs buttons)",
-      "status": "scheduled",
-      "phase": "3.7"
-    },
-    {
-      "id": "reporting.print_email_export",
-      "area": "Reporting",
-      "feature": "Print / Email / CSV Export on every report",
-      "status": "scheduled",
-      "phase": "3.7"
-    },
-    {
-      "id": "reporting.labels_reports",
-      "area": "Reporting",
-      "feature": "Create a Labels Report (mail merge via CSV export)",
-      "status": "scheduled",
-      "phase": "3.7"
-    },
-    {
-      "id": "reporting.1099",
-      "area": "Reporting",
-      "feature": "Generate 1099 Forms & Reports (FIRE file + Print)",
-      "status": "scheduled",
-      "phase": "3.7"
-    },
-    {
-      "id": "maintenance.work_orders.delete_rules",
-      "area": "Maintenance / Work Orders",
-      "feature": "Delete WO only if no bill created",
-      "status": "scheduled",
-      "phase": "5"
-    },
-    {
-      "id": "maintenance.work_orders.edit_does_not_cascade",
-      "area": "Maintenance / Work Orders",
-      "feature": "Editing WO does not modify its bill",
-      "status": "scheduled",
-      "phase": "5"
-    },
-    {
-      "id": "maintenance.work_orders.list_view",
-      "area": "Maintenance / Work Orders",
-      "feature": "Work Order list view with tabs (Open/Completed/All) + filters",
-      "status": "scheduled",
-      "phase": "5"
-    },
-    {
-      "id": "maintenance.work_orders.status_auto_dates",
-      "area": "Maintenance / Work Orders",
-      "feature": "Status change auto-updates step timestamps",
-      "status": "scheduled",
-      "phase": "5"
-    },
-    {
-      "id": "maintenance.work_orders.email_vendor",
-      "area": "Maintenance / Work Orders",
-      "feature": "Email work order to vendor (PDF)",
-      "status": "scheduled",
-      "phase": "5"
-    },
-    {
-      "id": "maintenance.work_orders.print",
-      "area": "Maintenance / Work Orders",
-      "feature": "Print work order",
-      "status": "scheduled",
-      "phase": "5"
-    },
-    {
-      "id": "maintenance.work_orders.tenant_intake",
-      "area": "Maintenance / Work Orders",
-      "feature": "Tenant intake (smart form, duplicate detection, urgency reconfirm)",
-      "status": "scheduled",
-      "phase": "5"
-    },
-    {
-      "id": "maintenance.work_orders.timeline",
-      "area": "Maintenance / Work Orders",
-      "feature": "Work order timeline / updates table UI",
-      "status": "scheduled",
-      "phase": "5"
-    },
-    {
-      "id": "maintenance.work_orders.vendor_visibility",
-      "area": "Maintenance / Work Orders",
-      "feature": "Vendor-safe field visibility in vendor portal",
-      "status": "scheduled",
-      "phase": "5"
-    },
-    {
-      "id": "maintenance.work_orders.vendor_picker",
-      "area": "Maintenance / Work Orders",
-      "feature": "Vendor picker with inline create on WO form",
-      "status": "scheduled",
-      "phase": "4"
-    },
-    {
-      "id": "communication.notifications_log",
-      "area": "Communication",
-      "feature": "Notification log (all channels: email, SMS, voice, in-app)",
-      "status": "scheduled",
-      "phase": "6"
-    },
-    {
-      "id": "communication.inbox_ui",
-      "area": "Communication",
-      "feature": "Inbox UI (thread list, filters, compose, attachments)",
-      "status": "scheduled",
-      "phase": "6"
-    },
-    {
-      "id": "portals.access_management",
-      "area": "Portals",
-      "feature": "Portal access management (grant/revoke, tokens, access log)",
-      "status": "scheduled",
-      "phase": "7"
-    },
-    {
-      "id": "portals.auth_methods",
-      "area": "Portals",
-      "feature": "Portal auth methods (email link | password | SMS code)",
-      "status": "scheduled",
-      "phase": "7"
-    },
-    {
-      "id": "portals.public_vacancies",
-      "area": "Portals",
-      "feature": "Public Vacancies page (filter, sort, status colors)",
-      "status": "scheduled",
-      "phase": "7"
-    },
-    {
-      "id": "portals.vacancy_list_export",
-      "area": "Portals",
-      "feature": "Vacancy List print/email",
-      "status": "scheduled",
-      "phase": "7"
-    },
-    {
-      "id": "integrations.twilio_voice",
-      "area": "Integrations",
-      "feature": "Twilio Voice (autocall, IVR accept/reject, recording)",
-      "status": "scheduled",
-      "phase": "8"
-    },
-    {
-      "id": "integrations.email_providers",
-      "area": "Integrations",
-      "feature": "Enhanced email providers (SendGrid / SES / Postmark)",
-      "status": "scheduled",
-      "phase": "8"
-    },
-    {
-      "id": "integrations.webhooks",
-      "area": "Integrations",
-      "feature": "Webhook framework (inbound provider endpoints + outbound org webhooks)",
-      "status": "scheduled",
-      "phase": "8"
-    },
-    {
-      "id": "internal.admin_portal",
-      "area": "Internal Team",
-      "feature": "Internal admin portal shell (admin.yourcompany.com)",
-      "status": "scheduled",
-      "phase": "9"
-    },
-    {
-      "id": "internal.platform_audit",
-      "area": "Internal Team",
-      "feature": "Platform-side audit view (staff actions)",
-      "status": "scheduled",
-      "phase": "9"
-    },
-    {
-      "id": "internal.ticket_email_bridge",
-      "area": "Internal Team",
-      "feature": "Support ticket email bridge (reply-by-email into ticket thread)",
-      "status": "scheduled",
-      "phase": "9"
-    },
-    {
-      "id": "internal.ticket_sla",
-      "area": "Internal Team",
-      "feature": "Support ticket SLA tracking",
-      "status": "scheduled",
-      "phase": "9"
-    },
-    {
-      "id": "billing.pricing_tiers",
-      "area": "Billing",
-      "feature": "Pricing tiers by property count (1, 2-10, 11-50, ...)",
-      "status": "scheduled",
-      "phase": "10"
-    },
-    {
-      "id": "billing.add_ons",
-      "area": "Billing",
-      "feature": "Add-ons (extra storage, SMS credits, etc.)",
-      "status": "scheduled",
-      "phase": "10"
-    },
-    {
-      "id": "billing.discounts",
-      "area": "Billing",
-      "feature": "Discount codes (percent / flat, applies-to, valid window)",
-      "status": "scheduled",
-      "phase": "10"
-    },
-    {
-      "id": "billing.quotes",
-      "area": "Billing",
-      "feature": "Quotes (create, send, accept → subscription)",
-      "status": "scheduled",
-      "phase": "10"
-    },
-    {
-      "id": "billing.subscription_items",
-      "area": "Billing",
-      "feature": "Subscription line items (modules, addons, seats)",
-      "status": "scheduled",
-      "phase": "10"
-    },
-    {
-      "id": "billing.invoices",
-      "area": "Billing",
-      "feature": "Subscription invoices (generated, emailed, Stripe paid)",
-      "status": "scheduled",
-      "phase": "10"
-    },
-    {
-      "id": "billing.subscription_events",
-      "area": "Billing",
-      "feature": "Subscription events log (created, upgraded, downgraded, cancelled, ...)",
-      "status": "scheduled",
-      "phase": "10"
-    },
-    {
-      "id": "billing.usage_records",
-      "area": "Billing",
-      "feature": "Metered usage records (property count, SMS, storage, API)",
-      "status": "scheduled",
-      "phase": "10"
-    },
-    {
-      "id": "billing.payment_methods",
-      "area": "Billing",
-      "feature": "Customer payment methods on file (card / ACH)",
-      "status": "scheduled",
-      "phase": "10"
-    },
-    {
-      "id": "billing.settings",
-      "area": "Billing",
-      "feature": "Billing settings (email, address, tax id, auto-pay, currency)",
-      "status": "scheduled",
-      "phase": "10"
-    },
-    {
-      "id": "billing.signup_flow",
-      "area": "Billing",
-      "feature": "Signup / onboarding flow (plan + Stripe + org creation)",
-      "status": "scheduled",
-      "phase": "10"
-    },
-    {
-      "id": "billing.management_ui",
-      "area": "Billing",
-      "feature": "Subscription management UI (change, upgrade, cancel, invoices)",
-      "status": "scheduled",
-      "phase": "10"
-    },
-    {
-      "id": "billing.enforcement_layers",
-      "area": "Billing",
-      "feature": "Subscription enforcement layers (soft PAST_DUE / hard RESTRICTED / kill SUSPENDED)",
-      "status": "scheduled",
-      "phase": "10"
-    },
-    {
-      "id": "production.aws_infra",
-      "area": "Production",
-      "feature": "AWS infrastructure (Lightsail + RDS, later ECS Fargate + ALB)",
-      "status": "scheduled",
-      "phase": "11"
-    },
-    {
-      "id": "production.postgres_migration",
-      "area": "Production",
-      "feature": "SQLite → PostgreSQL migration (test on staging, cutover)",
-      "status": "scheduled",
-      "phase": "11"
-    },
-    {
-      "id": "production.s3_uploads",
-      "area": "Production",
-      "feature": "S3 for uploads + signed URLs + CloudFront CDN",
-      "status": "scheduled",
-      "phase": "11"
-    },
-    {
-      "id": "production.secrets",
-      "area": "Production",
-      "feature": "Secrets management (AWS Secrets Manager / Parameter Store)",
-      "status": "scheduled",
-      "phase": "11"
-    },
-    {
-      "id": "production.cicd",
-      "area": "Production",
-      "feature": "CI/CD (GitHub Actions: lint, test, build, deploy)",
-      "status": "scheduled",
-      "phase": "11"
-    },
-    {
-      "id": "production.backups",
-      "area": "Production",
-      "feature": "Backups + disaster recovery (RDS daily + S3 versioning + DR drills)",
-      "status": "scheduled",
-      "phase": "11"
-    },
-    {
-      "id": "production.observability",
-      "area": "Production",
-      "feature": "Observability (logs, metrics, traces, alerts, status page)",
-      "status": "scheduled",
-      "phase": "11"
-    },
-    {
-      "id": "production.security",
-      "area": "Production",
-      "feature": "Security hardening (WAF, rate limiting, CSP, pen test)",
-      "status": "scheduled",
-      "phase": "11"
-    },
-    {
-      "id": "production.email_deliverability",
-      "area": "Production",
-      "feature": "Production email (DKIM/SPF/DMARC, warm-up, bounce handling)",
-      "status": "scheduled",
-      "phase": "11"
-    },
-    {
-      "id": "mobile.tenant",
-      "area": "Native Mobile",
-      "feature": "Mobile: Tenant (balance, pay, requests, push, docs)",
-      "status": "scheduled",
-      "phase": "12"
-    },
-    {
-      "id": "mobile.crew",
-      "area": "Native Mobile",
-      "feature": "Mobile: Crew (jobs, hours, photos, ETA)",
-      "status": "scheduled",
-      "phase": "12"
-    },
-    {
-      "id": "mobile.manager",
-      "area": "Native Mobile",
-      "feature": "Mobile: Manager (approvals, triage, notifications)",
-      "status": "scheduled",
-      "phase": "12"
-    },
-    {
-      "id": "mobile.owner",
-      "area": "Native Mobile",
-      "feature": "Mobile: Owner (statements, approvals)",
-      "status": "scheduled",
-      "phase": "12"
-    },
-    {
-      "id": "mobile.push_notifications",
-      "area": "Native Mobile",
-      "feature": "Mobile push notifications (Firebase)",
-      "status": "scheduled",
-      "phase": "12"
-    },
-    {
-      "id": "mobile.app_store",
-      "area": "Native Mobile",
-      "feature": "App store submission (Apple + Google)",
-      "status": "scheduled",
-      "phase": "12"
-    },
-    {
-      "id": "compliance.hoa.reports",
-      "area": "Compliance",
-      "feature": "HOA reports (Dues Aging, Violations Log, Reserve Fund, Budget vs Actual)",
-      "status": "scheduled",
-      "phase": "4.5"
-    },
-    {
-      "id": "compliance.affordable.reports",
-      "area": "Compliance",
-      "feature": "Affordable reports (Income Cert Status, Recert Due, AMI, HUD Rent Roll)",
-      "status": "scheduled",
-      "phase": "4.5"
-    },
-    {
-      "id": "compliance.commercial.reports",
-      "area": "Compliance",
-      "feature": "Commercial reports (Lease Abstract, Rent Roll, CAM Recon, % Rent, Options)",
-      "status": "scheduled",
-      "phase": "4.5"
-    },
-    {
-      "id": "compliance.rubs.reports",
-      "area": "Compliance",
-      "feature": "RUBs reports (allocation detail per bill period)",
-      "status": "scheduled",
-      "phase": "4.5"
-    },
-    {
-      "id": "properties.tabs.compliance",
-      "area": "Properties / Tabs",
-      "feature": "Compliance tab (program enrollment, recerts, insurance, violations)",
-      "status": "scheduled",
-      "phase": "4.5"
-    },
-    {
-      "id": "universal.hide_semantics",
-      "area": "Universal Patterns",
-      "feature": "Hide semantics (excluded from reports/history/search; Show Hidden checkbox)",
-      "status": "scheduled",
-      "phase": "3.5"
-    },
-    {
-      "id": "universal.powerful_search",
-      "area": "Universal Patterns",
-      "feature": "Powerful universal search (active search, hidden toggle, refine-as-type)",
-      "status": "scheduled",
-      "phase": "3.5"
-    },
-    {
-      "id": "universal.repeat_form",
-      "area": "Universal Patterns",
-      "feature": "Repeat Form / Field (CTRL+K / CTRL+J) across bill/charge/receipt forms",
-      "status": "scheduled",
-      "phase": "3.5"
-    },
-    {
-      "id": "properties.core.default_bank_account",
-      "area": "Properties / Core",
-      "feature": "Property default bank account (drives Receipt Cash Account 'Automatic')",
-      "status": "scheduled",
-      "phase": "3.5",
-      "notes": "PDF p.43. Dependency for accounting.receipts.cash_account_automatic (Phase 3.6) and accounting.banks.assoc_rpt (Phase 3.7)."
     }
   ]
 }

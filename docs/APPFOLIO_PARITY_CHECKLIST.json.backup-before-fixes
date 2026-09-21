@@ -5,17 +5,12 @@
       "built": "Feature exists in our code and is verified working",
       "in_progress": "Currently being built",
       "scheduled": "Has a specific phase assigned",
-      "planned_no_phase": "Planned but no phase assigned yet -- THIS IS A BUG",
-      "unplanned": "Not planned at all -- THIS IS A BUG"
+      "planned_no_phase": "Planned but no phase assigned yet — THIS IS A BUG",
+      "unplanned": "Not planned at all — THIS IS A BUG"
     },
     "last_updated": "2026-09-21",
     "migration_head": "00bc0d143eac",
-    "roadmap_section": "PROJECT_MASTER.md Section 57 (summary) + Section 38 (build order)",
-    "canonical_note": "This JSON is the single source of truth for feature coverage and phase. Every item must have a status and, if scheduled, a phase. check_parity.py enforces this.",
-    "total_items": 377,
-    "built_count": 81,
-    "scheduled_count": 296,
-    "in_progress_count": 0
+    "roadmap_section": "PROJECT_MASTER.md Section 66"
   },
   "items": [
     {
@@ -2657,14 +2652,6 @@
       "feature": "Repeat Form / Field (CTRL+K / CTRL+J) across bill/charge/receipt forms",
       "status": "scheduled",
       "phase": "3.5"
-    },
-    {
-      "id": "properties.core.default_bank_account",
-      "area": "Properties / Core",
-      "feature": "Property default bank account (drives Receipt Cash Account 'Automatic')",
-      "status": "scheduled",
-      "phase": "3.5",
-      "notes": "PDF p.43. Dependency for accounting.receipts.cash_account_automatic (Phase 3.6) and accounting.banks.assoc_rpt (Phase 3.7)."
     }
   ]
 }

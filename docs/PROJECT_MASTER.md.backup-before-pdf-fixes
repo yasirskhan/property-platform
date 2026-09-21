@@ -283,12 +283,6 @@ Lifecycle: Sales -> Billing -> Tech -> Support -> (Dev for bugs).
 
 Hard rule: Customer users and platform_users NEVER mix.
 
-NOTE on AppFolio's role model: The Manager Guide (PDF p.97) describes
-eight roles from President (full access) down to View Only. Our model
-(ADMIN, OWNER, MANAGER, CREW, TENANT, VENDOR, VENDOR_CREW, APPLICANT)
-is functionally equivalent but structured for a multi-tenant SaaS
-instead of a single-company install. No change planned.
-
 ---
 
 # SECTION 5 — NAVIGATION STRUCTURE
@@ -311,11 +305,6 @@ Sub-items:
 Layout: Sidebar (220px) + Content + Right panel (280px, hidden by default).
 Top bar (blue): Search | Add Functionality | Help & Training | User menu.
 Sidebar customization: driven by Menu Permissions (Section 42).
-
-NOTE: AppFolio's Manager Guide (PDF p.6) lists Vacancies as a
-top-level tab alongside Properties, People, Accounting, Reports.
-We place Vacancies under Leasing -> Listings. Functionally equivalent,
-different information architecture. See Section 18.
 
 ---
 
@@ -447,7 +436,8 @@ Chain:
 - dadbb391cc03_add_property_appliances
 - 35529ce17750_add_property_improvements
 - 59a25b856f18_add_phase3_parity_fields
-- 00bc0d143eac_add_property_photos  <- HEAD
+- 00bc0d143eac_add_property_photos
+- HEAD: 00bc0d143eac
 
 ---
 
@@ -478,10 +468,6 @@ Depreciation, 1810 Other Assets, 1820 Other Depreciation
 8xxx Admin (2): 8010 Pest, 8050 Computer
 
 Total: 61 accounts per org (60 original + 2100 AP added by Step 6).
-
-NOTE (2026-09-21): The header comment in app/models/gl_account.py
-still says "57" — this is stale. The actual seed count is 61.
-Fix the code comment on the next cleanup pass.
 
 ---
 
@@ -1035,144 +1021,64 @@ Phase 3  — Property Detail tabs: IN PROGRESS
   3b. DONE Appliances
   3c. DONE Improvements
   3d. DONE Photos
-Phase 3.5 — Property Detail Polish (30 items — see JSON)
+Phase 3.5 — Property Detail Polish
   - Amenities: fee_amount, availability_status
   - Appliances: condition
   - Improvements: warranty_expires
   - Photos: image editor (crop / rotate)
-  - Photos: drag-to-reorder UI
   - Late Fee automation engine
   - Rent Increase workflow (Set -> Preview -> Notify -> Apply)
   - Move In / Move Out 5-step workflows (Section 17)
-  - Adjust Move Out Disposition
   - Delinquency automation (aging, notices)
   - Tenant Insurance workflow (verify, track, notify)
   - Insurance expiration alerts
   - Owner Reserve tracking
-  - Letters / mail merge (base)
+  - Letters / mail merge
   - Property Groups
   - Budget tab
   - Map tab
-  - Keys tracking tab
-  - Statement Settings tab
-  - Non-Revenue tab
-  - Staff tab (assignments)
-  - Universal Hide semantics
-  - Universal Powerful Search
-  - Universal Repeat Form / Field (CTRL+K / CTRL+J)
-  - Universal styled confirm modal rollout
-Phase 3.6 — Accounting Polish (73 items — see JSON for full list)
-  Chart of Accounts:
-  - Recalculate Balances button
-  - Hide semantics for GL accounts
+  - Photo editor
+Phase 3.6 — Accounting Polish
+  - Bills: allow reversal after partial payment (behavior fix)
+  - Bills: Recurring Bills
+  - Bills: Write Checks flow
+  - Bills: Enter Credit (vendor credits)
+  - Bills: Vendor link (after Phase 4)
+  - Receipts: Application Fee dedicated form
+  - Receipts: Process NSF
+  - Deposits: Process NSF
+  - Bank Accounts: Bank Reconciliation (Section 37)
+  - Bank Accounts: QIF Import
+  - Bank Accounts: Check setup
+  - Bank Accounts: ACH file generation (NACHA / CSV)
+  - Bank Accounts: Check printing
+  - Bank Accounts: Bank feed import
+  - Management Fees: Pay Owners flow
+  - Management Fees: Overcollection strategy setting
+  - Management Fees: Post GPR
+  - Management Fees: Management Fee Exclusions list
+  - Diagnostics: Auto-fix Refund Negative Diagnostic
+  - Diagnostics: Bank Reconciliation Lapses 60 days
+  - Diagnostics: Real Positive Fee check (must_clear flag)
+  - Diagnostics: Additional checks
+  - Journal Entries: Post GPR
+  - Journal Entries: Recurring JEs
+  - Owner Statements: Required Reserves
+  - Owner Statements: Prepaid Rent
+  - Owner Statements: Property Cash Summary
   - GL Account Permissions (who can post to what)
-  - offset_account UI
-  - must_clear flag UI
-  Journal Entries:
-  - Sub-tabs (History | Recurring)
-  - Recurring JEs
-  - Manually Post JEs
-  - Post GPR
-  - Remarks vs Description rule
-  Receipts:
-  - Application Fee dedicated form
-  - Process NSF
-  - Print receipt
-  - Repeat receipt
-  - Edit lock after deposit
-  - Cash Account "Automatic" default
-  Charges:
-  - Enter Charge (standalone)
-  - Charges list view
-  - Charge edit rules (paid floor)
-  Bills:
-  - Reverse after partial payment
-  - Recurring Bills + Bill/Credit toggle + Post Codes
-  - Write Checks flow
-  - Enter Credit
-  - Delete Bill only if unpaid
-  - Manually Post Bills
-  - Cash Account field on bill
-  - Vendor link (after Phase 4)
-  Checks:
-  - Checks list view
-  - Void Check
-  - Check Memo
-  Deposits:
-  - Print Bank Deposit
-  - Date-mismatch warning
-  - Per-bank-account numbering
-  - Edit deposit
-  Bank Accounts:
-  - Bank Reconciliation (Section 37)
-  - QIF Import
-  - Check setup
-  - ACH file generation (NACHA / CSV)
-  - Bank Adjustments (entity + sub-tab)
-  - Bank feed import
-  Owners:
-  - Owner ACH Setup page
-  - $0 ACH Test File
-  - Owner Held Security Deposits (whole feature)
-  Management Fees:
-  - Pay Owners flow
-  - Overcollection strategy setting
-  - Post GPR
-  - Management Fee Exclusions list
-  Diagnostics:
-  - Auto-fix Refund Negative Diagnostic
-  - Bank Reconciliation Lapses 60 days
-  - Real Positive Fee check (must_clear flag)
-  - Additional checks to reach 9 total
-  Owner Statements:
-  - Required Reserves
-  - Prepaid Rent
-  - Property Cash Summary
-  Owner Packets:
-  - Customizer fields
-  Settings:
-  - Accounting Settings (Key Accounts, GPR, Receipts, Checks, Reports)
-  - Accounting Basis toggle (Accrual default | Cash) — report layer only
-  - My Settings
-  - Auditing Center
-  - Two-step verification
-  - Login history
-  Universal:
-  - delete_reason UI
-  - Notes expansion
-  - Audit Log expansion
-Phase 3.7 — Reports + Universal Attachments (57 items — see JSON for full list)
-  Foundation:
+  - Universal delete_reason
+  - Audit Log expansion (every entity)
+Phase 3.7 — Reports + Universal Attachments
   - Universal Attachments (one system, every entity)
-  - Report framework (standard vs enhanced)
-  - Print / Email / CSV Export on every report
-  - Custom Report Builder (saved configurations)
-  - Create Labels Report (mail merge via CSV)
-  - Generate 1099 Forms & Reports (FIRE file)
-  Letters:
-  - Letters Overview + View/Edit + Custom + Print/Email + 3-Day Notice
-  - Send Owner Packets
-  Tenant Reports:
-  - Delinquency, Security Deposit Funds Detail, Tenant Directory,
-    Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges, Summary
-  Property & Unit Reports:
-  - Budget Comparison, Budget Detail, Gross Potential Rent,
-    Lease Expiration Detail/Summary by Month, Property Directory,
-    Property Group Directory, Property Performance, Rent Roll,
-    Unit Directory, Unit Inspection, Unit Vacancy Detail
-  Owner & Vendor Reports:
-  - Owner Directory, Owner Statement, Vendor Directory, Vendor Ledger,
-    Work Order
-  Accounting Reports:
-  - Account Totals, Balance Sheet, Bank Account Activity,
-    Bank Account Association, Cash Flow, Cash Flow 12-Month,
-    Chart of Accounts, Expense Distribution, General Ledger,
-    Income Statement, Trial Balance, Trust Account Balance,
-    Trust Account Detail
-  Transaction Reports:
-  - Aged Payables, Aged Receivables, Bill Detail, Charge Detail,
-    Check Register, Check Register Detail, Deposit Register,
-    Expense Register, Income Register, Journal Entry Register
+  - Balance Sheet report
+  - Income Statement report
+  - Cash Flow report
+  - Cash Flow 12-Month report
+  - Trust Account Balance report
+  - Trust Account Detail report
+  - All 45 AppFolio reports catalog
+  - Custom Report Builder
 Phase 4  — Vendors
 Phase 4.5 — Compliance (HOA / Affordable / Commercial / RUBs / Escrow)
 Phase 5  — Smart Maintenance
@@ -1518,15 +1424,6 @@ Menu: ACCOUNTING.PAYABLES -> Bills (label updated from "Payables").
 
 Detail modal includes an inline Pay form (amount, date, cash account,
 reference, remarks). No browser prompts.
-
-NOTE on accrual vs. cash basis: The AppFolio Manager Guide (PDF p.54)
-says "The General Ledger is not affected by bills until the check is
-written." That describes cash-basis posting (older AppFolio behavior).
-We post on accrual (DR Expense / CR AP at bill entry), which is the
-correct double-entry model and matches modern AppFolio. Orgs that want
-cash-basis *reports* can switch the per-org Accounting Basis toggle
-(see Settings -> Accounting). GL postings never change — only reports.
-JSON id: settings.accounting.accounting_basis (Phase 3.6).
 
 ---
 
@@ -1941,61 +1838,6 @@ Status legend:
   ⬜ SCHEDULED (phase shown)
   ⚠️  BUILT WITH BEHAVIOR MISMATCH
   ❌ NOT PLANNED -> scheduled by this doc
-
-NOTE (2026-09-21): The canonical, item-by-item inventory lives in
-docs/APPFOLIO_PARITY_CHECKLIST.json (376 items). This section is the
-human-readable summary. If they disagree, the JSON wins. Run
-`python check_parity.py` from backend/ before every push.
-
-Additional items from the AppFolio Manager Guide (PDF cross-check,
-2026-09-21) — these are tracked in the JSON but were missing from
-the summary:
-
-## Accounting — additions (from PDF pp. 27–80)
-
-- ⬜ Owner Held Security Deposits (whole feature) — Phase 3.6 [PDF p.33]
-- ⬜ Bank Account Adjustments (entity + sub-tab list) — Phase 3.6 [PDF p.44]
-- ⬜ Recalculate Balances button on GL Accounts — Phase 3.6 [PDF p.48]
-- ⬜ Post Codes for recurring bills — Phase 3.6 [PDF p.55]
-- ⬜ $0 ACH Test File — Phase 3.6 [PDF p.28]
-- ⬜ Transfer Funds (property to property) — Phase 3.6 [PDF p.67]
-- ⬜ Manually Post Journal Entries — Phase 3.6 [PDF p.51]
-- ⬜ Manually Post Bills — Phase 3.6 [PDF p.61]
-- ⬜ Process NSF (bank fee + tenant charge + reversal) — Phase 3.6 [PDF p.80]
-- ⬜ Enter Charge (standalone) + Charges list view — Phase 3.6 [PDF p.74–75]
-- ⬜ Check list view + Void Check — Phase 3.6 [PDF pp.57, 59]
-- ⬜ Print receipt / Repeat receipt / Repeat form (CTRL+K, CTRL+J) — Phase 3.6 [PDF pp.6, 68–72]
-- ⬜ Receipt edit lock after deposit — Phase 3.6 [PDF pp.70–72]
-- ⬜ Receipt Cash Account "Automatic" default — Phase 3.6 [PDF pp.69–72]
-- ⬜ Bank Deposit print / date-mismatch warning / per-bank numbering — Phase 3.6 [PDF p.79]
-- ⬜ Enter Bill Cash Account field (moved onto bill) — Phase 3.6 [PDF p.54]
-- ⬜ Delete Bill only if unpaid — Phase 3.6 [PDF p.56]
-- ⬜ Check Memo — Phase 3.6 [PDF p.58]
-
-## Reporting — additions (from PDF pp. 81–95)
-
-- ⬜ Report framework (standard vs enhanced) — Phase 3.7 [PDF p.81]
-- ⬜ Print / Email / CSV Export on every report — Phase 3.7 [PDF pp.83–86]
-- ⬜ Create Labels Report — Phase 3.7 [PDF p.87]
-- ⬜ Generate 1099 Forms & Reports (FIRE file + print) — Phase 3.7 [PDF p.89]
-- ⬜ Letters module (Overview, View/Edit, Custom, Print/Email, 3-Day Notice) — Phase 3.7 [PDF pp.90–95]
-- ⬜ Send Owner Packets — Phase 3.7 [PDF pp.30, 95]
-- ⬜ Security Deposit Funds Detail report — Phase 3.7 [PDF p.81]
-- ⬜ Aged Receivables Summary report — Phase 3.7 [PDF p.82]
-- ⬜ Charge Detail report — Phase 3.7 [PDF p.82]
-- ⬜ Expense Register report — Phase 3.7 [PDF p.82]
-- ⬜ Income Register report — Phase 3.7 [PDF p.82]
-
-## Properties / Units — additions (from PDF pp. 8–12)
-
-- ⬜ Property: default bank account field (PDF p.43 "Property-Bank-Cash account relationship") — Phase 3.5
-- ⬜ Unit: marketing title / description / photos / marketing rent / marketing availability — Phase 3.5 [PDF p.9]
-
-## Universal — additions (from PDF pp. 6–7)
-
-- ⬜ Hiding Records (distinct from soft-delete; excluded from search/reports) — Phase 3.5 [PDF p.7]
-- ⬜ Powerful Search (active search, hidden toggle) — Phase 3.5 [PDF p.6]
-- ⬜ Repeat Form / Field (CTRL+K, CTRL+J) — Phase 3.5 [PDF p.6]
 
 ## Accounting — Chart of Accounts
 
