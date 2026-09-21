@@ -80,3 +80,15 @@ backend/src/
 /backend/add_*.py
 /backend/patch_*.py
 /backend/rebuild_*.py
+
+# Backups
+*.backup-*
+*.backup
+*.bak
+
+# One-off scripts
+update_*.py
+fix_*.py
+rebuild_*.py
+patch_*.py
+add_*.py
