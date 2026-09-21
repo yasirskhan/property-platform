@@ -11,14 +11,15 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase 3 (Property Detail tabs) is COMPLETE.
-Steps 3a (Amenities), 3b (Appliances), 3c (Improvements), and
-3d (Photos) are all done. All Phase 3 tabs now match AppFolio
-(except Attachments, deferred to Phase 3.7).
+**Current activity:** Phase 3.5 is IN PROGRESS. Shipped this session:
+Display settings page (layout mode, theme, date format, currency);
+per-org currency column + save; custom currencies CRUD (customer
+can add their own currency); SETTINGS menu group wired to sidebar.
 
-**Next:** Display settings (Section 58) + per-org currency
-(Section 59). Infrastructure first, then close Phase 3 with a
-master doc check + commit.
+**Next:** Phase 3.6 — Accounting Polish (70 items) — or the frontend
+formatMoney() sweep as a smaller first step. See Section 38 + JSON.
+
+See Section 68 (Custom Currencies) for the newest build.
 
 **Last completed work (this session):**
 - Phase 3 Step 3a (Amenities) — added `fee_amount` and
@@ -160,13 +161,21 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Phase 3 is complete. Build Display settings + per-org currency.**
+**Phase 3.5 in progress. Next: Phase 3.6 (Accounting Polish).**
 
-Order:
-1. Display settings section (Section 58) + per-org currency
-   (Section 59) — build the infrastructure first so every
-   future module inherits both.
-2. Close Phase 3 — master doc check + commit.
+The 70 items in Phase 3.6 are listed in the JSON (area -> phase 3.6).
+Start with the ones nearest to what's already built:
+
+1. Frontend sweep: replace hardcoded $"USD" formatting with
+   formatMoney() from lib/money.ts (TODAY'S smaller task).
+2. Journal Entries: sub-tabs (History | Recurring) — the AppFolio
+   PDF asks for this, JSON id accounting.je.sub_tabs.
+3. Receipts: Print / Repeat / edit-lock-after-deposit.
+4. Charges: Enter Charge + list view.
+5. Bank Account: Adjustments.
+6. Owner Held Security Deposits (whole feature).
+
+Read Section 69 (FILE MAP) to know where every file is.
 
 ## B2. AFTER THAT (Phase 3.5 onward)
 
@@ -1035,7 +1044,14 @@ Phase 3  — Property Detail tabs: IN PROGRESS
   3b. DONE Appliances
   3c. DONE Improvements
   3d. DONE Photos
-Phase 3.5 — Property Detail Polish (30 items — see JSON)
+Phase 3.5 — Property Detail Polish (28 items remaining — see JSON)
+  DONE this session:
+  - Display settings page (layout mode, theme, date format, currency)
+  - Per-org currency (organizations.currency, Admin/Owner save)
+  - Custom currencies CRUD (add/edit/delete per-org currencies)
+  - SETTINGS menu group (Display, Currencies, Menu Permissions, Sidebar)
+
+  Remaining items:
   - Amenities: fee_amount, availability_status
   - Appliances: condition
   - Improvements: warranty_expires
@@ -2442,6 +2458,10 @@ Build order:
 Effort: ~1 session for the migration + helper + Settings. ~1 session
 for the frontend sweep.
 
+STATUS (2026-09-21): Org-level currency (organizations.currency) is BUILT.
+The dropdown on the Display page persists for ADMIN/OWNER.
+Custom (customer-addable) currencies are BUILT — see Section 68.
+
 ---
 
 # SECTION 60 — PROPERTY AMENITIES (BUILT — Phase 3 Step 3a)
@@ -2958,6 +2978,183 @@ session to untangle. Do all three, in order, every time.
 - Do not commit backup files or one-off scripts.
 - Do not skip the push just because "nothing changed" -- if nothing
   changed, you did not do any work this session.
+
+
+# SECTION 68 — CUSTOM CURRENCIES (BUILT — Phase 3.5)
+
+Customers can pick a currency, and can add their own.
+
+## What exists
+
+Two concepts:
+
+1. **Organizations.currency** — the ONE currency the org uses.
+   Stored on `organizations.currency`. VARCHAR(3), default "USD".
+   Set by ADMIN/OWNER on the Display page. Persisted via
+   `PUT /api/settings/display`.
+
+2. **The currencies list** — what the org can pick from.
+   Stored in the `currencies` table. One row per currency per org.
+   Seeded with 9 system currencies on first migration. Customer
+   can add more (custom rows) from the Currencies page.
+
+## The currencies table
+
+    id, organization_id, code, name, symbol, locale,
+    decimal_places, is_system, is_active, timestamps
+
+- `code`: 3 uppercase letters (USD, PKR)
+- `symbol`: displayed char ($, ₹)
+- `locale`: BCP-47 (en-US, en-IN) — tells Intl.NumberFormat how to format
+- `is_system`: True means seeded default, cannot be deleted
+- `is_active`: soft delete — False means hidden from pickers
+
+Unique on (organization_id, code).
+
+## Seeded defaults (migration 8e1243432666)
+
+USD, EUR, GBP, INR, AUD, CAD, NZD, SGD, AED.
+
+## Endpoints (under /api/settings/currencies)
+
+- GET    ""        list all currencies for the org
+- POST   ""        add custom currency (ADMIN/OWNER)
+- PATCH  /{id}     edit name/symbol/locale/decimals/is_active (ADMIN/OWNER)
+- DELETE /{id}     soft delete (ADMIN/OWNER). Refuses system rows and
+                   the org's current currency.
+
+## Rules
+
+- No exchange, no conversion. Currency is a display/label concept.
+- Org-level, not per-user.
+- Cannot delete a system currency.
+- Cannot delete the currency currently selected by the org.
+
+## Frontend
+
+- Page: /dashboard/settings/currencies
+- Menu key: SETTINGS.CURRENCIES
+- Backed by CurrencyContext (list not fetched there yet — the page
+  fetches directly). Wired to the sidebar via menuConfig.ts.
+
+## Next steps for this area
+
+- Frontend sweep: replace hardcoded `$` / `"USD"` in existing pages
+  with `formatMoney()` from lib/money.ts.
+- CurrencyContext should expose the currency list too so any page
+  can render a picker without a second fetch.
+- Add a "change currency" confirm dialog: warn the user that all
+  amounts re-render at the new currency symbol (no conversion).
+
+
+# SECTION 69 — FILE MAP (where everything lives)
+
+**Root:** C:\Projects\property-platform\
+
+## Documentation
+
+    docs\PROJECT_MASTER.md                 this file
+    docs\APPFOLIO_PARITY_CHECKLIST.json    coverage tracker (385 items)
+    docs\appfolio.pdf                      source PDF
+
+## Backend (Python / FastAPI) — root is backend\
+
+    app\main.py                            FastAPI app + router registration
+    app\core\config.py                     settings loader
+    app\core\database.py                   SQLAlchemy Base + get_db
+    app\core\security.py                   JWT + bcrypt
+
+    app\constants\menu_keys.py             canonical menu keys + role defaults
+
+    app\models\                            one file per DB table
+      user.py                                Organization + User
+      user_display_preference.py             display settings (Section 58)
+      currency.py                            currencies (Section 68)
+      property.py, unit.py, lease.py
+      gl_account.py, gl_transaction.py, gl_entry.py
+      receipt.py, bill.py, deposit.py, bank_account.py
+      management_fee_run.py, owner_statement.py
+      menu_permission.py, user_permission.py, sidebar_preference.py
+      property_amenity.py, property_appliance.py,
+      property_improvement.py, property_photo.py
+
+    app\routers\                           one file per feature area
+      auth.py                                login/signup/get_current_user
+      settings_display.py                    GET/PUT /api/settings/display
+      currencies.py                          CRUD /api/settings/currencies
+      properties.py, units.py, leases.py, payments.py
+      users.py, work_orders.py
+      taxes.py, utilities.py, insurance.py, expenses.py,
+      tenant_insurance.py
+      menu_permissions.py, sidebar_preference.py
+      gl_accounts.py, gl_transactions.py, gl_reports.py
+      receipts.py, bills.py, deposits.py, diagnostics.py
+      management_fees.py, owner_statements.py
+      bank_accounts.py, journal_entries.py
+      property_amenities.py, property_appliances.py,
+      property_improvements.py, property_photos.py
+
+    app\schemas\                           Pydantic in/out shapes
+    app\services\                          business logic
+      gl_posting.py                          post_transaction()
+      receipt_posting.py, bill_posting.py
+      deposit_posting.py, management_fee_posting.py
+      owner_ledger.py, owner_statements.py
+      diagnostics.py, menu_resolver.py
+
+    alembic\versions\                      migration files
+      ... many prior migrations ...
+      8c2e766863c0_add_org_currency.py              (currency column)
+      521035d0e411_add_user_display_preferences.py  (display table)
+      15d92d8a1eea_add_settings_menu_keys.py        (SETTINGS menu seeds)
+      8e1243432666_add_currencies_table.py          (currencies table + seed)
+
+    check_parity.py                         parity enforcer
+    property_platform.db                    SQLite database
+    venv\                                   virtualenv (activate: .\venv\Scripts\Activate.ps1)
+
+## Frontend (Next.js 16) — root is frontend\
+
+    src\app\dashboard\                     all dashboard pages (App Router)
+      layout.tsx                             wraps CurrencyProvider + DisplayProvider + MenuProvider
+      settings\display\page.tsx             Display settings page
+      settings\currencies\page.tsx          Currencies CRUD page
+      settings\permissions\page.tsx         Menu Permissions page
+      settings\sidebar\page.tsx             Sidebar customization
+      accounting\...                        receipts, bills, deposits, etc.
+      properties\[id]\                      property detail
+      ... (40 routes total)
+
+    src\components\shell\
+      Sidebar.tsx                            renders resolved menu + ICON_MAP
+      TopBar.tsx
+
+    src\contexts\
+      CurrencyContext.tsx                    loads /api/settings/display, exposes currency + prefs
+      DisplayContext.tsx                     applies theme/density/font to <html>
+      MenuContext.tsx                        loads /api/menu/me
+
+    src\lib\
+      money.ts                               formatMoney() + formatDate()
+      menuConfig.ts                          MENU_ENTRIES (labels + icons + hrefs)
+      api.ts                                 apiGet/apiPost/apiPut/apiDelete
+
+## Git + tooling
+
+    .gitignore                              excludes venv\, node_modules\, .next\, *.db,
+                                            *.backup-*, update_*.py, fix_*.py, rebuild_*.py
+    push.bat                                (on Desktop) one-click git push
+
+## Where to look for what
+
+    "What's next?"                     -> PROJECT_MASTER.md Part B1
+    "What's built vs scheduled?"       -> docs/APPFOLIO_PARITY_CHECKLIST.json
+    "Is the project consistent?"       -> python check_parity.py (must print CLEAN)
+    "Where does feature X live?"       -> this section (69)
+    "How do I hand off to a new chat?" -> Section 65 + Section 67
+    "What's the accounting spine?"     -> Section 19 + Section 44
+    "Where's the display/currency spec?" -> Sections 58 + 59 + 68
+
 
 # END OF PROJECT_MASTER.md. Never edited by hand.
 

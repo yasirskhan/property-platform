@@ -5,7 +5,7 @@
 //
 // Reads the RESOLVED menu from MenuContext, which itself loads
 // from the backend (GET /api/menu/me). This component does NOT
-// decide visibility — it only renders what the backend returned.
+// decide visibility - it only renders what the backend returned.
 //
 // Display info (label, href, icon) comes from lib/menuConfig.ts.
 // If the backend sends a key we don't know how to render, we
@@ -29,6 +29,7 @@ import {
   BarChart3,
   MessageSquare,
   Sparkles,
+  Settings,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
@@ -49,6 +50,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   "bar-chart": BarChart3,
   "message-square": MessageSquare,
   sparkles: Sparkles,
+  settings: Settings,
 };
 
 // ------------------------------------------------------------
@@ -142,7 +144,7 @@ export default function Sidebar({ orgName }: SidebarProps) {
       <nav className="flex-1 overflow-y-auto py-2">
         {loading && items.length === 0 && (
           <div className="px-5 py-3 text-xs text-slate-500">
-            Loading menu…
+            Loading menu...
           </div>
         )}
 

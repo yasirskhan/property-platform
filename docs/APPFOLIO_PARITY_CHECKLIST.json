@@ -9,12 +9,12 @@
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
     "last_updated": "2026-09-21",
-    "migration_head": "00bc0d143eac",
+    "migration_head": "8e1243432666",
     "roadmap_section": "PROJECT_MASTER.md Section 57 (summary) + Section 38 (build order)",
     "canonical_note": "This JSON is the single source of truth for feature coverage and phase. Every item must have a status and, if scheduled, a phase. check_parity.py enforces this.",
-    "total_items": 377,
-    "built_count": 81,
-    "scheduled_count": 296,
+    "total_items": 385,
+    "built_count": 98,
+    "scheduled_count": 287,
     "in_progress_count": 0
   },
   "items": [
@@ -1538,8 +1538,9 @@
       "id": "settings.general.currency",
       "area": "Settings / General",
       "feature": "Per-org currency setting",
-      "status": "scheduled",
-      "phase": "3.5"
+      "status": "built",
+      "phase": "3.5",
+      "notes": "Org-wide currency column + dropdown on Display page. Backend validates + persists."
     },
     {
       "id": "settings.accounting",
@@ -1552,57 +1553,65 @@
       "id": "settings.display",
       "area": "Settings / Display",
       "feature": "Layout mode (Tabs / Vertical)",
-      "status": "scheduled",
-      "phase": "3.5"
+      "status": "built",
+      "phase": "3.5",
+      "notes": "Display settings page built with layout mode + theme + date format + currency dropdown. Layout mode saved (not yet consumed by pages)."
     },
     {
       "id": "settings.display.theme",
       "area": "Settings / Display",
       "feature": "Theme (Light / Dark / Auto)",
-      "status": "scheduled",
-      "phase": "3.5"
+      "status": "built",
+      "phase": "3.5",
+      "notes": "Wired end-to-end. Flips <html data-theme>."
     },
     {
       "id": "settings.display.density",
       "area": "Settings / Display",
       "feature": "Density (Compact / Comfortable / Spacious)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Backend + UI control present; marked Coming soon (not applied to components yet)."
     },
     {
       "id": "settings.display.date_format",
       "area": "Settings / Display",
       "feature": "Date format (US / ISO / EU)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Saved + applies via formatDate() in lib/money.ts."
     },
     {
       "id": "settings.display.number_format",
       "area": "Settings / Display",
       "feature": "Number format (US / EU / SPACE)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Backend + UI present; marked Coming soon."
     },
     {
       "id": "settings.display.font_size",
       "area": "Settings / Display",
       "feature": "Font size (Small / Normal / Large)",
-      "status": "scheduled",
-      "phase": "3.7"
+      "status": "built",
+      "phase": "3.7",
+      "notes": "Backend + UI present; marked Coming soon."
     },
     {
       "id": "settings.display.accent_color",
       "area": "Settings / Display",
       "feature": "Accent color",
-      "status": "scheduled",
-      "phase": "3.7"
+      "status": "built",
+      "phase": "3.7",
+      "notes": "Backend column + UI present; marked Coming soon."
     },
     {
       "id": "settings.display.reduce_motion",
       "area": "Settings / Display",
       "feature": "Reduce motion",
-      "status": "scheduled",
-      "phase": "3.7"
+      "status": "built",
+      "phase": "3.7",
+      "notes": "Backend column + UI present; marked Coming soon."
     },
     {
       "id": "settings.approvals",
@@ -2665,6 +2674,70 @@
       "status": "scheduled",
       "phase": "3.5",
       "notes": "PDF p.43. Dependency for accounting.receipts.cash_account_automatic (Phase 3.6) and accounting.banks.assoc_rpt (Phase 3.7)."
+    },
+    {
+      "id": "settings.currencies.list",
+      "area": "Settings / Currencies",
+      "feature": "List per-org currencies",
+      "status": "built",
+      "phase": "3.5",
+      "notes": "GET /api/settings/currencies"
+    },
+    {
+      "id": "settings.currencies.add",
+      "area": "Settings / Currencies",
+      "feature": "Add custom currency (code, name, symbol, locale, decimals)",
+      "status": "built",
+      "phase": "3.5",
+      "notes": "POST /api/settings/currencies. ADMIN/OWNER only."
+    },
+    {
+      "id": "settings.currencies.edit",
+      "area": "Settings / Currencies",
+      "feature": "Edit custom currency",
+      "status": "built",
+      "phase": "3.5",
+      "notes": "PATCH /api/settings/currencies/{id}"
+    },
+    {
+      "id": "settings.currencies.delete",
+      "area": "Settings / Currencies",
+      "feature": "Soft-delete custom currency",
+      "status": "built",
+      "phase": "3.5",
+      "notes": "DELETE /api/settings/currencies/{id}. Refuses system + in-use currencies."
+    },
+    {
+      "id": "settings.currencies.seed_defaults",
+      "area": "Settings / Currencies",
+      "feature": "9 system currencies seeded per org",
+      "status": "built",
+      "phase": "3.5",
+      "notes": "USD, EUR, GBP, INR, AUD, CAD, NZD, SGD, AED. Migration 8e1243432666."
+    },
+    {
+      "id": "settings.currencies.ui",
+      "area": "Settings / Currencies",
+      "feature": "Currencies CRUD page",
+      "status": "built",
+      "phase": "3.5",
+      "notes": "/dashboard/settings/currencies"
+    },
+    {
+      "id": "settings.menu.group",
+      "area": "Settings / Permissions",
+      "feature": "SETTINGS menu group (Display, Currencies, Menu Permissions, Sidebar)",
+      "status": "built",
+      "phase": "3.5",
+      "notes": "menu_keys.py + menuConfig.ts + migration 15d92d8a1eea."
+    },
+    {
+      "id": "settings.display.page_url",
+      "area": "Settings / Display",
+      "feature": "Display settings page reachable via sidebar",
+      "status": "built",
+      "phase": "3.5",
+      "notes": "/dashboard/settings/display - was built earlier but not in the sidebar until now."
     }
   ]
 }

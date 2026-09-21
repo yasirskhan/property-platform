@@ -36,6 +36,7 @@ export const MENU_ENTRIES: Record<string, MenuEntry> = {
   REPORTING:    { key: "REPORTING",    label: "Reporting",     href: "/dashboard/reporting",           icon: "bar-chart" },
   COMMUNICATION:{ key: "COMMUNICATION",label: "Communication", href: "/dashboard/communication",       icon: "message-square" },
   WHATS_NEW:    { key: "WHATS_NEW",    label: "What's New",    href: "/dashboard/whats-new",           icon: "sparkles", badge: "22" },
+  SETTINGS:     { key: "SETTINGS",     label: "Settings",      href: "/dashboard/settings",            icon: "settings" },
 
   // ---------- leasing children ----------
   "LEASING.LISTINGS":     { key: "LEASING.LISTINGS",     label: "Listings",         href: "/dashboard/leasing/listings",     icon: "" },
@@ -89,11 +90,17 @@ export const MENU_ENTRIES: Record<string, MenuEntry> = {
   "COMMUNICATION.MESSAGES":  { key: "COMMUNICATION.MESSAGES",  label: "Messages",  href: "/dashboard/communication/messages",  icon: "" },
   "COMMUNICATION.TEMPLATES": { key: "COMMUNICATION.TEMPLATES", label: "Templates", href: "/dashboard/communication/templates", icon: "" },
   "COMMUNICATION.SURVEYS":   { key: "COMMUNICATION.SURVEYS",   label: "Surveys",   href: "/dashboard/communication/surveys",   icon: "" },
+
+  // ---------- settings children ----------
+  "SETTINGS.DISPLAY":     { key: "SETTINGS.DISPLAY",     label: "Display",             href: "/dashboard/settings/display",     icon: "" },
+  "SETTINGS.CURRENCIES":  { key: "SETTINGS.CURRENCIES",  label: "Currencies",          href: "/dashboard/settings/currencies",  icon: "" },
+  "SETTINGS.PERMISSIONS": { key: "SETTINGS.PERMISSIONS", label: "Menu Permissions",    href: "/dashboard/settings/permissions", icon: "" },
+  "SETTINGS.SIDEBAR":     { key: "SETTINGS.SIDEBAR",     label: "Sidebar",             href: "/dashboard/settings/sidebar",     icon: "" },
 };
 
 // ------------------------------------------------------------
 // Lookup helper. Returns undefined if the backend sends a key
-// we don't know about yet — the Sidebar will skip it silently.
+// we don't know about yet - the Sidebar will skip it silently.
 // ------------------------------------------------------------
 export function getMenuEntry(key: string): MenuEntry | undefined {
   return MENU_ENTRIES[key];
