@@ -1,70 +1,77 @@
 @echo off
+setlocal EnableDelayedExpansion
+
 REM ============================================================
 REM push.bat
 REM ------------------------------------------------------------
 REM One-click Git push for property-platform.
 REM
 REM Double-click this file (or a desktop shortcut to it).
-REM It will:
+REM
 REM   1. cd into the repo
 REM   2. git add .
-REM   3. git commit with a timestamped message
+REM   3. git commit (with a timestamped message)
 REM   4. git push
 REM
-REM If nothing has changed, it just pushes anyway (harmless).
+REM If nothing has changed, it still pushes (harmless).
 REM ============================================================
 
-setlocal
-
 set REPO=C:\Projects\property-platform
-set MSG=auto-push %DATE% %TIME%
+
+echo.
+echo ============================================================
+echo  Property Platform - push to GitHub
+echo ============================================================
+echo.
 
 cd /d "%REPO%"
 if errorlevel 1 (
-    echo.
     echo ERROR: Could not cd into %REPO%
-    echo Check that the folder exists.
-    echo.
-    pause
-    exit /b 1
+    goto :end
 )
 
-echo.
-echo ============================================================
-echo  Pushing property-platform
-echo  Repo:    %REPO%
-echo  Message: %MSG%
-echo ============================================================
+REM --- Show what's about to be saved ---------------------------
+echo Current status:
+git status --short
+if errorlevel 1 (
+    echo ERROR: git status failed. Is this a git repo?
+    goto :end
+)
 echo.
 
-echo ^> git add .
+REM --- Stage everything ----------------------------------------
+echo ^>^>^> git add .
 git add .
-if errorlevel 1 goto :fail
+if errorlevel 1 (
+    echo ERROR: git add failed.
+    goto :end
+)
 
-echo.
-echo ^> git commit
+REM --- Commit --------------------------------------------------
+set MSG=auto-push %DATE% %TIME%
+echo ^>^>^> git commit -m "%MSG%"
 git commit -m "%MSG%"
-REM Note: a non-zero exit here usually just means "nothing to commit".
-REM We do NOT stop — we still push in case the branch is behind.
+REM (commit returns non-zero when there is nothing to commit; ignore)
 
+REM --- Push ----------------------------------------------------
 echo.
-echo ^> git push
+echo ^>^>^> git push
 git push
-if errorlevel 1 goto :fail
+if errorlevel 1 (
+    echo.
+    echo ============================================================
+    echo  PUSH FAILED. Read the error above.
+    echo ============================================================
+    goto :end
+)
 
 echo.
 echo ============================================================
 echo  DONE. Everything is on GitHub.
 echo ============================================================
-echo.
-pause
-exit /b 0
 
-:fail
+:end
 echo.
-echo ============================================================
-echo  FAILED. Read the error above.
-echo ============================================================
-echo.
-pause
-exit /b 1
+echo Press any key to close...
+pause >nul
+endlocal
