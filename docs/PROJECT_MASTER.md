@@ -2751,7 +2751,215 @@ The full history and reference. It contains:
 
 How it gets updated: via a Python script that replaces blocks
 (find-and-replace on # SECTION markers) or appends new sections
-before # END OF PROJECT_MASTER.md. Never edited by hand.
+before
+
+Every session that changes the project MUST end with these steps,
+in this exact order. No exceptions. No "I'll do it next time."
+
+## The rule
+
+If you finish a module without touching BOTH the master doc AND
+the parity JSON, the session is NOT complete. Do not push.
+
+## The steps
+
+### 1. Update the master doc
+
+Script names (in backend/):
+
+    update_master_p1.py   -- content edits (blocks, sections)
+    update_master_p2.py   -- new section appends
+
+Both scripts write the whole updated file. Never hand-edit
+PROJECT_MASTER.md. Delete the scripts after running them.
+
+What goes in the master doc:
+- Part A1 -- current state ("last completed work")
+- Part B1 -- immediate next action
+- Section 38 -- build order status
+- Section 57 -- parity audit summary
+- Any new Section for a new module
+
+### 2. Update the parity JSON
+
+File:  docs/APPFOLIO_PARITY_CHECKLIST.json
+
+Two ways to update:
+
+    (a) small changes -- open in VS Code, edit by hand
+    (b) bulk changes  -- write  update_checklist.py  in backend/,
+                         run it, then delete it
+
+What goes in the JSON:
+- Flip completed items from "scheduled" to "built"
+- Add any new features that were not tracked
+- Every new item MUST have a status and (if scheduled) a phase
+- Never remove an item -- mark it "built" or add a note
+
+### 3. Verify
+
+    python check_parity.py          -> must print CLEAN
+    count sections in the master doc -> must equal last section number
+    git status                       -> must show only the files you meant to commit
+
+If check_parity.py prints FAILURES, the session is not done.
+
+### 4. Delete one-off scripts
+
+Remove from backend/:
+
+    update_master_p1.py
+    update_master_p2.py
+    update_checklist.py
+    fix_*.py
+    rebuild_*.py
+    patch_*.py
+    add_*.py
+
+They are gitignored, but delete them anyway. Do not let them pile up.
+
+### 5. Push
+
+Milestone commits -- open PowerShell, cd to project root:
+
+    git add .
+    git commit -m "<descriptive message>"
+    git push
+
+Routine saves -- double-click push.bat on the desktop.
+
+push.bat refuses to push backups (.backup-*, *.bak) or one-off
+scripts (update_*, fix_*, rebuild_*, patch_*). If it aborts,
+delete those files and re-run.
+
+### 6. Report back
+
+Say: "Session closed. HEAD = <hash>. check_parity.py CLEAN."
+
+This is the signal that the session is truly complete.
+
+## Why this matters
+
+The master doc, the JSON, and the code drift apart quickly if any
+one of them is updated without the others. Every prior session
+that forgot one of them created a mismatch that took a later
+session to untangle. Do all three, in order, every time.
+
+## What NOT to do
+
+- Do not push without running check_parity.py.
+- Do not update the master doc without updating the JSON.
+- Do not update the JSON without updating the master doc.
+- Do not hand-edit PROJECT_MASTER.md.
+- Do not commit backup files or one-off scripts.
+- Do not skip the push just because "nothing changed" -- if nothing
+  changed, you did not do any work this session.
+
+# SECTION 67 - SESSION CLOSE CHECKLIST (MANDATORY)
+
+Every session that changes the project MUST end with these steps,
+in this exact order. No exceptions. No "I'll do it next time."
+
+## The rule
+
+If you finish a module without touching BOTH the master doc AND
+the parity JSON, the session is NOT complete. Do not push.
+
+## The steps
+
+### 1. Update the master doc
+
+Script names (in backend/):
+
+    update_master_p1.py   -- content edits (blocks, sections)
+    update_master_p2.py   -- new section appends
+
+Both scripts write the whole updated file. Never hand-edit
+PROJECT_MASTER.md. Delete the scripts after running them.
+
+What goes in the master doc:
+- Part A1 -- current state ("last completed work")
+- Part B1 -- immediate next action
+- Section 38 -- build order status
+- Section 57 -- parity audit summary
+- Any new Section for a new module
+
+### 2. Update the parity JSON
+
+File:  docs/APPFOLIO_PARITY_CHECKLIST.json
+
+Two ways to update:
+
+    (a) small changes -- open in VS Code, edit by hand
+    (b) bulk changes  -- write  update_checklist.py  in backend/,
+                         run it, then delete it
+
+What goes in the JSON:
+- Flip completed items from "scheduled" to "built"
+- Add any new features that were not tracked
+- Every new item MUST have a status and (if scheduled) a phase
+- Never remove an item -- mark it "built" or add a note
+
+### 3. Verify
+
+    python check_parity.py          -> must print CLEAN
+    count sections in the master doc -> must equal last section number
+    git status                       -> must show only the files you meant to commit
+
+If check_parity.py prints FAILURES, the session is not done.
+
+### 4. Delete one-off scripts
+
+Remove from backend/:
+
+    update_master_p1.py
+    update_master_p2.py
+    update_checklist.py
+    fix_*.py
+    rebuild_*.py
+    patch_*.py
+    add_*.py
+
+They are gitignored, but delete them anyway. Do not let them pile up.
+
+### 5. Push
+
+Milestone commits -- open PowerShell, cd to project root:
+
+    git add .
+    git commit -m "<descriptive message>"
+    git push
+
+Routine saves -- double-click push.bat on the desktop.
+
+push.bat refuses to push backups (.backup-*, *.bak) or one-off
+scripts (update_*, fix_*, rebuild_*, patch_*). If it aborts,
+delete those files and re-run.
+
+### 6. Report back
+
+Say: "Session closed. HEAD = <hash>. check_parity.py CLEAN."
+
+This is the signal that the session is truly complete.
+
+## Why this matters
+
+The master doc, the JSON, and the code drift apart quickly if any
+one of them is updated without the others. Every prior session
+that forgot one of them created a mismatch that took a later
+session to untangle. Do all three, in order, every time.
+
+## What NOT to do
+
+- Do not push without running check_parity.py.
+- Do not update the master doc without updating the JSON.
+- Do not update the JSON without updating the master doc.
+- Do not hand-edit PROJECT_MASTER.md.
+- Do not commit backup files or one-off scripts.
+- Do not skip the push just because "nothing changed" -- if nothing
+  changed, you did not do any work this session.
+
+# END OF PROJECT_MASTER.md. Never edited by hand.
 
 ### APPFOLIO_PARITY_CHECKLIST.json (the checklist)
 
