@@ -48,6 +48,8 @@ from app.routers import journal_entries as journal_entries_router
 from app.routers import property_amenities as property_amenities_router
 from app.routers import property_appliances as property_appliances_router
 from app.routers import property_improvements as property_improvements_router
+from app.routers import property_photos as property_photos_router
+
 # ------------------------------------------------------------
 # Create the FastAPI app
 # ------------------------------------------------------------
@@ -109,6 +111,7 @@ app.include_router(journal_entries_router.router)
 app.include_router(property_amenities_router.router)
 app.include_router(property_appliances_router.router)
 app.include_router(property_improvements_router.router)
+app.include_router(property_photos_router.router)
 
 
 # ------------------------------------------------------------

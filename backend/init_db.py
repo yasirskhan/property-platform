@@ -63,6 +63,7 @@ from app.models.bank_account import BankAccount  # noqa: F401
 from app.models.property_amenity import PropertyAmenity  # noqa: F401
 from app.models.property_appliance import PropertyAppliance  # noqa: F401
 from app.models.property_improvement import PropertyImprovement  # noqa: F401
+from app.models.property_photo import PropertyPhoto  # noqa: F401
 
 
 def create_tables():

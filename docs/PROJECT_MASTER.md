@@ -379,6 +379,7 @@ JE: (no new table — manual JEs use gl_transactions
   with transaction_type=JOURNAL_ENTRY, source_type=manual_je)
 Properties: properties, units, property_assignments, property_taxes,
 property_amenities, property_appliances, property_improvements,
+property_photos,
 property_tax_payments, property_utilities, utility_bills,
 trash_pickup_schedule, property_insurance, property_expenses,
 property_income
@@ -424,7 +425,8 @@ Chain:
 - dadbb391cc03_add_property_appliances
 - 35529ce17750_add_property_improvements
 - 59a25b856f18_add_phase3_parity_fields
-- HEAD: 59a25b856f18
+- 00bc0d143eac_add_property_photos
+- HEAD: 00bc0d143eac
 
 ---
 
@@ -2468,5 +2470,68 @@ either is fine. Never push code without pushing the doc update
 if both changed in the same session.
 
 ---
+
+
+
+---
+
+# SECTION 64 — PROPERTY PHOTOS (BUILT — Phase 3 Step 3d)
+
+Upload, view, and manage photos on a property.
+
+AppFolio-parity fields:
+- url (path under /uploads)
+- filename (UUID-based server filename)
+- original_name (user's original filename)
+- content_type (image/jpeg, etc.)
+- size_bytes
+- caption (optional)
+- is_marketing (flag for listings / public gallery)
+- is_cover (only one per property, enforced)
+- sort_order (manual drag order)
+
+Table: property_photos
+- id, organization_id, property_id
+- url VARCHAR(500), filename VARCHAR(200)
+- original_name VARCHAR(300), content_type VARCHAR(80),
+  size_bytes INTEGER
+- caption VARCHAR(500)
+- is_marketing BOOLEAN (default false)
+- is_cover BOOLEAN (default false)
+- sort_order INTEGER (default 0)
+- is_active, delete_reason, created_by_id, timestamps
+
+Migration: 00bc0d143eac_add_property_photos
+(down_revision = 59a25b856f18)
+
+Endpoints under /api/properties/{property_id}/photos:
+- GET    ""                 list (cover first, then sort_order, then id)
+- POST   ""                 create
+- PATCH  /{photo_id}        update (caption / marketing / cover / sort)
+- DELETE /{photo_id}        soft delete
+
+Cover enforcement:
+- When a photo is created or updated with is_cover=true,
+  the server automatically unsets is_cover on every other photo
+  of the same property. Exactly one cover at any time.
+
+Frontend:
+- src/lib/propertyPhotos.ts
+- src/components/property/PhotosTab.tsx
+- Grid of thumbnails; each shows ★ Cover and Marketing badges
+- "+ Upload Photos" button accepts multiple files at once
+- Two-step upload: apiUpload(file) -> then createPhoto(...)
+- Click a photo -> lightbox with large view
+- Per-photo actions: Edit (caption + flags), Set cover,
+  Mark/Unmark marketing, Remove (styled confirm modal)
+- Grid orders by: is_cover desc, sort_order asc, id asc
+
+Remaining gaps on this tab:
+- Image editor (crop / rotate) — Phase 3.5
+- Drag-to-reorder sort_order UI — Phase 3.5 (backend column exists)
+- Bulk-select multiple photos for one-shot actions — Phase 3.5
+
+Menu: none — Photos is a tab inside Property Detail.
+
 
 # END OF PROJECT_MASTER.md

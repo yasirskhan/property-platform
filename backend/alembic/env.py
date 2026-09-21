@@ -68,6 +68,7 @@ import app.models.deposit_line
 import app.models.property_amenity
 import app.models.property_appliance
 import app.models.property_improvement
+import app.models.property_photo
 
 # Alembic Config object
 config = context.config

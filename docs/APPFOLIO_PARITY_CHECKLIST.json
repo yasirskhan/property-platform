@@ -905,9 +905,8 @@
       "id": "properties.tabs.photos",
       "area": "Properties / Tabs",
       "feature": "Photos tab (upload, cover, marketing, bulk, captions, sort)",
-      "status": "in_progress",
-      "phase": "3d",
-      "notes": "Being built next"
+      "status": "built",
+      "phase": "3d"
     },
     {
       "id": "properties.tabs.photo_editor",
