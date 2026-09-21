@@ -1,10 +1,5 @@
 # ============================================================
 # property_improvements.py (router)
-# ------------------------------------------------------------
-#   GET    /api/properties/{property_id}/improvements        list
-#   POST   /api/properties/{property_id}/improvements        create
-#   PATCH  /api/properties/{property_id}/improvements/{id}   update
-#   DELETE /api/properties/{property_id}/improvements/{id}   soft delete
 # ============================================================
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -67,17 +62,15 @@ def _to_out(i: PropertyImprovement) -> PropertyImprovementOut:
         cost=i.cost,
         contractor=i.contractor,
         category=i.category,
+        warranty_expires=i.warranty_expires,
         notes=i.notes,
         is_active=i.is_active,
+        delete_reason=i.delete_reason,
         created_by_id=i.created_by_id,
         created_at=i.created_at,
         updated_at=i.updated_at,
     )
 
-
-# ============================================================
-# GET ""
-# ============================================================
 
 @router.get("", response_model=PropertyImprovementListOut)
 def list_improvements(
@@ -110,10 +103,6 @@ def list_improvements(
     )
 
 
-# ============================================================
-# POST ""
-# ============================================================
-
 @router.post(
     "",
     response_model=PropertyImprovementOut,
@@ -143,6 +132,7 @@ def create_improvement(
             cost=payload.cost,
             contractor=(payload.contractor or None),
             category=(payload.category or None),
+            warranty_expires=payload.warranty_expires,
             notes=payload.notes,
             is_active=True,
             created_by_id=current_user.id if current_user else None,
@@ -158,10 +148,6 @@ def create_improvement(
         )
     return _to_out(imp)
 
-
-# ============================================================
-# PATCH /{id}
-# ============================================================
 
 @router.patch(
     "/{improvement_id}", response_model=PropertyImprovementOut
@@ -206,10 +192,6 @@ def update_improvement(
         )
     return _to_out(imp)
 
-
-# ============================================================
-# DELETE /{id} — soft delete
-# ============================================================
 
 @router.delete(
     "/{improvement_id}", status_code=status.HTTP_204_NO_CONTENT

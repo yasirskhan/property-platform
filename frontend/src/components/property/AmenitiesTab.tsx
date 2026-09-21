@@ -1,7 +1,8 @@
 // ============================================================
 // AmenitiesTab.tsx
-// ------------------------------------------------------------
-// Property detail tab: amenities list with inline add/edit.
+// Amenities list with inline add/edit + styled confirm modal.
+// Includes AppFolio-parity fields: fee_amount,
+// availability_status.
 // ============================================================
 
 "use client";
@@ -13,6 +14,8 @@ import {
   updateAmenity,
   deleteAmenity,
   PropertyAmenity,
+  PropertyAmenityCreateIn,
+  PropertyAmenityUpdateIn,
 } from "@/lib/propertyAmenities";
 
 const CATEGORY_OPTIONS = [
@@ -22,6 +25,30 @@ const CATEGORY_OPTIONS = [
   "Community",
   "Other",
 ];
+
+type AvailabilityValue = "INCLUDED" | "EXTRA_FEE" | "NOT_AVAILABLE";
+
+const AVAILABILITY_OPTIONS: { value: AvailabilityValue; label: string }[] = [
+  { value: "INCLUDED", label: "Included" },
+  { value: "EXTRA_FEE", label: "Extra Fee" },
+  { value: "NOT_AVAILABLE", label: "Not Available" },
+];
+
+type EditState = {
+  name: string;
+  category: string;
+  notes: string;
+  fee_amount: string;
+  availability_status: "" | AvailabilityValue;
+};
+
+const emptyEdit: EditState = {
+  name: "",
+  category: "",
+  notes: "",
+  fee_amount: "",
+  availability_status: "",
+};
 
 export default function AmenitiesTab({
   propertyId,
@@ -35,18 +62,11 @@ export default function AmenitiesTab({
   const [error, setError] = useState("");
   const [working, setWorking] = useState(false);
 
-  // Inline add form
-  const [newName, setNewName] = useState("");
-  const [newCategory, setNewCategory] = useState("");
-  const [newNotes, setNewNotes] = useState("");
+  const [newRow, setNewRow] = useState<EditState>({ ...emptyEdit });
 
-  // Inline edit
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editCategory, setEditCategory] = useState("");
-  const [editNotes, setEditNotes] = useState("");
+  const [edit, setEdit] = useState<EditState>({ ...emptyEdit });
 
-  // Confirm-delete modal state
   const [confirmingDelete, setConfirmingDelete] =
     useState<PropertyAmenity | null>(null);
 
@@ -68,20 +88,26 @@ export default function AmenitiesTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [propertyId]);
 
+  function toPayload(
+    s: EditState
+  ): Omit<PropertyAmenityCreateIn, "property_id"> & PropertyAmenityUpdateIn {
+    return {
+      name: s.name.trim(),
+      category: s.category || null,
+      notes: s.notes || null,
+      fee_amount: s.fee_amount ? Number(s.fee_amount) : null,
+      availability_status: s.availability_status || null,
+    };
+  }
+
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    if (!newName.trim()) return;
+    if (!newRow.name.trim()) return;
     setWorking(true);
     setError("");
     try {
-      await createAmenity(propertyId, {
-        name: newName.trim(),
-        category: newCategory || null,
-        notes: newNotes || null,
-      });
-      setNewName("");
-      setNewCategory("");
-      setNewNotes("");
+      await createAmenity(propertyId, toPayload(newRow));
+      setNewRow({ ...emptyEdit });
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Add failed");
@@ -92,25 +118,27 @@ export default function AmenitiesTab({
 
   function startEdit(a: PropertyAmenity) {
     setEditingId(a.id);
-    setEditName(a.name);
-    setEditCategory(a.category || "");
-    setEditNotes(a.notes || "");
+    setEdit({
+      name: a.name,
+      category: a.category || "",
+      notes: a.notes || "",
+      fee_amount: a.fee_amount || "",
+      availability_status: (a.availability_status ||
+        "") as EditState["availability_status"],
+    });
   }
 
   function cancelEdit() {
     setEditingId(null);
+    setEdit({ ...emptyEdit });
   }
 
-  async function handleSaveEdit(id: number) {
+  async function saveEdit(id: number) {
     setWorking(true);
     setError("");
     try {
-      await updateAmenity(propertyId, id, {
-        name: editName.trim(),
-        category: editCategory || null,
-        notes: editNotes || null,
-      });
-      setEditingId(null);
+      await updateAmenity(propertyId, id, toPayload(edit));
+      cancelEdit();
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
@@ -119,7 +147,7 @@ export default function AmenitiesTab({
     }
   }
 
-  function handleDelete(a: PropertyAmenity) {
+  function askDelete(a: PropertyAmenity) {
     setConfirmingDelete(a);
   }
 
@@ -137,73 +165,51 @@ export default function AmenitiesTab({
     }
   }
 
+  function money(v: string | null): string {
+    if (!v) return "—";
+    return `$${Number(v).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  }
+
+  function availabilityLabel(v: string | null): string {
+    if (!v) return "—";
+    const found = AVAILABILITY_OPTIONS.find((o) => o.value === v);
+    return found ? found.label : v;
+  }
+
   if (loading) return <div className="text-slate-500">Loading…</div>;
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-4xl">
       {error && (
         <div className="mb-4 px-4 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
           {error}
         </div>
       )}
 
-      {/* Add form */}
       {canEdit && (
         <form
           onSubmit={handleAdd}
-          className="bg-white border border-slate-200 rounded-xl p-4 mb-6 grid grid-cols-12 gap-3 items-end"
+          className="bg-white border border-slate-200 rounded-xl p-4 mb-6"
         >
-          <div className="col-span-4">
-            <label className="block text-xs text-slate-500 mb-1">
-              Amenity *
-            </label>
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="e.g. Pool"
-              className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
-            />
+          <div className="text-sm font-semibold text-slate-700 mb-3">
+            New amenity
           </div>
-          <div className="col-span-3">
-            <label className="block text-xs text-slate-500 mb-1">
-              Category
-            </label>
-            <select
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
-              className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
-            >
-              <option value="">— None —</option>
-              {CATEGORY_OPTIONS.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="col-span-3">
-            <label className="block text-xs text-slate-500 mb-1">Notes</label>
-            <input
-              type="text"
-              value={newNotes}
-              onChange={(e) => setNewNotes(e.target.value)}
-              className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
-            />
-          </div>
-          <div className="col-span-2">
+          <AmenityFields value={newRow} onChange={setNewRow} />
+          <div className="flex items-center gap-3 pt-3">
             <button
               type="submit"
-              disabled={working || !newName.trim()}
-              className="w-full text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50"
+              disabled={working || !newRow.name.trim()}
+              className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50"
             >
-              Add
+              {working ? "Adding…" : "Add"}
             </button>
           </div>
         </form>
       )}
 
-      {/* List */}
       {items.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-500 text-sm">
           No amenities yet.
@@ -213,81 +219,64 @@ export default function AmenitiesTab({
           <table className="w-full text-sm">
             <thead className="bg-slate-50">
               <tr>
-                <th className="text-left px-4 py-2 font-medium text-slate-700">
+                <th className="text-left px-3 py-2 font-medium text-slate-700">
                   Amenity
                 </th>
-                <th className="text-left px-4 py-2 font-medium text-slate-700 w-32">
+                <th className="text-left px-3 py-2 font-medium text-slate-700 w-28">
                   Category
                 </th>
-                <th className="text-left px-4 py-2 font-medium text-slate-700">
+                <th className="text-left px-3 py-2 font-medium text-slate-700 w-28">
+                  Availability
+                </th>
+                <th className="text-right px-3 py-2 font-medium text-slate-700 w-24">
+                  Fee
+                </th>
+                <th className="text-left px-3 py-2 font-medium text-slate-700">
                   Notes
                 </th>
-                {canEdit && <th className="w-32"></th>}
+                {canEdit && <th className="w-28"></th>}
               </tr>
             </thead>
             <tbody>
               {items.map((a) => (
                 <tr key={a.id} className="border-t border-slate-100">
                   {editingId === a.id ? (
-                    <>
-                      <td className="px-4 py-2">
-                        <input
-                          type="text"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
-                        />
-                      </td>
-                      <td className="px-4 py-2">
-                        <select
-                          value={editCategory}
-                          onChange={(e) => setEditCategory(e.target.value)}
-                          className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
-                        >
-                          <option value="">— None —</option>
-                          {CATEGORY_OPTIONS.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-4 py-2">
-                        <input
-                          type="text"
-                          value={editNotes}
-                          onChange={(e) => setEditNotes(e.target.value)}
-                          className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
-                        />
-                      </td>
-                      <td className="px-4 py-2 text-right whitespace-nowrap">
+                    <td colSpan={canEdit ? 6 : 5} className="px-3 py-3">
+                      <AmenityFields value={edit} onChange={setEdit} />
+                      <div className="flex items-center gap-3 pt-3">
                         <button
-                          onClick={() => handleSaveEdit(a.id)}
+                          onClick={() => saveEdit(a.id)}
                           disabled={working}
-                          className="text-blue-600 hover:text-blue-800 text-xs disabled:opacity-50"
+                          className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50"
                         >
-                          Save
+                          {working ? "Saving…" : "Save"}
                         </button>
                         <button
                           onClick={cancelEdit}
                           disabled={working}
-                          className="text-slate-500 hover:text-slate-700 text-xs ml-3"
+                          className="text-sm px-3 py-2 text-slate-600 hover:text-slate-900"
                         >
                           Cancel
                         </button>
-                      </td>
-                    </>
+                      </div>
+                    </td>
                   ) : (
                     <>
-                      <td className="px-4 py-2 text-slate-800">{a.name}</td>
-                      <td className="px-4 py-2 text-slate-500 text-xs">
+                      <td className="px-3 py-2 text-slate-800">{a.name}</td>
+                      <td className="px-3 py-2 text-slate-500 text-xs">
                         {a.category || "—"}
                       </td>
-                      <td className="px-4 py-2 text-slate-500 text-xs">
+                      <td className="px-3 py-2 text-slate-500 text-xs">
+                        {availabilityLabel(a.availability_status)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-xs text-slate-700">
+                        {money(a.fee_amount)}
+                      </td>
+                      <td className="px-3 py-2 text-slate-500 text-xs">
                         {a.notes || "—"}
                       </td>
                       {canEdit && (
-                        <td className="px-4 py-2 text-right whitespace-nowrap">
+                        <td className="px-3 py-2 text-right whitespace-nowrap">
                           <button
                             onClick={() => startEdit(a)}
                             className="text-blue-600 hover:text-blue-800 text-xs"
@@ -295,7 +284,7 @@ export default function AmenitiesTab({
                             Edit
                           </button>
                           <button
-                            onClick={() => handleDelete(a)}
+                            onClick={() => askDelete(a)}
                             className="text-red-600 hover:text-red-800 text-xs ml-3"
                           >
                             Remove
@@ -311,7 +300,6 @@ export default function AmenitiesTab({
         </div>
       )}
 
-      {/* Confirm-delete modal */}
       {confirmingDelete && (
         <>
           <div
@@ -326,8 +314,8 @@ export default function AmenitiesTab({
                 </div>
               </div>
               <div className="px-6 py-5 text-sm text-slate-700">
-                Are you sure you want to remove{" "}
-                <strong>{confirmingDelete.name}</strong> from this property?
+                Remove <strong>{confirmingDelete.name}</strong> from this
+                property?
               </div>
               <div className="border-t border-slate-200 p-4 flex items-center justify-end gap-3">
                 <button
@@ -349,6 +337,92 @@ export default function AmenitiesTab({
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function AmenityFields({
+  value,
+  onChange,
+}: {
+  value: EditState;
+  onChange: (v: EditState) => void;
+}) {
+  function set<K extends keyof EditState>(key: K, v: EditState[K]) {
+    onChange({ ...value, [key]: v });
+  }
+
+  return (
+    <div className="grid grid-cols-12 gap-3">
+      <div className="col-span-4">
+        <label className="block text-xs text-slate-500 mb-1">Name *</label>
+        <input
+          type="text"
+          value={value.name}
+          onChange={(e) => set("name", e.target.value)}
+          placeholder="e.g. Pool"
+          className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+        />
+      </div>
+      <div className="col-span-2">
+        <label className="block text-xs text-slate-500 mb-1">Category</label>
+        <select
+          value={value.category}
+          onChange={(e) => set("category", e.target.value)}
+          className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+        >
+          <option value="">— None —</option>
+          {CATEGORY_OPTIONS.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="col-span-3">
+        <label className="block text-xs text-slate-500 mb-1">
+          Availability
+        </label>
+        <select
+          value={value.availability_status}
+          onChange={(e) =>
+            set(
+              "availability_status",
+              e.target.value as EditState["availability_status"]
+            )
+          }
+          className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+        >
+          <option value="">— None —</option>
+          {AVAILABILITY_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="col-span-3">
+        <label className="block text-xs text-slate-500 mb-1">
+          Fee amount
+        </label>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          value={value.fee_amount}
+          onChange={(e) => set("fee_amount", e.target.value)}
+          className="w-full border border-slate-300 rounded px-2 py-1 text-sm font-mono"
+        />
+      </div>
+      <div className="col-span-12">
+        <label className="block text-xs text-slate-500 mb-1">Notes</label>
+        <input
+          type="text"
+          value={value.notes}
+          onChange={(e) => set("notes", e.target.value)}
+          className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+        />
+      </div>
     </div>
   );
 }

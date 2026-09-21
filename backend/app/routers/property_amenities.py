@@ -1,13 +1,10 @@
 # ============================================================
 # property_amenities.py (router)
 # ------------------------------------------------------------
-#   GET    /api/properties/{property_id}/amenities     list
-#   POST   /api/properties/{property_id}/amenities     create
-#   PATCH  /api/properties/{property_id}/amenities/{id} update
-#   DELETE /api/properties/{property_id}/amenities/{id} soft delete
-#
-# Scoped by property_id in the URL, and both must belong to
-# the caller's org.
+#   GET    /api/properties/{property_id}/amenities         list
+#   POST   /api/properties/{property_id}/amenities         create
+#   PATCH  /api/properties/{property_id}/amenities/{id}    update
+#   DELETE /api/properties/{property_id}/amenities/{id}    soft delete
 # ============================================================
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -68,16 +65,15 @@ def _to_out(a: PropertyAmenity) -> PropertyAmenityOut:
         name=a.name,
         category=a.category,
         notes=a.notes,
+        fee_amount=a.fee_amount,
+        availability_status=a.availability_status,
         is_active=a.is_active,
+        delete_reason=a.delete_reason,
         created_by_id=a.created_by_id,
         created_at=a.created_at,
         updated_at=a.updated_at,
     )
 
-
-# ============================================================
-# GET ""
-# ============================================================
 
 @router.get("", response_model=PropertyAmenityListOut)
 def list_amenities(
@@ -108,10 +104,6 @@ def list_amenities(
     )
 
 
-# ============================================================
-# POST ""
-# ============================================================
-
 @router.post(
     "",
     response_model=PropertyAmenityOut,
@@ -139,6 +131,8 @@ def create_amenity(
             name=payload.name.strip(),
             category=(payload.category or None),
             notes=payload.notes,
+            fee_amount=payload.fee_amount,
+            availability_status=payload.availability_status,
             is_active=True,
             created_by_id=current_user.id if current_user else None,
         )
@@ -153,10 +147,6 @@ def create_amenity(
         )
     return _to_out(a)
 
-
-# ============================================================
-# PATCH /{id}
-# ============================================================
 
 @router.patch("/{amenity_id}", response_model=PropertyAmenityOut)
 def update_amenity(
@@ -199,10 +189,6 @@ def update_amenity(
         )
     return _to_out(a)
 
-
-# ============================================================
-# DELETE /{id} — soft delete
-# ============================================================
 
 @router.delete(
     "/{amenity_id}", status_code=status.HTTP_204_NO_CONTENT

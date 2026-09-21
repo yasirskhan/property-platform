@@ -69,17 +69,15 @@ def _to_out(a: PropertyAppliance) -> PropertyApplianceOut:
         purchase_date=a.purchase_date,
         purchase_price=a.purchase_price,
         warranty_expires=a.warranty_expires,
+        condition=a.condition,
         notes=a.notes,
         is_active=a.is_active,
+        delete_reason=a.delete_reason,
         created_by_id=a.created_by_id,
         created_at=a.created_at,
         updated_at=a.updated_at,
     )
 
-
-# ============================================================
-# GET ""
-# ============================================================
 
 @router.get("", response_model=PropertyApplianceListOut)
 def list_appliances(
@@ -109,10 +107,6 @@ def list_appliances(
         total=total,
     )
 
-
-# ============================================================
-# POST ""
-# ============================================================
 
 @router.post(
     "",
@@ -145,6 +139,7 @@ def create_appliance(
             purchase_date=payload.purchase_date,
             purchase_price=payload.purchase_price,
             warranty_expires=payload.warranty_expires,
+            condition=payload.condition,
             notes=payload.notes,
             is_active=True,
             created_by_id=current_user.id if current_user else None,
@@ -160,10 +155,6 @@ def create_appliance(
         )
     return _to_out(a)
 
-
-# ============================================================
-# PATCH /{id}
-# ============================================================
 
 @router.patch(
     "/{appliance_id}", response_model=PropertyApplianceOut
@@ -208,10 +199,6 @@ def update_appliance(
         )
     return _to_out(a)
 
-
-# ============================================================
-# DELETE /{id} — soft delete
-# ============================================================
 
 @router.delete(
     "/{appliance_id}", status_code=status.HTTP_204_NO_CONTENT

@@ -1,12 +1,10 @@
 # ============================================================
 # property_improvement.py
 # ------------------------------------------------------------
-# A renovation / upgrade on a property (kitchen remodel, roof
-# replacement, etc.). Pure CRUD — no GL impact.
+# A renovation / upgrade on a property. Pure CRUD — no GL impact.
 #
-# AppFolio parity: improvements live on the property detail
-# page as a list with date, description, category, contractor,
-# and cost.
+# AppFolio parity fields:
+#   - warranty_expires (date — e.g. 10-year roof warranty)
 # ============================================================
 
 from datetime import datetime
@@ -50,14 +48,12 @@ class PropertyImprovement(Base):
     description = Column(String(500), nullable=False)
     cost = Column(Numeric(14, 2), nullable=True)
     contractor = Column(String(200), nullable=True)
-
-    # Kitchen | Bath | Roof | HVAC | Flooring | Electrical |
-    # Plumbing | Exterior | Other
     category = Column(String(60), nullable=True)
-
+    warranty_expires = Column(Date, nullable=True)
     notes = Column(Text, nullable=True)
 
     is_active = Column(Boolean, nullable=False, default=True, index=True)
+    delete_reason = Column(Text, nullable=True)
 
     created_by_id = Column(
         Integer,
@@ -68,7 +64,6 @@ class PropertyImprovement(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationships
     organization = relationship("Organization")
     property = relationship("Property")
     created_by = relationship("User", foreign_keys=[created_by_id])

@@ -1,13 +1,14 @@
 # ============================================================
 # property_appliance.py (schemas)
-# ------------------------------------------------------------
-# Pydantic shapes for Property Appliances.
 # ============================================================
 
 from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+APPLIANCE_CONDITIONS = ("NEW", "GOOD", "FAIR", "NEEDS_REPAIR")
 
 
 class PropertyApplianceCreateIn(BaseModel):
@@ -19,7 +20,20 @@ class PropertyApplianceCreateIn(BaseModel):
     purchase_date: Optional[date] = None
     purchase_price: Optional[Decimal] = None
     warranty_expires: Optional[date] = None
+    condition: Optional[str] = Field(None, max_length=30)
     notes: Optional[str] = None
+
+    @field_validator("condition")
+    @classmethod
+    def _valid_condition(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or v == "":
+            return None
+        up = v.strip().upper()
+        if up not in APPLIANCE_CONDITIONS:
+            raise ValueError(
+                f"condition must be one of {APPLIANCE_CONDITIONS}"
+            )
+        return up
 
 
 class PropertyApplianceUpdateIn(BaseModel):
@@ -30,8 +44,22 @@ class PropertyApplianceUpdateIn(BaseModel):
     purchase_date: Optional[date] = None
     purchase_price: Optional[Decimal] = None
     warranty_expires: Optional[date] = None
+    condition: Optional[str] = Field(None, max_length=30)
     notes: Optional[str] = None
     is_active: Optional[bool] = None
+    delete_reason: Optional[str] = None
+
+    @field_validator("condition")
+    @classmethod
+    def _valid_condition(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or v == "":
+            return None
+        up = v.strip().upper()
+        if up not in APPLIANCE_CONDITIONS:
+            raise ValueError(
+                f"condition must be one of {APPLIANCE_CONDITIONS}"
+            )
+        return up
 
 
 class PropertyApplianceOut(BaseModel):
@@ -45,8 +73,10 @@ class PropertyApplianceOut(BaseModel):
     purchase_date: Optional[date] = None
     purchase_price: Optional[Decimal] = None
     warranty_expires: Optional[date] = None
+    condition: Optional[str] = None
     notes: Optional[str] = None
     is_active: bool
+    delete_reason: Optional[str] = None
     created_by_id: Optional[int] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

@@ -4,8 +4,9 @@
 # A named amenity attached to a property (Pool, Gym, In-Unit
 # Laundry, Rooftop Deck, etc.). Pure CRUD — no GL impact.
 #
-# AppFolio parity: amenities live on the property detail page
-# as a simple list with optional category + notes.
+# AppFolio parity fields:
+#   - fee_amount             (money — optional)
+#   - availability_status    (INCLUDED / EXTRA_FEE / NOT_AVAILABLE)
 # ============================================================
 
 from datetime import datetime
@@ -15,13 +16,18 @@ from sqlalchemy import (
     Integer,
     String,
     Boolean,
-    Text,
     DateTime,
+    Numeric,
+    Text,
     ForeignKey,
 )
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+
+
+# Allowed availability statuses
+AVAILABILITY_STATUSES = ("INCLUDED", "EXTRA_FEE", "NOT_AVAILABLE")
 
 
 class PropertyAmenity(Base):
@@ -43,17 +49,15 @@ class PropertyAmenity(Base):
         index=True,
     )
 
-    # Required: "Pool", "Gym", "In-Unit Laundry", "Rooftop Deck"
     name = Column(String(120), nullable=False)
-
-    # Optional free-text category: "Building", "Unit", "Outdoor",
-    # "Community", "Other"
     category = Column(String(60), nullable=True)
-
-    # Optional free-text notes
     notes = Column(Text, nullable=True)
 
+    fee_amount = Column(Numeric(14, 2), nullable=True)
+    availability_status = Column(String(30), nullable=True)
+
     is_active = Column(Boolean, nullable=False, default=True, index=True)
+    delete_reason = Column(Text, nullable=True)
 
     created_by_id = Column(
         Integer,
@@ -64,7 +68,6 @@ class PropertyAmenity(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationships
     organization = relationship("Organization")
     property = relationship("Property")
     created_by = relationship("User", foreign_keys=[created_by_id])

@@ -1,7 +1,5 @@
 # ============================================================
 # property_improvement.py (schemas)
-# ------------------------------------------------------------
-# Pydantic shapes for Property Improvements.
 # ============================================================
 
 from datetime import date, datetime
@@ -17,6 +15,7 @@ class PropertyImprovementCreateIn(BaseModel):
     cost: Optional[Decimal] = None
     contractor: Optional[str] = Field(None, max_length=200)
     category: Optional[str] = Field(None, max_length=60)
+    warranty_expires: Optional[date] = None
     notes: Optional[str] = None
 
 
@@ -26,8 +25,10 @@ class PropertyImprovementUpdateIn(BaseModel):
     cost: Optional[Decimal] = None
     contractor: Optional[str] = Field(None, max_length=200)
     category: Optional[str] = Field(None, max_length=60)
+    warranty_expires: Optional[date] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
+    delete_reason: Optional[str] = None
 
 
 class PropertyImprovementOut(BaseModel):
@@ -39,8 +40,10 @@ class PropertyImprovementOut(BaseModel):
     cost: Optional[Decimal] = None
     contractor: Optional[str] = None
     category: Optional[str] = None
+    warranty_expires: Optional[date] = None
     notes: Optional[str] = None
     is_active: bool
+    delete_reason: Optional[str] = None
     created_by_id: Optional[int] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

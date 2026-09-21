@@ -4,8 +4,8 @@
 # A physical appliance on a property (Fridge, Washer, Dryer,
 # Dishwasher, etc.). Pure CRUD — no GL impact.
 #
-# AppFolio parity: appliances live on the property detail page
-# as a list with brand / model / serial / purchase info.
+# AppFolio parity fields:
+#   - condition (NEW / GOOD / FAIR / NEEDS_REPAIR)
 # ============================================================
 
 from datetime import datetime
@@ -24,6 +24,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+
+
+# Allowed condition values
+APPLIANCE_CONDITIONS = ("NEW", "GOOD", "FAIR", "NEEDS_REPAIR")
 
 
 class PropertyAppliance(Base):
@@ -45,20 +49,18 @@ class PropertyAppliance(Base):
         index=True,
     )
 
-    # "Fridge", "Washer", "Dryer", "Dishwasher", etc.
     name = Column(String(120), nullable=False)
-
     brand = Column(String(120), nullable=True)
     model_number = Column(String(120), nullable=True)
     serial_number = Column(String(120), nullable=True)
-
     purchase_date = Column(Date, nullable=True)
     purchase_price = Column(Numeric(14, 2), nullable=True)
     warranty_expires = Column(Date, nullable=True)
-
+    condition = Column(String(30), nullable=True)
     notes = Column(Text, nullable=True)
 
     is_active = Column(Boolean, nullable=False, default=True, index=True)
+    delete_reason = Column(Text, nullable=True)
 
     created_by_id = Column(
         Integer,
@@ -69,7 +71,6 @@ class PropertyAppliance(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationships
     organization = relationship("Organization")
     property = relationship("Property")
     created_by = relationship("User", foreign_keys=[created_by_id])

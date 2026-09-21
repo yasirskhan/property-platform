@@ -2,7 +2,7 @@
 // ImprovementsTab.tsx
 // ------------------------------------------------------------
 // Property detail tab: improvement / renovation history.
-// Newest first. Uses a styled confirm modal for delete.
+// AppFolio-parity field: warranty_expires.
 // ============================================================
 
 "use client";
@@ -14,6 +14,8 @@ import {
   updateImprovement,
   deleteImprovement,
   PropertyImprovement,
+  PropertyImprovementCreateIn,
+  PropertyImprovementUpdateIn,
 } from "@/lib/propertyImprovements";
 
 const CATEGORY_OPTIONS = [
@@ -34,6 +36,7 @@ type EditState = {
   cost: string;
   contractor: string;
   category: string;
+  warranty_expires: string;
   notes: string;
 };
 
@@ -43,6 +46,7 @@ const emptyEdit: EditState = {
   cost: "",
   contractor: "",
   category: "",
+  warranty_expires: "",
   notes: "",
 };
 
@@ -85,13 +89,17 @@ export default function ImprovementsTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [propertyId]);
 
-  function toPayload(s: EditState) {
+  function toPayload(
+    s: EditState
+  ): Omit<PropertyImprovementCreateIn, "property_id"> &
+    PropertyImprovementUpdateIn {
     return {
       improvement_date: s.improvement_date,
       description: s.description.trim(),
       cost: s.cost ? Number(s.cost) : null,
       contractor: s.contractor || null,
       category: s.category || null,
+      warranty_expires: s.warranty_expires || null,
       notes: s.notes || null,
     };
   }
@@ -121,6 +129,7 @@ export default function ImprovementsTab({
       cost: i.cost || "",
       contractor: i.contractor || "",
       category: i.category || "",
+      warranty_expires: i.warranty_expires || "",
       notes: i.notes || "",
     });
   }
@@ -241,11 +250,14 @@ export default function ImprovementsTab({
                 <th className="text-left px-3 py-2 font-medium text-slate-700 w-28">
                   Category
                 </th>
-                <th className="text-left px-3 py-2 font-medium text-slate-700 w-48">
+                <th className="text-left px-3 py-2 font-medium text-slate-700 w-44">
                   Contractor
                 </th>
-                <th className="text-right px-3 py-2 font-medium text-slate-700 w-28">
+                <th className="text-right px-3 py-2 font-medium text-slate-700 w-24">
                   Cost
+                </th>
+                <th className="text-left px-3 py-2 font-medium text-slate-700 w-28">
+                  Warranty
                 </th>
                 {canEdit && <th className="w-28"></th>}
               </tr>
@@ -254,27 +266,25 @@ export default function ImprovementsTab({
               {items.map((i) => (
                 <tr key={i.id} className="border-t border-slate-100">
                   {editingId === i.id ? (
-                    <>
-                      <td colSpan={canEdit ? 6 : 5} className="px-3 py-3">
-                        <ImprovementFields value={edit} onChange={setEdit} />
-                        <div className="flex items-center gap-3 pt-3">
-                          <button
-                            onClick={() => saveEdit(i.id)}
-                            disabled={working}
-                            className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50"
-                          >
-                            {working ? "Saving…" : "Save"}
-                          </button>
-                          <button
-                            onClick={cancelEdit}
-                            disabled={working}
-                            className="text-sm px-3 py-2 text-slate-600 hover:text-slate-900"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </td>
-                    </>
+                    <td colSpan={canEdit ? 7 : 6} className="px-3 py-3">
+                      <ImprovementFields value={edit} onChange={setEdit} />
+                      <div className="flex items-center gap-3 pt-3">
+                        <button
+                          onClick={() => saveEdit(i.id)}
+                          disabled={working}
+                          className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50"
+                        >
+                          {working ? "Saving…" : "Save"}
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          disabled={working}
+                          className="text-sm px-3 py-2 text-slate-600 hover:text-slate-900"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </td>
                   ) : (
                     <>
                       <td className="px-3 py-2 text-slate-600 text-xs">
@@ -296,6 +306,9 @@ export default function ImprovementsTab({
                       </td>
                       <td className="px-3 py-2 text-slate-700 text-xs text-right font-mono">
                         {money(i.cost)}
+                      </td>
+                      <td className="px-3 py-2 text-slate-600 text-xs">
+                        {i.warranty_expires || "—"}
                       </td>
                       {canEdit && (
                         <td className="px-3 py-2 text-right whitespace-nowrap">
@@ -322,7 +335,6 @@ export default function ImprovementsTab({
         </div>
       )}
 
-      {/* Confirm delete modal */}
       {confirmingDelete && (
         <>
           <div
@@ -414,7 +426,7 @@ function ImprovementFields({
           ))}
         </select>
       </div>
-      <div className="col-span-6">
+      <div className="col-span-4">
         <label className="block text-xs text-slate-500 mb-1">
           Contractor
         </label>
@@ -434,6 +446,17 @@ function ImprovementFields({
           value={value.cost}
           onChange={(e) => set("cost", e.target.value)}
           className="w-full border border-slate-300 rounded px-2 py-1 text-sm font-mono"
+        />
+      </div>
+      <div className="col-span-3">
+        <label className="block text-xs text-slate-500 mb-1">
+          Warranty expires
+        </label>
+        <input
+          type="date"
+          value={value.warranty_expires}
+          onChange={(e) => set("warranty_expires", e.target.value)}
+          className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
         />
       </div>
       <div className="col-span-12">

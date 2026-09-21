@@ -1,7 +1,6 @@
 // ============================================================
 // propertyImprovements.ts
-// ------------------------------------------------------------
-// Typed API client for Property Improvements (Phase 3 Step 3c).
+// AppFolio-parity field: warranty_expires.
 // ============================================================
 
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
@@ -15,8 +14,10 @@ export type PropertyImprovement = {
   cost: string | null;
   contractor: string | null;
   category: string | null;
+  warranty_expires: string | null;
   notes: string | null;
   is_active: boolean;
+  delete_reason: string | null;
   created_by_id: number | null;
   created_at: string | null;
   updated_at: string | null;
@@ -34,6 +35,7 @@ export type PropertyImprovementCreateIn = {
   cost?: number | string | null;
   contractor?: string | null;
   category?: string | null;
+  warranty_expires?: string | null;
   notes?: string | null;
 };
 
@@ -43,8 +45,10 @@ export type PropertyImprovementUpdateIn = {
   cost?: number | string | null;
   contractor?: string | null;
   category?: string | null;
+  warranty_expires?: string | null;
   notes?: string | null;
   is_active?: boolean;
+  delete_reason?: string | null;
 };
 
 export function listImprovements(

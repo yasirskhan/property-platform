@@ -1,10 +1,15 @@
 // ============================================================
 // propertyAppliances.ts
-// ------------------------------------------------------------
-// Typed API client for Property Appliances (Phase 3 Step 3b).
+// AppFolio-parity field: condition.
 // ============================================================
 
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
+
+export type PropertyApplianceCondition =
+  | "NEW"
+  | "GOOD"
+  | "FAIR"
+  | "NEEDS_REPAIR";
 
 export type PropertyAppliance = {
   id: number;
@@ -17,8 +22,10 @@ export type PropertyAppliance = {
   purchase_date: string | null;
   purchase_price: string | null;
   warranty_expires: string | null;
+  condition: PropertyApplianceCondition | null;
   notes: string | null;
   is_active: boolean;
+  delete_reason: string | null;
   created_by_id: number | null;
   created_at: string | null;
   updated_at: string | null;
@@ -38,6 +45,7 @@ export type PropertyApplianceCreateIn = {
   purchase_date?: string | null;
   purchase_price?: number | string | null;
   warranty_expires?: string | null;
+  condition?: PropertyApplianceCondition | null;
   notes?: string | null;
 };
 
@@ -49,8 +57,10 @@ export type PropertyApplianceUpdateIn = {
   purchase_date?: string | null;
   purchase_price?: number | string | null;
   warranty_expires?: string | null;
+  condition?: PropertyApplianceCondition | null;
   notes?: string | null;
   is_active?: boolean;
+  delete_reason?: string | null;
 };
 
 export function listAppliances(

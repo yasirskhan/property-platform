@@ -81,6 +81,11 @@ class GLAccount(Base):
 
     subject_to_mgmt_fees = Column(Boolean, nullable=False, default=False)
     include_on_cash_flow = Column(Boolean, nullable=False, default=True)
+    
+        # Diagnostics flag: accounts that must net to $0 after each
+    # cycle (fee clearing accounts). Drives the "Positive Balance
+    # on Fee GL Accounts" diagnostic.
+    must_clear = Column(Boolean, nullable=False, default=False)
 
     # Soft delete (matches the properties pattern).
     is_active = Column(Boolean, nullable=False, default=True, index=True)

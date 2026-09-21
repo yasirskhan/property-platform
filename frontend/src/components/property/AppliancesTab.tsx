@@ -2,7 +2,7 @@
 // AppliancesTab.tsx
 // ------------------------------------------------------------
 // Property detail tab: appliances list with add/edit inline.
-// Uses a styled confirm modal for delete (matches Amenities).
+// AppFolio-parity field: condition.
 // ============================================================
 
 "use client";
@@ -14,6 +14,9 @@ import {
   updateAppliance,
   deleteAppliance,
   PropertyAppliance,
+  PropertyApplianceCondition,
+  PropertyApplianceCreateIn,
+  PropertyApplianceUpdateIn,
 } from "@/lib/propertyAppliances";
 
 const COMMON_APPLIANCES = [
@@ -29,6 +32,16 @@ const COMMON_APPLIANCES = [
   "Other",
 ];
 
+const CONDITION_OPTIONS: {
+  value: PropertyApplianceCondition;
+  label: string;
+}[] = [
+  { value: "NEW", label: "New" },
+  { value: "GOOD", label: "Good" },
+  { value: "FAIR", label: "Fair" },
+  { value: "NEEDS_REPAIR", label: "Needs Repair" },
+];
+
 type EditState = {
   name: string;
   brand: string;
@@ -37,6 +50,7 @@ type EditState = {
   purchase_date: string;
   purchase_price: string;
   warranty_expires: string;
+  condition: "" | PropertyApplianceCondition;
   notes: string;
 };
 
@@ -48,6 +62,7 @@ const emptyEdit: EditState = {
   purchase_date: "",
   purchase_price: "",
   warranty_expires: "",
+  condition: "",
   notes: "",
 };
 
@@ -63,15 +78,12 @@ export default function AppliancesTab({
   const [error, setError] = useState("");
   const [working, setWorking] = useState(false);
 
-  // Add form
   const [showAddForm, setShowAddForm] = useState(false);
   const [add, setAdd] = useState<EditState>({ ...emptyEdit });
 
-  // Edit
   const [editingId, setEditingId] = useState<number | null>(null);
   const [edit, setEdit] = useState<EditState>({ ...emptyEdit });
 
-  // Confirm delete
   const [confirmingDelete, setConfirmingDelete] =
     useState<PropertyAppliance | null>(null);
 
@@ -93,17 +105,19 @@ export default function AppliancesTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [propertyId]);
 
-  function toPayload(s: EditState) {
+  function toPayload(
+    s: EditState
+  ): Omit<PropertyApplianceCreateIn, "property_id"> &
+    PropertyApplianceUpdateIn {
     return {
       name: s.name.trim(),
       brand: s.brand || null,
       model_number: s.model_number || null,
       serial_number: s.serial_number || null,
       purchase_date: s.purchase_date || null,
-      purchase_price: s.purchase_price
-        ? Number(s.purchase_price)
-        : null,
+      purchase_price: s.purchase_price ? Number(s.purchase_price) : null,
       warranty_expires: s.warranty_expires || null,
+      condition: s.condition || null,
       notes: s.notes || null,
     };
   }
@@ -135,6 +149,8 @@ export default function AppliancesTab({
       purchase_date: a.purchase_date || "",
       purchase_price: a.purchase_price || "",
       warranty_expires: a.warranty_expires || "",
+      condition: (a.condition ||
+        "") as EditState["condition"],
       notes: a.notes || "",
     });
   }
@@ -184,6 +200,12 @@ export default function AppliancesTab({
     })}`;
   }
 
+  function conditionLabel(v: string | null): string {
+    if (!v) return "—";
+    const found = CONDITION_OPTIONS.find((o) => o.value === v);
+    return found ? found.label : v;
+  }
+
   if (loading) return <div className="text-slate-500">Loading…</div>;
 
   return (
@@ -194,7 +216,6 @@ export default function AppliancesTab({
         </div>
       )}
 
-      {/* Header actions */}
       {canEdit && !showAddForm && (
         <div className="mb-4 text-right">
           <button
@@ -206,7 +227,6 @@ export default function AppliancesTab({
         </div>
       )}
 
-      {/* Add form */}
       {canEdit && showAddForm && (
         <form
           onSubmit={handleAdd}
@@ -239,7 +259,6 @@ export default function AppliancesTab({
         </form>
       )}
 
-      {/* List */}
       {items.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-500 text-sm">
           No appliances yet.
@@ -261,13 +280,16 @@ export default function AppliancesTab({
                 <th className="text-left px-3 py-2 font-medium text-slate-700">
                   Serial
                 </th>
-                <th className="text-left px-3 py-2 font-medium text-slate-700 w-28">
+                <th className="text-left px-3 py-2 font-medium text-slate-700 w-24">
+                  Condition
+                </th>
+                <th className="text-left px-3 py-2 font-medium text-slate-700 w-24">
                   Purchased
                 </th>
                 <th className="text-right px-3 py-2 font-medium text-slate-700 w-24">
                   Price
                 </th>
-                <th className="text-left px-3 py-2 font-medium text-slate-700 w-28">
+                <th className="text-left px-3 py-2 font-medium text-slate-700 w-24">
                   Warranty
                 </th>
                 {canEdit && <th className="w-28"></th>}
@@ -277,27 +299,25 @@ export default function AppliancesTab({
               {items.map((a) => (
                 <tr key={a.id} className="border-t border-slate-100">
                   {editingId === a.id ? (
-                    <>
-                      <td colSpan={canEdit ? 8 : 7} className="px-3 py-3">
-                        <ApplianceFields value={edit} onChange={setEdit} />
-                        <div className="flex items-center gap-3 pt-3">
-                          <button
-                            onClick={() => saveEdit(a.id)}
-                            disabled={working}
-                            className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50"
-                          >
-                            {working ? "Saving…" : "Save"}
-                          </button>
-                          <button
-                            onClick={cancelEdit}
-                            disabled={working}
-                            className="text-sm px-3 py-2 text-slate-600 hover:text-slate-900"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </td>
-                    </>
+                    <td colSpan={canEdit ? 9 : 8} className="px-3 py-3">
+                      <ApplianceFields value={edit} onChange={setEdit} />
+                      <div className="flex items-center gap-3 pt-3">
+                        <button
+                          onClick={() => saveEdit(a.id)}
+                          disabled={working}
+                          className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50"
+                        >
+                          {working ? "Saving…" : "Save"}
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          disabled={working}
+                          className="text-sm px-3 py-2 text-slate-600 hover:text-slate-900"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </td>
                   ) : (
                     <>
                       <td className="px-3 py-2 text-slate-800">{a.name}</td>
@@ -309,6 +329,9 @@ export default function AppliancesTab({
                       </td>
                       <td className="px-3 py-2 text-slate-600 text-xs font-mono">
                         {a.serial_number || "—"}
+                      </td>
+                      <td className="px-3 py-2 text-slate-600 text-xs">
+                        {conditionLabel(a.condition)}
                       </td>
                       <td className="px-3 py-2 text-slate-600 text-xs">
                         {a.purchase_date || "—"}
@@ -344,7 +367,6 @@ export default function AppliancesTab({
         </div>
       )}
 
-      {/* Confirm delete modal */}
       {confirmingDelete && (
         <>
           <div
@@ -359,8 +381,8 @@ export default function AppliancesTab({
                 </div>
               </div>
               <div className="px-6 py-5 text-sm text-slate-700">
-                Are you sure you want to remove{" "}
-                <strong>{confirmingDelete.name}</strong> from this property?
+                Remove <strong>{confirmingDelete.name}</strong> from this
+                property?
               </div>
               <div className="border-t border-slate-200 p-4 flex items-center justify-end gap-3">
                 <button
@@ -386,9 +408,6 @@ export default function AppliancesTab({
   );
 }
 
-// ------------------------------------------------------------
-// Shared fields component — reused for add and edit
-// ------------------------------------------------------------
 function ApplianceFields({
   value,
   onChange,
@@ -447,6 +466,28 @@ function ApplianceFields({
       </div>
       <div className="col-span-3">
         <label className="block text-xs text-slate-500 mb-1">
+          Condition
+        </label>
+        <select
+          value={value.condition}
+          onChange={(e) =>
+            set(
+              "condition",
+              e.target.value as EditState["condition"]
+            )
+          }
+          className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+        >
+          <option value="">— None —</option>
+          {CONDITION_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="col-span-3">
+        <label className="block text-xs text-slate-500 mb-1">
           Purchase date
         </label>
         <input
@@ -480,7 +521,7 @@ function ApplianceFields({
           className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
         />
       </div>
-      <div className="col-span-6">
+      <div className="col-span-3">
         <label className="block text-xs text-slate-500 mb-1">Notes</label>
         <input
           type="text"

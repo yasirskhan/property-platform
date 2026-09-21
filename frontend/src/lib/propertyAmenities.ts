@@ -1,14 +1,11 @@
 // ============================================================
 // propertyAmenities.ts
 // ------------------------------------------------------------
-// Typed API client for Property Amenities (Phase 3 Step 3a).
+// Typed API client for Property Amenities.
+// AppFolio-parity fields: fee_amount, availability_status.
 // ============================================================
 
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
-
-// ------------------------------------------------------------
-// Shapes
-// ------------------------------------------------------------
 
 export type PropertyAmenity = {
   id: number;
@@ -17,7 +14,10 @@ export type PropertyAmenity = {
   name: string;
   category: string | null;
   notes: string | null;
+  fee_amount: string | null;
+  availability_status: "INCLUDED" | "EXTRA_FEE" | "NOT_AVAILABLE" | null;
   is_active: boolean;
+  delete_reason: string | null;
   created_by_id: number | null;
   created_at: string | null;
   updated_at: string | null;
@@ -28,27 +28,24 @@ export type PropertyAmenityList = {
   total: number;
 };
 
-// ------------------------------------------------------------
-// Write shapes
-// ------------------------------------------------------------
-
 export type PropertyAmenityCreateIn = {
   property_id: number;
   name: string;
   category?: string | null;
   notes?: string | null;
+  fee_amount?: number | string | null;
+  availability_status?: "INCLUDED" | "EXTRA_FEE" | "NOT_AVAILABLE" | null;
 };
 
 export type PropertyAmenityUpdateIn = {
   name?: string;
   category?: string | null;
   notes?: string | null;
+  fee_amount?: number | string | null;
+  availability_status?: "INCLUDED" | "EXTRA_FEE" | "NOT_AVAILABLE" | null;
   is_active?: boolean;
+  delete_reason?: string | null;
 };
-
-// ------------------------------------------------------------
-// Endpoints
-// ------------------------------------------------------------
 
 export function listAmenities(
   propertyId: number,
