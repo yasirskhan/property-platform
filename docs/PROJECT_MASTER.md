@@ -8,85 +8,56 @@
 
 # ═══════════════════════════════════════════════════
 # PART A — CURRENT STATE
-# ═══════════════════════════════════════════════════
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase 3 (Property Detail Placeholders) IN PROGRESS. Steps 3a, 3b, 3c COMPLETE. Next is 3d (Photos), then the small parity fixes, then full doc audit.
+**Current activity:** Phase 3 (Property Detail tabs). Steps 3a, 3b, 3c
+COMPLETE. All Phase 3 tabs now match AppFolio (except Attachments,
+deferred to Phase 3.7). Next: 3d (Photos).
 
-**Last completed work:**
-- Phase 1 (Menu Permissions) shipped and working
-- Phase 2 Step 1 (Chart of Accounts) — 60 accounts, CRUD, UI
-- Phase 2 Step 2 (General Ledger) — tables, posting service, reports, UI
-  - End-to-end proven: rent receipt posted, plumber bill posted,
-    trial balance balanced at $1,775.50
-- Phase 2 Step 5 (Receipts) — tenant / owner / other receipts,
-  reversal support, GL posting via post_receipt(), tenant
-  charges auto-fill, list + new pages, centered detail modal,
-  wired into ACCOUNTING.RECEIVABLES menu link
-- Phase 2 Step 6 (Bills) — two-step accrual payables, multi-line,
-  enter bill + pay bill + reverse, added GL account 2100
-  Accounts Payable, list + new pages, centered detail modal,
-  wired into ACCOUNTING.PAYABLES menu link (labelled "Bills")
-- Phase 2 Step 7 (Bank Deposits) — group un-deposited receipts
-  into batches, tag receipts as deposited via deposit_lines,
-  list + new pages with centered detail modal, new
-  ACCOUNTING.DEPOSITS menu key added. Deposits do NOT post
-  to the GL (receipts already credited cash).
-- Phase 2 Step 8a (Owner Sub-Ledger Foundation) — added
-  owner_id to receipts/bills/gl_entries; created property_owners
-  join table + Property.owner_id + ownership_pct for
-  AppFolio-parity co-ownership; built owner_ledger service
-  (get_owner_subledger, get_all_owner_subledger_totals).
-- Phase 2 Step 8b (Financial Diagnostics) — six checks
-  (Security Deposit Mismatch, Escrow Cash Mismatch, Clearing
-  Accounts, Negative Fee, Positive Fee, Trust 3-Way
-  Reconciliation); endpoint + report page replace placeholder.
-- Phase 2 Step 9 (Management Fees) — AppFolio-parity two-step
-  flow: Run creates a Bill (DR 6001 Management Fees / CR 2100
-  Accounts Payable), the manager pays the Bill separately
-  (existing Bills flow → DR 2100 AP / CR 1150 Rental Trust).
-  Two-tier rate (9% rent + 100% other eligible income).
-  Respects subject_to_mgmt_fees, exclude_from_mgmt_fee,
-  mgmt_fee_end_date, and mgmt_fee_flat/min overrides.
-  new management_fee_runs table; ACCOUNTING.MANAGEMENT_FEES
-  menu key.
-- Phase 2 Step 10 (Owner Statements) — frozen snapshot per
-  owner per period. One section per property (AppFolio default;
-  no consolidated view). Per-property beginning cash, running
-  balance per transaction, ending cash. Global print CSS hides
-  sidebar/top bar so Print gives a clean statement. New
-  owner_statements table; ACCOUNTING.OWNER_STATEMENTS menu key.
-- Phase 2 Step 4 (Bank Accounts) — physical bank account model.
-  Two seeded per org: Client Trust (OPERATING) ↔ GL 1150,
-  Security Deposit Trust (ESCROW) ↔ GL 1160. Bank name,
-  routing #, account #, ACH format. List + edit modal.
-  New bank_accounts table; ACCOUNTING.BANK_ACCOUNTS menu key
-  (already existed, just pointed at the real page).
-- Phase 2 Step 2b (Manual Journal Entry) — public write
-  endpoint POST /api/accounting/journal-entries. Routes
-  through post_transaction() with type JOURNAL_ENTRY. List
-  endpoint GET /api/accounting/journal-entries. Frontend:
-  list page + New Journal Entry form with live balance check.
-  Detail page reuses /dashboard/accounting/journal-entries/{id}.
-  PHASE 2 COMPLETE.
+**Last completed work (this session):**
+- Phase 3 Step 3a (Amenities) — added `fee_amount` and
+  `availability_status` to match AppFolio.
+- Phase 3 Step 3b (Appliances) — added `condition` to match AppFolio.
+- Phase 3 Step 3c (Improvements) — added `warranty_expires` to match
+  AppFolio.
+- Universal `delete_reason` — added to property_amenities,
+  property_appliances, property_improvements (soft-delete pattern).
+- `gl_accounts.must_clear` — added for real Positive Fee diagnostic.
+- Migration HEAD now: `59a25b856f18_add_phase3_parity_fields`.
+- Section 57 (AppFolio Feature Parity Audit) added — 100+ items
+  captured, all scheduled.
+- Section 38 rebuilt with Phases 3.5, 3.6, 3.7, 4.5.
 
 **What's NOT built yet (designed, not coded):**
-- Phase 2 deferred: Universal Notes + Attachments (Step 3)
-- All of Phase 3 onward (Property Detail placeholders, Vendors,
-  Smart Maintenance, Messaging, Portals, Integrations,
-  Internal Team, Billing, AWS, Mobile)
-- Write Checks flow (find bills -> confirm -> print) — after Step 7
-- Recurring Bills (Section 19)
-- Convert Work Order -> Bill (one click) — after Phase 5
-- Vendors (as real entity)
-- Smart Maintenance (full system)
-- Messaging (in-app chat, SMS, email mirror)
-- Portals (owner, tenant, crew, vendor)
-- Internal team system + platform_users table
-- Subscription & Billing engine
-- Support ticket system
-- Native mobile app (iOS + Android) — Phase 12, after web is done
+- Phase 3d: Photos tab (upload, cover flag, marketing flag, bulk
+  upload, captions, sort, styled delete modal). No image editor —
+  that's Phase 3.5.
+- Display settings — one page under Settings with:
+    * Layout mode (Tabs vs Vertical/AppFolio-style)
+    * Theme (Light / Dark / Auto)
+    * Density (Compact / Comfortable / Spacious)
+    * Date format (US / ISO / EU)
+    * Number format (US / EU / SPACE)
+    * Currency format (per-org: USD / EUR / GBP / INR / AUD / CAD / etc.)
+    * Font size (Small / Normal / Large)
+    * Accent color
+    * Reduce motion
+  Layout mode + Theme are wired up first; others shown as "Coming soon"
+  in the Display page but their columns exist on the table so no
+  re-migration is needed.
+- Currency per org — each customer uses their own currency end-to-end.
+  No exchange, no conversion. Org picks INR / USD / GBP / EUR / etc.
+  once; every amount in that org uses it.
+- All Phase 3.5, 3.6, 3.7, 4, 4.5, 5-12 items — see Section 38.
+
+**Customer-facing impact of the above (why it matters):**
+- Attachments (Phase 3.7) and Vendor link (Phase 4) are the only
+  remaining gaps on the Amenities/Appliances/Improvements tabs.
+  Every other field matches AppFolio.
+- Display settings + per-org currency are what international clients
+  (India, UK, EU) will look for first.
+- All gaps are scheduled in this doc. Nothing is unplanned.
 
 ## A2. WHAT'S BUILT (WORKING)
 
@@ -96,15 +67,43 @@
   expenses, income, tenant insurance, applicant role, screening,
   OCR settings)
 - Phase 1 — Menu Permissions System (4-layer gating, full UI)
-- Phase 2 Step 1 — Chart of Accounts (60 accounts, CRUD, UI)
+- Phase 2 Step 1 — Chart of Accounts (61 accounts, CRUD, UI)
 - Phase 2 Step 2 — General Ledger (tables, posting service, reports, UI)
+- Phase 2 Step 2b — Manual Journal Entry (public write endpoint +
+  list page + new form with live balance check)
+- Phase 2 Step 4 — Bank Accounts (Client Trust + Security Deposit
+  Trust seeded per org; list + edit modal)
 - Phase 2 Step 5 — Receipts (tenant / owner / other + reversal,
-  3 tables, post_receipt() service, list + new pages,
-  tenant charges auto-fill, centered detail modal)
+  3 tables, post_receipt() service, list + new pages, tenant
+  charges auto-fill, centered detail modal)
 - Phase 2 Step 6 — Bills (two-step accrual: enter + pay + reverse,
   2 tables, post_bill() + pay_bill() + reverse_bill() services,
   list + new pages, centered detail modal with inline pay form,
   GL account 2100 Accounts Payable seeded)
+- Phase 2 Step 7 — Bank Deposits (2 tables, create_deposit() +
+  list_undeposited_receipts() services, list + new pages,
+  centered detail modal, ACCOUNTING.DEPOSITS menu key)
+- Phase 2 Step 8a — Owner Sub-Ledger Foundation (owner_id on
+  receipts/bills/gl_entries; property_owners join table;
+  Property.owner_id + ownership_pct; owner_ledger service)
+- Phase 2 Step 8b — Financial Diagnostics (six checks incl. real
+  3-way reconciliation; run_all_diagnostics(); report page)
+- Phase 2 Step 9 — Management Fees (AppFolio-parity two-step:
+  Run creates a Bill (DR 6001 / CR 2100), pay the Bill
+  separately (DR 2100 / CR 1150). Two-tier rate 9% rent + 100%
+  other; property-level config + overrides)
+- Phase 2 Step 10 — Owner Statements (frozen snapshot model; one
+  block per property; running balance per transaction; global
+  print CSS; owner_statements table; ACCOUNTING.OWNER_STATEMENTS
+  menu key)
+- Phase 3 Step 3a — Amenities (name, category, notes, fee_amount,
+  availability_status; styled confirm modal)
+- Phase 3 Step 3b — Appliances (name, brand, model, serial,
+  purchase date/price, warranty, condition, notes; styled
+  confirm modal)
+- Phase 3 Step 3c — Improvements (date, description, category,
+  contractor, cost, warranty_expires, notes; newest-first;
+  styled confirm modal)
 
 ## A3. TECH STACK
 
@@ -154,34 +153,29 @@ Deployment target (Phase 11):
 12. If Next.js 404s on pages that exist, check for stray frontend\app folder.
 13. Every GL posting goes through post_transaction(). Never write to GL tables directly.
 14. GL account seed count: 61 per org (60 original + 2100 AP added in Step 6).
+15. `push.bat` on the desktop is the one-click way to save to GitHub.
 
 ## A5. CURRENT OPEN DECISIONS
 
-- Auto-description rules for Receipt lines: currently rent rows get
-  "{Month} rent", fee rows get "{Fee} — {tenant name}". Revisit
-  later for finer control (owner-paid insurance, etc.).
-- Bill auto-description: not yet built. Could add a similar rule
-  later ("Plumbing — kitchen sink" from GL account + free text).
-- Reverse confirmation still uses window.confirm(). Fine for now;
-  upgrade to a styled modal when we do the polish pass.
-- Back-navigation: Trial Balance and Deposits have a smart-back
-  button (browser history if present, else /dashboard). Roll this
-  out to Receipts/Bills/GL Accounts during the polish pass.
+- Auto-description rules for Receipt lines: rent rows get
+  "{Month} rent", fee rows get "{Fee} — {tenant}". Revisit later.
+- Bill auto-description: not yet built.
+- Reverse confirmation uses styled modal on Amenities/Appliances/
+  Improvements. Still window.confirm() on Receipts/Bills/etc. Roll
+  out styled modal everywhere during Phase 3.5.
+- Back-navigation: Trial Balance and Deposits have smart-back.
+  Roll out to Receipts/Bills/GL Accounts during Phase 3.5.
 - Mobile: desktop-first for manager app; portals mobile-first
-  (Phase 7); native app = Phase 12 (see Section 46).
-- Bank Deposits do NOT post to the GL. If we later add a "cash on
-  hand" GL account (undeposited funds), we'd add a DR Bank / CR
-  Cash on Hand posting in create_deposit(). Documented in
-  Section 50.
-- Diagnostics currently flag real issues (e.g. the $1,234 tenant
-  receipt misclassified as income instead of security-deposit
-  liability). Auto-fix postings (e.g. "Refund Negative Diagnostic")
-  are deferred; the report is detection only for now.
-- Section 12 says 61 GL accounts, but the header comment in
+  (Phase 7); native app = Phase 12.
+- Bank Deposits do NOT post to the GL (receipts already credited
+  cash). If we later add a "cash on hand" GL account, add a
+  DR Bank / CR Cash on Hand posting in create_deposit().
+- Diagnostics currently detect only. Auto-fix postings deferred
+  to Phase 3.6.
+- Display settings (Section 58) and per-org currency (Section 59)
+  are captured as new sections — build order in Phase 3.5.
+- Section 12 says 61 GL accounts; the header comment in
   gl_account.py still says 57. Fix in the next cleanup pass.
-
----
-
 # ═══════════════════════════════════════════════════
 # PART B — NEXT ACTION
 # ═══════════════════════════════════════════════════
@@ -444,6 +438,7 @@ Banking: bank_accounts (physical accounts mapped to GL cash)
 JE: (no new table — manual JEs use gl_transactions
   with transaction_type=JOURNAL_ENTRY, source_type=manual_je)
 Properties: properties, units, property_assignments, property_taxes,
+property_amenities, property_appliances, property_improvements,
 property_tax_payments, property_utilities, utility_bills,
 trash_pickup_schedule, property_insurance, property_expenses,
 property_income
@@ -485,7 +480,11 @@ Chain:
 - 0cf6edacce77_add_management_fee_runs_and_property_fee_fields
 - 4aa1c77e213c_add_owner_statements
 - 7ca4251074bc_add_bank_accounts
-- HEAD: 7ca4251074bc
+- e5d4a58b8e85_add_property_amenities
+- dadbb391cc03_add_property_appliances
+- 35529ce17750_add_property_improvements
+- 59a25b856f18_add_phase3_parity_fields
+- HEAD: 59a25b856f18
 
 ---
 
@@ -2032,10 +2031,11 @@ Status legend:
 - ⬜ Budget tab — Phase 3.5
 - ⬜ Map tab — Phase 3.5
 - ⬜ Staff tab (assignments) — Phase 3.5
-- ⬜ Amenities tab (fee + availability) — Phase 3.5
-- ⬜ Appliances tab (condition) — Phase 3.5
-- ⬜ Improvements tab (warranty) — Phase 3.5
+- ✅ Amenities tab (fee + availability) — done
+- ✅ Appliances tab (condition) — done
+- ✅ Improvements tab (warranty) — done
 - ⬜ Photos tab (build it) — Phase 3d
+- ⬜ Amenities / Appliances / Improvements attachments — Phase 3.7
 - ⬜ Keys tracking tab — Phase 3.5
 - ⬜ Fixed Assets tab — Phase 5
 - ⬜ RUBs tab — Phase 4.5
@@ -2228,6 +2228,242 @@ Status legend:
 ---
 
 **Nothing in this section is unplanned.** Every item has a phase.
+
+
+---
+
+# SECTION 58 — DISPLAY SETTINGS (DESIGNED, NOT YET BUILT)
+
+One page under Settings → Display. Per-user preferences.
+Infrastructure built once, every page inherits both layouts/themes.
+
+Route: /dashboard/settings/display
+Menu key: SETTINGS.DISPLAY (added to menu_keys.py in Phase 3.5)
+
+Storage: new table user_display_preferences
+- id, user_id (unique), organization_id
+- layout_mode: "TABS" | "VERTICAL" (default TABS)
+- theme: "LIGHT" | "DARK" | "AUTO" (default LIGHT)
+- density: "COMPACT" | "COMFORTABLE" | "SPACIOUS" (default COMFORTABLE)
+- date_format: "US" | "ISO" | "EU" (default US)
+- number_format: "US" | "EU" | "SPACE" (default US)
+- font_size: "SMALL" | "NORMAL" | "LARGE" (default NORMAL)
+- accent_color: string (nullable)
+- reduce_motion: boolean (default false)
+- created_at, updated_at
+
+API: GET/PUT /api/settings/display
+
+Frontend:
+- Display page: /dashboard/settings/display
+- DisplayContext (reads layout_mode, theme, and all future settings)
+- LayoutContext (reads layout_mode; property detail and every
+  multi-section page renders either tabs or vertical)
+- ThemeContext (reads theme; sets data-theme on <html>)
+- Tailwind config + globals.css extend for dark theme
+
+Behavior:
+- Layout mode: "Tabs" = sections at top; "Vertical" = stacked in a
+  long scroll (AppFolio-style), with sticky sidebar nav
+- Theme: "Light" = current; "Dark" = dark backgrounds, light text;
+  "Auto" = follows OS
+- All other settings are wired up the same way (one column each)
+
+Build order:
+- Phase 3.5 — build table + endpoint + settings page +
+  DisplayContext + ThemeContext; wire layout_mode + theme
+- Phase 3.6 — density, date format, number format
+- Phase 3.7 — font size, accent color, reduce motion
+
+Default for new users: Tabs + Light (matches today's look)
+
+---
+
+# SECTION 59 — PER-ORG CURRENCY (DESIGNED, NOT YET BUILT)
+
+Each customer organization operates in ONE currency.
+No exchange, no conversion, no cross-currency transactions.
+
+Org picks from: USD, EUR, GBP, INR, AUD, CAD, NZD, SGD, AED, and
+more later. All amounts within that org are in that currency.
+
+Storage:
+- organizations.currency (VARCHAR(3), default "USD")
+
+Formatting:
+- A single helper src/lib/money.ts with formatMoney(amount)
+- Reads the org's currency from CurrencyContext
+- Uses Intl.NumberFormat with the correct locale for the currency:
+    * USD -> "en-US" -> $1,234.56
+    * INR -> "en-IN" -> ₹1,23,456.78 (Indian numbering)
+    * GBP -> "en-GB" -> £1,234.56
+    * EUR -> "de-DE" -> 1.234,56 €
+
+Refactor:
+- Every existing `toLocaleString("en-US", { currency: "USD" })` call
+  is replaced with `formatMoney(...)`.
+- ~100+ call sites across the frontend.
+
+Where the customer sets it:
+- On signup (default based on their locale)
+- Or in Settings -> General -> Currency (editable once)
+
+Why per-org, not per-user:
+- A PM company + its tenants/owners are all in one country -> one
+  currency. Changing per-user would confuse reports.
+
+Build order:
+- Phase 3.5 — organizations.currency column + migration +
+  CurrencyContext + money.ts helper + Settings -> General currency
+  dropdown
+- Phase 3.5 — sweep all pages replacing hardcoded USD formatting
+- Level 3 (true multi-currency with exchange rates) NOT planned.
+  Deferred indefinitely; only if a real client asks.
+
+Effort: ~1 session for the migration + helper + Settings. ~1 session
+for the frontend sweep.
+
+---
+
+# SECTION 60 — PROPERTY AMENITIES (BUILT — Phase 3 Step 3a)
+
+AppFolio-parity fields:
+- Name (required)
+- Category (Building / Unit / Outdoor / Community / Other)
+- Notes
+- fee_amount (money — optional)
+- availability_status: INCLUDED | EXTRA_FEE | NOT_AVAILABLE
+- delete_reason (soft-delete pattern)
+
+Table: property_amenities
+- id, organization_id, property_id
+- name, category, notes
+- fee_amount NUMERIC(14,2)
+- availability_status VARCHAR(30)
+- is_active, delete_reason, created_by_id, timestamps
+
+Migration: e5d4a58b8e85_add_property_amenities
+(parity fields added by 59a25b856f18)
+
+Endpoints under /api/properties/{property_id}/amenities:
+- GET    ""                    list
+- POST   ""                    create
+- PATCH  /{amenity_id}         update
+- DELETE /{amenity_id}         soft delete
+
+Frontend:
+- src/lib/propertyAmenities.ts
+- src/components/property/AmenitiesTab.tsx
+- Renders inline in the Property Detail page
+
+Remaining gap: Attachments (Phase 3.7 — universal attachments).
+
+---
+
+# SECTION 61 — PROPERTY APPLIANCES (BUILT — Phase 3 Step 3b)
+
+AppFolio-parity fields:
+- Name (required)
+- Brand
+- Model #
+- Serial #
+- Purchase date
+- Purchase price
+- Warranty expiration
+- Condition: NEW | GOOD | FAIR | NEEDS_REPAIR
+- Notes
+- delete_reason
+
+Table: property_appliances
+- id, organization_id, property_id
+- name, brand, model_number, serial_number
+- purchase_date DATE, purchase_price NUMERIC(14,2)
+- warranty_expires DATE
+- condition VARCHAR(30)
+- notes, is_active, delete_reason, created_by_id, timestamps
+
+Migration: dadbb391cc03_add_property_appliances
+(condition + delete_reason added by 59a25b856f18)
+
+Endpoints under /api/properties/{property_id}/appliances:
+- GET    ""                     list
+- POST   ""                     create
+- PATCH  /{appliance_id}        update
+- DELETE /{appliance_id}        soft delete
+
+Frontend:
+- src/lib/propertyAppliances.ts
+- src/components/property/AppliancesTab.tsx
+
+Remaining gap: Attachments (Phase 3.7).
+
+---
+
+# SECTION 62 — PROPERTY IMPROVEMENTS (BUILT — Phase 3 Step 3c)
+
+AppFolio-parity fields:
+- improvement_date (required)
+- description (required, max 500)
+- cost
+- contractor
+- category (Kitchen / Bath / Roof / HVAC / Flooring / Electrical /
+  Plumbing / Exterior / Other)
+- warranty_expires
+- notes
+- delete_reason
+
+Table: property_improvements
+- id, organization_id, property_id
+- improvement_date DATE, description VARCHAR(500)
+- cost NUMERIC(14,2)
+- contractor VARCHAR(200), category VARCHAR(60)
+- warranty_expires DATE
+- notes, is_active, delete_reason, created_by_id, timestamps
+
+Migration: 35529ce17750_add_property_improvements
+(warranty_expires + delete_reason added by 59a25b856f18)
+
+Endpoints under /api/properties/{property_id}/improvements:
+- GET    ""                       list (newest first)
+- POST   ""                       create
+- PATCH  /{improvement_id}        update
+- DELETE /{improvement_id}        soft delete
+
+Frontend:
+- src/lib/propertyImprovements.ts
+- src/components/property/ImprovementsTab.tsx
+
+Remaining gaps: Attachments (Phase 3.7) and Vendor entity link
+(Phase 4).
+
+---
+
+# SECTION 63 — PHASE 3 PARITY MIGRATION (BUILT — 59a25b856f18)
+
+Closed the small gaps found in the AppFolio parity audit.
+
+Added:
+- property_amenities.fee_amount
+- property_amenities.availability_status
+- property_amenities.delete_reason
+- property_appliances.condition
+- property_appliances.delete_reason
+- property_improvements.warranty_expires
+- property_improvements.delete_reason
+- gl_accounts.must_clear (boolean, default 0)
+
+Purpose:
+- fee/availability/condition/warranty close the AppFolio feature
+  gaps in the three Phase 3 tabs.
+- delete_reason universally supports the soft-delete-with-reason
+  pattern (UI for it comes in Phase 3.5).
+- must_clear powers the REAL "Positive Balance on Fee GL Accounts"
+  diagnostic (was a placeholder; the check will be wired in
+  Phase 3.6).
+
+Downgrade reverses all of the above.
+
+
 # END OF PROJECT_MASTER.md
        '''
        def main():
