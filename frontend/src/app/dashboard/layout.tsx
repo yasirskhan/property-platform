@@ -3,16 +3,22 @@
 // ------------------------------------------------------------
 // Three-zone shell that wraps every dashboard page.
 //
-//   ┌─────────┬────────────────────────┬─────────┐
-//   │ Sidebar │  TopBar                │  Right  │
-//   │         ├────────────────────────┤  Panel  │
-//   │         │  Page content          │         │
-//   └─────────┴────────────────────────┴─────────┘
+//   +---------+------------------------+---------+
+//   | Sidebar |  TopBar                |  Right  |
+//   |         +------------------------+  Panel  |
+//   |         |  Page content          |         |
+//   +---------+------------------------+---------+
 //
-// Right panel is hidden by default — pages opt in later.
+// Right panel is hidden by default - pages opt in later.
 //
-// Menu permissions come from <MenuProvider>, which loads the
-// resolved menu from the backend once per session.
+// Providers mounted here (outer -> inner):
+//   1. CurrencyProvider  - loads /api/settings/display, sets
+//                          currency + date format in lib/money.ts
+//   2. DisplayProvider   - applies theme/density/font/accent
+//                          to <html> attributes
+//   3. MenuProvider      - loads the resolved menu
+//
+// See PROJECT_MASTER.md Sections 58 and 59.
 // ============================================================
 
 "use client";
@@ -23,6 +29,8 @@ import { apiGet, clearToken, isLoggedIn } from "@/lib/api";
 import Sidebar from "@/components/shell/Sidebar";
 import TopBar from "@/components/shell/TopBar";
 import { MenuProvider } from "@/contexts/MenuContext";
+import { CurrencyProvider } from "@/contexts/CurrencyContext";
+import { DisplayProvider } from "@/contexts/DisplayContext";
 
 type User = {
   id: number;
@@ -80,25 +88,29 @@ export default function DashboardLayout({
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center text-slate-500">
-        Loading…
+        Loading...
       </div>
     );
   }
 
   return (
-    <MenuProvider>
-      <div className="min-h-screen flex bg-slate-50">
-        {/* LEFT: sidebar */}
-        <Sidebar orgName={orgName} />
+    <CurrencyProvider>
+      <DisplayProvider>
+        <MenuProvider>
+          <div className="min-h-screen flex bg-slate-50">
+            {/* LEFT: sidebar */}
+            <Sidebar orgName={orgName} />
 
-        {/* RIGHT OF SIDEBAR: topbar + content */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <TopBar user={user} />
-          <main className="flex-1 overflow-auto">
-            <div className="p-6">{children}</div>
-          </main>
-        </div>
-      </div>
-    </MenuProvider>
+            {/* RIGHT OF SIDEBAR: topbar + content */}
+            <div className="flex-1 flex flex-col min-w-0">
+              <TopBar user={user} />
+              <main className="flex-1 overflow-auto">
+                <div className="p-6">{children}</div>
+              </main>
+            </div>
+          </div>
+        </MenuProvider>
+      </DisplayProvider>
+    </CurrencyProvider>
   );
 }
