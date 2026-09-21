@@ -61,6 +61,7 @@ from app.models.bank_account import BankAccount  # noqa: F401
 
 # ---- Property Detail tabs (Phase 3) ----
 from app.models.property_amenity import PropertyAmenity  # noqa: F401
+from app.models.property_appliance import PropertyAppliance  # noqa: F401
 
 
 def create_tables():

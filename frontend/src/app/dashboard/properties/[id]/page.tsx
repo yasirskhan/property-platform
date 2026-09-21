@@ -8,6 +8,7 @@ import UtilitiesTab from "@/components/property/UtilitiesTab";
 import InsuranceTab from "@/components/property/InsuranceTab";
 import ExpensesTab from "@/components/property/ExpensesTab";
 import AmenitiesTab from "@/components/property/AmenitiesTab";
+import AppliancesTab from "@/components/property/AppliancesTab";
 
 type Property = {
   id: number;
@@ -231,6 +232,9 @@ export default function PropertyDetailPage() {
       {tab === "amenities" && (
         <AmenitiesTab propertyId={propertyId} canEdit={canEdit} />
       )}
+      {tab === "appliances" && (
+        <AppliancesTab propertyId={propertyId} canEdit={canEdit} />
+      )}
       {tab !== "overview" &&
         tab !== "units" &&
         tab !== "history" &&
@@ -240,7 +244,8 @@ export default function PropertyDetailPage() {
         tab !== "utilities" &&
         tab !== "insurance" &&
         tab !== "expenses" &&
-        tab !== "amenities" && (
+        tab !== "amenities" &&
+        tab !== "appliances" && (
           <ComingSoonTab name={TABS.find((t) => t.id === tab)?.label || ""} />
         )}
     </div>

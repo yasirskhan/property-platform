@@ -46,7 +46,7 @@ from app.routers import owner_statements as owner_statements_router
 from app.routers import bank_accounts as bank_accounts_router
 from app.routers import journal_entries as journal_entries_router
 from app.routers import property_amenities as property_amenities_router
-
+from app.routers import property_appliances as property_appliances_router
 # ------------------------------------------------------------
 # Create the FastAPI app
 # ------------------------------------------------------------
@@ -106,6 +106,7 @@ app.include_router(owner_statements_router.router)
 app.include_router(bank_accounts_router.router)
 app.include_router(journal_entries_router.router)
 app.include_router(property_amenities_router.router)
+app.include_router(property_appliances_router.router)
 
 
 # ------------------------------------------------------------

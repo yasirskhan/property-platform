@@ -66,6 +66,7 @@ import app.models.deposit_line
 
 # ---- Property Detail tabs (Phase 3) ----
 import app.models.property_amenity
+import app.models.property_appliance
 
 # Alembic Config object
 config = context.config
