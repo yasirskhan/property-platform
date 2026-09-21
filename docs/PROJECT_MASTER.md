@@ -12,7 +12,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase 2 (Accounting) COMPLETE. Next is Phase 3 (Property Detail Placeholders).
+**Current activity:** Phase 3 (Property Detail Placeholders) IN PROGRESS. Steps 3a, 3b, 3c COMPLETE. Next is 3d (Photos), then the small parity fixes, then full doc audit.
 
 **Last completed work:**
 - Phase 1 (Menu Permissions) shipped and working
@@ -188,25 +188,23 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Phase 3 — Property Detail Placeholders (~4 sessions).**
+**Continue Phase 3 — Step 3d (Photos), then close all parity gaps.**
 
-Fill in the property detail tabs that currently show
-placeholder content. Section 34 lists every tab. The full
-list is large — we'll do the most important ones first:
+Order:
+1. Step 3d: Photos tab (upload, cover flag, marketing flag,
+   bulk upload, captions, sort, styled delete modal). No image
+   editor yet — that's Phase 3.5.
+2. Small parity migration: add fields we identified as missing
+   (amenities.fee_amount, amenities.availability_status,
+   appliances.condition, improvements.warranty_expires,
+   gl_accounts.must_clear, universal delete_reason).
+3. Fix one behavioral mismatch: allow reversing a bill after
+   partial payment (AppFolio does).
+4. Then move into Phase 3.5 (Property Detail Polish), Phase 3.6
+   (Accounting Polish), Phase 3.7 (Reports + Attachments),
+   Phase 4 (Vendors), Phase 4.5 (Compliance).
 
-Priority tabs:
-1. Overview (already partially there — polish)
-2. Amenities (add/edit)
-3. Appliances (add/edit)
-4. Improvements (renovation history)
-5. Keys (physical keys tracking)
-6. Maintenance Info (property-specific notes)
-7. Statement Settings (owner statement toggles)
-8. Fixed Assets
-
-Each tab is a small CRUD panel. None touches the GL.
-
-Roughly 4 sessions. Can be split into sub-steps 3a, 3b, 3c.
+See Section 57 for the full audit.
 
 ## B2. AFTER THAT (Phase 2 continued)
 
@@ -1054,35 +1052,94 @@ Adjust beginning balance only via journal entry.
 # SECTION 38 — FULL BUILD ORDER
 
 Phase 1  — Menu Permissions System: DONE
-Phase 2  — Accounting: IN PROGRESS
-  1. DONE Chart of Accounts (60 accounts, seeded; +2100 AP in Step 6)
-  2. DONE General Ledger (reversal support)
-  3. Universal Notes + Attachments (deferred)
-  4. DONE Bank Accounts (Operating + Escrow)
-  5. DONE Receipts (tenant + owner + other)
-  6. DONE Bills / Payables (two-step accrual)
-  7. DONE Bank Deposits (batching, NSF)
-  8. DONE Financial Diagnostics (6 checks, includes 3-way recon)
-  9. DONE Management Fees (AppFolio two-step: creates a Bill)
- 10. DONE Owner Statements
- 11. Manual Journal Entry form (Step 2b) <- NEXT
-Phase 3  — Property Detail Placeholders (~4 sessions)
-Phase 4  — Vendors (~6 sessions)
-Phase 5  — Smart Maintenance (~20 sessions)
-Phase 6  — Messaging (~6 sessions)
-Phase 7  — Portals (~15 sessions, mobile-first)
-Level 1  — Responsive pass on manager app (~3 sessions)
-Phase 8  — Integrations (~10 sessions)
-Phase 9  — Internal Team + Support (~10 sessions)
-Phase 10 — Subscription & Billing (~12 sessions)
-Phase 11 — Production / AWS (~5 sessions)
-Phase 12 — Native Mobile App (React Native, iOS + Android)
-           (~40-60 sessions)
+Phase 2  — Accounting: DONE (core); polish deferred to 3.6
+  1. DONE Chart of Accounts
+  2. DONE General Ledger
+  2b. DONE Manual Journal Entry
+  3. Universal Notes + Attachments — DEFERRED to Phase 3.7
+  4. DONE Bank Accounts
+  5. DONE Receipts
+  6. DONE Bills
+  7. DONE Bank Deposits
+  8. DONE Financial Diagnostics
+  9. DONE Management Fees
+  10. DONE Owner Statements
+Phase 3  — Property Detail tabs: IN PROGRESS
+  3a. DONE Amenities
+  3b. DONE Appliances
+  3c. DONE Improvements
+  3d. Photos (NEXT)
+Phase 3.5 — Property Detail Polish
+  - Amenities: fee_amount, availability_status
+  - Appliances: condition
+  - Improvements: warranty_expires
+  - Photos: image editor (crop / rotate)
+  - Late Fee automation engine
+  - Rent Increase workflow (Set -> Preview -> Notify -> Apply)
+  - Move In / Move Out 5-step workflows (Section 17)
+  - Delinquency automation (aging, notices)
+  - Tenant Insurance workflow (verify, track, notify)
+  - Insurance expiration alerts
+  - Owner Reserve tracking
+  - Letters / mail merge
+  - Property Groups
+  - Budget tab
+  - Map tab
+  - Photo editor
+Phase 3.6 — Accounting Polish
+  - Bills: allow reversal after partial payment (behavior fix)
+  - Bills: Recurring Bills
+  - Bills: Write Checks flow
+  - Bills: Enter Credit (vendor credits)
+  - Bills: Vendor link (after Phase 4)
+  - Receipts: Application Fee dedicated form
+  - Receipts: Process NSF
+  - Deposits: Process NSF
+  - Bank Accounts: Bank Reconciliation (Section 37)
+  - Bank Accounts: QIF Import
+  - Bank Accounts: Check setup
+  - Bank Accounts: ACH file generation (NACHA / CSV)
+  - Bank Accounts: Check printing
+  - Bank Accounts: Bank feed import
+  - Management Fees: Pay Owners flow
+  - Management Fees: Overcollection strategy setting
+  - Management Fees: Post GPR
+  - Management Fees: Management Fee Exclusions list
+  - Diagnostics: Auto-fix Refund Negative Diagnostic
+  - Diagnostics: Bank Reconciliation Lapses 60 days
+  - Diagnostics: Real Positive Fee check (must_clear flag)
+  - Diagnostics: Additional checks
+  - Journal Entries: Post GPR
+  - Journal Entries: Recurring JEs
+  - Owner Statements: Required Reserves
+  - Owner Statements: Prepaid Rent
+  - Owner Statements: Property Cash Summary
+  - GL Account Permissions (who can post to what)
+  - Universal delete_reason
+  - Audit Log expansion (every entity)
+Phase 3.7 — Reports + Universal Attachments
+  - Universal Attachments (one system, every entity)
+  - Balance Sheet report
+  - Income Statement report
+  - Cash Flow report
+  - Cash Flow 12-Month report
+  - Trust Account Balance report
+  - Trust Account Detail report
+  - All 45 AppFolio reports catalog
+  - Custom Report Builder
+Phase 4  — Vendors
+Phase 4.5 — Compliance (HOA / Affordable / Commercial / RUBs / Escrow)
+Phase 5  — Smart Maintenance
+Phase 6  — Messaging
+Phase 7  — Portals
+Phase 8  — Integrations (Stripe, SMS, screening, Deposit Alternatives)
+Phase 9  — Internal Team + Support
+Phase 10 — Subscription & Billing
+Phase 11 — Production / AWS
+Phase 12 — Native Mobile App
 
-Total: ~108 sessions to full web parity, then ~40-60 more for
-native mobile.
-
----
+Total (web): ~230 sessions
+Total (with mobile): ~290 sessions
 
 # SECTION 39 — CRITICAL RULES
 
@@ -1809,6 +1866,368 @@ from Phase 1; just wired to the real list page.
 No new migration — manual JEs reuse gl_transactions and
 gl_entries.
 
+
+---
+
+# SECTION 57 — APPFOLIO FEATURE PARITY AUDIT
+
+Complete inventory of AppFolio features vs. our build.
+Status legend:
+  ✅ BUILT
+  🔵 IN PROGRESS
+  ⬜ SCHEDULED (phase shown)
+  ⚠️  BUILT WITH BEHAVIOR MISMATCH
+  ❌ NOT PLANNED -> scheduled by this doc
+
+## Accounting — Chart of Accounts
+
+- ✅ GL accounts (list, add, edit, deactivate)
+- ✅ Sub-accounts
+- ✅ 61 standard accounts seeded per org
+- ⬜ GL Account Permissions (who can post to what) — Phase 3.6
+- ⬜ Account Offset Account field — Phase 3.6
+- ⬜ Account-level note/attachment — Phase 3.7
+
+## Accounting — General Ledger
+
+- ✅ Double-entry posting
+- ✅ Reversal-only edits
+- ✅ Trial Balance report
+- ✅ General Ledger report (account ledger)
+- ⬜ Balance Sheet report — Phase 3.7
+- ⬜ Income Statement report — Phase 3.7
+- ⬜ Cash Flow report — Phase 3.7
+- ⬜ Cash Flow 12-Month report — Phase 3.7
+- ⬜ Account Totals report — Phase 3.7
+- ⬜ Expense Distribution report — Phase 3.7
+- ⬜ Chart of Accounts report — Phase 3.7
+
+## Accounting — Receipts
+
+- ✅ Tenant Receipt
+- ✅ Owner Receipt
+- ✅ Other Receipt
+- ✅ Charges table auto-fill
+- ✅ Auto-description
+- ✅ Prepayment checkbox
+- ✅ Reverse receipt
+- ✅ Centered detail modal
+- ⬜ Application Fee dedicated form — Phase 3.6
+- ⬜ Process NSF — Phase 3.6
+- ⬜ eCheck receipt — Phase 8
+- ⬜ CC receipt — Phase 8
+- ⬜ Auto-pay / recurring receipts — Phase 8
+- ⬜ Bank-drafted receipt — Phase 8
+
+## Accounting — Bills / Payables
+
+- ✅ Enter Bill (multi-line)
+- ✅ Two-step accrual (DR Expense / CR AP)
+- ✅ Pay Bill (partial allowed)
+- ✅ Bill status (Unpaid / Partial / Paid / Void)
+- ⚠️  Reverse rule too strict — allow reversal after partial payment — Phase 3.6
+- ⬜ Recurring Bills — Phase 3.6
+- ⬜ Write Checks flow — Phase 3.6
+- ⬜ Enter Credit (vendor credits) — Phase 3.6
+- ⬜ Convert Work Order -> Bill — Phase 5
+- ⬜ Vendor dropdown (link to real Vendor entity) — Phase 4
+- ⬜ Aged Payables report — Phase 3.7
+- ⬜ Bill Detail report — Phase 3.7
+- ⬜ Check Register / Detail reports — Phase 3.7
+- ⬜ Owner Draw — Phase 3.6
+- ⬜ Tenant Payable — Phase 3.6
+
+## Accounting — Bank Deposits
+
+- ✅ Group receipts into batch
+- ✅ All / None quick-select
+- ✅ Cannot reverse (corrections via JE)
+- ⬜ Process NSF on deposit — Phase 3.6
+- ⬜ Deposit Register report — Phase 3.7
+
+## Accounting — Bank Accounts
+
+- ✅ Client Trust (Operating) <-> GL 1150
+- ✅ Security Deposit Trust (Escrow) <-> GL 1160
+- ✅ Bank name / routing / account #
+- ✅ ACH format field (CSV / NACHA)
+- ✅ List + edit modal
+- ⬜ Bank Reconciliation flow (Section 37) — Phase 3.6
+- ⬜ QIF Import — Phase 3.6
+- ⬜ Check setup — Phase 3.6
+- ⬜ ACH file generation (NACHA / CSV) — Phase 3.6
+- ⬜ Check printing — Phase 3.6
+- ⬜ Bank feed import — Phase 3.6
+- ⬜ Bank Account Activity report — Phase 3.7
+- ⬜ Bank Account Association report — Phase 3.7
+- ⬜ Trust Account Balance report — Phase 3.7
+- ⬜ Trust Account Detail report — Phase 3.7
+
+## Accounting — Management Fees
+
+- ✅ Two-tier (9% rent + 100% additional fees)
+- ✅ Two-step flow (creates a Bill)
+- ✅ subject_to_mgmt_fees rule
+- ✅ exclude_from_mgmt_fee rule
+- ✅ Flat fee override
+- ✅ Minimum fee override
+- ✅ Mgmt End Date
+- ✅ Preview + Run + Reverse
+- ⬜ Pay Owners flow (distribute remaining trust to owners via ACH) — Phase 3.6
+- ⬜ Overcollection strategy setting (Credits then Receipts / vice versa) — Phase 3.6
+- ⬜ Management Fee Exclusions list — Phase 3.6
+- ⬜ Post GPR — Phase 3.6
+
+## Accounting — Owner Statements
+
+- ✅ One section per property
+- ✅ Frozen snapshot model
+- ✅ Beginning / Ending cash
+- ✅ Running balance per transaction
+- ✅ Print / Save as PDF
+- ⬜ Required Reserves line — Phase 3.6
+- ⬜ Prepaid Rent line — Phase 3.6
+- ⬜ Property Cash Summary — Phase 3.6
+- ⬜ Owner Packet customizer — Phase 7
+- ⬜ Email statement to owner — Phase 7
+- ⬜ Owner Statement report — Phase 3.7
+- ⬜ Owner Ledger report — Phase 3.7
+- ⬜ Owner Directory report — Phase 3.7
+
+## Accounting — Financial Diagnostics
+
+- ✅ Security Deposit Funds Mismatch
+- ✅ Escrow Cash Account Mismatch
+- ✅ Non-Zero Clearing Account
+- ✅ Negative Balance on Fee GLs
+- ⚠️  Positive Balance on Fee GLs (placeholder — needs must_clear flag) — Phase 3.6
+- ✅ Trust Account 3-Way Reconciliation (real)
+- ⬜ Auto-fix Refund Negative Diagnostic — Phase 3.6
+- ⬜ Bank Reconciliation Lapses 60 days — Phase 3.6
+- ⬜ Additional AppFolio diagnostics (7-9 total) — Phase 3.6
+
+## Accounting — Journal Entries
+
+- ✅ Balanced multi-line manual JE
+- ✅ Live balance check
+- ✅ Detail page
+- ⬜ Post GPR — Phase 3.6
+- ⬜ Recurring JEs — Phase 3.6
+- ⬜ Journal Entry Register report — Phase 3.7
+
+## Properties — Core
+
+- ✅ Add / edit / soft delete
+- ✅ Property types (SFR/MFR/Condo/etc.)
+- ✅ Address, physical details, financial fields
+- ✅ Policies (pets, smoking, lease terms, insurance, laundry)
+- ✅ Photos (placeholder tab)
+- ✅ Utilities tab
+- ✅ Insurance tab
+- ✅ Financials tab
+- ✅ Taxes tab
+- ✅ Expenses tab
+- ✅ History tab (audit)
+- ⬜ Property Groups — Phase 3.5
+- ⬜ Budget tab — Phase 3.5
+- ⬜ Map tab — Phase 3.5
+- ⬜ Staff tab (assignments) — Phase 3.5
+- ⬜ Amenities tab (fee + availability) — Phase 3.5
+- ⬜ Appliances tab (condition) — Phase 3.5
+- ⬜ Improvements tab (warranty) — Phase 3.5
+- ⬜ Photos tab (build it) — Phase 3d
+- ⬜ Keys tracking tab — Phase 3.5
+- ⬜ Fixed Assets tab — Phase 5
+- ⬜ RUBs tab — Phase 4.5
+- ⬜ Statement Settings tab — Phase 3.5
+- ⬜ Non-Revenue tab — Phase 3.5
+- ⬜ Property Directory report — Phase 3.7
+- ⬜ Property Group Directory report — Phase 3.7
+- ⬜ Property Performance report — Phase 3.7
+- ⬜ Rent Roll report — Phase 3.7
+
+## Properties — Units
+
+- ✅ Unit CRUD
+- ✅ Add unit / edit
+- ✅ Rent, deposit, fees
+- ⬜ Unit Directory report — Phase 3.7
+- ⬜ Unit Inspection report — Phase 3.7
+- ⬜ Unit Vacancy Detail report — Phase 3.7
+
+## People — Tenants
+
+- ✅ Tenant list, add, edit
+- ✅ Screening settings
+- ✅ Tenant insurance tracking
+- ✅ Move In / Move Out fields (partial)
+- ⬜ Move In 5-step wizard — Phase 3.5
+- ⬜ Move Out 5-step wizard — Phase 3.5
+- ⬜ Renew Lease workflow — Phase 3.5
+- ⬜ Increase Rent workflow — Phase 3.5
+- ⬜ Convert to Month-to-Month — Phase 3.5
+- ⬜ Additional Tenants — Phase 3.5
+- ⬜ Tenant Directory report — Phase 3.7
+- ⬜ Tenant Ledger report — Phase 3.7
+- ⬜ Delinquency report — Phase 3.7
+- ⬜ Tenant Tickler report — Phase 3.7
+- ⬜ Tenant Unpaid Charges report — Phase 3.7
+
+## People — Owners
+
+- ✅ Owner list
+- ✅ Owner ID card
+- ⬜ Owner ACH setup — Phase 3.6
+- ⬜ Owner Reserve Funds — Phase 3.5
+- ⬜ Vendor 1099 Payer — Phase 4
+- ⬜ Owner Directory report — Phase 3.7
+- ⬜ Owner Portal — Phase 7
+
+## People — Vendors
+
+- ⬜ Full Vendor entity — Phase 4
+- ⬜ Vendor insurance + expiration — Phase 4
+- ⬜ Vendor insurance alerts — Phase 3.5
+- ⬜ Vendor Directory report — Phase 3.7
+- ⬜ Vendor Ledger report — Phase 3.7
+- ⬜ Vendor Portal — Phase 7
+
+## People — Contacts / Tags
+
+- ⬜ Contacts — Phase 4
+- ⬜ Tags (universal) — Phase 4
+- ⬜ Import / export — Phase 4
+
+## Leasing
+
+- ⬜ Listings — Phase 7 (public)
+- ⬜ Applications — Phase 4 (expand existing)
+- ⬜ Screening (TransUnion / Experian / Equifax) — Phase 8
+- ⬜ Lease Templates — Phase 4
+- ⬜ CRM / Prospects — Phase 4
+- ⬜ Guest cards — Phase 4
+- ⬜ QR codes on listings — Phase 7
+- ⬜ Lease Expiration report — Phase 3.7
+
+## Maintenance
+
+- ✅ Work orders (basic)
+- ⬜ Work Order -> Bill — Phase 5
+- ⬜ Recurring work orders — Phase 5
+- ⬜ Inspections — Phase 5
+- ⬜ Unit Turns — Phase 5
+- ⬜ Projects — Phase 5
+- ⬜ Purchase Orders — Phase 5
+- ⬜ Inventory — Phase 5
+- ⬜ Fixed Assets — Phase 5
+- ⬜ Smart Maintenance (groups, dispatch, on-call, preferred vendors) — Phase 5
+- ⬜ Work Order report — Phase 3.7
+
+## Communication
+
+- ⬜ In-app chat — Phase 6
+- ⬜ SMS (Twilio) — Phase 8
+- ⬜ Email mirror — Phase 6
+- ⬜ Templates — Phase 6
+- ⬜ Surveys — Phase 6
+- ⬜ Tracking page — Phase 6
+- ⬜ Letters / mail merge — Phase 3.5
+
+## Reporting
+
+- ✅ Trial Balance
+- ✅ General Ledger
+- ✅ Chart of Accounts
+- ⬜ Balance Sheet — Phase 3.7
+- ⬜ Income Statement — Phase 3.7
+- ⬜ Cash Flow — Phase 3.7
+- ⬜ Cash Flow 12-Month — Phase 3.7
+- ⬜ All 45 AppFolio reports (see Section 32) — Phase 3.7
+- ⬜ Custom Report Builder — Phase 3.7
+
+## Settings
+
+- ✅ Company settings (partial)
+- ✅ Users
+- ✅ Menu Permissions (built)
+- ✅ Email settings
+- ✅ Screening settings
+- ✅ OCR settings
+- ✅ Platform settings
+- ⬜ Accounting settings (Key Accounts, GPR Accounts, Receipts, Check Writing, Mgmt Fee overcollection, Reports defaults) — Phase 3.6
+- ⬜ Approvals settings — Phase 5
+- ⬜ Property Groups settings — Phase 3.5
+- ⬜ Workflow settings — Phase 3.5
+- ⬜ Owner settings — Phase 3.6
+- ⬜ Leasing settings — Phase 4
+- ⬜ Documents settings — Phase 3.7
+- ⬜ Maintenance settings — Phase 5
+- ⬜ Communication settings — Phase 6
+- ⬜ Risk / Tags / Affordable Housing settings — Phase 4.5
+- ⬜ Auditing Center — Phase 3.6
+- ⬜ GL Account Permissions (separate feature) — Phase 3.6
+- ⬜ Two-step verification — Phase 3.6
+- ⬜ Login history — Phase 3.6
+- ⬜ My Settings (profile, notifications, signature, reply-to) — Phase 3.6
+
+## Portals
+
+- ⬜ Tenant Portal — Phase 7
+- ⬜ Owner Portal — Phase 7
+- ⬜ Vendor Portal — Phase 7
+- ⬜ Crew Portal — Phase 7
+- ⬜ Public Listings — Phase 7
+
+## Billing & Subscription
+
+- ⬜ Plans / modules / features — Phase 10
+- ⬜ Stripe integration — Phase 10
+- ⬜ Lifecycle enforcement — Phase 10
+- ⬜ Plan-based menu gating (real) — Phase 10
+
+## Compliance (product lines)
+
+- ⬜ HOA — Phase 4.5
+- ⬜ Affordable Housing — Phase 4.5
+- ⬜ Commercial — Phase 4.5
+- ⬜ RUBs (utility billing) — Phase 4.5
+- ⬜ Maintenance Escrow / Capital Reserves — Phase 4.5
+- ⬜ Section 8 / HAP workflow — Phase 4
+
+## Integrations
+
+- ⬜ Stripe (payments, eCheck, CC) — Phase 8
+- ⬜ TransUnion / Experian / Equifax — Phase 8
+- ⬜ Twilio (SMS, voice) — Phase 8
+- ⬜ Deposit Alternatives (Rhino / Jetty) — Phase 8
+- ⬜ Listing syndication (Zillow, etc.) — Phase 8
+- ⬜ Bank feeds — Phase 8
+
+## Universal Patterns (Section 8)
+
+- ✅ Soft delete (all entities)
+- ✅ Created by / at
+- ✅ Updated by / at
+- ⚠️  Notes (present on some — properties, leases) — expand to all — Phase 3.6
+- ⬜ Attachments (every entity) — Phase 3.7
+- ⚠️  Audit Log (partial coverage) — expand everywhere — Phase 3.6
+- ⬜ Soft-delete reason universal — Phase 3.6
+
+## Internal Side (ours)
+
+- ⬜ platform_users table — Phase 9
+- ⬜ Support ticket system — Phase 9
+- ⬜ Time-limited customer data access — Phase 9
+- ⬜ Auditing center — Phase 3.6
+- ⬜ Internal team roles (Sales / Billing / Tech / Support / Dev) — Phase 9
+
+## Native Mobile App
+
+- ⬜ iOS + Android (React Native) — Phase 12
+
+---
+
+**Nothing in this section is unplanned.** Every item has a phase.
 # END OF PROJECT_MASTER.md
        '''
        def main():
