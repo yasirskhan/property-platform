@@ -2838,7 +2838,26 @@ Remove from backend/:
 
 They are gitignored, but delete them anyway. Do not let them pile up.
 
-### 5. Push
+### 5. Regenerate the FILE CATALOG (if new files were added or renamed)
+
+Run:
+
+    cd backend
+    python generate_file_catalog.py
+
+This rewrites docs/FILE_CATALOG.md with an up-to-date
+inventory of every backend Python file and every frontend
+TS/TSX file - classes, routes, exports, migration chain.
+
+Run this step if the session added, renamed, or deleted
+any source files. Skip only if the session was a pure edit
+to existing files with no new filenames.
+
+This keeps Section 69 (FILE MAP) and FILE_CATALOG.md in
+sync with reality, so the next session never has to guess
+where something lives.
+
+### 6. Push
 
 Milestone commits -- open PowerShell, cd to project root:
 
@@ -2852,7 +2871,7 @@ push.bat refuses to push backups (.backup-*, *.bak) or one-off
 scripts (update_*, fix_*, rebuild_*, patch_*). If it aborts,
 delete those files and re-run.
 
-### 6. Report back
+### 7. Report back
 
 Say: "Session closed. HEAD = <hash>. check_parity.py CLEAN."
 
@@ -2942,7 +2961,26 @@ Remove from backend/:
 
 They are gitignored, but delete them anyway. Do not let them pile up.
 
-### 5. Push
+### 5. Regenerate the FILE CATALOG (if new files were added or renamed)
+
+Run:
+
+    cd backend
+    python generate_file_catalog.py
+
+This rewrites docs/FILE_CATALOG.md with an up-to-date
+inventory of every backend Python file and every frontend
+TS/TSX file - classes, routes, exports, migration chain.
+
+Run this step if the session added, renamed, or deleted
+any source files. Skip only if the session was a pure edit
+to existing files with no new filenames.
+
+This keeps Section 69 (FILE MAP) and FILE_CATALOG.md in
+sync with reality, so the next session never has to guess
+where something lives.
+
+### 6. Push
 
 Milestone commits -- open PowerShell, cd to project root:
 
@@ -2956,7 +2994,7 @@ push.bat refuses to push backups (.backup-*, *.bak) or one-off
 scripts (update_*, fix_*, rebuild_*, patch_*). If it aborts,
 delete those files and re-run.
 
-### 6. Report back
+### 7. Report back
 
 Say: "Session closed. HEAD = <hash>. check_parity.py CLEAN."
 
@@ -3050,6 +3088,40 @@ USD, EUR, GBP, INR, AUD, CAD, NZD, SGD, AED.
 # SECTION 69 — FILE MAP (where everything lives)
 
 **Root:** C:\Projects\property-platform\
+
+## Companion document: docs/FILE_CATALOG.md
+
+`FILE_CATALOG.md` is an auto-generated inventory of every
+source file in the project - classes, routes, exports, and
+the migration chain, all extracted from the real code.
+
+Regenerate it any time with:
+
+    cd backend
+    python generate_file_catalog.py
+
+Section 67 requires regenerating it at the end of any session
+that added, renamed, or deleted source files.
+
+**Use this section (69) to know WHERE things live.
+Use FILE_CATALOG.md to know WHAT is inside each file.**
+
+## Companion document: docs/FILE_CATALOG.md
+
+`FILE_CATALOG.md` is an auto-generated inventory of every
+source file in the project - classes, routes, exports, and
+the migration chain, all extracted from the real code.
+
+Regenerate it any time with:
+
+    cd backend
+    python generate_file_catalog.py
+
+Section 67 requires regenerating it at the end of any session
+that added, renamed, or deleted source files.
+
+**Use this section (69) to know WHERE things live.
+Use FILE_CATALOG.md to know WHAT is inside each file.**
 
 ## Documentation
 
