@@ -49,6 +49,8 @@ from app.routers import property_amenities as property_amenities_router
 from app.routers import property_appliances as property_appliances_router
 from app.routers import property_improvements as property_improvements_router
 from app.routers import property_photos as property_photos_router
+from app.models.user_display_preference import UserDisplayPreference  # noqa: F401
+from app.routers import settings_display as settings_display_router
 
 # ------------------------------------------------------------
 # Create the FastAPI app
@@ -112,6 +114,7 @@ app.include_router(property_amenities_router.router)
 app.include_router(property_appliances_router.router)
 app.include_router(property_improvements_router.router)
 app.include_router(property_photos_router.router)
+app.include_router(settings_display_router.router)
 
 
 # ------------------------------------------------------------

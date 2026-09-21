@@ -75,6 +75,11 @@ class Organization(Base):
     # ACTIVE | PAST_DUE | RESTRICTED | SUSPENDED | CANCELLED
     state = Column(String(20), nullable=False, default="ACTIVE", index=True)
 
+    # Per-org currency. Each customer org operates in exactly
+    # one currency. No exchange, no conversion. Column added by
+    # migration 8c2e766863c0; see PROJECT_MASTER.md Section 59.
+    currency = Column(String(3), nullable=False, default="USD", server_default="USD")
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
