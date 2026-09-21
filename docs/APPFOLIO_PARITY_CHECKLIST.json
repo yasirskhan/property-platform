@@ -1,0 +1,2005 @@
+{
+  "_meta": {
+    "purpose": "Complete AppFolio feature inventory. Every item has a status. Nothing can be unplanned.",
+    "status_values": {
+      "built": "Feature exists in our code and is verified working",
+      "in_progress": "Currently being built",
+      "scheduled": "Has a specific phase assigned",
+      "planned_no_phase": "Planned but no phase assigned yet — THIS IS A BUG",
+      "unplanned": "Not planned at all — THIS IS A BUG"
+    },
+    "last_updated": "2026-09-20",
+    "migration_head": "59a25b856f18"
+  },
+  "items": [
+    {
+      "id": "accounting.coa.list",
+      "area": "Accounting / Chart of Accounts",
+      "feature": "GL accounts list",
+      "status": "built",
+      "phase": "2.1"
+    },
+    {
+      "id": "accounting.coa.crud",
+      "area": "Accounting / Chart of Accounts",
+      "feature": "Add / edit / deactivate GL account",
+      "status": "built",
+      "phase": "2.1"
+    },
+    {
+      "id": "accounting.coa.sub_accounts",
+      "area": "Accounting / Chart of Accounts",
+      "feature": "Sub-account of parent (nesting)",
+      "status": "built",
+      "phase": "2.1"
+    },
+    {
+      "id": "accounting.coa.offset_account",
+      "area": "Accounting / Chart of Accounts",
+      "feature": "Offset account field",
+      "status": "built",
+      "phase": "2.1"
+    },
+    {
+      "id": "accounting.coa.mgmt_fees_flag",
+      "area": "Accounting / Chart of Accounts",
+      "feature": "Subject to management fees flag",
+      "status": "built",
+      "phase": "2.1"
+    },
+    {
+      "id": "accounting.coa.cash_flow_flag",
+      "area": "Accounting / Chart of Accounts",
+      "feature": "Include on cash flow flag",
+      "status": "built",
+      "phase": "2.1"
+    },
+    {
+      "id": "accounting.coa.must_clear_flag",
+      "area": "Accounting / Chart of Accounts",
+      "feature": "Must-clear-to-zero flag (for Positive Fee diagnostic)",
+      "status": "scheduled",
+      "phase": "3.6",
+      "notes": "Column added in 59a25b856f18. UI to set it comes in Phase 3.6."
+    },
+    {
+      "id": "accounting.coa.gl_permissions",
+      "area": "Accounting / Chart of Accounts",
+      "feature": "GL Account Permissions (who can post to what)",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.coa.standard_seed",
+      "area": "Accounting / Chart of Accounts",
+      "feature": "61 standard accounts seeded per org",
+      "status": "built",
+      "phase": "2.1"
+    },
+
+    {
+      "id": "accounting.gl.double_entry",
+      "area": "Accounting / General Ledger",
+      "feature": "Double-entry posting",
+      "status": "built",
+      "phase": "2.2"
+    },
+    {
+      "id": "accounting.gl.reversal_only",
+      "area": "Accounting / General Ledger",
+      "feature": "Reversal-only edits (never edit/delete)",
+      "status": "built",
+      "phase": "2.2"
+    },
+    {
+      "id": "accounting.gl.trial_balance",
+      "area": "Accounting / General Ledger",
+      "feature": "Trial Balance report",
+      "status": "built",
+      "phase": "2.2"
+    },
+    {
+      "id": "accounting.gl.account_ledger",
+      "area": "Accounting / General Ledger",
+      "feature": "General Ledger report (per account)",
+      "status": "built",
+      "phase": "2.2"
+    },
+    {
+      "id": "accounting.gl.balance_sheet",
+      "area": "Accounting / General Ledger",
+      "feature": "Balance Sheet report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "accounting.gl.income_statement",
+      "area": "Accounting / General Ledger",
+      "feature": "Income Statement report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "accounting.gl.cash_flow",
+      "area": "Accounting / General Ledger",
+      "feature": "Cash Flow report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "accounting.gl.cash_flow_12m",
+      "area": "Accounting / General Ledger",
+      "feature": "Cash Flow 12-Month report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "accounting.gl.account_totals_rpt",
+      "area": "Accounting / General Ledger",
+      "feature": "Account Totals report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "accounting.gl.expense_distribution_rpt",
+      "area": "Accounting / General Ledger",
+      "feature": "Expense Distribution report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "accounting.gl.coa_rpt",
+      "area": "Accounting / General Ledger",
+      "feature": "Chart of Accounts report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "accounting.gl.journal_entry_register",
+      "area": "Accounting / General Ledger",
+      "feature": "Journal Entry Register report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "accounting.gl.post_gpr",
+      "area": "Accounting / General Ledger",
+      "feature": "Post GPR (Gross Potential Rent)",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.gl.recurring_jes",
+      "area": "Accounting / General Ledger",
+      "feature": "Recurring Journal Entries",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+
+    {
+      "id": "accounting.receipts.tenant",
+      "area": "Accounting / Receipts",
+      "feature": "Tenant Receipt",
+      "status": "built",
+      "phase": "2.5"
+    },
+    {
+      "id": "accounting.receipts.owner",
+      "area": "Accounting / Receipts",
+      "feature": "Owner Receipt",
+      "status": "built",
+      "phase": "2.5"
+    },
+    {
+      "id": "accounting.receipts.other",
+      "area": "Accounting / Receipts",
+      "feature": "Other Receipt",
+      "status": "built",
+      "phase": "2.5"
+    },
+    {
+      "id": "accounting.receipts.charges_table",
+      "area": "Accounting / Receipts",
+      "feature": "Charges table (open charges auto-fill)",
+      "status": "built",
+      "phase": "2.5"
+    },
+    {
+      "id": "accounting.receipts.auto_description",
+      "area": "Accounting / Receipts",
+      "feature": "Auto-description from GL account",
+      "status": "built",
+      "phase": "2.5"
+    },
+    {
+      "id": "accounting.receipts.prepayment",
+      "area": "Accounting / Receipts",
+      "feature": "Prepayment checkbox",
+      "status": "built",
+      "phase": "2.5"
+    },
+    {
+      "id": "accounting.receipts.reverse",
+      "area": "Accounting / Receipts",
+      "feature": "Reverse receipt",
+      "status": "built",
+      "phase": "2.5"
+    },
+    {
+      "id": "accounting.receipts.exclude_mgmt_fee",
+      "area": "Accounting / Receipts",
+      "feature": "Exclude from mgmt fee checkbox",
+      "status": "built",
+      "phase": "2.5"
+    },
+    {
+      "id": "accounting.receipts.application_fee_form",
+      "area": "Accounting / Receipts",
+      "feature": "Dedicated Application Fee form",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.receipts.process_nsf",
+      "area": "Accounting / Receipts",
+      "feature": "Process NSF (bounced check)",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.receipts.echeck",
+      "area": "Accounting / Receipts",
+      "feature": "eCheck receipt",
+      "status": "scheduled",
+      "phase": "8"
+    },
+    {
+      "id": "accounting.receipts.cc_receipt",
+      "area": "Accounting / Receipts",
+      "feature": "Credit card receipt",
+      "status": "scheduled",
+      "phase": "8"
+    },
+    {
+      "id": "accounting.receipts.autopay",
+      "area": "Accounting / Receipts",
+      "feature": "Auto-pay / recurring receipts",
+      "status": "scheduled",
+      "phase": "8"
+    },
+    {
+      "id": "accounting.receipts.bank_drafted",
+      "area": "Accounting / Receipts",
+      "feature": "Bank-drafted receipt",
+      "status": "scheduled",
+      "phase": "8"
+    },
+
+    {
+      "id": "accounting.bills.enter",
+      "area": "Accounting / Bills",
+      "feature": "Enter Bill (multi-line)",
+      "status": "built",
+      "phase": "2.6"
+    },
+    {
+      "id": "accounting.bills.two_step_accrual",
+      "area": "Accounting / Bills",
+      "feature": "Two-step accrual (DR Expense / CR AP)",
+      "status": "built",
+      "phase": "2.6"
+    },
+    {
+      "id": "accounting.bills.pay",
+      "area": "Accounting / Bills",
+      "feature": "Pay Bill (partial allowed)",
+      "status": "built",
+      "phase": "2.6"
+    },
+    {
+      "id": "accounting.bills.status",
+      "area": "Accounting / Bills",
+      "feature": "Bill status (Unpaid / Partial / Paid / Void)",
+      "status": "built",
+      "phase": "2.6"
+    },
+    {
+      "id": "accounting.bills.reverse_unpaid",
+      "area": "Accounting / Bills",
+      "feature": "Reverse unpaid bill",
+      "status": "built",
+      "phase": "2.6"
+    },
+    {
+      "id": "accounting.bills.reverse_after_partial",
+      "area": "Accounting / Bills",
+      "feature": "Allow reversal after partial payment (AppFolio behavior)",
+      "status": "scheduled",
+      "phase": "3.6",
+      "notes": "Behavior fix — our rule is too strict"
+    },
+    {
+      "id": "accounting.bills.recurring",
+      "area": "Accounting / Bills",
+      "feature": "Recurring Bills",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.bills.write_checks",
+      "area": "Accounting / Bills",
+      "feature": "Write Checks flow",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.bills.enter_credit",
+      "area": "Accounting / Bills",
+      "feature": "Enter Credit (vendor credits)",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.bills.convert_wo",
+      "area": "Accounting / Bills",
+      "feature": "Convert Work Order to Bill",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "accounting.bills.vendor_link",
+      "area": "Accounting / Bills",
+      "feature": "Vendor dropdown (real Vendor entity)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "accounting.bills.aged_payables",
+      "area": "Accounting / Bills",
+      "feature": "Aged Payables report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "accounting.bills.bill_detail_rpt",
+      "area": "Accounting / Bills",
+      "feature": "Bill Detail report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "accounting.bills.check_register",
+      "area": "Accounting / Bills",
+      "feature": "Check Register report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "accounting.bills.check_register_detail",
+      "area": "Accounting / Bills",
+      "feature": "Check Register Detail report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "accounting.bills.owner_draw",
+      "area": "Accounting / Bills",
+      "feature": "Owner Draw",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.bills.tenant_payable",
+      "area": "Accounting / Bills",
+      "feature": "Tenant Payable",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+
+    {
+      "id": "accounting.deposits.batch",
+      "area": "Accounting / Deposits",
+      "feature": "Group receipts into batch",
+      "status": "built",
+      "phase": "2.7"
+    },
+    {
+      "id": "accounting.deposits.all_none",
+      "area": "Accounting / Deposits",
+      "feature": "All / None quick-select",
+      "status": "built",
+      "phase": "2.7"
+    },
+    {
+      "id": "accounting.deposits.no_reverse",
+      "area": "Accounting / Deposits",
+      "feature": "Cannot reverse (corrections via JE)",
+      "status": "built",
+      "phase": "2.7"
+    },
+    {
+      "id": "accounting.deposits.process_nsf",
+      "area": "Accounting / Deposits",
+      "feature": "Process NSF on deposit",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.deposits.register_rpt",
+      "area": "Accounting / Deposits",
+      "feature": "Deposit Register report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+
+    {
+      "id": "accounting.banks.operating",
+      "area": "Accounting / Bank Accounts",
+      "feature": "Client Trust (Operating) GL 1150",
+      "status": "built",
+      "phase": "2.4"
+    },
+    {
+      "id": "accounting.banks.escrow",
+      "area": "Accounting / Bank Accounts",
+      "feature": "Security Deposit Trust (Escrow) GL 1160",
+      "status": "built",
+      "phase": "2.4"
+    },
+    {
+      "id": "accounting.banks.details",
+      "area": "Accounting / Bank Accounts",
+      "feature": "Bank name / routing / account #",
+      "status": "built",
+      "phase": "2.4"
+    },
+    {
+      "id": "accounting.banks.ach_format",
+      "area": "Accounting / Bank Accounts",
+      "feature": "ACH format field (CSV / NACHA)",
+      "status": "built",
+      "phase": "2.4"
+    },
+    {
+      "id": "accounting.banks.reconciliation",
+      "area": "Accounting / Bank Accounts",
+      "feature": "Bank Reconciliation flow",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.banks.qif_import",
+      "area": "Accounting / Bank Accounts",
+      "feature": "QIF Import",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.banks.check_setup",
+      "area": "Accounting / Bank Accounts",
+      "feature": "Check setup",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.banks.ach_file_gen",
+      "area": "Accounting / Bank Accounts",
+      "feature": "ACH file generation (NACHA / CSV)",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.banks.check_printing",
+      "area": "Accounting / Bank Accounts",
+      "feature": "Check printing",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.banks.bank_feed",
+      "area": "Accounting / Bank Accounts",
+      "feature": "Bank feed import",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.banks.activity_rpt",
+      "area": "Accounting / Bank Accounts",
+      "feature": "Bank Account Activity report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "accounting.banks.assoc_rpt",
+      "area": "Accounting / Bank Accounts",
+      "feature": "Bank Account Association report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "accounting.banks.trust_balance_rpt",
+      "area": "Accounting / Bank Accounts",
+      "feature": "Trust Account Balance report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "accounting.banks.trust_detail_rpt",
+      "area": "Accounting / Bank Accounts",
+      "feature": "Trust Account Detail report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+
+    {
+      "id": "accounting.mgmt_fees.two_tier",
+      "area": "Accounting / Management Fees",
+      "feature": "Two-tier rate (9% rent + 100% other)",
+      "status": "built",
+      "phase": "2.9"
+    },
+    {
+      "id": "accounting.mgmt_fees.two_step",
+      "area": "Accounting / Management Fees",
+      "feature": "Two-step flow (creates a Bill)",
+      "status": "built",
+      "phase": "2.9"
+    },
+    {
+      "id": "accounting.mgmt_fees.subject_flag",
+      "area": "Accounting / Management Fees",
+      "feature": "subject_to_mgmt_fees rule",
+      "status": "built",
+      "phase": "2.9"
+    },
+    {
+      "id": "accounting.mgmt_fees.exclude_flag",
+      "area": "Accounting / Management Fees",
+      "feature": "exclude_from_mgmt_fee rule",
+      "status": "built",
+      "phase": "2.9"
+    },
+    {
+      "id": "accounting.mgmt_fees.flat_override",
+      "area": "Accounting / Management Fees",
+      "feature": "Flat fee override",
+      "status": "built",
+      "phase": "2.9"
+    },
+    {
+      "id": "accounting.mgmt_fees.min_override",
+      "area": "Accounting / Management Fees",
+      "feature": "Minimum fee override",
+      "status": "built",
+      "phase": "2.9"
+    },
+    {
+      "id": "accounting.mgmt_fees.end_date",
+      "area": "Accounting / Management Fees",
+      "feature": "Mgmt End Date",
+      "status": "built",
+      "phase": "2.9"
+    },
+    {
+      "id": "accounting.mgmt_fees.pay_owners",
+      "area": "Accounting / Management Fees",
+      "feature": "Pay Owners flow (distribute remaining trust to owners)",
+      "status": "scheduled",
+      "phase": "3.6",
+      "notes": "Critical — AppFolio's whole trust cycle needs this"
+    },
+    {
+      "id": "accounting.mgmt_fees.overcollection",
+      "area": "Accounting / Management Fees",
+      "feature": "Overcollection strategy setting",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.mgmt_fees.exclusions_list",
+      "area": "Accounting / Management Fees",
+      "feature": "Management Fee Exclusions list",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.mgmt_fees.post_gpr",
+      "area": "Accounting / Management Fees",
+      "feature": "Post GPR",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+
+    {
+      "id": "accounting.owner_statements.snapshot",
+      "area": "Accounting / Owner Statements",
+      "feature": "Frozen snapshot per owner per period",
+      "status": "built",
+      "phase": "2.10"
+    },
+    {
+      "id": "accounting.owner_statements.per_property",
+      "area": "Accounting / Owner Statements",
+      "feature": "One section per property",
+      "status": "built",
+      "phase": "2.10"
+    },
+    {
+      "id": "accounting.owner_statements.running_balance",
+      "area": "Accounting / Owner Statements",
+      "feature": "Running balance per transaction",
+      "status": "built",
+      "phase": "2.10"
+    },
+    {
+      "id": "accounting.owner_statements.beginning_ending",
+      "area": "Accounting / Owner Statements",
+      "feature": "Beginning / Ending cash",
+      "status": "built",
+      "phase": "2.10"
+    },
+    {
+      "id": "accounting.owner_statements.print",
+      "area": "Accounting / Owner Statements",
+      "feature": "Print / Save as PDF",
+      "status": "built",
+      "phase": "2.10"
+    },
+    {
+      "id": "accounting.owner_statements.required_reserves",
+      "area": "Accounting / Owner Statements",
+      "feature": "Required Reserves line",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.owner_statements.prepaid_rent",
+      "area": "Accounting / Owner Statements",
+      "feature": "Prepaid Rent line",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.owner_statements.property_cash_summary",
+      "area": "Accounting / Owner Statements",
+      "feature": "Property Cash Summary",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.owner_statements.packet_customizer",
+      "area": "Accounting / Owner Statements",
+      "feature": "Owner Packet customizer",
+      "status": "scheduled",
+      "phase": "7"
+    },
+    {
+      "id": "accounting.owner_statements.email",
+      "area": "Accounting / Owner Statements",
+      "feature": "Email statement to owner",
+      "status": "scheduled",
+      "phase": "7"
+    },
+    {
+      "id": "accounting.owner_statements.owner_statement_rpt",
+      "area": "Accounting / Owner Statements",
+      "feature": "Owner Statement report (in Reports)",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "accounting.owner_statements.owner_ledger_rpt",
+      "area": "Accounting / Owner Statements",
+      "feature": "Owner Ledger report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "accounting.owner_statements.owner_directory_rpt",
+      "area": "Accounting / Owner Statements",
+      "feature": "Owner Directory report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+
+    {
+      "id": "accounting.diagnostics.security_mismatch",
+      "area": "Accounting / Diagnostics",
+      "feature": "Security Deposit Funds Mismatch check",
+      "status": "built",
+      "phase": "2.8"
+    },
+    {
+      "id": "accounting.diagnostics.escrow_mismatch",
+      "area": "Accounting / Diagnostics",
+      "feature": "Escrow Cash Account Mismatch check",
+      "status": "built",
+      "phase": "2.8"
+    },
+    {
+      "id": "accounting.diagnostics.clearing_nonzero",
+      "area": "Accounting / Diagnostics",
+      "feature": "Non-Zero Clearing Account check",
+      "status": "built",
+      "phase": "2.8"
+    },
+    {
+      "id": "accounting.diagnostics.negative_fees",
+      "area": "Accounting / Diagnostics",
+      "feature": "Negative Balance on Fee GLs check",
+      "status": "built",
+      "phase": "2.8"
+    },
+    {
+      "id": "accounting.diagnostics.positive_fees_real",
+      "area": "Accounting / Diagnostics",
+      "feature": "Real Positive Balance on Fee GLs check (uses must_clear)",
+      "status": "scheduled",
+      "phase": "3.6",
+      "notes": "Currently a placeholder that always passes"
+    },
+    {
+      "id": "accounting.diagnostics.three_way",
+      "area": "Accounting / Diagnostics",
+      "feature": "Trust Account 3-Way Reconciliation",
+      "status": "built",
+      "phase": "2.8"
+    },
+    {
+      "id": "accounting.diagnostics.auto_fix_refund",
+      "area": "Accounting / Diagnostics",
+      "feature": "Auto-fix Refund Negative Diagnostic",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.diagnostics.bank_rec_lapses",
+      "area": "Accounting / Diagnostics",
+      "feature": "Bank Reconciliation Lapses 60-day check",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.diagnostics.additional",
+      "area": "Accounting / Diagnostics",
+      "feature": "Additional AppFolio diagnostics (9 total)",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+
+    {
+      "id": "accounting.je.manual",
+      "area": "Accounting / Journal Entries",
+      "feature": "Manual balanced multi-line JE",
+      "status": "built",
+      "phase": "2.2b"
+    },
+    {
+      "id": "accounting.je.live_balance",
+      "area": "Accounting / Journal Entries",
+      "feature": "Live balance check",
+      "status": "built",
+      "phase": "2.2b"
+    },
+    {
+      "id": "accounting.je.list_page",
+      "area": "Accounting / Journal Entries",
+      "feature": "List page",
+      "status": "built",
+      "phase": "2.2b"
+    },
+    {
+      "id": "accounting.je.detail_page",
+      "area": "Accounting / Journal Entries",
+      "feature": "Detail page",
+      "status": "built",
+      "phase": "2.2b"
+    },
+    {
+      "id": "accounting.je.post_gpr",
+      "area": "Accounting / Journal Entries",
+      "feature": "Post GPR",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "accounting.je.recurring",
+      "area": "Accounting / Journal Entries",
+      "feature": "Recurring JEs",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+
+    {
+      "id": "properties.core.crud",
+      "area": "Properties / Core",
+      "feature": "Add / edit / soft delete property",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "properties.core.types",
+      "area": "Properties / Core",
+      "feature": "Property types (SFR/MFR/Condo/etc.)",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "properties.core.address",
+      "area": "Properties / Core",
+      "feature": "Address + physical details",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "properties.core.policies",
+      "area": "Properties / Core",
+      "feature": "Policies tab (pets, smoking, lease, insurance, laundry)",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "properties.core.taxes_tab",
+      "area": "Properties / Core",
+      "feature": "Taxes tab",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "properties.core.utilities_tab",
+      "area": "Properties / Core",
+      "feature": "Utilities tab",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "properties.core.insurance_tab",
+      "area": "Properties / Core",
+      "feature": "Insurance tab",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "properties.core.financials_tab",
+      "area": "Properties / Core",
+      "feature": "Financials tab",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "properties.core.expenses_tab",
+      "area": "Properties / Core",
+      "feature": "Expenses tab",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "properties.core.history_tab",
+      "area": "Properties / Core",
+      "feature": "History tab (audit log)",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "properties.tabs.amenities",
+      "area": "Properties / Tabs",
+      "feature": "Amenities tab (name, category, notes, fee, availability)",
+      "status": "built",
+      "phase": "3a"
+    },
+    {
+      "id": "properties.tabs.appliances",
+      "area": "Properties / Tabs",
+      "feature": "Appliances tab (name, brand, model, serial, purchase, warranty, condition)",
+      "status": "built",
+      "phase": "3b"
+    },
+    {
+      "id": "properties.tabs.improvements",
+      "area": "Properties / Tabs",
+      "feature": "Improvements tab (date, description, category, contractor, cost, warranty)",
+      "status": "built",
+      "phase": "3c"
+    },
+    {
+      "id": "properties.tabs.photos",
+      "area": "Properties / Tabs",
+      "feature": "Photos tab (upload, cover, marketing, bulk, captions, sort)",
+      "status": "in_progress",
+      "phase": "3d",
+      "notes": "Being built next"
+    },
+    {
+      "id": "properties.tabs.photo_editor",
+      "area": "Properties / Tabs",
+      "feature": "Photo image editor (crop / rotate)",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "properties.tabs.keys",
+      "area": "Properties / Tabs",
+      "feature": "Keys tracking tab",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "properties.tabs.statement_settings",
+      "area": "Properties / Tabs",
+      "feature": "Statement Settings tab",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "properties.tabs.non_revenue",
+      "area": "Properties / Tabs",
+      "feature": "Non-Revenue tab",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "properties.tabs.staff",
+      "area": "Properties / Tabs",
+      "feature": "Staff tab (assignments)",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "properties.tabs.fixed_assets",
+      "area": "Properties / Tabs",
+      "feature": "Fixed Assets tab",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "properties.tabs.rubs",
+      "area": "Properties / Tabs",
+      "feature": "RUBs tab (Ratio Utility Billing)",
+      "status": "scheduled",
+      "phase": "4.5"
+    },
+    {
+      "id": "properties.tabs.attachments",
+      "area": "Properties / Tabs",
+      "feature": "Attachments on all tabs",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "properties.groups",
+      "area": "Properties / Groups",
+      "feature": "Property Groups",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "properties.budget_tab",
+      "area": "Properties / Budget",
+      "feature": "Budget tab",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "properties.map_tab",
+      "area": "Properties / Map",
+      "feature": "Map tab",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "properties.reports.directory",
+      "area": "Properties / Reports",
+      "feature": "Property Directory report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "properties.reports.group_directory",
+      "area": "Properties / Reports",
+      "feature": "Property Group Directory report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "properties.reports.performance",
+      "area": "Properties / Reports",
+      "feature": "Property Performance report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "properties.reports.rent_roll",
+      "area": "Properties / Reports",
+      "feature": "Rent Roll report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "properties.reports.lease_expiration",
+      "area": "Properties / Reports",
+      "feature": "Lease Expiration Detail/Summary report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "properties.reports.gpr",
+      "area": "Properties / Reports",
+      "feature": "Gross Potential Rent report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "properties.reports.budget_comparison",
+      "area": "Properties / Reports",
+      "feature": "Budget Comparison report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "properties.reports.budget_detail",
+      "area": "Properties / Reports",
+      "feature": "Budget Detail report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+
+    {
+      "id": "units.crud",
+      "area": "Units",
+      "feature": "Unit CRUD (add / edit)",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "units.reports.directory",
+      "area": "Units",
+      "feature": "Unit Directory report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "units.reports.inspection",
+      "area": "Units",
+      "feature": "Unit Inspection report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "units.reports.vacancy",
+      "area": "Units",
+      "feature": "Unit Vacancy Detail report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+
+    {
+      "id": "people.tenants.crud",
+      "area": "People / Tenants",
+      "feature": "Tenant list, add, edit",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "people.tenants.screening_settings",
+      "area": "People / Tenants",
+      "feature": "Screening settings",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "people.tenants.insurance_tracking",
+      "area": "People / Tenants",
+      "feature": "Tenant insurance tracking",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "people.tenants.move_in_wizard",
+      "area": "People / Tenants",
+      "feature": "Move In 5-step wizard",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "people.tenants.move_out_wizard",
+      "area": "People / Tenants",
+      "feature": "Move Out 5-step wizard",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "people.tenants.renew_lease",
+      "area": "People / Tenants",
+      "feature": "Renew Lease workflow",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "people.tenants.increase_rent",
+      "area": "People / Tenants",
+      "feature": "Increase Rent workflow",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "people.tenants.convert_m2m",
+      "area": "People / Tenants",
+      "feature": "Convert to Month-to-Month",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "people.tenants.additional_tenants",
+      "area": "People / Tenants",
+      "feature": "Additional Tenants",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "people.tenants.insurance_workflow",
+      "area": "People / Tenants",
+      "feature": "Tenant Insurance verify/track/notify workflow",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "people.tenants.reports.directory",
+      "area": "People / Tenants",
+      "feature": "Tenant Directory report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "people.tenants.reports.ledger",
+      "area": "People / Tenants",
+      "feature": "Tenant Ledger report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "people.tenants.reports.delinquency",
+      "area": "People / Tenants",
+      "feature": "Delinquency report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "people.tenants.reports.tickler",
+      "area": "People / Tenants",
+      "feature": "Tenant Tickler report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "people.tenants.reports.unpaid_charges",
+      "area": "People / Tenants",
+      "feature": "Tenant Unpaid Charges report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "people.tenants.reports.unpaid_charges_summary",
+      "area": "People / Tenants",
+      "feature": "Tenant Unpaid Charges Summary report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "people.tenants.late_fee_automation",
+      "area": "People / Tenants",
+      "feature": "Late Fee automation engine",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "people.tenants.delinquency_automation",
+      "area": "People / Tenants",
+      "feature": "Delinquency automation (aging, notices)",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+
+    {
+      "id": "people.owners.crud",
+      "area": "People / Owners",
+      "feature": "Owner list + ID card",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "people.owners.ach_setup",
+      "area": "People / Owners",
+      "feature": "Owner ACH setup",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "people.owners.reserve_funds",
+      "area": "People / Owners",
+      "feature": "Owner Reserve Funds tracking",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "people.owners.vendor_1099",
+      "area": "People / Owners",
+      "feature": "Vendor 1099 Payer flag",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "people.owners.portal",
+      "area": "People / Owners",
+      "feature": "Owner Portal",
+      "status": "scheduled",
+      "phase": "7"
+    },
+    {
+      "id": "people.owners.reports.directory",
+      "area": "People / Owners",
+      "feature": "Owner Directory report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+
+    {
+      "id": "people.vendors.entity",
+      "area": "People / Vendors",
+      "feature": "Full Vendor entity",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "people.vendors.insurance",
+      "area": "People / Vendors",
+      "feature": "Vendor insurance + expiration tracking",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "people.vendors.insurance_alerts",
+      "area": "People / Vendors",
+      "feature": "Insurance expiration alerts",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "people.vendors.reports.directory",
+      "area": "People / Vendors",
+      "feature": "Vendor Directory report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "people.vendors.reports.ledger",
+      "area": "People / Vendors",
+      "feature": "Vendor Ledger report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "people.vendors.portal",
+      "area": "People / Vendors",
+      "feature": "Vendor Portal",
+      "status": "scheduled",
+      "phase": "7"
+    },
+
+    {
+      "id": "people.contacts.crud",
+      "area": "People / Contacts",
+      "feature": "Contacts (non-vendor, non-tenant)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "people.tags",
+      "area": "People / Tags",
+      "feature": "Universal Tags",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "people.import_export",
+      "area": "People / Import",
+      "feature": "Import / export people",
+      "status": "scheduled",
+      "phase": "4"
+    },
+
+    {
+      "id": "leasing.listings",
+      "area": "Leasing / Listings",
+      "feature": "Public listings",
+      "status": "scheduled",
+      "phase": "7"
+    },
+    {
+      "id": "leasing.applications",
+      "area": "Leasing / Applications",
+      "feature": "Online rental applications",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "leasing.screening",
+      "area": "Leasing / Screening",
+      "feature": "TransUnion / Experian / Equifax screening",
+      "status": "scheduled",
+      "phase": "8"
+    },
+    {
+      "id": "leasing.templates",
+      "area": "Leasing / Templates",
+      "feature": "Lease Templates (3-level)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "leasing.crm",
+      "area": "Leasing / CRM",
+      "feature": "CRM / Prospects",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "leasing.guest_cards",
+      "area": "Leasing / Guest Cards",
+      "feature": "Guest cards",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "leasing.qr_codes",
+      "area": "Leasing / QR Codes",
+      "feature": "QR codes on listings",
+      "status": "scheduled",
+      "phase": "7"
+    },
+
+    {
+      "id": "maintenance.work_orders.basic",
+      "area": "Maintenance / Work Orders",
+      "feature": "Basic work orders",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "maintenance.work_orders.convert_to_bill",
+      "area": "Maintenance / Work Orders",
+      "feature": "Convert Work Order to Bill",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "maintenance.work_orders.recurring",
+      "area": "Maintenance / Work Orders",
+      "feature": "Recurring work orders",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "maintenance.inspections",
+      "area": "Maintenance / Inspections",
+      "feature": "Inspections (mobile, offline, photos)",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "maintenance.unit_turns",
+      "area": "Maintenance / Unit Turns",
+      "feature": "Unit Turns",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "maintenance.projects",
+      "area": "Maintenance / Projects",
+      "feature": "Projects",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "maintenance.purchase_orders",
+      "area": "Maintenance / Purchase Orders",
+      "feature": "Purchase Orders (approval workflow)",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "maintenance.inventory",
+      "area": "Maintenance / Inventory",
+      "feature": "Inventory",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "maintenance.fixed_assets",
+      "area": "Maintenance / Fixed Assets",
+      "feature": "Fixed Assets",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "maintenance.smart.groups",
+      "area": "Maintenance / Smart",
+      "feature": "Maintenance Groups",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "maintenance.smart.urgencies",
+      "area": "Maintenance / Smart",
+      "feature": "Issue Urgencies per group",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "maintenance.smart.contacts",
+      "area": "Maintenance / Smart",
+      "feature": "Primary contacts (business + after hours)",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "maintenance.smart.dispatch",
+      "area": "Maintenance / Smart",
+      "feature": "Dispatch instructions per urgency × time",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "maintenance.smart.on_call",
+      "area": "Maintenance / Smart",
+      "feature": "On-Call Calendar",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "maintenance.smart.preferred_vendors",
+      "area": "Maintenance / Smart",
+      "feature": "Preferred Vendors by trade",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "maintenance.smart.assignment_logic",
+      "area": "Maintenance / Smart",
+      "feature": "Assignment logic (emergency -> crew -> vendor)",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "maintenance.smart.escalation",
+      "area": "Maintenance / Smart",
+      "feature": "Missed call / rejection escalation",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "maintenance.reports.work_order",
+      "area": "Maintenance / Reports",
+      "feature": "Work Order report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+
+    {
+      "id": "communication.in_app_chat",
+      "area": "Communication",
+      "feature": "In-app chat",
+      "status": "scheduled",
+      "phase": "6"
+    },
+    {
+      "id": "communication.sms",
+      "area": "Communication",
+      "feature": "SMS (Twilio)",
+      "status": "scheduled",
+      "phase": "8"
+    },
+    {
+      "id": "communication.email_mirror",
+      "area": "Communication",
+      "feature": "Email mirror",
+      "status": "scheduled",
+      "phase": "6"
+    },
+    {
+      "id": "communication.templates",
+      "area": "Communication",
+      "feature": "Message templates",
+      "status": "scheduled",
+      "phase": "6"
+    },
+    {
+      "id": "communication.surveys",
+      "area": "Communication",
+      "feature": "Surveys",
+      "status": "scheduled",
+      "phase": "6"
+    },
+    {
+      "id": "communication.tracking_page",
+      "area": "Communication",
+      "feature": "Public tracking page",
+      "status": "scheduled",
+      "phase": "6"
+    },
+    {
+      "id": "communication.letters_mail_merge",
+      "area": "Communication",
+      "feature": "Letters / mail merge",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+
+    {
+      "id": "reporting.custom_builder",
+      "area": "Reporting",
+      "feature": "Custom Report Builder",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+
+    {
+      "id": "settings.general",
+      "area": "Settings / General",
+      "feature": "Company settings (name, phone, address, tax IDs, logos)",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "settings.general.currency",
+      "area": "Settings / General",
+      "feature": "Per-org currency setting",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "settings.accounting",
+      "area": "Settings / Accounting",
+      "feature": "Key Accounts, GPR Accounts, Receipts, Check Writing, Overcollection, Reports defaults",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "settings.display",
+      "area": "Settings / Display",
+      "feature": "Layout mode (Tabs / Vertical)",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "settings.display.theme",
+      "area": "Settings / Display",
+      "feature": "Theme (Light / Dark / Auto)",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "settings.display.density",
+      "area": "Settings / Display",
+      "feature": "Density (Compact / Comfortable / Spacious)",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "settings.display.date_format",
+      "area": "Settings / Display",
+      "feature": "Date format (US / ISO / EU)",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "settings.display.number_format",
+      "area": "Settings / Display",
+      "feature": "Number format (US / EU / SPACE)",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "settings.display.font_size",
+      "area": "Settings / Display",
+      "feature": "Font size (Small / Normal / Large)",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "settings.display.accent_color",
+      "area": "Settings / Display",
+      "feature": "Accent color",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "settings.display.reduce_motion",
+      "area": "Settings / Display",
+      "feature": "Reduce motion",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "settings.approvals",
+      "area": "Settings / Approvals",
+      "feature": "Approvals settings",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "settings.users",
+      "area": "Settings / Users",
+      "feature": "Users CRUD",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "settings.property_groups",
+      "area": "Settings / Property Groups",
+      "feature": "Property Groups settings",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "settings.workflow",
+      "area": "Settings / Workflow",
+      "feature": "Workflow settings",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "settings.owners",
+      "area": "Settings / Owners",
+      "feature": "Owner settings",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "settings.leasing",
+      "area": "Settings / Leasing",
+      "feature": "Leasing settings",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "settings.documents",
+      "area": "Settings / Documents",
+      "feature": "Documents settings",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "settings.maintenance",
+      "area": "Settings / Maintenance",
+      "feature": "Maintenance settings",
+      "status": "scheduled",
+      "phase": "5"
+    },
+    {
+      "id": "settings.communication",
+      "area": "Settings / Communication",
+      "feature": "Communication settings",
+      "status": "scheduled",
+      "phase": "6"
+    },
+    {
+      "id": "settings.risk_tags_affordable",
+      "area": "Settings / Risk, Tags, Affordable",
+      "feature": "Risk / Tags / Affordable Housing settings",
+      "status": "scheduled",
+      "phase": "4.5"
+    },
+    {
+      "id": "settings.menu_permissions",
+      "area": "Settings / Permissions",
+      "feature": "Menu Permissions (3 tabs)",
+      "status": "built",
+      "phase": "1"
+    },
+    {
+      "id": "settings.gl_permissions",
+      "area": "Settings / Permissions",
+      "feature": "GL Account Permissions",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "settings.auditing_center",
+      "area": "Settings / Auditing",
+      "feature": "Auditing Center",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "settings.two_step",
+      "area": "Settings / My Settings",
+      "feature": "Two-step verification",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "settings.login_history",
+      "area": "Settings / My Settings",
+      "feature": "Login history",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "settings.my_profile",
+      "area": "Settings / My Settings",
+      "feature": "Profile, notifications, email signature, reply-to",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "settings.org_email",
+      "area": "Settings / Email",
+      "feature": "Organization email settings (SMTP)",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "settings.screening",
+      "area": "Settings / Screening",
+      "feature": "Screening settings",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "settings.ocr",
+      "area": "Settings / OCR",
+      "feature": "OCR settings",
+      "status": "built",
+      "phase": "session"
+    },
+
+    {
+      "id": "portals.tenant",
+      "area": "Portals",
+      "feature": "Tenant Portal",
+      "status": "scheduled",
+      "phase": "7"
+    },
+    {
+      "id": "portals.owner",
+      "area": "Portals",
+      "feature": "Owner Portal",
+      "status": "scheduled",
+      "phase": "7"
+    },
+    {
+      "id": "portals.vendor",
+      "area": "Portals",
+      "feature": "Vendor Portal",
+      "status": "scheduled",
+      "phase": "7"
+    },
+    {
+      "id": "portals.crew",
+      "area": "Portals",
+      "feature": "Crew Portal",
+      "status": "scheduled",
+      "phase": "7"
+    },
+    {
+      "id": "portals.public_listings",
+      "area": "Portals",
+      "feature": "Public Listings",
+      "status": "scheduled",
+      "phase": "7"
+    },
+
+    {
+      "id": "billing.plans",
+      "area": "Billing",
+      "feature": "Plans, modules, features",
+      "status": "scheduled",
+      "phase": "10"
+    },
+    {
+      "id": "billing.stripe",
+      "area": "Billing",
+      "feature": "Stripe integration",
+      "status": "scheduled",
+      "phase": "10"
+    },
+    {
+      "id": "billing.lifecycle",
+      "area": "Billing",
+      "feature": "Subscription lifecycle enforcement",
+      "status": "scheduled",
+      "phase": "10"
+    },
+    {
+      "id": "billing.plan_gating",
+      "area": "Billing",
+      "feature": "Plan-based menu gating (real, replacing stub)",
+      "status": "scheduled",
+      "phase": "10"
+    },
+
+    {
+      "id": "compliance.hoa",
+      "area": "Compliance",
+      "feature": "HOA product line (dues, violations, board portal)",
+      "status": "scheduled",
+      "phase": "4.5"
+    },
+    {
+      "id": "compliance.affordable",
+      "area": "Compliance",
+      "feature": "Affordable Housing compliance (income cert, HUD)",
+      "status": "scheduled",
+      "phase": "4.5"
+    },
+    {
+      "id": "compliance.commercial",
+      "area": "Compliance",
+      "feature": "Commercial (CAM charges, NNN leases)",
+      "status": "scheduled",
+      "phase": "4.5"
+    },
+    {
+      "id": "compliance.rubs",
+      "area": "Compliance",
+      "feature": "RUBs (Ratio Utility Billing engine)",
+      "status": "scheduled",
+      "phase": "4.5"
+    },
+    {
+      "id": "compliance.escrow",
+      "area": "Compliance",
+      "feature": "Maintenance Escrow / Capital Reserves",
+      "status": "scheduled",
+      "phase": "4.5"
+    },
+    {
+      "id": "compliance.section8_hap",
+      "area": "Compliance",
+      "feature": "Section 8 / HAP workflow",
+      "status": "scheduled",
+      "phase": "4"
+    },
+
+    {
+      "id": "integrations.stripe_payments",
+      "area": "Integrations",
+      "feature": "Stripe (payments, eCheck, CC)",
+      "status": "scheduled",
+      "phase": "8"
+    },
+    {
+      "id": "integrations.screening",
+      "area": "Integrations",
+      "feature": "TransUnion / Experian / Equifax screening",
+      "status": "scheduled",
+      "phase": "8"
+    },
+    {
+      "id": "integrations.twilio",
+      "area": "Integrations",
+      "feature": "Twilio (SMS, voice)",
+      "status": "scheduled",
+      "phase": "8"
+    },
+    {
+      "id": "integrations.deposit_alternatives",
+      "area": "Integrations",
+      "feature": "Deposit Alternatives (Rhino / Jetty)",
+      "status": "scheduled",
+      "phase": "8"
+    },
+    {
+      "id": "integrations.listing_syndication",
+      "area": "Integrations",
+      "feature": "Listing syndication (Zillow, Apartments.com, etc.)",
+      "status": "scheduled",
+      "phase": "8"
+    },
+    {
+      "id": "integrations.bank_feeds",
+      "area": "Integrations",
+      "feature": "Bank feeds",
+      "status": "scheduled",
+      "phase": "8"
+    },
+
+    {
+      "id": "universal.soft_delete",
+      "area": "Universal Patterns",
+      "feature": "Soft delete (is_active) on all entities",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "universal.delete_reason",
+      "area": "Universal Patterns",
+      "feature": "Delete-reason field on all entities",
+      "status": "scheduled",
+      "phase": "3.6",
+      "notes": "Columns added in 59a25b856f18; UI comes later"
+    },
+    {
+      "id": "universal.created_by_at",
+      "area": "Universal Patterns",
+      "feature": "Created by / at on all entities",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "universal.updated_by_at",
+      "area": "Universal Patterns",
+      "feature": "Updated by / at on all entities",
+      "status": "built",
+      "phase": "session"
+    },
+    {
+      "id": "universal.notes",
+      "area": "Universal Patterns",
+      "feature": "Notes on all entities",
+      "status": "scheduled",
+      "phase": "3.6",
+      "notes": "Present on some (properties, leases); expand to all"
+    },
+    {
+      "id": "universal.attachments",
+      "area": "Universal Patterns",
+      "feature": "Attachments on all entities",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "universal.audit_log",
+      "area": "Universal Patterns",
+      "feature": "Audit Log on all entities (full coverage)",
+      "status": "scheduled",
+      "phase": "3.6",
+      "notes": "Partial today; expand everywhere"
+    },
+    {
+      "id": "universal.styled_confirm_modal",
+      "area": "Universal Patterns",
+      "feature": "Styled confirm modal on all destructive actions",
+      "status": "scheduled",
+      "phase": "3.5",
+      "notes": "Done on Amenities/Appliances/Improvements; roll out everywhere"
+    },
+
+    {
+      "id": "internal.platform_users",
+      "area": "Internal Team",
+      "feature": "platform_users table",
+      "status": "scheduled",
+      "phase": "9"
+    },
+    {
+      "id": "internal.support_tickets",
+      "area": "Internal Team",
+      "feature": "Support ticket system",
+      "status": "scheduled",
+      "phase": "9"
+    },
+    {
+      "id": "internal.temp_access",
+      "area": "Internal Team",
+      "feature": "Time-limited customer data access",
+      "status": "scheduled",
+      "phase": "9"
+    },
+    {
+      "id": "internal.roles",
+      "area": "Internal Team",
+      "feature": "Internal team roles (Sales / Billing / Tech / Support / Dev)",
+      "status": "scheduled",
+      "phase": "9"
+    },
+
+    {
+      "id": "mobile.native_app",
+      "area": "Native Mobile",
+      "feature": "iOS + Android app (React Native)",
+      "status": "scheduled",
+      "phase": "12"
+    }
+  ]
+}

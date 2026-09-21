@@ -22,39 +22,28 @@ deferred to Phase 3.7). Next: 3d (Photos).
 - Phase 3 Step 3c (Improvements) — added `warranty_expires` to match
   AppFolio.
 - Universal `delete_reason` — added to property_amenities,
-  property_appliances, property_improvements (soft-delete pattern).
-- `gl_accounts.must_clear` — added for real Positive Fee diagnostic.
+  property_appliances, property_improvements.
+- `gl_accounts.must_clear` — added for the real Positive Fee diagnostic.
 - Migration HEAD now: `59a25b856f18_add_phase3_parity_fields`.
-- Section 57 (AppFolio Feature Parity Audit) added — 100+ items
-  captured, all scheduled.
+- Section 57 (AppFolio Feature Parity Audit) added — 100+ items.
 - Section 38 rebuilt with Phases 3.5, 3.6, 3.7, 4.5.
 
 **What's NOT built yet (designed, not coded):**
 - Phase 3d: Photos tab (upload, cover flag, marketing flag, bulk
   upload, captions, sort, styled delete modal). No image editor —
   that's Phase 3.5.
-- Display settings — one page under Settings with:
-    * Layout mode (Tabs vs Vertical/AppFolio-style)
-    * Theme (Light / Dark / Auto)
-    * Density (Compact / Comfortable / Spacious)
-    * Date format (US / ISO / EU)
-    * Number format (US / EU / SPACE)
-    * Currency format (per-org: USD / EUR / GBP / INR / AUD / CAD / etc.)
-    * Font size (Small / Normal / Large)
-    * Accent color
-    * Reduce motion
-  Layout mode + Theme are wired up first; others shown as "Coming soon"
-  in the Display page but their columns exist on the table so no
-  re-migration is needed.
-- Currency per org — each customer uses their own currency end-to-end.
+- Display settings — one page under Settings with Layout mode
+  (Tabs vs Vertical), Theme (Light/Dark/Auto), Density, Date format,
+  Number format, Currency format, Font size, Accent color, Reduce
+  motion. Layout + Theme wired first; rest are shown as "Coming soon"
+  but their table columns exist so no re-migration is needed.
+- Per-org currency — each customer uses their own currency end-to-end.
   No exchange, no conversion. Org picks INR / USD / GBP / EUR / etc.
-  once; every amount in that org uses it.
 - All Phase 3.5, 3.6, 3.7, 4, 4.5, 5-12 items — see Section 38.
 
-**Customer-facing impact of the above (why it matters):**
+**Customer-facing impact:**
 - Attachments (Phase 3.7) and Vendor link (Phase 4) are the only
   remaining gaps on the Amenities/Appliances/Improvements tabs.
-  Every other field matches AppFolio.
 - Display settings + per-org currency are what international clients
   (India, UK, EU) will look for first.
 - All gaps are scheduled in this doc. Nothing is unplanned.
@@ -68,42 +57,19 @@ deferred to Phase 3.7). Next: 3d (Photos).
   OCR settings)
 - Phase 1 — Menu Permissions System (4-layer gating, full UI)
 - Phase 2 Step 1 — Chart of Accounts (61 accounts, CRUD, UI)
-- Phase 2 Step 2 — General Ledger (tables, posting service, reports, UI)
-- Phase 2 Step 2b — Manual Journal Entry (public write endpoint +
-  list page + new form with live balance check)
-- Phase 2 Step 4 — Bank Accounts (Client Trust + Security Deposit
-  Trust seeded per org; list + edit modal)
-- Phase 2 Step 5 — Receipts (tenant / owner / other + reversal,
-  3 tables, post_receipt() service, list + new pages, tenant
-  charges auto-fill, centered detail modal)
-- Phase 2 Step 6 — Bills (two-step accrual: enter + pay + reverse,
-  2 tables, post_bill() + pay_bill() + reverse_bill() services,
-  list + new pages, centered detail modal with inline pay form,
-  GL account 2100 Accounts Payable seeded)
-- Phase 2 Step 7 — Bank Deposits (2 tables, create_deposit() +
-  list_undeposited_receipts() services, list + new pages,
-  centered detail modal, ACCOUNTING.DEPOSITS menu key)
-- Phase 2 Step 8a — Owner Sub-Ledger Foundation (owner_id on
-  receipts/bills/gl_entries; property_owners join table;
-  Property.owner_id + ownership_pct; owner_ledger service)
-- Phase 2 Step 8b — Financial Diagnostics (six checks incl. real
-  3-way reconciliation; run_all_diagnostics(); report page)
-- Phase 2 Step 9 — Management Fees (AppFolio-parity two-step:
-  Run creates a Bill (DR 6001 / CR 2100), pay the Bill
-  separately (DR 2100 / CR 1150). Two-tier rate 9% rent + 100%
-  other; property-level config + overrides)
-- Phase 2 Step 10 — Owner Statements (frozen snapshot model; one
-  block per property; running balance per transaction; global
-  print CSS; owner_statements table; ACCOUNTING.OWNER_STATEMENTS
-  menu key)
-- Phase 3 Step 3a — Amenities (name, category, notes, fee_amount,
-  availability_status; styled confirm modal)
-- Phase 3 Step 3b — Appliances (name, brand, model, serial,
-  purchase date/price, warranty, condition, notes; styled
-  confirm modal)
-- Phase 3 Step 3c — Improvements (date, description, category,
-  contractor, cost, warranty_expires, notes; newest-first;
-  styled confirm modal)
+- Phase 2 Step 2 — General Ledger
+- Phase 2 Step 2b — Manual Journal Entry
+- Phase 2 Step 4 — Bank Accounts (Client Trust + Security Deposit Trust)
+- Phase 2 Step 5 — Receipts (tenant / owner / other + reversal)
+- Phase 2 Step 6 — Bills (two-step accrual)
+- Phase 2 Step 7 — Bank Deposits
+- Phase 2 Step 8a — Owner Sub-Ledger Foundation
+- Phase 2 Step 8b — Financial Diagnostics (six checks)
+- Phase 2 Step 9 — Management Fees (two-step: creates a Bill)
+- Phase 2 Step 10 — Owner Statements (frozen snapshots, print-ready)
+- Phase 3 Step 3a — Amenities (fee + availability)
+- Phase 3 Step 3b — Appliances (condition)
+- Phase 3 Step 3c — Improvements (warranty_expires)
 
 ## A3. TECH STACK
 
@@ -121,7 +87,6 @@ Frontend (web):
 
 Frontend (mobile — Phase 12, planned):
 - React Native / Expo
-- Reuses the same backend APIs
 
 Environment:
 - Windows 11, PowerShell, VS Code
@@ -167,68 +132,45 @@ Deployment target (Phase 11):
   Roll out to Receipts/Bills/GL Accounts during Phase 3.5.
 - Mobile: desktop-first for manager app; portals mobile-first
   (Phase 7); native app = Phase 12.
-- Bank Deposits do NOT post to the GL (receipts already credited
-  cash). If we later add a "cash on hand" GL account, add a
-  DR Bank / CR Cash on Hand posting in create_deposit().
+- Bank Deposits do NOT post to the GL. If we later add a "cash on
+  hand" GL account, add DR Bank / CR Cash on Hand in create_deposit().
 - Diagnostics currently detect only. Auto-fix postings deferred
   to Phase 3.6.
 - Display settings (Section 58) and per-org currency (Section 59)
-  are captured as new sections — build order in Phase 3.5.
-- Section 12 says 61 GL accounts; the header comment in
-  gl_account.py still says 57. Fix in the next cleanup pass.
+  captured as new sections — build order in Phase 3.5.
+- Section 12 says 61 GL accounts; header comment in gl_account.py
+  still says 57. Fix in the next cleanup pass.
 # ═══════════════════════════════════════════════════
 # PART B — NEXT ACTION
 # ═══════════════════════════════════════════════════
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Continue Phase 3 — Step 3d (Photos), then close all parity gaps.**
+**Continue Phase 3 — Step 3d (Photos), then Display settings.**
 
 Order:
-1. Step 3d: Photos tab (upload, cover flag, marketing flag,
-   bulk upload, captions, sort, styled delete modal). No image
-   editor yet — that's Phase 3.5.
-2. Small parity migration: add fields we identified as missing
-   (amenities.fee_amount, amenities.availability_status,
-   appliances.condition, improvements.warranty_expires,
-   gl_accounts.must_clear, universal delete_reason).
-3. Fix one behavioral mismatch: allow reversing a bill after
-   partial payment (AppFolio does).
-4. Then move into Phase 3.5 (Property Detail Polish), Phase 3.6
-   (Accounting Polish), Phase 3.7 (Reports + Attachments),
-   Phase 4 (Vendors), Phase 4.5 (Compliance).
+1. Step 3d: Photos tab (upload, cover flag, marketing flag, bulk
+   upload, captions, sort, styled delete modal). No image editor —
+   that's Phase 3.5.
+2. Display settings section (Section 58) + per-org currency
+   (Section 59) — build the infrastructure first so Photos and
+   every future module inherits both.
+3. Close Phase 3 — master doc check + commit.
 
-See Section 57 for the full audit.
+## B2. AFTER THAT (Phase 3.5 onward)
 
-## B2. AFTER THAT (Phase 2 continued)
+See Section 38 for the full build order including:
+- Phase 3.5 — Property Detail Polish
+- Phase 3.6 — Accounting Polish
+- Phase 3.7 — Reports + Universal Attachments
+- Phase 4 — Vendors
+- Phase 4.5 — Compliance (HOA / Affordable / Commercial / RUBs)
+- Phases 5-12 (Smart Maintenance, Messaging, Portals, Integrations,
+  Internal Team, Billing, Production, Mobile)
 
-1. DONE: Chart of Accounts
-2. DONE: General Ledger
-3. Universal Notes + Attachments (Step 3) — deferred
-4. DONE: Bank Accounts (Step 4)
-5. DONE: Receipts (Step 5)
-6. DONE: Bills / Payables (Step 6)
-7. DONE: Bank Deposits (Step 7)
-8. DONE: Financial Diagnostics (Step 8) — includes owner sub-ledger
-9. DONE: Management Fees (Step 9)
-10. DONE: Owner Statements (Step 10)
-11. DONE: Manual Journal Entry form (Step 2b)
+## B3. AFTER PHASE 3
 
-PHASE 2 COMPLETE. Next: Phase 3 — Property Detail Placeholders.
-
-## B3. AFTER PHASE 2
-
-Phase 3 — Property Detail Placeholders — ~4 sessions.
-Phase 4 — Vendors — ~6 sessions.
-Phase 5 — Smart Maintenance — ~20 sessions.
-Phase 6 — Messaging — ~6 sessions.
-Phase 7 — Portals — ~15 sessions — mobile-first.
-Level 1 responsive pass on manager app — ~3 sessions.
-Phase 8 — Integrations — ~10 sessions.
-Phase 9 — Internal Team + Support — ~10 sessions.
-Phase 10 — Subscription & Billing — ~12 sessions.
-Phase 11 — Production / AWS — ~5 sessions.
-Phase 12 — Native Mobile App — ~40-60 sessions.
+See Section 38.
 
 ## B4. HOW TO RESUME IN A NEW CHAT
 
@@ -254,8 +196,6 @@ Rules you must follow:
 - Every GL posting goes through post_transaction().
 
 Then paste this entire file.
-
----
 
 # END OF PART A + PART B
 # ═══════════════════════════════════════════════════
@@ -1161,6 +1101,14 @@ Total (with mobile): ~290 sessions
 16. Role values UPPERCASE everywhere.
 17. Menu keys UPPERCASE and dotted.
 18. If Next.js 404s on pages that exist, check for stray frontend\app.
+19. Run `python check_parity.py` at the START of every session to see
+    the exact state of AppFolio parity. Run it again BEFORE every push.
+    It must print "CLEAN". If it prints "FAILURES", add the missing items
+    to docs/APPFOLIO_PARITY_CHECKLIST.json before pushing.
+20. Nothing gets built unless it's in the parity checklist. Nothing
+    gets marked done unless the checklist says so. The checklist is
+    the single source of truth for what exists, what's scheduled, and
+    what has no plan.
 
 ---
 
@@ -2464,47 +2412,7 @@ Purpose:
 Downgrade reverses all of the above.
 
 
-# END OF PROJECT_MASTER.md
-       '''
-       def main():
-           MASTER.parent.mkdir(parents=True, exist_ok=True)
-           MASTER.write_text(CONTENT, encoding="utf-8")
-           print(f"Wrote {len(CONTENT):,} bytes to {MASTER}")
-       if __name__ == "__main__":
-           main()
 
-3. Run it:
-       python rebuild_master_full.py
-
-4. Delete the script:
-       Remove-Item rebuild_master_full.py
-
-5. Verify the file:
-       Select-String -Path C:\Projects\property-platform\docs\PROJECT_MASTER.md -Pattern "^# SECTION" | Measure-Object | Select-Object -ExpandProperty Count
-       Get-Content C:\Projects\property-platform\docs\PROJECT_MASTER.md -Tail 5
-
-   Section count must match the last section number (47 as of
-   Step 6). Tail must show "# END OF PROJECT_MASTER.md".
-
-**If the file is too big to fit in a single chat message:**
-Split into two scripts (part1 = Parts A+B + Sections 1-20;
-part2 = appends Sections 21-47 + footer). Pattern used for the
-Step 6 rebuild — see chat history. Verify by section count, not
-by eyeballing.
-
-**After the doc is updated:** commit + push (see Section 49).
-
-**Also update the doc when any of these change:**
-- Migration chain (Section 11) — new revision IDs go at the bottom
-- GL account count (Section 12) — if accounts are added/removed
-- Database tables list (Section 10)
-- Build order (Section 38) — mark done, mark next
-- Part A1 — "Last completed work" bullet
-- Part A1 — "What's NOT built yet"
-- Part A2 — "What's built"
-- Part B1 — "Immediate next action"
-- Part B2 — step list (mark done)
-- Add a new reference section for the new module (like 45, 47)
 
 ---
 
