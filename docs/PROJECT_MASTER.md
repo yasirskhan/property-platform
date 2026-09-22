@@ -12,27 +12,44 @@
 ## A1. WHERE WE ARE RIGHT NOW
 
 **Current activity:** Phase 3.6 (Accounting Polish) is IN PROGRESS.
-1 of ~70 items shipped this session: the full Charges feature.
+2 of ~70 items shipped: the full Charges feature + the frontend
+currency/date sweep (Section 67 primitives rule enforced app-wide).
 
-**Also shipped this session (Phase 3.5 territory):**
+**Most recent session — frontend currency/date sweep (DONE):**
+
+Replaced every hardcoded `$` / `"USD"` / `toLocaleString("en-US", ...)`
+/ hardcoded date string in the app with `formatMoney()` / `formatDate()`
+from `frontend/src/lib/money.ts`. 21 files touched across 3 commits
+(e9f569c, 90500b0, 3d52105). TypeScript silent. Zero remaining
+hardcoded money formatting.
+
+Also closed this session:
+- `Display page currency dropdown` — now fetches the org's real list
+  from `GET /api/settings/currencies`. Custom currencies appear.
+  A real bug was fixed in the process: the save payload now includes
+  `currency` so changing it actually persists (Sections 58/59/68).
+- `glTransactions.ts` — deleted the duplicate `formatMoney` and
+  `formatBalance` helpers that hardcoded USD. Three pages split
+  their imports (types/API from `glTransactions`, formatters from
+  `lib/money`). Added a small local `formatBalance()` helper on the
+  three pages that need "$0.00 instead of —" semantics for totals.
+
+**Also shipped earlier this session (Phase 3.5 territory):**
 - Sidebar preferences made truly per-user. Fixed a stale UNIQUE
-  index on `sidebar_preferences.organization_id` (leftover from the
-  original org-scoped design) that prevented any user beyond the
-  first from saving their own sidebar. Migrations c0e4ac6f46b2
-  (user_id NOT NULL) and 5949df11e460 (drop stale unique index).
+  index on `sidebar_preferences.organization_id`. Migrations
+  c0e4ac6f46b2 (user_id NOT NULL) and 5949df11e460 (drop stale
+  unique index).
 - My Preferences tab in Settings → Permissions now saves.
-  (Also fixed a missing `IntegrityError` import and added
-  race-safe get-or-create in both routers.)
 - Custom Currencies CRUD (Section 68). Table + model + router +
-  page. 9 system currencies seeded per org. Partial: the Display
-  page dropdown is still hardcoded and does NOT yet fetch this
-  list. Sweep pending (Phase 3.5.5).
+  page. 9 system currencies seeded per org. **Now consumed by the
+  Display dropdown.**
 - Display Settings page (Section 58). Layout mode, theme, date
-  format, currency all save. Partial: no page consumes them yet.
-  Sweep pending (Phase 3.5.5).
+  format, currency all save. **Currency now persists correctly.**
+  Layout mode + theme still don't visually change anything until
+  Phase 3.5.5 retrofit; date format saves but no page calls
+  `formatDate()` yet.
 - SETTINGS menu group (Display, Currencies, Menu Permissions,
-  Sidebar) wired to the sidebar via menu_keys.py + menuConfig.ts
-  + migration 15d92d8a1eea.
+  Sidebar). Migration 15d92d8a1eea.
 - Charges feature. Table `charges`, model, router, list page,
   new page, menu key ACCOUNTING.CHARGES. Migrations f49b93dcb1e2
   and 3909fd7c7792.
@@ -40,27 +57,25 @@
 **Migration head:** 5949df11e460
 
 **Next:** continue Phase 3.6. First items:
-1. Frontend sweep — replace hardcoded $ / "USD" with formatMoney().
-2. Journal Entries sub-tabs (History | Recurring).
-3. Receipts: Print / Repeat / edit-lock-after-deposit.
+1. Journal Entries sub-tabs (History | Recurring).
+2. Receipts: Print / Repeat / edit-lock-after-deposit.
+3. Bank Account: Adjustments.
+4. Owner Held Security Deposits.
 
 **Also queued (Phase 3.5.5 — Compliance Pass):**
-Retrofit each existing page (Receipts, Bills, Deposits, GL,
-Owner Statements, Management Fees, Bank Accounts, Journal Entries,
-Charges, Currencies, Display, Permissions, Sidebar, Properties)
-so it:
-- uses formatMoney()/formatDate() for every value
+Retrofit each existing page so it:
 - reads theme/layout/density from useDisplay()
 - renders every planned tab, field, button, and section — as a
   hidden slot until its platform feature flag is advanced past
-  HIDDEN. Behavior-preserving: nothing changes visually until a
-  flag moves.
+  HIDDEN. Behavior-preserving.
+(The formatMoney/formatDate part of the retrofit is now DONE —
+that's what this session shipped.)
 
 No page ever needs a rewrite again. See Section 79 (Build-In-Place
 Policy), Section 80 (Platform Feature Gating), Section 81
 (Built & Verified).
 
-**New Sections 70–81 added this session:** Feature Flags,
+**New Sections 70–81 added in the prior session:** Feature Flags,
 Settings Universe, Documents & Exports, API Security Model,
 SQL Injection Prevention, File Upload Security, AppFolio Parity
 & Migration Strategy, Advanced Security & Fraud Prevention,
@@ -178,30 +193,28 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Phase 3.6 (Accounting Polish) continues. 1 of ~70 items shipped.**
+**Phase 3.6 (Accounting Polish) continues. 2 of ~70 items shipped.**
 
 Pick one, in this order:
 
-1. Frontend sweep — replace hardcoded `$` / `"USD"` / hardcoded date
-   strings in existing pages with `formatMoney()` and `formatDate()`
-   from `frontend/src/lib/money.ts`. Touches ~17 files per the
-   earlier grep. Behavior-preserving.
-2. Journal Entries: sub-tabs (History | Recurring).
+1. Journal Entries: sub-tabs (History | Recurring).
    JSON id: accounting.je.sub_tabs.
-3. Receipts: Print / Repeat / edit-lock-after-deposit.
+2. Receipts: Print / Repeat / edit-lock-after-deposit.
    JSON ids: accounting.receipts.print, accounting.receipts.repeat,
    accounting.receipts.edit_lock_after_deposit.
-4. Bank Account: Adjustments.
+3. Bank Account: Adjustments.
    JSON id: accounting.bank_accounts.adjustments.
-5. Owner Held Security Deposits (whole feature).
+4. Owner Held Security Deposits (whole feature).
    JSON id: accounting.owners.owner_held_security_deposits.
+5. GL Accounts: Recalculate Balances button.
+   JSON id: accounting.coa.recalculate_balances.
 
 **Also queued (Phase 3.5.5 — Compliance Pass):**
-Retrofit each existing page so it uses the shared primitives and
-renders every planned tab/field/button/section as a hidden slot
-gated by a feature flag. Behavior-preserving. One page at a time.
-See Section 79 (Build-In-Place Policy) and Section 80 (Platform
-Feature Gating).
+Retrofit each existing page so it reads theme/layout/density from
+useDisplay() and renders every planned tab/field/button/section as
+a hidden slot gated by a feature flag. Behavior-preserving. One
+page at a time. See Section 79 and Section 80.
+(The formatMoney/formatDate retrofit is DONE — see Part A1.)
 
 Read Section 69 (FILE MAP) to know where every file is.
 Read docs/FILE_CATALOG.md to know what's inside every file.
@@ -2449,13 +2462,17 @@ the summary:
 
 # SECTION 58 — DISPLAY SETTINGS (BUILT — Phase 3.5, PARTIAL)
 
-STATUS (2026-09-22): The Display page is BUILT and save works for
-ADMIN/OWNER (theme, layout mode, date format, currency, density,
-number format, font size, accent, reduce motion). PARTIAL: no page
-consumes any of these settings yet. Theme sets data-theme on <html>
-but no dark-mode CSS exists. Layout mode saves but no page reads it.
-Date format saves but no page calls formatDate(). The retrofit to
-make pages consume these is Phase 3.5.5 (Compliance Pass).
+STATUS (2026-09-22): COMPLETE for currency + date-format rendering.
+The Display page saves (theme, layout mode, date format, currency,
+density, number format, font size, accent, reduce motion).
+The frontend currency/date sweep finished this session — every page
+now calls formatMoney()/formatDate() from lib/money.ts. Currency
+changes persist. Date format changes re-render every money/date
+display in the app.
+
+STILL PENDING (Phase 3.5.5): layout mode, theme (dark CSS), density,
+font size, accent, reduce motion are saved but no page or stylesheet
+consumes them yet. Behavior-preserving retrofit queued.
 
 One page under Settings → Display. Per-user preferences.
 Infrastructure built once, every page inherits both layouts/themes.
@@ -2504,14 +2521,17 @@ Default for new users: Tabs + Light (matches today's look)
 
 # SECTION 59 — PER-ORG CURRENCY (BUILT — Phase 3.5, PARTIAL)
 
-STATUS (2026-09-22): The organizations.currency column is BUILT and
-PUT /api/settings/display persists it for ADMIN/OWNER. Custom
-currencies CRUD is BUILT (see Section 68). PARTIAL: the Display page
-currency dropdown is still hardcoded — it does NOT fetch custom
-currencies from /api/settings/currencies. And no existing page uses
-formatMoney() yet; every amount still renders with a hardcoded $.
-The Display-dropdown fix and the formatMoney() sweep are Phase 3.5.5
-(Compliance Pass).
+STATUS (2026-09-22): COMPLETE. The organizations.currency column is
+persisted for ADMIN/OWNER by PUT /api/settings/display. Custom
+currencies CRUD is BUILT (Section 68). The Display page currency
+dropdown fetches the org's real currency list from
+GET /api/settings/currencies — custom currencies appear. A real bug
+was fixed this session: the save payload now includes `currency`, so
+changing it actually persists.
+
+Every page now uses formatMoney() from lib/money.ts. The frontend
+sweep is DONE (21 files touched, 3 commits: e9f569c, 90500b0,
+3d52105). No hardcoded $ remains anywhere in the codebase.
 
 Each customer organization operates in ONE currency.
 No exchange, no conversion, no cross-currency transactions.
@@ -3028,10 +3048,11 @@ See Section 80 (Platform Feature Gating).
 
 # SECTION 68 — CUSTOM CURRENCIES (BUILT — Phase 3.5, PARTIAL)
 
-STATUS (2026-09-22): Infrastructure is BUILT — table, model, router,
-CRUD page, 9 seeded system currencies per org. PARTIAL: the Display
-page currency dropdown does NOT fetch this list yet (still hardcoded)
-and no page uses formatMoney(). Both are Phase 3.5.5.
+STATUS (2026-09-22): COMPLETE. Table, model, router, CRUD page, 9
+seeded system currencies per org. The Display page currency dropdown
+fetches the org's real list from GET /api/settings/currencies —
+custom currencies appear in the dropdown. Every page uses
+formatMoney() from lib/money.ts (frontend sweep complete).
 
 Customers can pick a currency, and can add their own.
 
@@ -4212,6 +4233,114 @@ what to trust. Updated at the end of every session.
 - **DONE** — works end-to-end, verified in browser
 - **PARTIAL** — infrastructure built, consumption / wiring pending
 - **PENDING** — planned, not built
+
+## Session 2026-09-22 — Frontend currency/date sweep
+
+### DONE
+
+- **Frontend currency/date sweep (21 files, 3 commits).**
+  Every page that rendered money or dates now imports
+  `formatMoney` / `formatDate` from `frontend/src/lib/money.ts`.
+  No hardcoded `$`, `"USD"`, `toLocaleString("en-US", ...)`,
+  `style: "currency"`, or hardcoded date strings remain anywhere
+  except `lib/money.ts` itself (the legitimate home of
+  `Intl.NumberFormat`) and two `Intl.NumberFormat` previews on the
+  Display and Currencies settings pages (which use a specific row's
+  locale, on purpose).
+
+  **Files touched (Batch 1 — accounting, 12 files):**
+  `accounting/bills/new/page.tsx`, `accounting/bills/page.tsx`,
+  `accounting/deposits/page.tsx`, `accounting/deposits/new/page.tsx`,
+  `accounting/journal-entries/new/page.tsx`,
+  `accounting/management-fees/new/page.tsx`,
+  `accounting/management-fees/page.tsx`,
+  `accounting/owner-statements/new/page.tsx`,
+  `accounting/owner-statements/[id]/page.tsx`,
+  `accounting/owner-statements/page.tsx`,
+  `accounting/receipts/new/page.tsx`,
+  `accounting/receipts/page.tsx`.
+  Commits: `e9f569c`.
+
+  **Files touched (Batch 2 — property pages + tabs, 9 files):**
+  `components/property/AmenitiesTab.tsx`,
+  `components/property/AppliancesTab.tsx`,
+  `components/property/ImprovementsTab.tsx`,
+  `components/property/ExpensesTab.tsx`,
+  `components/property/InsuranceTab.tsx`,
+  `components/property/TenantInsuranceSection.tsx`,
+  `components/property/UtilitiesTab.tsx`,
+  `app/dashboard/properties/[id]/page.tsx`,
+  `app/dashboard/tenant/page.tsx`.
+  Commits: `2f91ae8`.
+
+  **Files touched (Batch 3 — glTransactions cleanup + final tail, 4 files):**
+  `lib/glTransactions.ts` (deleted duplicate `formatMoney` +
+  `formatBalance` helpers),
+  `accounting/gl-accounts/[id]/ledger/page.tsx`,
+  `accounting/journal-entries/[id]/page.tsx`,
+  `accounting/trial-balance/page.tsx`,
+  `app/dashboard/settings/display/page.tsx`.
+  Commits: `90500b0`, `3d52105`.
+
+  Verification: `npx tsc --noEmit` silent after every batch.
+  `python check_parity.py` CLEAN.
+
+- **Display page currency dropdown now fetches the API.**
+  Was hardcoded (9-currency array). Now calls
+  `GET /api/settings/currencies` and populates from the org's real
+  list. Fallback list kept only for offline/error cases.
+  Closes the last PARTIAL from Sections 58, 59, 68.
+
+- **Real bug fixed — Display page currency was not persisted.**
+  The save payload was missing `currency`, so changing the dropdown
+  only updated the local preview. Backend was already set up to
+  persist it (see `settings_display.py`); the frontend was silently
+  dropping the field. Now included.
+
+- **glTransactions.ts duplicate helpers removed.**
+  The file had its own `formatMoney` and `formatBalance` that
+  hardcoded USD — shadowing `lib/money.ts` for any page that
+  imported them. Deleted. Three pages (`ledger`, `journal-entries/[id]`,
+  `trial-balance`) split their import block:
+  types/API from `glTransactions`, formatters from `lib/money`.
+  Each of the three now defines a small local `formatBalance()`
+  that wraps `formatMoney` and preserves the "show `$0.00` for
+  zero/null instead of an em-dash" semantics that totals rows need.
+
+- **Mojibake cleanup.**
+  Many files displayed `â€"`, `Â·`, `â€¦`, `ðŸ"¥`, etc. from
+  earlier Windows-console UTF-8 confusion. The on-disk bytes were
+  already correct UTF-8; the display artifacts are gone now that
+  every file has been rewritten through VS Code's UTF-8 pipeline.
+
+### Lessons learned
+
+- **Do not script context-dependent edits across a codebase.**
+  A first attempt at an automated sweep
+  (`sweep_formatting.py`) produced double-brace JSX artifacts in
+  the biggest file (`properties/[id]/page.tsx`). Recovered from
+  backup; the script was abandoned. Every file in the final sweep
+  was edited by hand — whole-file replacement, no regex.
+  The `properties/[id]/page.tsx` fix used a Python script with
+  byte-exact literal anchors (`fix_property_detail.py`), which is
+  the safe middle ground: literal strings, no regex, aborts on
+  mismatch, writes once, deletes itself after.
+
+- **PowerShell `[id]` folder paths need `-LiteralPath`.**
+  `Test-Path "src\...[id]\..."` returns False silently because
+  `[` is a wildcard character in PowerShell. Always use
+  `-LiteralPath` for any path containing `[` or `]`.
+
+### Files deleted
+
+- `backend/sweep_formatting.py` (abandoned automated sweep)
+- `backend/fix_property_detail.py` (one-off; ran once, deleted)
+- `frontend/src/app/dashboard/properties/[id]/page.tsx.backup-before-*`
+- `frontend/src/components/property/TenantInsuranceSection.tsx.backup-before-*`
+
+### PARTIAL
+
+(No new PARTIAL items this session — two existing PARTIALs became DONE.)
 
 ## Session 2026-09-21 / 2026-09-22
 

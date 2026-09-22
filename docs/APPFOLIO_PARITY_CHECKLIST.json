@@ -13,8 +13,8 @@
     "roadmap_section": "PROJECT_MASTER.md Section 57 (summary) + Section 38 (build order)",
     "canonical_note": "This JSON is the single source of truth for feature coverage and phase. Every item must have a status and, if scheduled, a phase. check_parity.py enforces this.",
     "total_items": 528,
-    "built_count": 110,
-    "scheduled_count": 418,
+    "built_count": 125,
+    "scheduled_count": 403,
     "in_progress_count": 0
   },
   "items": [
@@ -3578,98 +3578,98 @@
       "id": "compliance.receipts.use_primitives",
       "area": "Compliance / Page Retrofit",
       "feature": "Receipts: use formatMoney / formatDate / useDisplay",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.5.5"
     },
     {
       "id": "compliance.bills.use_primitives",
       "area": "Compliance / Page Retrofit",
       "feature": "Bills: use primitives",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.5.5"
     },
     {
       "id": "compliance.deposits.use_primitives",
       "area": "Compliance / Page Retrofit",
       "feature": "Deposits: use primitives",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.5.5"
     },
     {
       "id": "compliance.gl_accounts.use_primitives",
       "area": "Compliance / Page Retrofit",
       "feature": "GL Accounts: use primitives",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.5.5"
     },
     {
       "id": "compliance.journal_entries.use_primitives",
       "area": "Compliance / Page Retrofit",
       "feature": "Journal Entries: use primitives",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.5.5"
     },
     {
       "id": "compliance.management_fees.use_primitives",
       "area": "Compliance / Page Retrofit",
       "feature": "Management Fees: use primitives",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.5.5"
     },
     {
       "id": "compliance.owner_statements.use_primitives",
       "area": "Compliance / Page Retrofit",
       "feature": "Owner Statements: use primitives",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.5.5"
     },
     {
       "id": "compliance.bank_accounts.use_primitives",
       "area": "Compliance / Page Retrofit",
       "feature": "Bank Accounts: use primitives",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.5.5"
     },
     {
       "id": "compliance.charges.use_primitives",
       "area": "Compliance / Page Retrofit",
       "feature": "Charges: use primitives",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.5.5"
     },
     {
       "id": "compliance.properties.use_primitives",
       "area": "Compliance / Page Retrofit",
       "feature": "Properties: use primitives on every tab",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.5.5"
     },
     {
       "id": "compliance.currencies.use_primitives",
       "area": "Compliance / Page Retrofit",
       "feature": "Currencies: use primitives + fetch list from API in Display",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.5.5"
     },
     {
       "id": "compliance.display.use_primitives",
       "area": "Compliance / Page Retrofit",
       "feature": "Display: consume layout / theme / dates / density in pages",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.5.5"
     },
     {
       "id": "compliance.permissions.use_primitives",
       "area": "Compliance / Page Retrofit",
       "feature": "Permissions: use primitives",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.5.5"
     },
     {
       "id": "compliance.sidebar.use_primitives",
       "area": "Compliance / Page Retrofit",
       "feature": "Sidebar: use primitives",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.5.5"
     },
     {
@@ -3732,7 +3732,7 @@
       "id": "compliance.currencies.display_dropdown_fetch",
       "area": "Compliance / Page Retrofit",
       "feature": "Currencies: Display dropdown fetches list from /api/settings/currencies",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.5.5"
     }
   ]
