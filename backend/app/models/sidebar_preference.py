@@ -1,20 +1,27 @@
 # ============================================================
-# sidebar_preference.py
+# sidebar_preference.py (model)
 # ------------------------------------------------------------
 # Per-USER sidebar layout.
 #
-# Was per-organization before the menu-permissions migration;
-# now one row per user (user_id is unique where not null).
+# One row per user. Absence of a row means "use defaults"
+# (canonical MENU_KEYS order, nothing hidden).
 #
 #   order:  list of menu keys in the user's preferred order
 #   hidden: list of menu keys the user personally hid
 #
-# The row is created on first save. Absence of a row means
-# "use defaults" (canonical MENU_KEYS order, nothing hidden).
+# user_id is NOT NULL and UNIQUE. organization_id is stored for
+# scoping/filters but is not the key.
+#
+# See PROJECT_MASTER.md Sections 9 and 42.
 # ============================================================
 
 from sqlalchemy import (
-    Column, Integer, ForeignKey, JSON, DateTime, Index
+    Column,
+    Integer,
+    ForeignKey,
+    JSON,
+    DateTime,
+    Index,
 )
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -34,10 +41,12 @@ class SidebarPreference(Base):
         index=True,
     )
 
-    # Nullable because the migration had to backfill legacy rows and
-    # because a user might exist without a saved preference yet.
-    # Unique when present (enforced by partial unique index at DB level).
-    user_id = Column(Integer, nullable=True, index=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
 
     order = Column(JSON, nullable=False, default=list)
     hidden = Column(JSON, nullable=False, default=list)
@@ -50,12 +59,12 @@ class SidebarPreference(Base):
     )
 
     organization = relationship("Organization")
+    user = relationship("User")
 
     __table_args__ = (
         Index(
             "uq_sidebar_preferences_user_id",
             "user_id",
             unique=True,
-            sqlite_where=None,
         ),
     )

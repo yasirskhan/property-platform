@@ -22,6 +22,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_db
 from app.core.audit import log_action
@@ -518,19 +519,34 @@ def update_my_preferences(
     )
 
     if pref is None:
-        pref = SidebarPreference(
-            organization_id=current_user.organization_id,
-            user_id=current_user.id,
-            order=list(payload.order),
-            hidden=list(payload.hidden),
-        )
-        db.add(pref)
+        try:
+            pref = SidebarPreference(
+                organization_id=current_user.organization_id,
+                user_id=current_user.id,
+                order=list(payload.order),
+                hidden=list(payload.hidden),
+            )
+            db.add(pref)
+            db.commit()
+            db.refresh(pref)
+        except IntegrityError:
+            db.rollback()
+            pref = (
+                db.query(SidebarPreference)
+                .filter(SidebarPreference.user_id == current_user.id)
+                .first()
+            )
+            if pref is None:
+                raise
+            pref.order = list(payload.order)
+            pref.hidden = list(payload.hidden)
+            db.commit()
+            db.refresh(pref)
     else:
         pref.order = list(payload.order)
         pref.hidden = list(payload.hidden)
-
-    db.commit()
-    db.refresh(pref)
+        db.commit()
+        db.refresh(pref)
 
     return MyPreferencesOut(
         order=list(pref.order or []),
