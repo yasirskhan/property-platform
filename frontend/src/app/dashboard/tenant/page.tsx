@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { apiGet } from "@/lib/api";
+import { formatMoney } from "@/lib/money";
 
 type Lease = { id: number; status: string; monthly_rent: string };
 type WorkOrder = { id: number; title: string; status: string };
@@ -25,8 +26,12 @@ export default function TenantDashboard() {
             <p className="text-slate-500 text-sm">No active lease.</p>
           ) : (
             <div>
-              <p className="text-3xl font-bold text-slate-900">${leases[0].monthly_rent}</p>
-              <p className="text-sm text-slate-500">per month · {leases[0].status}</p>
+              <p className="text-3xl font-bold text-slate-900 font-mono">
+                {formatMoney(leases[0].monthly_rent)}
+              </p>
+              <p className="text-sm text-slate-500">
+                per month · {leases[0].status}
+              </p>
             </div>
           )}
         </div>

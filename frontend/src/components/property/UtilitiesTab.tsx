@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiGet } from "@/lib/api";
+import { formatMoney } from "@/lib/money";
 
 // ------------------------------------------------------------
 // Types
@@ -391,7 +392,7 @@ function UtilityCard({
             onClick={toggleBills}
             className="text-xs text-slate-600 hover:text-slate-900"
           >
-            {showBills ? "▾ Hide bills" : "▸ Show bills"} ({bills.length})
+            {showBills ? "▼ Hide bills" : "▶ Show bills"} ({bills.length})
           </button>
 
           {showBills && (
@@ -436,8 +437,8 @@ function UtilityCard({
                         <td className="py-1 text-slate-700">
                           {b.billing_period_start || "—"} → {b.billing_period_end || "—"}
                         </td>
-                        <td className="py-1 text-slate-900 font-medium">
-                          ${Number(b.amount).toLocaleString()}
+                        <td className="py-1 text-slate-900 font-medium font-mono">
+                          {formatMoney(b.amount)}
                         </td>
                         <td className="py-1 text-slate-500">{b.paid_at || "unpaid"}</td>
                       </tr>
@@ -735,7 +736,7 @@ function BillForm({
           type="number"
           step="0.01"
           required
-          placeholder="Amount ($)"
+          placeholder="Amount"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           className="input"

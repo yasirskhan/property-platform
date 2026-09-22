@@ -6,10 +6,15 @@
 // Layout mode + theme + date format are wired.
 // Currency is org-wide (not per-user) - changing it here
 // updates the org for everyone. Requires Admin/Owner.
+//
+// The currency dropdown fetches the org's real currency list
+// from /api/settings/currencies (built in Section 68) so custom
+// currencies show up. Falls back to USD if the fetch fails.
+//
 // Density, number format, font size, accent, reduce motion
 // are shown but marked "Coming soon".
 //
-// See PROJECT_MASTER.md Sections 58 and 59.
+// See PROJECT_MASTER.md Sections 58, 59, and 68.
 // ============================================================
 
 "use client";
@@ -28,19 +33,25 @@ import type {
 } from "@/contexts/CurrencyContext";
 
 // ------------------------------------------------------------
-// Currencies the org can pick from. Keep this list small and
-// alphabetical. Matches CURRENCY_LOCALE in lib/money.ts.
+// One row from GET /api/settings/currencies
 // ------------------------------------------------------------
-const CURRENCY_OPTIONS = [
-  { code: "USD", label: "USD - US Dollar" },
-  { code: "EUR", label: "EUR - Euro" },
-  { code: "GBP", label: "GBP - British Pound" },
-  { code: "INR", label: "INR - Indian Rupee" },
-  { code: "AUD", label: "AUD - Australian Dollar" },
-  { code: "CAD", label: "CAD - Canadian Dollar" },
-  { code: "NZD", label: "NZD - New Zealand Dollar" },
-  { code: "SGD", label: "SGD - Singapore Dollar" },
-  { code: "AED", label: "AED - UAE Dirham" },
+type CurrencyRow = {
+  id: number;
+  code: string;
+  name: string;
+  symbol: string;
+  locale: string;
+  decimal_places: number;
+  is_system: boolean;
+  is_active: boolean;
+};
+
+// Fallback if the API call fails - keeps the page usable.
+const FALLBACK_CURRENCIES: CurrencyRow[] = [
+  { id: 0, code: "USD", name: "US Dollar", symbol: "$", locale: "en-US", decimal_places: 2, is_system: true, is_active: true },
+  { id: 0, code: "EUR", name: "Euro", symbol: "€", locale: "de-DE", decimal_places: 2, is_system: true, is_active: true },
+  { id: 0, code: "GBP", name: "British Pound", symbol: "£", locale: "en-GB", decimal_places: 2, is_system: true, is_active: true },
+  { id: 0, code: "INR", name: "Indian Rupee", symbol: "₹", locale: "en-IN", decimal_places: 2, is_system: true, is_active: true },
 ];
 
 // ------------------------------------------------------------
@@ -110,6 +121,10 @@ export default function DisplaySettingsPage() {
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Org currency list, fetched from the API (Section 68).
+  const [currencies, setCurrencies] = useState<CurrencyRow[]>(FALLBACK_CURRENCIES);
+  const [currenciesLoaded, setCurrenciesLoaded] = useState(false);
+
   useEffect(() => {
     if (prefs) setLocal(prefs);
   }, [prefs]);
@@ -117,6 +132,27 @@ export default function DisplaySettingsPage() {
   useEffect(() => {
     if (!local) refresh();
   }, [local, refresh]);
+
+  // Fetch the org's real currency list once.
+  useEffect(() => {
+    let cancelled = false;
+    apiGet("/api/settings/currencies")
+      .then((rows) => {
+        if (cancelled) return;
+        const list = Array.isArray(rows) ? (rows as CurrencyRow[]) : [];
+        const active = list.filter((c) => c.is_active);
+        if (active.length > 0) setCurrencies(active);
+      })
+      .catch(() => {
+        // leave fallback list in place
+      })
+      .finally(() => {
+        if (!cancelled) setCurrenciesLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (!local) {
     return (
@@ -145,6 +181,7 @@ export default function DisplaySettingsPage() {
         font_size: local.font_size,
         accent_color: local.accent_color,
         reduce_motion: local.reduce_motion,
+        currency: local.currency,
       })) as DisplayPreferences;
 
       setPrefs(updated);
@@ -173,22 +210,48 @@ export default function DisplaySettingsPage() {
           <select
             value={local.currency}
             onChange={(e) => update("currency", e.target.value)}
-            className="border border-slate-300 rounded-md px-3 py-1.5 text-sm bg-white"
+            disabled={!currenciesLoaded && currencies.length === 0}
+            className="border border-slate-300 rounded-md px-3 py-1.5 text-sm bg-white disabled:opacity-50"
           >
-            {CURRENCY_OPTIONS.map((c) => (
+            {currencies.map((c) => (
               <option key={c.code} value={c.code}>
-                {c.label}
+                {c.code} - {c.name}
               </option>
             ))}
+            {/* Ensure the currently-selected code is present even if the
+                currency list hasn't loaded or has been filtered out. */}
+            {!currencies.some((c) => c.code === local.currency) && (
+              <option value={local.currency}>
+                {local.currency} - current
+              </option>
+            )}
           </select>
           <div className="text-xs text-slate-500 mt-1">
             Preview:{" "}
             <span className="font-mono">
-              {new Intl.NumberFormat(undefined, {
-                style: "currency",
-                currency: local.currency || "USD",
-              }).format(1234.56)}
+              {(() => {
+                const row = currencies.find((c) => c.code === local.currency);
+                const locale = row?.locale || "en-US";
+                try {
+                  return new Intl.NumberFormat(locale, {
+                    style: "currency",
+                    currency: local.currency || "USD",
+                  }).format(1234.56);
+                } catch {
+                  return local.currency;
+                }
+              })()}
             </span>
+          </div>
+          <div className="text-xs text-slate-500 mt-1">
+            Manage the list in{" "}
+            <a
+              href="/dashboard/settings/currencies"
+              className="text-blue-600 hover:underline"
+            >
+              Settings → Currencies
+            </a>
+            .
           </div>
         </Field>
 
