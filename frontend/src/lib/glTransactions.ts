@@ -5,6 +5,11 @@
 // ledger for an account, balances, trial balance).
 //
 // All calls go through lib/api.ts for auth + error handling.
+//
+// NOTE: formatMoney() and formatBalance() were removed from this
+// file. They duplicated lib/money.ts and hardcoded USD. Pages that
+// need money formatting must import from "@/lib/money" instead
+// (Section 59 — per-org currency).
 // ============================================================
 
 import { apiGet } from "@/lib/api";
@@ -177,33 +182,4 @@ export function getTrialBalance(
       include_zero: includeZero ? "true" : undefined,
     })}`
   );
-}
-
-// ------------------------------------------------------------
-// Display helpers
-// ------------------------------------------------------------
-
-export function formatMoney(value: string | number | null | undefined): string {
-  if (value === null || value === undefined || value === "") return "—";
-  const n = typeof value === "string" ? Number(value) : value;
-  if (isNaN(n)) return "—";
-  if (n === 0) return "—";
-  return n.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-export function formatBalance(value: string | number | null | undefined): string {
-  if (value === null || value === undefined || value === "") return "$0.00";
-  const n = typeof value === "string" ? Number(value) : value;
-  if (isNaN(n)) return "$0.00";
-  return n.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
 }

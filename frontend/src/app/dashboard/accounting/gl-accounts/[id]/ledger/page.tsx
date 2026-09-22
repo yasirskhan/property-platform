@@ -11,6 +11,11 @@
 // For ASSET and EXPENSE accounts this is the natural direction.
 // For LIABILITY and INCOME it's the opposite, but we still show
 // debit-minus-credit so the numbers add up across the trial balance.
+//
+// Money formatting comes from lib/money.ts so the org's currency
+// setting is respected (Section 59). A small local formatBalance()
+// wraps formatMoney() and preserves the "show $0.00 for zero"
+// behavior that a balance column needs.
 // ============================================================
 
 "use client";
@@ -18,13 +23,19 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import {
-  getAccountLedger,
-  Ledger,
-  formatMoney,
-  formatBalance,
-} from "@/lib/glTransactions";
+import { getAccountLedger, Ledger } from "@/lib/glTransactions";
+import { formatMoney } from "@/lib/money";
 import { apiGet } from "@/lib/api";
+
+// Balance column: show "$0.00" for null/zero, not an em-dash.
+function formatBalance(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === "") {
+    return formatMoney(0);
+  }
+  const n = typeof value === "string" ? Number(value) : value;
+  if (Number.isNaN(n)) return formatMoney(0);
+  return formatMoney(n);
+}
 
 type Props = {
   params: Promise<{ id: string }>;

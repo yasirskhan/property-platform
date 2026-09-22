@@ -9,6 +9,11 @@
 // flag it visually.
 //
 // This is the accountant's "does it all add up?" check.
+//
+// Money formatting comes from lib/money.ts so the org's currency
+// setting is respected (Section 59). A small local formatBalance()
+// wraps formatMoney() and preserves the "show $0.00 for zero"
+// behavior that totals rows need.
 // ============================================================
 
 "use client";
@@ -19,10 +24,19 @@ import {
   getTrialBalance,
   TrialBalance,
   TrialBalanceRow,
-  formatBalance,
-  formatMoney,
 } from "@/lib/glTransactions";
+import { formatMoney } from "@/lib/money";
 import { ACCOUNT_TYPE_LABELS, ACCOUNT_TYPE_ORDER } from "@/lib/glAccounts";
+
+// Totals column: show "$0.00" for null/zero, not an em-dash.
+function formatBalance(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === "") {
+    return formatMoney(0);
+  }
+  const n = typeof value === "string" ? Number(value) : value;
+  if (Number.isNaN(n)) return formatMoney(0);
+  return formatMoney(n);
+}
 
 export default function TrialBalancePage() {
   const [data, setData] = useState<TrialBalance | null>(null);

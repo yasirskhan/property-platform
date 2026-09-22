@@ -12,6 +12,11 @@
 // Reachable from:
 //   * The ledger page — clicking a transaction_type link
 //   * The transactions list (once built)
+//
+// Money formatting comes from lib/money.ts so the org's currency
+// setting is respected (Section 59). A small local formatBalance()
+// wraps formatMoney() and preserves the "show $0.00 for zero"
+// behavior that a totals row needs.
 // ============================================================
 
 "use client";
@@ -19,12 +24,18 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, RotateCcw } from "lucide-react";
-import {
-  getTransaction,
-  GLTransactionDetail,
-  formatMoney,
-  formatBalance,
-} from "@/lib/glTransactions";
+import { getTransaction, GLTransactionDetail } from "@/lib/glTransactions";
+import { formatMoney } from "@/lib/money";
+
+// Totals column: show "$0.00" for null/zero, not an em-dash.
+function formatBalance(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === "") {
+    return formatMoney(0);
+  }
+  const n = typeof value === "string" ? Number(value) : value;
+  if (Number.isNaN(n)) return formatMoney(0);
+  return formatMoney(n);
+}
 
 type Props = {
   params: Promise<{ id: string }>;
