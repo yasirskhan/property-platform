@@ -1,10 +1,10 @@
 // ============================================================
-// Deposits list page
+// Bank Deposits list page
 // ------------------------------------------------------------
-// Route: /dashboard/accounting/deposits
+// Group un-deposited receipts into a batch for the bank.
 //
-// Shows every bank deposit in the current org. Clicking a row
-// opens a centered modal with the deposit's receipts.
+// Uses formatMoney() from lib/money.ts for every amount so the
+// org's currency setting is respected (Section 59).
 // ============================================================
 
 "use client";
@@ -13,39 +13,52 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   listDeposits,
-  Deposit,
-  DepositList,
+  getDeposit,
+  type Deposit,
+  type DepositDetail,
+  type DepositListFilters,
 } from "@/lib/deposits";
-import { apiGet } from "@/lib/api";
+import { formatMoney } from "@/lib/money";
 
-type Me = { role: string };
-
-const WRITE_ROLES = ["ADMIN", "OWNER", "MANAGER"];
+interface Me {
+  id: number;
+  role: string;
+}
 
 export default function DepositsPage() {
   const [me, setMe] = useState<Me | null>(null);
-  const [data, setData] = useState<DepositList | null>(null);
+  const [rows, setRows] = useState<Deposit[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [bankAccount, setBankAccount] = useState<number | "">("");
 
-  const [selected, setSelected] = useState<Deposit | null>(null);
+  const [openDeposit, setOpenDeposit] = useState<DepositDetail | null>(null);
+  const [openLoading, setOpenLoading] = useState(false);
+
+  useEffect(() => {
+    fetch("/auth/me", {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((u) => setMe(u))
+      .catch(() => setMe(null));
+  }, []);
 
   async function load() {
     setLoading(true);
-    setError("");
+    setError(null);
     try {
-      const meData = await apiGet("/auth/me");
-      setMe(meData);
-      const list = await listDeposits({
-        date_from: dateFrom || undefined,
-        date_to: dateTo || undefined,
-      });
-      setData(list);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Load failed");
+      const filters: DepositListFilters = {};
+      if (dateFrom) filters.date_from = dateFrom;
+      if (dateTo) filters.date_to = dateTo;
+      if (bankAccount) filters.bank_gl_account_id = bankAccount;
+      const data = await listDeposits(filters);
+      setRows(data.items);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not load deposits.");
     } finally {
       setLoading(false);
     }
@@ -54,326 +67,264 @@ export default function DepositsPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFrom, dateTo]);
+  }, []);
 
-  if (loading && !data) return <div className="text-slate-500">Loading…</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
-  if (!data) return null;
+  async function open(depositId: number) {
+    setOpenLoading(true);
+    setError(null);
+    try {
+      const detail = await getDeposit(depositId);
+      setOpenDeposit(detail);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not load deposit.");
+    } finally {
+      setOpenLoading(false);
+    }
+  }
 
-  const canWrite = me ? WRITE_ROLES.includes(me.role) : false;
-
-  const totalAmount = data.items.reduce(
-    (sum, d) => sum + Number(d.total || 0),
-    0
-  );
+  const totalAmount = rows.reduce((acc, d) => acc + parseFloat(d.total), 0);
 
   return (
-    <div>
-      {/* Back link */}
-      <div className="mb-4">
-        <button
-          type="button"
-          onClick={() => {
-            if (typeof window !== "undefined" && window.history.length > 1) {
-              window.history.back();
-            } else {
-              window.location.href = "/dashboard";
-            }
-          }}
-          className="text-sm text-slate-500 hover:text-slate-800"
-        >
-          ← Back
-        </button>
-      </div>
-
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Bank Deposits</h1>
-          <p className="text-slate-500 mt-1">
-            {data.total} {data.total === 1 ? "deposit" : "deposits"}
-            {" · "}
-            Total:{" "}
-            {totalAmount.toLocaleString("en-US", {
-              style: "currency",
-              currency: "USD",
-            })}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-xl font-semibold text-slate-900">Bank Deposits</h1>
+        {me && me.role !== "TENANT" && (
           <Link
-            href="/dashboard/accounting/receipts"
-            className="text-sm px-3 py-2 text-slate-600 hover:text-slate-900"
+            href="/dashboard/accounting/deposits/new"
+            className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
           >
-            Receipts
+            + New Deposit
           </Link>
-          <Link
-            href="/dashboard/accounting/bills"
-            className="text-sm px-3 py-2 text-slate-600 hover:text-slate-900"
-          >
-            Bills
-          </Link>
-          {canWrite && (
-            <Link
-              href="/dashboard/accounting/deposits/new"
-              className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700"
-            >
-              + New Deposit
-            </Link>
-          )}
-        </div>
+        )}
       </div>
+      <p className="text-sm text-slate-500 mb-6">
+        Group receipts into a batch for the bank.
+      </p>
 
-      {/* Filters */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex flex-wrap items-end gap-4">
+      <div className="bg-white border border-slate-200 rounded-lg p-4 mb-5 flex flex-wrap items-end gap-3">
         <div>
-          <label className="block text-xs text-slate-500 mb-1">Date from</label>
+          <label className="block text-xs text-slate-600 mb-1">From</label>
           <input
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="border border-slate-300 rounded px-2 py-1.5 text-sm"
+            className="border border-slate-300 rounded-md px-2 py-1.5 text-sm"
           />
         </div>
         <div>
-          <label className="block text-xs text-slate-500 mb-1">Date to</label>
+          <label className="block text-xs text-slate-600 mb-1">To</label>
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="border border-slate-300 rounded px-2 py-1.5 text-sm"
+            className="border border-slate-300 rounded-md px-2 py-1.5 text-sm"
           />
         </div>
+        <div>
+          <label className="block text-xs text-slate-600 mb-1">
+            Bank GL Account ID
+          </label>
+          <input
+            type="number"
+            value={bankAccount}
+            onChange={(e) =>
+              setBankAccount(e.target.value ? Number(e.target.value) : "")
+            }
+            className="border border-slate-300 rounded-md px-2 py-1.5 text-sm w-32"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={load}
+          className="px-3 py-1.5 rounded-md bg-slate-700 text-white text-sm font-medium hover:bg-slate-800"
+        >
+          Show
+        </button>
       </div>
 
-      {/* Table */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      {error && (
+        <div className="text-sm text-red-600 mb-3 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          {error}
+        </div>
+      )}
+
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50">
+          <thead className="bg-slate-50 text-slate-600">
             <tr>
-              <th className="text-left px-4 py-2 font-medium text-slate-700 w-32">
-                Deposit #
-              </th>
-              <th className="text-left px-4 py-2 font-medium text-slate-700 w-28">
-                Date
-              </th>
-              <th className="text-left px-4 py-2 font-medium text-slate-700 w-48">
-                Bank Account
-              </th>
-              <th className="text-left px-4 py-2 font-medium text-slate-700">
-                Description
-              </th>
-              <th className="text-right px-4 py-2 font-medium text-slate-700 w-24">
-                Receipts
-              </th>
-              <th className="text-right px-4 py-2 font-medium text-slate-700 w-32">
-                Total
-              </th>
+              <th className="text-left px-4 py-2 font-medium">Deposit #</th>
+              <th className="text-left px-4 py-2 font-medium">Date</th>
+              <th className="text-left px-4 py-2 font-medium">Bank Account</th>
+              <th className="text-left px-4 py-2 font-medium">Description</th>
+              <th className="text-right px-4 py-2 font-medium">Total</th>
             </tr>
           </thead>
           <tbody>
-            {data.items.length === 0 && (
+            {loading && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                  Loading...
+                </td>
+              </tr>
+            )}
+            {!loading && rows.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
                   No deposits yet.
                 </td>
               </tr>
             )}
-            {data.items.map((d) => (
+            {rows.map((d) => (
               <tr
                 key={d.id}
-                onClick={() => setSelected(d)}
+                onClick={() => open(d.id)}
                 className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer"
               >
-                <td className="px-4 py-2 text-slate-500 font-mono">
+                <td className="px-4 py-2 font-mono text-xs">
                   {d.deposit_number || `#${d.id}`}
                 </td>
-                <td className="px-4 py-2 text-slate-700">{d.deposit_date}</td>
-                <td className="px-4 py-2 text-slate-700 text-xs">
+                <td className="px-4 py-2">{d.deposit_date}</td>
+                <td className="px-4 py-2 text-slate-500">
                   {d.bank_gl_account_number
                     ? `${d.bank_gl_account_number} ${d.bank_gl_account_name}`
-                    : "—"}
+                    : `GL #${d.bank_gl_account_id}`}
                 </td>
-                <td className="px-4 py-2 text-slate-600">
+                <td className="px-4 py-2 text-slate-500">
                   {d.description || "—"}
                 </td>
-                <td className="px-4 py-2 text-right text-slate-600 font-mono">
-                  {d.line_count}
-                </td>
-                <td className="px-4 py-2 text-right font-mono font-semibold">
-                  {Number(d.total).toLocaleString("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                  })}
+                <td className="px-4 py-2 text-right font-mono">
+                  {formatMoney(d.total)}
                 </td>
               </tr>
             ))}
           </tbody>
+          {rows.length > 0 && (
+            <tfoot className="bg-slate-50 text-slate-700">
+              <tr className="border-t border-slate-200">
+                <td className="px-4 py-2 text-xs" colSpan={4}>
+                  {rows.length} deposits
+                </td>
+                <td className="px-4 py-2 text-right font-mono font-medium">
+                  {formatMoney(totalAmount.toFixed(2))}
+                </td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 
-      {/* Centered modal */}
-      {selected && (
-        <DepositDetailModal
-          deposit={selected}
-          onClose={() => setSelected(null)}
-        />
-      )}
-    </div>
-  );
-}
+      {/* Detail modal */}
+      {(openDeposit || openLoading) && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 flex items-start justify-center p-6 overflow-auto"
+          onClick={() => setOpenDeposit(null)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-2xl w-full my-8 max-h-[90vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {openLoading && !openDeposit ? (
+              <div className="p-8 text-center text-slate-500">Loading...</div>
+            ) : openDeposit ? (
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900">
+                      {openDeposit.deposit_number || `#${openDeposit.id}`}
+                    </h2>
+                    <div className="text-sm text-slate-500">
+                      {openDeposit.deposit_date}
+                      {openDeposit.bank_gl_account_number && (
+                        <>
+                          {" · "}
+                          {openDeposit.bank_gl_account_number}{" "}
+                          {openDeposit.bank_gl_account_name}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setOpenDeposit(null)}
+                    className="text-slate-400 hover:text-slate-700 text-xl leading-none"
+                  >
+                    ✕
+                  </button>
+                </div>
 
-// ------------------------------------------------------------
-// Centered modal: deposit detail with receipts
-// ------------------------------------------------------------
-function DepositDetailModal({
-  deposit,
-  onClose,
-}: {
-  deposit: Deposit;
-  onClose: () => void;
-}) {
-  const [lines, setLines] = useState<
-    Array<{
-      id: number;
-      receipt_id: number;
-      receipt_date: string | null;
-      receipt_type: string | null;
-      receipt_amount: string | null;
-      receipt_reference: string | null;
-      receipt_payer: string | null;
-    }>
-  >([]);
-  const [loading, setLoading] = useState(true);
+                {openDeposit.description && (
+                  <div className="text-sm text-slate-600 mb-4">
+                    {openDeposit.description}
+                  </div>
+                )}
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const { getDeposit } = await import("@/lib/deposits");
-        const detail = await getDeposit(deposit.id);
-        if (!cancelled) setLines(detail.lines);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [deposit.id]);
+                <div className="text-sm text-slate-600 mb-4">
+                  Total:{" "}
+                  <span className="font-mono">
+                    {formatMoney(openDeposit.total)}
+                  </span>
+                </div>
 
-  return (
-    <>
-      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
+                <div className="border border-slate-200 rounded-md overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 text-slate-600">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-medium">
+                          Receipt
+                        </th>
+                        <th className="text-left px-3 py-2 font-medium">
+                          Date
+                        </th>
+                        <th className="text-left px-3 py-2 font-medium">
+                          Payer
+                        </th>
+                        <th className="text-right px-3 py-2 font-medium">
+                          Amount
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {openDeposit.lines.map((ln) => (
+                        <tr key={ln.id} className="border-t border-slate-100">
+                          <td className="px-3 py-2">
+                            {ln.receipt_type}
+                            {ln.receipt_date && (
+                              <span className="text-slate-500">
+                                {" · "}
+                                {ln.receipt_date}
+                              </span>
+                            )}
+                            {ln.receipt_reference && (
+                              <span className="text-slate-500">
+                                {" · ref "}
+                                {ln.receipt_reference}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-slate-500">
+                            {ln.receipt_date || "—"}
+                          </td>
+                          <td className="px-3 py-2 text-slate-500">
+                            {ln.receipt_payer || "—"}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono">
+                            {ln.receipt_amount
+                              ? formatMoney(ln.receipt_amount)
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-        <div className="w-full max-w-2xl max-h-[90vh] bg-white rounded-xl shadow-2xl flex flex-col pointer-events-auto">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-            <div>
-              <div className="text-xs text-slate-500">Deposit</div>
-              <div className="font-semibold text-slate-900 text-lg">
-                {deposit.deposit_number || `#${deposit.id}`}
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-slate-400 hover:text-slate-700 text-2xl leading-none"
-            >
-              ×
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 text-sm">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-xs text-slate-500">Date</div>
-                <div className="text-slate-800">{deposit.deposit_date}</div>
-              </div>
-              <div>
-                <div className="text-xs text-slate-500">Total</div>
-                <div className="text-slate-800 font-mono text-lg">
-                  {Number(deposit.total).toLocaleString("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                  })}
+                <div className="text-xs text-slate-500 mt-4">
+                  Bank deposits cannot be reversed. Correct via a journal entry.
                 </div>
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-xs text-slate-500">Bank Account</div>
-                <div className="text-slate-800">
-                  {deposit.bank_gl_account_number}{" "}
-                  {deposit.bank_gl_account_name}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-slate-500">Receipts</div>
-                <div className="text-slate-800">{deposit.line_count}</div>
-              </div>
-            </div>
-
-            {deposit.description && (
-              <div>
-                <div className="text-xs text-slate-500">Description</div>
-                <div className="text-slate-800">{deposit.description}</div>
-              </div>
-            )}
-
-            {deposit.notes && (
-              <div>
-                <div className="text-xs text-slate-500">Notes</div>
-                <div className="text-slate-800 whitespace-pre-wrap">
-                  {deposit.notes}
-                </div>
-              </div>
-            )}
-
-            <div className="pt-4 border-t border-slate-200">
-              <div className="text-xs font-semibold text-slate-500 uppercase mb-2">
-                Receipts in this deposit
-              </div>
-              {loading ? (
-                <div className="text-slate-500 text-xs">Loading…</div>
-              ) : lines.length === 0 ? (
-                <div className="text-slate-500 text-xs">No receipts.</div>
-              ) : (
-                <ul className="space-y-2">
-                  {lines.map((ln) => (
-                    <li
-                      key={ln.id}
-                      className="flex items-start justify-between text-xs border-b border-slate-100 pb-2"
-                    >
-                      <div>
-                        <div className="text-slate-700">
-                          Receipt #{ln.receipt_id}
-                          {ln.receipt_date && ` · ${ln.receipt_date}`}
-                        </div>
-                        <div className="text-slate-500">
-                          {ln.receipt_payer}
-                          {ln.receipt_type && ` · ${ln.receipt_type}`}
-                          {ln.receipt_reference &&
-                            ` · ref ${ln.receipt_reference}`}
-                        </div>
-                      </div>
-                      <div className="font-mono text-slate-800">
-                        {ln.receipt_amount
-                          ? Number(ln.receipt_amount).toLocaleString("en-US", {
-                              style: "currency",
-                              currency: "USD",
-                            })
-                          : "—"}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            ) : null}
           </div>
         </div>
-      </div>
-    </>
+      )}
+    </div>
   );
 }

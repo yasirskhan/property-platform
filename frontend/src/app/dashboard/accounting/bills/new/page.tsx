@@ -1,115 +1,113 @@
 // ============================================================
 // New Bill page
 // ------------------------------------------------------------
-// Route: /dashboard/accounting/bills/new
+// Enter a vendor bill. Multi-line. Posts DR Expense / CR AP.
 //
-// Enter a bill (money going OUT). Posts to the GL as:
-//   DR Expense line(s)  /  CR Accounts Payable
-//
-// Multi-line. Pick a payee, bill date, due date, then add
-// expense lines. Total must equal sum of line amounts.
+// Uses formatMoney() from lib/money.ts for every amount so the
+// org's currency setting is respected (Section 59).
 // ============================================================
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { createBill, BillCreateIn, BillLineIn } from "@/lib/bills";
-import { apiGet } from "@/lib/api";
-import { listGLAccounts, GLAccount } from "@/lib/glAccounts";
+import { apiGet, apiPost } from "@/lib/api";
+import { formatMoney } from "@/lib/money";
 
-type Property = { id: number; name: string };
+interface Property {
+  id: number;
+  name: string;
+}
 
-type LineRow = {
+interface GLAccount {
+  id: number;
+  gl_number: string;
+  name: string;
+  account_type: string;
+}
+
+interface LineRow {
   key: string;
-  gl_account_id: number;
-  gl_account_number: string;
-  gl_account_name: string;
+  gl_account_id: number | "";
+  property_id: number | "";
   description: string;
-  amount: number;
-};
-
-let rowCounter = 0;
+  amount: string;
+}
 
 export default function NewBillPage() {
   const router = useRouter();
 
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
-
-  // Reference data
-  const [accounts, setAccounts] = useState<GLAccount[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [accounts, setAccounts] = useState<GLAccount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Form fields
   const [payeeName, setPayeeName] = useState("");
   const [billDate, setBillDate] = useState<string>(
     new Date().toISOString().slice(0, 10)
   );
-  const [dueDate, setDueDate] = useState<string>("");
-  const [reference, setReference] = useState("");
-  const [propertyId, setPropertyId] = useState<number | "">("");
+  const [dueDate, setDueDate] = useState("");
+  const [referenceNumber, setReferenceNumber] = useState("");
   const [remarks, setRemarks] = useState("");
-  const [lines, setLines] = useState<LineRow[]>([]);
 
-  // Load reference data
+  let rowCounter = 0;
+  function newRow(): LineRow {
+    rowCounter += 1;
+    return {
+      key: `row-${Date.now()}-${rowCounter}`,
+      gl_account_id: "",
+      property_id: "",
+      description: "",
+      amount: "",
+    };
+  }
+
+  const [lines, setLines] = useState<LineRow[]>(() => [newRow(), newRow()]);
+
   useEffect(() => {
-    (async () => {
+    let cancelled = false;
+    async function load() {
       try {
-        const accts = await listGLAccounts(false);
-        const flat: GLAccount[] = [];
-        for (const g of accts.groups) flat.push(...g.accounts);
-        setAccounts(flat);
+        const [props, gls] = await Promise.all([
+          apiGet("/properties"),
+          apiGet("/api/accounting/gl-accounts"),
+        ]);
 
-        // Seed one row defaulting to first expense account (6xxx)
-        const firstExpense =
-          flat.find((a) => a.is_active && a.account_type === "EXPENSE") ??
-          null;
-        if (firstExpense) {
-          rowCounter += 1;
-          setLines([
-            {
-              key: `row-${Date.now()}-${rowCounter}`,
-              gl_account_id: firstExpense.id,
-              gl_account_number: firstExpense.gl_number,
-              gl_account_name: firstExpense.name,
-              description: "",
-              amount: 0,
-            },
-          ]);
+        if (cancelled) return;
+
+        setProperties(props as Property[]);
+
+        const groups = (gls as {
+          groups: { account_type: string; accounts: GLAccount[] }[];
+        }).groups;
+        const expenseAccounts = groups
+          .filter((g) => (g.account_type || "").toUpperCase() === "EXPENSE")
+          .flatMap((g) => g.accounts);
+        setAccounts(expenseAccounts);
+      } catch (e: unknown) {
+        if (!cancelled) {
+          setError(
+            e instanceof Error ? e.message : "Could not load form data."
+          );
         }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load accounts");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      try {
-        const propsRaw = (await apiGet("/properties")) as unknown;
-        const props: Property[] = Array.isArray(propsRaw)
-          ? (propsRaw as Property[])
-          : (((propsRaw as { items?: Property[] })?.items ?? []) as Property[]);
-        setProperties(props);
-      } catch {
-        setProperties([]);
-      }
-    })();
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // Which accounts can be selected on a bill line?
-  // Default: expense accounts. Also allow asset accounts
-  // (e.g. paying for a building repair that capitalizes).
-  const expenseAccounts = useMemo(
-    () =>
-      accounts.filter(
-        (a) =>
-          a.is_active &&
-          (a.account_type === "EXPENSE" ||
-            a.account_type === "ASSET")
-      ),
-    [accounts]
-  );
+  function addRow() {
+    setLines((prev) => [...prev, newRow()]);
+  }
 
-  const total = lines.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+  function removeRow(key: string) {
+    setLines((prev) => (prev.length <= 2 ? prev : prev.filter((r) => r.key !== key)));
+  }
 
   function updateRow(key: string, patch: Partial<LineRow>) {
     setLines((prev) =>
@@ -117,312 +115,251 @@ export default function NewBillPage() {
     );
   }
 
-  function removeRow(key: string) {
-    setLines((prev) => prev.filter((r) => r.key !== key));
-  }
+  const total = lines.reduce(
+    (acc, r) => acc + (parseFloat(r.amount) || 0),
+    0
+  );
 
-  function addRow() {
-    rowCounter += 1;
-    const defaultAcct = expenseAccounts[0];
-    setLines((prev) => [
-      ...prev,
-      {
-        key: `row-${Date.now()}-${rowCounter}`,
-        gl_account_id: defaultAcct?.id ?? 0,
-        gl_account_number: defaultAcct?.gl_number ?? "",
-        gl_account_name: defaultAcct?.name ?? "",
-        description: "",
-        amount: 0,
-      },
-    ]);
-  }
-
-  function accountLabel(a: GLAccount): string {
-    return `${a.gl_number} ${a.name}`;
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-
+  async function submit() {
     if (!payeeName.trim()) {
-      setError("Payee name is required.");
+      setError("Payee is required.");
       return;
     }
-    const valid = lines.filter((r) => Number(r.amount) > 0);
-    if (valid.length === 0) {
-      setError("Add at least one line with an amount greater than zero.");
+    const validLines = lines.filter(
+      (r) => r.gl_account_id && parseFloat(r.amount) > 0
+    );
+    if (validLines.length === 0) {
+      setError("At least one line with an account and amount is required.");
       return;
     }
 
-    const payload: BillCreateIn = {
-      payee_name: payeeName.trim(),
-      bill_date: billDate,
-      due_date: dueDate || null,
-      reference_number: reference || null,
-      property_id: propertyId ? Number(propertyId) : null,
-      remarks: remarks || null,
-      lines: valid.map<BillLineIn>((r) => ({
-        gl_account_id: r.gl_account_id,
-        description: r.description || null,
-        amount: r.amount,
-      })),
-    };
-
-    setSubmitting(true);
+    setSaving(true);
+    setError(null);
     try {
-      const created = await createBill(payload);
-      router.push(`/dashboard/accounting/bills`);
-      void created;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create bill");
+      await apiPost("/api/accounting/bills", {
+        payee_name: payeeName,
+        bill_date: billDate,
+        due_date: dueDate || null,
+        reference_number: referenceNumber || null,
+        remarks: remarks || null,
+        lines: validLines.map((r) => ({
+          gl_account_id: r.gl_account_id,
+          property_id: r.property_id || null,
+          description: r.description || null,
+          amount: parseFloat(r.amount),
+        })),
+      });
+      router.push("/dashboard/accounting/bills");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not save bill.");
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto p-6 text-slate-500">Loading...</div>
+    );
   }
 
   return (
-    <div className="max-w-5xl">
-      <div className="mb-6">
-        <Link
-          href="/dashboard/accounting/bills"
-          className="text-sm text-slate-500 hover:text-slate-800"
-        >
-          ← Back to Bills
-        </Link>
-        <h1 className="text-2xl font-bold text-slate-900 mt-2">Enter Bill</h1>
-      </div>
+    <div className="max-w-4xl mx-auto p-6">
+      <h1 className="text-xl font-semibold text-slate-900 mb-1">New Bill</h1>
+      <p className="text-sm text-slate-500 mb-6">
+        Enter a vendor bill. Posts DR Expense / CR Accounts Payable.
+      </p>
 
       {error && (
-        <div className="mb-4 px-4 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+        <div className="text-sm text-red-600 mb-4 bg-red-50 border border-red-200 rounded-md px-3 py-2">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Common fields */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <label className="block text-xs text-slate-500 mb-1">
-              Payee *
+      <div className="bg-white rounded-lg border border-slate-200 p-5 space-y-4 mb-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs text-slate-600 mb-1">
+              Payee <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
-              required
               value={payeeName}
               onChange={(e) => setPayeeName(e.target.value)}
-              placeholder="Vendor or company name"
-              className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+              className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm"
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">
-              Bill date *
+            <label className="block text-xs text-slate-600 mb-1">
+              Bill date <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
-              required
               value={billDate}
               onChange={(e) => setBillDate(e.target.value)}
-              className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+              className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm"
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">
+            <label className="block text-xs text-slate-600 mb-1">
               Due date
             </label>
             <input
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+              className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm"
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">
+            <label className="block text-xs text-slate-600 mb-1">
               Reference #
             </label>
             <input
               type="text"
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              placeholder="Vendor invoice #"
-              className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-slate-500 mb-1">Property</label>
-            <select
-              value={propertyId}
-              onChange={(e) =>
-                setPropertyId(e.target.value ? Number(e.target.value) : "")
-              }
-              className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
-            >
-              <option value="">— None —</option>
-              {properties.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="col-span-2">
-            <label className="block text-xs text-slate-500 mb-1">Remarks</label>
-            <textarea
-              rows={2}
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-              className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+              value={referenceNumber}
+              onChange={(e) => setReferenceNumber(e.target.value)}
+              className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm"
             />
           </div>
         </div>
+        <div>
+          <label className="block text-xs text-slate-600 mb-1">Remarks</label>
+          <input
+            type="text"
+            value={remarks}
+            onChange={(e) => setRemarks(e.target.value)}
+            className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm"
+          />
+        </div>
+      </div>
 
-        {/* Lines */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="text-sm font-semibold text-slate-700 mb-2">
-            Expense Lines ({lines.length})
-          </div>
-
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="text-left px-3 py-2 font-medium text-slate-700">
-                  GL Account
-                </th>
-                <th className="text-left px-3 py-2 font-medium text-slate-700">
-                  Description
-                </th>
-                <th className="text-right px-3 py-2 font-medium text-slate-700 w-32">
-                  Amount
-                </th>
-                <th className="w-16"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {lines.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={4}
-                    className="px-3 py-6 text-center text-slate-500 text-xs"
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden mb-5">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-slate-600">
+            <tr>
+              <th className="text-left px-3 py-2 font-medium">Account</th>
+              <th className="text-left px-3 py-2 font-medium">Property</th>
+              <th className="text-left px-3 py-2 font-medium">Description</th>
+              <th className="text-right px-3 py-2 font-medium">Amount</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((r) => (
+              <tr key={r.key} className="border-t border-slate-100">
+                <td className="px-3 py-2">
+                  <select
+                    value={r.gl_account_id}
+                    onChange={(e) =>
+                      updateRow(r.key, {
+                        gl_account_id: e.target.value
+                          ? Number(e.target.value)
+                          : "",
+                      })
+                    }
+                    className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white"
                   >
-                    No lines yet. Click “+ Add line”.
-                  </td>
-                </tr>
-              )}
-              {lines.map((row) => (
-                <tr key={row.key} className="border-t border-slate-100">
-                  <td className="px-3 py-2">
-                    <select
-                      value={row.gl_account_id}
-                      onChange={(e) => {
-                        const id = Number(e.target.value);
-                        const acct = accounts.find((a) => a.id === id);
-                        updateRow(row.key, {
-                          gl_account_id: id,
-                          gl_account_number: acct?.gl_number ?? "",
-                          gl_account_name: acct?.name ?? "",
-                        });
-                      }}
-                      className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
-                    >
-                      <option value={0}>— Select —</option>
-                      {expenseAccounts.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {accountLabel(a)}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="text"
-                      value={row.description}
-                      onChange={(e) =>
-                        updateRow(row.key, { description: e.target.value })
-                      }
-                      placeholder="e.g. Fix kitchen sink"
-                      className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={row.amount || ""}
-                      onChange={(e) =>
-                        updateRow(row.key, {
-                          amount: Number(e.target.value) || 0,
-                        })
-                      }
-                      className="w-full border border-slate-300 rounded px-2 py-1 text-sm text-right font-mono"
-                    />
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <button
-                      type="button"
-                      onClick={() => removeRow(row.key)}
-                      className="text-red-600 hover:text-red-800 text-xs"
-                    >
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
-
-              {/* Add-line row, right-aligned */}
-              <tr className="border-t border-slate-100">
-                <td colSpan={4} className="px-3 py-2 text-right">
+                    <option value="">Select account...</option>
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.gl_number} {a.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-3 py-2">
+                  <select
+                    value={r.property_id}
+                    onChange={(e) =>
+                      updateRow(r.key, {
+                        property_id: e.target.value
+                          ? Number(e.target.value)
+                          : "",
+                      })
+                    }
+                    className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white"
+                  >
+                    <option value="">(none)</option>
+                    {properties.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-3 py-2">
+                  <input
+                    type="text"
+                    value={r.description}
+                    onChange={(e) =>
+                      updateRow(r.key, { description: e.target.value })
+                    }
+                    className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm"
+                  />
+                </td>
+                <td className="px-3 py-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={r.amount}
+                    onChange={(e) =>
+                      updateRow(r.key, { amount: e.target.value })
+                    }
+                    className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm text-right"
+                  />
+                </td>
+                <td className="px-2 py-2">
                   <button
                     type="button"
-                    onClick={addRow}
-                    className="text-xs px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded"
+                    onClick={() => removeRow(r.key)}
+                    disabled={lines.length <= 2}
+                    className="text-xs text-slate-400 hover:text-red-600 disabled:opacity-30"
                   >
-                    + Add line
+                    ✕
                   </button>
                 </td>
               </tr>
-            </tbody>
-            {lines.length > 0 && (
-              <tfoot>
-                <tr className="border-t border-slate-200 bg-slate-50">
-                  <td
-                    colSpan={2}
-                    className="px-3 py-2 text-right font-medium text-slate-700"
-                  >
-                    Total
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono font-semibold">
-                    {total.toLocaleString("en-US", {
-                      style: "currency",
-                      currency: "USD",
-                    })}
-                  </td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
+            ))}
+          </tbody>
+          <tfoot className="bg-slate-50">
+            <tr className="border-t border-slate-200">
+              <td colSpan={3} className="px-3 py-2 text-xs text-slate-500">
+                <button
+                  type="button"
+                  onClick={addRow}
+                  className="text-blue-600 hover:underline"
+                >
+                  + Add line
+                </button>
+              </td>
+              <td className="px-3 py-2 text-right font-mono font-medium">
+                {formatMoney(total.toFixed(2))}
+              </td>
+              <td />
+            </tr>
+          </tfoot>
+        </table>
+      </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={submitting}
-            className="text-sm px-5 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50"
-          >
-            {submitting ? "Posting…" : "Post Bill"}
-          </button>
-          <Link
-            href="/dashboard/accounting/bills"
-            className="text-sm px-4 py-2 text-slate-600 hover:text-slate-900"
-          >
-            Cancel
-          </Link>
-        </div>
-      </form>
+      <div className="flex justify-end gap-3">
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard/accounting/bills")}
+          className="px-4 py-2 rounded-md border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={saving}
+          className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Save bill"}
+        </button>
+      </div>
     </div>
   );
 }

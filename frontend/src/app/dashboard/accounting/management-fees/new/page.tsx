@@ -1,345 +1,287 @@
 // ============================================================
 // New Management Fee page
 // ------------------------------------------------------------
-// Route: /dashboard/accounting/management-fees/new
+// Preview a fee calculation for a property + period, then run it.
+// Run creates a Bill (DR 6001 / CR 2100).
 //
-// Flow (AppFolio parity):
-//   1. Pick property + period
-//   2. Click "Preview" → shows eligible income + calculated fee
-//   3. Confirm → posts to GL
-//
-// Also shows the eligible rent lines so the manager can verify
-// the base before committing.
+// Uses formatMoney() from lib/money.ts for every amount so the
+// org's currency setting is respected (Section 59).
 // ============================================================
 
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { apiGet } from "@/lib/api";
+import { formatMoney } from "@/lib/money";
 import {
   previewManagementFee,
   runManagementFee,
-  FeePreview,
+  type FeePreview,
 } from "@/lib/managementFees";
-import { apiGet } from "@/lib/api";
 
-type Property = { id: number; name: string };
+interface Property {
+  id: number;
+  name: string;
+  mgmt_fee_pct?: string | null;
+  mgmt_fee_flat?: string | null;
+  mgmt_fee_min?: string | null;
+}
 
 export default function NewManagementFeePage() {
   const router = useRouter();
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertyId, setPropertyId] = useState<number | "">("");
-  const [periodStart, setPeriodStart] = useState("");
-  const [periodEnd, setPeriodEnd] = useState(
-    new Date().toISOString().slice(0, 10)
-  );
-  const [notes, setNotes] = useState("");
-
+  const [periodStart, setPeriodStart] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().slice(0, 10);
+  });
+  const [periodEnd, setPeriodEnd] = useState<string>(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    d.setDate(0);
+    return d.toISOString().slice(0, 10);
+  });
   const [preview, setPreview] = useState<FeePreview | null>(null);
-  const [previewing, setPreviewing] = useState(false);
+
+  const [loading, setLoading] = useState(true);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [running, setRunning] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  // Load properties + set default period (start = 1st of current month)
   useEffect(() => {
-    (async () => {
-      try {
-        const propsRaw = (await apiGet("/properties")) as unknown;
-        const props: Property[] = Array.isArray(propsRaw)
-          ? (propsRaw as Property[])
-          : (((propsRaw as { items?: Property[] })?.items ?? []) as Property[]);
-        setProperties(props);
-
-        const now = new Date();
-        const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        setPeriodStart(firstOfMonth.toISOString().slice(0, 10));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load");
-      }
-    })();
+    apiGet("/properties")
+      .then((p) => setProperties(p as Property[]))
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : "Could not load properties.")
+      )
+      .finally(() => setLoading(false));
   }, []);
 
-  async function handlePreview() {
-    setError("");
-    setPreview(null);
+  async function doPreview() {
     if (!propertyId) {
       setError("Pick a property.");
       return;
     }
-    if (!periodStart || !periodEnd) {
-      setError("Pick a period.");
-      return;
-    }
-
-    setPreviewing(true);
+    setPreviewLoading(true);
+    setError(null);
+    setPreview(null);
     try {
       const p = await previewManagementFee({
-        property_id: Number(propertyId),
+        property_id: propertyId,
         period_start: periodStart,
         period_end: periodEnd,
       });
       setPreview(p);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Preview failed");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not preview.");
     } finally {
-      setPreviewing(false);
+      setPreviewLoading(false);
     }
   }
 
-  async function handleRun() {
-    setError("");
-    if (!preview || !preview.can_run) {
-      setError("Preview first, or the preview says this can't be run.");
-      return;
-    }
-
+  async function doRun() {
+    if (!preview || !propertyId) return;
     setRunning(true);
+    setError(null);
     try {
-      await runManagementFee({
-        property_id: Number(propertyId),
+      const run = await runManagementFee({
+        property_id: propertyId,
         period_start: periodStart,
         period_end: periodEnd,
-        notes: notes || null,
       });
-      router.push(`/dashboard/accounting/management-fees`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Run failed");
+      router.push(`/dashboard/accounting/management-fees?highlight=${run.id}`);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not run fee.");
     } finally {
       setRunning(false);
     }
   }
 
+  if (loading) {
+    return (
+      <div className="max-w-3xl mx-auto p-6 text-slate-500">Loading...</div>
+    );
+  }
+
   return (
-    <div className="max-w-4xl">
-      <div className="mb-6">
-        <Link
-          href="/dashboard/accounting/management-fees"
-          className="text-sm text-slate-500 hover:text-slate-800"
-        >
-          ← Back to Management Fees
-        </Link>
-        <h1 className="text-2xl font-bold text-slate-900 mt-2">
-          Pay Management Fees
-        </h1>
-      </div>
+    <div className="max-w-3xl mx-auto p-6">
+      <h1 className="text-xl font-semibold text-slate-900 mb-1">
+        Pay Management Fees
+      </h1>
+      <p className="text-sm text-slate-500 mb-6">
+        Calculate management fees for a property and period. Running creates a
+        Bill you can pay like any other payable.
+      </p>
 
       {error && (
-        <div className="mb-4 px-4 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+        <div className="text-sm text-red-600 mb-4 bg-red-50 border border-red-200 rounded-md px-3 py-2">
           {error}
         </div>
       )}
 
-      {/* Inputs */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5 mb-6 grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-xs text-slate-500 mb-1">
-            Property *
-          </label>
-          <select
-            required
-            value={propertyId}
-            onChange={(e) => {
-              setPropertyId(e.target.value ? Number(e.target.value) : "");
-              setPreview(null);
-            }}
-            className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
-          >
-            <option value="">— Select —</option>
-            {properties.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+      <div className="bg-white rounded-lg border border-slate-200 p-5 mb-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div>
+            <label className="block text-xs text-slate-600 mb-1">
+              Property <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={propertyId}
+              onChange={(e) =>
+                setPropertyId(e.target.value ? Number(e.target.value) : "")
+              }
+              className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm bg-white"
+            >
+              <option value="">Select property...</option>
+              {properties.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-slate-600 mb-1">
+              Period start <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              value={periodStart}
+              onChange={(e) => setPeriodStart(e.target.value)}
+              className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-600 mb-1">
+              Period end <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              value={periodEnd}
+              onChange={(e) => setPeriodEnd(e.target.value)}
+              className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm"
+            />
+          </div>
         </div>
-        <div>
-          <label className="block text-xs text-slate-500 mb-1">Notes</label>
-          <input
-            type="text"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-slate-500 mb-1">
-            Period start *
-          </label>
-          <input
-            type="date"
-            required
-            value={periodStart}
-            onChange={(e) => {
-              setPeriodStart(e.target.value);
-              setPreview(null);
-            }}
-            className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-slate-500 mb-1">
-            Period end *
-          </label>
-          <input
-            type="date"
-            required
-            value={periodEnd}
-            onChange={(e) => {
-              setPeriodEnd(e.target.value);
-              setPreview(null);
-            }}
-            className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
-          />
-        </div>
-        <div className="col-span-2">
+        <div className="flex justify-end">
           <button
             type="button"
-            onClick={handlePreview}
-            disabled={previewing || !propertyId || !periodStart || !periodEnd}
-            className="text-sm px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded disabled:opacity-50"
+            onClick={doPreview}
+            disabled={previewLoading}
+            className="px-4 py-2 rounded-md bg-slate-700 text-white text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
           >
-            {previewing ? "Calculating…" : "Preview fee"}
+            {previewLoading ? "Computing..." : "Preview"}
           </button>
         </div>
       </div>
 
-      {/* Preview */}
       {preview && (
-        <div className="bg-white border border-slate-200 rounded-xl p-5 mb-6 space-y-4">
-          <div className="text-sm font-semibold text-slate-700">
-            Preview — {preview.property_name}
-          </div>
+        <div className="bg-white rounded-lg border border-slate-200 p-5 mb-5">
+          <h2 className="text-base font-semibold text-slate-900 mb-3">
+            Preview
+          </h2>
 
-          {!preview.can_run && (
-            <div className="px-3 py-2 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded text-sm">
-              {preview.reason || "This fee cannot be run."}
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
             <div>
               <div className="text-xs text-slate-500">Rent income</div>
               <div className="font-mono">
-                {Number(preview.rent_income_total).toLocaleString("en-US", {
-                  style: "currency",
-                  currency: "USD",
-                })}
+                {formatMoney(preview.rent_income_total)}
               </div>
             </div>
             <div>
-              <div className="text-xs text-slate-500">Other fee income</div>
+              <div className="text-xs text-slate-500">
+                Other fee income
+              </div>
               <div className="font-mono">
-                {Number(preview.other_fee_income_total).toLocaleString("en-US", {
-                  style: "currency",
-                  currency: "USD",
-                })}
+                {formatMoney(preview.other_fee_income_total)}
               </div>
             </div>
-          </div>
-
-          <div className="border-t border-slate-200 pt-3 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-slate-600">
+            <div>
+              <div className="text-xs text-slate-500">
                 Rent fee ({preview.rent_fee_pct}%)
-              </span>
-              <span className="font-mono">
-                {Number(preview.rent_fee_amount).toLocaleString("en-US", {
-                  style: "currency",
-                  currency: "USD",
-                })}
-              </span>
+              </div>
+              <div className="font-mono">
+                {formatMoney(preview.rent_fee_amount)}
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-600">
+            <div>
+              <div className="text-xs text-slate-500">
                 Other fee ({preview.other_fee_pct}%)
-              </span>
-              <span className="font-mono">
-                {Number(preview.other_fee_amount).toLocaleString("en-US", {
-                  style: "currency",
-                  currency: "USD",
-                })}
-              </span>
+              </div>
+              <div className="font-mono">
+                {formatMoney(preview.other_fee_amount)}
+              </div>
             </div>
-            <div className="flex justify-between border-t border-slate-200 pt-2 font-semibold">
-              <span>Total Fee</span>
-              <span className="font-mono text-lg">
-                {Number(preview.total_fee).toLocaleString("en-US", {
-                  style: "currency",
-                  currency: "USD",
-                })}
-              </span>
+            <div className="col-span-2 border-t border-slate-200 pt-3">
+              <div className="text-xs text-slate-500">Total fee</div>
+              <div className="text-xl font-semibold font-mono">
+                {formatMoney(preview.total_fee)}
+              </div>
             </div>
           </div>
 
-          {/* Eligible lines */}
           {preview.rent_lines.length > 0 && (
-            <div className="border-t border-slate-200 pt-3">
-              <div className="text-xs font-semibold text-slate-500 uppercase mb-2">
-                Eligible rent lines ({preview.rent_lines.length})
+            <div className="mb-3">
+              <div className="text-xs text-slate-500 mb-1">Rent lines</div>
+              <div className="border border-slate-200 rounded-md overflow-hidden">
+                <table className="w-full text-sm">
+                  <tbody>
+                    {preview.rent_lines.map((l, i) => (
+                      <tr key={i} className="border-t border-slate-100 first:border-t-0">
+                        <td className="px-3 py-2 text-slate-500">
+                          {l.gl_account_number} {l.gl_account_name}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono">
+                          {formatMoney(l.amount)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <ul className="text-xs space-y-1">
-                {preview.rent_lines.map((l, i) => (
-                  <li key={i} className="flex justify-between">
-                    <span className="text-slate-600">
-                      {l.transaction_date} · receipt #{l.receipt_id} ·{" "}
-                      {l.gl_account_number} {l.gl_account_name}
-                    </span>
-                    <span className="font-mono">
-                      {Number(l.amount).toLocaleString("en-US", {
-                        style: "currency",
-                        currency: "USD",
-                      })}
-                    </span>
-                  </li>
-                ))}
-              </ul>
             </div>
           )}
 
           {preview.other_lines.length > 0 && (
-            <div className="border-t border-slate-200 pt-3">
-              <div className="text-xs font-semibold text-slate-500 uppercase mb-2">
-                Eligible other fee lines ({preview.other_lines.length})
+            <div className="mb-3">
+              <div className="text-xs text-slate-500 mb-1">Other fee lines</div>
+              <div className="border border-slate-200 rounded-md overflow-hidden">
+                <table className="w-full text-sm">
+                  <tbody>
+                    {preview.other_lines.map((l, i) => (
+                      <tr key={i} className="border-t border-slate-100 first:border-t-0">
+                        <td className="px-3 py-2 text-slate-500">
+                          {l.gl_account_number} {l.gl_account_name}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono">
+                          {formatMoney(l.amount)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <ul className="text-xs space-y-1">
-                {preview.other_lines.map((l, i) => (
-                  <li key={i} className="flex justify-between">
-                    <span className="text-slate-600">
-                      {l.transaction_date} · receipt #{l.receipt_id} ·{" "}
-                      {l.gl_account_number} {l.gl_account_name}
-                    </span>
-                    <span className="font-mono">
-                      {Number(l.amount).toLocaleString("en-US", {
-                        style: "currency",
-                        currency: "USD",
-                      })}
-                    </span>
-                  </li>
-                ))}
-              </ul>
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex items-center gap-3 pt-3 border-t border-slate-200">
+          <div className="flex justify-end mt-4">
             <button
               type="button"
-              onClick={handleRun}
+              onClick={doRun}
               disabled={running || !preview.can_run}
-              className="text-sm px-5 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50"
+              className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
             >
-              {running ? "Posting…" : "Post Management Fee"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setPreview(null)}
-              className="text-sm px-4 py-2 text-slate-600 hover:text-slate-900"
-            >
-              Clear preview
+              {running ? "Running..." : "Run fee"}
             </button>
           </div>
+          {!preview.can_run && preview.reason && (
+            <div className="text-xs text-red-600 mt-2 text-right">
+              {preview.reason}
+            </div>
+          )}
         </div>
       )}
     </div>

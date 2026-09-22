@@ -1,44 +1,62 @@
 // ============================================================
 // Management Fees list page
 // ------------------------------------------------------------
-// Route: /dashboard/accounting/management-fees
+// List historical management fee runs. Detail modal shows the
+// breakdown. Reverse available if not already reversed.
 //
-// Shows past fee runs. Click a row → centered modal with the
-// full breakdown (rent portion, other portion, GL refs).
+// Uses formatMoney() from lib/money.ts for every amount so the
+// org's currency setting is respected (Section 59).
 // ============================================================
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { apiGet } from "@/lib/api";
+import { formatMoney } from "@/lib/money";
 import {
   listManagementFees,
-  ManagementFeeRun,
-  ManagementFeeRunList,
+  getManagementFee,
+  reverseManagementFee,
+  type ManagementFeeRun,
+  type ManagementFeeRunList,
 } from "@/lib/managementFees";
-import { apiGet } from "@/lib/api";
 
-type Me = { role: string };
-
-const WRITE_ROLES = ["ADMIN", "OWNER", "MANAGER"];
+interface Me {
+  id: number;
+  role: string;
+}
 
 export default function ManagementFeesPage() {
   const [me, setMe] = useState<Me | null>(null);
-  const [data, setData] = useState<ManagementFeeRunList | null>(null);
+  const [runs, setRuns] = useState<ManagementFeeRun[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [selected, setSelected] = useState<ManagementFeeRun | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [includeReversed, setIncludeReversed] = useState(true);
+
+  const [openRun, setOpenRun] = useState<ManagementFeeRun | null>(null);
+  const [openLoading, setOpenLoading] = useState(false);
+  const [reversing, setReversing] = useState(false);
+
+  useEffect(() => {
+    apiGet("/auth/me").then((u) => setMe(u as Me)).catch(() => setMe(null));
+  }, []);
 
   async function load() {
     setLoading(true);
-    setError("");
+    setError(null);
     try {
-      const meData = await apiGet("/auth/me");
-      setMe(meData);
-      const list = await listManagementFees({});
-      setData(list);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Load failed");
+      const data: ManagementFeeRunList = await listManagementFees({
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
+        include_reversed: includeReversed,
+      });
+      setRuns(data.items);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not load fees.");
     } finally {
       setLoading(false);
     }
@@ -46,341 +64,298 @@ export default function ManagementFeesPage() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (loading && !data) return <div className="text-slate-500">Loading…</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
-  if (!data) return null;
+  async function open(runId: number) {
+    setOpenLoading(true);
+    setError(null);
+    try {
+      const detail = await getManagementFee(runId);
+      setOpenRun(detail);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not load run.");
+    } finally {
+      setOpenLoading(false);
+    }
+  }
 
-  const canWrite = me ? WRITE_ROLES.includes(me.role) : false;
+  async function submitReverse() {
+    if (!openRun) return;
+    if (
+      !confirm(
+        `Reverse management fee run for ${openRun.property_name || `Property #${openRun.property_id}`}?`
+      )
+    )
+      return;
+    setReversing(true);
+    setError(null);
+    try {
+      const updated = await reverseManagementFee(openRun.id, {
+        reversal_date: new Date().toISOString().slice(0, 10),
+      });
+      setOpenRun(updated);
+      await load();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not reverse.");
+    } finally {
+      setReversing(false);
+    }
+  }
 
-  const totalFees = data.items
-    .filter((r) => !r.is_reversed)
-    .reduce((sum, r) => sum + Number(r.total_fee || 0), 0);
+  const totalFees = useMemo(
+    () =>
+      runs
+        .filter((r) => !r.is_reversed)
+        .reduce((acc, r) => acc + parseFloat(r.total_fee), 0),
+    [runs]
+  );
 
   return (
-    <div>
-      {/* Back link */}
-      <div className="mb-4">
-        <Link
-          href="/dashboard"
-          className="text-sm text-slate-500 hover:text-slate-800"
-        >
-          ← Back to Dashboard
-        </Link>
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-xl font-semibold text-slate-900">
+          Management Fees
+        </h1>
+        {me && me.role !== "TENANT" && (
+          <Link
+            href="/dashboard/accounting/management-fees/new"
+            className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+          >
+            + Pay Fees
+          </Link>
+        )}
       </div>
+      <p className="text-sm text-slate-500 mb-6">
+        Two-tier: 9% of rent income + 100% of other eligible fees.
+      </p>
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="bg-white border border-slate-200 rounded-lg p-4 mb-5 flex flex-wrap items-end gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
-            Management Fees
-          </h1>
-          <p className="text-slate-500 mt-1">
-            {data.total} {data.total === 1 ? "run" : "runs"}
-            {" · "}
-            Total billed:{" "}
-            {totalFees.toLocaleString("en-US", {
-              style: "currency",
-              currency: "USD",
-            })}
-          </p>
+          <label className="block text-xs text-slate-600 mb-1">From</label>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="border border-slate-300 rounded-md px-2 py-1.5 text-sm"
+          />
         </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/dashboard/accounting/receipts"
-            className="text-sm px-3 py-2 text-slate-600 hover:text-slate-900"
-          >
-            Receipts
-          </Link>
-          <Link
-            href="/dashboard/accounting/bills"
-            className="text-sm px-3 py-2 text-slate-600 hover:text-slate-900"
-          >
-            Bills
-          </Link>
-          {canWrite && (
-            <Link
-              href="/dashboard/accounting/management-fees/new"
-              className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700"
-            >
-              + Pay Management Fees
-            </Link>
-          )}
+        <div>
+          <label className="block text-xs text-slate-600 mb-1">To</label>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="border border-slate-300 rounded-md px-2 py-1.5 text-sm"
+          />
         </div>
+        <label className="flex items-center gap-2 text-xs text-slate-600">
+          <input
+            type="checkbox"
+            checked={includeReversed}
+            onChange={(e) => setIncludeReversed(e.target.checked)}
+          />
+          Include reversed
+        </label>
+        <button
+          type="button"
+          onClick={load}
+          className="px-3 py-1.5 rounded-md bg-slate-700 text-white text-sm font-medium hover:bg-slate-800"
+        >
+          Show
+        </button>
       </div>
 
-      {/* Table */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      {error && (
+        <div className="text-sm text-red-600 mb-3 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          {error}
+        </div>
+      )}
+
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50">
+          <thead className="bg-slate-50 text-slate-600">
             <tr>
-              <th className="text-left px-4 py-2 font-medium text-slate-700 w-24">
-                #
+              <th className="text-left px-4 py-2 font-medium">Property</th>
+              <th className="text-left px-4 py-2 font-medium">Period</th>
+              <th className="text-right px-4 py-2 font-medium">
+                Rent income
               </th>
-              <th className="text-left px-4 py-2 font-medium text-slate-700">
-                Property
-              </th>
-              <th className="text-left px-4 py-2 font-medium text-slate-700 w-44">
-                Period
-              </th>
-              <th className="text-right px-4 py-2 font-medium text-slate-700 w-32">
-                Rent Income
-              </th>
-              <th className="text-right px-4 py-2 font-medium text-slate-700 w-28">
-                Rent Fee
-              </th>
-              <th className="text-right px-4 py-2 font-medium text-slate-700 w-28">
-                Other Fee
-              </th>
-              <th className="text-right px-4 py-2 font-medium text-slate-700 w-32">
-                Total
-              </th>
+              <th className="text-right px-4 py-2 font-medium">Rent fee</th>
+              <th className="text-right px-4 py-2 font-medium">Other fee</th>
+              <th className="text-right px-4 py-2 font-medium">Total</th>
             </tr>
           </thead>
           <tbody>
-            {data.items.length === 0 && (
+            {loading && (
               <tr>
-                <td
-                  colSpan={7}
-                  className="px-4 py-8 text-center text-slate-500"
-                >
+                <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
+                  Loading...
+                </td>
+              </tr>
+            )}
+            {!loading && runs.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
                   No management fee runs yet.
                 </td>
               </tr>
             )}
-            {data.items.map((r) => (
+            {runs.map((r) => (
               <tr
                 key={r.id}
-                onClick={() => setSelected(r)}
+                onClick={() => open(r.id)}
                 className={`border-t border-slate-100 hover:bg-slate-50 cursor-pointer ${
-                  r.is_reversed ? "opacity-60" : ""
+                  r.is_reversed ? "line-through opacity-60" : ""
                 }`}
               >
-                <td className="px-4 py-2 text-slate-500 font-mono">
-                  #{r.id}
-                </td>
-                <td
-                  className={`px-4 py-2 ${
-                    r.is_reversed
-                      ? "line-through text-slate-400"
-                      : "text-slate-800"
-                  }`}
-                >
+                <td className="px-4 py-2">
                   {r.property_name || `Property #${r.property_id}`}
-                  {r.is_reversed && (
-                    <span className="ml-2 text-xs text-red-600">
-                      reversed
-                    </span>
-                  )}
                 </td>
-                <td className="px-4 py-2 text-slate-600 text-xs">
+                <td className="px-4 py-2 text-slate-500 text-xs">
                   {r.period_start} → {r.period_end}
                 </td>
-                <td className="px-4 py-2 text-right font-mono text-slate-600">
-                  {Number(r.rent_income_total).toLocaleString("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                  })}
+                <td className="px-4 py-2 text-right font-mono">
+                  {formatMoney(r.rent_income_total)}
                 </td>
-                <td className="px-4 py-2 text-right font-mono text-slate-600">
-                  {Number(r.rent_fee_amount).toLocaleString("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                  })}
+                <td className="px-4 py-2 text-right font-mono">
+                  {formatMoney(r.rent_fee_amount)}
                 </td>
-                <td className="px-4 py-2 text-right font-mono text-slate-600">
-                  {Number(r.other_fee_amount).toLocaleString("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                  })}
+                <td className="px-4 py-2 text-right font-mono">
+                  {formatMoney(r.other_fee_amount)}
                 </td>
-                <td
-                  className={`px-4 py-2 text-right font-mono font-semibold ${
-                    r.is_reversed ? "line-through text-slate-400" : ""
-                  }`}
-                >
-                  {Number(r.total_fee).toLocaleString("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                  })}
+                <td className="px-4 py-2 text-right font-mono font-semibold">
+                  {formatMoney(r.total_fee)}
                 </td>
               </tr>
             ))}
           </tbody>
+          {runs.length > 0 && (
+            <tfoot className="bg-slate-50 text-slate-700">
+              <tr className="border-t border-slate-200">
+                <td className="px-4 py-2 text-xs" colSpan={5}>
+                  {runs.filter((r) => !r.is_reversed).length} active runs
+                </td>
+                <td className="px-4 py-2 text-right font-mono font-medium">
+                  {formatMoney(totalFees.toFixed(2))}
+                </td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 
-      {/* Centered modal */}
-      {selected && (
-        <DetailModal
-          run={selected}
-          onClose={() => setSelected(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-// ------------------------------------------------------------
-// Centered detail modal
-// ------------------------------------------------------------
-function DetailModal({
-  run,
-  onClose,
-}: {
-  run: ManagementFeeRun;
-  onClose: () => void;
-}) {
-  return (
-    <>
-      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-        <div className="w-full max-w-2xl max-h-[90vh] bg-white rounded-xl shadow-2xl flex flex-col pointer-events-auto">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-            <div>
-              <div className="text-xs text-slate-500">Management Fee Run</div>
-              <div className="font-semibold text-slate-900 text-lg">
-                #{run.id}
-                {run.is_reversed && (
-                  <span className="ml-2 text-xs px-2 py-0.5 bg-red-50 text-red-700 rounded">
-                    reversed
-                  </span>
-                )}
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-slate-400 hover:text-slate-700 text-2xl leading-none"
-            >
-              ×
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 text-sm">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-xs text-slate-500">Property</div>
-                <div className="text-slate-800">
-                  {run.property_name || `Property #${run.property_id}`}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-slate-500">Period</div>
-                <div className="text-slate-800">
-                  {run.period_start} → {run.period_end}
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-200">
-              <div className="text-xs font-semibold text-slate-500 uppercase mb-3">
-                Fee breakdown
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-slate-600">
-                    Rent income × {run.rent_fee_pct}%
-                  </span>
-                  <span className="font-mono">
-                    {Number(run.rent_fee_amount).toLocaleString("en-US", {
-                      style: "currency",
-                      currency: "USD",
-                    })}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">
-                    Other fees × {run.other_fee_pct}%
-                  </span>
-                  <span className="font-mono">
-                    {Number(run.other_fee_amount).toLocaleString("en-US", {
-                      style: "currency",
-                      currency: "USD",
-                    })}
-                  </span>
-                </div>
-                <div className="flex justify-between border-t border-slate-200 pt-2 mt-2 font-semibold">
-                  <span>Total Fee</span>
-                  <span className="font-mono">
-                    {Number(run.total_fee).toLocaleString("en-US", {
-                      style: "currency",
-                      currency: "USD",
-                    })}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-200">
-              <div className="text-xs font-semibold text-slate-500 uppercase mb-2">
-                Eligible income
-              </div>
-              <div className="space-y-1 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Rent income total</span>
-                  <span className="font-mono text-slate-700">
-                    {Number(run.rent_income_total).toLocaleString("en-US", {
-                      style: "currency",
-                      currency: "USD",
-                    })}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Other fee income total</span>
-                  <span className="font-mono text-slate-700">
-                    {Number(run.other_fee_income_total).toLocaleString("en-US", {
-                      style: "currency",
-                      currency: "USD",
-                    })}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-200">
-              <div className="text-xs font-semibold text-slate-500 uppercase mb-2">
-                GL Posting
-              </div>
-              <div className="text-xs space-y-1">
-                <div>
-                  <span className="text-slate-500">Debit:</span>{" "}
-                  <span className="text-slate-700 font-mono">
-                    {run.expense_gl_account_number}{" "}
-                    {run.expense_gl_account_name}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500">Credit (Payable):</span>{" "}
-                  <span className="text-slate-700 font-mono">
-                    {run.cash_gl_account_number} {run.cash_gl_account_name}
-                  </span>
-                </div>
-                {run.gl_transaction_id && (
+      {/* Detail modal */}
+      {(openRun || openLoading) && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 flex items-start justify-center p-6 overflow-auto"
+          onClick={() => setOpenRun(null)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-2xl w-full my-8 max-h-[90vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {openLoading && !openRun ? (
+              <div className="p-8 text-center text-slate-500">Loading...</div>
+            ) : openRun ? (
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
                   <div>
-                    <span className="text-slate-500">GL txn:</span>{" "}
+                    <h2 className="text-lg font-semibold text-slate-900">
+                      {openRun.property_name || `Property #${openRun.property_id}`}
+                    </h2>
+                    <div className="text-sm text-slate-500">
+                      {openRun.period_start} → {openRun.period_end}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setOpenRun(null)}
+                    className="text-slate-400 hover:text-slate-700 text-xl leading-none"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {openRun.is_reversed && (
+                  <div className="text-sm text-red-600 mb-3 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                    This run has been reversed.
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
+                  <div>
+                    <div className="text-xs text-slate-500">Rent income</div>
+                    <div className="font-mono">
+                      {formatMoney(openRun.rent_income_total)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-500">
+                      Other fee income
+                    </div>
+                    <div className="font-mono">
+                      {formatMoney(openRun.other_fee_income_total)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-500">
+                      Rent fee ({openRun.rent_fee_pct}%)
+                    </div>
+                    <div className="font-mono">
+                      {formatMoney(openRun.rent_fee_amount)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-500">
+                      Other fee ({openRun.other_fee_pct}%)
+                    </div>
+                    <div className="font-mono">
+                      {formatMoney(openRun.other_fee_amount)}
+                    </div>
+                  </div>
+                  <div className="col-span-2 border-t border-slate-200 pt-3">
+                    <div className="text-xs text-slate-500">Total fee</div>
+                    <div className="text-lg font-semibold font-mono">
+                      {formatMoney(openRun.total_fee)}
+                    </div>
+                  </div>
+                </div>
+
+                {openRun.gl_transaction_id && (
+                  <div className="text-xs text-slate-500 mb-4">
                     <Link
-                      href={`/dashboard/accounting/journal-entries/${run.gl_transaction_id}`}
+                      href={`/dashboard/accounting/journal-entries/${openRun.gl_transaction_id}`}
                       className="text-blue-600 hover:underline"
                     >
-                      #{run.gl_transaction_id}
+                      View GL transaction
                     </Link>
                   </div>
                 )}
-              </div>
-            </div>
 
-            {run.notes && (
-              <div className="pt-4 border-t border-slate-200">
-                <div className="text-xs text-slate-500">Notes</div>
-                <div className="text-slate-800 whitespace-pre-wrap">
-                  {run.notes}
+                <div className="flex items-center justify-between">
+                  <div>
+                    {!openRun.is_reversed && me && me.role !== "TENANT" && (
+                      <button
+                        onClick={submitReverse}
+                        disabled={reversing}
+                        className="px-3 py-1.5 rounded-md border border-red-300 text-red-700 text-sm font-medium hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {reversing ? "Reversing..." : "Reverse"}
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setOpenRun(null)}
+                    className="text-sm text-slate-500 hover:text-slate-700"
+                  >
+                    Close
+                  </button>
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
-      </div>
-    </>
+      )}
+    </div>
   );
 }

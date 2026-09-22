@@ -1,44 +1,57 @@
 // ============================================================
 // Owner Statements list page
 // ------------------------------------------------------------
-// Route: /dashboard/accounting/owner-statements
+// Frozen snapshot documents. List + drill to detail.
 //
-// Lists generated statements. Click a row → view the frozen
-// snapshot in a centered modal, with a link to the printable
-// detail page.
+// Uses formatMoney() / formatDate() from lib/money.ts so the
+// org's currency / date settings are respected (Section 59).
 // ============================================================
 
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { formatMoney, formatDate } from "@/lib/money";
 import {
   listOwnerStatements,
-  OwnerStatement,
-  OwnerStatementList,
+  type OwnerStatement,
+  type OwnerStatementList,
 } from "@/lib/ownerStatements";
-import { apiGet } from "@/lib/api";
 
-type Me = { role: string };
-
-const WRITE_ROLES = ["ADMIN", "OWNER", "MANAGER"];
+interface Me {
+  id: number;
+  role: string;
+}
 
 export default function OwnerStatementsPage() {
   const [me, setMe] = useState<Me | null>(null);
-  const [data, setData] = useState<OwnerStatementList | null>(null);
+  const [statements, setStatements] = useState<OwnerStatement[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  useEffect(() => {
+    fetch("/auth/me", {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((u) => setMe(u))
+      .catch(() => setMe(null));
+  }, []);
 
   async function load() {
     setLoading(true);
-    setError("");
+    setError(null);
     try {
-      const meData = await apiGet("/auth/me");
-      setMe(meData);
-      const list = await listOwnerStatements({});
-      setData(list);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Load failed");
+      const data: OwnerStatementList = await listOwnerStatements({
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
+      });
+      setStatements(data.items);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not load statements.");
     } finally {
       setLoading(false);
     }
@@ -46,102 +59,95 @@ export default function OwnerStatementsPage() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (loading && !data) return <div className="text-slate-500">Loading…</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
-  if (!data) return null;
-
-  const canWrite = me ? WRITE_ROLES.includes(me.role) : false;
-
   return (
-    <div>
-      {/* Back link */}
-      <div className="mb-4">
-        <Link
-          href="/dashboard"
-          className="text-sm text-slate-500 hover:text-slate-800"
-        >
-          ← Back to Dashboard
-        </Link>
-      </div>
-
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">
-            Owner Statements
-          </h1>
-          <p className="text-slate-500 mt-1">
-            {data.total} {data.total === 1 ? "statement" : "statements"}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-xl font-semibold text-slate-900">
+          Owner Statements
+        </h1>
+        {me && me.role !== "TENANT" && (
           <Link
-            href="/dashboard/accounting/management-fees"
-            className="text-sm px-3 py-2 text-slate-600 hover:text-slate-900"
+            href="/dashboard/accounting/owner-statements/new"
+            className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
           >
-            Management Fees
+            + New Statement
           </Link>
-          {canWrite && (
-            <Link
-              href="/dashboard/accounting/owner-statements/new"
-              className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700"
-            >
-              + Generate Statement
-            </Link>
-          )}
+        )}
+      </div>
+      <p className="text-sm text-slate-500 mb-6">
+        Frozen snapshot documents. Once generated, they never change.
+      </p>
+
+      <div className="bg-white border border-slate-200 rounded-lg p-4 mb-5 flex flex-wrap items-end gap-3">
+        <div>
+          <label className="block text-xs text-slate-600 mb-1">From</label>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="border border-slate-300 rounded-md px-2 py-1.5 text-sm"
+          />
         </div>
+        <div>
+          <label className="block text-xs text-slate-600 mb-1">To</label>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="border border-slate-300 rounded-md px-2 py-1.5 text-sm"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={load}
+          className="px-3 py-1.5 rounded-md bg-slate-700 text-white text-sm font-medium hover:bg-slate-800"
+        >
+          Show
+        </button>
       </div>
 
-      {/* Table */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      {error && (
+        <div className="text-sm text-red-600 mb-3 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          {error}
+        </div>
+      )}
+
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50">
+          <thead className="bg-slate-50 text-slate-600">
             <tr>
-              <th className="text-left px-4 py-2 font-medium text-slate-700 w-20">
-                #
-              </th>
-              <th className="text-left px-4 py-2 font-medium text-slate-700">
-                Owner
-              </th>
-              <th className="text-left px-4 py-2 font-medium text-slate-700 w-48">
-                Period
-              </th>
-              <th className="text-left px-4 py-2 font-medium text-slate-700 w-40">
-                Generated
-              </th>
-              <th className="text-right px-4 py-2 font-medium text-slate-700 w-32">
-                Income
-              </th>
-              <th className="text-right px-4 py-2 font-medium text-slate-700 w-32">
-                Expense
-              </th>
-              <th className="text-right px-4 py-2 font-medium text-slate-700 w-32">
-                Net
-              </th>
+              <th className="text-left px-4 py-2 font-medium">Owner</th>
+              <th className="text-left px-4 py-2 font-medium">Period</th>
+              <th className="text-left px-4 py-2 font-medium">Generated</th>
+              <th className="text-right px-4 py-2 font-medium">Income</th>
+              <th className="text-right px-4 py-2 font-medium">Expense</th>
+              <th className="text-right px-4 py-2 font-medium">Net</th>
             </tr>
           </thead>
           <tbody>
-            {data.items.length === 0 && (
+            {loading && (
               <tr>
-                <td
-                  colSpan={7}
-                  className="px-4 py-8 text-center text-slate-500"
-                >
+                <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
+                  Loading...
+                </td>
+              </tr>
+            )}
+            {!loading && statements.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
                   No statements yet.
                 </td>
               </tr>
             )}
-            {data.items.map((s) => (
+            {statements.map((s) => (
               <tr
                 key={s.id}
                 className="border-t border-slate-100 hover:bg-slate-50"
               >
-                <td className="px-4 py-2 text-slate-500 font-mono">
-                  #{s.id}
-                </td>
-                <td className="px-4 py-2 text-slate-800">
+                <td className="px-4 py-2">
                   <Link
                     href={`/dashboard/accounting/owner-statements/${s.id}`}
                     className="text-blue-600 hover:underline"
@@ -149,31 +155,20 @@ export default function OwnerStatementsPage() {
                     {s.owner_name || s.owner_email || `Owner #${s.owner_id}`}
                   </Link>
                 </td>
-                <td className="px-4 py-2 text-slate-600 text-xs">
+                <td className="px-4 py-2 text-slate-500 text-xs">
                   {s.period_start} → {s.period_end}
                 </td>
                 <td className="px-4 py-2 text-slate-500 text-xs">
-                  {s.generated_at
-                    ? new Date(s.generated_at).toLocaleString()
-                    : "—"}
+                  {s.generated_at ? formatDate(s.generated_at) : "—"}
                 </td>
-                <td className="px-4 py-2 text-right font-mono text-slate-600">
-                  {Number(s.total_income).toLocaleString("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                  })}
+                <td className="px-4 py-2 text-right font-mono">
+                  {formatMoney(s.total_income)}
                 </td>
-                <td className="px-4 py-2 text-right font-mono text-slate-600">
-                  {Number(s.total_expense).toLocaleString("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                  })}
+                <td className="px-4 py-2 text-right font-mono">
+                  {formatMoney(s.total_expense)}
                 </td>
                 <td className="px-4 py-2 text-right font-mono font-semibold">
-                  {Number(s.total_net).toLocaleString("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                  })}
+                  {formatMoney(s.total_net)}
                 </td>
               </tr>
             ))}

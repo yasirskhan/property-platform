@@ -14,6 +14,9 @@
 //
 // On submit, POSTs to /api/accounting/receipts and redirects
 // to the receipts list.
+//
+// Uses formatMoney() from lib/money.ts for every amount so the
+// org's currency setting is respected (Section 59).
 // ============================================================
 
 "use client";
@@ -29,6 +32,7 @@ import {
   ReceiptCreateIn,
 } from "@/lib/receipts";
 import { apiGet } from "@/lib/api";
+import { formatMoney } from "@/lib/money";
 import { listGLAccounts, GLAccount } from "@/lib/glAccounts";
 
 type Tab = "TENANT" | "OWNER" | "OTHER";
@@ -654,10 +658,7 @@ export default function NewReceiptPage() {
                       Total
                     </td>
                     <td className="px-3 py-2 text-right font-mono font-semibold">
-                      {tenantTotal.toLocaleString("en-US", {
-                        style: "currency",
-                        currency: "USD",
-                      })}
+                      {formatMoney(tenantTotal.toFixed(2))}
                     </td>
                     <td colSpan={2}></td>
                   </tr>

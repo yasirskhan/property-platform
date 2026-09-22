@@ -1,119 +1,111 @@
 // ============================================================
 // New Journal Entry page
 // ------------------------------------------------------------
-// Route: /dashboard/accounting/journal-entries/new
+// Manual balanced multi-line JE. Live balance check.
 //
-// Manual journal entry form. Manager picks a date, an optional
-// reference/memo, and builds a list of debit/credit lines.
-// Live balance check tells them when the JE balances.
-//
-// On submit, POSTs to /api/accounting/journal-entries.
-// On success, redirects to the detail view.
+// Uses formatMoney() from lib/money.ts for every amount so the
+// org's currency setting is respected (Section 59).
 // ============================================================
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { createJournalEntry, JournalEntryLineIn } from "@/lib/journalEntries";
-import { listGLAccounts, GLAccount } from "@/lib/glAccounts";
+import { apiGet, apiPost } from "@/lib/api";
+import { formatMoney } from "@/lib/money";
 
-type Property = { id: number; name: string };
+interface Property {
+  id: number;
+  name: string;
+}
 
-type LineRow = {
+interface GLAccount {
+  id: number;
+  gl_number: string;
+  name: string;
+  account_type: string;
+}
+
+interface LineRow {
   key: string;
-  gl_account_id: number;
+  gl_account_id: number | "";
   property_id: number | "";
   description: string;
-  debit: number;
-  credit: number;
-};
-
-let rowCounter = 0;
+  debit: string;
+  credit: string;
+}
 
 export default function NewJournalEntryPage() {
   const router = useRouter();
 
-  const [accounts, setAccounts] = useState<GLAccount[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [accounts, setAccounts] = useState<GLAccount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [entryDate, setEntryDate] = useState(
+  const [transactionDate, setTransactionDate] = useState<string>(
     new Date().toISOString().slice(0, 10)
   );
-  const [reference, setReference] = useState("");
+  const [referenceNumber, setReferenceNumber] = useState("");
   const [memo, setMemo] = useState("");
 
-  const [lines, setLines] = useState<LineRow[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  let rowCounter = 0;
+  function newRow(): LineRow {
+    rowCounter += 1;
+    return {
+      key: `row-${Date.now()}-${rowCounter}`,
+      gl_account_id: "",
+      property_id: "",
+      description: "",
+      debit: "",
+      credit: "",
+    };
+  }
 
-  // Load reference data + add two blank rows on mount
+  const [lines, setLines] = useState<LineRow[]>(() => [newRow(), newRow()]);
+
   useEffect(() => {
-    (async () => {
+    let cancelled = false;
+    async function load() {
       try {
-        const accts = await listGLAccounts(false);
-        const flat: GLAccount[] = [];
-        for (const g of accts.groups) flat.push(...g.accounts);
-        setAccounts(flat);
-
-        // Start with 2 blank rows
-        rowCounter += 2;
-        setLines([
-          {
-            key: `row-${Date.now()}-1`,
-            gl_account_id: 0,
-            property_id: "",
-            description: "",
-            debit: 0,
-            credit: 0,
-          },
-          {
-            key: `row-${Date.now()}-2`,
-            gl_account_id: 0,
-            property_id: "",
-            description: "",
-            debit: 0,
-            credit: 0,
-          },
+        const [props, gls] = await Promise.all([
+          apiGet("/properties"),
+          apiGet("/api/accounting/gl-accounts"),
         ]);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load accounts");
-      }
 
-      try {
-        const propsRaw = (await (
-          await import("@/lib/api")
-        ).apiGet("/properties")) as unknown;
-        const props: Property[] = Array.isArray(propsRaw)
-          ? (propsRaw as Property[])
-          : (((propsRaw as { items?: Property[] })?.items ?? []) as Property[]);
-        setProperties(props);
-      } catch {
-        setProperties([]);
+        if (cancelled) return;
+
+        setProperties(props as Property[]);
+
+        const groups = (gls as {
+          groups: { account_type: string; accounts: GLAccount[] }[];
+        }).groups;
+        const all = groups.flatMap((g) => g.accounts);
+        setAccounts(all);
+      } catch (e: unknown) {
+        if (!cancelled) {
+          setError(
+            e instanceof Error ? e.message : "Could not load form data."
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    })();
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const sortedAccounts = useMemo(
-    () =>
-      [...accounts].sort((a, b) =>
-        a.gl_number.localeCompare(b.gl_number)
-      ),
-    [accounts]
-  );
+  function addRow() {
+    setLines((prev) => [...prev, newRow()]);
+  }
 
-  const totalDebit = lines.reduce(
-    (s, r) => s + Number(r.debit || 0),
-    0
-  );
-  const totalCredit = lines.reduce(
-    (s, r) => s + Number(r.credit || 0),
-    0
-  );
-  const diff = Math.abs(totalDebit - totalCredit);
-  const isBalanced =
-    totalDebit > 0 && diff <= 0.01;
+  function removeRow(key: string) {
+    setLines((prev) => (prev.length <= 2 ? prev : prev.filter((r) => r.key !== key)));
+  }
 
   function updateRow(key: string, patch: Partial<LineRow>) {
     setLines((prev) =>
@@ -121,336 +113,272 @@ export default function NewJournalEntryPage() {
     );
   }
 
-  function removeRow(key: string) {
-    setLines((prev) => prev.filter((r) => r.key !== key));
-  }
+  const totalDebit = lines.reduce(
+    (acc, r) => acc + (parseFloat(r.debit) || 0),
+    0
+  );
+  const totalCredit = lines.reduce(
+    (acc, r) => acc + (parseFloat(r.credit) || 0),
+    0
+  );
+  const diff = totalDebit - totalCredit;
+  const balanced = Math.abs(diff) < 0.01;
 
-  function addRow() {
-    rowCounter += 1;
-    setLines((prev) => [
-      ...prev,
-      {
-        key: `row-${Date.now()}-${rowCounter}`,
-        gl_account_id: 0,
-        property_id: "",
-        description: "",
-        debit: 0,
-        credit: 0,
-      },
-    ]);
-  }
-
-  function accountLabel(a: GLAccount): string {
-    return `${a.gl_number} ${a.name}`;
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-
-    const valid = lines.filter(
-      (l) =>
-        l.gl_account_id > 0 &&
-        (Number(l.debit) > 0 || Number(l.credit) > 0)
+  async function submit() {
+    const validLines = lines.filter(
+      (r) =>
+        r.gl_account_id &&
+        (parseFloat(r.debit) > 0 || parseFloat(r.credit) > 0)
     );
-    if (valid.length < 2) {
-      setError("At least two complete lines are required.");
+    if (validLines.length < 2) {
+      setError("At least 2 lines are required.");
       return;
     }
-    if (!isBalanced) {
+    if (!balanced) {
       setError(
-        `Journal entry does not balance (debits $${totalDebit.toFixed(
-          2
-        )} vs credits $${totalCredit.toFixed(2)}).`
+        `Journal entry does not balance (debits ${formatMoney(
+          totalDebit.toFixed(2)
+        )} vs credits ${formatMoney(totalCredit.toFixed(2))}).`
       );
       return;
     }
 
-    // Each line must have exactly one of debit/credit
-    for (const l of valid) {
-      const d = Number(l.debit) || 0;
-      const c = Number(l.credit) || 0;
-      if (d > 0 && c > 0) {
-        setError("Each line can have debit OR credit, not both.");
-        return;
-      }
-    }
-
-    const payload = {
-      transaction_date: entryDate,
-      reference_number: reference || null,
-      memo: memo || null,
-      lines: valid.map<JournalEntryLineIn>((r) => ({
-        gl_account_id: r.gl_account_id,
-        property_id: r.property_id ? Number(r.property_id) : null,
-        description: r.description || null,
-        debit: Number(r.debit) || 0,
-        credit: Number(r.credit) || 0,
-      })),
-    };
-
-    setSubmitting(true);
+    setSaving(true);
+    setError(null);
     try {
-      const created = await createJournalEntry(payload);
+      const created = await apiPost("/api/accounting/journal-entries", {
+        transaction_date: transactionDate,
+        reference_number: referenceNumber || null,
+        memo: memo || null,
+        lines: validLines.map((r) => ({
+          gl_account_id: r.gl_account_id,
+          property_id: r.property_id || null,
+          description: r.description || null,
+          debit: parseFloat(r.debit) || 0,
+          credit: parseFloat(r.credit) || 0,
+        })),
+      });
       router.push(
-        `/dashboard/accounting/journal-entries/${created.id}`
+        `/dashboard/accounting/journal-entries/${(created as { id: number }).id}`
       );
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to post journal entry"
-      );
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not save journal entry.");
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="max-w-5xl mx-auto p-6 text-slate-500">Loading...</div>
+    );
   }
 
   return (
-    <div className="max-w-5xl">
-      <div className="mb-6">
-        <Link
-          href="/dashboard/accounting/journal-entries"
-          className="text-sm text-slate-500 hover:text-slate-800"
-        >
-          ← Back to Journal Entries
-        </Link>
-        <h1 className="text-2xl font-bold text-slate-900 mt-2">
-          New Journal Entry
-        </h1>
-      </div>
+    <div className="max-w-5xl mx-auto p-6">
+      <h1 className="text-xl font-semibold text-slate-900 mb-1">
+        New Journal Entry
+      </h1>
+      <p className="text-sm text-slate-500 mb-6">
+        Manual balanced entry. Debits must equal credits.
+      </p>
 
       {error && (
-        <div className="mb-4 px-4 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+        <div className="text-sm text-red-600 mb-4 bg-red-50 border border-red-200 rounded-md px-3 py-2">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Header fields */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 grid grid-cols-3 gap-4">
+      <div className="bg-white rounded-lg border border-slate-200 p-5 mb-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs text-slate-500 mb-1">
-              Date *
+            <label className="block text-xs text-slate-600 mb-1">
+              Transaction date <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
-              required
-              value={entryDate}
-              onChange={(e) => setEntryDate(e.target.value)}
-              className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+              value={transactionDate}
+              onChange={(e) => setTransactionDate(e.target.value)}
+              className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm"
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">
+            <label className="block text-xs text-slate-600 mb-1">
               Reference #
             </label>
             <input
               type="text"
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+              value={referenceNumber}
+              onChange={(e) => setReferenceNumber(e.target.value)}
+              className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm"
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Memo</label>
+            <label className="block text-xs text-slate-600 mb-1">Memo</label>
             <input
               type="text"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
-              className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+              className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm"
             />
           </div>
         </div>
+      </div>
 
-        {/* Lines */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="text-sm font-semibold text-slate-700 mb-2">
-            Lines ({lines.length})
-          </div>
-
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="text-left px-3 py-2 font-medium text-slate-700">
-                  GL Account
-                </th>
-                <th className="text-left px-3 py-2 font-medium text-slate-700 w-40">
-                  Property
-                </th>
-                <th className="text-left px-3 py-2 font-medium text-slate-700">
-                  Description
-                </th>
-                <th className="text-right px-3 py-2 font-medium text-slate-700 w-32">
-                  Debit
-                </th>
-                <th className="text-right px-3 py-2 font-medium text-slate-700 w-32">
-                  Credit
-                </th>
-                <th className="w-16"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {lines.map((row) => (
-                <tr key={row.key} className="border-t border-slate-100">
-                  <td className="px-3 py-2">
-                    <select
-                      value={row.gl_account_id}
-                      onChange={(e) =>
-                        updateRow(row.key, {
-                          gl_account_id: Number(e.target.value),
-                        })
-                      }
-                      className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
-                    >
-                      <option value={0}>— Select —</option>
-                      {sortedAccounts.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {accountLabel(a)}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-3 py-2">
-                    <select
-                      value={row.property_id}
-                      onChange={(e) =>
-                        updateRow(row.key, {
-                          property_id: e.target.value
-                            ? Number(e.target.value)
-                            : "",
-                        })
-                      }
-                      className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
-                    >
-                      <option value="">— None —</option>
-                      {properties.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="text"
-                      value={row.description}
-                      onChange={(e) =>
-                        updateRow(row.key, {
-                          description: e.target.value,
-                        })
-                      }
-                      className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={row.debit || ""}
-                      onChange={(e) =>
-                        updateRow(row.key, {
-                          debit: Number(e.target.value) || 0,
-                          credit: 0,
-                        })
-                      }
-                      className="w-full border border-slate-300 rounded px-2 py-1 text-sm text-right font-mono"
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={row.credit || ""}
-                      onChange={(e) =>
-                        updateRow(row.key, {
-                          credit: Number(e.target.value) || 0,
-                          debit: 0,
-                        })
-                      }
-                      className="w-full border border-slate-300 rounded px-2 py-1 text-sm text-right font-mono"
-                    />
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <button
-                      type="button"
-                      onClick={() => removeRow(row.key)}
-                      className="text-red-600 hover:text-red-800 text-xs"
-                    >
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              <tr className="border-t border-slate-100">
-                <td colSpan={6} className="px-3 py-2 text-right">
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden mb-5">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-slate-600">
+            <tr>
+              <th className="text-left px-3 py-2 font-medium">Account</th>
+              <th className="text-left px-3 py-2 font-medium">Property</th>
+              <th className="text-left px-3 py-2 font-medium">Description</th>
+              <th className="text-right px-3 py-2 font-medium">Debit</th>
+              <th className="text-right px-3 py-2 font-medium">Credit</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((r) => (
+              <tr key={r.key} className="border-t border-slate-100">
+                <td className="px-3 py-2">
+                  <select
+                    value={r.gl_account_id}
+                    onChange={(e) =>
+                      updateRow(r.key, {
+                        gl_account_id: e.target.value
+                          ? Number(e.target.value)
+                          : "",
+                      })
+                    }
+                    className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white"
+                  >
+                    <option value="">Select account...</option>
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.gl_number} {a.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-3 py-2">
+                  <select
+                    value={r.property_id}
+                    onChange={(e) =>
+                      updateRow(r.key, {
+                        property_id: e.target.value
+                          ? Number(e.target.value)
+                          : "",
+                      })
+                    }
+                    className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white"
+                  >
+                    <option value="">(none)</option>
+                    {properties.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-3 py-2">
+                  <input
+                    type="text"
+                    value={r.description}
+                    onChange={(e) =>
+                      updateRow(r.key, { description: e.target.value })
+                    }
+                    className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm"
+                  />
+                </td>
+                <td className="px-3 py-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={r.debit}
+                    onChange={(e) =>
+                      updateRow(r.key, { debit: e.target.value, credit: "" })
+                    }
+                    className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm text-right"
+                  />
+                </td>
+                <td className="px-3 py-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={r.credit}
+                    onChange={(e) =>
+                      updateRow(r.key, { credit: e.target.value, debit: "" })
+                    }
+                    className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm text-right"
+                  />
+                </td>
+                <td className="px-2 py-2">
                   <button
                     type="button"
-                    onClick={addRow}
-                    className="text-xs px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded"
+                    onClick={() => removeRow(r.key)}
+                    disabled={lines.length <= 2}
+                    className="text-xs text-slate-400 hover:text-red-600 disabled:opacity-30"
                   >
-                    + Add line
+                    ✕
                   </button>
                 </td>
               </tr>
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-slate-200 bg-slate-50">
-                <td colSpan={3} className="px-3 py-2 text-right font-medium text-slate-700">
-                  Totals
-                </td>
-                <td className="px-3 py-2 text-right font-mono font-semibold">
-                  {totalDebit.toLocaleString("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                  })}
-                </td>
-                <td className="px-3 py-2 text-right font-mono font-semibold">
-                  {totalCredit.toLocaleString("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                  })}
-                </td>
-                <td></td>
-              </tr>
-              <tr className="bg-slate-50">
-                <td colSpan={6} className="px-3 py-2 text-right">
-                  {isBalanced ? (
-                    <span className="text-xs text-green-700">
-                      ✓ Balanced
-                    </span>
-                  ) : (
-                    <span className="text-xs text-red-600">
-                      Not balanced — difference{" "}
-                      {diff.toLocaleString("en-US", {
-                        style: "currency",
-                        currency: "USD",
-                      })}
-                    </span>
-                  )}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+            ))}
+          </tbody>
+          <tfoot className="bg-slate-50">
+            <tr className="border-t border-slate-200">
+              <td colSpan={3} className="px-3 py-2 text-xs text-slate-500">
+                <button
+                  type="button"
+                  onClick={addRow}
+                  className="text-blue-600 hover:underline"
+                >
+                  + Add line
+                </button>
+              </td>
+              <td className="px-3 py-2 text-right font-mono font-medium">
+                {formatMoney(totalDebit.toFixed(2))}
+              </td>
+              <td className="px-3 py-2 text-right font-mono font-medium">
+                {formatMoney(totalCredit.toFixed(2))}
+              </td>
+              <td />
+            </tr>
+            <tr>
+              <td colSpan={5} className="px-3 py-2 text-right text-xs">
+                {balanced ? (
+                  <span className="text-green-600 font-medium">Balanced</span>
+                ) : (
+                  <span className="text-red-600 font-medium">
+                    Off by {formatMoney(Math.abs(diff).toFixed(2))}
+                  </span>
+                )}
+              </td>
+              <td />
+            </tr>
+          </tfoot>
+        </table>
+      </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={submitting || !isBalanced}
-            className="text-sm px-5 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50"
-          >
-            {submitting ? "Posting…" : "Post Journal Entry"}
-          </button>
-          <Link
-            href="/dashboard/accounting/journal-entries"
-            className="text-sm px-4 py-2 text-slate-600 hover:text-slate-900"
-          >
-            Cancel
-          </Link>
-        </div>
-      </form>
+      <div className="flex justify-end gap-3">
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard/accounting/journal-entries")}
+          className="px-4 py-2 rounded-md border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={saving || !balanced}
+          className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Save journal entry"}
+        </button>
+      </div>
     </div>
   );
 }

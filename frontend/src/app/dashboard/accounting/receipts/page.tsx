@@ -1,59 +1,68 @@
 // ============================================================
 // Receipts list page
 // ------------------------------------------------------------
-// Route: /dashboard/accounting/receipts
+// List receipts, filter, view detail, reverse.
 //
-// Shows every receipt in the current org. Filters: date range,
-// type, include reversed. Clicking a row opens a CENTERED modal
-// with the receipt detail.
+// Uses formatMoney() from lib/money.ts for every amount so the
+// org's currency setting is respected (Section 59).
 // ============================================================
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { apiGet } from "@/lib/api";
+import { formatMoney, formatDate } from "@/lib/money";
 import {
   listReceipts,
-  Receipt,
-  ReceiptList,
+  getReceipt,
+  reverseReceipt,
   RECEIPT_TYPE_LABELS,
+  RECEIPT_TYPE_ORDER,
+  type Receipt,
+  type ReceiptDetail,
+  type ReceiptListFilters,
 } from "@/lib/receipts";
-import { apiGet } from "@/lib/api";
 
-type Me = { role: string };
-
-const WRITE_ROLES = ["ADMIN", "OWNER", "MANAGER"];
+interface Me {
+  id: number;
+  role: string;
+}
 
 export default function ReceiptsPage() {
   const [me, setMe] = useState<Me | null>(null);
-  const [data, setData] = useState<ReceiptList | null>(null);
+  const [rows, setRows] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  // Filters
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [type, setType] = useState<"" | "TENANT" | "OWNER" | "OTHER">("");
+  const [receiptType, setReceiptType] = useState<string>("");
+  const [propertyId, setPropertyId] = useState<number | "">("");
   const [includeReversed, setIncludeReversed] = useState(true);
 
-  // Selected receipt for the modal
-  const [selected, setSelected] = useState<Receipt | null>(null);
+  const [openReceipt, setOpenReceipt] = useState<ReceiptDetail | null>(null);
+  const [openLoading, setOpenLoading] = useState(false);
+  const [reversing, setReversing] = useState(false);
+
+  useEffect(() => {
+    apiGet("/auth/me").then((u) => setMe(u as Me)).catch(() => setMe(null));
+  }, []);
 
   async function load() {
     setLoading(true);
-    setError("");
+    setError(null);
     try {
-      const meData = await apiGet("/auth/me");
-      setMe(meData);
-      const list = await listReceipts({
-        date_from: dateFrom || undefined,
-        date_to: dateTo || undefined,
-        type: type || undefined,
-        include_reversed: includeReversed,
-      });
-      setData(list);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Load failed");
+      const filters: ReceiptListFilters = {};
+      if (dateFrom) filters.date_from = dateFrom;
+      if (dateTo) filters.date_to = dateTo;
+      if (receiptType) filters.type = receiptType as ReceiptListFilters["type"];
+      if (propertyId) filters.property_id = propertyId;
+      filters.include_reversed = includeReversed;
+      const data = await listReceipts(filters);
+      setRows(data.items);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not load receipts.");
     } finally {
       setLoading(false);
     }
@@ -62,379 +71,342 @@ export default function ReceiptsPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFrom, dateTo, type, includeReversed]);
+  }, []);
 
-  if (loading && !data) return <div className="text-slate-500">Loading…</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
-  if (!data) return null;
+  async function open(receiptId: number) {
+    setOpenLoading(true);
+    setError(null);
+    try {
+      const detail = await getReceipt(receiptId);
+      setOpenReceipt(detail);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not load receipt.");
+    } finally {
+      setOpenLoading(false);
+    }
+  }
 
-  const canWrite = me ? WRITE_ROLES.includes(me.role) : false;
+  async function submitReverse() {
+    if (!openReceipt) return;
+    if (
+      !confirm(
+        `Reverse receipt ${openReceipt.id}? This will be marked Reversed and cannot be undone.`
+      )
+    )
+      return;
+    setReversing(true);
+    setError(null);
+    try {
+      const updated = await reverseReceipt(openReceipt.id, {
+        reversal_date: new Date().toISOString().slice(0, 10),
+      });
+      setOpenReceipt(updated);
+      await load();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not reverse receipt.");
+    } finally {
+      setReversing(false);
+    }
+  }
 
-  const totalAmount = data.items
-    .filter((r) => !r.is_reversed)
-    .reduce((sum, r) => sum + Number(r.amount || 0), 0);
+  const totalAmount = useMemo(
+    () =>
+      rows
+        .filter((r) => !r.is_reversed)
+        .reduce((acc, r) => acc + parseFloat(r.amount), 0),
+    [rows]
+  );
 
   return (
-    <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Receipts</h1>
-          <p className="text-slate-500 mt-1">
-            {data.total} {data.total === 1 ? "receipt" : "receipts"}
-            {" · "}
-            Total:{" "}
-            {totalAmount.toLocaleString("en-US", {
-              style: "currency",
-              currency: "USD",
-            })}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-xl font-semibold text-slate-900">Receipts</h1>
+        {me && me.role !== "TENANT" && (
           <Link
-            href="/dashboard/accounting/gl-accounts"
-            className="text-sm px-3 py-2 text-slate-600 hover:text-slate-900"
+            href="/dashboard/accounting/receipts/new"
+            className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
           >
-            Chart of Accounts
+            + New Receipt
           </Link>
-          <Link
-            href="/dashboard/accounting/trial-balance"
-            className="text-sm px-3 py-2 text-slate-600 hover:text-slate-900"
-          >
-            Trial Balance
-          </Link>
-          {canWrite && (
-            <Link
-              href="/dashboard/accounting/receipts/new"
-              className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700"
-            >
-              + New Receipt
-            </Link>
-          )}
-        </div>
+        )}
       </div>
+      <p className="text-sm text-slate-500 mb-6">
+        All payments received: tenants, owners, and others.
+      </p>
 
-      {/* Filters */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex flex-wrap items-end gap-4">
+      <div className="bg-white border border-slate-200 rounded-lg p-4 mb-5 flex flex-wrap items-end gap-3">
         <div>
-          <label className="block text-xs text-slate-500 mb-1">
-            Date from
-          </label>
+          <label className="block text-xs text-slate-600 mb-1">From</label>
           <input
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="border border-slate-300 rounded px-2 py-1.5 text-sm"
+            className="border border-slate-300 rounded-md px-2 py-1.5 text-sm"
           />
         </div>
         <div>
-          <label className="block text-xs text-slate-500 mb-1">Date to</label>
+          <label className="block text-xs text-slate-600 mb-1">To</label>
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="border border-slate-300 rounded px-2 py-1.5 text-sm"
+            className="border border-slate-300 rounded-md px-2 py-1.5 text-sm"
           />
         </div>
         <div>
-          <label className="block text-xs text-slate-500 mb-1">Type</label>
+          <label className="block text-xs text-slate-600 mb-1">Type</label>
           <select
-            value={type}
-            onChange={(e) =>
-              setType(e.target.value as "" | "TENANT" | "OWNER" | "OTHER")
-            }
-            className="border border-slate-300 rounded px-2 py-1.5 text-sm"
+            value={receiptType}
+            onChange={(e) => setReceiptType(e.target.value)}
+            className="border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white"
           >
-            <option value="">All types</option>
-            <option value="TENANT">Tenant</option>
-            <option value="OWNER">Owner</option>
-            <option value="OTHER">Other</option>
+            <option value="">All</option>
+            {RECEIPT_TYPE_ORDER.map((t) => (
+              <option key={t} value={t}>
+                {RECEIPT_TYPE_LABELS[t]}
+              </option>
+            ))}
           </select>
         </div>
-        <label className="flex items-center gap-2 text-sm text-slate-600 pb-1.5">
+        <div>
+          <label className="block text-xs text-slate-600 mb-1">
+            Property ID
+          </label>
+          <input
+            type="number"
+            value={propertyId}
+            onChange={(e) =>
+              setPropertyId(e.target.value ? Number(e.target.value) : "")
+            }
+            className="border border-slate-300 rounded-md px-2 py-1.5 text-sm w-24"
+          />
+        </div>
+        <label className="flex items-center gap-2 text-xs text-slate-600">
           <input
             type="checkbox"
             checked={includeReversed}
             onChange={(e) => setIncludeReversed(e.target.checked)}
           />
-          Show reversed
+          Include reversed
         </label>
+        <button
+          type="button"
+          onClick={load}
+          className="px-3 py-1.5 rounded-md bg-slate-700 text-white text-sm font-medium hover:bg-slate-800"
+        >
+          Show
+        </button>
       </div>
 
-      {/* Table */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      {error && (
+        <div className="text-sm text-red-600 mb-3 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          {error}
+        </div>
+      )}
+
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50">
+          <thead className="bg-slate-50 text-slate-600">
             <tr>
-              <th className="text-left px-4 py-2 font-medium text-slate-700 w-24">
-                ID
-              </th>
-              <th className="text-left px-4 py-2 font-medium text-slate-700 w-28">
-                Date
-              </th>
-              <th className="text-left px-4 py-2 font-medium text-slate-700 w-24">
-                Type
-              </th>
-              <th className="text-left px-4 py-2 font-medium text-slate-700">
-                From
-              </th>
-              <th className="text-left px-4 py-2 font-medium text-slate-700 w-40">
-                Cash Account
-              </th>
-              <th className="text-left px-4 py-2 font-medium text-slate-700 w-28">
-                Reference
-              </th>
-              <th className="text-right px-4 py-2 font-medium text-slate-700 w-32">
-                Amount
-              </th>
+              <th className="text-left px-4 py-2 font-medium">Date</th>
+              <th className="text-left px-4 py-2 font-medium">Type</th>
+              <th className="text-left px-4 py-2 font-medium">From</th>
+              <th className="text-left px-4 py-2 font-medium">Cash</th>
+              <th className="text-right px-4 py-2 font-medium">Amount</th>
             </tr>
           </thead>
           <tbody>
-            {data.items.length === 0 && (
+            {loading && (
               <tr>
-                <td
-                  colSpan={7}
-                  className="px-4 py-8 text-center text-slate-500"
-                >
+                <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                  Loading...
+                </td>
+              </tr>
+            )}
+            {!loading && rows.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
                   No receipts yet.
                 </td>
               </tr>
             )}
-            {data.items.map((r) => {
-              const from =
-                r.type === "TENANT"
-                  ? `Tenant #${r.tenant_user_id ?? "?"}`
-                  : r.type === "OWNER"
-                  ? r.payer_name || `Owner #${r.owner_user_id ?? "?"}`
-                  : r.received_from || "—";
-              return (
-                <tr
-                  key={r.id}
-                  onClick={() => setSelected(r)}
-                  className={`border-t border-slate-100 hover:bg-slate-50 cursor-pointer ${
-                    r.is_reversed ? "opacity-60" : ""
-                  }`}
-                >
-                  <td className="px-4 py-2 text-slate-500 font-mono">
-                    #{r.id}
-                  </td>
-                  <td className="px-4 py-2 text-slate-700">
-                    {r.receipt_date}
-                  </td>
-                  <td className="px-4 py-2 text-slate-700">
-                    <span className="text-xs px-2 py-0.5 bg-slate-100 rounded">
-                      {RECEIPT_TYPE_LABELS[r.type] || r.type}
-                    </span>
-                  </td>
-                  <td
-                    className={`px-4 py-2 ${
-                      r.is_reversed
-                        ? "line-through text-slate-400"
-                        : "text-slate-800"
-                    }`}
-                  >
-                    {from}
-                    {r.is_reversed && (
-                      <span className="ml-2 text-xs text-red-600">
-                        reversed
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2 text-slate-600 text-xs">
-                    {r.cash_gl_account_number
-                      ? `${r.cash_gl_account_number} ${r.cash_gl_account_name}`
-                      : "—"}
-                  </td>
-                  <td className="px-4 py-2 text-slate-600 text-xs">
-                    {r.reference_number || "—"}
-                  </td>
-                  <td
-                    className={`px-4 py-2 text-right font-mono ${
-                      r.is_reversed ? "line-through text-slate-400" : ""
-                    }`}
-                  >
-                    {Number(r.amount).toLocaleString("en-US", {
-                      style: "currency",
-                      currency: "USD",
-                    })}
-                  </td>
-                </tr>
-              );
-            })}
+            {rows.map((r) => (
+              <tr
+                key={r.id}
+                onClick={() => open(r.id)}
+                className={`border-t border-slate-100 hover:bg-slate-50 cursor-pointer ${
+                  r.is_reversed ? "line-through opacity-60" : ""
+                }`}
+              >
+                <td className="px-4 py-2">{formatDate(r.receipt_date)}</td>
+                <td className="px-4 py-2 text-xs text-slate-600">
+                  {RECEIPT_TYPE_LABELS[r.type] || r.type}
+                </td>
+                <td className="px-4 py-2">
+                  {r.type === "TENANT"
+                    ? `Tenant #${r.tenant_user_id ?? "?"}`
+                    : r.type === "OWNER"
+                    ? r.payer_name || `Owner #${r.owner_user_id ?? "?"}`
+                    : r.received_from || "—"}
+                </td>
+                <td className="px-4 py-2 text-slate-500 text-xs">
+                  {r.cash_gl_account_number
+                    ? `${r.cash_gl_account_number} ${r.cash_gl_account_name}`
+                    : "—"}
+                </td>
+                <td className="px-4 py-2 text-right font-mono">
+                  {formatMoney(r.amount)}
+                </td>
+              </tr>
+            ))}
           </tbody>
+          {rows.length > 0 && (
+            <tfoot className="bg-slate-50 text-slate-700">
+              <tr className="border-t border-slate-200">
+                <td className="px-4 py-2 text-xs" colSpan={4}>
+                  {rows.filter((r) => !r.is_reversed).length} receipts
+                </td>
+                <td className="px-4 py-2 text-right font-mono font-medium">
+                  {formatMoney(totalAmount.toFixed(2))}
+                </td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 
-      {/* Centered modal */}
-      {selected && (
-        <ReceiptDetailModal
-          receipt={selected}
-          onClose={() => setSelected(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-// ------------------------------------------------------------
-// Centered modal: receipt detail
-// ------------------------------------------------------------
-function ReceiptDetailModal({
-  receipt,
-  onClose,
-}: {
-  receipt: Receipt;
-  onClose: () => void;
-}) {
-  const [lines, setLines] = useState<
-    Array<{
-      id: number;
-      gl_account_number: string | null;
-      gl_account_name: string | null;
-      description: string | null;
-      amount_to_pay: string;
-    }>
-  >([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const { getReceipt } = await import("@/lib/receipts");
-        const detail = await getReceipt(receipt.id);
-        if (!cancelled) setLines(detail.lines);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [receipt.id]);
-
-  return (
-    <>
-      {/* Dark backdrop — click to close */}
-      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
-
-      {/* Centered modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-        <div className="w-full max-w-2xl max-h-[90vh] bg-white rounded-xl shadow-2xl flex flex-col pointer-events-auto">
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-            <div>
-              <div className="text-xs text-slate-500">Receipt</div>
-              <div className="font-semibold text-slate-900 text-lg">
-                #{receipt.id}
-                <span className="ml-2 text-xs px-2 py-0.5 bg-slate-100 rounded">
-                  {RECEIPT_TYPE_LABELS[receipt.type]}
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-slate-400 hover:text-slate-700 text-2xl leading-none"
-            >
-              ×
-            </button>
-          </div>
-
-          {/* Body */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 text-sm">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-xs text-slate-500">Date</div>
-                <div className="text-slate-800">{receipt.receipt_date}</div>
-              </div>
-              <div>
-                <div className="text-xs text-slate-500">Amount</div>
-                <div className="text-slate-800 font-mono text-lg">
-                  {Number(receipt.amount).toLocaleString("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                  })}
+      {/* Detail modal */}
+      {(openReceipt || openLoading) && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 flex items-start justify-center p-6 overflow-auto"
+          onClick={() => setOpenReceipt(null)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-2xl w-full my-8 max-h-[90vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {openLoading && !openReceipt ? (
+              <div className="p-8 text-center text-slate-500">Loading...</div>
+            ) : openReceipt ? (
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900">
+                      Receipt #{openReceipt.id}
+                    </h2>
+                    <div className="text-sm text-slate-500">
+                      {formatDate(openReceipt.receipt_date)} ·{" "}
+                      {RECEIPT_TYPE_LABELS[openReceipt.type] || openReceipt.type}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setOpenReceipt(null)}
+                    className="text-slate-400 hover:text-slate-700 text-xl leading-none"
+                  >
+                    ✕
+                  </button>
                 </div>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-xs text-slate-500">Cash Account</div>
-                <div className="text-slate-800">
-                  {receipt.cash_gl_account_number}{" "}
-                  {receipt.cash_gl_account_name}
+                {openReceipt.is_reversed && (
+                  <div className="text-sm text-red-600 mb-3 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                    This receipt has been reversed.
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
+                  <div>
+                    <div className="text-xs text-slate-500">Amount</div>
+                    <div className="font-mono">
+                      {formatMoney(openReceipt.amount)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-500">Cash account</div>
+                    <div className="font-mono text-xs">
+                      {openReceipt.cash_gl_account_number
+                        ? `${openReceipt.cash_gl_account_number} ${openReceipt.cash_gl_account_name}`
+                        : "—"}
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <div className="text-xs text-slate-500">Reference</div>
-                <div className="text-slate-800">
-                  {receipt.reference_number || "—"}
-                </div>
-              </div>
-            </div>
 
-            {receipt.remarks && (
-              <div>
-                <div className="text-xs text-slate-500">Remarks</div>
-                <div className="text-slate-800 whitespace-pre-wrap">
-                  {receipt.remarks}
-                </div>
-              </div>
-            )}
+                {openReceipt.remarks && (
+                  <div className="text-sm text-slate-600 mb-4">
+                    <span className="text-xs text-slate-500">Remarks: </span>
+                    {openReceipt.remarks}
+                  </div>
+                )}
 
-            {receipt.gl_transaction_id && (
-              <div>
-                <div className="text-xs text-slate-500">GL Transaction</div>
-                <Link
-                  href={`/dashboard/accounting/journal-entries/${receipt.gl_transaction_id}`}
-                  className="text-blue-600 hover:underline"
-                >
-                  #{receipt.gl_transaction_id}
-                </Link>
-              </div>
-            )}
+                {openReceipt.lines && openReceipt.lines.length > 0 && (
+                  <div className="border border-slate-200 rounded-md overflow-hidden mb-4">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-slate-600">
+                        <tr>
+                          <th className="text-left px-3 py-2 font-medium">
+                            Account
+                          </th>
+                          <th className="text-left px-3 py-2 font-medium">
+                            Description
+                          </th>
+                          <th className="text-right px-3 py-2 font-medium">
+                            Amount
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {openReceipt.lines.map((ln) => (
+                          <tr key={ln.id} className="border-t border-slate-100">
+                            <td className="px-3 py-2">
+                              {ln.gl_account_number} {ln.gl_account_name}
+                            </td>
+                            <td className="px-3 py-2">
+                              {ln.description || "—"}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono">
+                              {formatMoney(ln.amount_to_pay)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
 
-            <div className="pt-4 border-t border-slate-200">
-              <div className="text-xs font-semibold text-slate-500 uppercase mb-2">
-                Lines
-              </div>
-              {loading ? (
-                <div className="text-slate-500 text-xs">Loading…</div>
-              ) : lines.length === 0 ? (
-                <div className="text-slate-500 text-xs">No lines.</div>
-              ) : (
-                <ul className="space-y-2">
-                  {lines.map((ln) => (
-                    <li
-                      key={ln.id}
-                      className="flex items-start justify-between text-xs border-b border-slate-100 pb-2"
+                {openReceipt.gl_transaction_id && (
+                  <div className="text-xs text-slate-500 mb-4">
+                    <Link
+                      href={`/dashboard/accounting/journal-entries/${openReceipt.gl_transaction_id}`}
+                      className="text-blue-600 hover:underline"
                     >
-                      <div>
-                        <div className="text-slate-700">
-                          {ln.gl_account_number} {ln.gl_account_name}
-                        </div>
-                        {ln.description && (
-                          <div className="text-slate-500">
-                            {ln.description}
-                          </div>
-                        )}
-                      </div>
-                      <div className="font-mono text-slate-800">
-                        {Number(ln.amount_to_pay).toLocaleString("en-US", {
-                          style: "currency",
-                          currency: "USD",
-                        })}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+                      View GL transaction
+                    </Link>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    {!openReceipt.is_reversed && me && me.role !== "TENANT" && (
+                      <button
+                        onClick={submitReverse}
+                        disabled={reversing}
+                        className="px-3 py-1.5 rounded-md border border-red-300 text-red-700 text-sm font-medium hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {reversing ? "Reversing..." : "Reverse receipt"}
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setOpenReceipt(null)}
+                    className="text-sm text-slate-500 hover:text-slate-700"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
-      </div>
-    </>
+      )}
+    </div>
   );
 }
