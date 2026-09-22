@@ -2,7 +2,7 @@
 
 **Property Management Platform (AppFolio-equivalent)**
 **Single source of truth for the project.**
-**Last updated: 2026-09-20**
+**Last updated: 2026-09-22**
 
 ---
 
@@ -11,56 +11,61 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase 3.5 is IN PROGRESS. Shipped this session:
-Display settings page (layout mode, theme, date format, currency);
-per-org currency column + save; custom currencies CRUD (customer
-can add their own currency); SETTINGS menu group wired to sidebar.
+**Current activity:** Phase 3.6 (Accounting Polish) is IN PROGRESS.
+1 of ~70 items shipped this session: the full Charges feature.
 
-**Next:** Phase 3.6 — Accounting Polish (70 items) — or the frontend
-formatMoney() sweep as a smaller first step. See Section 38 + JSON.
+**Also shipped this session (Phase 3.5 territory):**
+- Sidebar preferences made truly per-user. Fixed a stale UNIQUE
+  index on `sidebar_preferences.organization_id` (leftover from the
+  original org-scoped design) that prevented any user beyond the
+  first from saving their own sidebar. Migrations c0e4ac6f46b2
+  (user_id NOT NULL) and 5949df11e460 (drop stale unique index).
+- My Preferences tab in Settings → Permissions now saves.
+  (Also fixed a missing `IntegrityError` import and added
+  race-safe get-or-create in both routers.)
+- Custom Currencies CRUD (Section 68). Table + model + router +
+  page. 9 system currencies seeded per org. Partial: the Display
+  page dropdown is still hardcoded and does NOT yet fetch this
+  list. Sweep pending (Phase 3.5.5).
+- Display Settings page (Section 58). Layout mode, theme, date
+  format, currency all save. Partial: no page consumes them yet.
+  Sweep pending (Phase 3.5.5).
+- SETTINGS menu group (Display, Currencies, Menu Permissions,
+  Sidebar) wired to the sidebar via menu_keys.py + menuConfig.ts
+  + migration 15d92d8a1eea.
+- Charges feature. Table `charges`, model, router, list page,
+  new page, menu key ACCOUNTING.CHARGES. Migrations f49b93dcb1e2
+  and 3909fd7c7792.
 
-See Section 68 (Custom Currencies) for the newest build.
+**Migration head:** 5949df11e460
 
-**Last completed work (this session):**
-- Phase 3 Step 3a (Amenities) — added `fee_amount` and
-  `availability_status` to match AppFolio.
-- Phase 3 Step 3b (Appliances) — added `condition` to match
-  AppFolio.
-- Phase 3 Step 3c (Improvements) — added `warranty_expires` to
-  match AppFolio.
-- Phase 3 Step 3d (Photos) — upload, cover flag, marketing flag,
-  bulk upload, captions, sort_order, lightbox, styled delete
-  modal. No image editor yet — that's Phase 3.5.
-- Universal `delete_reason` — added to property_amenities,
-  property_appliances, property_improvements.
-- `gl_accounts.must_clear` — added for the real Positive Fee
-  diagnostic.
-- Migration HEAD now: `00bc0d143eac_add_property_photos`.
-- Section 57 (AppFolio Feature Parity Audit) updated — Photos
-  marked built.
-- Section 38 updated — Phase 3 marked DONE.
-- Section 64 (Property Photos) added.
+**Next:** continue Phase 3.6. First items:
+1. Frontend sweep — replace hardcoded $ / "USD" with formatMoney().
+2. Journal Entries sub-tabs (History | Recurring).
+3. Receipts: Print / Repeat / edit-lock-after-deposit.
 
-**What's NOT built yet (designed, not coded):**
-- Display settings — one page under Settings with Layout mode
-  (Tabs vs Vertical), Theme (Light/Dark/Auto), Density, Date
-  format, Number format, Currency format, Font size, Accent
-  color, Reduce motion. Layout + Theme wired first; rest are
-  shown as "Coming soon" but their table columns exist so no
-  re-migration is needed.
-- Per-org currency — each customer uses their own currency
-  end-to-end. No exchange, no conversion. Org picks
-  INR / USD / GBP / EUR / etc.
-- All Phase 3.5, 3.6, 3.7, 4, 4.5, 5-12 items — see Section 38.
+**Also queued (Phase 3.5.5 — Compliance Pass):**
+Retrofit each existing page (Receipts, Bills, Deposits, GL,
+Owner Statements, Management Fees, Bank Accounts, Journal Entries,
+Charges, Currencies, Display, Permissions, Sidebar, Properties)
+so it:
+- uses formatMoney()/formatDate() for every value
+- reads theme/layout/density from useDisplay()
+- renders every planned tab, field, button, and section — as a
+  hidden slot until its platform feature flag is advanced past
+  HIDDEN. Behavior-preserving: nothing changes visually until a
+  flag moves.
 
-**Customer-facing impact:**
-- Attachments (Phase 3.7) and Vendor link (Phase 4) are the only
-  remaining gaps on the Amenities/Appliances/Improvements tabs.
-- Photos tab is complete. Image editor + drag-to-reorder land
-  in Phase 3.5.
-- Display settings + per-org currency are what international
-  clients (India, UK, EU) will look for first.
-- All gaps are scheduled in this doc. Nothing is unplanned.
+No page ever needs a rewrite again. See Section 79 (Build-In-Place
+Policy), Section 80 (Platform Feature Gating), Section 81
+(Built & Verified).
+
+**New Sections 70–81 added this session:** Feature Flags,
+Settings Universe, Documents & Exports, API Security Model,
+SQL Injection Prevention, File Upload Security, AppFolio Parity
+& Migration Strategy, Advanced Security & Fraud Prevention,
+Responsible AI Framework, Build-In-Place Policy, Platform Feature
+Gating, Built & Verified. See Part C.
 
 ## A2. WHAT'S BUILT (WORKING)
 
@@ -85,6 +90,11 @@ See Section 68 (Custom Currencies) for the newest build.
 - Phase 3 Step 3b — Appliances (condition)
 - Phase 3 Step 3c — Improvements (warranty_expires)
 - Phase 3 Step 3d — Photos (upload, cover, marketing, lightbox)
+- Phase 3.5 — SETTINGS menu group + Display Settings page +
+  Custom Currencies CRUD + per-org currency + Sidebar preferences
+  per-user fix
+- Phase 3.6 Step 1 — Charges feature (table, model, router,
+  list page, new page, menu key)
 
 ## A3. TECH STACK
 
@@ -134,6 +144,9 @@ Deployment target (Phase 11):
 13. Every GL posting goes through post_transaction(). Never write to GL tables directly.
 14. GL account seed count: 61 per org (60 original + 2100 AP added in Step 6).
 15. `push.bat` on the desktop is the one-click way to save to GitHub.
+16. Every new page uses the shared primitives (money(), date(),
+    useDisplay()) and gates every future feature behind a feature
+    flag. See Section 67 close-out rules and Section 79.
 
 ## A5. CURRENT OPEN DECISIONS
 
@@ -142,39 +155,37 @@ Deployment target (Phase 11):
 - Bill auto-description: not yet built.
 - Reverse confirmation uses styled modal on Amenities/Appliances/
   Improvements. Still window.confirm() on Receipts/Bills/etc. Roll
-  out styled modal everywhere during Phase 3.5.
+  out styled modal everywhere during Phase 3.5.5.
 - Back-navigation: Trial Balance and Deposits have smart-back.
-  Roll out to Receipts/Bills/GL Accounts during Phase 3.5.
+  Roll out to Receipts/Bills/GL Accounts during Phase 3.5.5.
 - Mobile: desktop-first for manager app; portals mobile-first
   (Phase 7); native app = Phase 12.
 - Bank Deposits do NOT post to the GL. If we later add a "cash on
   hand" GL account, add DR Bank / CR Cash on Hand in create_deposit().
 - Diagnostics currently detect only. Auto-fix postings deferred
   to Phase 3.6.
-- Display settings (Section 58) and per-org currency (Section 59)
-  captured as new sections — build order in Phase 3.5.
+- Currencies Display dropdown is still hardcoded. It does NOT
+  fetch /api/settings/currencies yet. Sweep is Phase 3.5.5.
+- Display settings save but no page consumes them yet (theme,
+  layout, date format, density, number format, font size, accent,
+  reduce motion). Sweep is Phase 3.5.5.
 - Section 12 says 61 GL accounts; header comment in gl_account.py
   still says 57. Fix in the next cleanup pass.
+
 # ═══════════════════════════════════════════════════
 # PART B — NEXT ACTION
 # ═══════════════════════════════════════════════════
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Phase 3.6 (Accounting Polish) in progress. 1 of ~70 items shipped.**
+**Phase 3.6 (Accounting Polish) continues. 1 of ~70 items shipped.**
 
-SHIPPED this session (2026-09-21):
-  - Charges feature (accounting.charges.enter_charge,
-    accounting.charges.list_view, accounting.charges.edit_rules)
-  - Table `charges`, model Charge, router /api/accounting/charges
-  - Pages /dashboard/accounting/charges and .../charges/new
-  - Menu key ACCOUNTING.CHARGES
-  - Migration head: 3909fd7c7792
+Pick one, in this order:
 
-NEXT — pick one, in this order:
-1. Frontend sweep: replace hardcoded $ / "USD" formatting with
-   formatMoney() from lib/money.ts. Touches ~20-30 call sites.
-   JSON items: none specific; it's a polish pass.
+1. Frontend sweep — replace hardcoded `$` / `"USD"` / hardcoded date
+   strings in existing pages with `formatMoney()` and `formatDate()`
+   from `frontend/src/lib/money.ts`. Touches ~17 files per the
+   earlier grep. Behavior-preserving.
 2. Journal Entries: sub-tabs (History | Recurring).
    JSON id: accounting.je.sub_tabs.
 3. Receipts: Print / Repeat / edit-lock-after-deposit.
@@ -185,6 +196,13 @@ NEXT — pick one, in this order:
 5. Owner Held Security Deposits (whole feature).
    JSON id: accounting.owners.owner_held_security_deposits.
 
+**Also queued (Phase 3.5.5 — Compliance Pass):**
+Retrofit each existing page so it uses the shared primitives and
+renders every planned tab/field/button/section as a hidden slot
+gated by a feature flag. Behavior-preserving. One page at a time.
+See Section 79 (Build-In-Place Policy) and Section 80 (Platform
+Feature Gating).
+
 Read Section 69 (FILE MAP) to know where every file is.
 Read docs/FILE_CATALOG.md to know what's inside every file.
 Regenerate the catalog with: cd backend ; python generate_file_catalog.py
@@ -193,6 +211,7 @@ Regenerate the catalog with: cd backend ; python generate_file_catalog.py
 
 See Section 38 for the full build order including:
 - Phase 3.5 — Property Detail Polish
+- Phase 3.5.5 — Compliance Pass (retrofit existing pages)
 - Phase 3.6 — Accounting Polish
 - Phase 3.7 — Reports + Universal Attachments
 - Phase 4 — Vendors
@@ -220,12 +239,14 @@ Then continue from the immediate next action listed in Part B1.
 Rules you must follow:
 - I am a non-coder. Never ask me to write code.
 - Give whole files, not fragments. I select-all, delete, paste, save.
-- Label every command BACKEND or FRONTEND.
+- Label every command BACKEND or FRONTEND with a colored square.
 - One step at a time. Wait for me to run and report back.
 - If I paste an error, fix it and give the next command.
 - Backend venv is at backend\venv (not .venv). DB is property_platform.db.
 - Role values are UPPERCASE. Menu keys are UPPERCASE and dotted.
 - Every GL posting goes through post_transaction().
+- Every new page uses money() / date() / useDisplay() and gates
+  future features behind flags. See Section 67 close-out rules.
 
 Then paste this entire file.
 
@@ -388,22 +409,36 @@ Icons: lucide-react, line icons.
 
 ---
 
-# SECTION 9 — THE 4-LAYER MENU GATING (BUILT)
+# SECTION 9 — THE 5-LAYER MENU GATING (BUILT)
 
-Layer 1 — Plan gating: STUBBED (always allows). Wires to subscriptions
+NOTE (2026-09-22): The gating stack was extended from 4 to 5 layers.
+The original 4 layers stay exactly as they were. A new Platform layer
+was added on top as Layer 1. See Section 80 (Platform Feature Gating)
+for the full four-stage platform model (HIDDEN / BETA / ROLLOUT /
+ALL_ORGS).
+
+Layer 1 — Platform stage (BUILT as part of Section 80's design, wired
+in Phase 9). Controls whether a menu key is live at all on our end.
+Stages: HIDDEN (invisible to all orgs), BETA (visible only to specific
+pilot orgs), ROLLOUT (visible only to specific orgs, growing set),
+ALL_ORGS (visible to every org). This is our top-level switch.
+Layer 2 — Plan gating: STUBBED (always allows). Wires to subscriptions
 in Phase 10.
-Layer 2 — Role gating: menu_permissions table.
-Layer 3 — User overrides: user_permissions table.
-Layer 4 — Personal hiding: sidebar_preferences (per-user).
+Layer 3 — Role gating: menu_permissions table.
+Layer 4 — User overrides: user_permissions table.
+Layer 5 — Personal hiding: sidebar_preferences (per-user).
 
-All 4 must pass. If any fails -> hidden.
+All 5 must pass. If any fails -> hidden.
 
 Hard rules:
-- Layers 2, 3, 4 can only SUBTRACT visibility. Only Layer 1 can grant.
+- Layers 3, 4, 5 can only SUBTRACT visibility. Layers 1 and 2 can
+  grant or deny (they are top-level gates we control).
 - ADMIN role is immutable.
 - Parent hidden -> all children hidden.
 - Case-insensitive role comparison.
 - Every permission change writes to audit_log.
+- Every menu key carries a platform stage. Default for anything new
+  is HIDDEN until we advance it.
 
 ---
 
@@ -468,7 +503,15 @@ Chain:
 - dadbb391cc03_add_property_appliances
 - 35529ce17750_add_property_improvements
 - 59a25b856f18_add_phase3_parity_fields
-- 00bc0d143eac_add_property_photos  <- HEAD
+- 00bc0d143eac_add_property_photos
+- 8c2e766863c0_add_org_currency                 (organizations.currency)
+- 521035d0e411_add_user_display_preferences     (user_display_preferences table)
+- 15d92d8a1eea_add_settings_menu_keys           (SETTINGS.* menu seeds)
+- 8e1243432666_add_currencies_table             (currencies table + 9 seeds)
+- f49b93dcb1e2_add_charges_table                (charges table)
+- 3909fd7c7792_add_charges_menu_key             (ACCOUNTING.CHARGES)
+- c0e4ac6f46b2_sidebar_pref_user_id_not_null    (user_id NOT NULL)
+- 5949df11e460_drop_unique_org_index_sidebar    <- HEAD
 
 ---
 
@@ -1089,6 +1132,19 @@ Phase 3.5 — Property Detail Polish (28 items remaining — see JSON)
   - Universal Powerful Search
   - Universal Repeat Form / Field (CTRL+K / CTRL+J)
   - Universal styled confirm modal rollout
+Phase 3.5.5 — Compliance Pass (behavior-preserving retrofit)
+  Retrofit each existing page (Receipts, Bills, Deposits, GL,
+  Owner Statements, Management Fees, Bank Accounts, Journal
+  Entries, Charges, Currencies, Display, Permissions, Sidebar,
+  Properties) so it:
+  - uses formatMoney() / formatDate() for every value
+  - reads theme / layout / density from useDisplay()
+  - renders every planned tab, field, button, and section as a
+    hidden slot until its platform feature flag is advanced
+    past HIDDEN
+  Behavior-preserving: nothing changes visually until a flag
+  moves. See Section 79 (Build-In-Place Policy) and Section 80
+  (Platform Feature Gating). One page at a time.
 Phase 3.6 — Accounting Polish (73 items — see JSON for full list)
   Chart of Accounts:
   - Recalculate Balances button
@@ -1970,10 +2026,22 @@ Status legend:
   ⚠️  BUILT WITH BEHAVIOR MISMATCH
   ❌ NOT PLANNED -> scheduled by this doc
 
-NOTE (2026-09-21): The canonical, item-by-item inventory lives in
-docs/APPFOLIO_PARITY_CHECKLIST.json (376 items). This section is the
+NOTE (2026-09-22): The canonical, item-by-item inventory lives in
+docs/APPFOLIO_PARITY_CHECKLIST.json (385+ items). This section is the
 human-readable summary. If they disagree, the JSON wins. Run
 `python check_parity.py` from backend/ before every push.
+
+NEW (2026-09-21/22):
+- ✅ Charges feature (standalone Enter Charge + list view + edit rules)
+  — accounting.charges.enter_charge, .list_view, .edit_rules
+- ✅ Custom Currencies CRUD — settings.currencies.* (list/add/edit/
+  delete/seed_defaults/ui). PARTIAL: Display dropdown still hardcoded.
+- ✅ Display Settings page — settings.display.* (page saves; no page
+  consumes yet). PARTIAL: consumption pending Phase 3.5.5.
+- ✅ SETTINGS menu group — settings.menu.group
+- ✅ Sidebar preferences per-user fix (drop stale unique index,
+  user_id NOT NULL, race-safe get-or-create)
+- ✅ My Preferences tab bug fix (IntegrityError import)
 
 Additional items from the AppFolio Manager Guide (PDF cross-check,
 2026-09-21) — these are tracked in the JSON but were missing from
@@ -2379,7 +2447,15 @@ the summary:
 
 ---
 
-# SECTION 58 — DISPLAY SETTINGS (DESIGNED, NOT YET BUILT)
+# SECTION 58 — DISPLAY SETTINGS (BUILT — Phase 3.5, PARTIAL)
+
+STATUS (2026-09-22): The Display page is BUILT and save works for
+ADMIN/OWNER (theme, layout mode, date format, currency, density,
+number format, font size, accent, reduce motion). PARTIAL: no page
+consumes any of these settings yet. Theme sets data-theme on <html>
+but no dark-mode CSS exists. Layout mode saves but no page reads it.
+Date format saves but no page calls formatDate(). The retrofit to
+make pages consume these is Phase 3.5.5 (Compliance Pass).
 
 One page under Settings → Display. Per-user preferences.
 Infrastructure built once, every page inherits both layouts/themes.
@@ -2426,7 +2502,16 @@ Default for new users: Tabs + Light (matches today's look)
 
 ---
 
-# SECTION 59 — PER-ORG CURRENCY (DESIGNED, NOT YET BUILT)
+# SECTION 59 — PER-ORG CURRENCY (BUILT — Phase 3.5, PARTIAL)
+
+STATUS (2026-09-22): The organizations.currency column is BUILT and
+PUT /api/settings/display persists it for ADMIN/OWNER. Custom
+currencies CRUD is BUILT (see Section 68). PARTIAL: the Display page
+currency dropdown is still hardcoded — it does NOT fetch custom
+currencies from /api/settings/currencies. And no existing page uses
+formatMoney() yet; every amount still renders with a hardcoded $.
+The Display-dropdown fix and the formatMoney() sweep are Phase 3.5.5
+(Compliance Pass).
 
 Each customer organization operates in ONE currency.
 No exchange, no conversion, no cross-currency transactions.
@@ -2785,127 +2870,6 @@ How it gets updated: via a Python script that replaces blocks
 (find-and-replace on # SECTION markers) or appends new sections
 before
 
-Every session that changes the project MUST end with these steps,
-in this exact order. No exceptions. No "I'll do it next time."
-
-## The rule
-
-If you finish a module without touching BOTH the master doc AND
-the parity JSON, the session is NOT complete. Do not push.
-
-## The steps
-
-### 1. Update the master doc
-
-Script names (in backend/):
-
-    update_master_p1.py   -- content edits (blocks, sections)
-    update_master_p2.py   -- new section appends
-
-Both scripts write the whole updated file. Never hand-edit
-PROJECT_MASTER.md. Delete the scripts after running them.
-
-What goes in the master doc:
-- Part A1 -- current state ("last completed work")
-- Part B1 -- immediate next action
-- Section 38 -- build order status
-- Section 57 -- parity audit summary
-- Any new Section for a new module
-
-### 2. Update the parity JSON
-
-File:  docs/APPFOLIO_PARITY_CHECKLIST.json
-
-Two ways to update:
-
-    (a) small changes -- open in VS Code, edit by hand
-    (b) bulk changes  -- write  update_checklist.py  in backend/,
-                         run it, then delete it
-
-What goes in the JSON:
-- Flip completed items from "scheduled" to "built"
-- Add any new features that were not tracked
-- Every new item MUST have a status and (if scheduled) a phase
-- Never remove an item -- mark it "built" or add a note
-
-### 3. Verify
-
-    python check_parity.py          -> must print CLEAN
-    count sections in the master doc -> must equal last section number
-    git status                       -> must show only the files you meant to commit
-
-If check_parity.py prints FAILURES, the session is not done.
-
-### 4. Delete one-off scripts
-
-Remove from backend/:
-
-    update_master_p1.py
-    update_master_p2.py
-    update_checklist.py
-    fix_*.py
-    rebuild_*.py
-    patch_*.py
-    add_*.py
-
-They are gitignored, but delete them anyway. Do not let them pile up.
-
-### 5. Regenerate the FILE CATALOG (if new files were added or renamed)
-
-Run:
-
-    cd backend
-    python generate_file_catalog.py
-
-This rewrites docs/FILE_CATALOG.md with an up-to-date
-inventory of every backend Python file and every frontend
-TS/TSX file - classes, routes, exports, migration chain.
-
-Run this step if the session added, renamed, or deleted
-any source files. Skip only if the session was a pure edit
-to existing files with no new filenames.
-
-This keeps Section 69 (FILE MAP) and FILE_CATALOG.md in
-sync with reality, so the next session never has to guess
-where something lives.
-
-### 6. Push
-
-Milestone commits -- open PowerShell, cd to project root:
-
-    git add .
-    git commit -m "<descriptive message>"
-    git push
-
-Routine saves -- double-click push.bat on the desktop.
-
-push.bat refuses to push backups (.backup-*, *.bak) or one-off
-scripts (update_*, fix_*, rebuild_*, patch_*). If it aborts,
-delete those files and re-run.
-
-### 7. Report back
-
-Say: "Session closed. HEAD = <hash>. check_parity.py CLEAN."
-
-This is the signal that the session is truly complete.
-
-## Why this matters
-
-The master doc, the JSON, and the code drift apart quickly if any
-one of them is updated without the others. Every prior session
-that forgot one of them created a mismatch that took a later
-session to untangle. Do all three, in order, every time.
-
-## What NOT to do
-
-- Do not push without running check_parity.py.
-- Do not update the master doc without updating the JSON.
-- Do not update the JSON without updating the master doc.
-- Do not hand-edit PROJECT_MASTER.md.
-- Do not commit backup files or one-off scripts.
-- Do not skip the push just because "nothing changed" -- if nothing
-  changed, you did not do any work this session.
-
 # SECTION 67 - SESSION CLOSE CHECKLIST (MANDATORY)
 
 Every session that changes the project MUST end with these steps,
@@ -3019,6 +2983,36 @@ one of them is updated without the others. Every prior session
 that forgot one of them created a mismatch that took a later
 session to untangle. Do all three, in order, every time.
 
+## Compatibility rule (added 2026-09-22)
+
+No new Section, item, or flag may remove, disable, rename, re-scope,
+or change the default of an existing feature. Sections 70+ are
+additive. Existing features keep their current behavior, availability,
+and default state. If a change would affect an existing feature's
+behavior, it must be scheduled as its own item with its own migration
+-- never folded silently into a new section.
+
+## Complete-page rule (added 2026-09-22)
+
+Every page ships with its full planned surface -- not just the
+currently-built portions. Unbuilt features render as hidden slots,
+gated by a feature flag. Sessions that build a page with missing
+planned slots do not close.
+
+## Primitives rule (added 2026-09-22)
+
+Every page uses the shared primitives: money() / formatMoney(),
+formatDate(), and useDisplay(). No hardcoded $, "USD", "MM/DD/YYYY",
+or hardcoded theme colors. Existing pages are retrofitted once in
+Phase 3.5.5 (Compatibility Pass) -- behavior-preserving.
+
+## Flag rule (added 2026-09-22)
+
+Every new menu item, page, tab, field, button, and section is
+registered with a platform feature flag from day one. Default state
+is HIDDEN. Flipping the flag is the only action needed to go live.
+See Section 80 (Platform Feature Gating).
+
 ## What NOT to do
 
 - Do not push without running check_parity.py.
@@ -3028,9 +3022,16 @@ session to untangle. Do all three, in order, every time.
 - Do not commit backup files or one-off scripts.
 - Do not skip the push just because "nothing changed" -- if nothing
   changed, you did not do any work this session.
+- Do not remove, disable, rename, re-scope, or change the default of
+  any existing feature.
 
 
-# SECTION 68 — CUSTOM CURRENCIES (BUILT — Phase 3.5)
+# SECTION 68 — CUSTOM CURRENCIES (BUILT — Phase 3.5, PARTIAL)
+
+STATUS (2026-09-22): Infrastructure is BUILT — table, model, router,
+CRUD page, 9 seeded system currencies per org. PARTIAL: the Display
+page currency dropdown does NOT fetch this list yet (still hardcoded)
+and no page uses formatMoney(). Both are Phase 3.5.5.
 
 Customers can pick a currency, and can add their own.
 
@@ -3100,40 +3101,6 @@ USD, EUR, GBP, INR, AUD, CAD, NZD, SGD, AED.
 # SECTION 69 — FILE MAP (where everything lives)
 
 **Root:** C:\Projects\property-platform\
-
-## Companion document: docs/FILE_CATALOG.md
-
-`FILE_CATALOG.md` is an auto-generated inventory of every
-source file in the project - classes, routes, exports, and
-the migration chain, all extracted from the real code.
-
-Regenerate it any time with:
-
-    cd backend
-    python generate_file_catalog.py
-
-Section 67 requires regenerating it at the end of any session
-that added, renamed, or deleted source files.
-
-**Use this section (69) to know WHERE things live.
-Use FILE_CATALOG.md to know WHAT is inside each file.**
-
-## Companion document: docs/FILE_CATALOG.md
-
-`FILE_CATALOG.md` is an auto-generated inventory of every
-source file in the project - classes, routes, exports, and
-the migration chain, all extracted from the real code.
-
-Regenerate it any time with:
-
-    cd backend
-    python generate_file_catalog.py
-
-Section 67 requires regenerating it at the end of any session
-that added, renamed, or deleted source files.
-
-**Use this section (69) to know WHERE things live.
-Use FILE_CATALOG.md to know WHAT is inside each file.**
 
 ## Companion document: docs/FILE_CATALOG.md
 
@@ -3257,7 +3224,7 @@ Use FILE_CATALOG.md to know WHAT is inside each file.**
     "Where's the display/currency spec?" -> Sections 58 + 59 + 68
 
 
-# END OF PROJECT_MASTER.md. Never edited by hand.
+. Never edited by hand.
 
 ### APPFOLIO_PARITY_CHECKLIST.json (the checklist)
 
@@ -3295,7 +3262,6 @@ folder, venv active. Must print CLEAN before every push.
 
 Pattern: Two small scripts (part 1 and part 2) that either
 replace a block of the doc or append new sections before
-# END OF PROJECT_MASTER.md.
 
 Why two scripts: the doc is 85+ KB. Pasted as one giant script,
 the paste truncates. Split into two, each part is small enough
@@ -3426,5 +3392,975 @@ Three pastes, in this order:
 The new agent reads everything, follows the rules, starts from
 Part B1, and uses the three workflows above to keep everything
 current.
+
+
+# SECTION 70 — FEATURE FLAGS (DESIGNED)
+
+Every feature and every page in the platform is behind a feature flag.
+The flag is the single mechanism that controls visibility. Flipping it
+is the only action needed to go live.
+
+## Three levels of control
+
+1. **Platform** (our control) — is this feature or page live at all?
+2. **Org** (customer's Admin/Owner) — once platform-enabled, does the
+   org want it on? For which roles? For which users? Per-property?
+3. **User** (individual) — can the user hide it from their own view?
+
+All three must pass. See Section 80 for the platform stage model.
+
+## Five flag states
+
+Every flag declares one of:
+
+- **always_on** — not toggleable. The feature or setting is core.
+  Example: Audit Log (Section 71).
+- **default_on_sticky** — on by default. Cannot be turned off after
+  it has been used once. Example: per-org Backup Schedule. Once the
+  first backup runs, the flag is locked on. Only the schedule can be
+  changed afterward — not the on/off state.
+- **default_on_free** — on by default, freely toggleable. Example:
+  Tenant payment history export.
+- **default_off_sticky** — off by default. Cannot be turned on then
+  off after first use.
+- **default_off_free** — off by default, freely toggleable. Example:
+  Session timeout (Section 71), IP allowlist, quiet hours.
+
+## Registry schema
+
+Every feature and page is registered. Fields:
+
+    key                e.g. "accounting.charges.print_receipt"
+    display_name       "Print Receipt"
+    description        one-line, human
+    scope              org | user | property | portal
+    state              one of the five states above
+    default            true | false
+    used_when          (for sticky states) how "used once" is detected
+    config_schema      (json) what settings this flag exposes when on
+    platform_stage     HIDDEN | BETA | ROLLOUT | ALL_ORGS  (Section 80)
+    platform_beta_orgs specific org ids when stage = BETA
+    platform_rollout_orgs specific org ids when stage = ROLLOUT
+    org_overridable    true | false (can the org turn it off?)
+    org_role_defaults  per-role default state
+    org_can_override_per_user  true | false
+    org_can_override_per_property  true | false
+    org_can_override_per_portal  true | false
+    user_hideable      true | false (can the user hide it from own view?)
+    menu_key           (if this adds a sidebar item)
+    page_route         (if this adds a page)
+    dependencies       [keys of other flags this one needs]
+
+## The integration with menu gating
+
+Today's menu resolver (Section 9, 4-layer) becomes 5-layer:
+1. Platform stage (this section + Section 80)
+2. Plan / subscription
+3. Role matrix
+4. User overrides
+5. Personal hiding
+
+Full visibility formula:
+
+    visible =
+        (platform_stage passes for this org)
+        AND (plan_gate)
+        AND (org_default AND role_allowed)
+        AND (not user_overridden)
+        AND (not user_personally_hidden)
+
+## Audit
+
+Every flag flip (platform stage change, org default change, per-user
+override) writes to audit_log. Who, when, old value, new value.
+
+## What this means for building
+
+Nothing new ships visible. Everything is behind a flag from day one.
+Flipping the flag is the release. No deploy. No page edits.
+
+## Where this lands in the plan
+
+- Registry schema + storage: Phase 9 (Platform Gating)
+- Settings → Features page (org-level toggles): Phase 9
+- Internal admin panel to flip platform stages: Phase 9
+- Integration with the menu resolver as Layer 1: Phase 9
+- WebSocket propagation of stage changes: Phase 6 (when messaging ships)
+
+
+# SECTION 71 — SETTINGS UNIVERSE (DESIGNED)
+
+The full catalog of every setting across the platform, grouped by
+section, with its scope and who can change it.
+
+## Scopes
+
+- **org** — one value per organization, set by Admin (and Owner).
+  Applies to everyone in the org.
+- **user** — one value per user, set by the user themselves.
+- **property** — one value per property, set by Admin/Owner.
+- **portal** — one value per portal (Tenant/Owner/Vendor/Crew).
+
+## Who can change what
+
+- **org** settings: ADMIN always; OWNER for most; MANAGER for some
+  (configurable via the Role Matrix, Section 42).
+- **user** settings: the user themselves.
+- **property** settings: ADMIN, OWNER.
+- **portal** settings: ADMIN, OWNER.
+
+## The catalog
+
+### Identity / Branding (org)
+
+Company Name, Tagline, Logo, Favicon, Address (line 1, line 2, city,
+state, zip, country), Phone, General Email, Support Email, Billing
+Email, Website, Legal Name, DBA, Tax ID / EIN, Business Hours, Time
+Zone, Owner Packet cover letter text.
+
+Logo spec: recommended 400×100px, auto-scaled with `max-height`,
+aspect ratio preserved, never cropped or stretched, fallback to
+company name text if no logo.
+
+Where each field shows: portal headers, sidebar, email headers,
+invoice/bill/statement PDFs, letters, public listings (see Section 72).
+
+### Language & Locale (org, with user override)
+
+Default Language (English, Spanish, etc.), Date Format (US / ISO / EU),
+Number Format (US / EU / Space), Currency (Section 59), First Day of
+Week (Sunday / Monday), Measurement System (Imperial / Metric).
+
+### Accounting (org)
+
+Fiscal Year Start Month, Accounting Basis (Accrual default | Cash) —
+report layer only, Key Accounts (each default GL account), GPR
+Accounts, Receipts application order (oldest first / GL order /
+manual), Check Numbering, Management Fee defaults, 1099 settings,
+Approval thresholds.
+
+### Operations (org)
+
+Business Hours, Weekend / Holiday Calendar, Default Lease Term,
+Default Application Fee, Default Screening Criteria, Late Fee
+defaults, Delinquency aging buckets, Work Order priorities and SLAs.
+
+### Security (org, feature-flagged)
+
+Two-Factor Authentication (always / optional / never), Session
+Timeout (minutes of inactivity before logout; default off until org
+turns it on), Idle Warning (minutes before logout), Maximum Session
+Length (hard cap), Concurrent Sessions Allowed (1 / N / unlimited),
+IP Allowlist, Password Policy (min length, complexity), Login History
+(on/off), Active Sessions (view and revoke).
+
+### Notifications (org + user)
+
+Which events send emails, Who receives them, SMS on/off, Reply-to
+address, Signature (per-user), Quiet hours (per-user).
+
+### Documents (org)
+
+Invoice template, Email templates (per event), Statement template,
+Letter templates, File retention policy.
+
+### Integrations (org)
+
+SMTP (built), SMS provider, Screening provider (built), Payment
+processor (Stripe), Bank feeds (Plaid), Listing syndication partners,
+Webhook endpoints, API keys.
+
+### Data (org)
+
+Export preferences (default CSV / Excel / Both — see Section 72),
+Backup Schedule (frequency, time, retention, destination),
+Audit log retention (default 1 year, configurable 30 days to forever).
+
+### Display (user)
+
+Layout mode (Tabs / Vertical), Theme (Light / Dark / Auto), Density
+(Compact / Comfortable / Spacious), Date format, Number format,
+Font size, Accent color, Reduce motion.
+
+### My Settings (user)
+
+Profile (name, email, phone, photo), Password, Two-factor, Login
+history, Active sessions, Notification preferences, Language
+override, Export format override.
+
+### Per-property (org)
+
+Property-specific bank account, Property-specific statement format,
+Property-specific late fee policy, Property-specific default GL
+accounts, Per-property logo (feature-flagged).
+
+### Per-portal (org)
+
+Logo, colors, welcome text, enabled features for each portal
+(Tenant / Owner / Vendor / Crew). Feature-flagged.
+
+## The rule
+
+Every setting is scoped. Every setting declares who can change it.
+No setting is ambiguous. The Settings → Features page (Section 70)
+lists toggles that gate the optional settings. Turning a feature off
+removes its settings from the UI without losing data.
+
+## Where this lands in the plan
+
+- Company branding + time zone: Phase 3.6
+- Display settings: built (Phase 3.5, partial)
+- Security settings: Phase 4
+- Notifications: Phase 6
+- Documents templates: Phase 3.7
+- Integrations: Phase 8
+- Data (export, backup, retention): Phase 4
+- Per-property / per-portal branding: Phase 3.6 / Phase 7
+
+
+# SECTION 72 — DOCUMENTS & EXPORTS (DESIGNED)
+
+Every report, every list, every generated document. Print, PDF, and
+export-format controls. Customizable templates. Per-role exports.
+
+## Reports and lists
+
+Every report and every list a user can see has:
+- **Print** button — opens the browser's print dialog with a print-
+  optimized layout (no sidebar, no top bar, no buttons).
+- **Download PDF** button — server-side PDF, consistent across
+  browsers.
+- **Export** button — CSV or Excel, depending on the org's setting.
+
+One export button per report. Not two, not a dropdown of everything.
+The format is controlled by the org setting:
+
+- `CSV` — button says "Export CSV"
+- `EXCEL` — button says "Export Excel"
+- `BOTH` — button says "Export ▾" with a dropdown (CSV / Excel)
+
+Where the setting lives: Settings → Reports → Export Format.
+Default: CSV.
+
+## Documents
+
+Every generated document has **Download PDF**:
+- Invoices (rent invoices)
+- Bills
+- Receipts
+- Owner statements
+- Owner packets
+- Letters (3-Day Notice, Rent Increase, Deposit Disposition, etc.)
+- Lease documents
+- Work orders
+- Paystubs (when payroll is added)
+
+All PDFs use:
+- The org's logo, name, tagline, address, phone, email (Section 71)
+- The org's merge-field template for that document type
+- The org's color / font preferences where applicable
+
+## Merge tags in templates
+
+Templates support a bracketed merge-tag syntax:
+- `[COMPANY.NAME]` → Acme Property Management
+- `[COMPANY.TAGLINE]`
+- `[COMPANY.LOGO]`
+- `[ADDRESS.LINE_1]`
+- `[ADDRESS.CITY_STATE_ZIP]`
+- `[PHONE.MAIN]`
+- `[EMAIL.SUPPORT]`
+- `[EMAIL.BILLING]`
+- `[WEBSITE]`
+- `[TAX.ID]`
+- `[INVOICE.NUMBER]`, `[INVOICE.DATE]`, `[INVOICE.AMOUNT]`
+- `[TENANT.FIRST_NAME]`, `[TENANT.LAST_NAME]`
+- `[OWNER.FIRST_NAME]`
+- `[PROPERTY.NAME]`, `[PROPERTY.ADDRESS]`
+- `[TODAY.DATE]`
+
+Templates are plain text + merge tags. No HTML. No JavaScript. No CSS.
+No logic. Only substitution.
+
+## Customization is presentation-only
+
+No template, no logo, no color, no font can change:
+- What a report calculates
+- What an invoice totals
+- What a GL posting does
+- Any workflow, status, or system behavior
+
+The only operational field affected is time zone (Section 71), and
+it's a controlled dropdown, not freeform.
+
+## Per-role exports
+
+Every role exports their own data in the org's format:
+- **Tenant** — payment history, charge history, invoices, receipts,
+  lease, shared documents
+- **Owner** — statements, packets, transaction history
+- **Vendor** — work orders, invoices submitted, payments received,
+  insurance/W9 copies
+- **Crew** — work orders, schedule, time entries, paystubs
+- **Applicant** — application status, submitted documents, screening
+  result
+- **Manager / Admin / Owner** — everything they have access to
+
+Backend enforces scope: a tenant hitting `/api/export/payments` gets
+only their own payments. No role can export another role's data.
+
+## E-signatures
+
+Integration with DocuSign (or an alternative) for leases, addenda,
+and disclosures. Phase 8.
+
+## Secure document sending
+
+Expiring links, optional password, view-only mode. Phase 7/8.
+
+## Where this lands in the plan
+
+- Report Print + PDF + Export buttons: Phase 3.7
+- Merge-field templates: Phase 3.7
+- Invoice / bill / receipt / statement / letter PDFs: Phase 3.7
+- Per-role exports: Phase 7 (portals)
+- E-signature integration: Phase 8
+- Secure document sending: Phase 7/8
+
+
+# SECTION 73 — API SECURITY MODEL (DESIGNED)
+
+Every endpoint respects three levels of isolation. No exception.
+
+## Level 1 — Organization isolation
+
+Every table with customer data has `organization_id`. Every query
+filters by the caller's `organization_id`. No cross-org data leaves
+the database.
+
+## Level 2 — Role isolation
+
+Every endpoint declares which roles can call it. Enforced server-side,
+never trusted from the UI. Hitting an endpoint without permission
+returns 403 (or 404 if we don't want to leak existence).
+
+## Level 3 — Row-level isolation
+
+Within an org, non-admin roles see only their own records:
+- Tenant → own lease, charges, payments, documents, work orders
+- Owner → own properties, statements, packets
+- Vendor → own work orders, invoices, payments
+- Crew → own work orders, time logs
+- Applicant → own application
+
+If a user tries `/api/invoices/999` and 999 isn't theirs, backend
+returns 404.
+
+## Public endpoint whitelist
+
+The only routes accessible without authentication:
+- `/auth/login`
+- `/auth/signup`
+- `/auth/forgot-password`
+- `/auth/reset-password`
+- `/health`
+- Public listings page (read-only, no tenant data)
+- Public tracking page (token-protected, single request)
+- Stripe webhook (signature-verified)
+
+Every other endpoint requires JWT + org + role + row-level access.
+
+## No public API docs in production
+
+`/docs` and `/openapi.json` are disabled in production. The internal
+admin panel (Phase 9) can access them.
+
+## Every access audited
+
+Who called what, when, from what IP. Auth failures, permission
+denials, and rate-limit hits are logged. Audit is queryable in the
+Auditing Center (Section 71).
+
+## Defense in depth
+
+1. JWT required on every endpoint except the whitelist.
+2. Org filter on every query.
+3. Role check on every endpoint.
+4. Row-level filter on every returned record.
+5. 404-not-403 for out-of-scope records.
+6. Every access logged.
+7. Rate limiting (Phase 11).
+8. Optional IP allowlist for admin accounts (Phase 4).
+
+## Where this lands in the plan
+
+- Levels 1–3 already enforced in current code, tracked for audit:
+  Phase 1 (already built)
+- Public endpoint whitelist, no public docs: Phase 11
+- Audit log of every access: Phase 4
+- Rate limiting, WAF, CSP: Phase 11
+
+
+# SECTION 74 — SQL INJECTION PREVENTION (BUILT, RULES)
+
+No user input ever becomes raw SQL. Every query is parameterized.
+Every value is bound. No exceptions.
+
+## Rules
+
+1. All database access goes through SQLAlchemy ORM or bound
+   `.text()` with a params dict. No f-string or `%` into SQL.
+2. Sort / group / filter column names come from a whitelist dict,
+   never from user input directly.
+3. LIMIT is always clamped to a maximum (we already do:
+   `limit: int = Query(200, ge=1, le=2000)`).
+4. All query parameters are validated (type, length, pattern) via
+   Pydantic before use.
+5. LIKE patterns escape user-supplied `%` and `_` when the user
+   shouldn't wildcard.
+6. No `exec`, `eval`, or dynamic imports from user input.
+7. File names are validated against traversal.
+8. Every input schema declares types, lengths, and patterns.
+   Missing validation = rejected.
+9. Fuzz test per user-facing search / filter field, in CI:
+   at least one SQL injection attempt per field, expecting 422 or a
+   safe result.
+
+## What we already have
+
+- SQLAlchemy ORM everywhere.
+- post_transaction() and all services use bound queries.
+- FastAPI + Pydantic validates every request body.
+- `/uploads/{filename}` has traversal checks.
+
+## What we add
+
+- Shared whitelist helper for sort / group columns: Phase 4.
+- Fuzz test suite in CI: Phase 11.
+- Penetration test before launch: Phase 11.
+
+## Where this lands in the plan
+
+- Rules documented (this section): now
+- Sort whitelist helper: Phase 4
+- Fuzz tests in CI: Phase 11
+- Penetration test: Phase 11
+
+
+# SECTION 75 — FILE UPLOAD SECURITY (DESIGNED)
+
+Thirteen layers of defense. The user's original filename NEVER
+touches a query, a path, or a shell.
+
+## The layers
+
+1. **Extension allowlist** — only .png, .jpg, .jpeg, .gif, .webp,
+   .svg (sanitized), .pdf, .doc, .docx, .xls, .xlsx. No .php, .py,
+   .js, .html, .exe, .sh, .bat, .ps1, .zip, .tar, .gz.
+2. **Magic-byte check** — read the file's first bytes to confirm
+   its true type matches the claimed extension. Do not trust the
+   `Content-Type` header from the browser.
+3. **UUID rename** — the user's filename is display-only. The
+   stored filename is an app-generated UUID plus the validated
+   extension. Kills path traversal, shell names, overwrite, and
+   SQL injection via filename.
+4. **Outside web root** — files land in `uploads/` which is never
+   served directly by the web server.
+5. **Content-Disposition: attachment** — never inline a PDF, SVG,
+   or HTML file. Forces download.
+6. **Antivirus scan** — every uploaded file is scanned with ClamAV
+   (or a cloud AV API). Known signatures rejected, file deleted,
+   event logged.
+7. **Content Disarm & Reconstruction** for Office / PDF — strip
+   macros, JavaScript, embedded objects, and shells. For SVG,
+   sanitize with defusedxml + strip `<script>`, `onload=`,
+   `xlink:href`, external references.
+8. **Size limits** — per-file max 10 MB (configurable per org).
+   No `.zip`, `.tar`, `.gz` (ZIP bomb prevention).
+9. **CSRF protection** — upload endpoint requires JWT; SameSite
+   cookies + CSRF token if cookies are ever used.
+10. **HTML-encode filenames** for display — prevents stored XSS
+    via a filename like `<script>alert(1)</script>.pdf`.
+11. **Permission check per upload** — the uploader must have
+    access to the entity they're attaching to (row-level scope,
+    same as everything else).
+12. **Audit every upload** — who, when, what file, from where,
+    hash of the file, scan result. Every rejection logged with
+    reason.
+13. **No execution** — the backend server never executes anything
+    in the uploads folder. In production, uploads go to S3.
+
+## Where this lands in the plan
+
+- Layers 1–13: Phase 4
+- CDR (Content Disarm & Reconstruction): Phase 4
+- S3 migration: Phase 11
+
+
+# SECTION 76 — APPFOLIO PARITY & MIGRATION STRATEGY (DESIGNED)
+
+Most clients migrating to us come from AppFolio. Everything here is
+about making that migration smooth and the product familiar.
+
+## Data import wizard
+
+CSV upload + column mapping + validation + dry run + commit.
+Properties, units, tenants, owners, vendors, leases, charges,
+payments, GL history. Phase 4.
+
+## Onboarding checklist
+
+What a new org does first: add property → add units → add team →
+set currency → set branding → import data → publish listings.
+Phase 4.
+
+## Terminology map
+
+Use the same labels AppFolio uses. Bills not Payables. Receipts not
+Payments In. Owner Statements not Owner Reports. Keeps the switch
+painless. Already applied (see Section 47).
+
+## Navigation alignment
+
+Same top-level nav order: Dashboard, Properties, People, Accounting,
+Maintenance, Reporting, Communication, Settings. Same sub-item names
+where possible. Already applied (Section 5).
+
+## Workflow alignment
+
+Move In 5-step, Move Out 5-step, Increase Rent, Charge Late Fees.
+Same sequence as AppFolio so it feels familiar. Already applied
+(Section 17).
+
+## Feature parity items from AppFolio
+
+- Loan tracking — monitor loans payable, automated transaction
+  creation. Phase 4.5.
+- Bulk tenant charges — upload multiple charges at once.
+  Phase 3.6.
+- Tenant Debt Collections workflow — standardized collections
+  process. Phase 4.
+- Deposit refunds directly from escrow. Phase 3.6.
+- Auto bank reconciliation via Plaid — we planned generic bank
+  feeds (Phase 8). Plaid specifically.
+- E-signature integration. Phase 8.
+- Secure document sending. Phase 7/8.
+
+## Where this lands in the plan
+
+- Data import wizard: Phase 4
+- Onboarding checklist: Phase 4
+- Loan tracking: Phase 4.5
+- Bulk charges: Phase 3.6
+- Collections workflow: Phase 4
+- Escrow refunds: Phase 3.6
+- E-signature: Phase 8
+- Secure send: Phase 7/8
+- Plaid bank feeds: Phase 8
+
+
+# SECTION 77 — ADVANCED SECURITY & FRAUD PREVENTION (DESIGNED)
+
+Everything AppFolio does on the security and fraud side that we
+should match or exceed.
+
+## Continuous monitoring
+
+Every auth event (success, failure, MFA, password reset) is logged
+with IP, user-agent, and geolocation. Auth patterns are monitored.
+Anomalies trigger alerts. Phase 4.
+
+## Login anomaly detection
+
+New IP for a user, new device, rapid failures, impossible travel —
+flagged. High-risk logins require re-authentication or step-up MFA.
+Phase 4.
+
+## Identity verification
+
+For applicants, owners, vendors. Integrate with a provider
+(Stripe Identity, Persona, Jumio). Phase 8.
+
+## Transaction monitoring
+
+Flag suspicious payment patterns — many small charges, rapid
+reversals, unusual amounts, changes to ACH details. Phase 8.
+
+## OFAC / geographic restrictions
+
+Block signups and logins from sanctioned regions. Phase 11.
+
+## Security testing
+
+- Penetration test before public launch. Phase 11.
+- Dependency scanning in CI (Dependabot, Snyk). Phase 11.
+- SAST / DAST in CI. Phase 11.
+
+## Where this lands in the plan
+
+- Continuous monitoring + login anomaly: Phase 4
+- Identity verification: Phase 8
+- Transaction monitoring: Phase 8
+- OFAC / geo: Phase 11
+- Security testing: Phase 11
+
+
+# SECTION 78 — RESPONSIBLE AI FRAMEWORK (DESIGNED)
+
+We do not currently use AI for any tenant-facing decision (screening,
+rent determination, maintenance priority, or lease approval). If we
+add AI features in the future, they follow this framework.
+
+## Five principles (mirroring AppFolio for migration familiarity)
+
+1. **Fairness** — no bias in AI outputs. No protected class used as
+   input. Regular fairness audits on any deployed AI feature.
+2. **Reliability** — AI works as intended, resistant to misuse.
+   Fallback to a human path is always available.
+3. **Privacy & Security** — data protection, governance compliance.
+   No customer data used for model training without explicit consent.
+4. **Transparency** — AI is easy to understand. Users know when
+   they're interacting with AI vs. a human.
+5. **Accountability** — we own the impact. Regular reviews of every
+   deployed AI feature.
+
+## Hard rules
+
+- **Human-in-the-loop** for anything consequential. AI never
+  approves a lease, denies an applicant, sets rent, or closes a work
+  order on its own.
+- **No AI for screening decisions.** Fair Housing Act compliance
+  requires human decision-making with documented rationale.
+- **No AI for lease approval.**
+- **No AI for financial decisions.**
+- **Audit trail** of every AI-assisted action: model version, prompt,
+  human approver, timestamp.
+- **Data protection** — no customer data used for training without
+  explicit consent.
+- **Vendor assessment** — if we integrate third-party AI, we verify
+  their responsible AI posture first.
+
+## Planned AI features (Phase 12+)
+
+- **ai.maintenance_intake** — guide residents through self-help
+  troubleshooting before dispatch. Human always reviews before any
+  work order is created.
+- **ai.message_drafting** — suggest replies to resident messages.
+  Manager edits and sends. Draft never goes out unedited.
+- **ai.report_summarization** — plain-English summaries of reports.
+  Read-only. Never changes numbers.
+- **ai.leasing_lead_draft** — draft responses to prospects. Manager
+  approves before sending.
+
+Every AI feature is behind a feature flag (Section 70). Default is
+HIDDEN. AI features never bypass human-in-the-loop.
+
+## Where this lands in the plan
+
+- This framework: now (documented)
+- Maintenance intake AI: Phase 12+
+- Message drafting AI: Phase 12+
+- Report summarization AI: Phase 12+
+- Leasing lead draft AI: Phase 12+
+
+
+# SECTION 79 — BUILD-IN-PLACE POLICY (DESIGNED)
+
+Every page ships with its full planned surface. Built features render
+normally. Unbuilt features render as hidden slots behind a flag.
+Flipping the flag makes the feature appear on every page that
+references it — no page edits.
+
+## The rule
+
+A page is complete not when its visible UI is complete, but when
+every slot the plan says it should have exists — whether visible or
+hidden.
+
+Applies to:
+- Every tab on multi-tab pages (Property Detail, Tenant Detail, etc.)
+- Every field inside forms and detail views
+- Every button, link, and action
+- Every section (headers, panels, tables)
+- Every backend endpoint the plan calls for
+
+## How it works
+
+Every slot checks a feature flag (Section 70):
+
+    {flags.has("accounting.charges.print") && <PrintButton />}
+
+Off → hidden. On → appears. Same pattern for menus, tabs, sections,
+fields, buttons.
+
+## Retrofit of existing pages
+
+Existing pages were built before features existed. They get retrofitted
+once, page by page, in Phase 3.5.5 (Compliance Pass):
+
+- Uses formatMoney() / formatDate() for every value.
+- Reads theme / layout / density from useDisplay().
+- Uses CSS variables instead of hardcoded colors.
+- Renders every planned tab / field / button / section as a hidden
+  slot behind a flag.
+
+Behavior-preserving: nothing changes visually until a flag flips.
+
+## The promise
+
+- No page is ever rewritten again for currency, theme, layout, dates,
+  or any future feature.
+- Building a feature = build the backend + flip the flag. The UI
+  slot already exists.
+- Every new page from now on is born complete.
+
+## Where this lands in the plan
+
+- Policy: now (documented)
+- Retrofit of existing pages: Phase 3.5.5
+- New pages from here on: born with the pattern
+
+
+# SECTION 80 — PLATFORM FEATURE GATING (DESIGNED)
+
+Two levels of platform control over every feature and every page.
+Flipping a stage is the only action needed to go live.
+
+## The four platform stages
+
+1. **HIDDEN** — the feature or page exists in code but is invisible
+   to every org. Only we can see it (via the internal admin panel).
+   Default for anything new.
+2. **BETA** — visible only to specific pilot orgs we pick.
+   Configured via `platform_beta_orgs` (list of org ids).
+3. **ROLLOUT** — visible to specific orgs in a growing set.
+   Configured via `platform_rollout_orgs`.
+4. **ALL_ORGS** — visible to every org. The general availability
+   stage.
+
+## Rollout flow
+
+Hidden → Beta → Rollout → All Orgs. Each transition is one action.
+No deploy. No page edits. The change propagates:
+- Via WebSocket (Phase 6) — instant.
+- Otherwise — next page load.
+
+## Two levels of control
+
+Every feature / page has both:
+- A **platform stage** (our control, HIDDEN / BETA / ROLLOUT /
+  ALL_ORGS).
+- An **org state** (customer's control, once platform-enabled).
+  The org's Admin/Owner decides whether the org wants it on, for
+  which roles, for which users, per-property, per-portal.
+
+Both must pass for a user to see the feature:
+
+    visible =
+        (platform_stage passes for this org)
+        AND (org_default AND role_allowed)
+        AND (not user_overridden)
+        AND (not user_personally_hidden)
+
+## The 5-layer menu resolver
+
+Today's 4-layer menu gating (Section 9) becomes 5-layer:
+
+1. **Platform stage** — Layer 1 above.
+2. **Plan / subscription** — was Layer 1, now Layer 2.
+3. **Role matrix** — was Layer 2, now Layer 3.
+4. **User overrides** — was Layer 3, now Layer 4.
+5. **Personal hiding** — was Layer 4, now Layer 5.
+
+The existing 4 layers stay exactly as they are. The new platform
+stage is added on top as Layer 1.
+
+## Where we flip stages
+
+- **Internal admin panel** (Phase 9) — us only.
+- **Settings → Features** (Phase 9) — org-level toggles, but only
+  for features whose platform stage is BETA, ROLLOUT, or ALL_ORGS.
+
+## WebSocket propagation
+
+When a stage changes, connected clients receive an event. The menu
+re-renders, the feature appears, no page refresh needed. Requires
+Phase 6 (messaging WebSockets). Until then, propagation is on next
+page load.
+
+## Audit
+
+Every stage change is logged: who, when, old stage, new stage,
+which orgs (for BETA / ROLLOUT).
+
+## Where this lands in the plan
+
+- Registry + storage: Phase 9
+- Internal admin panel: Phase 9
+- Settings → Features page: Phase 9
+- Menu resolver 5-layer integration: Phase 9
+- WebSocket propagation: Phase 6 / Phase 9
+
+
+# SECTION 81 — BUILT & VERIFIED (LIVING LEDGER)
+
+Detailed, chronological record of every shipped item. Used to know
+what to trust. Updated at the end of every session.
+
+## Status legend
+
+- **DONE** — works end-to-end, verified in browser
+- **PARTIAL** — infrastructure built, consumption / wiring pending
+- **PENDING** — planned, not built
+
+## Session 2026-09-21 / 2026-09-22
+
+### DONE
+
+- **Sidebar preferences per-user fix.**
+  Dropped stale UNIQUE index on `sidebar_preferences.organization_id`
+  (leftover from the original org-scoped design). Made `user_id`
+  NOT NULL. Race-safe get-or-create in both routers. Added missing
+  `IntegrityError` import.
+  Migrations: `c0e4ac6f46b2`, `5949df11e460`.
+  Files: `backend/app/models/sidebar_preference.py`,
+  `backend/app/routers/sidebar_preference.py`,
+  `backend/app/routers/menu_permissions.py`.
+  Verification: My Preferences tab works for all users.
+
+- **My Preferences tab in Settings → Permissions.**
+  Now saves. Race-safe. Same migrations and files as above.
+
+- **Custom Currencies CRUD.** (See also PARTIAL below.)
+  Table `currencies`, model `Currency`, router
+  `/api/settings/currencies`, page
+  `/dashboard/settings/currencies`.
+  Migrations: `8e1243432666` (table + 9 seeds).
+  Menu key: `SETTINGS.CURRENCIES` + migration `15d92d8a1eea`.
+  Files: `backend/app/models/currency.py`,
+  `backend/app/routers/currencies.py`,
+  `frontend/src/app/dashboard/settings/currencies/page.tsx`.
+
+- **Display Settings page.**
+  Layout mode, theme, date format, currency, density, number format,
+  font size, accent, reduce motion — all save.
+  Migrations: `8c2e766863c0` (org currency column),
+  `521035d0e411` (user_display_preferences table).
+  Files: `frontend/src/app/dashboard/settings/display/page.tsx`,
+  `frontend/src/contexts/CurrencyContext.tsx`,
+  `frontend/src/contexts/DisplayContext.tsx`,
+  `frontend/src/lib/money.ts`,
+  `backend/app/routers/settings_display.py`.
+
+- **SETTINGS menu group.**
+  Display, Currencies, Menu Permissions, Sidebar wired to the sidebar.
+  Migration `15d92d8a1eea`.
+  Files: `backend/app/constants/menu_keys.py`,
+  `frontend/src/lib/menuConfig.ts`,
+  `frontend/src/components/shell/Sidebar.tsx`.
+
+- **Charges feature** (Phase 3.6 item 1).
+  Table `charges`, model, router, list page, new page, menu key.
+  Migrations: `f49b93dcb1e2` (table), `3909fd7c7792` (menu key).
+  Files: `backend/app/models/charge.py`,
+  `backend/app/routers/charges.py`,
+  `frontend/src/app/dashboard/accounting/charges/page.tsx`,
+  `frontend/src/app/dashboard/accounting/charges/new/page.tsx`.
+
+- **FILE_CATALOG.md generator.**
+  `backend/generate_file_catalog.py` writes
+  `docs/FILE_CATALOG.md` with every source file and what's inside.
+  Regenerate at the end of any session that added / renamed / deleted
+  files.
+
+- **Master doc repairs and updates this session.**
+  Repaired three corruptions (duplicate END markers, orphaned
+  Section 67 body inside Section 65, triple Companion block in
+  Section 69). Rewrote Part A + Part B. Extended Section 9 to
+  5-layer. Updated Section 11 HEAD. Inserted Phase 3.5.5 in
+  Section 38. Updated Sections 57, 58, 59, 67, 68 with status.
+  Added this section and Sections 70–80.
+
+### PARTIAL
+
+- **Currency in the Display page.**
+  * Saves: `PUT /api/settings/display` persists
+    `organizations.currency` for ADMIN/OWNER.
+  * Missing: the Display page currency dropdown is still hardcoded.
+    It does NOT fetch custom currencies from
+    `/api/settings/currencies`. Custom currencies don't appear there.
+  * Missing: no page uses `formatMoney()` yet. Every amount still
+    renders with a hardcoded `$`.
+  * Fix: Phase 3.5.5 (Compliance Pass).
+
+- **Display settings consumption.**
+  * Theme saves and sets `data-theme` on `<html>`; no dark-mode CSS
+    exists yet, so nothing visually changes.
+  * Layout mode saves; no page reads it.
+  * Date format saves; no page calls `formatDate()`.
+  * Density, font size, number format, accent, reduce motion: saved
+    on backend, UI shows "Coming soon", nothing consumes them.
+  * Fix: Phase 3.5.5.
+
+### PENDING
+
+- **Phase 3.5.5 Compliance Pass** — retrofit existing pages to use
+  the shared primitives and gate every future feature behind a flag.
+  Behavior-preserving. See Section 79.
+
+- **Phase 3.6 continues** — 69 of ~70 items remain.
+
+- **All of Sections 70–80** — designed, not yet built. Each has its
+  phase listed in its own section.
+
+## Earlier sessions
+
+- Sessions 1–17: auth, properties, units, people, leases, work
+  orders, password reset, org email, uploads, team UI, property
+  detail tabs, financials, taxes, policies, utilities, insurance,
+  expenses, income, tenant insurance, applicant role, screening,
+  OCR settings.
+- Phase 1: Menu Permissions System.
+- Phase 2 Steps 1, 2, 2b, 4, 5, 6, 7, 8a, 8b, 9, 10.
+- Phase 3 Steps 3a, 3b, 3c, 3d.
+
+## Page Surface Completeness
+
+For each existing page, the plan lists what it should have. Currently
+most pages show only the built portion. The retrofit (Phase 3.5.5)
+adds the full planned surface with unbuilt slots hidden behind flags.
+
+Status (all pending Phase 3.5.5 retrofit):
+
+- Receipts — uses `$` hardcoded. Needs: primitives, Print, Repeat,
+  edit-lock-after-deposit, cash-account-automatic.
+- Bills — needs: primitives, cash-account-field, recurring, write-
+  checks, enter-credit, delete-rules, post-codes.
+- Deposits — needs: primitives, Print, date-warning, number-per-bank,
+  edit.
+- GL Accounts — needs: primitives, recalculate-balances, hide-
+  semantics, offset-account UI, must-clear UI.
+- Journal Entries — needs: primitives, sub-tabs, recurring, manually-
+  post, post-gpr, remarks-vs-description.
+- Management Fees — needs: primitives, pay-owners flow,
+  overcollection, exclusions-list.
+- Owner Statements — needs: primitives, required-reserves,
+  prepaid-rent, property-cash-summary, packet-customizer.
+- Bank Accounts — needs: primitives, reconciliation, QIF, check-setup,
+  ACH-file-gen, adjustments, bank-feed.
+- Charges — needs: primitives (was just built — the primitives rule
+  applies starting now), edit-rules already enforced.
+- Properties — needs: primitives on every tab.
+- Currencies — needs: primitives; display-dropdown-fetch is the
+  key item.
+- Display — needs: primitives on its own controls; layout-mode
+  consumed by pages; theme consumed by CSS; date format consumed
+  by pages.
+- Permissions — needs: primitives.
+- Sidebar — needs: primitives.
+
+The retrofit is one page at a time. Behavior-preserving. Every page
+stays exactly the same visually until a flag flips.
+
 
 # END OF PROJECT_MASTER.md

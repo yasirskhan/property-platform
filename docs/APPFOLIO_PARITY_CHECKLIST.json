@@ -8,13 +8,13 @@
       "planned_no_phase": "Planned but no phase assigned yet -- THIS IS A BUG",
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
-    "last_updated": "2026-09-21",
-    "migration_head": "3909fd7c7792",
+    "last_updated": "2026-09-22",
+    "migration_head": "5949df11e460",
     "roadmap_section": "PROJECT_MASTER.md Section 57 (summary) + Section 38 (build order)",
     "canonical_note": "This JSON is the single source of truth for feature coverage and phase. Every item must have a status and, if scheduled, a phase. check_parity.py enforces this.",
-    "total_items": 385,
-    "built_count": 101,
-    "scheduled_count": 284,
+    "total_items": 528,
+    "built_count": 110,
+    "scheduled_count": 418,
     "in_progress_count": 0
   },
   "items": [
@@ -2741,6 +2741,999 @@
       "status": "built",
       "phase": "3.5",
       "notes": "/dashboard/settings/display - was built earlier but not in the sidebar until now."
+    },
+    {
+      "id": "platform.feature_flags.system",
+      "area": "Platform / Feature Flags",
+      "feature": "Feature flag registry (schema, storage, five states)",
+      "status": "scheduled",
+      "phase": "9"
+    },
+    {
+      "id": "platform.feature_flags.three_tier",
+      "area": "Platform / Feature Flags",
+      "feature": "Three-tier control (platform / org / user)",
+      "status": "scheduled",
+      "phase": "9"
+    },
+    {
+      "id": "platform.feature_flags.settings_page",
+      "area": "Platform / Feature Flags",
+      "feature": "Settings -> Features page (org-level toggles)",
+      "status": "scheduled",
+      "phase": "9"
+    },
+    {
+      "id": "platform.feature_flags.audit",
+      "area": "Platform / Feature Flags",
+      "feature": "Audit every flag flip (who, when, old/new)",
+      "status": "scheduled",
+      "phase": "9"
+    },
+    {
+      "id": "platform.feature_flags.sticky_states",
+      "area": "Platform / Feature Flags",
+      "feature": "default_on_sticky / default_off_sticky + used_when rules",
+      "status": "scheduled",
+      "phase": "9"
+    },
+    {
+      "id": "settings.company.branding",
+      "area": "Settings / Company",
+      "feature": "Company branding (name, tagline, logo, address, phone, email, website, tax ID)",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "settings.company.logo_upload",
+      "area": "Settings / Company",
+      "feature": "Logo upload with auto-scale (max-height, preserve aspect, no crop)",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "settings.company.timezone",
+      "area": "Settings / Company",
+      "feature": "Per-org time zone (dropdown)",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "settings.company.owner_packet_cover",
+      "area": "Settings / Company",
+      "feature": "Owner Packet cover letter text",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "settings.language.multi",
+      "area": "Settings / Language",
+      "feature": "Multi-language support",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "settings.accounting.fiscal_year",
+      "area": "Settings / Accounting",
+      "feature": "Fiscal year start month + report defaults",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "settings.security.two_factor",
+      "area": "Settings / Security",
+      "feature": "Two-factor authentication",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "settings.security.session_timeout",
+      "area": "Settings / Security",
+      "feature": "Session timeout (per-org minutes of inactivity, optional)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "settings.security.idle_warning",
+      "area": "Settings / Security",
+      "feature": "Idle warning before logout",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "settings.security.max_session",
+      "area": "Settings / Security",
+      "feature": "Maximum session length (hard cap)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "settings.security.concurrent_sessions",
+      "area": "Settings / Security",
+      "feature": "Concurrent sessions allowed (1 / N / unlimited)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "settings.security.ip_allowlist",
+      "area": "Settings / Security",
+      "feature": "IP allowlist for admin accounts",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "settings.security.password_policy",
+      "area": "Settings / Security",
+      "feature": "Password policy (min length, complexity)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "settings.security.login_history",
+      "area": "Settings / Security",
+      "feature": "Login history",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "settings.security.active_sessions",
+      "area": "Settings / Security",
+      "feature": "Active sessions (view and revoke)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "settings.audit.log",
+      "area": "Settings / Auditing",
+      "feature": "Audit Log (always on, retention configurable)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "settings.audit.retention",
+      "area": "Settings / Auditing",
+      "feature": "Audit log retention (30 days to forever, default 1 year)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "settings.data.backup_schedule",
+      "area": "Settings / Data",
+      "feature": "Per-org backup schedule (frequency, time, retention, destination)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "settings.data.backup_restore",
+      "area": "Settings / Data",
+      "feature": "Restore from backup",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "settings.data.export_preferences",
+      "area": "Settings / Data",
+      "feature": "Data export preferences",
+      "status": "scheduled",
+      "phase": "8"
+    },
+    {
+      "id": "settings.developer.api_keys",
+      "area": "Settings / Developer",
+      "feature": "API keys",
+      "status": "scheduled",
+      "phase": "8"
+    },
+    {
+      "id": "settings.communication.quiet_hours",
+      "area": "Settings / Communication",
+      "feature": "Quiet hours (per-user)",
+      "status": "scheduled",
+      "phase": "6"
+    },
+    {
+      "id": "settings.branding.per_property_logo",
+      "area": "Settings / Branding",
+      "feature": "Per-property logo (feature-flagged)",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "settings.branding.per_portal",
+      "area": "Settings / Branding",
+      "feature": "Per-portal branding (Tenant / Owner / Vendor / Crew)",
+      "status": "scheduled",
+      "phase": "7"
+    },
+    {
+      "id": "reporting.export.excel",
+      "area": "Reporting",
+      "feature": "Export to Excel (.xlsx) on every report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "reporting.export.format_setting",
+      "area": "Reporting",
+      "feature": "Org export format setting (CSV | EXCEL | BOTH)",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "reporting.export.one_button",
+      "area": "Reporting",
+      "feature": "One export button per report, respects org format",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "reporting.pdf",
+      "area": "Reporting",
+      "feature": "Download PDF on every report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "reporting.print",
+      "area": "Reporting",
+      "feature": "Print-optimized layout on every report",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "documents.invoice.pdf",
+      "area": "Documents",
+      "feature": "Invoice -> PDF download",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "documents.bill.pdf",
+      "area": "Documents",
+      "feature": "Bill -> PDF download",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "documents.receipt.pdf",
+      "area": "Documents",
+      "feature": "Receipt -> PDF download",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "documents.statement.pdf",
+      "area": "Documents",
+      "feature": "Owner statement -> PDF download",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "documents.owner_packet.pdf",
+      "area": "Documents",
+      "feature": "Owner packet -> PDF download",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "documents.letter.pdf",
+      "area": "Documents",
+      "feature": "Letter -> PDF download",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "documents.template_engine",
+      "area": "Documents",
+      "feature": "Merge-field template engine (plain text + tags, no logic)",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "documents.branding_source",
+      "area": "Documents",
+      "feature": "PDFs pull logo / name / address from Company settings",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "documents.secure_send",
+      "area": "Documents",
+      "feature": "Secure document sending (expiring links, optional password, view-only)",
+      "status": "scheduled",
+      "phase": "7"
+    },
+    {
+      "id": "integrations.esignature",
+      "area": "Integrations",
+      "feature": "E-signature integration (DocuSign or alternative)",
+      "status": "scheduled",
+      "phase": "8"
+    },
+    {
+      "id": "portals.tenant.exports",
+      "area": "Portals",
+      "feature": "Tenant exports their own data (payments, charges, invoices, receipts, lease)",
+      "status": "scheduled",
+      "phase": "7"
+    },
+    {
+      "id": "portals.owner.exports",
+      "area": "Portals",
+      "feature": "Owner exports their own data (statements, packets, transactions)",
+      "status": "scheduled",
+      "phase": "7"
+    },
+    {
+      "id": "portals.vendor.exports",
+      "area": "Portals",
+      "feature": "Vendor exports their own data (work orders, invoices, payments)",
+      "status": "scheduled",
+      "phase": "7"
+    },
+    {
+      "id": "portals.crew.exports",
+      "area": "Portals",
+      "feature": "Crew exports their own data (work orders, schedule, time)",
+      "status": "scheduled",
+      "phase": "7"
+    },
+    {
+      "id": "portals.applicant.exports",
+      "area": "Portals",
+      "feature": "Applicant exports their own data (application, documents)",
+      "status": "scheduled",
+      "phase": "7"
+    },
+    {
+      "id": "security.api.org_isolation",
+      "area": "Security / API",
+      "feature": "Organization isolation on every query",
+      "status": "built",
+      "notes": "Already enforced. Tracked for completeness."
+    },
+    {
+      "id": "security.api.role_isolation",
+      "area": "Security / API",
+      "feature": "Role isolation enforced server-side on every endpoint",
+      "status": "built"
+    },
+    {
+      "id": "security.api.row_level_isolation",
+      "area": "Security / API",
+      "feature": "Row-level isolation (tenants/owners/vendors see only own records)",
+      "status": "built"
+    },
+    {
+      "id": "security.api.public_whitelist",
+      "area": "Security / API",
+      "feature": "Public endpoint whitelist (login, signup, password reset, listings, tracking, Stripe webhook)",
+      "status": "scheduled",
+      "phase": "1"
+    },
+    {
+      "id": "security.api.no_public_docs",
+      "area": "Security / API",
+      "feature": "Disable /docs and /openapi.json in production",
+      "status": "scheduled",
+      "phase": "11"
+    },
+    {
+      "id": "security.api.audit_every_access",
+      "area": "Security / API",
+      "feature": "Audit every API access (who, when, IP, result)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "security.api.rate_limit",
+      "area": "Security / API",
+      "feature": "Rate limiting + WAF",
+      "status": "scheduled",
+      "phase": "11"
+    },
+    {
+      "id": "security.sql.orm_only",
+      "area": "Security / SQL",
+      "feature": "SQLAlchemy ORM everywhere; no string interpolation into SQL",
+      "status": "built"
+    },
+    {
+      "id": "security.sql.bound_text",
+      "area": "Security / SQL",
+      "feature": "Bound .text() when raw SQL is unavoidable",
+      "status": "built"
+    },
+    {
+      "id": "security.sql.sort_whitelist",
+      "area": "Security / SQL",
+      "feature": "Whitelisted sort / group columns (never from user input)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "security.sql.limit_clamped",
+      "area": "Security / SQL",
+      "feature": "LIMIT always clamped to a max",
+      "status": "built"
+    },
+    {
+      "id": "security.sql.like_escape",
+      "area": "Security / SQL",
+      "feature": "LIKE patterns escape user % and _",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "security.sql.no_exec_eval",
+      "area": "Security / SQL",
+      "feature": "No exec / eval / dynamic imports from user input",
+      "status": "built"
+    },
+    {
+      "id": "security.sql.fuzz_tests",
+      "area": "Security / SQL",
+      "feature": "Fuzz test per user-facing field (SQL injection attempts)",
+      "status": "scheduled",
+      "phase": "11"
+    },
+    {
+      "id": "security.sql.pen_test",
+      "area": "Security / SQL",
+      "feature": "Penetration test before public launch",
+      "status": "scheduled",
+      "phase": "11"
+    },
+    {
+      "id": "security.uploads.allowlist",
+      "area": "Security / Uploads",
+      "feature": "Extension allowlist (no php/py/js/html/exe/sh/zip)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "security.uploads.magic_byte",
+      "area": "Security / Uploads",
+      "feature": "Magic-byte / true-type validation",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "security.uploads.uuid_rename",
+      "area": "Security / Uploads",
+      "feature": "UUID rename (user filename never touches disk or query)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "security.uploads.outside_webroot",
+      "area": "Security / Uploads",
+      "feature": "Files stored outside web root",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "security.uploads.content_disposition",
+      "area": "Security / Uploads",
+      "feature": "Content-Disposition: attachment on every download",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "security.uploads.antivirus",
+      "area": "Security / Uploads",
+      "feature": "Antivirus scan on every upload (ClamAV or cloud AV)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "security.uploads.sanitize_svg_office",
+      "area": "Security / Uploads",
+      "feature": "Content Disarm & Reconstruction for SVG / Office / PDF",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "security.uploads.size_limits",
+      "area": "Security / Uploads",
+      "feature": "Per-file size limit + no archives (ZIP bomb prevention)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "security.uploads.csrf",
+      "area": "Security / Uploads",
+      "feature": "CSRF protection on upload endpoints",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "security.uploads.html_encode_filenames",
+      "area": "Security / Uploads",
+      "feature": "HTML-encode filenames for display (stored XSS prevention)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "security.uploads.permission_check",
+      "area": "Security / Uploads",
+      "feature": "Permission check per upload (row-level scope)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "security.uploads.audit",
+      "area": "Security / Uploads",
+      "feature": "Audit every upload + every rejection",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "security.uploads.no_execute",
+      "area": "Security / Uploads",
+      "feature": "Uploads folder never executed; S3 in production",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "migration.data_import_wizard",
+      "area": "Migration",
+      "feature": "Data import wizard (CSV upload, column mapping, dry run, commit)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "migration.onboarding_checklist",
+      "area": "Migration",
+      "feature": "Onboarding checklist for new orgs",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "migration.terminology_map",
+      "area": "Migration",
+      "feature": "AppFolio-terminology alignment (Bills, Receipts, etc.)",
+      "status": "built"
+    },
+    {
+      "id": "migration.nav_alignment",
+      "area": "Migration",
+      "feature": "AppFolio nav order alignment",
+      "status": "built"
+    },
+    {
+      "id": "migration.workflow_alignment",
+      "area": "Migration",
+      "feature": "Move In / Move Out / Increase Rent sequence alignment",
+      "status": "scheduled",
+      "phase": "3.5"
+    },
+    {
+      "id": "accounting.loans",
+      "area": "Accounting / Loans",
+      "feature": "Loan tracking (loans payable, automated transactions)",
+      "status": "scheduled",
+      "phase": "4.5"
+    },
+    {
+      "id": "accounting.charges.bulk_upload",
+      "area": "Accounting / Charges",
+      "feature": "Bulk tenant charges (upload multiple at once)",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "leasing.collections",
+      "area": "Leasing / Collections",
+      "feature": "Tenant Debt Collections workflow",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "accounting.deposits.escrow_refund",
+      "area": "Accounting / Deposits",
+      "feature": "Deposit refunds directly from escrow",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "integrations.plaid_bank_feeds",
+      "area": "Integrations",
+      "feature": "Auto bank reconciliation via Plaid",
+      "status": "scheduled",
+      "phase": "8"
+    },
+    {
+      "id": "security.monitoring.continuous",
+      "area": "Security / Monitoring",
+      "feature": "Continuous monitoring of auth events",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "security.monitoring.login_anomaly",
+      "area": "Security / Monitoring",
+      "feature": "Login anomaly detection (new IP / device / impossible travel)",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "integrations.identity_verification",
+      "area": "Integrations",
+      "feature": "Identity verification (Stripe Identity / Persona / Jumio)",
+      "status": "scheduled",
+      "phase": "8"
+    },
+    {
+      "id": "security.fraud.transaction_monitoring",
+      "area": "Security / Fraud",
+      "feature": "Transaction monitoring (suspicious payment patterns)",
+      "status": "scheduled",
+      "phase": "8"
+    },
+    {
+      "id": "security.compliance.geo_restrictions",
+      "area": "Security / Compliance",
+      "feature": "OFAC / geographic restrictions",
+      "status": "scheduled",
+      "phase": "11"
+    },
+    {
+      "id": "security.testing.pen_test",
+      "area": "Security / Testing",
+      "feature": "Penetration test before public launch",
+      "status": "scheduled",
+      "phase": "11"
+    },
+    {
+      "id": "security.testing.dependency_scan",
+      "area": "Security / Testing",
+      "feature": "Dependency scan in CI (Dependabot / Snyk)",
+      "status": "scheduled",
+      "phase": "11"
+    },
+    {
+      "id": "security.testing.sast_dast",
+      "area": "Security / Testing",
+      "feature": "SAST / DAST in CI",
+      "status": "scheduled",
+      "phase": "11"
+    },
+    {
+      "id": "compliance.responsible_ai.policy",
+      "area": "Compliance / Responsible AI",
+      "feature": "Responsible AI framework (five principles)",
+      "status": "scheduled",
+      "phase": "12"
+    },
+    {
+      "id": "compliance.responsible_ai.human_in_loop",
+      "area": "Compliance / Responsible AI",
+      "feature": "Human-in-the-loop for any consequential AI action",
+      "status": "scheduled",
+      "phase": "12"
+    },
+    {
+      "id": "compliance.responsible_ai.no_screening_ai",
+      "area": "Compliance / Responsible AI",
+      "feature": "No AI for screening / leasing / financial decisions",
+      "status": "scheduled",
+      "phase": "12"
+    },
+    {
+      "id": "compliance.responsible_ai.audit_trail",
+      "area": "Compliance / Responsible AI",
+      "feature": "Audit trail of every AI-assisted action",
+      "status": "scheduled",
+      "phase": "12"
+    },
+    {
+      "id": "compliance.responsible_ai.data_protection",
+      "area": "Compliance / Responsible AI",
+      "feature": "No customer data used for model training without consent",
+      "status": "scheduled",
+      "phase": "12"
+    },
+    {
+      "id": "compliance.responsible_ai.vendor_assessment",
+      "area": "Compliance / Responsible AI",
+      "feature": "Vendor assessment before third-party AI integration",
+      "status": "scheduled",
+      "phase": "12"
+    },
+    {
+      "id": "ai.maintenance_intake",
+      "area": "AI",
+      "feature": "AI maintenance intake (self-help before dispatch, human review)",
+      "status": "scheduled",
+      "phase": "12"
+    },
+    {
+      "id": "ai.message_drafting",
+      "area": "AI",
+      "feature": "AI message drafting (manager edits before send)",
+      "status": "scheduled",
+      "phase": "12"
+    },
+    {
+      "id": "ai.report_summarization",
+      "area": "AI",
+      "feature": "AI report summarization (read-only)",
+      "status": "scheduled",
+      "phase": "12"
+    },
+    {
+      "id": "ai.leasing_lead_draft",
+      "area": "AI",
+      "feature": "AI leasing lead drafting (manager approves before send)",
+      "status": "scheduled",
+      "phase": "12"
+    },
+    {
+      "id": "compliance.build_in_place.policy",
+      "area": "Compliance / Build-In-Place",
+      "feature": "Every page ships with full planned surface (built slots visible, unbuilt hidden)",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.build_in_place.flag_slots",
+      "area": "Compliance / Build-In-Place",
+      "feature": "Every tab/field/button/section has a flag-gated slot",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.build_in_place.new_pages",
+      "area": "Compliance / Build-In-Place",
+      "feature": "New pages born complete (no rewrites)",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "platform.gating.four_stages",
+      "area": "Platform / Gating",
+      "feature": "Four platform stages (HIDDEN / BETA / ROLLOUT / ALL_ORGS)",
+      "status": "scheduled",
+      "phase": "9"
+    },
+    {
+      "id": "platform.gating.beta_org_list",
+      "area": "Platform / Gating",
+      "feature": "Beta org list (specific pilot orgs)",
+      "status": "scheduled",
+      "phase": "9"
+    },
+    {
+      "id": "platform.gating.rollout_org_list",
+      "area": "Platform / Gating",
+      "feature": "Rollout org list (specific growing set)",
+      "status": "scheduled",
+      "phase": "9"
+    },
+    {
+      "id": "platform.gating.five_layer_resolver",
+      "area": "Platform / Gating",
+      "feature": "5-layer menu resolver (platform + plan + role + user + personal)",
+      "status": "scheduled",
+      "phase": "9"
+    },
+    {
+      "id": "platform.gating.internal_admin_panel",
+      "area": "Platform / Gating",
+      "feature": "Internal admin panel to flip platform stages",
+      "status": "scheduled",
+      "phase": "9"
+    },
+    {
+      "id": "platform.gating.websocket_propagation",
+      "area": "Platform / Gating",
+      "feature": "WebSocket propagation of stage changes to connected clients",
+      "status": "scheduled",
+      "phase": "9"
+    },
+    {
+      "id": "platform.gating.audit_every_flip",
+      "area": "Platform / Gating",
+      "feature": "Audit every stage change",
+      "status": "scheduled",
+      "phase": "9"
+    },
+    {
+      "id": "settings.menu.company_group",
+      "area": "Settings / Permissions",
+      "feature": "SETTINGS.Company menu key (added with Section 71 work)",
+      "status": "scheduled",
+      "phase": "3.6"
+    },
+    {
+      "id": "settings.menu.features_group",
+      "area": "Settings / Permissions",
+      "feature": "SETTINGS.Features menu key (feature flags page)",
+      "status": "scheduled",
+      "phase": "9"
+    },
+    {
+      "id": "settings.menu.reports_group",
+      "area": "Settings / Permissions",
+      "feature": "SETTINGS.Reports menu key (export format setting)",
+      "status": "scheduled",
+      "phase": "3.7"
+    },
+    {
+      "id": "settings.menu.security_group",
+      "area": "Settings / Permissions",
+      "feature": "SETTINGS.Security menu key",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "settings.menu.data_group",
+      "area": "Settings / Permissions",
+      "feature": "SETTINGS.Data menu key",
+      "status": "scheduled",
+      "phase": "4"
+    },
+    {
+      "id": "compliance.receipts.use_primitives",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Receipts: use formatMoney / formatDate / useDisplay",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.bills.use_primitives",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Bills: use primitives",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.deposits.use_primitives",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Deposits: use primitives",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.gl_accounts.use_primitives",
+      "area": "Compliance / Page Retrofit",
+      "feature": "GL Accounts: use primitives",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.journal_entries.use_primitives",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Journal Entries: use primitives",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.management_fees.use_primitives",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Management Fees: use primitives",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.owner_statements.use_primitives",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Owner Statements: use primitives",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.bank_accounts.use_primitives",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Bank Accounts: use primitives",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.charges.use_primitives",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Charges: use primitives",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.properties.use_primitives",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Properties: use primitives on every tab",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.currencies.use_primitives",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Currencies: use primitives + fetch list from API in Display",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.display.use_primitives",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Display: consume layout / theme / dates / density in pages",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.permissions.use_primitives",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Permissions: use primitives",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.sidebar.use_primitives",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Sidebar: use primitives",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.receipts.full_surface",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Receipts: add all planned slots (print, repeat, edit-lock, cash-auto)",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.bills.full_surface",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Bills: add all planned slots (cash-field, recurring, write-checks, credit, delete-rules, post-codes)",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.deposits.full_surface",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Deposits: add all planned slots (print, date-warn, numbering, edit)",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.gl_accounts.full_surface",
+      "area": "Compliance / Page Retrofit",
+      "feature": "GL Accounts: add all planned slots (recalc, hide, offset, must-clear)",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.journal_entries.full_surface",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Journal Entries: add all planned slots (sub-tabs, recurring, manually-post, post-gpr)",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.management_fees.full_surface",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Management Fees: add all planned slots (pay-owners, overcollection, exclusions)",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.owner_statements.full_surface",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Owner Statements: add all planned slots (reserves, prepaid, cash-summary, packet)",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.bank_accounts.full_surface",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Bank Accounts: add all planned slots (recon, QIF, checks, ACH, adjustments, feeds)",
+      "status": "scheduled",
+      "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.currencies.display_dropdown_fetch",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Currencies: Display dropdown fetches list from /api/settings/currencies",
+      "status": "scheduled",
+      "phase": "3.5.5"
     }
   ]
 }
