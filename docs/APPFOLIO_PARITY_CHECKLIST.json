@@ -12,9 +12,9 @@
     "migration_head": "5949df11e460",
     "roadmap_section": "PROJECT_MASTER.md Section 57 (summary) + Section 38 (build order)",
     "canonical_note": "This JSON is the single source of truth for feature coverage and phase. Every item must have a status and, if scheduled, a phase. check_parity.py enforces this.",
-    "total_items": 528,
+    "total_items": 612,
     "built_count": 125,
-    "scheduled_count": 403,
+    "scheduled_count": 487,
     "in_progress_count": 0
   },
   "items": [
@@ -1786,56 +1786,56 @@
       "area": "Billing",
       "feature": "Plans, modules, features",
       "status": "scheduled",
-      "phase": "10"
+      "phase": "3.4.6"
     },
     {
       "id": "billing.stripe",
       "area": "Billing",
       "feature": "Stripe integration",
       "status": "scheduled",
-      "phase": "10"
+      "phase": "3.4.6"
     },
     {
       "id": "billing.lifecycle",
       "area": "Billing",
       "feature": "Subscription lifecycle enforcement",
       "status": "scheduled",
-      "phase": "10"
+      "phase": "3.4.6"
     },
     {
       "id": "billing.plan_gating",
       "area": "Billing",
       "feature": "Plan-based menu gating (real, replacing stub)",
       "status": "scheduled",
-      "phase": "10"
+      "phase": "3.4.6"
     },
     {
       "id": "compliance.hoa",
       "area": "Compliance",
       "feature": "HOA product line (dues, violations, board portal)",
       "status": "scheduled",
-      "phase": "4.5"
+      "phase": "4.7"
     },
     {
       "id": "compliance.affordable",
       "area": "Compliance",
       "feature": "Affordable Housing compliance (income cert, HUD)",
       "status": "scheduled",
-      "phase": "4.5"
+      "phase": "4.6"
     },
     {
       "id": "compliance.commercial",
       "area": "Compliance",
       "feature": "Commercial (CAM charges, NNN leases)",
       "status": "scheduled",
-      "phase": "4.5"
+      "phase": "4.8"
     },
     {
       "id": "compliance.rubs",
       "area": "Compliance",
       "feature": "RUBs (Ratio Utility Billing engine)",
       "status": "scheduled",
-      "phase": "4.5"
+      "phase": "4.9"
     },
     {
       "id": "compliance.escrow",
@@ -1958,7 +1958,7 @@
       "area": "Internal Team",
       "feature": "platform_users table",
       "status": "scheduled",
-      "phase": "9"
+      "phase": "3.4.3"
     },
     {
       "id": "internal.support_tickets",
@@ -2395,7 +2395,7 @@
       "area": "Internal Team",
       "feature": "Internal admin portal shell (admin.yourcompany.com)",
       "status": "scheduled",
-      "phase": "9"
+      "phase": "3.4.9"
     },
     {
       "id": "internal.platform_audit",
@@ -2747,35 +2747,35 @@
       "area": "Platform / Feature Flags",
       "feature": "Feature flag registry (schema, storage, five states)",
       "status": "scheduled",
-      "phase": "9"
+      "phase": "3.4.4"
     },
     {
       "id": "platform.feature_flags.three_tier",
       "area": "Platform / Feature Flags",
       "feature": "Three-tier control (platform / org / user)",
       "status": "scheduled",
-      "phase": "9"
+      "phase": "3.4.4"
     },
     {
       "id": "platform.feature_flags.settings_page",
       "area": "Platform / Feature Flags",
       "feature": "Settings -> Features page (org-level toggles)",
       "status": "scheduled",
-      "phase": "9"
+      "phase": "3.4.10"
     },
     {
       "id": "platform.feature_flags.audit",
       "area": "Platform / Feature Flags",
       "feature": "Audit every flag flip (who, when, old/new)",
       "status": "scheduled",
-      "phase": "9"
+      "phase": "3.4.4"
     },
     {
       "id": "platform.feature_flags.sticky_states",
       "area": "Platform / Feature Flags",
       "feature": "default_on_sticky / default_off_sticky + used_when rules",
       "status": "scheduled",
-      "phase": "9"
+      "phase": "3.4.4"
     },
     {
       "id": "settings.company.branding",
@@ -3734,6 +3734,594 @@
       "feature": "Currencies: Display dropdown fetches list from /api/settings/currencies",
       "status": "built",
       "phase": "3.5.5"
+    },
+    {
+      "id": "compliance.data_residency.column",
+      "area": "Compliance / Data Residency",
+      "feature": "data_region column on organizations + properties",
+      "status": "scheduled",
+      "phase": "3.4.5"
+    },
+    {
+      "id": "compliance.data_residency.routing",
+      "area": "Compliance / Data Residency",
+      "feature": "get_db_for_org() routing layer (single logical system, multi-region)",
+      "status": "scheduled",
+      "phase": "3.4.5"
+    },
+    {
+      "id": "compliance.data_residency.eu_region",
+      "area": "Compliance / Data Residency",
+      "feature": "eu-west-1 Postgres + migrations (added when first EU customer signs)",
+      "status": "scheduled",
+      "phase": "Phase 11+"
+    },
+    {
+      "id": "compliance.data_residency.apac_region",
+      "area": "Compliance / Data Residency",
+      "feature": "ap-southeast-1 Postgres + migrations (added when APAC scales)",
+      "status": "scheduled",
+      "phase": "Phase 11+"
+    },
+    {
+      "id": "compliance.gdpr.deleted_at_schema",
+      "area": "Compliance / GDPR",
+      "feature": "deleted_at timestamp on every soft-deletable table",
+      "status": "scheduled",
+      "phase": "3.4.5"
+    },
+    {
+      "id": "compliance.gdpr.export_endpoint",
+      "area": "Compliance / GDPR",
+      "feature": "Machine-readable data export endpoint (user asks for everything we hold)",
+      "status": "scheduled",
+      "phase": "3.4.6"
+    },
+    {
+      "id": "compliance.gdpr.right_to_be_forgotten",
+      "area": "Compliance / GDPR",
+      "feature": "Right-to-be-forgotten flow (hard-delete after retention window)",
+      "status": "scheduled",
+      "phase": "3.4.6"
+    },
+    {
+      "id": "compliance.gdpr.dpa_template",
+      "area": "Compliance / GDPR",
+      "feature": "Data processing agreement (DPA) per region",
+      "status": "scheduled",
+      "phase": "Phase 4"
+    },
+    {
+      "id": "compliance.gdpr.subprocessor_list",
+      "area": "Compliance / GDPR",
+      "feature": "Published subprocessor list (Stripe, AWS, Twilio, etc.)",
+      "status": "scheduled",
+      "phase": "Phase 4"
+    },
+    {
+      "id": "compliance.gdpr.cookie_consent",
+      "area": "Compliance / GDPR",
+      "feature": "Cookie consent banner (EU only)",
+      "status": "scheduled",
+      "phase": "Phase 4"
+    },
+    {
+      "id": "compliance.gdpr.tos_versioning",
+      "area": "Compliance / GDPR",
+      "feature": "Privacy policy + ToS version acceptance tracked per user",
+      "status": "scheduled",
+      "phase": "Phase 4"
+    },
+    {
+      "id": "compliance.ccpa.rules",
+      "area": "Compliance / CCPA",
+      "feature": "CCPA rules (California) — export + forget + 'do not sell' handling",
+      "status": "scheduled",
+      "phase": "Phase 4"
+    },
+    {
+      "id": "compliance.soc2.immutable_audit",
+      "area": "Compliance / SOC 2",
+      "feature": "Immutable append-only audit log (no UPDATE/DELETE)",
+      "status": "scheduled",
+      "phase": "3.4.3"
+    },
+    {
+      "id": "compliance.soc2.retention_policy",
+      "area": "Compliance / SOC 2",
+      "feature": "Retention policy per data class (30d / 1y / 7y / forever)",
+      "status": "scheduled",
+      "phase": "3.4.5"
+    },
+    {
+      "id": "compliance.soc2.encryption",
+      "area": "Compliance / SOC 2",
+      "feature": "Encryption at rest (RDS) + in transit (TLS)",
+      "status": "scheduled",
+      "phase": "Phase 11"
+    },
+    {
+      "id": "compliance.fcra.adverse_action",
+      "area": "Compliance / FCRA",
+      "feature": "Adverse action notice generator (screening-caused denial)",
+      "status": "scheduled",
+      "phase": "Phase 8"
+    },
+    {
+      "id": "compliance.fcra.dispute_handling",
+      "area": "Compliance / FCRA",
+      "feature": "Screening dispute handling workflow",
+      "status": "scheduled",
+      "phase": "Phase 8"
+    },
+    {
+      "id": "compliance.fcra.record_retention",
+      "area": "Compliance / FCRA",
+      "feature": "FCRA record retention (2 years minimum)",
+      "status": "scheduled",
+      "phase": "Phase 8"
+    },
+    {
+      "id": "infra.arq.jobs",
+      "area": "Infrastructure / Jobs",
+      "feature": "Arq job queue (async Redis-based)",
+      "status": "scheduled",
+      "phase": "3.4.4"
+    },
+    {
+      "id": "infra.arq.scheduler",
+      "area": "Infrastructure / Jobs",
+      "feature": "Arq cron scheduler",
+      "status": "scheduled",
+      "phase": "3.4.4"
+    },
+    {
+      "id": "infra.arq.standard_patterns",
+      "area": "Infrastructure / Jobs",
+      "feature": "Standard patterns: define / enqueue / retry / dead-letter / monitor",
+      "status": "scheduled",
+      "phase": "3.4.4"
+    },
+    {
+      "id": "infra.redis.standup",
+      "area": "Infrastructure / Redis",
+      "feature": "Redis standup (Upstash dev, ElastiCache prod)",
+      "status": "scheduled",
+      "phase": "3.4.4"
+    },
+    {
+      "id": "infra.sentry.wiring",
+      "area": "Infrastructure / Observability",
+      "feature": "Sentry error tracking (frontend + backend)",
+      "status": "scheduled",
+      "phase": "3.4.4"
+    },
+    {
+      "id": "infra.logtail.wiring",
+      "area": "Infrastructure / Observability",
+      "feature": "Logtail log aggregation",
+      "status": "scheduled",
+      "phase": "Phase 11"
+    },
+    {
+      "id": "infra.grafana.wiring",
+      "area": "Infrastructure / Observability",
+      "feature": "Grafana Cloud metrics + dashboards + alerts",
+      "status": "scheduled",
+      "phase": "Phase 11"
+    },
+    {
+      "id": "product.affordable.hud_compliance",
+      "area": "Compliance / Affordable Housing",
+      "feature": "HUD compliance (income certs, recerts, EIV, HQS inspections)",
+      "status": "scheduled",
+      "phase": "4.6"
+    },
+    {
+      "id": "product.affordable.lihtc",
+      "area": "Compliance / Affordable Housing",
+      "feature": "LIHTC (applicable fraction, minimum set-aside, 8609s)",
+      "status": "scheduled",
+      "phase": "4.6"
+    },
+    {
+      "id": "product.affordable.section8_hap",
+      "area": "Compliance / Affordable Housing",
+      "feature": "Section 8 / HAP contracts (rent reasonableness, HAP requests)",
+      "status": "scheduled",
+      "phase": "4.6"
+    },
+    {
+      "id": "product.affordable.ami_limits",
+      "area": "Compliance / Affordable Housing",
+      "feature": "AMI rent limits per county/state",
+      "status": "scheduled",
+      "phase": "4.6"
+    },
+    {
+      "id": "product.affordable.waiting_list",
+      "area": "Compliance / Affordable Housing",
+      "feature": "Waiting lists",
+      "status": "scheduled",
+      "phase": "4.6"
+    },
+    {
+      "id": "product.affordable.recert_workflow",
+      "area": "Compliance / Affordable Housing",
+      "feature": "Annual recertification workflow",
+      "status": "scheduled",
+      "phase": "4.6"
+    },
+    {
+      "id": "product.hoa.dues",
+      "area": "Compliance / HOA",
+      "feature": "HOA dues (recurring + special assessments)",
+      "status": "scheduled",
+      "phase": "4.7"
+    },
+    {
+      "id": "product.hoa.violations",
+      "area": "Compliance / HOA",
+      "feature": "Violations workflow (notice, cure, fines, hearings)",
+      "status": "scheduled",
+      "phase": "4.7"
+    },
+    {
+      "id": "product.hoa.board_portal",
+      "area": "Compliance / HOA",
+      "feature": "Board portal (meetings, minutes, votes, documents)",
+      "status": "scheduled",
+      "phase": "4.7"
+    },
+    {
+      "id": "product.hoa.arc_requests",
+      "area": "Compliance / HOA",
+      "feature": "Architectural Review Committee (ARC) requests",
+      "status": "scheduled",
+      "phase": "4.7"
+    },
+    {
+      "id": "product.hoa.reserve_fund",
+      "area": "Compliance / HOA",
+      "feature": "Reserve studies + reserve fund accounting",
+      "status": "scheduled",
+      "phase": "4.7"
+    },
+    {
+      "id": "product.commercial.cam",
+      "area": "Compliance / Commercial",
+      "feature": "CAM charges (Common Area Maintenance)",
+      "status": "scheduled",
+      "phase": "4.8"
+    },
+    {
+      "id": "product.commercial.nnn",
+      "area": "Compliance / Commercial",
+      "feature": "NNN (triple net: taxes, insurance, CAM)",
+      "status": "scheduled",
+      "phase": "4.8"
+    },
+    {
+      "id": "product.commercial.cam_reconciliation",
+      "area": "Compliance / Commercial",
+      "feature": "CAM reconciliation (annual true-up)",
+      "status": "scheduled",
+      "phase": "4.8"
+    },
+    {
+      "id": "product.commercial.percentage_rent",
+      "area": "Compliance / Commercial",
+      "feature": "Percentage rent (% of tenant sales over breakpoint)",
+      "status": "scheduled",
+      "phase": "4.8"
+    },
+    {
+      "id": "product.commercial.lease_abstracts",
+      "area": "Compliance / Commercial",
+      "feature": "Lease abstracts (rent schedule, options, escalations, co-tenancy)",
+      "status": "scheduled",
+      "phase": "4.8"
+    },
+    {
+      "id": "product.commercial.ti_allowance",
+      "area": "Compliance / Commercial",
+      "feature": "TI allowances (tenant improvement)",
+      "status": "scheduled",
+      "phase": "4.8"
+    },
+    {
+      "id": "product.rubs.meter_reading",
+      "area": "Compliance / RUBs",
+      "feature": "Meter reading (manual + import)",
+      "status": "scheduled",
+      "phase": "4.9"
+    },
+    {
+      "id": "product.rubs.allocation_methods",
+      "area": "Compliance / RUBs",
+      "feature": "Ratio allocation methods (sq ft, occupancy, fixtures, etc.)",
+      "status": "scheduled",
+      "phase": "4.9"
+    },
+    {
+      "id": "product.rubs.true_up",
+      "area": "Compliance / RUBs",
+      "feature": "Year-end true-up",
+      "status": "scheduled",
+      "phase": "4.9"
+    },
+    {
+      "id": "product.student_housing",
+      "area": "Product / Student Housing",
+      "feature": "Student housing (by-the-bed leases, guarantors, academic cycles)",
+      "status": "scheduled",
+      "phase": "4.10"
+    },
+    {
+      "id": "product.senior_housing",
+      "area": "Product / Senior Housing",
+      "feature": "Senior housing (age-restricted compliance, HUD 202/811)",
+      "status": "scheduled",
+      "phase": "4.11"
+    },
+    {
+      "id": "product.short_term_rental",
+      "area": "Product / Short-Term Rental",
+      "feature": "Short-term rentals (Airbnb/Vrbo integration, nightly pricing, turnover)",
+      "status": "scheduled",
+      "phase": "4.12"
+    },
+    {
+      "id": "migration.csv_importer_org",
+      "area": "Migration",
+      "feature": "Org-side CSV importer (column mapping, dry run, commit)",
+      "status": "scheduled",
+      "phase": "Phase 4"
+    },
+    {
+      "id": "migration.appfolio_direct",
+      "area": "Migration",
+      "feature": "Direct API migration from AppFolio",
+      "status": "scheduled",
+      "phase": "4.13"
+    },
+    {
+      "id": "migration.buildium_direct",
+      "area": "Migration",
+      "feature": "Direct API migration from Buildium",
+      "status": "scheduled",
+      "phase": "4.14"
+    },
+    {
+      "id": "migration.yardi_direct",
+      "area": "Migration",
+      "feature": "Direct API migration from Yardi",
+      "status": "scheduled",
+      "phase": "4.15"
+    },
+    {
+      "id": "migration.rentmanager_direct",
+      "area": "Migration",
+      "feature": "Direct API migration from RentManager",
+      "status": "scheduled",
+      "phase": "4.16"
+    },
+    {
+      "id": "migration.doorloop_direct",
+      "area": "Migration",
+      "feature": "Direct API migration from DoorLoop",
+      "status": "scheduled",
+      "phase": "4.17"
+    },
+    {
+      "id": "accounting.trust_interest",
+      "area": "Accounting / Trust",
+      "feature": "Trust account interest (state-required interest-bearing trust)",
+      "status": "scheduled",
+      "phase": "4.5"
+    },
+    {
+      "id": "accounting.positive_pay",
+      "area": "Accounting / Checks",
+      "feature": "Positive pay (bank-level check fraud prevention file)",
+      "status": "scheduled",
+      "phase": "4.5"
+    },
+    {
+      "id": "accounting.1099_efile",
+      "area": "Accounting / 1099",
+      "feature": "1099 e-filing via Track1099 (vendor NEC + owner MISC)",
+      "status": "scheduled",
+      "phase": "4.5"
+    },
+    {
+      "id": "accounting.w9_collection",
+      "area": "Accounting / 1099",
+      "feature": "W-9 collection + tracking + expiration alerts",
+      "status": "scheduled",
+      "phase": "4.5"
+    },
+    {
+      "id": "accounting.year_end_close",
+      "area": "Accounting / Periods",
+      "feature": "Year-end close / locked periods (org-configurable locked_through_date)",
+      "status": "scheduled",
+      "phase": "3.4.5"
+    },
+    {
+      "id": "platform.org_creation_admin",
+      "area": "Platform / Orgs",
+      "feature": "Admin-side org creation (enterprise, no self-serve)",
+      "status": "scheduled",
+      "phase": "3.4.9"
+    },
+    {
+      "id": "platform.org_overrides",
+      "area": "Platform / Orgs",
+      "feature": "Per-org overrides (unit cap, feature set beyond plan)",
+      "status": "scheduled",
+      "phase": "3.4.6"
+    },
+    {
+      "id": "platform.custom_domains",
+      "area": "Platform / White-Label",
+      "feature": "Per-org custom domains (portal.acme.com + DNS + TLS automation)",
+      "status": "scheduled",
+      "phase": "Phase 11"
+    },
+    {
+      "id": "platform.status_page",
+      "area": "Platform / Operations",
+      "feature": "Public status page + internal incident tracker",
+      "status": "scheduled",
+      "phase": "Phase 11"
+    },
+    {
+      "id": "platform.support_sla",
+      "area": "Platform / Support",
+      "feature": "Support SLA by plan tier (Standard 24h / Enterprise 4h / Critical 1h)",
+      "status": "scheduled",
+      "phase": "Phase 9"
+    },
+    {
+      "id": "platform.check_parity_v2",
+      "area": "Platform / Enforcement",
+      "feature": "check_parity.py v2 — verifies page slots against FEATURE_REGISTRY.md",
+      "status": "scheduled",
+      "phase": "3.4.2"
+    },
+    {
+      "id": "platform.platform_users_table",
+      "area": "Platform / Identity",
+      "feature": "platform_users table (separate from customer users)",
+      "status": "scheduled",
+      "phase": "3.4.3"
+    },
+    {
+      "id": "platform.jwt_audience_split",
+      "area": "Platform / Identity",
+      "feature": "Separate JWT audience claim (customer vs. platform tokens)",
+      "status": "scheduled",
+      "phase": "3.4.3"
+    },
+    {
+      "id": "platform.seed_first_admin",
+      "area": "Platform / Identity",
+      "feature": "Script to seed first platform_admin (no self-signup to our side)",
+      "status": "scheduled",
+      "phase": "3.4.3"
+    },
+    {
+      "id": "platform.feature_flags.tables",
+      "area": "Platform / Feature Flags",
+      "feature": "feature_flags + feature_flag_audit tables",
+      "status": "scheduled",
+      "phase": "3.4.4"
+    },
+    {
+      "id": "platform.feature_flags.resolver",
+      "area": "Platform / Feature Flags",
+      "feature": "is_flag_enabled(org_id, key) resolver",
+      "status": "scheduled",
+      "phase": "3.4.4"
+    },
+    {
+      "id": "platform.feature_flags.stage_api",
+      "area": "Platform / Feature Flags",
+      "feature": "PUT /api/platform/flags/{key} (change stage, set beta/rollout orgs)",
+      "status": "scheduled",
+      "phase": "3.4.4"
+    },
+    {
+      "id": "platform.feature_flags.seed_from_registry",
+      "area": "Platform / Feature Flags",
+      "feature": "Seed flags from FEATURE_REGISTRY.md",
+      "status": "scheduled",
+      "phase": "3.4.4"
+    },
+    {
+      "id": "billing.stripe_products",
+      "area": "Billing",
+      "feature": "Stripe products + prices (per plan tier)",
+      "status": "scheduled",
+      "phase": "3.4.6"
+    },
+    {
+      "id": "billing.plans_table",
+      "area": "Billing",
+      "feature": "plans + plan_features + pricing_tiers tables",
+      "status": "scheduled",
+      "phase": "3.4.6"
+    },
+    {
+      "id": "billing.subscriptions_table",
+      "area": "Billing",
+      "feature": "subscriptions + subscription_items + subscription_events tables",
+      "status": "scheduled",
+      "phase": "3.4.6"
+    },
+    {
+      "id": "billing.stripe_webhooks",
+      "area": "Billing",
+      "feature": "Stripe webhook handler (subscription created/paid/failed/deleted)",
+      "status": "scheduled",
+      "phase": "3.4.6"
+    },
+    {
+      "id": "billing.org_state_lifecycle",
+      "area": "Billing",
+      "feature": "org state lifecycle driven by webhooks (ACTIVE/PAST_DUE/RESTRICTED/SUSPENDED/CANCELLED)",
+      "status": "scheduled",
+      "phase": "3.4.6"
+    },
+    {
+      "id": "billing.self_serve_signup",
+      "area": "Billing",
+      "feature": "Self-serve signup + Stripe Checkout + org creation on payment success",
+      "status": "scheduled",
+      "phase": "3.4.7"
+    },
+    {
+      "id": "billing.fraud_layer",
+      "area": "Billing / Fraud",
+      "feature": "Fraud / abuse layer (Stripe Radar + our signals + review queue)",
+      "status": "scheduled",
+      "phase": "3.4.8"
+    },
+    {
+      "id": "platform.internal_admin_app",
+      "area": "Platform / Internal Admin",
+      "feature": "Separate internal admin app (orgs, flags, plans, fraud, audit)",
+      "status": "scheduled",
+      "phase": "3.4.9"
+    },
+    {
+      "id": "platform.use_flag_hook",
+      "area": "Platform / Feature Flags",
+      "feature": "useFlag() hook + <Flag> wrapper in customer app",
+      "status": "scheduled",
+      "phase": "3.4.10"
+    },
+    {
+      "id": "platform.settings_features_page",
+      "area": "Settings / Features",
+      "feature": "Customer Settings -> Features page (org-level toggles)",
+      "status": "scheduled",
+      "phase": "3.4.10"
+    },
+    {
+      "id": "platform.unit_enforcement",
+      "area": "Platform / Plan Limits",
+      "feature": "Unit cap enforcement + upgrade prompt",
+      "status": "scheduled",
+      "phase": "3.4.11"
+    },
+    {
+      "id": "platform.retrofit_receipts",
+      "area": "Compliance / Page Retrofit",
+      "feature": "Retrofit Receipts page (proof of pattern)",
+      "status": "scheduled",
+      "phase": "3.4.12"
     }
   ]
 }

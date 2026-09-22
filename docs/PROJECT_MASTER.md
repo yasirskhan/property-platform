@@ -11,76 +11,76 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase 3.6 (Accounting Polish) is IN PROGRESS.
-2 of ~70 items shipped: the full Charges feature + the frontend
-currency/date sweep (Section 67 primitives rule enforced app-wide).
+**Current activity:** Foundation Pass (Phase 3.4) — planning stage.
+The full plan is on disk. The retrofit that makes every page ship
+its full planned surface is scheduled next.
 
-**Most recent session — frontend currency/date sweep (DONE):**
+**What shipped this session (2026-09-22, second half):**
 
-Replaced every hardcoded `$` / `"USD"` / `toLocaleString("en-US", ...)`
-/ hardcoded date string in the app with `formatMoney()` / `formatDate()`
-from `frontend/src/lib/money.ts`. 21 files touched across 3 commits
-(e9f569c, 90500b0, 3d52105). TypeScript silent. Zero remaining
-hardcoded money formatting.
+The session started as a currency/date sweep and expanded into a
+full planning + gap analysis. Two new canonical documents were
+written, and the master plan was corrected.
 
-Also closed this session:
-- `Display page currency dropdown` — now fetches the org's real list
-  from `GET /api/settings/currencies`. Custom currencies appear.
-  A real bug was fixed in the process: the save payload now includes
-  `currency` so changing it actually persists (Sections 58/59/68).
-- `glTransactions.ts` — deleted the duplicate `formatMoney` and
-  `formatBalance` helpers that hardcoded USD. Three pages split
-  their imports (types/API from `glTransactions`, formatters from
-  `lib/money`). Added a small local `formatBalance()` helper on the
-  three pages that need "$0.00 instead of —" semantics for totals.
+**New files on disk:**
 
-**Also shipped earlier this session (Phase 3.5 territory):**
-- Sidebar preferences made truly per-user. Fixed a stale UNIQUE
-  index on `sidebar_preferences.organization_id`. Migrations
-  c0e4ac6f46b2 (user_id NOT NULL) and 5949df11e460 (drop stale
-  unique index).
-- My Preferences tab in Settings → Permissions now saves.
-- Custom Currencies CRUD (Section 68). Table + model + router +
-  page. 9 system currencies seeded per org. **Now consumed by the
-  Display dropdown.**
-- Display Settings page (Section 58). Layout mode, theme, date
-  format, currency all save. **Currency now persists correctly.**
-  Layout mode + theme still don't visually change anything until
-  Phase 3.5.5 retrofit; date format saves but no page calls
-  `formatDate()` yet.
-- SETTINGS menu group (Display, Currencies, Menu Permissions,
-  Sidebar). Migration 15d92d8a1eea.
-- Charges feature. Table `charges`, model, router, list page,
-  new page, menu key ACCOUNTING.CHARGES. Migrations f49b93dcb1e2
-  and 3909fd7c7792.
+- `docs/PLAN_GAPS.md` — the complete supplement to the master doc.
+  Every gap discussed with Yasir, with a decision and a phase. 84
+  new tracked items resulted.
+- `docs/FEATURE_REGISTRY.md` — the surface map. Every page, every
+  slot, every flag. v1 ships with the Receipts page as the format
+  sample. The remaining 13 pages land in Foundation Session 2.
 
-**Migration head:** 5949df11e460
+**Decisions made this session:**
 
-**Next:** continue Phase 3.6. First items:
-1. Journal Entries sub-tabs (History | Recurring).
-2. Receipts: Print / Repeat / edit-lock-after-deposit.
-3. Bank Account: Adjustments.
-4. Owner Held Security Deposits.
+- **Multi-region:** Model B — single logical system, `data_region`
+  column on organizations + properties, routing through
+  `get_db_for_org()`. Start US-only (Option Y). Add EU and APAC
+  regions when customers need them. Ship in Session 3.4.5.
+- **GDPR + CCPA:** per-org + per-property region. `deleted_at`
+  schema, machine-readable export, right-to-be-forgotten, DPA
+  per region, subprocessor list, cookie consent (EU only), ToS
+  versioning.
+- **SOC 2:** pursuing within 24 months. Immutable audit log from
+  day one.
+- **FCRA:** planned with Phase 8 screening. Adverse action notices,
+  disputes, retention.
+- **PCI:** Stripe only. We store tokens, never card numbers.
+- **Infra:** Arq (async jobs + cron) + Redis (Upstash dev,
+  ElastiCache prod). Sentry + Logtail + Grafana Cloud.
+- **Product:** all sub-phases confirmed. Affordable (4.6), HOA
+  (4.7), Commercial (4.8), RUBs (4.9), Student (4.10), Senior
+  (4.11), Short-term (4.12), Migration per competitor (4.13–4.17).
+- **Trust interest, positive pay, 1099 e-filing (Track1099), year-end
+  close:** all in the plan (4.5 + 3.4.5 for year-end).
+- **Enterprise:** not self-serve. Admin-provisioned. Custom plans.
+- **Custom domains + white-label:** in scope (Phase 11 for DNS/TLS).
+- **Status page + support SLA:** in scope.
+- **check_parity.py v2:** verifies page slots against
+  `FEATURE_REGISTRY.md`. Ships in Session 3.4.2.
 
-**Also queued (Phase 3.5.5 — Compliance Pass):**
-Retrofit each existing page so it:
-- reads theme/layout/density from useDisplay()
-- renders every planned tab, field, button, and section — as a
-  hidden slot until its platform feature flag is advanced past
-  HIDDEN. Behavior-preserving.
-(The formatMoney/formatDate part of the retrofit is now DONE —
-that's what this session shipped.)
+**Parity JSON:** grew from 528 → 612 items. All scheduled, all phased.
+`built` stays at 125 (no features shipped this half).
 
-No page ever needs a rewrite again. See Section 79 (Build-In-Place
-Policy), Section 80 (Platform Feature Gating), Section 81
-(Built & Verified).
+**Also shipped earlier this session (before the planning turn):**
+The frontend currency/date sweep — 21 files, 3 commits. Every page
+now uses `formatMoney()` / `formatDate()` from `lib/money.ts`. Two
+real bugs fixed (Display currency persistence, `glTransactions`
+duplicate helpers). Sections 58/59/68 flipped from PARTIAL to DONE.
 
-**New Sections 70–81 added in the prior session:** Feature Flags,
-Settings Universe, Documents & Exports, API Security Model,
-SQL Injection Prevention, File Upload Security, AppFolio Parity
-& Migration Strategy, Advanced Security & Fraud Prevention,
-Responsible AI Framework, Build-In-Place Policy, Platform Feature
-Gating, Built & Verified. See Part C.
+**Migration head:** 5949df11e460 (unchanged — no DB work this session)
+
+**Next:** Foundation Session 3.4.2 — finish `FEATURE_REGISTRY.md` for
+the remaining 13 pages + write `check_parity.py` v2. Then Session
+3.4.3 (identity boundary), 3.4.4 (flags + jobs), 3.4.5 (multi-region
+schema + deleted_at + locked_through), 3.4.6 (billing), and so on
+through 3.4.12 (retrofit Receipts).
+
+**The 12-session Foundation Pass replaces the old plan order.**
+Phase 3.5.5 (Compliance Pass) starts after Session 3.4.11. Phase 3.6
+features resume after the retrofit. The full order is in Section 82.
+
+**New Sections 82 + 83 added this session:** Plan Gaps & Foundation
+Pass, and Feature Registry (Surface Map). See Part C.
 
 ## A2. WHAT'S BUILT (WORKING)
 
@@ -193,32 +193,42 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Phase 3.6 (Accounting Polish) continues. 2 of ~70 items shipped.**
+**Foundation Session 3.4.2.**
 
-Pick one, in this order:
+Two deliverables:
 
-1. Journal Entries: sub-tabs (History | Recurring).
-   JSON id: accounting.je.sub_tabs.
-2. Receipts: Print / Repeat / edit-lock-after-deposit.
-   JSON ids: accounting.receipts.print, accounting.receipts.repeat,
-   accounting.receipts.edit_lock_after_deposit.
-3. Bank Account: Adjustments.
-   JSON id: accounting.bank_accounts.adjustments.
-4. Owner Held Security Deposits (whole feature).
-   JSON id: accounting.owners.owner_held_security_deposits.
-5. GL Accounts: Recalculate Balances button.
-   JSON id: accounting.coa.recalculate_balances.
+1. **Finish `FEATURE_REGISTRY.md`** — the remaining 13 pages, using
+   the Receipts page as the format template. Pages: Bills (list +
+   new), Deposits (list + new), GL Accounts, Journal Entries (list
+   + new + detail), Management Fees, Owner Statements, Bank
+   Accounts, Charges, Properties (list + detail + every tab),
+   Settings pages.
+2. **Write `check_parity.py` v2** — reads `FEATURE_REGISTRY.md`,
+   verifies every page's slot list is present in the page source
+   (via a marker comment block), fails the build if any page is
+   missing slots. This gives the Complete-Page rule teeth.
 
-**Also queued (Phase 3.5.5 — Compliance Pass):**
-Retrofit each existing page so it reads theme/layout/density from
-useDisplay() and renders every planned tab/field/button/section as
-a hidden slot gated by a feature flag. Behavior-preserving. One
-page at a time. See Section 79 and Section 80.
-(The formatMoney/formatDate retrofit is DONE — see Part A1.)
+After 3.4.2:
+- **3.4.3** — Backend identity boundary (`platform_users` table,
+  separate JWT audience, seed first platform_admin, immutable audit)
+- **3.4.4** — Feature flags tables + resolver + Arq + Redis +
+  scheduler + Sentry
+- **3.4.5** — `data_region` column + `get_db_for_org()` + `deleted_at`
+  + `locked_through_date`
+- **3.4.6** — Billing foundation (Stripe products, plans,
+  subscriptions, webhooks, org state lifecycle)
+- **3.4.7** — Self-serve signup + Stripe Checkout
+- **3.4.8** — Fraud layer (Stripe Radar + our signals + review queue)
+- **3.4.9** — Internal admin app (separate Next.js app)
+- **3.4.10** — `useFlag()` + `<Flag>` + Settings → Features
+- **3.4.11** — Unit enforcement + plan limits
+- **3.4.12** — Retrofit Receipts page (proof of pattern)
+- **Then** — retrofit remaining pages, one per session
+- **Then** — back to Phase 3.6 features (Journal Entries sub-tabs first)
 
-Read Section 69 (FILE MAP) to know where every file is.
-Read docs/FILE_CATALOG.md to know what's inside every file.
-Regenerate the catalog with: cd backend ; python generate_file_catalog.py
+Read `docs/PLAN_GAPS.md` for the full gap inventory and decision log.
+Read `docs/FEATURE_REGISTRY.md` for the page-by-page surface map.
+Read Section 82 (Foundation Pass) for the full order.
 
 ## B2. AFTER THAT (Phase 3.5 onward)
 
@@ -1093,6 +1103,23 @@ Adjust beginning balance only via journal entry.
 ---
 
 # SECTION 38 — FULL BUILD ORDER
+
+## Foundation Pass (Phase 3.4) — SHIPS FIRST
+
+The Foundation Pass (12 sessions) makes every subsequent feature
+ship by flipping a flag. It replaces the old plan order.
+
+Order: 3.4.1 (this session — planning + PLAN_GAPS.md + FEATURE_REGISTRY
+v1) → 3.4.2 (FEATURE_REGISTRY full + check_parity.py v2) → 3.4.3
+(identity boundary) → 3.4.4 (flags + jobs) → 3.4.5 (multi-region
+schema) → 3.4.6 (billing) → 3.4.7 (signup) → 3.4.8 (fraud) → 3.4.9
+(internal admin app) → 3.4.10 (customer flag consumption) → 3.4.11
+(unit enforcement) → 3.4.12 (retrofit Receipts) → 3.4.13+ (retrofit
+remaining pages).
+
+See Section 82 for the full table.
+
+Then phases resume as originally ordered, with these changes:
 
 Phase 1  — Menu Permissions System: DONE
 Phase 2  — Accounting: DONE (core); polish deferred to 3.6
@@ -3012,12 +3039,20 @@ and default state. If a change would affect an existing feature's
 behavior, it must be scheduled as its own item with its own migration
 -- never folded silently into a new section.
 
-## Complete-page rule (added 2026-09-22)
+## Complete-page rule (added 2026-09-22, enforced from Session 3.4.2)
 
 Every page ships with its full planned surface -- not just the
 currently-built portions. Unbuilt features render as hidden slots,
 gated by a feature flag. Sessions that build a page with missing
 planned slots do not close.
+
+**The full surface for every page lives in `docs/FEATURE_REGISTRY.md`.**
+
+**Enforcement (ships in Session 3.4.2):** `check_parity.py` v2 reads
+`FEATURE_REGISTRY.md`, extracts the required slot list for each page,
+and verifies every page source has a top-of-file marker block listing
+all its slots. If a page is missing slots or the marker is missing,
+the script fails and the build aborts. The rule has teeth.
 
 ## Primitives rule (added 2026-09-22)
 
@@ -4234,6 +4269,53 @@ what to trust. Updated at the end of every session.
 - **PARTIAL** — infrastructure built, consumption / wiring pending
 - **PENDING** — planned, not built
 
+## Session 2026-09-22 — Foundation planning (second half of the day)
+
+### DONE
+
+- **`docs/PLAN_GAPS.md` written.** The complete supplement to the
+  master doc. Every gap in the plan (multi-region, GDPR, CCPA, SOC 2,
+  FCRA, PCI, Arq, Redis, observability, all sub-phases 4.6–4.17,
+  migration per competitor, trust interest, positive pay, 1099
+  e-filing, year-end close, internal admin, white-label, status page,
+  support SLA) with its decision, phase, cost, and dependencies.
+  See Section 82.
+
+- **`docs/FEATURE_REGISTRY.md` v1 written.** The surface map. Every
+  page, every slot, every flag. v1 = structure + Receipts page as
+  the format sample. Remaining 13 pages land in Session 3.4.2. See
+  Section 83.
+
+- **Master doc restructured.** Part A1, Part B1 rewritten. New
+  Sections 82 (Plan Gaps & Foundation Pass) and 83 (Feature Registry
+  — Surface Map). Section 38 gained the Foundation Pass at the top.
+  Section 67's Complete-Page rule now references `check_parity.py`
+  v2. This entry.
+
+- **Parity JSON grew from 528 → 612 items.** 84 new items from
+  PLAN_GAPS.md. 15 existing items reassigned to new phases (billing
+  into foundation, internal admin moved earlier, compliance sub-phases
+  split). Phases normalized (F1–F12 → 3.4.1–3.4.12). `check_parity.py`
+  prints CLEAN.
+
+### PARTIAL
+
+(None this session — the second half was planning, not building.)
+
+### PENDING
+
+- Session 3.4.2 (next) — finish `FEATURE_REGISTRY.md`, write
+  `check_parity.py` v2.
+- Sessions 3.4.3 through 3.4.12 — the rest of the foundation pass.
+- Phase 3.5.5 and Phase 3.6 resume after the foundation pass.
+
+### Decisions this session
+
+All decisions from `PLAN_GAPS.md` are now recorded in Section 82.
+Key ones: Model B multi-region, Option Y (US-only today), Arq + Redis
+for jobs, Stripe Billing, Track1099 for 1099 e-filing, Enterprise
+non-self-serve, all sub-phases confirmed.
+
 ## Session 2026-09-22 — Frontend currency/date sweep
 
 ### DONE
@@ -4491,5 +4573,183 @@ Status (all pending Phase 3.5.5 retrofit):
 The retrofit is one page at a time. Behavior-preserving. Every page
 stays exactly the same visually until a flag flips.
 
+
+# SECTION 82 — PLAN GAPS & FOUNDATION PASS
+
+**Added 2026-09-22. Companion: `docs/PLAN_GAPS.md`.**
+
+The PLAN_GAPS review found that the master plan was missing or
+under-scoping the following. Every item below is now tracked in the
+parity JSON.
+
+## Category A — Compliance / legal
+
+- Multi-region data residency (Model B: routing, single logical system)
+- GDPR + CCPA (export, forget, retention, DPA, subprocessor list,
+  cookie consent, ToS versioning)
+- SOC 2 prep (immutable audit, retention policy, encryption)
+- FCRA (adverse action, disputes, retention)
+- PCI (Stripe only — permanent rule)
+
+## Category B — Infrastructure
+
+- Arq async jobs + cron scheduler
+- Redis (Upstash dev, ElastiCache prod)
+- Sentry + Logtail + Grafana Cloud
+
+## Category C — Product sub-phases (new phases 4.6 – 4.17)
+
+- 4.6 — Affordable Housing (HUD, LIHTC, Section 8, AMI, waiting list,
+  recerts)
+- 4.7 — HOA (dues, violations, board portal, ARC, reserves)
+- 4.8 — Commercial (CAM, NNN, reconciliation, percentage rent, lease
+  abstracts, TI)
+- 4.9 — RUBs (meter reading, allocation, true-up)
+- 4.10 — Student housing
+- 4.11 — Senior housing
+- 4.12 — Short-term rentals
+- 4.13–4.17 — Direct migrations from AppFolio / Buildium / Yardi /
+  RentManager / DoorLoop
+
+## Category C-extra — Accounting additions
+
+- Trust account interest (state-mandated) — Phase 4.5
+- Positive pay — Phase 4.5
+- 1099 e-filing via Track1099 + W-9 collection — Phase 4.5
+- Year-end close / locked periods — Session 3.4.5 (schema) + Phase 3.6
+
+## Category D — Operational
+
+- Enterprise (non-self-serve) onboarding via internal admin
+- Custom domains + white-label (Phase 11 for DNS/TLS)
+- Status page + incident tracker
+- Support SLA tiers by plan (Standard 24h / Enterprise 4h / Critical 1h)
+
+## Category E — Enforcement
+
+- `check_parity.py` v2 — reads `FEATURE_REGISTRY.md`, verifies every
+  page's slot list is present in source, fails the build if not.
+  Ships in Session 3.4.2.
+
+## The Foundation Pass — 12 sessions
+
+The Foundation Pass (Phase 3.4) is the sequence that makes every
+subsequent feature ship by flipping a flag. It replaces the old plan
+order.
+
+| # | Session | Ships |
+|---|---|---|
+| 3.4.1 | (this session) | PLAN_GAPS.md + FEATURE_REGISTRY.md v1 + master doc updates + parity JSON additions |
+| 3.4.2 | Next | FEATURE_REGISTRY.md (all pages) + check_parity.py v2 |
+| 3.4.3 | | Backend identity boundary (platform_users, separate JWT, seed script, immutable audit) |
+| 3.4.4 | | Feature flags tables + resolver + audit + Arq + Redis + scheduler + Sentry |
+| 3.4.5 | | data_region + get_db_for_org() + deleted_at + locked_through_date |
+| 3.4.6 | | Billing foundation (Stripe, plans, subscriptions, webhooks, org state) |
+| 3.4.7 | | Self-serve signup + Stripe Checkout + org creation on success |
+| 3.4.8 | | Fraud / abuse layer (Stripe Radar + our signals + review queue) |
+| 3.4.9 | | Internal admin app (separate Next.js app) |
+| 3.4.10 | | useFlag() + <Flag> + Settings → Features |
+| 3.4.11 | | Unit enforcement + plan limits |
+| 3.4.12 | | Retrofit Receipts page (proof of pattern) |
+| 3.4.13+ | | Retrofit remaining pages, one per session |
+| Then | | Phase 3.5.5 (Compliance Pass continues), then Phase 3.6 features resume |
+
+Total foundation cost: ~12 sessions. After that, every feature ships
+by flipping a flag. No page rewrites. No more loops.
+
+## What this replaces / updates
+
+- **Phase 9** narrows to "Extended Internal Tools" (support tickets,
+  SLA, impersonation logs). The basic internal admin moves to 3.4.9.
+- **Phase 10** narrows to metering, discounts, quotes. The core
+  billing stack moves to 3.4.6–3.4.7.
+- **Phase 4.5** becomes the umbrella for trust interest, positive pay,
+  1099 e-filing, and the compliance product lines.
+- **Phase 3.5.5** starts after 3.4.11.
+- **Phase 3.6** resumes after the retrofit.
+
+---
+
+# SECTION 83 — FEATURE REGISTRY (SURFACE MAP)
+
+**Added 2026-09-22. Companion file: `docs/FEATURE_REGISTRY.md`.**
+
+## What it is
+
+`FEATURE_REGISTRY.md` is the map. For every page in the app, it
+defines:
+
+- Every tab, field, button, section, and behavior that page should
+  eventually have (whether built or not)
+- The feature flag that gates each slot
+- The platform stage that flag is at (HIDDEN / BETA / ROLLOUT /
+  ALL_ORGS)
+- Which backend endpoints the slot requires
+
+It's the document that makes Section 79 (Build-In-Place Policy) real.
+
+## Why it exists
+
+Before this file, the plan said "every page ships with its full
+planned surface." But nothing on disk said what any page's full
+surface actually was. So sessions kept building visible-only UI and
+marking pages complete, then had to rewrite them when a new feature
+arrived. That's the loop.
+
+With `FEATURE_REGISTRY.md`, the retrofit becomes mechanical: read
+the surface table for a page, drop each slot into the page, gate it
+with its flag, done.
+
+## How it's enforced
+
+`check_parity.py` v2 reads `FEATURE_REGISTRY.md`, extracts the slot
+list for each page, and verifies every page source has a top-of-file
+marker block listing all its slots:
+
+    // ═══════════════════════════════════════════════════
+    // PAGE SURFACE — from FEATURE_REGISTRY.md
+    // Slots: accounting.receipts.tabs, accounting.receipts.fields.date, ...
+    // ═══════════════════════════════════════════════════
+
+If a page is missing slots or the marker is missing, the script
+fails. Sessions cannot close with an incomplete page.
+
+## Status legend
+
+- ✅ **present** — slot exists and works
+- ⬜ **hidden** — slot exists in code, gated by flag, currently off
+- ❌ **missing** — not in code yet (what the retrofit fixes)
+
+## Naming convention
+
+Flags are dotted, lowercase, hierarchical:
+
+    accounting.receipts.tabs
+    accounting.receipts.fields.date
+    accounting.receipts.cash_automatic
+    accounting.receipts.print
+
+Top-level page flag: `{module}.{page}`. Every slot under that page
+uses the same prefix. Cross-page flags live at the top:
+`universal.repeat_form`, `universal.repeat_field`.
+
+## Default stage for a new flag
+
+**HIDDEN.** Always. A flag only advances to BETA / ROLLOUT / ALL_ORGS
+when we choose. Nothing new is visible on day one.
+
+## Where flags live
+
+The registry (this file) names the flags. The `feature_flags` table
+(built in Session 3.4.4) stores their current stage, beta orgs, and
+rollout orgs. The registry is the source of truth for what flags
+exist; the table is the source of truth for their current state.
+
+## Current status of the file
+
+v1 (this session) — structure + Receipts page as the format sample.
+Remaining 13 pages land in Session 3.4.2.
+
+---
 
 # END OF PROJECT_MASTER.md
