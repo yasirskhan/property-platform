@@ -18,6 +18,7 @@ import {
   PropertyApplianceCreateIn,
   PropertyApplianceUpdateIn,
 } from "@/lib/propertyAppliances";
+import { formatMoney } from "@/lib/money";
 
 const COMMON_APPLIANCES = [
   "Refrigerator",
@@ -194,10 +195,7 @@ export default function AppliancesTab({
 
   function money(v: string | null): string {
     if (!v) return "—";
-    return `$${Number(v).toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    return formatMoney(v);
   }
 
   function conditionLabel(v: string | null): string {

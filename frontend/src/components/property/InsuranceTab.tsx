@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiGet, apiUpload, fileUrl } from "@/lib/api";
+import { formatMoney } from "@/lib/money";
 
 type Insurance = {
   id: number;
@@ -126,7 +127,7 @@ export default function InsuranceTab({
           <p className="text-sm text-slate-600">
             Total annual premium across all policies:{" "}
             <span className="font-semibold text-slate-900">
-              ${totalAnnualPremium.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              {formatMoney(totalAnnualPremium)}
             </span>
           </p>
         </div>
@@ -190,20 +191,20 @@ export default function InsuranceTab({
                 <div>
                   <p className="text-slate-500">Coverage</p>
                   <p className="font-medium text-slate-900">
-                    {p.coverage_amount ? `$${Number(p.coverage_amount).toLocaleString()}` : "—"}
+                    {p.coverage_amount ? formatMoney(p.coverage_amount) : "—"}
                   </p>
                 </div>
                 <div>
                   <p className="text-slate-500">Deductible</p>
                   <p className="font-medium text-slate-900">
-                    {p.deductible ? `$${Number(p.deductible).toLocaleString()}` : "—"}
+                    {p.deductible ? formatMoney(p.deductible) : "—"}
                   </p>
                 </div>
                 <div>
                   <p className="text-slate-500">Premium</p>
                   <p className="font-medium text-slate-900">
                     {p.premium_amount
-                      ? `$${Number(p.premium_amount).toLocaleString()} / ${p.premium_frequency.replace(
+                      ? `${formatMoney(p.premium_amount)} / ${p.premium_frequency.replace(
                           "_",
                           " "
                         )}`
@@ -467,7 +468,7 @@ function InsuranceForm({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Coverage Amount ($)</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Coverage Amount</label>
           <input
             type="number"
             step="0.01"
@@ -477,7 +478,7 @@ function InsuranceForm({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Deductible ($)</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Deductible</label>
           <input
             type="number"
             step="0.01"
@@ -487,7 +488,7 @@ function InsuranceForm({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Premium Amount ($)</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Premium Amount</label>
           <input
             type="number"
             step="0.01"

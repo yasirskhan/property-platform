@@ -1,6 +1,17 @@
+// ============================================================
+// ExpensesTab.tsx
+// ------------------------------------------------------------
+// Property detail tab: expenses (manual + auto-linked from
+// insurance / mortgage / tax / utility / improvement).
+//
+// Uses formatMoney() from lib/money.ts so the org's currency
+// setting is respected (Section 59).
+// ============================================================
+
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatMoney } from "@/lib/money";
 import { apiGet } from "@/lib/api";
 
 type Expense = {
@@ -144,7 +155,7 @@ export default function ExpensesTab({
           <div className="flex items-baseline justify-between mb-3">
             <p className="text-sm text-slate-600">Total (all time)</p>
             <p className="text-2xl font-bold text-slate-900">
-              ${summary.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              {formatMoney(summary.total)}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -156,7 +167,7 @@ export default function ExpensesTab({
                 <span className="font-medium capitalize">
                   {cat.replace("_", " ")}
                 </span>
-                : ${amt.toLocaleString()}
+                : {formatMoney(amt)}
               </span>
             ))}
           </div>
@@ -207,8 +218,8 @@ export default function ExpensesTab({
                   <td className="px-4 py-3 text-slate-500 text-xs">
                     {SOURCE_LABELS[e.source] || e.source}
                   </td>
-                  <td className="px-4 py-3 text-right font-medium text-slate-900">
-                    ${Number(e.amount).toLocaleString()}
+                  <td className="px-4 py-3 text-right font-medium text-slate-900 font-mono">
+                    {formatMoney(e.amount)}
                   </td>
                   {canEdit && (
                     <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -334,7 +345,7 @@ function ExpenseForm({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Amount ($)</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Amount</label>
           <input
             type="number"
             step="0.01"

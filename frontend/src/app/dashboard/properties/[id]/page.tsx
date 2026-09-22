@@ -11,6 +11,7 @@ import AmenitiesTab from "@/components/property/AmenitiesTab";
 import AppliancesTab from "@/components/property/AppliancesTab";
 import ImprovementsTab from "@/components/property/ImprovementsTab";
 import PhotosTab from "@/components/property/PhotosTab";
+import { formatMoney, formatDate } from "@/lib/money";
 
 type Property = {
   id: number;
@@ -288,13 +289,17 @@ function OverviewTab({ property }: { property: Property }) {
         <Row
           label="Estimated Rent"
           value={
-            property.estimated_rent ? `$${property.estimated_rent}/mo` : null
+            property.estimated_rent
+              ? `${formatMoney(property.estimated_rent)}/mo`
+              : null
           }
         />
         <Row
           label="Security Deposit"
           value={
-            property.security_deposit ? `$${property.security_deposit}` : null
+            property.security_deposit
+              ? formatMoney(property.security_deposit)
+              : null
           }
         />
         <Row
@@ -383,7 +388,9 @@ function UnitsTab({
                   <td className="px-6 py-4 text-slate-600">
                     {u.square_feet || "—"}
                   </td>
-                  <td className="px-6 py-4 text-slate-600">${u.monthly_rent}</td>
+                  <td className="px-6 py-4 text-slate-600 font-mono">
+                    {formatMoney(u.monthly_rent)}
+                  </td>
                   <td className="px-6 py-4">
                     {u.is_available ? (
                       <span className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded-full">
@@ -444,7 +451,7 @@ function HistoryTab({ propertyId }: { propertyId: number }) {
               </span>
             </div>
             <span className="text-xs text-slate-500">
-              {new Date(log.created_at).toLocaleString()}
+              {formatDate(log.created_at)}
             </span>
           </div>
           {log.field_name && (
@@ -552,7 +559,7 @@ function FinancialsTab({
             label="Purchase Price"
             value={
               property.purchase_price
-                ? `$${Number(property.purchase_price).toLocaleString()}`
+                ? formatMoney(property.purchase_price as string)
                 : null
             }
           />
@@ -560,7 +567,7 @@ function FinancialsTab({
             label="Current Market Value"
             value={
               property.current_market_value
-                ? `$${Number(property.current_market_value).toLocaleString()}`
+                ? formatMoney(property.current_market_value as string)
                 : null
             }
           />
@@ -574,7 +581,7 @@ function FinancialsTab({
           {property.payoff_amount ? (
             <Row
               label="Payoff Amount"
-              value={`$${Number(property.payoff_amount).toLocaleString()}`}
+              value={formatMoney(property.payoff_amount as string)}
             />
           ) : null}
         </Section>
@@ -589,9 +596,7 @@ function FinancialsTab({
             label="Original Amount"
             value={
               property.mortgage_original_amount
-                ? `$${Number(
-                    property.mortgage_original_amount
-                  ).toLocaleString()}`
+                ? formatMoney(property.mortgage_original_amount as string)
                 : null
             }
           />
@@ -599,9 +604,7 @@ function FinancialsTab({
             label="Current Balance"
             value={
               property.mortgage_current_balance
-                ? `$${Number(
-                    property.mortgage_current_balance
-                  ).toLocaleString()}`
+                ? formatMoney(property.mortgage_current_balance as string)
                 : null
             }
           />
@@ -629,9 +632,7 @@ function FinancialsTab({
             label="Monthly Payment"
             value={
               property.mortgage_monthly_payment
-                ? `$${Number(
-                    property.mortgage_monthly_payment
-                  ).toLocaleString()}`
+                ? formatMoney(property.mortgage_monthly_payment as string)
                 : null
             }
           />
@@ -650,15 +651,11 @@ function FinancialsTab({
             <>
               <Row
                 label="Total Annual Tax"
-                value={`$${totalAnnualTax.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}`}
+                value={formatMoney(totalAnnualTax.toFixed(2))}
               />
               <Row
                 label="Monthly Equivalent"
-                value={`$${monthlyTax.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}`}
+                value={formatMoney(monthlyTax.toFixed(2))}
               />
               <Row label="Tax Authorities" value={taxes.length} />
               <p className="text-xs text-slate-500 mt-4">
@@ -824,9 +821,7 @@ function TaxesTab({
                 <div>
                   <p className="text-slate-500">Assessed Value</p>
                   <p className="font-medium text-slate-900">
-                    {t.assessed_value
-                      ? `$${Number(t.assessed_value).toLocaleString()}`
-                      : "—"}
+                    {t.assessed_value ? formatMoney(t.assessed_value) : "—"}
                   </p>
                 </div>
                 <div>
@@ -838,9 +833,7 @@ function TaxesTab({
                 <div>
                   <p className="text-slate-500">Annual Amount</p>
                   <p className="font-medium text-slate-900">
-                    {t.annual_amount
-                      ? `$${Number(t.annual_amount).toLocaleString()}`
-                      : "—"}
+                    {t.annual_amount ? formatMoney(t.annual_amount) : "—"}
                   </p>
                 </div>
                 <div>
@@ -852,9 +845,7 @@ function TaxesTab({
                 <div>
                   <p className="text-slate-500">Payment Amount</p>
                   <p className="font-medium text-slate-900">
-                    {t.payment_amount
-                      ? `$${Number(t.payment_amount).toLocaleString()}`
-                      : "—"}
+                    {t.payment_amount ? formatMoney(t.payment_amount) : "—"}
                   </p>
                 </div>
                 <div>
@@ -1210,7 +1201,7 @@ function PoliciesTab({
                 label="Pet Deposit"
                 value={
                   p.pet_deposit
-                    ? `$${Number(p.pet_deposit).toLocaleString()}`
+                    ? formatMoney(p.pet_deposit as string)
                     : null
                 }
               />
@@ -1218,7 +1209,7 @@ function PoliciesTab({
                 label="Pet Rent"
                 value={
                   p.pet_rent
-                    ? `$${Number(p.pet_rent).toLocaleString()}/mo`
+                    ? `${formatMoney(p.pet_rent as string)}/mo`
                     : null
                 }
               />
@@ -1254,9 +1245,7 @@ function PoliciesTab({
                 label="Minimum Coverage"
                 value={
                   p.renters_insurance_min_coverage
-                    ? `$${Number(
-                        p.renters_insurance_min_coverage
-                      ).toLocaleString()}`
+                    ? formatMoney(p.renters_insurance_min_coverage as string)
                     : null
                 }
               />

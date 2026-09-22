@@ -3,6 +3,9 @@
 // ------------------------------------------------------------
 // Property detail tab: improvement / renovation history.
 // AppFolio-parity field: warranty_expires.
+//
+// Uses formatMoney() from lib/money.ts so the org's currency
+// setting is respected (Section 59).
 // ============================================================
 
 "use client";
@@ -17,6 +20,7 @@ import {
   PropertyImprovementCreateIn,
   PropertyImprovementUpdateIn,
 } from "@/lib/propertyImprovements";
+import { formatMoney } from "@/lib/money";
 
 const CATEGORY_OPTIONS = [
   "Kitchen",
@@ -173,10 +177,7 @@ export default function ImprovementsTab({
 
   function money(v: string | null): string {
     if (!v) return "—";
-    return `$${Number(v).toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    return formatMoney(v);
   }
 
   if (loading) return <div className="text-slate-500">Loading…</div>;

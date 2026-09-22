@@ -3,6 +3,9 @@
 // Amenities list with inline add/edit + styled confirm modal.
 // Includes AppFolio-parity fields: fee_amount,
 // availability_status.
+//
+// Uses formatMoney() from lib/money.ts so the org's currency
+// setting is respected (Section 59).
 // ============================================================
 
 "use client";
@@ -17,6 +20,7 @@ import {
   PropertyAmenityCreateIn,
   PropertyAmenityUpdateIn,
 } from "@/lib/propertyAmenities";
+import { formatMoney } from "@/lib/money";
 
 const CATEGORY_OPTIONS = [
   "Building",
@@ -167,10 +171,7 @@ export default function AmenitiesTab({
 
   function money(v: string | null): string {
     if (!v) return "—";
-    return `$${Number(v).toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    return formatMoney(v);
   }
 
   function availabilityLabel(v: string | null): string {
