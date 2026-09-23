@@ -304,3 +304,134 @@ when a capability needs finer authorization than its page.
 
 | Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
 |---|---|---|---|---|---|---|---|---|
+| Deposits list page | page | release.accounting.deposits | core | no | ACCOUNTING.DEPOSITS | yes | ✅ present | Core banking workflow |
+| Date / bank filters | filters | — | — | — | — | — | ✅ present | Routine controls |
+| Deposit table + total footer | section | — | — | — | — | — | ✅ present | Deposit #, date, account, description, total |
+| Deposit detail modal | modal | — | — | — | ACCOUNTING.DEPOSITS | — | ✅ present | Shows included receipts |
+| No direct reverse rule | behavior | — | core | no | ACCOUNTING.DEPOSITS | no | ✅ present | Corrections through accounting workflow |
+| Print Bank Deposit | capability | release.accounting.deposits.print | core | no | ACCOUNTING.DEPOSITS | no | ❌ missing | Deposit slip / printable view |
+| Edit Bank Deposit | capability | release.accounting.deposits.edit | core | no | ACCOUNTING.DEPOSITS | no | ❌ missing | Post-creation edit rules required |
+| Process NSF from deposit | capability | release.accounting.deposits.process_nsf | nsf_processing | yes | ACCOUNTING.DEPOSITS | no | ❌ missing | Links deposit/receipt correction workflow |
+| Escrow refund | capability | release.accounting.deposits.escrow_refund | escrow_refunds | yes | ACCOUNTING.DEPOSITS | no | ❌ missing | Deposit refund from escrow |
+
+---
+
+# §Bank Deposits — new page
+
+**Route:** `/dashboard/accounting/deposits/new`  
+**JSON id:** `accounting.deposits`  
+**Page release gate:** `release.accounting.deposits`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| New Bank Deposit page | page | release.accounting.deposits | core | no | ACCOUNTING.DEPOSITS | no | ✅ present | Batch undeposited receipts |
+| Bank account / date / deposit # / description | fields | — | — | — | — | — | ✅ present | Routine fields |
+| Available receipts table | section | — | — | — | — | — | ✅ present | Select receipts for batch |
+| All / None quick select | controls | — | — | — | — | — | ✅ present | Core batch helper |
+| Running included count + total | row | — | — | — | — | — | ✅ present | Core UI |
+| Date mismatch warning | behavior | — | core | no | ACCOUNTING.DEPOSITS | no | ❌ missing | Warn when receipt and deposit dates differ |
+| Deposit number auto-increment per bank | behavior | — | core | yes | ACCOUNTING.DEPOSITS | no | ❌ missing | Bank-specific numbering rule |
+
+---
+
+# §GL Accounts
+
+**Route:** `/dashboard/accounting/gl-accounts`  
+**AppFolio reference:** Accounting / Chart of Accounts  
+**JSON id:** `accounting.coa`  
+**Page release gate:** `release.accounting.gl_accounts`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Chart of Accounts page | page | release.accounting.gl_accounts | core | no | ACCOUNTING.GL_ACCOUNTS | yes | ✅ present | Core accounting configuration |
+| Account groups/list | section | — | — | — | — | — | ✅ present | Existing list surface |
+| Add / edit / deactivate account | capability | — | core | no | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Core CRUD |
+| Sub-account nesting | behavior | — | core | no | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Parent relationship |
+| Offset account | field | — | — | — | — | — | ✅ present | Routine account field |
+| Subject to management fees | field | — | — | — | — | — | ✅ present | Accounting field |
+| Include on cash flow | field | — | — | — | — | — | ✅ present | Accounting field |
+| Account ledger link | navigation | — | core | no | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Links to per-account ledger |
+| Must-clear-to-zero setting | field | — | — | — | — | — | ❌ missing | Supports positive-fee diagnostic |
+| GL Account Permissions | capability | release.accounting.gl_account_permissions | core | yes | SETTINGS.PERMISSIONS | no | ❌ missing | Restricts posting by account |
+| Recalculate Balances | capability | release.accounting.gl_accounts.recalculate | core | no | ACCOUNTING.GL_ACCOUNTS | no | ❌ missing | Administrative rebuild action |
+| Hide semantics | behavior | — | core | yes | ACCOUNTING.GL_ACCOUNTS | no | ❌ missing | Hidden from pickers, retained in reports |
+
+---
+
+# §Journal Entries — list page
+
+**Route:** `/dashboard/accounting/journal-entries`  
+**AppFolio reference:** Accounting / Journal Entries  
+**JSON id:** `accounting.je`  
+**Page release gate:** `release.accounting.journal_entries`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Journal Entries page | page | release.accounting.journal_entries | core | no | ACCOUNTING.JOURNAL_ENTRIES | yes | ✅ present | Core GL workflow |
+| Date filters + list | section | — | — | — | — | — | ✅ present | Existing history view |
+| History / Recurring tabs | capability | release.accounting.journal_entries.recurring | recurring_journal_entries | yes | ACCOUNTING.JOURNAL_ENTRIES | no | ❌ missing | Adds recurring-JE management |
+| Post GPR | capability | release.accounting.journal_entries.post_gpr | gpr_posting | yes | ACCOUNTING.JOURNAL_ENTRIES | no | ❌ missing | Gross Potential Rent posting |
+| Manually Post Journal Entries | capability | release.accounting.journal_entries.manual_post | core | no | ACCOUNTING.JOURNAL_ENTRIES | no | ❌ missing | Search/select/post workflow |
+
+---
+
+# §Journal Entries — new page
+
+**Route:** `/dashboard/accounting/journal-entries/new`  
+**JSON id:** `accounting.je`  
+**Page release gate:** `release.accounting.journal_entries`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| New Journal Entry page | page | release.accounting.journal_entries | core | no | ACCOUNTING.JOURNAL_ENTRIES | no | ✅ present | Manual balanced JE |
+| Date / reference / memo | fields | — | — | — | — | — | ✅ present | Routine fields |
+| Multi-line account/property/description/debit/credit grid | section | — | — | — | — | — | ✅ present | Core JE entry |
+| Add/remove line controls | controls | — | — | — | — | — | ✅ present | Routine controls |
+| Live debit/credit balance | behavior | — | core | no | ACCOUNTING.JOURNAL_ENTRIES | no | ✅ present | Prevents unbalanced submit |
+| Remarks vs line description rule | behavior | — | core | no | ACCOUNTING.JOURNAL_ENTRIES | no | ❌ missing | Statement-level vs line-level semantics |
+
+---
+
+# §Journal Entries — detail page
+
+**Route:** `/dashboard/accounting/journal-entries/[id]`  
+**JSON id:** `accounting.je`  
+**Page release gate:** `release.accounting.journal_entries`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Journal Entry detail | page | release.accounting.journal_entries | core | no | ACCOUNTING.JOURNAL_ENTRIES | no | ✅ present | Reads GL transaction detail |
+| Header / source / reference metadata | section | — | — | — | — | — | ✅ present | Core detail |
+| Debit/credit lines | section | — | — | — | — | — | ✅ present | Core detail |
+| Reversal-only integrity | behavior | — | core | no | ACCOUNTING.JOURNAL_ENTRIES | no | ✅ present | No edit/delete of posted GL transaction |
+
+---
+
+# §Management Fees
+
+**Routes:** `/dashboard/accounting/management-fees`, `/dashboard/accounting/management-fees/new`  
+**AppFolio reference:** Accounting / Management Fees  
+**JSON id:** `accounting.mgmt_fees`  
+**Page release gate:** `release.accounting.management_fees`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Management Fee runs list | page | release.accounting.management_fees | core | yes | ACCOUNTING.MANAGEMENT_FEES | yes | ✅ present | Existing fee-run history |
+| Date filters / detail view | controls | — | — | — | — | — | ✅ present | Routine UI |
+| New fee run / preview | page | release.accounting.management_fees | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Preview before posting |
+| Two-tier fee calculation | behavior | — | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Rent + other income rules |
+| Flat / minimum / end-date overrides | settings | — | — | — | — | — | ✅ present | Existing per-property inputs |
+| Creates Bill as second step | behavior | — | core | no | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Existing accounting spine |
+| Pay Owners | capability | release.accounting.pay_owners | owner_payouts | yes | ACCOUNTING.MANAGEMENT_FEES | no | ❌ missing | Distribute remaining trust funds |
