@@ -564,3 +564,134 @@ when a capability needs finer authorization than its page.
 | Utilities tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Existing property utilities |
 | Insurance tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Existing property insurance |
 | Financials tab | tab | — | core | no | PROPERTIES.ALL | no | ✅ present | Financial summary/ownership |
+| Taxes tab | tab | — | core | no | PROPERTIES.ALL | no | ✅ present | Tax records CRUD |
+| Policies tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Pet/smoking/lease/insurance/laundry policies |
+| Amenities tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Fee + availability fields |
+| Appliances tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Condition/warranty fields |
+| Improvements tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Cost/category/contractor/warranty |
+| Expenses tab | tab | — | core | no | PROPERTIES.ALL | no | ✅ present | Existing expense tracking |
+| History tab | tab | — | core | no | PROPERTIES.ALL | no | ✅ present | Audit/history view |
+| Default bank account | field | — | — | — | — | — | ❌ missing | Drives Receipt Cash Account “Automatic” |
+
+## Planned additional property capabilities
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Photo editor | capability | release.properties.photo_editor | core | yes | PROPERTIES.ALL | no | ❌ missing | Crop / rotate |
+| Keys tracking | capability | release.properties.keys | core | yes | PROPERTIES.ALL | no | ❌ missing | Physical key inventory |
+| Statement Settings | capability | release.properties.statement_settings | owner_statements | yes | PROPERTIES.ALL | no | ❌ missing | Property-specific owner-statement behavior |
+| Non-Revenue tab | capability | release.properties.non_revenue | core | yes | PROPERTIES.ALL | no | ❌ missing | Planned parity tab |
+| Staff tab | capability | release.properties.staff | core | yes | PROPERTIES.ALL | no | ❌ missing | Property assignments |
+| Budget tab | capability | release.properties.budget | budgeting | yes | PROPERTIES.ALL | no | ❌ missing | Budget workflow |
+| Fixed Assets tab | capability | release.properties.fixed_assets | fixed_assets | yes | PROPERTIES.ALL | no | ❌ missing | Maintenance/asset module |
+| RUBs tab | capability | release.properties.rubs | rubs | yes | PROPERTIES.ALL | no | ❌ missing | Expansion product |
+| Compliance tab | capability | release.properties.compliance | compliance | yes | PROPERTIES.ALL | no | ❌ missing | Program enrollment/recerts/etc. |
+| Universal attachments | capability | release.documents.attachments | core | yes | PROPERTIES.ALL | no | ❌ missing | Shared attachment framework across tabs |
+
+## Backend surface
+
+| Endpoint / service | Access requirement | Status |
+|---|---|---|
+| GET `/properties` | release + PROPERTIES.ALL + org/assignment scope | built |
+| POST `/properties` | PROPERTIES.ADD + org scope | built |
+| GET/PATCH/DELETE `/properties/{id}` | permission + row scope | built |
+| GET `/properties/{id}/history` | permission + row scope | built |
+| Unit CRUD under `/properties/{id}/units` | PROPERTIES.UNITS + row scope | built |
+| Taxes / utilities / insurance / expenses / amenities / appliances / improvements / photos routers | page permission + property/org scope | built |
+| Planned property capability endpoints | corresponding release/entitlement/config + permission + property scope | planned |
+
+---
+
+# §Settings — Display
+
+**Route:** `/dashboard/settings/display`  
+**JSON id:** `settings.display`  
+**Page release gate:** `release.settings.display`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Display settings page | page | release.settings.display | core | no | SETTINGS.DISPLAY | yes | ✅ present | User display preferences |
+| Currency selector | field | — | — | — | — | — | ✅ present | Uses org currency list |
+| Layout mode | field | — | — | — | — | — | ✅ present | Tabs / Vertical |
+| Theme | field | — | — | — | — | — | ✅ present | Light / Dark / Auto |
+| Density | field | — | — | — | — | — | ✅ present | Compact / Comfortable / Spacious |
+| Date format | field | — | — | — | — | — | ✅ present | US / ISO / EU |
+| Number format | field | — | — | — | — | — | ✅ present | US / EU / SPACE |
+| Font size | field | — | — | — | — | — | ✅ present | Small / Normal / Large |
+| Accent color | field | — | — | — | — | — | ✅ present | User presentation setting |
+| Reduce motion | field | — | — | — | — | — | ✅ present | Accessibility preference |
+
+---
+
+# §Settings — Currencies
+
+**Route:** `/dashboard/settings/currencies`  
+**JSON id:** `settings.currencies`  
+**Page release gate:** `release.settings.currencies`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Currencies page | page | release.settings.currencies | core | no | SETTINGS.CURRENCIES | yes | ✅ present | Per-org currency catalog |
+| List seeded/custom currencies | section | — | — | — | — | — | ✅ present | 9 defaults seeded per org |
+| Add custom currency | action | — | core | yes | SETTINGS.CURRENCIES | no | ✅ present | Code/name/symbol/locale/decimals |
+| Edit custom currency | action | — | core | yes | SETTINGS.CURRENCIES | no | ✅ present | Existing CRUD |
+| Soft-delete custom currency | action | — | core | yes | SETTINGS.CURRENCIES | no | ✅ present | Existing CRUD |
+
+---
+
+# §Settings — Permissions
+
+**Route:** `/dashboard/settings/permissions`  
+**JSON id:** `settings.menu_permissions`  
+**Page release gate:** `release.settings.permissions`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Permissions page | page | release.settings.permissions | core | no | SETTINGS.PERMISSIONS | yes | ✅ present | Backend re-enforces all edits |
+| Roles tab | capability | — | core | yes | SETTINGS.PERMISSIONS | no | ✅ present | Role-by-menu matrix |
+| Users tab | capability | — | core | yes | SETTINGS.PERMISSIONS | no | ✅ present | Per-user overrides |
+| My Preferences tab | capability | — | core | yes | — | no | ✅ present | Personal order/hiding |
+| GL Account Permissions | capability | release.accounting.gl_account_permissions | core | yes | SETTINGS.PERMISSIONS | no | ❌ missing | Finer posting authorization |
+
+---
+
+# §Settings — Sidebar compatibility route
+
+**Route:** `/dashboard/settings/sidebar`  
+**JSON id:** `settings.menu_permissions`  
+**Page release gate:** —
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Redirect to Permissions → My Preferences | compatibility route | — | core | no | — | no | ✅ present | Preserves old bookmarks; standalone sidebar page is deprecated |
+
+---
+
+# §Settings — planned capability pages
+
+These settings families are planned but do not yet have current routes
+under `/dashboard/settings`. Their eventual route names are finalized
+when the page is implemented; capability keys below are the durable
+access boundary.
+
+| Capability | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Company / Branding | settings family | release.settings.company | core | yes | SETTINGS | no | ❌ missing | Company identity, logo, address, time zone, packet cover |
+| Accounting Settings | settings family | release.settings.accounting | core | yes | ACCOUNTING | no | ❌ missing | Key accounts, GPR, receipts, check writing, basis, fiscal year |
+| Security | settings family | release.settings.security | security_controls | yes | SETTINGS | no | ❌ missing | MFA, sessions, IP allowlist, password policy |
+| Data / Backup / Retention | settings family | release.settings.data | core | yes | SETTINGS | no | ❌ missing | Backup schedule/restore/export preferences |
+| Features | settings family | release.settings.features | core | yes | SETTINGS | no | ❌ missing | Org-level capability configuration; separate from release control |
+| Documents | settings family | release.settings.documents | documents | yes | SETTINGS | no | ❌ missing | Templates/export/document defaults |
+| Leasing | settings family | release.settings.leasing | leasing | yes | SETTINGS | no | ❌ missing | Leasing configuration |
+| Maintenance | settings family | release.settings.maintenance | maintenance | yes | SETTINGS | no | ❌ missing | Maintenance configuration |
+| Owners | settings family | release.settings.owners | owner_portal | yes | SETTINGS | no | ❌ missing | Owner configuration |
+| Communication | settings family | release.settings.communication | messaging | yes | SETTINGS | no | ❌ missing | Channel/template/quiet-hours configuration |
+| Approvals | settings family | release.settings.approvals | approvals | yes | SETTINGS | no | ❌ missing | Approval workflow settings |
