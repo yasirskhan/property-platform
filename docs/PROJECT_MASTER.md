@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.S — Engineering Safety Foundation** is in final hosted verification. Foundation Session 3.4.2 is COMPLETE.
+**Current activity:** Phase **3.4.3 — Identity Boundary + Immutable Audit** is COMPLETE. Next implementation batch: **3.4.4 — release-gate storage/resolver + jobs runtime foundation**.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -31,11 +31,11 @@
 - Fresh database bootstrap/model registration gaps were corrected and all 50 model tables are guarded by tests.
 - Staging initially failed because the PostgreSQL `psycopg` driver was only a dev dependency; it is now a runtime dependency and the live staging smoke passes.
 
-**Final 3.4.S closeout check now pending:** CodeQL hosted proof. Source analysis completes, but GitHub rejects SARIF/status upload because code scanning is disabled for this private repository. Once repository code scanning is enabled and CodeQL passes, Phase 3.4.S closes and the next implementation batch is **3.4.3 — identity boundary + immutable audit + jobs foundation**.
+**3.4.S closeout:** COMPLETE. Portable private-repo security checks (Bandit, pip-audit, npm audit, committed-secret scan, Dependabot) replaced the unavailable mandatory CodeQL upload gate and passed in hosted CI run 35917804417. CodeQL remains optional/manual if GitHub Code Security is enabled later.
 
-**Migration head:** `5949df11e460`.
+**Migration head:** `a6e4c8f2b1d0`.
 
-**Current parity inventory before final closeout:** 141 built, 1 in progress, 486 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 146 built, 0 in progress, 482 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -153,7 +153,7 @@ Deployment target (Phase 11):
 3. Keep parity/registry CLEAN and all existing backend/frontend/E2E gates green.
 4. Update the living ledger + AI handoff with the final green commit.
 
-After 3.4.S is VERIFIED, start **3.4.3 — identity boundary + immutable audit + jobs foundation**. Do not jump ahead to billing, expansion products, or broad page retrofits before that dependency order.
+Phase 3.4.S and 3.4.3 are VERIFIED. Start **3.4.4 — release-gate storage/resolver + jobs runtime foundation** next. Do not jump ahead to billing, expansion products, or broad page retrofits before that dependency order.
 
 ## B2. AFTER THAT## B2. AFTER THAT (Phase 3.5 onward)
 
@@ -4341,8 +4341,8 @@ The gap review identified compliance, infrastructure, product-scope, and operati
 | 1 | 3.4.1 | Planning + PLAN_GAPS + FEATURE_REGISTRY v1 |
 | 2 | 3.4.2 | Complete FEATURE_REGISTRY with Hybrid Capability Gating + registry/parity tooling |
 | 3 | **3.4.S** | Engineering Safety Foundation |
-| 4 | 3.4.3 | Identity boundary + immutable audit + jobs foundation |
-| 5 | 3.4.4 | Release-gate storage/resolver |
+| 4 | 3.4.3 | Identity boundary + immutable audit |
+| 5 | 3.4.4 | Release-gate storage/resolver + jobs runtime foundation |
 | 6 | 3.4.5 | Locked accounting periods + core org settings |
 | 7 | 3.4.6 | End-to-end verification of existing core product |
 | 8 | 3.4.7 | Basic billing foundation |
@@ -4392,7 +4392,7 @@ The project does not accelerate into broad AI-assisted batches until the codebas
 
 Hosted GitHub CI has passed backend/PostgreSQL, frontend lint/type/build, fresh DB bootstrap, E2E seed, PostgreSQL dump/restore, authenticated browser smoke, staging image/config checks, and live Docker Compose startup/health verification. CI run 35916148970 proved backend `/health` and frontend `/login` from the running stack.
 
-The only remaining closeout gate is hosted CodeQL proof. CodeQL extraction/analysis runs, but GitHub currently rejects SARIF/status upload because code scanning is disabled for this private repository. Enable that repository setting and rerun CodeQL; after it is green, 3.4.S is complete and 3.4.3 begins.
+Phase 3.4.S is complete. Hosted CI uses portable security gates that work for this private repository: Bandit, pip-audit, npm audit, committed-secret scanning, and Dependabot. CodeQL remains an optional manual workflow if GitHub Code Security is enabled later.
 
 ## Permanent rules
 
@@ -4404,3 +4404,31 @@ The only remaining closeout gate is hosted CodeQL proof. CodeQL extraction/analy
 - `docs/AI_HANDOFF.md` is maintained by the assistant after meaningful verified batches. Yasir is never responsible for reconstructing AI context.
 
 # END OF PROJECT_MASTER.md# END OF PROJECT_MASTER.md
+
+
+# SECTION 85 — FOUNDATION 3.4.3 (COMPLETE)
+
+**Phase:** `3.4.3`  
+**Completed:** 2026-09-23
+
+## Identity boundary
+
+- Separate `platform_users` table with no customer `organization_id`.
+- Platform roles remain independent from customer roles.
+- One-time guarded `seed_platform_admin.py`; no self-signup path for platform staff.
+- Customer and platform JWTs require separate audience claims and are not interchangeable.
+- Hosted CI run 35922527217 passed after migration/schema-count guards were updated.
+
+## Immutable audit foundation
+
+- Existing `audit_log` remains the canonical history table.
+- New canonical append service flushes into the caller's transaction and does not force an independent commit.
+- ORM UPDATE/DELETE attempts are rejected.
+- PostgreSQL fresh bootstrap creates an immutable trigger; existing versioned databases receive it through Alembic revision `a6e4c8f2b1d0`.
+- Direct PostgreSQL UPDATE and DELETE attempts are regression-tested and rejected.
+- Existing `app.core.audit.log_action()` now routes through the canonical append-only service.
+- Hosted CI run 35924373985 passed backend, security, frontend, E2E, backup/restore, and live staging checks.
+
+## Next
+
+Phase **3.4.4 — release-gate storage/resolver + jobs runtime foundation**. The parity checklist keeps Redis/Arq queue, scheduler, standard retry/dead-letter patterns, and Redis standup in 3.4.4.

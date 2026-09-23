@@ -1,7 +1,7 @@
 # ENGINEERING SAFETY
 
 **Phase:** 3.4.S  
-**Status:** Final hosted closeout  
+**Status:** COMPLETE  
 **Last updated:** 2026-09-23
 
 This file defines what "done" means for later AI-assisted batches.
@@ -60,7 +60,7 @@ Accounting/payment change: all applicable checks plus balance, org boundary, fai
 ## Current hosted evidence
 GitHub CI has passed PostgreSQL backend tests, frontend lint/type/build, fresh DB bootstrap, deterministic seed, PostgreSQL dump/restore, authenticated Playwright smoke, staging image/config checks, and live Compose staging startup/health smoke. CI run 35916148970 verified the running backend `/health` and frontend `/login` endpoints.
 
-CodeQL extraction/analysis runs for Python and TypeScript, but GitHub currently rejects SARIF/status upload because code scanning is disabled for this private repository. That repository setting must be enabled before the final hosted security gate can be marked verified.
+Portable private-repo security checks are authoritative for the current project: Bandit static analysis, pip-audit, npm audit, committed-secret scanning, and Dependabot. Hosted CI run 35917804417 passed these gates. CodeQL remains optional/manual if GitHub Code Security is enabled later.
 
 ## Security timing
 Dependency scanning/static analysis start now. DAST grows with staging. Formal penetration testing remains a pre-launch gate.

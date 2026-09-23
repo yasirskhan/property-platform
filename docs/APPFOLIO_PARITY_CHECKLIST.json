@@ -9,13 +9,13 @@
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
     "last_updated": "2026-09-23",
-    "migration_head": "5949df11e460",
+    "migration_head": "a6e4c8f2b1d0",
     "roadmap_section": "PROJECT_MASTER.md Section 57 (summary) + Section 38 (build order)",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 141,
-    "scheduled_count": 486,
-    "in_progress_count": 1
+    "built_count": 146,
+    "scheduled_count": 482,
+    "in_progress_count": 0
   },
   "items": [
     {
@@ -3833,8 +3833,9 @@
       "id": "compliance.soc2.immutable_audit",
       "area": "Compliance / SOC 2",
       "feature": "Immutable append-only audit log (no UPDATE/DELETE)",
-      "status": "scheduled",
-      "phase": "3.4.3"
+      "status": "built",
+      "phase": "3.4.3",
+      "notes": "Existing audit_log hardened append-only: ORM UPDATE/DELETE guards plus PostgreSQL trigger protection for direct SQL; canonical append service added; hosted CI 35924373985 passed."
     },
     {
       "id": "compliance.soc2.retention_policy",
@@ -4204,22 +4205,25 @@
       "id": "platform.platform_users_table",
       "area": "Platform / Identity",
       "feature": "platform_users table (separate from customer users)",
-      "status": "scheduled",
-      "phase": "3.4.3"
+      "status": "built",
+      "phase": "3.4.3",
+      "notes": "Separate internal platform_users identity domain added in migration 7f4c21a9d6e3; no organization_id column; hosted CI 35922527217 passed."
     },
     {
       "id": "platform.jwt_audience_split",
       "area": "Platform / Identity",
       "feature": "Separate JWT audience claim (customer vs. platform tokens)",
-      "status": "scheduled",
-      "phase": "3.4.3"
+      "status": "built",
+      "phase": "3.4.3",
+      "notes": "Customer and platform JWTs now carry required, non-interchangeable audience claims with regression coverage; hosted CI 35922527217 passed."
     },
     {
       "id": "platform.seed_first_admin",
       "area": "Platform / Identity",
       "feature": "Script to seed first platform_admin (no self-signup to our side)",
-      "status": "scheduled",
-      "phase": "3.4.3"
+      "status": "built",
+      "phase": "3.4.3",
+      "notes": "Guarded one-time seed_platform_admin.py bootstrap added with no self-signup path and regression coverage; hosted CI 35922527217 passed."
     },
     {
       "id": "platform.feature_flags.tables",
@@ -4425,9 +4429,9 @@
       "id": "platform.safety.dependency_scanning",
       "area": "Platform / Engineering Safety",
       "feature": "Dependency + static security scanning in CI",
-      "status": "in_progress",
+      "status": "built",
       "phase": "3.4.S",
-      "notes": "Dependabot and committed-secret scanning are active. CodeQL scanned 185/185 Python files and 91/91 TypeScript files, but SARIF/status upload is blocked because code scanning is disabled for this private repository. Enable that repository setting, then rerun hosted CodeQL before marking built."
+      "notes": "Portable private-repo CI gate uses Bandit, pip-audit, npm audit, committed-secret scanning, and Dependabot. Hosted CI run 35917804417 passed after replacing the unused python-jose/ecdsa dependency chain with PyJWT. CodeQL remains optional if GitHub Code Security is enabled later."
     },
     {
       "id": "platform.gating.hybrid_model",

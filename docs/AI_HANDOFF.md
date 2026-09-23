@@ -13,7 +13,7 @@ Property Management Platform (AppFolio-equivalent).
 - Safety work branch: `chatgpt/checkpoint-005-safety`
 - Draft PR: #2, "Safety Foundation: CI, Postgres, E2E, staging safeguards"
 - `main` must remain untouched until Yasir explicitly approves a merge.
-- Alembic head: `5949df11e460`
+- Alembic head: `a6e4c8f2b1d0`
 - Repository state and tests are authoritative. Chat history is not.
 
 ## Resume order
@@ -26,7 +26,9 @@ Property Management Platform (AppFolio-equivalent).
 7. `PLAN_GAPS.md` / `FILE_CATALOG.md` only when needed.
 
 ## Current phase
-**3.4.S Engineering Safety Foundation — final hosted closeout.**
+**3.4.3 Identity boundary + immutable audit — COMPLETE.**
+
+Next: **3.4.4 Release-gate storage/resolver + jobs runtime foundation.**
 
 Session 3.4.2 is COMPLETE:
 - Feature Registry covers 24 current routes / 211 meaningful rows / 67 release gates.
@@ -55,19 +57,22 @@ GitHub CI run 35897240195 proved:
 - E2E seed used reserved `.test` domain rejected by Pydantic; fixed.
 - Playwright used unreliable `networkidle`; now waits for DOM/UI readiness.
 
-## Final 3.4.S checks in this branch sync
-- CodeQL: source extraction/analysis runs, but GitHub rejects SARIF/status upload because code scanning is disabled for this private repository. Repository code scanning must be enabled before the hosted gate can pass.
-- Staging: VERIFIED in hosted CI run 35916148970. Compose rendered/built, the live stack started, backend `/health` passed, and frontend `/login` passed after adding the PostgreSQL driver to runtime dependencies.
-- CI events: feature-branch push duplication removed; normal CI runs on main pushes, PRs, or manual dispatch.
+## Safety foundation closeout
+Phase 3.4.S is COMPLETE.
+- Staging live-start smoke: VERIFIED in CI run 35916148970.
+- Portable security gate: Bandit + pip-audit + npm audit + committed-secret scan + Dependabot, VERIFIED in CI run 35917804417.
+- CodeQL workflow is retained as optional/manual because private-repo SARIF upload requires GitHub Code Security.
 
-## Parity state before final closeout
-- 141 built
-- 1 in progress
-- 486 scheduled
+## 3.4.3 evidence
+- Separate `platform_users` identity domain, guarded first-admin seed, and strict customer/platform JWT audience separation: VERIFIED in CI run 35922527217.
+- Immutable `audit_log`: ORM mutation guards, PostgreSQL direct-SQL trigger protection, canonical append-only service, and migration/bootstrap coverage: VERIFIED in CI run 35924373985.
+
+## Current parity state
+- 146 built
+- 0 in progress
+- 482 scheduled
 - 628 total
 - 0 unplanned / 0 phase-less expected
-
-The only remaining in-progress safety record is CodeQL hosted proof. The analysis itself runs, but GitHub code scanning is disabled for the private repository, so SARIF/status upload cannot complete until that repository setting is enabled.
 
 ## Locked architecture decisions
 - Hybrid Capability Gating with independent layers: release control, plan entitlement, org configuration, authorization/permission, user presentation.
@@ -85,10 +90,10 @@ The only remaining in-progress safety record is CodeQL hosted proof. The analysi
 - Do not require Alembic downgrade paths when unsafe; use forward recovery + tested backups.
 - The assistant updates continuity files; Yasir never has to manage AI memory.
 
-## Next phase after 3.4.S is green
-**3.4.3 — identity boundary + immutable audit + jobs foundation.**
+## Next phase
+**3.4.4 — release-gate storage/resolver + jobs runtime foundation.**
 
-Do not skip ahead to billing, fraud, expansion products, or broad page retrofits unless the dependency plan is explicitly changed.
+The parity checklist places Redis/Arq queue, scheduler, retry/dead-letter patterns, and Redis standup in 3.4.4. Do not pull billing, fraud, expansion products, or broad page retrofits ahead of that dependency order.
 
 ## Rule for future assistants
 Do not replace, redesign, or rebuild anything marked VERIFIED unless:
