@@ -15,6 +15,8 @@ pytestmark = pytest.mark.e2e
 BASE_URL = os.environ.get("E2E_BASE_URL", "http://127.0.0.1:3000")
 EMAIL = os.environ.get("E2E_ADMIN_EMAIL", "e2e-admin@example.com")
 PASSWORD = os.environ.get("E2E_ADMIN_PASSWORD", "test1234")
+PROPERTY_ID = 900001
+UNIT_ID = 900001
 
 
 def test_login_and_core_authenticated_pages() -> None:
@@ -61,6 +63,32 @@ def test_login_and_core_authenticated_pages() -> None:
             )
             expect(
                 page.get_by_role("heading", name="Permissions", exact=True)
+            ).to_be_visible()
+
+
+            page.goto(
+                f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                wait_until="domcontentloaded",
+            )
+            expect(
+                page.get_by_role("heading", name="E2E Test Property", exact=True)
+            ).to_be_visible()
+            expect(page.get_by_text("E2E-1", exact=True)).to_be_visible()
+
+            page.goto(
+                f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}/edit",
+                wait_until="domcontentloaded",
+            )
+            expect(
+                page.get_by_role("heading", name="Edit Property", exact=True)
+            ).to_be_visible()
+
+            page.goto(
+                f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}/units/{UNIT_ID}/edit",
+                wait_until="domcontentloaded",
+            )
+            expect(
+                page.get_by_role("heading", name="Edit Unit E2E-1", exact=True)
             ).to_be_visible()
         finally:
             browser.close()
