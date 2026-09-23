@@ -44,6 +44,7 @@ class PlatformUser(Base):
         nullable=False,
     )
     is_active = Column(Boolean, nullable=False, default=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(
         DateTime,

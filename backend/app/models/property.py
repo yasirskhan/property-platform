@@ -257,6 +257,7 @@ class PropertyAssignment(Base):
     role = Column(SqlEnum(UserRole), nullable=False)
 
     is_active = Column(Boolean, default=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # --- Relationships ---
@@ -317,6 +318,7 @@ class PropertyOwner(Base):
     is_primary = Column(Boolean, nullable=False, default=False)
 
     is_active = Column(Boolean, nullable=False, default=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
