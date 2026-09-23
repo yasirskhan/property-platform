@@ -24,6 +24,7 @@ from sqlalchemy import (
     Column,
     Integer,
     String,
+    Date,
     DateTime,
     ForeignKey,
     Boolean,
