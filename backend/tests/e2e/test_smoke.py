@@ -35,9 +35,32 @@ def test_login_and_core_authenticated_pages() -> None:
                 ("/dashboard/properties", "Properties"),
                 ("/dashboard/accounting/receipts", "Receipts"),
                 ("/dashboard/accounting/bills", "Bills"),
+                ("/dashboard/accounting/deposits", "Bank Deposits"),
+                ("/dashboard/accounting/gl-accounts", "Chart of Accounts"),
+                ("/dashboard/accounting/journal-entries", "Journal Entries"),
+                ("/dashboard/accounting/management-fees", "Management Fees"),
+                ("/dashboard/accounting/owner-statements", "Owner Statements"),
+                ("/dashboard/accounting/bank-accounts", "Bank Accounts"),
+                ("/dashboard/accounting/charges", "Charges"),
+                ("/dashboard/settings/display", "Display"),
+                ("/dashboard/settings/currencies", "Currencies"),
+                ("/dashboard/settings/permissions", "Permissions"),
+                ("/dashboard/team", "Team"),
             ]:
                 page.goto(f"{BASE_URL}{path}", wait_until="domcontentloaded")
                 expect(page.get_by_role("heading", name=heading, exact=True)).to_be_visible()
                 expect(page).not_to_have_url(re.compile(r"/login"))
+
+            page.goto(
+                f"{BASE_URL}/dashboard/settings/sidebar",
+                wait_until="domcontentloaded",
+            )
+            page.wait_for_url(
+                re.compile(r"/dashboard/settings/permissions/?$"),
+                timeout=15_000,
+            )
+            expect(
+                page.get_by_role("heading", name="Permissions", exact=True)
+            ).to_be_visible()
         finally:
             browser.close()
