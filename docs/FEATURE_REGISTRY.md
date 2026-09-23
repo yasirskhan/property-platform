@@ -435,3 +435,132 @@ when a capability needs finer authorization than its page.
 | Flat / minimum / end-date overrides | settings | — | — | — | — | — | ✅ present | Existing per-property inputs |
 | Creates Bill as second step | behavior | — | core | no | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Existing accounting spine |
 | Pay Owners | capability | release.accounting.pay_owners | owner_payouts | yes | ACCOUNTING.MANAGEMENT_FEES | no | ❌ missing | Distribute remaining trust funds |
+| Overcollection strategy | capability | release.accounting.management_fees.overcollection | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ❌ missing | Org accounting policy |
+| Management Fee Exclusions | capability | release.accounting.management_fees.exclusions | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ❌ missing | Central exclusions list |
+| Post GPR | capability | release.accounting.management_fees.post_gpr | gpr_posting | yes | ACCOUNTING.MANAGEMENT_FEES | no | ❌ missing | GPR-related fee workflow |
+
+---
+
+# §Owner Statements
+
+**Routes:** `/dashboard/accounting/owner-statements`, `/dashboard/accounting/owner-statements/new`, `/dashboard/accounting/owner-statements/[id]`  
+**AppFolio reference:** Accounting / Owner Statements  
+**JSON id:** `accounting.owner_statements`  
+**Page release gate:** `release.accounting.owner_statements`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Statements list | page | release.accounting.owner_statements | core | yes | ACCOUNTING.OWNER_STATEMENTS | yes | ✅ present | Period filter + history |
+| Generate statement page | page | release.accounting.owner_statements | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Owner/period preview and creation |
+| Frozen statement detail | page | release.accounting.owner_statements | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Snapshot prevents later drift |
+| Per-property sections | behavior | — | core | no | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Existing snapshot structure |
+| Running balance | behavior | — | core | no | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Existing transaction rendering |
+| Beginning / ending cash | behavior | — | core | no | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Existing summary |
+| Print / Save PDF | capability | — | core | no | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Browser print-ready output |
+| Required Reserves line | behavior | — | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ❌ missing | Statement accounting enhancement |
+| Prepaid Rent line | behavior | — | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ❌ missing | Statement accounting enhancement |
+| Property Cash Summary | capability | release.accounting.owner_statements.cash_summary | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ❌ missing | Enhanced owner reporting |
+| Owner Packet customizer | capability | release.owner_portal.packet_customizer | owner_portal | yes | ACCOUNTING.OWNER_STATEMENTS | no | ❌ missing | Phase 7 portal/document capability |
+| Email statement | capability | release.owner_statements.email | owner_portal | yes | ACCOUNTING.OWNER_STATEMENTS | no | ❌ missing | Delivery workflow |
+
+---
+
+# §Bank Accounts
+
+**Route:** `/dashboard/accounting/bank-accounts`  
+**AppFolio reference:** Accounting / Bank Accounts & Reconciliation  
+**JSON id:** `accounting.banks`  
+**Page release gate:** `release.accounting.bank_accounts`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Bank Accounts page | page | release.accounting.bank_accounts | core | no | ACCOUNTING.BANK_ACCOUNTS | yes | ✅ present | Core physical-bank configuration |
+| List / detail / add / edit / deactivate | capability | — | core | no | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Existing CRUD |
+| Bank name / routing / account number | fields | — | — | — | — | — | ✅ present | Sensitive data; backend scope required |
+| ACH format | field | — | — | — | — | — | ✅ present | CSV / NACHA field exists |
+| Bank Reconciliation | capability | release.accounting.bank_reconciliation | bank_reconciliation | yes | ACCOUNTING.BANK_ACCOUNTS | no | ❌ missing | Major independently releasable workflow |
+| QIF Import | capability | release.accounting.bank_reconciliation.qif | bank_reconciliation | yes | ACCOUNTING.BANK_ACCOUNTS | no | ❌ missing | Reconciliation import helper |
+| Check Setup | capability | release.accounting.check_setup | check_writing | yes | ACCOUNTING.BANK_ACCOUNTS | no | ❌ missing | Check-layout/configuration |
+| ACH File Generation | capability | release.accounting.ach_files | ach_payments | yes | ACCOUNTING.BANK_ACCOUNTS | no | ❌ missing | NACHA / CSV generation |
+| $0 ACH Test File | capability | release.accounting.ach_test_file | ach_payments | yes | ACCOUNTING.BANK_ACCOUNTS | no | ❌ missing | Setup verification |
+| Check Printing | capability | release.accounting.check_printing | check_writing | yes | ACCOUNTING.BANK_ACCOUNTS | no | ❌ missing | Physical check workflow |
+| Bank Feed | capability | release.accounting.bank_feed | bank_feeds | yes | ACCOUNTING.BANK_ACCOUNTS | no | ❌ missing | Future Plaid/generic feed integration |
+| Adjustments | capability | release.accounting.bank_adjustments | core | yes | ACCOUNTING.BANK_ACCOUNTS | no | ❌ missing | Adjustment entity/sub-tab |
+
+---
+
+# §Charges — list page
+
+**Route:** `/dashboard/accounting/charges`  
+**JSON id:** `accounting.charges`  
+**Page release gate:** `release.accounting.charges`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Charges list | page | release.accounting.charges | core | no | ACCOUNTING.CHARGES | yes | ✅ present | Existing standalone charges page |
+| Date / status filters | filters | — | — | — | — | — | ✅ present | Routine controls |
+| Charge table / drill-down | section | — | — | — | — | — | ✅ present | Existing list surface |
+| Charge edit rules | behavior | — | core | no | ACCOUNTING.CHARGES | no | ✅ present | Paid floor; no charge-to-credit conversion |
+| Bulk tenant charges upload | capability | release.accounting.charges.bulk_upload | bulk_charges | yes | ACCOUNTING.CHARGES | no | ❌ missing | Independent bulk workflow |
+
+---
+
+# §Charges — new page
+
+**Route:** `/dashboard/accounting/charges/new`  
+**JSON id:** `accounting.charges`  
+**Page release gate:** `release.accounting.charges`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| New Charge page | page | release.accounting.charges | core | no | ACCOUNTING.CHARGES | no | ✅ present | Core charge-entry workflow |
+| Tenant / account / date / amount / description | fields | — | — | — | — | — | ✅ present | Routine fields |
+| Submit / cancel | controls | — | — | — | — | — | ✅ present | Routine controls |
+
+---
+
+# §Properties — list page
+
+**Route:** `/dashboard/properties`  
+**AppFolio reference:** Properties / Property Directory  
+**JSON id:** `properties.core`  
+**Page release gate:** `release.properties`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Properties list | page | release.properties | core | no | PROPERTIES.ALL | yes | ✅ present | Core property-management page |
+| Property cards / unit summary | section | — | — | — | — | — | ✅ present | Existing list surface |
+| Add Property navigation | action | — | core | no | PROPERTIES.ADD | no | ✅ present | Existing create route |
+| Property Groups | capability | release.properties.groups | property_groups | yes | PROPERTIES.GROUPS | no | ❌ missing | Grouping/filtering capability |
+| Map view | capability | release.properties.map | core | yes | PROPERTIES.ALL | no | ❌ missing | Planned map tab/view |
+
+---
+
+# §Property Detail
+
+**Route:** `/dashboard/properties/[id]`  
+**AppFolio reference:** Property Detail full tab set  
+**JSON id:** `properties.tabs`  
+**Page release gate:** `release.properties`
+
+## Current surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Property header / edit / delete | section | — | core | no | PROPERTIES.ALL | no | ✅ present | Row/org scope required |
+| Overview tab | tab | — | core | no | PROPERTIES.ALL | no | ✅ present | Property identity + financial/internal notes summary |
+| Units tab | tab | — | core | no | PROPERTIES.UNITS | no | ✅ present | Unit list and unit CRUD navigation |
+| Photos tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Upload, cover, marketing, captions/sort planned/built per current component |
+| Utilities tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Existing property utilities |
+| Insurance tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Existing property insurance |
+| Financials tab | tab | — | core | no | PROPERTIES.ALL | no | ✅ present | Financial summary/ownership |
