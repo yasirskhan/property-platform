@@ -247,7 +247,7 @@ export default function UserDetailPage() {
             >
               <span className="font-medium text-red-700">Deactivate this person</span>
               <span className="block text-xs text-red-500 mt-0.5">
-                They won't be able to log in. This doesn't delete their data.
+                They won&apos;t be able to log in. This doesn&apos;t delete their data.
               </span>
             </button>
           )}
