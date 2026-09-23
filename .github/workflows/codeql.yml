@@ -1,12 +1,9 @@
-name: CodeQL
+name: CodeQL (optional)
 
+# GitHub CodeQL/code scanning for private repositories requires GitHub Code Security.
+# Keep this workflow available for manual use if that repository feature is enabled later.
 on:
-  push:
-    branches: ["main", "master"]
-  pull_request:
-    branches: ["main", "master"]
-  schedule:
-    - cron: "23 4 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
