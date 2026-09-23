@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, inspect, text
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_HEAD = "5949df11e460"
-EXPECTED_MODEL_TABLES = 50
+EXPECTED_MODEL_TABLES = 51
 
 
 @pytest.mark.integration
