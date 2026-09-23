@@ -17,6 +17,7 @@ env/
 
 # --- Databases (local dev) ---
 *.db
+*.db.bak_*
 *.sqlite
 *.sqlite3
 
@@ -68,6 +69,7 @@ backend/src/
 
 # Throwaway diagnostic / smoke-test scripts (not part of the app)
 /backend/check_*.py
+!/backend/check_parity.py
 /backend/smoke_*.py
 
 # Throwaway patch scripts (master doc rebuilds, one-off fixes)
@@ -92,3 +94,6 @@ fix_*.py
 rebuild_*.py
 patch_*.py
 add_*.py
+
+# Staging secrets
+deploy/staging/.env
