@@ -13,9 +13,9 @@
     "roadmap_section": "PROJECT_MASTER.md Section 57 (summary) + Section 38 (build order)",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 135,
+    "built_count": 140,
     "scheduled_count": 486,
-    "in_progress_count": 7
+    "in_progress_count": 2
   },
   "items": [
     {
@@ -4337,17 +4337,17 @@
       "id": "platform.safety.ci",
       "area": "Platform / Engineering Safety",
       "feature": "CI pipeline quality gate",
-      "status": "in_progress",
+      "status": "built",
       "phase": "3.4.S",
-      "notes": "CI now includes backend/frontend, PostgreSQL, E2E, secret scan, and staging-image/config jobs; first hosted GitHub Actions run still pending."
+      "notes": "Hosted GitHub CI run 35897240195 passed backend, frontend, staging-config, and E2E jobs after browser-wait fix; final workflow cleanup/live staging smoke is the remaining closeout run."
     },
     {
       "id": "platform.safety.postgres_tests",
       "area": "Platform / Engineering Safety",
       "feature": "PostgreSQL integration-test environment",
-      "status": "in_progress",
+      "status": "built",
       "phase": "3.4.S",
-      "notes": "PostgreSQL 16 schema smoke plus authenticated E2E database path are wired in CI; first hosted run pending."
+      "notes": "PostgreSQL 16 backend integration suite passed in hosted GitHub CI run 35897240195."
     },
     {
       "id": "platform.safety.backend_tests",
@@ -4361,17 +4361,17 @@
       "id": "platform.safety.frontend_checks",
       "area": "Platform / Engineering Safety",
       "feature": "Frontend lint + TypeScript + production build checks",
-      "status": "in_progress",
+      "status": "built",
       "phase": "3.4.S",
-      "notes": "lint/typecheck/build scripts and CI job are wired; dependency-complete verification still pending."
+      "notes": "npm ci, lint, TypeScript, and Next.js production build passed in hosted GitHub CI run 35897240195."
     },
     {
       "id": "platform.safety.playwright",
       "area": "Platform / Engineering Safety",
       "feature": "Playwright smoke / E2E test foundation",
-      "status": "in_progress",
+      "status": "built",
       "phase": "3.4.S",
-      "notes": "Real-browser Playwright smoke test plus deterministic disposable DB seed and CI server startup are implemented; hosted browser run pending."
+      "notes": "Authenticated Playwright smoke passed in hosted GitHub CI run 35897240195: login, Dashboard, Properties, Receipts, and Bills."
     },
     {
       "id": "platform.safety.migration_verification",
@@ -4387,15 +4387,15 @@
       "feature": "Basic staging path",
       "status": "in_progress",
       "phase": "3.4.S",
-      "notes": "Docker-based PostgreSQL/FastAPI/Next.js staging path, guarded DB prepare step, compose validation/image-build CI job, and staging runbook are implemented; actual staging bring-up pending."
+      "notes": "Compose rendering and both container builds have passed. This sync adds live docker compose startup + backend/frontend smoke; final hosted run pending."
     },
     {
       "id": "platform.safety.backup_restore",
       "area": "Platform / Engineering Safety",
       "feature": "Backup + restore verification",
-      "status": "in_progress",
+      "status": "built",
       "phase": "3.4.S",
-      "notes": "SQLite restore proof passes locally; PostgreSQL pg_dump/pg_restore drill is wired into E2E CI and awaits hosted execution."
+      "notes": "SQLite restore proof passes locally; PostgreSQL pg_dump/pg_restore drill passed in hosted GitHub E2E run 35897240195."
     },
     {
       "id": "platform.safety.idempotency",
@@ -4427,7 +4427,7 @@
       "feature": "Dependency + static security scanning in CI",
       "status": "in_progress",
       "phase": "3.4.S",
-      "notes": "Dependabot, CodeQL, committed-secret guard, and CI security checks are configured; hosted results pending."
+      "notes": "Dependabot and committed-secret scanning are active. CodeQL source analysis completed but SARIF/status upload lacked private-repo actions:read; this sync adds the required permission and upgrades CodeQL action v4. Final hosted run pending."
     },
     {
       "id": "platform.gating.hybrid_model",

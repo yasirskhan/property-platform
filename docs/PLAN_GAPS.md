@@ -1,5 +1,8 @@
 # PLAN GAPS
 
+> **Engineering order update — 2026-09-23:** Phase 3.4.S Engineering Safety Foundation now sits between registry completion (3.4.2) and implementation phase 3.4.3. Core launch work takes priority over specialized expansion products. Hybrid Capability Gating replaces per-field flagging. See PROJECT_MASTER Sections 70, 79, 80, 82, and 84 plus ENGINEERING_SAFETY.md.
+
+
 **Supplement to PROJECT_MASTER.md**
 **Last updated: 2026-09-22**
 
