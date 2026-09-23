@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     # --- Database ---
     DATABASE_URL: str = "sqlite:///./property_platform.db"
 
+    # --- Background jobs / Redis ---
+    JOBS_ENABLED: bool = False
+    REDIS_URL: str = "redis://localhost:6379/0"
+    JOB_QUEUE_NAME: str = "arq:queue"
+
     # --- Stripe ---
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
@@ -67,6 +72,15 @@ class Settings(BaseSettings):
 
         if self.ENCRYPTION_KEY == DEV_ENCRYPTION_KEY:
             raise ValueError(f"{env} requires a non-default ENCRYPTION_KEY")
+
+        if self.JOBS_ENABLED:
+            redis_url = self.REDIS_URL.strip().lower()
+            if not redis_url:
+                raise ValueError(f"{env} with JOBS_ENABLED requires REDIS_URL")
+            if "localhost" in redis_url or "127.0.0.1" in redis_url:
+                raise ValueError(
+                    f"{env} with JOBS_ENABLED requires a non-localhost REDIS_URL"
+                )
         try:
             Fernet(self.ENCRYPTION_KEY.encode("utf-8"))
         except Exception as exc:

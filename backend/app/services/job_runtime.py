@@ -78,11 +78,13 @@ def reserve_job_run(
 
 
 def mark_job_queued(db: Session, row: JobRun, *, arq_job_id: str) -> None:
-    row.status = JobStatus.QUEUED
-    row.arq_job_id = arq_job_id
-    row.last_error = None
-    db.commit()
     db.refresh(row)
+    if row.status in {JobStatus.PENDING, JobStatus.RETRYING}:
+        row.status = JobStatus.QUEUED
+        row.arq_job_id = arq_job_id
+        row.last_error = None
+        db.commit()
+        db.refresh(row)
 
 
 def mark_job_running(db: Session, row: JobRun) -> None:
