@@ -278,3 +278,143 @@ CREATE TABLE property_tax_payments (
 	amount NUMERIC(10, 2) NOT NULL, 
 	paid_at DATE NOT NULL, 
 	period VARCHAR(50), 
+	confirmation_number VARCHAR(100), 
+	receipt_url VARCHAR(500), 
+	is_paid_from_escrow BOOLEAN, 
+	notes TEXT, 
+	created_by_id INTEGER, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(tax_id) REFERENCES property_taxes (id), 
+	FOREIGN KEY(created_by_id) REFERENCES users (id)
+);
+
+CREATE TABLE property_taxes (
+	id INTEGER NOT NULL, 
+	property_id INTEGER NOT NULL, 
+	tax_authority VARCHAR(255) NOT NULL, 
+	tax_type VARCHAR(16) NOT NULL, 
+	parcel_number VARCHAR(100), 
+	assessed_value NUMERIC(12, 2), 
+	tax_rate_percent NUMERIC(6, 4), 
+	annual_amount NUMERIC(12, 2), 
+	payment_frequency VARCHAR(11) NOT NULL, 
+	payment_amount NUMERIC(10, 2), 
+	next_due_date DATE, 
+	escrow_included BOOLEAN, 
+	is_active BOOLEAN, 
+	notes TEXT, 
+	created_at DATETIME, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id)
+);
+
+CREATE TABLE property_utilities (
+	id INTEGER NOT NULL, 
+	property_id INTEGER NOT NULL, 
+	utility_type VARCHAR(8) NOT NULL, 
+	company_name VARCHAR(255) NOT NULL, 
+	company_phone VARCHAR(50), 
+	company_website VARCHAR(255), 
+	paid_by VARCHAR(16) NOT NULL, 
+	account_number VARCHAR(100), 
+	account_holder_name VARCHAR(255), 
+	setup_instructions TEXT, 
+	internal_notes TEXT, 
+	is_active BOOLEAN, 
+	created_at DATETIME, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id)
+);
+
+CREATE TABLE rent_invoices (
+	id INTEGER NOT NULL, 
+	lease_id INTEGER NOT NULL, 
+	period_start DATE NOT NULL, 
+	period_end DATE NOT NULL, 
+	due_date DATE NOT NULL, 
+	amount_due NUMERIC(10, 2) NOT NULL, 
+	amount_paid NUMERIC(10, 2) NOT NULL, 
+	late_fee NUMERIC(10, 2) NOT NULL, 
+	status VARCHAR(7) NOT NULL, 
+	created_at DATETIME, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(lease_id) REFERENCES leases (id)
+);
+
+CREATE TABLE screening_providers (
+	id INTEGER NOT NULL, 
+	slug VARCHAR(50) NOT NULL, 
+	name VARCHAR(255) NOT NULL, 
+	description TEXT, 
+	pricing_info VARCHAR(255), 
+	api_docs_url VARCHAR(500), 
+	is_active BOOLEAN, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	UNIQUE (slug)
+);
+
+CREATE TABLE sidebar_preferences (
+	id INTEGER NOT NULL, 
+	organization_id INTEGER NOT NULL, 
+	"order" JSON NOT NULL, 
+	hidden JSON NOT NULL, 
+	created_at DATETIME DEFAULT (CURRENT_TIMESTAMP), 
+	updated_at DATETIME DEFAULT (CURRENT_TIMESTAMP), 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(organization_id) REFERENCES organizations (id) ON DELETE CASCADE
+);
+
+CREATE TABLE tenant_insurance (
+	id INTEGER NOT NULL, 
+	lease_id INTEGER NOT NULL, 
+	tenant_id INTEGER NOT NULL, 
+	property_id INTEGER NOT NULL, 
+	provider VARCHAR(255), 
+	policy_number VARCHAR(100), 
+	coverage_amount NUMERIC(12, 2), 
+	effective_date DATE, 
+	expiration_date DATE, 
+	document_url VARCHAR(500), 
+	status VARCHAR(8) NOT NULL, 
+	extraction_status VARCHAR(13) NOT NULL, 
+	extracted_data TEXT, 
+	verified_by_id INTEGER, 
+	verified_at DATETIME, 
+	rejection_reason VARCHAR(500), 
+	notes TEXT, 
+	uploaded_by_id INTEGER, 
+	created_at DATETIME, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(lease_id) REFERENCES leases (id), 
+	FOREIGN KEY(tenant_id) REFERENCES users (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id), 
+	FOREIGN KEY(verified_by_id) REFERENCES users (id), 
+	FOREIGN KEY(uploaded_by_id) REFERENCES users (id)
+);
+
+CREATE TABLE trash_pickup_schedule (
+	id INTEGER NOT NULL, 
+	property_id INTEGER NOT NULL, 
+	pickup_type VARCHAR(10) NOT NULL, 
+	day_of_week VARCHAR(20) NOT NULL, 
+	frequency VARCHAR(20) NOT NULL, 
+	time_window VARCHAR(100), 
+	notes TEXT, 
+	is_active BOOLEAN, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id)
+);
+
+CREATE TABLE units (
+	id INTEGER NOT NULL, 
+	property_id INTEGER NOT NULL, 
+	unit_number VARCHAR(50) NOT NULL, 
+	bedrooms INTEGER NOT NULL, 
+	bathrooms NUMERIC(3, 1) NOT NULL, 
