@@ -15,6 +15,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.core.observability import init_sentry
 from app.routers import auth as auth_router
 from app.routers import properties as properties_router
 from app.routers import users as users_router
@@ -57,10 +58,13 @@ from app.routers import charges as charges_router
 from app.routers import platform_auth as platform_auth_router
 from app.routers import platform_flags as platform_flags_router
 from app.routers import platform_jobs as platform_jobs_router
+from app.routers import observability as observability_router
 
 # ------------------------------------------------------------
 # Create the FastAPI app
 # ------------------------------------------------------------
+init_sentry()
+
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
@@ -126,6 +130,7 @@ app.include_router(charges_router.router)
 app.include_router(platform_auth_router.router)
 app.include_router(platform_flags_router.router)
 app.include_router(platform_jobs_router.router)
+app.include_router(observability_router.router)
 
 
 # ------------------------------------------------------------

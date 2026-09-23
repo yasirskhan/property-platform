@@ -45,6 +45,9 @@ services:
       JOBS_ENABLED: "true"
       REDIS_URL: redis://redis:6379/0
       JOB_QUEUE_NAME: arq:queue
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: staging
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0}
       EMAIL_MODE: ${EMAIL_MODE:-console}
       STRIPE_ENABLED: ${STRIPE_ENABLED:-false}
       FRONTEND_URL: ${FRONTEND_URL:-http://127.0.0.1:3000}
@@ -74,6 +77,9 @@ services:
       JOBS_ENABLED: "true"
       REDIS_URL: redis://redis:6379/0
       JOB_QUEUE_NAME: arq:queue
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: staging
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0}
       EMAIL_MODE: ${EMAIL_MODE:-console}
       STRIPE_ENABLED: ${STRIPE_ENABLED:-false}
       FRONTEND_URL: ${FRONTEND_URL:-http://127.0.0.1:3000}

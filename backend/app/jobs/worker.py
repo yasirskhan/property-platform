@@ -9,6 +9,7 @@ from sqlalchemy import or_
 
 from app.core.config import settings
 from app.core.database import SessionLocal
+from app.core.observability import capture_exception, init_sentry
 from app.jobs import handlers  # noqa: F401 - registers built-in handlers
 from app.jobs.queue import get_redis_settings, stable_arq_job_id
 from app.jobs.registry import get_job_handler
@@ -24,6 +25,10 @@ from app.services.job_runtime import (
 
 def retry_delay_seconds(attempt: int) -> int:
     return min(300, 5 * (2 ** max(attempt - 1, 0)))
+
+
+async def worker_startup(_ctx) -> None:
+    init_sentry()
 
 
 async def execute_job(ctx, job_run_id: int):
@@ -50,6 +55,7 @@ async def execute_job(ctx, job_run_id: int):
         try:
             result = await handler(dict(row.payload or {}))
         except Exception as exc:
+            capture_exception(exc)
             error = f"{type(exc).__name__}: {exc}"
             if row.attempts >= row.max_attempts:
                 dead = mark_job_dead_letter(db, row, error=error)
@@ -115,6 +121,7 @@ async def recover_pending_jobs(ctx):
 
 
 class WorkerSettings:
+    on_startup = worker_startup
     functions = [execute_job]
     cron_jobs = [
         cron(

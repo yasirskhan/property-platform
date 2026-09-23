@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
     JOB_QUEUE_NAME: str = "arq:queue"
 
+    # --- Observability ---
+    SENTRY_DSN: str = ""
+    SENTRY_ENVIRONMENT: str = ""
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.0
+
     # --- Stripe ---
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
@@ -62,6 +67,10 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def reject_development_secrets_outside_development(self) -> "Settings":
         env = self.ENVIRONMENT.strip().lower()
+
+        if not 0.0 <= self.SENTRY_TRACES_SAMPLE_RATE <= 1.0:
+            raise ValueError("SENTRY_TRACES_SAMPLE_RATE must be between 0 and 1")
+
         if env not in {"staging", "production"}:
             return self
 
