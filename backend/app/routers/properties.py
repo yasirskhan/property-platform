@@ -68,10 +68,7 @@ def check_property_access(db: Session, user: User, property_id: int) -> Property
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
 
-    if user.role == UserRole.ADMIN:
-        return prop
-
-    if user.role == UserRole.OWNER:
+    if user.role in (UserRole.ADMIN, UserRole.OWNER):
         if prop.organization_id != user.organization_id:
             raise HTTPException(status_code=403, detail="Not your property")
         return prop
@@ -97,10 +94,7 @@ def visible_properties_query(db: Session, user: User):
     """Return a SQLAlchemy query pre-filtered by role."""
     q = db.query(Property)
 
-    if user.role == UserRole.ADMIN:
-        return q
-
-    if user.role == UserRole.OWNER:
+    if user.role in (UserRole.ADMIN, UserRole.OWNER):
         return q.filter(Property.organization_id == user.organization_id)
 
     if user.role in (UserRole.MANAGER, UserRole.CREW):
@@ -130,9 +124,11 @@ def create_property(
     if current_user.role not in (UserRole.ADMIN, UserRole.OWNER):
         raise HTTPException(status_code=403, detail="Only admins and owners can create properties")
 
-    if current_user.role == UserRole.OWNER:
-        if payload.organization_id != current_user.organization_id:
-            raise HTTPException(status_code=403, detail="Can only create properties in your organization")
+    if payload.organization_id != current_user.organization_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Can only create properties in your organization",
+        )
 
     prop = Property(**payload.model_dump())
     db.add(prop)
@@ -278,7 +274,7 @@ def restore_property(
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
 
-    if current_user.role == UserRole.OWNER and prop.organization_id != current_user.organization_id:
+    if prop.organization_id != current_user.organization_id:
         raise HTTPException(status_code=403, detail="Not your property")
 
     prop.is_active = True
