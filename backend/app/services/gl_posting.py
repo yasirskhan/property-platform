@@ -86,11 +86,15 @@ def post_transaction(
     source_type: Optional[str] = None,
     source_id: Optional[int] = None,
     reversal_of_id: Optional[int] = None,
+    commit: bool = True,
+    write_audit: bool = True,
 ) -> GLTransaction:
     """Post a balanced transaction to the General Ledger.
 
-    Raises PostingError on any validation failure. On success,
-    commits and returns the freshly created GLTransaction.
+    Raises PostingError on any validation failure. By default, commits
+    and audits the posting. Compound financial workflows may pass
+    commit=False and write_audit=False so related state changes can
+    commit atomically in the caller.
 
     Rules enforced here (in order):
       1. transaction_type must be valid
@@ -265,8 +269,13 @@ def post_transaction(
             )
             db.add(entry)
 
-        db.commit()
-        db.refresh(txn)
+        if commit:
+            db.commit()
+            db.refresh(txn)
+        else:
+            # Keep this posting inside the caller's transaction. txn.id is
+            # already assigned by flush(), but nothing is durable yet.
+            db.flush()
     except Exception:
         db.rollback()
         raise
@@ -274,20 +283,21 @@ def post_transaction(
     # -----------------------------------------------------------------
     # 9. Audit log (best-effort — never breaks the post)
     # -----------------------------------------------------------------
-    try:
-        log_action(
-            db=db,
-            user=created_by,
-            entity_type="gl_transaction",
-            entity_id=txn.id,
-            action="post",
-            field_name=ttype,
-            old_value=None,
-            new_value=f"{total_debit} / {total_credit}",
-        )
-    except Exception:
-        # audit failures must never undo a successful posting
-        pass
+    if commit and write_audit:
+        try:
+            log_action(
+                db=db,
+                user=created_by,
+                entity_type="gl_transaction",
+                entity_id=txn.id,
+                action="post",
+                field_name=ttype,
+                old_value=None,
+                new_value=f"{total_debit} / {total_credit}",
+            )
+        except Exception:
+            # audit failures must never undo a successful posting
+            pass
 
     return txn
 
@@ -331,22 +341,45 @@ def reverse_transaction(
             )
         )
 
-    reversal = post_transaction(
-        db=db,
-        organization_id=original.organization_id,
-        transaction_date=reversal_date,
-        transaction_type="REVERSAL",
-        memo=memo or f"Reversal of transaction #{original.id}",
-        lines=flipped,
-        created_by=created_by,
-        reference_number=original.reference_number,
-        source_type=original.source_type,
-        source_id=original.source_id,
-        reversal_of_id=original.id,
-    )
+    # The reversal posting and original-state flip are one financial
+    # transaction. A failure must leave neither half durable.
+    try:
+        reversal = post_transaction(
+            db=db,
+            organization_id=original.organization_id,
+            transaction_date=reversal_date,
+            transaction_type="REVERSAL",
+            memo=memo or f"Reversal of transaction #{original.id}",
+            lines=flipped,
+            created_by=created_by,
+            reference_number=original.reference_number,
+            source_type=original.source_type,
+            source_id=original.source_id,
+            reversal_of_id=original.id,
+            commit=False,
+            write_audit=False,
+        )
+        original.is_reversed = True
+        db.commit()
+        db.refresh(reversal)
+        db.refresh(original)
+    except Exception:
+        db.rollback()
+        raise
 
-    original.is_reversed = True
-    db.commit()
-    db.refresh(original)
+    # Audit only after the financial transaction is durable.
+    try:
+        log_action(
+            db=db,
+            user=created_by,
+            entity_type="gl_transaction",
+            entity_id=reversal.id,
+            action="post",
+            field_name="REVERSAL",
+            old_value=None,
+            new_value=f"reversal_of={original.id}",
+        )
+    except Exception:
+        pass
 
     return reversal
