@@ -24,8 +24,9 @@ from sqlalchemy.orm import relationship
 
 from app.core.database import Base
 
-# Import User so SQLAlchemy can resolve the relationship.
+# Import related models so SQLAlchemy can resolve relationships.
 from app.models.user import User  # noqa: F401
+from app.models.platform_user import PlatformUser  # noqa: F401
 
 
 class AuditLog(Base):
@@ -33,10 +34,14 @@ class AuditLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    # Who made the change. Platform-side actors are intentionally not
-    # forced into customer users; internal actor metadata can be stored
-    # by the audit service until a dedicated actor column is introduced.
+    # Who made the change. Customer and platform actors remain separate.
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    platform_user_id = Column(
+        Integer,
+        ForeignKey("platform_users.id"),
+        nullable=True,
+        index=True,
+    )
     organization_id = Column(
         Integer,
         ForeignKey("organizations.id"),
@@ -61,6 +66,7 @@ class AuditLog(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
     user = relationship("User")
+    platform_user = relationship("PlatformUser")
 
     def __repr__(self) -> str:
         return f"<AuditLog {self.entity_type}#{self.entity_id} {self.action}>"

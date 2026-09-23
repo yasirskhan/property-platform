@@ -28,6 +28,7 @@ def append_audit_log(
     entity_id: int,
     action: str,
     user_id: int | None = None,
+    platform_user_id: int | None = None,
     organization_id: int | None = None,
     field_name: str | None = None,
     old_value: Any = None,
@@ -42,6 +43,7 @@ def append_audit_log(
 
     row = AuditLog(
         user_id=user_id,
+        platform_user_id=platform_user_id,
         organization_id=organization_id,
         entity_type=entity_type.strip(),
         entity_id=entity_id,

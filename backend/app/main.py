@@ -54,6 +54,8 @@ from app.models.charge import Charge  # noqa: F401
 from app.routers import settings_display as settings_display_router
 from app.routers import currencies as currencies_router
 from app.routers import charges as charges_router
+from app.routers import platform_auth as platform_auth_router
+from app.routers import platform_flags as platform_flags_router
 
 # ------------------------------------------------------------
 # Create the FastAPI app
@@ -120,6 +122,8 @@ app.include_router(property_photos_router.router)
 app.include_router(settings_display_router.router)
 app.include_router(currencies_router.router)
 app.include_router(charges_router.router)
+app.include_router(platform_auth_router.router)
+app.include_router(platform_flags_router.router)
 
 
 # ------------------------------------------------------------
