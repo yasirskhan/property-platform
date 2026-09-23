@@ -558,3 +558,105 @@ CREATE UNIQUE INDEX ix_organizations_slug ON organizations (slug);
 CREATE INDEX ix_password_reset_tokens_id ON password_reset_tokens (id);
 
 CREATE UNIQUE INDEX ix_password_reset_tokens_token ON password_reset_tokens (token);
+
+CREATE INDEX ix_password_reset_tokens_user_id ON password_reset_tokens (user_id);
+
+CREATE INDEX ix_payments_id ON payments (id);
+
+CREATE INDEX ix_payments_invoice_id ON payments (invoice_id);
+
+CREATE INDEX ix_platform_settings_id ON platform_settings (id);
+
+CREATE UNIQUE INDEX ix_platform_settings_key ON platform_settings ("key");
+
+CREATE INDEX ix_properties_id ON properties (id);
+
+CREATE INDEX ix_properties_organization_id ON properties (organization_id);
+
+CREATE INDEX ix_property_assignments_id ON property_assignments (id);
+
+CREATE INDEX ix_property_assignments_property_id ON property_assignments (property_id);
+
+CREATE INDEX ix_property_assignments_user_id ON property_assignments (user_id);
+
+CREATE INDEX ix_property_expenses_id ON property_expenses (id);
+
+CREATE INDEX ix_property_expenses_property_id ON property_expenses (property_id);
+
+CREATE INDEX ix_property_income_id ON property_income (id);
+
+CREATE INDEX ix_property_income_property_id ON property_income (property_id);
+
+CREATE INDEX ix_property_insurance_id ON property_insurance (id);
+
+CREATE INDEX ix_property_insurance_property_id ON property_insurance (property_id);
+
+CREATE INDEX ix_property_tax_payments_id ON property_tax_payments (id);
+
+CREATE INDEX ix_property_tax_payments_tax_id ON property_tax_payments (tax_id);
+
+CREATE INDEX ix_property_taxes_id ON property_taxes (id);
+
+CREATE INDEX ix_property_taxes_property_id ON property_taxes (property_id);
+
+CREATE INDEX ix_property_utilities_id ON property_utilities (id);
+
+CREATE INDEX ix_property_utilities_property_id ON property_utilities (property_id);
+
+CREATE INDEX ix_rent_invoices_id ON rent_invoices (id);
+
+CREATE INDEX ix_rent_invoices_lease_id ON rent_invoices (lease_id);
+
+CREATE INDEX ix_screening_providers_id ON screening_providers (id);
+
+CREATE INDEX ix_sidebar_preferences_id ON sidebar_preferences (id);
+
+CREATE UNIQUE INDEX ix_sidebar_preferences_organization_id ON sidebar_preferences (organization_id);
+
+CREATE INDEX ix_tenant_insurance_id ON tenant_insurance (id);
+
+CREATE INDEX ix_tenant_insurance_lease_id ON tenant_insurance (lease_id);
+
+CREATE INDEX ix_tenant_insurance_property_id ON tenant_insurance (property_id);
+
+CREATE INDEX ix_tenant_insurance_tenant_id ON tenant_insurance (tenant_id);
+
+CREATE INDEX ix_trash_pickup_schedule_id ON trash_pickup_schedule (id);
+
+CREATE INDEX ix_trash_pickup_schedule_property_id ON trash_pickup_schedule (property_id);
+
+CREATE INDEX ix_units_id ON units (id);
+
+CREATE INDEX ix_units_property_id ON units (property_id);
+
+CREATE UNIQUE INDEX ix_users_email ON users (email);
+
+CREATE INDEX ix_users_id ON users (id);
+
+CREATE INDEX ix_users_organization_id ON users (organization_id);
+
+CREATE INDEX ix_utility_bills_id ON utility_bills (id);
+
+CREATE INDEX ix_utility_bills_utility_id ON utility_bills (utility_id);
+
+CREATE INDEX ix_work_order_updates_id ON work_order_updates (id);
+
+CREATE INDEX ix_work_order_updates_user_id ON work_order_updates (user_id);
+
+CREATE INDEX ix_work_order_updates_work_order_id ON work_order_updates (work_order_id);
+
+CREATE INDEX ix_work_orders_assigned_to_id ON work_orders (assigned_to_id);
+
+CREATE INDEX ix_work_orders_id ON work_orders (id);
+
+CREATE INDEX ix_work_orders_property_id ON work_orders (property_id);
+
+CREATE INDEX ix_work_orders_tenant_id ON work_orders (tenant_id);
+
+CREATE INDEX ix_work_orders_unit_id ON work_orders (unit_id);
+
+CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL, CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num));
+
+INSERT INTO alembic_version(version_num) VALUES ('1d77e94a0fb5');
+
+PRAGMA foreign_keys=ON;
