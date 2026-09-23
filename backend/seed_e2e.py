@@ -8,7 +8,7 @@ from app.core.database import SessionLocal
 from app.models.user import User, UserRole
 from app.schemas.user import UserCreate
 
-E2E_EMAIL = os.environ.get("E2E_ADMIN_EMAIL", "e2e-admin@example.test")
+E2E_EMAIL = os.environ.get("E2E_ADMIN_EMAIL", "e2e-admin@example.com")
 E2E_PASSWORD = os.environ.get("E2E_ADMIN_PASSWORD", "test1234")
 E2E_ORG = os.environ.get("E2E_ORG_NAME", "E2E Test Organization")
 
