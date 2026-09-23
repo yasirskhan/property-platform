@@ -418,3 +418,143 @@ CREATE TABLE units (
 	unit_number VARCHAR(50) NOT NULL, 
 	bedrooms INTEGER NOT NULL, 
 	bathrooms NUMERIC(3, 1) NOT NULL, 
+	square_feet INTEGER, 
+	monthly_rent NUMERIC(10, 2) NOT NULL, 
+	security_deposit NUMERIC(10, 2), 
+	is_available BOOLEAN, 
+	is_active BOOLEAN, 
+	created_at DATETIME, 
+	updated_at DATETIME, pet_deposit NUMERIC(10,2), pet_rent NUMERIC(10,2), application_fee NUMERIC(10,2), admin_fee NUMERIC(10,2), available_from DATE, lease_term_months INTEGER, is_listed BOOLEAN DEFAULT 0, deleted_at DATETIME, deleted_by_id INTEGER, delete_reason TEXT, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_property_unit_number UNIQUE (property_id, unit_number), 
+	FOREIGN KEY(property_id) REFERENCES properties (id)
+);
+
+CREATE TABLE users (
+	id INTEGER NOT NULL, 
+	email VARCHAR(255) NOT NULL, 
+	hashed_password VARCHAR(255) NOT NULL, 
+	first_name VARCHAR(100) NOT NULL, 
+	last_name VARCHAR(100) NOT NULL, 
+	phone VARCHAR(50), 
+	role VARCHAR(7) NOT NULL, 
+	organization_id INTEGER, 
+	is_active BOOLEAN, 
+	is_verified BOOLEAN, 
+	created_at DATETIME, 
+	updated_at DATETIME, profile_photo_url VARCHAR(500), 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(organization_id) REFERENCES organizations (id)
+);
+
+CREATE TABLE utility_bills (
+	id INTEGER NOT NULL, 
+	utility_id INTEGER NOT NULL, 
+	billing_period_start DATE, 
+	billing_period_end DATE, 
+	due_date DATE, 
+	amount NUMERIC(10, 2) NOT NULL, 
+	paid_at DATE, 
+	invoice_url VARCHAR(500), 
+	notes TEXT, 
+	created_by_id INTEGER, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(utility_id) REFERENCES property_utilities (id), 
+	FOREIGN KEY(created_by_id) REFERENCES users (id)
+);
+
+CREATE TABLE work_order_updates (
+	id INTEGER NOT NULL, 
+	work_order_id INTEGER NOT NULL, 
+	user_id INTEGER NOT NULL, 
+	from_status VARCHAR(12), 
+	to_status VARCHAR(12), 
+	message TEXT, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(work_order_id) REFERENCES work_orders (id), 
+	FOREIGN KEY(user_id) REFERENCES users (id)
+);
+
+CREATE TABLE work_orders (
+	id INTEGER NOT NULL, 
+	unit_id INTEGER NOT NULL, 
+	tenant_id INTEGER NOT NULL, 
+	property_id INTEGER NOT NULL, 
+	assigned_to_id INTEGER, 
+	assigned_at DATETIME, 
+	assigned_by_id INTEGER, 
+	title VARCHAR(255) NOT NULL, 
+	description TEXT NOT NULL, 
+	category VARCHAR(11) NOT NULL, 
+	priority VARCHAR(9) NOT NULL, 
+	status VARCHAR(12) NOT NULL, 
+	permission_to_enter BOOLEAN, 
+	entry_notes TEXT, 
+	photo_urls TEXT, 
+	labor_cost NUMERIC(10, 2), 
+	materials_cost NUMERIC(10, 2), 
+	total_cost NUMERIC(10, 2), 
+	resolution_notes TEXT, 
+	created_at DATETIME, 
+	updated_at DATETIME, 
+	completed_at DATETIME, 
+	closed_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(unit_id) REFERENCES units (id), 
+	FOREIGN KEY(tenant_id) REFERENCES users (id), 
+	FOREIGN KEY(property_id) REFERENCES properties (id), 
+	FOREIGN KEY(assigned_to_id) REFERENCES users (id), 
+	FOREIGN KEY(assigned_by_id) REFERENCES users (id)
+);
+
+CREATE INDEX ix_application_payments_applicant_user_id ON application_payments (applicant_user_id);
+
+CREATE INDEX ix_application_payments_application_id ON application_payments (application_id);
+
+CREATE INDEX ix_application_payments_id ON application_payments (id);
+
+CREATE INDEX ix_application_payments_property_id ON application_payments (property_id);
+
+CREATE INDEX ix_audit_log_created_at ON audit_log (created_at);
+
+CREATE INDEX ix_audit_log_entity_id ON audit_log (entity_id);
+
+CREATE INDEX ix_audit_log_entity_type ON audit_log (entity_type);
+
+CREATE INDEX ix_audit_log_id ON audit_log (id);
+
+CREATE INDEX ix_audit_log_organization_id ON audit_log (organization_id);
+
+CREATE INDEX ix_audit_log_user_id ON audit_log (user_id);
+
+CREATE INDEX ix_lease_applications_applicant_user_id ON lease_applications (applicant_user_id);
+
+CREATE INDEX ix_lease_applications_id ON lease_applications (id);
+
+CREATE INDEX ix_lease_applications_property_id ON lease_applications (property_id);
+
+CREATE INDEX ix_lease_applications_unit_id ON lease_applications (unit_id);
+
+CREATE INDEX ix_leases_id ON leases (id);
+
+CREATE INDEX ix_leases_tenant_id ON leases (tenant_id);
+
+CREATE INDEX ix_leases_unit_id ON leases (unit_id);
+
+CREATE INDEX ix_organization_email_settings_id ON organization_email_settings (id);
+
+CREATE UNIQUE INDEX ix_organization_email_settings_organization_id ON organization_email_settings (organization_id);
+
+CREATE INDEX ix_organization_screening_settings_id ON organization_screening_settings (id);
+
+CREATE UNIQUE INDEX ix_organization_screening_settings_organization_id ON organization_screening_settings (organization_id);
+
+CREATE INDEX ix_organizations_id ON organizations (id);
+
+CREATE UNIQUE INDEX ix_organizations_slug ON organizations (slug);
+
+CREATE INDEX ix_password_reset_tokens_id ON password_reset_tokens (id);
+
+CREATE UNIQUE INDEX ix_password_reset_tokens_token ON password_reset_tokens (token);
