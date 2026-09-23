@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.3 — Identity Boundary + Immutable Audit** is COMPLETE. Next implementation batch: **3.4.4 — release-gate storage/resolver + jobs runtime foundation**.
+**Current activity:** Phase **3.4.4 — Release Control + Jobs Runtime Foundation** is COMPLETE. Next implementation batch: **3.4.5 — locked accounting periods + core organization settings**.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -28,14 +28,14 @@
 - E2E seed used a reserved `.test` email domain rejected by Pydantic; changed to a valid example-domain address.
 - Playwright waited for `networkidle`, which is unreliable for a live client app; the smoke test now waits for DOM/UI readiness.
 - GL reversal posting previously used two financial commits; reversal + original `is_reversed` state now commit atomically with regression coverage.
-- Fresh database bootstrap/model registration gaps were corrected and all 50 model tables are guarded by tests.
+- Fresh database bootstrap/model registration gaps were corrected and the complete current model registry is guarded by tests.
 - Staging initially failed because the PostgreSQL `psycopg` driver was only a dev dependency; it is now a runtime dependency and the live staging smoke passes.
 
 **3.4.S closeout:** COMPLETE. Portable private-repo security checks (Bandit, pip-audit, npm audit, committed-secret scan, Dependabot) replaced the unavailable mandatory CodeQL upload gate and passed in hosted CI run 35917804417. CodeQL remains optional/manual if GitHub Code Security is enabled later.
 
-**Migration head:** `a6e4c8f2b1d0`.
+**Migration head:** `d9a7b1c5e4f3`.
 
-**Current parity inventory:** 146 built, 0 in progress, 482 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 160 built, 0 in progress, 468 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -4432,3 +4432,75 @@ Phase 3.4.S is complete. Hosted CI uses portable security gates that work for th
 ## Next
 
 Phase **3.4.4 — release-gate storage/resolver + jobs runtime foundation**. The parity checklist keeps Redis/Arq queue, scheduler, standard retry/dead-letter patterns, and Redis standup in 3.4.4.
+
+
+# SECTION 86 — FOUNDATION 3.4.4 (COMPLETE)
+
+**Phase:** `3.4.4`  
+**Completed:** 2026-09-23  
+**Verification:** hosted CI run `35931322493`
+
+## Hybrid Capability Gating runtime
+
+The old five-state / sticky / three-tier feature-flag wording is retired. The locked architecture remains PROJECT_MASTER Sections 70 and 80:
+
+- release stages: `HIDDEN`, `BETA`, `ROLLOUT`, `ALL_ORGS`;
+- release control is independent from entitlement, org configuration, authorization, and user presentation;
+- a non-applicable layer passes automatically;
+- UI hiding never grants backend access.
+
+Implemented:
+
+- `release_gates` and `release_gate_organizations` storage;
+- explicit beta/rollout organization allowlists;
+- fail-closed release resolver;
+- five-layer access composition without cross-layer grants;
+- platform-audience-only `PUT /api/platform/flags/{key}`;
+- immutable audit of release-stage/allowlist changes with `platform_user_id`;
+- idempotent `seed_release_gates.py` from FEATURE_REGISTRY metadata, creating missing gates as HIDDEN without overwriting existing state.
+
+## Jobs runtime foundation
+
+PostgreSQL is the durable source of truth. Redis is dispatch.
+
+Implemented:
+
+- `job_runs` with unique `(job_name, idempotency_key)`;
+- `job_dead_letters`;
+- DB-first reserve/commit before queue dispatch;
+- deterministic Arq job IDs;
+- scheduled/deferred dispatch;
+- handler registry;
+- bounded exponential retries;
+- per-job max attempts;
+- durable dead-letter transition;
+- minute-level recovery cron for due PENDING/RETRYING jobs and lost DB-first dispatches;
+- platform-only job list, summary, and dead-letter monitoring endpoints.
+
+Operational contract: `docs/JOBS_RUNTIME.md`.
+
+## Redis / staging
+
+Staging now proves the complete runtime stack:
+
+- PostgreSQL;
+- Redis with persistence + health check;
+- FastAPI backend;
+- Arq worker;
+- Next.js frontend.
+
+The runtime uses provider-neutral `REDIS_URL`. Managed environments may supply the planned Upstash development URL or ElastiCache production endpoint without application-code changes.
+
+## Sentry observability
+
+Optional `sentry-sdk` wiring covers:
+
+- FastAPI backend exceptions;
+- Arq worker handler exceptions;
+- bounded Next.js client-error relay through `/api/observability/client-error`.
+
+No `SENTRY_DSN` means the integration is inert. Default PII collection is disabled.
+
+## Next
+
+Phase **3.4.5 — locked accounting periods + core organization settings**. Follow the revised foundation sequence in Section 82 when legacy phase assignments conflict with the locked architecture.

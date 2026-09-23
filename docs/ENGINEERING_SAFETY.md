@@ -62,6 +62,8 @@ GitHub CI has passed PostgreSQL backend tests, frontend lint/type/build, fresh D
 
 Portable private-repo security checks are authoritative for the current project: Bandit static analysis, pip-audit, npm audit, committed-secret scanning, and Dependabot. Hosted CI run 35917804417 passed these gates. CodeQL remains optional/manual if GitHub Code Security is enabled later.
 
+Phase 3.4.4 extends the same safety rules to background work: PostgreSQL is the durable job/idempotency source of truth, Redis/Arq is dispatch, retries are bounded, dead letters are durable/monitorable, and staging proves Redis + worker startup. See docs/JOBS_RUNTIME.md.
+
 ## Security timing
 Dependency scanning/static analysis start now. DAST grows with staging. Formal penetration testing remains a pre-launch gate.
 

@@ -9,12 +9,12 @@
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
     "last_updated": "2026-09-23",
-    "migration_head": "a6e4c8f2b1d0",
+    "migration_head": "d9a7b1c5e4f3",
     "roadmap_section": "PROJECT_MASTER.md Section 57 (summary) + Section 38 (build order)",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 146,
-    "scheduled_count": 482,
+    "built_count": 160,
+    "scheduled_count": 468,
     "in_progress_count": 0
   },
   "items": [
@@ -1958,8 +1958,9 @@
       "id": "internal.platform_users",
       "area": "Internal Team",
       "feature": "platform_users table",
-      "status": "scheduled",
-      "phase": "3.4.3"
+      "status": "built",
+      "phase": "3.4.3",
+      "notes": "Duplicate internal-team inventory entry satisfied by the separate platform_users identity domain built in 3.4.3."
     },
     {
       "id": "internal.support_tickets",
@@ -2746,16 +2747,18 @@
     {
       "id": "platform.feature_flags.system",
       "area": "Platform / Feature Flags",
-      "feature": "Feature flag registry (schema, storage, five states)",
-      "status": "scheduled",
-      "phase": "3.4.4"
+      "feature": "Hybrid Capability Gating release registry (HIDDEN / BETA / ROLLOUT / ALL_ORGS)",
+      "status": "built",
+      "phase": "3.4.4",
+      "notes": "Legacy five-state wording was superseded by the locked four-stage Hybrid Capability Gating design in PROJECT_MASTER Sections 70 and 80."
     },
     {
       "id": "platform.feature_flags.three_tier",
       "area": "Platform / Feature Flags",
-      "feature": "Three-tier control (platform / org / user)",
-      "status": "scheduled",
-      "phase": "3.4.4"
+      "feature": "Independent release / entitlement / org-config / permission / user-preference access layers",
+      "status": "built",
+      "phase": "3.4.4",
+      "notes": "Legacy three-tier wording was superseded by five independent access concerns. The 3.4.4 resolver composes them without allowing one layer to grant another."
     },
     {
       "id": "platform.feature_flags.settings_page",
@@ -2767,16 +2770,18 @@
     {
       "id": "platform.feature_flags.audit",
       "area": "Platform / Feature Flags",
-      "feature": "Audit every flag flip (who, when, old/new)",
-      "status": "scheduled",
-      "phase": "3.4.4"
+      "feature": "Audit every release-stage/allowlist change (who, when, old/new)",
+      "status": "built",
+      "phase": "3.4.4",
+      "notes": "Platform release changes append immutable audit rows attributed to platform_user_id in the same transaction."
     },
     {
       "id": "platform.feature_flags.sticky_states",
       "area": "Platform / Feature Flags",
-      "feature": "default_on_sticky / default_off_sticky + used_when rules",
-      "status": "scheduled",
-      "phase": "3.4.4"
+      "feature": "Deterministic four-stage release semantics (legacy sticky-state design retired)",
+      "status": "built",
+      "phase": "3.4.4",
+      "notes": "default_on_sticky/default_off_sticky were intentionally retired when Hybrid Capability Gating replaced per-field flagging."
     },
     {
       "id": "settings.company.branding",
@@ -3876,36 +3881,41 @@
       "id": "infra.arq.jobs",
       "area": "Infrastructure / Jobs",
       "feature": "Arq job queue (async Redis-based)",
-      "status": "scheduled",
-      "phase": "3.4.4"
+      "status": "built",
+      "phase": "3.4.4",
+      "notes": "Arq 0.28.0 dispatch uses deterministic Redis job IDs while PostgreSQL job_runs remains the durable idempotency/status source of truth."
     },
     {
       "id": "infra.arq.scheduler",
       "area": "Infrastructure / Jobs",
       "feature": "Arq cron scheduler",
-      "status": "scheduled",
-      "phase": "3.4.4"
+      "status": "built",
+      "phase": "3.4.4",
+      "notes": "Arq cron recovery sweep runs every minute for due PENDING/RETRYING durable jobs and lost DB-first dispatches."
     },
     {
       "id": "infra.arq.standard_patterns",
       "area": "Infrastructure / Jobs",
       "feature": "Standard patterns: define / enqueue / retry / dead-letter / monitor",
-      "status": "scheduled",
-      "phase": "3.4.4"
+      "status": "built",
+      "phase": "3.4.4",
+      "notes": "Job registry, DB-first enqueue, exponential retries, durable dead letters, platform monitoring API, and duplicate-prevention tests are implemented."
     },
     {
       "id": "infra.redis.standup",
       "area": "Infrastructure / Redis",
       "feature": "Redis standup (Upstash dev, ElastiCache prod)",
-      "status": "scheduled",
-      "phase": "3.4.4"
+      "status": "built",
+      "phase": "3.4.4",
+      "notes": "Staging stack includes persistent Redis + health check + live worker; provider-neutral REDIS_URL supports planned Upstash dev and ElastiCache production endpoints."
     },
     {
       "id": "infra.sentry.wiring",
       "area": "Infrastructure / Observability",
       "feature": "Sentry error tracking (frontend + backend)",
-      "status": "scheduled",
-      "phase": "3.4.4"
+      "status": "built",
+      "phase": "3.4.4",
+      "notes": "Optional sentry-sdk wiring covers FastAPI and Arq worker exceptions; Next.js error boundaries relay bounded browser errors to the backend Sentry integration. No DSN means inert behavior."
     },
     {
       "id": "infra.logtail.wiring",
@@ -4229,29 +4239,33 @@
       "id": "platform.feature_flags.tables",
       "area": "Platform / Feature Flags",
       "feature": "Release-gate storage tables for pages/capabilities (not per-field flags)",
-      "status": "scheduled",
-      "phase": "3.4.4"
+      "status": "built",
+      "phase": "3.4.4",
+      "notes": "release_gates + release_gate_organizations store page/capability rollout state and explicit beta/rollout org allowlists."
     },
     {
       "id": "platform.feature_flags.resolver",
       "area": "Platform / Feature Flags",
       "feature": "Release-stage resolver integrated with independent entitlement/org/permission/preference layers",
-      "status": "scheduled",
-      "phase": "3.4.4"
+      "status": "built",
+      "phase": "3.4.4",
+      "notes": "Fail-closed release resolver supports HIDDEN/BETA/ROLLOUT/ALL_ORGS and composes independent entitlement/org-config/permission/preference inputs."
     },
     {
       "id": "platform.feature_flags.stage_api",
       "area": "Platform / Feature Flags",
       "feature": "PUT /api/platform/flags/{key} (change stage, set beta/rollout orgs)",
-      "status": "scheduled",
-      "phase": "3.4.4"
+      "status": "built",
+      "phase": "3.4.4",
+      "notes": "Platform-audience-only PUT endpoint permits Platform Admin/Dev stage changes and org allowlists; every change is immutably audited."
     },
     {
       "id": "platform.feature_flags.seed_from_registry",
       "area": "Platform / Feature Flags",
       "feature": "Seed release gates from registry capability metadata",
-      "status": "scheduled",
-      "phase": "3.4.4"
+      "status": "built",
+      "phase": "3.4.4",
+      "notes": "Idempotent FEATURE_REGISTRY seeder creates missing release.* gates as HIDDEN and never overwrites existing stage state."
     },
     {
       "id": "billing.stripe_products",

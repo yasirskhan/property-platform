@@ -13,7 +13,7 @@ Property Management Platform (AppFolio-equivalent).
 - Safety work branch: `chatgpt/checkpoint-005-safety`
 - Draft PR: #2, "Safety Foundation: CI, Postgres, E2E, staging safeguards"
 - `main` must remain untouched until Yasir explicitly approves a merge.
-- Alembic head: `a6e4c8f2b1d0`
+- Alembic head: `d9a7b1c5e4f3`
 - Repository state and tests are authoritative. Chat history is not.
 
 ## Resume order
@@ -26,9 +26,9 @@ Property Management Platform (AppFolio-equivalent).
 7. `PLAN_GAPS.md` / `FILE_CATALOG.md` only when needed.
 
 ## Current phase
-**3.4.3 Identity boundary + immutable audit — COMPLETE.**
+**3.4.4 Release Control + Jobs Runtime Foundation — COMPLETE.**
 
-Next: **3.4.4 Release-gate storage/resolver + jobs runtime foundation.**
+Next: **3.4.5 — locked accounting periods + core organization settings**, following the revised foundation sequence in PROJECT_MASTER Section 82.
 
 Session 3.4.2 is COMPLETE:
 - Feature Registry covers 24 current routes / 211 meaningful rows / 67 release gates.
@@ -41,7 +41,7 @@ GitHub CI run 35897240195 proved:
 - parity/registry CLEAN;
 - committed-secret scan;
 - frontend npm install, lint, TypeScript, production build;
-- fresh PostgreSQL bootstrap of all 50 model tables + Alembic stamp;
+- fresh PostgreSQL bootstrap + complete model-registry coverage + Alembic stamp;
 - deterministic E2E admin seed;
 - PostgreSQL pg_dump + restore verification;
 - authenticated Playwright login;
@@ -67,10 +67,21 @@ Phase 3.4.S is COMPLETE.
 - Separate `platform_users` identity domain, guarded first-admin seed, and strict customer/platform JWT audience separation: VERIFIED in CI run 35922527217.
 - Immutable `audit_log`: ORM mutation guards, PostgreSQL direct-SQL trigger protection, canonical append-only service, and migration/bootstrap coverage: VERIFIED in CI run 35924373985.
 
+## 3.4.4 evidence
+- Release-gate storage uses HIDDEN / BETA / ROLLOUT / ALL_ORGS with explicit beta/rollout organization allowlists.
+- Resolver fails closed and composes release, entitlement, org configuration, permission, and user-presentation layers independently.
+- Platform-audience-only flag API changes release stage/allowlists and appends immutable platform-attributed audit events.
+- FEATURE_REGISTRY seeding is idempotent: missing release.* keys start HIDDEN and existing state is never overwritten.
+- Durable job_runs/job_dead_letters enforce database-backed business idempotency before Redis dispatch.
+- Arq worker supports deterministic queue IDs, scheduled execution, exponential retry, recovery cron, dead-letter handling, and platform monitoring.
+- Staging runs PostgreSQL + Redis + backend + Arq worker + frontend with live health checks.
+- Optional Sentry wiring covers FastAPI, worker exceptions, and bounded frontend error relay; no DSN means inert behavior.
+- Full hosted CI run 35931322493 passed backend, frontend, security, staging, and E2E.
+
 ## Current parity state
-- 146 built
+- 160 built
 - 0 in progress
-- 482 scheduled
+- 468 scheduled
 - 628 total
 - 0 unplanned / 0 phase-less expected
 
@@ -91,9 +102,9 @@ Phase 3.4.S is COMPLETE.
 - The assistant updates continuity files; Yasir never has to manage AI memory.
 
 ## Next phase
-**3.4.4 — release-gate storage/resolver + jobs runtime foundation.**
+**3.4.5 — locked accounting periods + core organization settings.**
 
-The parity checklist places Redis/Arq queue, scheduler, retry/dead-letter patterns, and Redis standup in 3.4.4. Do not pull billing, fraud, expansion products, or broad page retrofits ahead of that dependency order.
+Use the revised foundation sequence in PROJECT_MASTER Section 82 when older parity/legacy wording conflicts with the locked architecture. Do not pull billing, fraud, expansion products, or broad page retrofits ahead of that dependency order.
 
 ## Rule for future assistants
 Do not replace, redesign, or rebuild anything marked VERIFIED unless:
