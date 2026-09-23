@@ -164,3 +164,143 @@ when a capability needs finer authorization than its page.
 | Cash Account “Automatic” option | behavior | — | core | yes | ACCOUNTING.RECEIVABLES | no | ❌ missing | Configuration/behavior, not independently released |
 | CTRL+K repeat form | capability | release.universal.repeat_form | core | yes | — | no | ❌ missing | Cross-page productivity capability |
 | CTRL+J repeat field | capability | release.universal.repeat_field | core | yes | — | no | ❌ missing | Cross-page productivity capability |
+| Print preview | capability | release.accounting.receipts.print | core | no | ACCOUNTING.RECEIVABLES | no | ❌ missing | Same print capability as list page |
+
+## Surface — Tenant receipt
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Tenant receipt mode | mode | — | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Core receipt type |
+| Tenant picker | field | — | — | — | — | — | ✅ present | Routine field |
+| Charges table | section | — | — | — | — | — | ✅ present | Core tenant-receipt workflow |
+| Auto-description from GL | behavior | — | — | — | — | — | ✅ present | Core behavior |
+| Prepayment checkbox | field | — | — | — | — | — | ✅ present | Routine field |
+| Add/remove line controls | controls | — | — | — | — | — | ✅ present | Routine controls |
+| Running total | row | — | — | — | — | — | ✅ present | Routine UI |
+| Charge Late Fees | capability | release.accounting.late_fees | late_fees | yes | ACCOUNTING.RECEIVABLES | no | ❌ missing | Separate workflow |
+| Per-lease picker for multi-lease tenant | field | — | — | — | — | — | ❌ missing | Appears when data requires it; not a release capability |
+
+## Surface — Owner receipt
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Owner receipt mode | mode | — | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Core receipt type |
+| Owner picker | field | — | — | — | — | — | ✅ present | |
+| Payer name | field | — | — | — | — | — | ✅ present | |
+| Amount | field | — | — | — | — | — | ✅ present | |
+| Income account | field | — | — | — | — | — | ✅ present | |
+
+## Surface — Other receipt
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Other receipt mode | mode | — | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Core receipt type |
+| Received-from | field | — | — | — | — | — | ✅ present | |
+| Amount | field | — | — | — | — | — | ✅ present | |
+| Income account | field | — | — | — | — | — | ✅ present | |
+| Exclude from management fee | field | — | — | — | — | — | ✅ present | Core accounting field |
+
+## Surface — Application Fee
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Application Fee mode/tab | capability | release.accounting.receipts.application_fee | application_fees | yes | ACCOUNTING.RECEIVABLES | no | ❌ missing | Independently releasable workflow |
+| Applicant name | field | — | — | — | — | — | ❌ missing | Inherits Application Fee access |
+| Amount | field | — | — | — | — | — | ❌ missing | |
+| Property + unit | fields | — | — | — | — | — | ❌ missing | |
+| GL account | field | — | — | — | — | — | ❌ missing | Defaults to 4420 per current plan |
+| Cash account | field | — | — | — | — | — | ❌ missing | |
+| Reference # | field | — | — | — | — | — | ❌ missing | |
+
+## Backend endpoints the full surface requires
+
+| Endpoint | Access requirement | Status |
+|---|---|---|
+| POST /api/accounting/receipts | page access + permission | built |
+| GET /api/accounting/receipts/tenant/{id}/open-charges | permission + tenant/org scope | built |
+| GET /api/properties/{id}/default-bank-account | permission + property/org scope | planned |
+| POST /api/accounting/receipts/{id}/charge-late-fees | late-fee release/entitlement/config + permission | planned |
+| POST /api/accounting/receipts/application-fee | application-fee release/entitlement/config + permission | planned |
+
+## Notes
+
+- The registry intentionally does not assign gates to every field.
+- Access checks for protected workflows must exist on the backend even
+  when the frontend also hides the capability.
+- The exact commercial packaging of `application_fees`, `nsf_processing`,
+  and `late_fees` can evolve without changing the release-gate model.
+
+---
+---
+
+# §Bills — list page
+
+**Route:** `/dashboard/accounting/bills`  
+**AppFolio reference:** Accounting / Bills & Payables  
+**JSON id:** `accounting.bills`  
+**Page release gate:** `release.accounting.bills`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Bills list page | page | release.accounting.bills | core | no | ACCOUNTING.PAYABLES | yes | ✅ present | Core AP page |
+| Date / status / payee filters | filters | — | — | — | — | — | ✅ present | Routine controls |
+| Bill table + unpaid footer | section | — | — | — | — | — | ✅ present | Bill #, payee, dates, amount, balance, status |
+| Bill detail modal | modal | — | — | — | ACCOUNTING.PAYABLES | — | ✅ present | Includes line details and payment history |
+| Pay Bill | capability | — | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Partial payment allowed |
+| Reverse unpaid bill | action | — | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Existing reversal rule |
+| Reverse after partial payment | behavior | — | core | no | ACCOUNTING.PAYABLES | no | ❌ missing | Planned AppFolio behavior fix |
+| Recurring Bills | capability | release.accounting.bills.recurring | recurring_bills | yes | ACCOUNTING.PAYABLES | no | ❌ missing | Independent recurring workflow |
+| Write Checks | capability | release.accounting.write_checks | check_writing | yes | ACCOUNTING.PAYABLES | no | ❌ missing | Payment/check workflow |
+| Enter Credit | capability | release.accounting.vendor_credits | vendor_credits | yes | ACCOUNTING.PAYABLES | no | ❌ missing | Vendor credit workflow |
+| Manually Post Bills | capability | release.accounting.bills.manual_post | core | no | ACCOUNTING.PAYABLES | no | ❌ missing | Search/select/post workflow |
+| Owner Draw | capability | release.accounting.owner_draw | core | yes | ACCOUNTING.PAYABLES | no | ❌ missing | Owner payable workflow |
+| Tenant Payable | capability | release.accounting.tenant_payable | core | yes | ACCOUNTING.PAYABLES | no | ❌ missing | Tenant payable workflow |
+| Convert Work Order to Bill | capability | release.maintenance.work_order_to_bill | maintenance | yes | ACCOUNTING.PAYABLES | no | ❌ missing | Cross-module workflow |
+
+## Backend surface
+
+| Endpoint / service | Access requirement | Status |
+|---|---|---|
+| GET `/api/accounting/bills` | release + ACCOUNTING.PAYABLES | built |
+| GET `/api/accounting/bills/{id}` | permission + org scope | built |
+| POST `/api/accounting/bills/{id}/pay` | permission + org scope + accounting rules | built |
+| POST `/api/accounting/bills/{id}/reverse` | permission + org scope + reversal rules | built |
+| POST `/api/accounting/bills` | permission + posting rules | built |
+| Recurring / credits / check-writing / manual-post services | corresponding release + entitlement/config where applicable + permission | planned |
+
+---
+
+# §Bills — new page
+
+**Route:** `/dashboard/accounting/bills/new`  
+**JSON id:** `accounting.bills`  
+**Page release gate:** `release.accounting.bills`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| New Bill page | page | release.accounting.bills | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Core bill-entry workflow |
+| Payee / bill date / due date / reference / remarks | fields | — | — | — | — | — | ✅ present | Routine fields |
+| Multi-line account/property/description/amount table | section | — | — | — | — | — | ✅ present | Two-step accrual entry |
+| Add/remove line controls + total | controls | — | — | — | — | — | ✅ present | Routine controls |
+| Real Vendor entity picker | behavior | — | core | no | ACCOUNTING.PAYABLES | no | ❌ missing | Current UI uses payee text; vendor entity planned |
+| Cash Account field at bill entry | field | — | — | — | — | — | ❌ missing | Planned parity field |
+| Post Code for recurring bill | field | — | — | — | — | — | ❌ missing | Applies when recurring capability is active |
+| Delete visibility rule | behavior | — | core | no | ACCOUNTING.PAYABLES | no | ❌ missing | Delete only when unpaid |
+
+---
+
+# §Bank Deposits — list page
+
+**Route:** `/dashboard/accounting/deposits`  
+**AppFolio reference:** Accounting / Bank Deposits  
+**JSON id:** `accounting.deposits`  
+**Page release gate:** `release.accounting.deposits`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
