@@ -255,7 +255,13 @@ jobs:
           for i in {1..90}; do
             curl -fsS http://127.0.0.1:8000/health >/dev/null && break
             if [ "$i" -eq 90 ]; then
-              docker compose -f deploy/staging/compose.yml ps
+              docker compose -f deploy/staging/compose.yml exec -T redis redis-cli ping | grep -q PONG
+
+          RUNNING_SERVICES=$(docker compose -f deploy/staging/compose.yml ps --status running --services)
+          echo "$RUNNING_SERVICES" | grep -qx redis
+          echo "$RUNNING_SERVICES" | grep -qx worker
+
+          docker compose -f deploy/staging/compose.yml ps
               docker compose -f deploy/staging/compose.yml logs backend
               exit 1
             fi
