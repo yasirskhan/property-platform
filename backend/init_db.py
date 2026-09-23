@@ -65,6 +65,14 @@ from app.models.property_appliance import PropertyAppliance  # noqa: F401
 from app.models.property_improvement import PropertyImprovement  # noqa: F401
 from app.models.property_photo import PropertyPhoto  # noqa: F401
 
+# ---- Settings / permissions / Phase 3.5+ ----
+from app.models.sidebar_preference import SidebarPreference  # noqa: F401
+from app.models.menu_permission import MenuPermission  # noqa: F401
+from app.models.user_permission import UserPermission  # noqa: F401
+from app.models.user_display_preference import UserDisplayPreference  # noqa: F401
+from app.models.currency import Currency  # noqa: F401
+from app.models.charge import Charge  # noqa: F401
+
 
 def create_tables():
     print("Creating database tables...")
