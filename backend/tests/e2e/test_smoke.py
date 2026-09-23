@@ -13,7 +13,7 @@ sync_playwright = playwright_sync.sync_playwright
 pytestmark = pytest.mark.e2e
 
 BASE_URL = os.environ.get("E2E_BASE_URL", "http://127.0.0.1:3000")
-EMAIL = os.environ.get("E2E_ADMIN_EMAIL", "e2e-admin@example.test")
+EMAIL = os.environ.get("E2E_ADMIN_EMAIL", "e2e-admin@example.com")
 PASSWORD = os.environ.get("E2E_ADMIN_PASSWORD", "test1234")
 
 
