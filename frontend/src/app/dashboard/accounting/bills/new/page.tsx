@@ -51,11 +51,9 @@ export default function NewBillPage() {
   const [referenceNumber, setReferenceNumber] = useState("");
   const [remarks, setRemarks] = useState("");
 
-  let rowCounter = 0;
-  function newRow(): LineRow {
-    rowCounter += 1;
+  function newRow(key: string): LineRow {
     return {
-      key: `row-${Date.now()}-${rowCounter}`,
+      key,
       gl_account_id: "",
       property_id: "",
       description: "",
@@ -63,7 +61,10 @@ export default function NewBillPage() {
     };
   }
 
-  const [lines, setLines] = useState<LineRow[]>(() => [newRow(), newRow()]);
+  const [lines, setLines] = useState<LineRow[]>(() => [
+    newRow("row-initial-1"),
+    newRow("row-initial-2"),
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,7 +103,7 @@ export default function NewBillPage() {
   }, []);
 
   function addRow() {
-    setLines((prev) => [...prev, newRow()]);
+    setLines((prev) => [...prev, newRow(`row-${crypto.randomUUID()}`)]);
   }
 
   function removeRow(key: string) {
