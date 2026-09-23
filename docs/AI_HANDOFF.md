@@ -13,7 +13,7 @@ Property Management Platform (AppFolio-equivalent).
 - Safety work branch: `chatgpt/checkpoint-005-safety`
 - Draft PR: #2, "Safety Foundation: CI, Postgres, E2E, staging safeguards"
 - `main` must remain untouched until Yasir explicitly approves a merge.
-- Alembic head: `d9a7b1c5e4f3`
+- Alembic head: `46c3d8f2ab10`
 - Repository state and tests are authoritative. Chat history is not.
 
 ## Resume order
@@ -26,9 +26,9 @@ Property Management Platform (AppFolio-equivalent).
 7. `PLAN_GAPS.md` / `FILE_CATALOG.md` only when needed.
 
 ## Current phase
-**3.4.4 Release Control + Jobs Runtime Foundation — COMPLETE.**
+**3.4.5 Locked Accounting Periods + Core Organization Settings — COMPLETE.**
 
-Next: **3.4.5 — locked accounting periods + core organization settings**, following the revised foundation sequence in PROJECT_MASTER Section 82.
+Next: **3.4.6 — end-to-end verification of the existing core product**, following the revised foundation sequence in PROJECT_MASTER Section 82.
 
 Session 3.4.2 is COMPLETE:
 - Feature Registry covers 24 current routes / 211 meaningful rows / 67 release gates.
@@ -78,10 +78,18 @@ Phase 3.4.S is COMPLETE.
 - Optional Sentry wiring covers FastAPI, worker exceptions, and bounded frontend error relay; no DSN means inert behavior.
 - Full hosted CI run 35931322493 passed backend, frontend, security, staging, and E2E.
 
+## 3.4.5 evidence
+- Organization accounting lock is enforced centrally in `post_transaction()`; locked dates reject without partial GL state.
+- Organizations and properties carry logical `data_region`; `get_db_for_org()` routes the primary region normally and fails closed for unconfigured secondary regions.
+- All soft-deletable model classes using `is_active` now carry `deleted_at`.
+- Retention policies support 30d / 1y / 7y / forever with per-org overrides.
+- Organization Admin foundation-settings API manages lock date, region, and retention overrides with immutable audit events.
+- Hosted CI run 35934453373 passed backend, frontend, security, PostgreSQL migrations, backup/restore, E2E, and live staging.
+
 ## Current parity state
-- 160 built
+- 165 built
 - 0 in progress
-- 468 scheduled
+- 463 scheduled
 - 628 total
 - 0 unplanned / 0 phase-less expected
 
@@ -102,9 +110,9 @@ Phase 3.4.S is COMPLETE.
 - The assistant updates continuity files; Yasir never has to manage AI memory.
 
 ## Next phase
-**3.4.5 — locked accounting periods + core organization settings.**
+**3.4.6 — end-to-end verification of the existing core product.**
 
-Use the revised foundation sequence in PROJECT_MASTER Section 82 when older parity/legacy wording conflicts with the locked architecture. Do not pull billing, fraud, expansion products, or broad page retrofits ahead of that dependency order.
+This is a verification phase under the revised sequence. Expand behavioral/browser/API coverage for the existing core product before starting the basic billing foundation in 3.4.7. Use Section 82 when legacy phase labels conflict.
 
 ## Rule for future assistants
 Do not replace, redesign, or rebuild anything marked VERIFIED unless:

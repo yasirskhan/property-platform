@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.4 — Release Control + Jobs Runtime Foundation** is COMPLETE. Next implementation batch: **3.4.5 — locked accounting periods + core organization settings**.
+**Current activity:** Phase **3.4.5 — Locked Accounting Periods + Core Organization Settings** is COMPLETE. Next implementation batch: **3.4.6 — end-to-end verification of the existing core product**.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -33,7 +33,7 @@
 
 **3.4.S closeout:** COMPLETE. Portable private-repo security checks (Bandit, pip-audit, npm audit, committed-secret scan, Dependabot) replaced the unavailable mandatory CodeQL upload gate and passed in hosted CI run 35917804417. CodeQL remains optional/manual if GitHub Code Security is enabled later.
 
-**Migration head:** `d9a7b1c5e4f3`.
+**Migration head:** `46c3d8f2ab10`.
 
 **Current parity inventory:** 160 built, 0 in progress, 468 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
@@ -4504,3 +4504,35 @@ No `SENTRY_DSN` means the integration is inert. Default PII collection is disabl
 ## Next
 
 Phase **3.4.5 — locked accounting periods + core organization settings**. Follow the revised foundation sequence in Section 82 when legacy phase assignments conflict with the locked architecture.
+
+
+# SECTION 86 — FOUNDATION 3.4.5 (COMPLETE)
+
+**Phase:** `3.4.5`  
+**Completed:** 2026-09-23
+
+## Locked accounting periods
+
+- `organizations.locked_through_date` closes all GL posting dates on or before the configured date.
+- Enforcement lives in `post_transaction()`, so existing receipts, bills, journals, deposits, management fees, transfers, and reversals inherit the rule.
+- Regression tests prove a locked post creates no GL transaction or entries and the first open day can post normally.
+
+## Core organization settings
+
+- `organizations.data_region` defaults to `us-east-1`; `properties.data_region` may override it.
+- `get_db_for_org()` provides the Model B logical routing seam, uses explicit regional DB mappings, and fails closed for unknown regions.
+- `data_retention_policies` supports 30d / 365d / 2555d / forever with org-specific overrides.
+- Organization Admin foundation-settings GET/PUT endpoints manage lock date, logical region, and retention overrides with same-org authorization and immutable audit logging.
+
+## GDPR schema foundation
+
+- Every model class that uses `is_active` as a soft-delete/status mechanism now also has `deleted_at`.
+- The retrofit is split across small Alembic migrations; current head is `46c3d8f2ab10`.
+
+## Verification
+
+Hosted CI run **35934453373** passed backend/PostgreSQL, frontend, security, migration/bootstrap, pg_dump/restore, authenticated E2E, and live staging.
+
+## Next
+
+Phase **3.4.6 — end-to-end verification of the existing core product**. This phase verifies existing behavior before 3.4.7 begins basic billing foundation work.

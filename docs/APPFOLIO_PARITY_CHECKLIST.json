@@ -9,12 +9,12 @@
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
     "last_updated": "2026-09-23",
-    "migration_head": "d9a7b1c5e4f3",
+    "migration_head": "46c3d8f2ab10",
     "roadmap_section": "PROJECT_MASTER.md Section 57 (summary) + Section 38 (build order)",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 160,
-    "scheduled_count": 468,
+    "built_count": 165,
+    "scheduled_count": 463,
     "in_progress_count": 0
   },
   "items": [
@@ -3754,15 +3754,17 @@
       "id": "compliance.data_residency.column",
       "area": "Compliance / Data Residency",
       "feature": "data_region column on organizations + properties",
-      "status": "scheduled",
-      "phase": "3.4.5"
+      "status": "built",
+      "phase": "3.4.5",
+      "notes": "organizations.data_region defaults to us-east-1 and properties.data_region provides an optional override; migration e0b8c2d6f5a4 and hosted CI 35934453373 passed."
     },
     {
       "id": "compliance.data_residency.routing",
       "area": "Compliance / Data Residency",
       "feature": "get_db_for_org() routing layer (single logical system, multi-region)",
-      "status": "scheduled",
-      "phase": "3.4.5"
+      "status": "built",
+      "phase": "3.4.5",
+      "notes": "Fail-closed get_db_for_org() routes the primary region to SessionLocal, supports explicit secondary-region database mappings, honors property overrides, and refuses unknown regions."
     },
     {
       "id": "compliance.data_residency.eu_region",
@@ -3782,8 +3784,9 @@
       "id": "compliance.gdpr.deleted_at_schema",
       "area": "Compliance / GDPR",
       "feature": "deleted_at timestamp on every soft-deletable table",
-      "status": "scheduled",
-      "phase": "3.4.5"
+      "status": "built",
+      "phase": "3.4.5",
+      "notes": "Every model class using is_active as soft-delete/status state now also has deleted_at; retrofit was split across reviewable migrations through head 46c3d8f2ab10 and coverage scan found no remaining gaps."
     },
     {
       "id": "compliance.gdpr.export_endpoint",
@@ -3846,8 +3849,9 @@
       "id": "compliance.soc2.retention_policy",
       "area": "Compliance / SOC 2",
       "feature": "Retention policy per data class (30d / 1y / 7y / forever)",
-      "status": "scheduled",
-      "phase": "3.4.5"
+      "status": "built",
+      "phase": "3.4.5",
+      "notes": "data_retention_policies supports 30 days, 1 year, 7 years, or forever with platform defaults and per-org overrides; organization admin API manages overrides with immutable audit."
     },
     {
       "id": "compliance.soc2.encryption",
@@ -4166,8 +4170,9 @@
       "id": "accounting.year_end_close",
       "area": "Accounting / Periods",
       "feature": "Year-end close / locked periods (org-configurable locked_through_date)",
-      "status": "scheduled",
-      "phase": "3.4.5"
+      "status": "built",
+      "phase": "3.4.5",
+      "notes": "Organization locked_through_date is enforced centrally by post_transaction(); dates on or before the lock fail without financial side effects, and org admins can update the setting through the audited foundation-settings API."
     },
     {
       "id": "platform.org_creation_admin",
