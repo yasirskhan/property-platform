@@ -7,9 +7,10 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.exc import DBAPIError
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_HEAD = "7f4c21a9d6e3"
+EXPECTED_HEAD = "a6e4c8f2b1d0"
 EXPECTED_MODEL_TABLES = 51
 
 
@@ -45,5 +46,30 @@ def test_postgres_fresh_bootstrap_when_ci_database_is_available() -> None:
         with engine.connect() as conn:
             version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
         assert version == EXPECTED_HEAD
+
+
+        with engine.begin() as conn:
+            audit_id = conn.execute(
+                text(
+                    "INSERT INTO audit_log "
+                    "(entity_type, entity_id, action, created_at) "
+                    "VALUES ('ci_probe', 1, 'created', CURRENT_TIMESTAMP) "
+                    "RETURNING id"
+                )
+            ).scalar_one()
+
+        with pytest.raises(DBAPIError, match="append-only"):
+            with engine.begin() as conn:
+                conn.execute(
+                    text("UPDATE audit_log SET action='tampered' WHERE id=:id"),
+                    {"id": audit_id},
+                )
+
+        with pytest.raises(DBAPIError, match="append-only"):
+            with engine.begin() as conn:
+                conn.execute(
+                    text("DELETE FROM audit_log WHERE id=:id"),
+                    {"id": audit_id},
+                )
     finally:
         engine.dispose()
