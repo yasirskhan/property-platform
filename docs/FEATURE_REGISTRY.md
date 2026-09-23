@@ -1,236 +1,166 @@
 # FEATURE REGISTRY
 
-**The surface map. Every page. Every slot. Every flag.**
-**Last updated: 2026-09-22**
+**The surface and access map. Every page. Every capability. Every slot.**
+**Last updated: 2026-09-23**
 
 Companion to PROJECT_MASTER.md and PLAN_GAPS.md.
 
-This file is the map. It defines, for every page in the app:
+This registry records the planned surface of each page and enough
+metadata to implement access correctly without guessing. It follows
+Hybrid Capability Gating from PROJECT_MASTER Sections 70, 79, and 80.
 
-1. Every tab, field, button, section, and behavior AppFolio has on
-   that page (or that the plan calls for), whether or not we've built
-   it yet.
-2. The feature flag that gates each slot.
-3. The platform stage that flag is currently at
-   (HIDDEN / BETA / ROLLOUT / ALL_ORGS).
-4. Which backend endpoints the slot needs.
+## Core rules
 
-**The rule (Section 79 of the master doc):** every page ships with
-its full planned surface — every slot below exists in the code,
-gated by its flag. Unbuilt features render as hidden slots. Flipping
-a flag makes a feature appear. No page is ever rewritten.
-
-`check_parity.py` reads this file, verifies every slot is present
-in the page source, and fails the build if not. See Section E1 of
-PLAN_GAPS.md.
-
----
+1. Pages and independently releasable capabilities may have a release
+   gate.
+2. Ordinary fields, columns, filters, labels, sorting, and routine form
+   controls do **not** get independent release gates.
+3. Release control, plan entitlement, org configuration, permissions,
+   and user preferences are separate concerns.
+4. A non-applicable access layer passes automatically.
+5. Backend entitlement/permission enforcement is authoritative. UI
+   hiding is never security.
+6. `check_parity.py` checks plan/coverage consistency only. Automated
+   tests are required to prove behavior.
 
 ## How to read a page block
 
-Each page has:
+Each page records:
 
-- **Route** — where the page lives
-- **AppFolio reference** — which pages of the Manager Guide this
-  maps to
-- **JSON id** — the parity checklist item this page belongs to
-- **Surface table** — every slot, with its flag, stage, and status
-- **Backend endpoints** — what the full surface requires
-- **Notes** — edge cases, dependencies, decisions
+- **Route** — page location
+- **AppFolio reference** — reference used for parity planning
+- **JSON id** — parity-checklist grouping
+- **Page release gate** — only when independent page rollout is useful
+- **Surface table** — every meaningful slot
+- **Backend endpoints** — backend surface required
+- **Notes** — dependencies and edge cases
 
-The **stage** column values:
-- **BUILT** — feature is on for all orgs (all_orgs stage + implemented)
-- **HIDDEN** — flag exists, code slot exists, feature is off for everyone
-- **BETA** — on for specific pilot orgs (list lives in the DB, not this file)
-- **ROLLOUT** — on for specific orgs (list lives in the DB)
-- **ALL_ORGS** — on for every org (but the slot still needs to be implemented)
+### Surface columns
 
-The **flag** column is the canonical flag key. Every flag in this
-file gets a row in the `feature_flags` table on first migration.
-Default stage for any new flag is HIDDEN.
+- **Release gate** — `release.*` key or `—`
+- **Entitlement** — commercial capability key, `core`, or `—`
+- **Org config** — `yes`, `no`, or `—`
+- **Permission** — permission/menu/action key or `—`
+- **User hide** — `yes`, `no`, or `—`
+- **Status** — ✅ present / ⬜ hidden implementation present / ❌ missing
 
-The **status** column tracks whether the slot exists in the code yet:
-- ✅ **present** — slot exists and works
-- ⬜ **hidden** — slot exists in code, gated by flag, currently off
-- ❌ **missing** — not in code yet (this is what the retrofit fixes)
+A release gate does not imply that a capability is separately saleable.
+For example, Print can have an internal release/kill switch while its
+entitlement remains `core` or `—`.
 
----
+## Naming conventions
 
-## Naming convention
+Release gates are dotted and prefixed with `release.`:
 
-Flags are dotted, lowercase, hierarchical:
+    release.accounting.receipts
+    release.accounting.receipts.application_fee
+    release.accounting.receipts.process_nsf
 
-    accounting.receipts.tabs
-    accounting.receipts.fields.date
-    accounting.receipts.cash_automatic
-    accounting.receipts.print
+Commercial entitlements are stable business-capability keys:
 
-Top-level page flag: `{module}.{page}` (e.g. `accounting.receipts`).
-Every slot under that page uses the same prefix.
+    application_fees
+    nsf_processing
+    bank_reconciliation
 
-Cross-page flags (like CTRL+K repeat form) live at the top:
-`universal.repeat_form`, `universal.repeat_field`.
+Permission keys use the existing uppercase permission/menu convention
+where possible. Action-level permission keys may be introduced later
+when a capability needs finer authorization than its page.
 
 ---
 
 ## Page index
 
-*(as pages are added to this file, they appear here)*
-
-| Route | Section in this file | Status |
+| Route / family | Section | Status |
 |---|---|---|
-| `/dashboard/accounting/receipts` | §Receipts — list | ✅ written |
-| `/dashboard/accounting/receipts/new` | §Receipts — new | ✅ written |
-| ... (expands as pages are added) | | |
+| `/dashboard/accounting/receipts` + `/new` | §Receipts | ✅ written |
+| `/dashboard/accounting/bills` + `/new` | §Bills | ✅ written |
+| `/dashboard/accounting/deposits` + `/new` | §Bank Deposits | ✅ written |
+| `/dashboard/accounting/gl-accounts` | §GL Accounts | ✅ written |
+| `/dashboard/accounting/journal-entries` + `/new` + `/[id]` | §Journal Entries | ✅ written |
+| `/dashboard/accounting/management-fees` + `/new` | §Management Fees | ✅ written |
+| `/dashboard/accounting/owner-statements` + `/new` + `/[id]` | §Owner Statements | ✅ written |
+| `/dashboard/accounting/bank-accounts` | §Bank Accounts | ✅ written |
+| `/dashboard/accounting/charges` + `/new` | §Charges | ✅ written |
+| `/dashboard/properties` + `/[id]` | §Properties | ✅ written |
+| `/dashboard/settings/display` | §Settings — Display | ✅ written |
+| `/dashboard/settings/currencies` | §Settings — Currencies | ✅ written |
+| `/dashboard/settings/permissions` | §Settings — Permissions | ✅ written |
+| `/dashboard/settings/sidebar` | §Settings — compatibility route | ✅ written |
+| Future settings families | §Settings — planned capability pages | ✅ planned surface written |
 
 ---
 
 # §Receipts — list page
 
-**Route:** `/dashboard/accounting/receipts`
-**AppFolio reference:** Manager Guide pp. 68–72
-**JSON id:** `accounting.receipts`
-**Page flag:** `accounting.receipts.list`
+**Route:** `/dashboard/accounting/receipts`  
+**AppFolio reference:** Manager Guide pp. 68–72  
+**JSON id:** `accounting.receipts`  
+**Page release gate:** `release.accounting.receipts`
 
 ## Surface
 
-| Slot | Type | Flag | Stage | Status | Notes |
-|---|---|---|---|---|---|
-| List table | section | accounting.receipts.list.table | ALL_ORGS | ✅ present | |
-| Date range filter | field | accounting.receipts.list.filter_date | ALL_ORGS | ✅ present | |
-| Type filter (Tenant/Owner/Other) | field | accounting.receipts.list.filter_type | ALL_ORGS | ✅ present | |
-| Property filter | field | accounting.receipts.list.filter_property | ALL_ORGS | ✅ present | |
-| Include-reversed checkbox | field | accounting.receipts.list.include_reversed | ALL_ORGS | ✅ present | |
-| Row: date column | column | accounting.receipts.list.col_date | ALL_ORGS | ✅ present | |
-| Row: type column | column | accounting.receipts.list.col_type | ALL_ORGS | ✅ present | |
-| Row: from column | column | accounting.receipts.list.col_from | ALL_ORGS | ✅ present | |
-| Row: cash account column | column | accounting.receipts.list.col_cash | ALL_ORGS | ✅ present | |
-| Row: amount column | column | accounting.receipts.list.col_amount | ALL_ORGS | ✅ present | |
-| Detail modal | modal | accounting.receipts.list.detail_modal | ALL_ORGS | ✅ present | |
-| Reverse button (in modal) | button | accounting.receipts.reverse | ALL_ORGS | ✅ present | |
-| Footer total row | row | accounting.receipts.list.footer_total | ALL_ORGS | ✅ present | |
-| **Print button (row)** | button | accounting.receipts.print | HIDDEN | ❌ missing | Opens print layout for one receipt |
-| **Repeat button (row)** | button | accounting.receipts.repeat | HIDDEN | ❌ missing | Copies a prior receipt into a new one |
-| **Edit-lock after deposit indicator** | indicator | accounting.receipts.edit_lock_after_deposit | HIDDEN | ❌ missing | Row shows a lock icon once deposited |
-| **Export CSV / Excel** | button | reporting.export | HIDDEN | ❌ missing | Cross-page, governed by org export-format setting |
-| **Print list** | button | accounting.receipts.list.print | HIDDEN | ❌ missing | Print-friendly view of the list |
-| **Process NSF button** | button | accounting.receipts.process_nsf | HIDDEN | ❌ missing | Opens NSF workflow (bank fee + tenant charge) |
-| **Bulk select + bulk action** | behavior | accounting.receipts.list.bulk | HIDDEN | ❌ missing | Select multiple rows for batch operations |
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Receipts list page | page | release.accounting.receipts | core | no | ACCOUNTING.RECEIVABLES | yes | ✅ present | Top-level release boundary |
+| List table | section | — | — | — | — | — | ✅ present | Inherits page access |
+| Date range filter | filter | — | — | — | — | — | ✅ present | Routine control |
+| Type filter | filter | — | — | — | — | — | ✅ present | Routine control |
+| Property filter | filter | — | — | — | — | — | ✅ present | Routine control |
+| Include-reversed checkbox | field | — | — | — | — | — | ✅ present | Routine control |
+| Date / type / from / cash / amount columns | columns | — | — | — | — | — | ✅ present | Routine table columns |
+| Detail modal | modal | — | — | — | — | — | ✅ present | Part of page |
+| Reverse receipt action | action | — | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Backend authorization still required; no independent rollout currently needed |
+| Footer total row | row | — | — | — | — | — | ✅ present | Routine UI |
+| Print one receipt | capability | release.accounting.receipts.print | core | no | ACCOUNTING.RECEIVABLES | no | ❌ missing | Internal rollout/kill switch; not a separate paid feature |
+| Repeat prior receipt | capability | release.accounting.receipts.repeat | core | no | ACCOUNTING.RECEIVABLES | no | ❌ missing | Copies prior receipt into new form |
+| Edit-lock-after-deposit indicator | behavior | — | core | no | ACCOUNTING.RECEIVABLES | no | ❌ missing | Data integrity behavior, not a saleable/release module |
+| Export CSV / Excel | capability | release.reporting.export | core | yes | REPORTING.ALL | no | ❌ missing | Cross-page export capability |
+| Print receipts list | capability | release.accounting.receipts.list_print | core | no | ACCOUNTING.RECEIVABLES | no | ❌ missing | Print-friendly list |
+| Process NSF | capability | release.accounting.receipts.process_nsf | nsf_processing | yes | ACCOUNTING.RECEIVABLES | no | ❌ missing | Backend must enforce entitlement + permission |
+| Bulk actions | capability | release.accounting.receipts.bulk | core | no | ACCOUNTING.RECEIVABLES | no | ❌ missing | Batch operations |
 
 ## Backend endpoints the full surface requires
 
-| Endpoint | Supports flag |
-|---|---|
-| GET /api/accounting/receipts (list) | built |
-| GET /api/accounting/receipts/{id} | built |
-| POST /api/accounting/receipts/{id}/reverse | built |
-| GET /api/accounting/receipts/{id}/print-data | accounting.receipts.print |
-| POST /api/accounting/receipts/{id}/repeat | accounting.receipts.repeat |
-| POST /api/accounting/receipts/{id}/process-nsf | accounting.receipts.process_nsf |
-| GET /api/accounting/receipts/export | reporting.export |
-| GET /api/accounting/receipts/print-view | accounting.receipts.list.print |
+| Endpoint | Access requirement | Status |
+|---|---|---|
+| GET /api/accounting/receipts | page access + permission | built |
+| GET /api/accounting/receipts/{id} | page access + row scope | built |
+| POST /api/accounting/receipts/{id}/reverse | permission + row scope | built |
+| GET /api/accounting/receipts/{id}/print-data | release print + permission | planned |
+| POST /api/accounting/receipts/{id}/repeat | release repeat + permission | planned |
+| POST /api/accounting/receipts/{id}/process-nsf | release NSF + entitlement if required + org config + permission | planned |
+| GET /api/accounting/receipts/export | release export + permission | planned |
+| GET /api/accounting/receipts/print-view | release list-print + permission | planned |
 
 ## Notes
 
-- Reverse button uses `window.confirm()` today — will move to the
-  styled confirm modal during retrofit (Phase 3.5.5).
-- Bulk select is a real slot (AppFolio has it) but low priority —
-  staging at HIDDEN keeps the code path present without shipping UI.
-- Edit-lock indicator reads `deposit_lines` membership — that data
-  already exists, so the slot is a UI add only.
+- Reverse currently uses `window.confirm()` and will move to the shared
+  styled confirmation pattern during compatibility work.
+- Deposit locking is an integrity rule. It should not disappear merely
+  because a release flag is off.
+- The existing permission model currently authorizes the Receivables
+  area broadly. Action-level permission keys can be added later where
+  a real authorization need exists.
 
 ---
 
 # §Receipts — new page
 
-**Route:** `/dashboard/accounting/receipts/new`
-**AppFolio reference:** Manager Guide pp. 68–72
-**JSON id:** `accounting.receipts`
-**Page flag:** `accounting.receipts.new`
+**Route:** `/dashboard/accounting/receipts/new`  
+**AppFolio reference:** Manager Guide pp. 68–72  
+**JSON id:** `accounting.receipts`  
+**Page release gate:** `release.accounting.receipts`
 
-## Surface — Common (all tabs)
+## Surface — common
 
-| Slot | Type | Flag | Stage | Status | Notes |
-|---|---|---|---|---|---|
-| Receipt date field | field | accounting.receipts.fields.date | ALL_ORGS | ✅ present | |
-| Cash account dropdown | field | accounting.receipts.fields.cash | ALL_ORGS | ✅ present | |
-| Property field | field | accounting.receipts.fields.property | ALL_ORGS | ✅ present | |
-| Reference # field | field | accounting.receipts.fields.reference | ALL_ORGS | ✅ present | |
-| Remarks field | field | accounting.receipts.fields.remarks | ALL_ORGS | ✅ present | |
-| **Cash Account "Automatic" option** | field-option | accounting.receipts.cash_automatic | HIDDEN | ❌ missing | Uses property's default bank |
-| **CTRL+K repeat form** | keyboard | universal.repeat_form | HIDDEN | ❌ missing | Copies field values from prior entry |
-| **CTRL+J repeat field** | keyboard | universal.repeat_field | HIDDEN | ❌ missing | Repeats the last value typed in this field |
-| **Print preview** | button | accounting.receipts.print | HIDDEN | ❌ missing | Print after save |
-
-## Surface — Tenant tab
-
-| Slot | Type | Flag | Stage | Status | Notes |
-|---|---|---|---|---|---|
-| Tenant picker | field | accounting.receipts.tabs.tenant | ALL_ORGS | ✅ present | |
-| Charges table | section | accounting.receipts.charges_table | ALL_ORGS | ✅ present | |
-| Auto-description from GL | behavior | accounting.receipts.auto_description | ALL_ORGS | ✅ present | |
-| Prepayment checkbox | field | accounting.receipts.prepayment | ALL_ORGS | ✅ present | |
-| "+ Add line" button | button | accounting.receipts.tabs.tenant.add_line | ALL_ORGS | ✅ present | |
-| Line remove button | button | accounting.receipts.tabs.tenant.remove_line | ALL_ORGS | ✅ present | |
-| Running total row | row | accounting.receipts.tabs.tenant.total | ALL_ORGS | ✅ present | |
-| **Charge Late Fees button** | button | accounting.receipts.tabs.tenant.charge_late_fees | HIDDEN | ❌ missing | Opens late fee bulk workflow |
-| **Charge per-lease picker (multi-unit tenant)** | field | accounting.receipts.tabs.tenant.lease_picker | HIDDEN | ❌ missing | Tenant with multiple leases picks which one |
-
-## Surface — Owner tab
-
-| Slot | Type | Flag | Stage | Status | Notes |
-|---|---|---|---|---|---|
-| Owner picker | field | accounting.receipts.tabs.owner | ALL_ORGS | ✅ present | |
-| Payer name field | field | accounting.receipts.tabs.owner.payer | ALL_ORGS | ✅ present | |
-| Amount field | field | accounting.receipts.tabs.owner.amount | ALL_ORGS | ✅ present | |
-| Income account dropdown | field | accounting.receipts.tabs.owner.income_account | ALL_ORGS | ✅ present | |
-
-## Surface — Other tab
-
-| Slot | Type | Flag | Stage | Status | Notes |
-|---|---|---|---|---|---|
-| Received-from field | field | accounting.receipts.tabs.other.received_from | ALL_ORGS | ✅ present | |
-| Amount field | field | accounting.receipts.tabs.other.amount | ALL_ORGS | ✅ present | |
-| Income account dropdown | field | accounting.receipts.tabs.other.income_account | ALL_ORGS | ✅ present | |
-| Exclude-from-mgmt-fee checkbox | field | accounting.receipts.exclude_mgmt_fee | ALL_ORGS | ✅ present | |
-
-## Surface — Application Fee (new tab)
-
-| Slot | Type | Flag | Stage | Status | Notes |
-|---|---|---|---|---|---|
-| Application Fee tab | tab | accounting.receipts.application_fee_form | HIDDEN | ❌ missing | Dedicated form. Separate from Other. |
-| Applicant name field | field | accounting.receipts.application_fee_form.name | HIDDEN | ❌ missing | |
-| Amount field | field | accounting.receipts.application_fee_form.amount | HIDDEN | ❌ missing | |
-| Property + unit pickers | field | accounting.receipts.application_fee_form.unit | HIDDEN | ❌ missing | |
-| GL account (defaults to 4420) | field | accounting.receipts.application_fee_form.gl | HIDDEN | ❌ missing | |
-| Cash account | field | accounting.receipts.application_fee_form.cash | HIDDEN | ❌ missing | |
-| Reference # | field | accounting.receipts.application_fee_form.reference | HIDDEN | ❌ missing | |
-
-## Backend endpoints the full surface requires
-
-| Endpoint | Supports flag |
-|---|---|
-| POST /api/accounting/receipts (create) | built |
-| GET /api/accounting/receipts/tenant/{id}/open-charges | built |
-| GET /api/properties/{id}/default-bank-account | accounting.receipts.cash_automatic |
-| POST /api/accounting/receipts/{id}/charge-late-fees | accounting.receipts.tabs.tenant.charge_late_fees |
-| POST /api/accounting/receipts/application-fee | accounting.receipts.application_fee_form |
-
-## Notes
-
-- The Cash Account "Automatic" option is AppFolio behavior: when
-  selected, the system uses the property's default bank account.
-  This depends on `properties.default_bank_account_id` which is a
-  Phase 3.5 item (see PLAN_GAPS.md / Section 57).
-- The Application Fee tab is a separate form because AppFolio
-  separates applicant fees from normal tenant receipts.
-- CTRL+K / CTRL+J are universal, not Receipts-specific. They live at
-  `universal.repeat_form` and `universal.repeat_field`, gated once,
-  used everywhere.
-
----
-
-# END OF FEATURE_REGISTRY.md (v1 — Receipts sample)
-
-*(The remaining 13 pages will be added in the follow-up session —
-the format above is the template.)*
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| New receipt page | page | release.accounting.receipts | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Shares Receipts page release boundary |
+| Receipt date | field | — | — | — | — | — | ✅ present | Routine field |
+| Cash account | field | — | — | — | — | — | ✅ present | Routine field |
+| Property | field | — | — | — | — | — | ✅ present | Routine field |
+| Reference # | field | — | — | — | — | — | ✅ present | Routine field |
+| Remarks | field | — | — | — | — | — | ✅ present | Routine field |
+| Cash Account “Automatic” option | behavior | — | core | yes | ACCOUNTING.RECEIVABLES | no | ❌ missing | Configuration/behavior, not independently released |
+| CTRL+K repeat form | capability | release.universal.repeat_form | core | yes | — | no | ❌ missing | Cross-page productivity capability |
+| CTRL+J repeat field | capability | release.universal.repeat_field | core | yes | — | no | ❌ missing | Cross-page productivity capability |
