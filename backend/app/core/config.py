@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     # --- Database ---
     DATABASE_URL: str = "sqlite:///./property_platform.db"
 
+    # Logical data-residency routing. Start single-region; secondary
+    # regions are explicit JSON mapping entries, never silent fallbacks.
+    PRIMARY_DATA_REGION: str = "us-east-1"
+    REGIONAL_DATABASE_URLS_JSON: str = "{}"
+
     # --- Background jobs / Redis ---
     JOBS_ENABLED: bool = False
     REDIS_URL: str = "redis://localhost:6379/0"
