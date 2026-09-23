@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 
 import init_db  # noqa: F401
 from app.core.database import Base
+from app.core.audit import log_action
 from app.services.audit import append_audit_log
 
 
@@ -73,6 +74,25 @@ def test_audit_log_rejects_orm_delete() -> None:
         with pytest.raises(RuntimeError, match="append-only"):
             db.commit()
         db.rollback()
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_legacy_log_action_uses_append_only_service() -> None:
+    db, engine = _session()
+    try:
+        entry = log_action(
+            db,
+            user=None,
+            entity_type="bill",
+            entity_id=13,
+            action="created",
+        )
+
+        assert entry is not None
+        assert entry.id is not None
+        assert db.query(type(entry)).count() == 1
     finally:
         db.close()
         engine.dispose()
