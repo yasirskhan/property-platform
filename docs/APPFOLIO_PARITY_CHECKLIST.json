@@ -8,14 +8,14 @@
       "planned_no_phase": "Planned but no phase assigned yet -- THIS IS A BUG",
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
-    "last_updated": "2026-09-22",
+    "last_updated": "2026-09-23",
     "migration_head": "5949df11e460",
     "roadmap_section": "PROJECT_MASTER.md Section 57 (summary) + Section 38 (build order)",
-    "canonical_note": "This JSON is the single source of truth for feature coverage and phase. Every item must have a status and, if scheduled, a phase. check_parity.py enforces this.",
-    "total_items": 612,
-    "built_count": 125,
-    "scheduled_count": 487,
-    "in_progress_count": 0
+    "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
+    "total_items": 628,
+    "built_count": 135,
+    "scheduled_count": 486,
+    "in_progress_count": 7
   },
   "items": [
     {
@@ -94,7 +94,8 @@
       "area": "Accounting / General Ledger",
       "feature": "Reversal-only edits (never edit/delete)",
       "status": "built",
-      "phase": "2.2"
+      "phase": "2.2",
+      "notes": "2026-09-23 safety regression: reversal posting + original is_reversed flag now commit atomically; simulated commit-failure test proves rollback leaves no partial reversal."
     },
     {
       "id": "accounting.gl.trial_balance",
@@ -319,7 +320,7 @@
       "feature": "Allow reversal after partial payment (AppFolio behavior)",
       "status": "scheduled",
       "phase": "3.6",
-      "notes": "Behavior fix — our rule is too strict"
+      "notes": "Behavior fix \u2014 our rule is too strict"
     },
     {
       "id": "accounting.bills.recurring",
@@ -586,7 +587,7 @@
       "feature": "Pay Owners flow (distribute remaining trust to owners)",
       "status": "scheduled",
       "phase": "3.6",
-      "notes": "Critical — AppFolio's whole trust cycle needs this"
+      "notes": "Critical \u2014 AppFolio's whole trust cycle needs this"
     },
     {
       "id": "accounting.mgmt_fees.overcollection",
@@ -996,8 +997,7 @@
       "phase": "3.7"
     },
     {
-      "id": "properties.reports.performance",
-      "area": "Properties / Reports",
+      "id": "properties.reports.performance",      "area": "Properties / Reports",
       "feature": "Property Performance report",
       "status": "scheduled",
       "phase": "3.7"
@@ -1432,7 +1432,7 @@
     {
       "id": "maintenance.smart.dispatch",
       "area": "Maintenance / Smart",
-      "feature": "Dispatch instructions per urgency × time",
+      "feature": "Dispatch instructions per urgency \u00d7 time",
       "status": "scheduled",
       "phase": "5"
     },
@@ -1996,8 +1996,7 @@
       "phase": "3.6"
     },
     {
-      "id": "accounting.coa.hide_semantics",
-      "area": "Accounting / Chart of Accounts",
+      "id": "accounting.coa.hide_semantics",      "area": "Accounting / Chart of Accounts",
       "feature": "GL account Hide (excluded from pickers, still on reports)",
       "status": "scheduled",
       "phase": "3.6"
@@ -2211,7 +2210,7 @@
     {
       "id": "settings.accounting.accounting_basis",
       "area": "Settings / Accounting",
-      "feature": "Accounting Basis toggle (Accrual default | Cash) — report layer only",
+      "feature": "Accounting Basis toggle (Accrual default | Cash) \u2014 report layer only",
       "status": "scheduled",
       "phase": "3.6"
     },
@@ -2442,7 +2441,7 @@
     {
       "id": "billing.quotes",
       "area": "Billing",
-      "feature": "Quotes (create, send, accept → subscription)",
+      "feature": "Quotes (create, send, accept \u2192 subscription)",
       "status": "scheduled",
       "phase": "10"
     },
@@ -2519,7 +2518,7 @@
     {
       "id": "production.postgres_migration",
       "area": "Production",
-      "feature": "SQLite → PostgreSQL migration (test on staging, cutover)",
+      "feature": "SQLite \u2192 PostgreSQL migration (test on staging, cutover)",
       "status": "scheduled",
       "phase": "11"
     },
@@ -2996,8 +2995,7 @@
     },
     {
       "id": "documents.receipt.pdf",
-      "area": "Documents",
-      "feature": "Receipt -> PDF download",
+      "area": "Documents",      "feature": "Receipt -> PDF download",
       "status": "scheduled",
       "phase": "3.7"
     },
@@ -3090,19 +3088,22 @@
       "area": "Security / API",
       "feature": "Organization isolation on every query",
       "status": "built",
-      "notes": "Already enforced. Tracked for completeness."
+      "notes": "Already enforced. Tracked for completeness.",
+      "phase": "session"
     },
     {
       "id": "security.api.role_isolation",
       "area": "Security / API",
       "feature": "Role isolation enforced server-side on every endpoint",
-      "status": "built"
+      "status": "built",
+      "phase": "session"
     },
     {
       "id": "security.api.row_level_isolation",
       "area": "Security / API",
       "feature": "Row-level isolation (tenants/owners/vendors see only own records)",
-      "status": "built"
+      "status": "built",
+      "phase": "session"
     },
     {
       "id": "security.api.public_whitelist",
@@ -3136,13 +3137,15 @@
       "id": "security.sql.orm_only",
       "area": "Security / SQL",
       "feature": "SQLAlchemy ORM everywhere; no string interpolation into SQL",
-      "status": "built"
+      "status": "built",
+      "phase": "session"
     },
     {
       "id": "security.sql.bound_text",
       "area": "Security / SQL",
       "feature": "Bound .text() when raw SQL is unavoidable",
-      "status": "built"
+      "status": "built",
+      "phase": "session"
     },
     {
       "id": "security.sql.sort_whitelist",
@@ -3155,7 +3158,8 @@
       "id": "security.sql.limit_clamped",
       "area": "Security / SQL",
       "feature": "LIMIT always clamped to a max",
-      "status": "built"
+      "status": "built",
+      "phase": "session"
     },
     {
       "id": "security.sql.like_escape",
@@ -3168,7 +3172,8 @@
       "id": "security.sql.no_exec_eval",
       "area": "Security / SQL",
       "feature": "No exec / eval / dynamic imports from user input",
-      "status": "built"
+      "status": "built",
+      "phase": "session"
     },
     {
       "id": "security.sql.fuzz_tests",
@@ -3293,13 +3298,15 @@
       "id": "migration.terminology_map",
       "area": "Migration",
       "feature": "AppFolio-terminology alignment (Bills, Receipts, etc.)",
-      "status": "built"
+      "status": "built",
+      "phase": "session"
     },
     {
       "id": "migration.nav_alignment",
       "area": "Migration",
       "feature": "AppFolio nav order alignment",
-      "status": "built"
+      "status": "built",
+      "phase": "session"
     },
     {
       "id": "migration.workflow_alignment",
@@ -3815,7 +3822,7 @@
     {
       "id": "compliance.ccpa.rules",
       "area": "Compliance / CCPA",
-      "feature": "CCPA rules (California) — export + forget + 'do not sell' handling",
+      "feature": "CCPA rules (California) \u2014 export + forget + 'do not sell' handling",
       "status": "scheduled",
       "phase": "Phase 4"
     },
@@ -3987,8 +3994,7 @@
       "status": "scheduled",
       "phase": "4.7"
     },
-    {
-      "id": "product.commercial.cam",
+    {      "id": "product.commercial.cam",
       "area": "Compliance / Commercial",
       "feature": "CAM charges (Common Area Maintenance)",
       "status": "scheduled",
@@ -4186,8 +4192,8 @@
     {
       "id": "platform.check_parity_v2",
       "area": "Platform / Enforcement",
-      "feature": "check_parity.py v2 — verifies page slots against FEATURE_REGISTRY.md",
-      "status": "scheduled",
+      "feature": "check_parity.py v2 \u2014 verifies page slots against FEATURE_REGISTRY.md",
+      "status": "built",
       "phase": "3.4.2"
     },
     {
@@ -4214,14 +4220,14 @@
     {
       "id": "platform.feature_flags.tables",
       "area": "Platform / Feature Flags",
-      "feature": "feature_flags + feature_flag_audit tables",
+      "feature": "Release-gate storage tables for pages/capabilities (not per-field flags)",
       "status": "scheduled",
       "phase": "3.4.4"
     },
     {
       "id": "platform.feature_flags.resolver",
       "area": "Platform / Feature Flags",
-      "feature": "is_flag_enabled(org_id, key) resolver",
+      "feature": "Release-stage resolver integrated with independent entitlement/org/permission/preference layers",
       "status": "scheduled",
       "phase": "3.4.4"
     },
@@ -4235,7 +4241,7 @@
     {
       "id": "platform.feature_flags.seed_from_registry",
       "area": "Platform / Feature Flags",
-      "feature": "Seed flags from FEATURE_REGISTRY.md",
+      "feature": "Seed release gates from registry capability metadata",
       "status": "scheduled",
       "phase": "3.4.4"
     },
@@ -4322,6 +4328,131 @@
       "feature": "Retrofit Receipts page (proof of pattern)",
       "status": "scheduled",
       "phase": "3.4.12"
+    },
+    {
+      "id": "platform.safety.ci",
+      "area": "Platform / Engineering Safety",
+      "feature": "CI pipeline quality gate",
+      "status": "in_progress",
+      "phase": "3.4.S",
+      "notes": "CI now includes backend/frontend, PostgreSQL, E2E, secret scan, and staging-image/config jobs; first hosted GitHub Actions run still pending."
+    },
+    {
+      "id": "platform.safety.postgres_tests",
+      "area": "Platform / Engineering Safety",
+      "feature": "PostgreSQL integration-test environment",
+      "status": "in_progress",
+      "phase": "3.4.S",
+      "notes": "PostgreSQL 16 schema smoke plus authenticated E2E database path are wired in CI; first hosted run pending."
+    },
+    {
+      "id": "platform.safety.backend_tests",
+      "area": "Platform / Engineering Safety",
+      "feature": "Backend unit + integration test framework",
+      "status": "built",
+      "phase": "3.4.S",
+      "notes": "Pytest framework + parity/model/migration/accounting/backup tests created; locally runnable core suite passes."
+    },
+    {
+      "id": "platform.safety.frontend_checks",
+      "area": "Platform / Engineering Safety",
+      "feature": "Frontend lint + TypeScript + production build checks",
+      "status": "in_progress",
+      "phase": "3.4.S",
+      "notes": "lint/typecheck/build scripts and CI job are wired; dependency-complete verification still pending."
+    },
+    {
+      "id": "platform.safety.playwright",
+      "area": "Platform / Engineering Safety",
+      "feature": "Playwright smoke / E2E test foundation",
+      "status": "in_progress",
+      "phase": "3.4.S",
+      "notes": "Real-browser Playwright smoke test plus deterministic disposable DB seed and CI server startup are implemented; hosted browser run pending."
+    },
+    {
+      "id": "platform.safety.migration_verification",
+      "area": "Platform / Engineering Safety",
+      "feature": "Migration clean-install + upgrade verification",
+      "status": "built",
+      "phase": "3.4.S",
+      "notes": "Fresh empty-db guarded bootstrap + sanitized legacy schema upgrade regression both implemented and locally passing."
+    },
+    {
+      "id": "platform.safety.staging",
+      "area": "Platform / Engineering Safety",
+      "feature": "Basic staging path",
+      "status": "in_progress",
+      "phase": "3.4.S",
+      "notes": "Docker-based PostgreSQL/FastAPI/Next.js staging path, guarded DB prepare step, compose validation/image-build CI job, and staging runbook are implemented; actual staging bring-up pending."
+    },
+    {
+      "id": "platform.safety.backup_restore",
+      "area": "Platform / Engineering Safety",
+      "feature": "Backup + restore verification",
+      "status": "in_progress",
+      "phase": "3.4.S",
+      "notes": "SQLite restore proof passes locally; PostgreSQL pg_dump/pg_restore drill is wired into E2E CI and awaits hosted execution."
+    },
+    {
+      "id": "platform.safety.idempotency",
+      "area": "Platform / Engineering Safety",
+      "feature": "Idempotency standard for jobs/webhooks/financial events",
+      "status": "built",
+      "phase": "3.4.S",
+      "notes": "Canonical idempotency standard documented in docs/ENGINEERING_SAFETY.md; workflow-level enforcement remains required as features are built/touched."
+    },
+    {
+      "id": "platform.safety.accounting_invariants",
+      "area": "Platform / Engineering Safety",
+      "feature": "Automated accounting invariant tests",
+      "status": "built",
+      "phase": "3.4.S",
+      "notes": "Core GL tests verify balance, failure atomicity, org isolation, and reversal net-zero behavior."
+    },
+    {
+      "id": "platform.safety.definition_of_done",
+      "area": "Platform / Engineering Safety",
+      "feature": "Machine-verifiable Definition of Done",
+      "status": "built",
+      "phase": "3.4.S",
+      "notes": "Definition of Done documented and one-command verify_project.py / verify.bat added."
+    },
+    {
+      "id": "platform.safety.dependency_scanning",
+      "area": "Platform / Engineering Safety",
+      "feature": "Dependency + static security scanning in CI",
+      "status": "in_progress",
+      "phase": "3.4.S",
+      "notes": "Dependabot, CodeQL, committed-secret guard, and CI security checks are configured; hosted results pending."
+    },
+    {
+      "id": "platform.gating.hybrid_model",
+      "area": "Platform / Gating",
+      "feature": "Hybrid Capability Gating metadata and five independent access concerns",
+      "status": "built",
+      "phase": "3.4.2"
+    },
+    {
+      "id": "platform.gating.backend_enforcement",
+      "area": "Platform / Gating",
+      "feature": "Backend-authoritative entitlement and permission enforcement standard",
+      "status": "built",
+      "phase": "3.4.2"
+    },
+    {
+      "id": "platform.continuity.ai_handoff",
+      "area": "Platform / Engineering Safety",
+      "feature": "AI_HANDOFF checkpoint maintained by assistant",
+      "status": "built",
+      "phase": "3.4.1+",
+      "notes": "Created in ChatGPT checkpoint 001; must be maintained after meaningful verified batches."
+    },
+    {
+      "id": "platform.feature_registry.full_surface",
+      "area": "Platform / Enforcement",
+      "feature": "FEATURE_REGISTRY current planned page surface completed in Hybrid Capability Gating format",
+      "status": "built",
+      "phase": "3.4.2"
     }
   ]
 }
