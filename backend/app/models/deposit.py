@@ -76,6 +76,7 @@ class Deposit(Base):
 
     # ---------------- Universal patterns ----------------
     is_active = Column(Boolean, nullable=False, default=True, index=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
 
     created_by_id = Column(
         Integer,
