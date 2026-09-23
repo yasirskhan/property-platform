@@ -13,9 +13,9 @@
     "roadmap_section": "PROJECT_MASTER.md Section 57 (summary) + Section 38 (build order)",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 140,
+    "built_count": 141,
     "scheduled_count": 486,
-    "in_progress_count": 2
+    "in_progress_count": 1
   },
   "items": [
     {
@@ -4385,9 +4385,9 @@
       "id": "platform.safety.staging",
       "area": "Platform / Engineering Safety",
       "feature": "Basic staging path",
-      "status": "in_progress",
+      "status": "built",
       "phase": "3.4.S",
-      "notes": "Compose rendering and both container builds have passed. This sync adds live docker compose startup + backend/frontend smoke; final hosted run pending."
+      "notes": "Hosted CI run 35916148970 passed Compose rendering/build plus live stack startup, backend /health, and frontend /login after moving psycopg into runtime dependencies."
     },
     {
       "id": "platform.safety.backup_restore",
@@ -4427,7 +4427,7 @@
       "feature": "Dependency + static security scanning in CI",
       "status": "in_progress",
       "phase": "3.4.S",
-      "notes": "Dependabot and committed-secret scanning are active. CodeQL source analysis completed but SARIF/status upload lacked private-repo actions:read; this sync adds the required permission and upgrades CodeQL action v4. Final hosted run pending."
+      "notes": "Dependabot and committed-secret scanning are active. CodeQL scanned 185/185 Python files and 91/91 TypeScript files, but SARIF/status upload is blocked because code scanning is disabled for this private repository. Enable that repository setting, then rerun hosted CodeQL before marking built."
     },
     {
       "id": "platform.gating.hybrid_model",

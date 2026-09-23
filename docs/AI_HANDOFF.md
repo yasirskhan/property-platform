@@ -44,7 +44,7 @@ GitHub CI run 35897240195 proved:
 - PostgreSQL pg_dump + restore verification;
 - authenticated Playwright login;
 - Dashboard, Properties, Receipts, and Bills protected-page navigation;
-- staging Compose rendering + backend/frontend image builds.
+- staging Compose rendering + backend/frontend image builds + live stack startup with backend /health and frontend /login (CI run 35916148970).
 
 ## Defects found and fixed by the safety work
 - `check_parity.py` and `generate_file_catalog.py` had hard-coded Windows project paths; made portable.
@@ -56,18 +56,18 @@ GitHub CI run 35897240195 proved:
 - Playwright used unreliable `networkidle`; now waits for DOM/UI readiness.
 
 ## Final 3.4.S checks in this branch sync
-- CodeQL: add private-repo `actions: read` permission, keep `security-events: write`, upgrade action to v4, serialize language matrix.
-- Staging: CI now starts the Docker Compose stack and checks backend `/health` and frontend `/login`.
+- CodeQL: source extraction/analysis runs, but GitHub rejects SARIF/status upload because code scanning is disabled for this private repository. Repository code scanning must be enabled before the hosted gate can pass.
+- Staging: VERIFIED in hosted CI run 35916148970. Compose rendered/built, the live stack started, backend `/health` passed, and frontend `/login` passed after adding the PostgreSQL driver to runtime dependencies.
 - CI events: feature-branch push duplication removed; normal CI runs on main pushes, PRs, or manual dispatch.
 
 ## Parity state before final closeout
-- 140 built
-- 2 in progress
+- 141 built
+- 1 in progress
 - 486 scheduled
 - 628 total
 - 0 unplanned / 0 phase-less expected
 
-The two remaining in-progress safety records are staging live-start proof and CodeQL hosted proof. Flip them to built only after the new hosted run succeeds.
+The only remaining in-progress safety record is CodeQL hosted proof. The analysis itself runs, but GitHub code scanning is disabled for the private repository, so SARIF/status upload cannot complete until that repository setting is enabled.
 
 ## Locked architecture decisions
 - Hybrid Capability Gating with independent layers: release control, plan entitlement, org configuration, authorization/permission, user presentation.

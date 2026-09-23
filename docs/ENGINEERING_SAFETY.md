@@ -58,9 +58,9 @@ Accounting/payment change: all applicable checks plus balance, org boundary, fai
 **VERIFIED is stronger than built.** A feature is VERIFIED only when its applicable automated evidence passes.
 
 ## Current hosted evidence
-GitHub CI has already passed PostgreSQL backend tests, frontend lint/type/build, fresh DB bootstrap, deterministic seed, PostgreSQL dump/restore, authenticated Playwright smoke, and staging image/config checks.
+GitHub CI has passed PostgreSQL backend tests, frontend lint/type/build, fresh DB bootstrap, deterministic seed, PostgreSQL dump/restore, authenticated Playwright smoke, staging image/config checks, and live Compose staging startup/health smoke. CI run 35916148970 verified the running backend `/health` and frontend `/login` endpoints.
 
-The final closeout workflow adds live Compose staging startup/health smoke and fixes CodeQL private-repository permissions.
+CodeQL extraction/analysis runs for Python and TypeScript, but GitHub currently rejects SARIF/status upload because code scanning is disabled for this private repository. That repository setting must be enabled before the final hosted security gate can be marked verified.
 
 ## Security timing
 Dependency scanning/static analysis start now. DAST grows with staging. Formal penetration testing remains a pre-launch gate.

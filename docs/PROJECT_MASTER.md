@@ -22,19 +22,20 @@
 - fresh PostgreSQL bootstrap and deterministic E2E seed;
 - PostgreSQL `pg_dump` / restore verification;
 - authenticated Playwright login + Dashboard / Properties / Receipts / Bills;
-- staging Compose rendering and backend/frontend image builds.
+- staging Compose rendering, backend/frontend image builds, live stack startup, backend `/health`, and frontend `/login` in CI run 35916148970.
 
 **Real defects found and fixed by the safety gate:**
 - E2E seed used a reserved `.test` email domain rejected by Pydantic; changed to a valid example-domain address.
 - Playwright waited for `networkidle`, which is unreliable for a live client app; the smoke test now waits for DOM/UI readiness.
 - GL reversal posting previously used two financial commits; reversal + original `is_reversed` state now commit atomically with regression coverage.
 - Fresh database bootstrap/model registration gaps were corrected and all 50 model tables are guarded by tests.
+- Staging initially failed because the PostgreSQL `psycopg` driver was only a dev dependency; it is now a runtime dependency and the live staging smoke passes.
 
-**Final 3.4.S closeout checks now pending:** CodeQL rerun with the correct private-repo permissions, plus live Docker Compose staging startup/health smoke. Once those pass, Phase 3.4.S closes and the next implementation batch is **3.4.3 — identity boundary + immutable audit + jobs foundation**.
+**Final 3.4.S closeout check now pending:** CodeQL hosted proof. Source analysis completes, but GitHub rejects SARIF/status upload because code scanning is disabled for this private repository. Once repository code scanning is enabled and CodeQL passes, Phase 3.4.S closes and the next implementation batch is **3.4.3 — identity boundary + immutable audit + jobs foundation**.
 
 **Migration head:** `5949df11e460`.
 
-**Current parity inventory before final closeout:** 140 built, 2 in progress, 486 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory before final closeout:** 141 built, 1 in progress, 486 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -4389,9 +4390,9 @@ The project does not accelerate into broad AI-assisted batches until the codebas
 
 ## Evidence already green
 
-Hosted GitHub CI has passed backend/PostgreSQL, frontend lint/type/build, fresh DB bootstrap, E2E seed, PostgreSQL dump/restore, authenticated browser smoke, and staging image/config checks.
+Hosted GitHub CI has passed backend/PostgreSQL, frontend lint/type/build, fresh DB bootstrap, E2E seed, PostgreSQL dump/restore, authenticated browser smoke, staging image/config checks, and live Docker Compose startup/health verification. CI run 35916148970 proved backend `/health` and frontend `/login` from the running stack.
 
-The final closeout run adds live Docker Compose staging startup/health verification and corrects CodeQL private-repository permissions. After those are green, 3.4.S is complete and 3.4.3 begins.
+The only remaining closeout gate is hosted CodeQL proof. CodeQL extraction/analysis runs, but GitHub currently rejects SARIF/status upload because code scanning is disabled for this private repository. Enable that repository setting and rerun CodeQL; after it is green, 3.4.S is complete and 3.4.3 begins.
 
 ## Permanent rules
 
