@@ -73,6 +73,7 @@ class Charge(Base):
     is_paid = Column(Boolean, nullable=False, default=False)
 
     is_active = Column(Boolean, nullable=False, default=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
     delete_reason = Column(String(500), nullable=True)
 
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)

@@ -152,6 +152,7 @@ class Bill(Base):
     # ---------------- Universal patterns ----------------
     notes = Column(Text, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True, index=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
 
     created_by_id = Column(
         Integer,
