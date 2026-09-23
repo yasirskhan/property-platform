@@ -71,6 +71,10 @@ class Property(Base):
     zip_code = Column(String(20), nullable=False)
     country = Column(String(100), nullable=False, default="USA")
 
+    # Optional property-level residency override. NULL inherits the
+    # owning organization's data_region.
+    data_region = Column(String(32), nullable=True, index=True)
+
     # --- Physical details ---
     year_built = Column(Integer, nullable=True)
     year_renovated = Column(Integer, nullable=True)

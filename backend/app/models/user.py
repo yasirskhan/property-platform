@@ -18,7 +18,7 @@
 # ============================================================
 
 import enum
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     Column,
@@ -79,6 +79,20 @@ class Organization(Base):
     # one currency. No exchange, no conversion. Column added by
     # migration 8c2e766863c0; see PROJECT_MASTER.md Section 59.
     currency = Column(String(3), nullable=False, default="USD", server_default="USD")
+
+    # Foundation 3.4.5 organization controls.
+    # Transactions dated on or before locked_through_date are closed.
+    locked_through_date = Column(Date, nullable=True, index=True)
+
+    # Logical residency region. Physical routing remains single-region
+    # until another regional database is explicitly configured.
+    data_region = Column(
+        String(32),
+        nullable=False,
+        default="us-east-1",
+        server_default="us-east-1",
+        index=True,
+    )
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -186,3 +186,49 @@ def test_reversal_commit_failure_rolls_back_reversal_and_original_flag(db: Sessi
     assert persisted.is_reversed is False
     reversal_count = db.query(GLTransaction).filter(GLTransaction.reversal_of_id == original_id).count()
     assert reversal_count == 0
+
+
+@pytest.mark.accounting
+def test_locked_period_rejects_post_without_financial_side_effects(db: Session) -> None:
+    org, user, cash, income = seed_accounting(db)
+    org.locked_through_date = date(2026, 9, 30)
+    db.commit()
+
+    with pytest.raises(PostingError, match="locked through 2026-09-30"):
+        post_transaction(
+            db,
+            organization_id=org.id,
+            transaction_date=date(2026, 9, 30),
+            transaction_type="RECEIPT",
+            memo="Blocked by close",
+            created_by=user,
+            lines=[
+                PostingLine(gl_account_id=cash.id, debit=Decimal("75.00")),
+                PostingLine(gl_account_id=income.id, credit=Decimal("75.00")),
+            ],
+        )
+
+    assert db.query(GLTransaction).count() == 0
+    assert db.query(GLEntry).count() == 0
+
+
+@pytest.mark.accounting
+def test_first_open_day_after_lock_can_post(db: Session) -> None:
+    org, user, cash, income = seed_accounting(db)
+    org.locked_through_date = date(2026, 9, 30)
+    db.commit()
+
+    txn = post_transaction(
+        db,
+        organization_id=org.id,
+        transaction_date=date(2026, 10, 1),
+        transaction_type="RECEIPT",
+        memo="Open period",
+        created_by=user,
+        lines=[
+            PostingLine(gl_account_id=cash.id, debit=Decimal("75.00")),
+            PostingLine(gl_account_id=income.id, credit=Decimal("75.00")),
+        ],
+    )
+
+    assert txn.id is not None

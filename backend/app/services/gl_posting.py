@@ -32,7 +32,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
-from app.models.user import User
+from app.models.user import Organization, User
 from app.models.gl_account import GLAccount
 from app.models.gl_transaction import GLTransaction
 from app.models.gl_entry import GLEntry
@@ -106,6 +106,20 @@ def post_transaction(
       7. All unit_ids belong to the given property
       8. created_by is the current user (caller responsibility)
     """
+    # -----------------------------------------------------------------
+    # 0. Closed accounting period
+    # -----------------------------------------------------------------
+    organization = db.get(Organization, organization_id)
+    if organization is None:
+        raise PostingError(f"Organization {organization_id} was not found.")
+
+    locked_through = organization.locked_through_date
+    if locked_through is not None and transaction_date <= locked_through:
+        raise PostingError(
+            f"Accounting period is locked through {locked_through.isoformat()}; "
+            f"cannot post transaction dated {transaction_date.isoformat()}."
+        )
+
     # -----------------------------------------------------------------
     # 1. Validate transaction type
     # -----------------------------------------------------------------
