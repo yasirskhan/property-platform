@@ -138,7 +138,7 @@ export default function TrialBalancePage() {
       {/* Rows, grouped by account type */}
       {data.rows.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-lg p-12 text-center text-slate-500">
-          No entries yet. Once transactions are posted, they'll show up here.
+          No entries yet. Once transactions are posted, they&apos;ll show up here.
         </div>
       ) : (
         <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
