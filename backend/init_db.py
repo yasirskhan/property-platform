@@ -15,6 +15,7 @@ from app.core.database import Base, engine
 from app.models.user import User, Organization  # noqa: F401
 from app.models.platform_user import PlatformUser  # noqa: F401
 from app.models.release_gate import ReleaseGate, ReleaseGateOrganization  # noqa: F401
+from app.models.job_run import JobRun, JobDeadLetter  # noqa: F401
 from app.models.property import Property, Unit, PropertyAssignment  # noqa: F401
 from app.models.lease import Lease, RentInvoice, Payment  # noqa: F401
 from app.models.work_order import WorkOrder, WorkOrderUpdate  # noqa: F401

@@ -10,8 +10,8 @@ import pytest
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = BACKEND_ROOT / "tests" / "fixtures" / "pre_alembic_1d77_schema.sql"
-EXPECTED_HEAD = "c8f6a0b4d3e2"
-EXPECTED_MODEL_TABLES = 53
+EXPECTED_HEAD = "d9a7b1c5e4f3"
+EXPECTED_MODEL_TABLES = 55
 
 
 def _run(command: list[str], database_url: str) -> subprocess.CompletedProcess[str]:
