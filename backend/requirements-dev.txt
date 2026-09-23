@@ -1,7 +1,6 @@
 # Development / verification dependencies for Phase 3.4.S.
 # Install after requirements.txt.
 httpx==0.28.1
-psycopg[binary]==3.3.6
 pytest==9.1.1
 pytest-cov==7.1.0
 playwright==1.63.0
