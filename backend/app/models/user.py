@@ -70,6 +70,7 @@ class Organization(Base):
     name = Column(String(255), nullable=False)
     slug = Column(String(100), unique=True, index=True, nullable=False)
     is_active = Column(Boolean, default=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
 
     # Subscription state placeholder.
     # ACTIVE | PAST_DUE | RESTRICTED | SUSPENDED | CANCELLED
@@ -138,6 +139,7 @@ class User(Base):
 
     # --- Status ---
     is_active = Column(Boolean, default=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
     is_verified = Column(Boolean, default=False)
 
     # --- Timestamps ---
