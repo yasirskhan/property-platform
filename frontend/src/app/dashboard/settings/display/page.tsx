@@ -197,7 +197,7 @@ export default function DisplaySettingsPage() {
     <div className="max-w-3xl mx-auto p-6">
       <h1 className="text-xl font-semibold text-slate-900 mb-1">Display</h1>
       <p className="text-sm text-slate-500 mb-6">
-        Personal preferences for how the app looks, plus your organization's
+        Personal preferences for how the app looks, plus your organization&apos;s
         currency.
       </p>
 
