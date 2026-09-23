@@ -13,6 +13,7 @@ from app.core.database import Base, engine
 
 # ---- Import every model here ----
 from app.models.user import User, Organization  # noqa: F401
+from app.models.platform_user import PlatformUser  # noqa: F401
 from app.models.property import Property, Unit, PropertyAssignment  # noqa: F401
 from app.models.lease import Lease, RentInvoice, Payment  # noqa: F401
 from app.models.work_order import WorkOrder, WorkOrderUpdate  # noqa: F401

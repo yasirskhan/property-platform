@@ -1,16 +1,14 @@
 # ============================================================
 # security.py
 # ------------------------------------------------------------
-# Handles two things:
+# Password hashing plus strict JWT audience separation.
 #
-#   1. Password hashing — we NEVER store raw passwords.
-#      We store a hash, which can't be reversed.
-#
-#   2. JWT tokens — after login, the user gets a signed token.
-#      They send it with every request to prove who they are.
+# Customer users and internal platform users are separate identity
+# domains. Their JWTs are never interchangeable because each decoder
+# requires its own audience claim.
 # ============================================================
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 import jwt
@@ -19,13 +17,9 @@ from passlib.context import CryptContext
 from app.core.config import settings
 
 
-# ------------------------------------------------------------
-# PASSWORD HASHING
-# ------------------------------------------------------------
-# bcrypt is a strong, industry-standard hashing algorithm.
-# deprecated="auto" means older algorithms still verify but
-# new hashes always use bcrypt.
-# ------------------------------------------------------------
+CUSTOMER_TOKEN_AUDIENCE = "customer"
+PLATFORM_TOKEN_AUDIENCE = "platform"
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
@@ -39,47 +33,64 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-# ------------------------------------------------------------
-# JWT TOKENS
-# ------------------------------------------------------------
+def _create_token(
+    subject: str | Any,
+    audience: str,
+    expires_delta: Optional[timedelta] = None,
+) -> str:
+    now = datetime.now(timezone.utc)
+    expire = now + (
+        expires_delta
+        if expires_delta is not None
+        else timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    payload = {
+        "sub": str(subject),
+        "aud": audience,
+        "iat": now,
+        "exp": expire,
+    }
+    return jwt.encode(
+        payload,
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM,
+    )
+
+
+def _decode_token(token: str, audience: str) -> Optional[dict]:
+    try:
+        return jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+            audience=audience,
+            options={"require": ["sub", "aud", "exp"]},
+        )
+    except jwt.InvalidTokenError:
+        return None
+
+
 def create_access_token(
     subject: str | Any,
     expires_delta: Optional[timedelta] = None,
 ) -> str:
-    """
-    Create a signed JWT token.
-    'subject' is usually the user's ID (as a string).
-    """
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(
-            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-        )
-
-    to_encode = {
-        "sub": str(subject),
-        "exp": expire,
-    }
-
-    encoded_jwt = jwt.encode(
-        to_encode,
-        settings.SECRET_KEY,
-        algorithm=settings.ALGORITHM,
-    )
-    return encoded_jwt
+    """Create a customer-side access token."""
+    return _create_token(subject, CUSTOMER_TOKEN_AUDIENCE, expires_delta)
 
 
 def decode_access_token(token: str) -> Optional[dict]:
-    """
-    Decode a JWT token. Returns the payload dict, or None if invalid.
-    """
-    try:
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM],
-        )
-        return payload
-    except jwt.InvalidTokenError:
-        return None
+    """Decode only customer-side tokens."""
+    return _decode_token(token, CUSTOMER_TOKEN_AUDIENCE)
+
+
+def create_platform_access_token(
+    subject: str | Any,
+    expires_delta: Optional[timedelta] = None,
+) -> str:
+    """Create an internal platform-side access token."""
+    return _create_token(subject, PLATFORM_TOKEN_AUDIENCE, expires_delta)
+
+
+def decode_platform_access_token(token: str) -> Optional[dict]:
+    """Decode only internal platform-side tokens."""
+    return _decode_token(token, PLATFORM_TOKEN_AUDIENCE)
