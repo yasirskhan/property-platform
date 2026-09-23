@@ -695,3 +695,24 @@ access boundary.
 | Owners | settings family | release.settings.owners | owner_portal | yes | SETTINGS | no | ❌ missing | Owner configuration |
 | Communication | settings family | release.settings.communication | messaging | yes | SETTINGS | no | ❌ missing | Channel/template/quiet-hours configuration |
 | Approvals | settings family | release.settings.approvals | approvals | yes | SETTINGS | no | ❌ missing | Approval workflow settings |
+| Auditing Center | settings family | release.settings.audit | audit_center | yes | SETTINGS | no | ❌ missing | Queryable audit access/retention |
+| Property Groups | settings family | release.settings.property_groups | property_groups | yes | SETTINGS | no | ❌ missing | Property group management |
+| Risk / Tags / Affordable | settings family | release.settings.risk_tags_affordable | compliance | yes | SETTINGS | no | ❌ missing | Expansion/compliance settings |
+| Developer / API Keys | settings family | release.settings.developer | api_access | yes | SETTINGS | no | ❌ missing | External API keys/integration controls |
+
+---
+
+# Registry completion notes
+
+1. Routine fields and controls intentionally inherit their containing
+   page/capability and therefore have no independent release gate.
+2. Entitlement keys identify commercial capability boundaries; they do
+   not imply that current pricing has already been finalized.
+3. Permission keys reuse current menu permissions where available.
+   Action-level permissions can be introduced when a real authorization
+   need is identified.
+4. Backend authorization and entitlement checks remain authoritative.
+5. Expansion-product capabilities stay in the registry but do not block
+   the Core Launch milestone.
+
+# END OF FEATURE_REGISTRY.md
