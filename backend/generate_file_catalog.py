@@ -22,7 +22,7 @@ from pathlib import Path
 from datetime import datetime
 
 
-ROOT = Path(r"C:\Projects\property-platform")
+ROOT = Path(__file__).resolve().parent.parent
 BACKEND = ROOT / "backend"
 FRONTEND = ROOT / "frontend"
 OUT = ROOT / "docs" / "FILE_CATALOG.md"

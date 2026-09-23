@@ -1,7 +1,7 @@
 # PLAN GAPS
 
 **Supplement to PROJECT_MASTER.md**
-**Last updated: 2026-09-22**
+**Last updated: 2026-09-23**
 
 This file captures everything missing from PROJECT_MASTER.md that must
 be planned before the product ships. It's the "nothing gets lost" file —
@@ -374,50 +374,67 @@ Ticket system with SLA clocks ships in **Phase 9**.
 
 ---
 
-# E. ENFORCEMENT
+## D5. Engineering Safety Foundation
 
-## E1. `check_parity.py` gets teeth
+**Decision:** complete the registry first, then install the automated
+quality foundation before large implementation batches.
 
-**Decision:** `check_parity.py` reads `FEATURE_REGISTRY.md`, extracts
-the required slot list for each page, verifies the slot list is
-present in the page source (via a marker comment block), and fails
-the build if any page is missing slots.
+Includes CI, PostgreSQL integration tests, backend unit/integration
+tests, frontend lint/type/build checks, Playwright smoke/E2E, migration
+verification, basic staging, backup/restore proof, idempotency
+standards, accounting invariants, dependency/static scanning, and a
+written Definition of Done.
 
-Every page must have a top-of-file marker:
+**Phase:** **3.4.S**, immediately after 3.4.2 and before 3.4.3.
 
-    // ═══════════════════════════════════════════════════
-    // PAGE SURFACE — from FEATURE_REGISTRY.md
-    // Slots: receipts.tabs, receipts.date, receipts.cash, ...
-    // ═══════════════════════════════════════════════════
-
-**Phase:** **Foundation Session 2** (right after the registry is
-written).
-
-**Cost:** ~1 session.
+**Status 2026-09-23:** **IN PROGRESS.** Locally verified: backend test
+framework, core accounting invariants, fresh database bootstrap, legacy
+migration upgrade regression, model-registry guard, SQLite backup/restore,
+idempotency standard, and Definition of Done. Built but awaiting hosted
+evidence: GitHub CI/PostgreSQL integration, frontend lint/type/build, and
+CodeQL/Dependabot. Still scheduled inside this phase: Playwright, staging,
+and PostgreSQL staging restore proof.
 
 ---
 
-# F. FOUNDATION ORDER (the 12-session sequence)
+# E. ENFORCEMENT
 
-| # | Session | Ships |
+## E1. Parity consistency is one quality check, not proof of correctness
+
+**Decision:** `check_parity.py` verifies the parity inventory remains
+complete and phased. Session 3.4.2 expands registry coverage checks, but
+a CLEAN parity result is never treated as proof that a workflow works.
+
+After the Engineering Safety Foundation, the close gate also includes
+applicable backend tests, PostgreSQL integration tests, migration
+verification, frontend lint/type/build checks, browser smoke/E2E tests,
+and accounting invariants.
+
+**Phase:** Registry/parity coverage in **3.4.2** (**COMPLETE 2026-09-23**);
+behavioral quality gates in **3.4.S**.
+
+---
+
+# F. FOUNDATION ORDER (revised)
+
+| Order | Phase | Ships |
 |---|---|---|
-| 1 | **This session** | `PLAN_GAPS.md` + `FEATURE_REGISTRY.md` (structure + Receipts) + master doc updates + parity JSON updates |
-| 2 | Next | Finish `FEATURE_REGISTRY.md` (all pages) + `check_parity.py` v2 |
-| 3 | | Backend identity boundary (`platform_users`, separate JWT, seed script) |
-| 4 | | Feature flags tables + resolver + audit + Arq + Redis + Scheduler + Sentry |
-| 5 | | `data_region` column + `get_db_for_org()` routing layer + `deleted_at` schema + `locked_through_date` |
-| 6 | | Billing foundation (Stripe products, plans, subscriptions, webhooks) |
-| 7 | | Signup + payment flow (customer side) |
-| 8 | | Fraud / abuse layer (Stripe Radar + our signals + review queue) |
-| 9 | | Internal admin app (separate Next.js app) — orgs, flags, plans, fraud, audit |
-| 10 | | `useFlag()` + `<Flag>` + Settings → Features (customer side) |
-| 11 | | Unit enforcement + plan limits |
-| 12 | | Retrofit Receipts page (proves the pattern) |
-| 13+ | | Retrofit remaining pages, one per session |
-| N | | **Back to features.** Journal Entries sub-tabs is the first feature built on the new foundation. |
+| 1 | 3.4.1 | PLAN_GAPS + FEATURE_REGISTRY v1 + planning decisions |
+| 2 | 3.4.2 | Finish FEATURE_REGISTRY in Hybrid Capability Gating format + parity coverage tooling |
+| 3 | **3.4.S** | Engineering Safety Foundation: CI, PostgreSQL tests, backend/frontend verification, Playwright, migrations, staging path, backup/restore, idempotency, accounting invariants, Definition of Done |
+| 4 | 3.4.3 | Identity boundary + immutable audit + background jobs foundation |
+| 5 | 3.4.4 | Release-gate tables/resolver (capabilities, not every field) |
+| 6 | 3.4.5 | Locked accounting periods + core org settings; multi-region routing deferred until customer need |
+| 7 | 3.4.6 | End-to-end verification of existing core product |
+| 8 | 3.4.7 | Basic billing foundation |
+| 9 | 3.4.8 | Self-serve signup/payment flow |
+| 10+ | later foundation | Fraud, internal admin, unit enforcement, and broad retrofits in dependency order |
+| then | compatibility | Retrofit Receipts first, then remaining pages with regression protection |
+| then | core product | Resume Phase 3.6 and continue to core launch |
+| post-launch | expansion | Affordable, HOA, Commercial, RUBs, Student, Senior, Short-term, competitor migrations unless reprioritized |
 
-Total foundation cost: **~12 sessions.** After that, every feature
-ships by flipping a flag. No more loops.
+The safety foundation intentionally slows the first few steps so later
+AI-assisted batches can be much larger without sacrificing correctness.
 
 ---
 
@@ -440,7 +457,7 @@ ships by flipping a flag. No more loops.
 - **Section 9 (5-layer menu gating)** — unchanged. The flag system
   is Layer 1 as designed.
 - **Section 67** — the Complete-Page rule gains teeth (E1).
-- **Section 79, 80** — unchanged. This file makes them real.
+- **Sections 70, 79, 80** — revised to Hybrid Capability Gating with separate release, entitlement, org-setting, permission, and user-preference concerns.
 
 ---
 

@@ -33,6 +33,15 @@ from app.models.income import PropertyIncome  # noqa: F401
 from app.models.application import LeaseApplication, ApplicationPayment  # noqa: F401
 from app.models.screening import ScreeningProvider, OrganizationScreeningSettings  # noqa: F401
 
+
+# ---- Settings / permissions / Phase 3.5+ ----
+from app.models.sidebar_preference import SidebarPreference  # noqa: F401
+from app.models.menu_permission import MenuPermission  # noqa: F401
+from app.models.user_permission import UserPermission  # noqa: F401
+from app.models.user_display_preference import UserDisplayPreference  # noqa: F401
+from app.models.currency import Currency  # noqa: F401
+from app.models.charge import Charge  # noqa: F401
+
 # ---- General Ledger (Phase 2 Steps 1 + 2) ----
 from app.models.gl_account import GLAccount  # noqa: F401
 from app.models.gl_transaction import GLTransaction  # noqa: F401
