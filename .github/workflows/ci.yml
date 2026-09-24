@@ -138,7 +138,7 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
+    needs: [backend, frontend, platform-admin]
     services:
       postgres:
         image: postgres:16
@@ -164,6 +164,14 @@ jobs:
       E2E_BASE_URL: http://127.0.0.1:3000
       E2E_ADMIN_EMAIL: e2e-admin@example.com
       E2E_ADMIN_PASSWORD: test1234
+      E2E_PLATFORM_BASE_URL: http://127.0.0.1:3001
+      E2E_PLATFORM_ADMIN_EMAIL: e2e-platform-admin@example.com
+      E2E_PLATFORM_ADMIN_PASSWORD: platform-test1234
+      PLATFORM_ADMIN_SEED_ALLOWED: "true"
+      PLATFORM_ADMIN_EMAIL: e2e-platform-admin@example.com
+      PLATFORM_ADMIN_PASSWORD: platform-test1234
+      PLATFORM_ADMIN_FIRST_NAME: E2E
+      PLATFORM_ADMIN_LAST_NAME: PlatformAdmin
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -192,6 +200,12 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+      - name: Install platform admin dependencies
+        working-directory: platform-admin
+        run: npm ci
+      - name: Build platform admin
+        working-directory: platform-admin
+        run: npm run build
       - name: Install PostgreSQL client for backup/restore drill
         run: |
           sudo apt-get update
@@ -201,6 +215,7 @@ jobs:
         run: |
           python bootstrap_fresh_db.py
           python seed_e2e.py
+          python seed_platform_admin.py
       - name: Verify PostgreSQL backup and restore
         shell: bash
         env:
@@ -225,8 +240,11 @@ jobs:
           cd ../frontend
           npm start -- --hostname 127.0.0.1 --port 3000 > /tmp/property-frontend.log 2>&1 &
           FRONTEND_PID=$!
+          cd ../platform-admin
+          npm start -- --hostname 127.0.0.1 --port 3001 > /tmp/platform-admin.log 2>&1 &
+          PLATFORM_ADMIN_PID=$!
           cleanup() {
-            kill "$BACKEND_PID" "$FRONTEND_PID" 2>/dev/null || true
+            kill "$BACKEND_PID" "$FRONTEND_PID" "$PLATFORM_ADMIN_PID" 2>/dev/null || true
           }
           trap cleanup EXIT
 
@@ -243,6 +261,15 @@ jobs:
             curl -fsS http://127.0.0.1:3000/login >/dev/null && break
             if [ "$i" -eq 60 ]; then
               cat /tmp/property-frontend.log
+              exit 1
+            fi
+            sleep 1
+          done
+
+          for i in {1..60}; do
+            curl -fsS http://127.0.0.1:3001/login >/dev/null && break
+            if [ "$i" -eq 60 ]; then
+              cat /tmp/platform-admin.log
               exit 1
             fi
             sleep 1

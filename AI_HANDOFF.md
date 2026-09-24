@@ -67,7 +67,13 @@ Current batch:
 - Phase 3.4.10 Batch 1 platform-control APIs are VERIFIED.
 - Batch 1 commit: 764f6816b8334490c93d095a47a721b8ccbf380d.
 - GitHub CI run 35961065567: SUCCESS.
-- Phase 3.4.10 Batch 2 separate internal Next.js admin application is IMPLEMENTED; hosted CI verification is pending.
+- Phase 3.4.10 Batch 2 separate internal Next.js admin application is VERIFIED.
+- Batch 2 commit: 02ddfa7a622d9b155ca1c71899316c6b163755a2.
+- GitHub CI run 35980762441: SUCCESS.
+- Backend/PostgreSQL: 160 passed, 2 deselected, 1132 warnings in 40.37s.
+- Platform-admin lint/TypeScript/build and npm-audit: SUCCESS.
+- Customer frontend, security, existing E2E, backup/restore, and staging: SUCCESS.
+- Phase 3.4.10 Batch 3 deterministic platform-admin browser proof is IMPLEMENTED; hosted CI verification is pending.
 - The internal app lives in platform-admin/, uses only platform-audience authentication/API routes, stores a separate platform_access_token, and does not reuse customer frontend auth state.
 - Internal surfaces cover organizations, plan catalog, release gates, fraud review, and platform staff audit with backend role authorization remaining authoritative.
 - Backend CORS permits the local internal app on port 3001.
@@ -75,9 +81,9 @@ Current batch:
 - No migration in Batch 2; Alembic head remains 6f1a9c4d2e7b.
 
 Next action:
-1. Verify Phase 3.4.10 Batch 2 in hosted CI and fix any reds autonomously.
-2. Add deterministic platform-admin E2E smoke coverage if needed to prove separate platform login/session and core internal surfaces.
-3. Complete Phase 3.4.10 roadmap/parity/catalog closeout and continue directly into Phase 3.4.11 customer release-gate consumption + Settings Features.
+1. Verify Phase 3.4.10 Batch 3 in hosted CI and fix any reds autonomously.
+2. Complete Phase 3.4.10 roadmap/parity/catalog closeout.
+3. Continue directly into Phase 3.4.11 customer release-gate consumption + Settings Features.
 
 Open blockers:
 - NONE
