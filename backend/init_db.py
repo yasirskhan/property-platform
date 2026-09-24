@@ -29,6 +29,10 @@ from app.models.billing import (  # noqa: F401
     BillingSettings,
     PaymentMethod,
 )
+from app.models.subscription_billing import (  # noqa: F401
+    SubscriptionInvoice,
+    UsageRecord,
+)
 from app.models.property import Property, Unit, PropertyAssignment  # noqa: F401
 from app.models.lease import Lease, RentInvoice, Payment  # noqa: F401
 from app.models.work_order import WorkOrder, WorkOrderUpdate  # noqa: F401
