@@ -177,7 +177,9 @@ Verified latest batch:
 - No migration in this batch; Alembic head remains 4d7f2a9c6e31.
 
 Current batch:
-- Phase 3.6 recurring Journal Entries batch is implemented and awaits hosted CI verification.
+- Phase 3.6 recurring Journal Entries batch is implemented and under hosted CI repair verification.
+- Initial CI run 36073703065 reached 263 passed / 3 deselected with 3 setup errors isolated to the new test file because it omitted its local SQLite db fixture; product compile/parity/frontend/security passed.
+- Repair adds the same explicit isolated accounting test schema/fixture pattern used by existing GL posting tests; product code is unchanged by the repair.
 - New org-scoped recurring_journal_entries + recurring_journal_entry_lines store balanced monthly templates and schedule state.
 - New migration head: 6a1d9e3f4b72. Expected model-table count: 79.
 - The recurring API remains authoritative behind ACCOUNTING.JOURNAL_ENTRIES plus the independent release/entitlement/org-config capability resolver; writes remain ADMIN/OWNER/MANAGER only.
@@ -189,7 +191,7 @@ Current batch:
 - Post GPR remains the next Journal Entries sub-batch.
 
 Next action:
-1. Verify this recurring Journal Entries batch in hosted CI and fix reds autonomously.
+1. Verify the recurring-JE test-fixture repair in hosted CI and fix any remaining reds autonomously.
 2. Record exact green evidence in this handoff.
 3. Implement Journal Entries Post GPR next, then continue Phase 3.6 without stopping.
 

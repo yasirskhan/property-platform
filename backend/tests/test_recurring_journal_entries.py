@@ -4,14 +4,60 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
-from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
-from app.models.gl_account import GLAccount
+from app.core.database import Base
+from app.models.audit_log import AuditLog
+from app.models.gl_entry import GLEntry
+from app.models.gl_account import GLAccount, GLAccountPostingRestriction
 from app.models.gl_transaction import GLTransaction
+from app.models.organization_feature_setting import OrganizationFeatureSetting
+from app.models.property import Property, Unit
+from app.models.recurring_journal_entry import RecurringJournalEntry, RecurringJournalEntryLine
+from app.models.release_gate import ReleaseGate, ReleaseGateOrganization
 from app.models.user import Organization, User, UserRole
+
 from app.schemas.journal_entry import JournalEntryLineIn
 from app.services.gl_posting import PostingError
 import app.services.recurring_journal_entries as recurring
+
+
+TEST_TABLES = [
+    Organization.__table__,
+    User.__table__,
+    Property.__table__,
+    Unit.__table__,
+    GLAccount.__table__,
+    GLAccountPostingRestriction.__table__,
+    ReleaseGate.__table__,
+    ReleaseGateOrganization.__table__,
+    OrganizationFeatureSetting.__table__,
+    GLTransaction.__table__,
+    GLEntry.__table__,
+    RecurringJournalEntry.__table__,
+    RecurringJournalEntryLine.__table__,
+    AuditLog.__table__,
+]
+
+
+@pytest.fixture()
+def db() -> Session:
+    engine = create_engine(
+        "sqlite+pysqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine, tables=TEST_TABLES)
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
+        Base.metadata.drop_all(engine, tables=list(reversed(TEST_TABLES)))
+        engine.dispose()
 
 
 def seed_recurring_accounts(db: Session, slug: str = "recurring-org"):
