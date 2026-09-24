@@ -235,6 +235,12 @@ class Subscription(Base):
         nullable=False,
         index=True,
     )
+    pricing_tier_id = Column(
+        Integer,
+        ForeignKey("pricing_tiers.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     stripe_subscription_id = Column(
         String(255),
         nullable=True,
@@ -275,6 +281,7 @@ class Subscription(Base):
 
     organization = relationship("Organization")
     plan = relationship("Plan", back_populates="subscriptions")
+    pricing_tier = relationship("PricingTier")
     items = relationship(
         "SubscriptionItem",
         back_populates="subscription",

@@ -435,6 +435,7 @@ def _process_checkout_completed(
         subscription = Subscription(
             organization_id=attempt.organization_id,
             plan_id=attempt.plan_id,
+            pricing_tier_id=attempt.pricing_tier_id,
             stripe_subscription_id=provider_subscription_id,
             status=SubscriptionStatus.ACTIVE,
         )
@@ -457,6 +458,7 @@ def _process_checkout_completed(
                 "Stripe subscription conflicts with the active local subscription"
             )
         subscription.plan_id = attempt.plan_id
+        subscription.pricing_tier_id = attempt.pricing_tier_id
         subscription.stripe_subscription_id = provider_subscription_id
         _record_status_event(
             db,

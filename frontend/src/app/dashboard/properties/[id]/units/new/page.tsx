@@ -13,6 +13,7 @@ export default function AddUnitPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [planLimitReached, setPlanLimitReached] = useState(false);
   const [propertyName, setPropertyName] = useState("");
 
   const [unitNumber, setUnitNumber] = useState("");
@@ -52,6 +53,7 @@ export default function AddUnitPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setPlanLimitReached(false);
     setSaving(true);
     try {
       await apiPost(`/properties/${propertyId}/units`, {
@@ -71,7 +73,14 @@ export default function AddUnitPage() {
       });
       router.push(`/dashboard/properties/${propertyId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      const message = err instanceof Error ? err.message : "Save failed";
+      const prefix = "PLAN_UNIT_LIMIT_REACHED:";
+      if (message.startsWith(prefix)) {
+        setPlanLimitReached(true);
+        setError(message.slice(prefix.length).trim());
+      } else {
+        setError(message);
+      }
       setSaving(false);
     }
   }
@@ -91,7 +100,15 @@ export default function AddUnitPage() {
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-6">
-          {error}
+          <p>{error}</p>
+          {planLimitReached && (
+            <Link
+              href="/signup?upgrade=units"
+              className="mt-2 inline-block font-medium underline underline-offset-2"
+            >
+              Review plan options
+            </Link>
+          )}
         </div>
       )}
 

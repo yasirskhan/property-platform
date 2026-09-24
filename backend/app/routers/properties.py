@@ -33,6 +33,7 @@ from app.models.audit_log import AuditLog
 from app.models.property import Property, Unit, PropertyAssignment
 from app.models.user import User, UserRole
 from app.routers.auth import get_current_user
+from app.services.plan_limits import PlanUnitLimitExceeded, require_unit_capacity
 from app.schemas.property import (
     PropertyCreate,
     PropertyOut,
@@ -358,6 +359,17 @@ def create_unit(
     if existing:
         raise HTTPException(status_code=400, detail="Unit number already exists in this property")
 
+    try:
+        require_unit_capacity(
+            db,
+            organization_id=prop.organization_id,
+        )
+    except PlanUnitLimitExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"PLAN_UNIT_LIMIT_REACHED: {exc}",
+        ) from exc
+
     unit = Unit(property_id=prop.id, **payload.model_dump())
     db.add(unit)
     db.commit()
@@ -511,6 +523,18 @@ def restore_unit(
     unit = db.query(Unit).filter(Unit.id == unit_id, Unit.property_id == prop.id).first()
     if not unit:
         raise HTTPException(status_code=404, detail="Unit not found")
+
+    if not unit.is_active:
+        try:
+            require_unit_capacity(
+                db,
+                organization_id=prop.organization_id,
+            )
+        except PlanUnitLimitExceeded as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"PLAN_UNIT_LIMIT_REACHED: {exc}",
+            ) from exc
 
     unit.is_active = True
     unit.deleted_at = None

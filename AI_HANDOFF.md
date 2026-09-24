@@ -99,10 +99,17 @@ Current batch:
 - Customer runtime now exposes released capability decisions without leaking hidden stages and keeps release, entitlement, org configuration, authorization, and personal presentation concerns independent.
 - Settings → Features, FeatureProvider, useFlag(), and <Flag> are verified.
 
+Current batch:
+- Phase 3.4.12 unit/plan-limit enforcement implementation is committed in the current checkpoint and awaiting hosted CI verification.
+- Subscription rows now persist the purchased pricing tier; migration 8c4e2a7d1f90 backfills from completed checkout history when available.
+- Active-unit capacity is enforced authoritatively on unit create and soft-delete restore. Legacy/enterprise subscriptions without a pricing tier remain uncapped.
+- Add Unit shows an explanatory plan-options prompt when the backend returns the unit-limit conflict.
+- Regression coverage covers limit resolution, create/restore blocking, Stripe tier reconciliation, and migration-head guards.
+
 Next action:
-1. Continue directly into Phase 3.4.12 unit/plan-limit enforcement + upgrade path.
-2. Enforce the limit in backend unit create and restore paths; UI upgrade messaging is explanatory only.
-3. Verify through backend, frontend, security, E2E, backup/restore, and staging gates, then continue to 3.4.13.
+1. Verify the current Phase 3.4.12 checkpoint through hosted CI.
+2. Fix any CI red autonomously.
+3. When green, record the verified 3.4.12 closeout and continue directly into 3.4.13 Receipts compatibility retrofit.
 
 Open blockers:
 - NONE
