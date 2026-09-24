@@ -13,6 +13,14 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiGet } from "@/lib/api";
 import { formatMoney, formatDate } from "@/lib/money";
+import Flag from "@/components/features/Flag";
+import { useDisplay } from "@/contexts/DisplayContext";
+
+interface Me {
+  role: string;
+}
+
+const WRITE_ROLES = ["ADMIN", "OWNER", "MANAGER"];
 
 interface Charge {
   id: number;
@@ -28,6 +36,8 @@ interface Charge {
 }
 
 export default function ChargesPage() {
+  const { prefs } = useDisplay();
+  const [me, setMe] = useState<Me | null>(null);
   const [rows, setRows] = useState<Charge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +68,9 @@ export default function ChargesPage() {
   }
 
   useEffect(() => {
+    apiGet("/auth/me")
+      .then((data) => setMe(data as Me))
+      .catch(() => setMe(null));
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -79,16 +92,35 @@ export default function ChargesPage() {
     [rows]
   );
 
+  const canWrite = Boolean(me && WRITE_ROLES.includes(String(me.role).toUpperCase()));
+
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-1">
+    <div
+      className="p-6"
+      data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()}
+      data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}
+    >
+      <div className="flex items-start justify-between gap-4 mb-1">
         <h1 className="text-xl font-semibold text-slate-900">Charges</h1>
-        <Link
-          href="/dashboard/accounting/charges/new"
-          className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
-        >
-          + New Charge
-        </Link>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Flag name="release.accounting.charges.bulk_upload">
+            <button
+              type="button"
+              disabled
+              className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60"
+            >
+              Bulk Tenant Charges Upload
+            </button>
+          </Flag>
+          {canWrite && (
+            <Link
+              href="/dashboard/accounting/charges/new"
+              className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+            >
+              + New Charge
+            </Link>
+          )}
+        </div>
       </div>
       <p className="text-sm text-slate-500 mb-6">
         One-off amounts owed by tenants: late fees, damages, utility

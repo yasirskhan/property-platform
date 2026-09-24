@@ -179,6 +179,19 @@ def test_login_and_core_authenticated_pages() -> None:
                 expect(page.get_by_role("button", name=hidden_action, exact=True)).to_have_count(0)
 
             page.goto(
+                f"{BASE_URL}/dashboard/accounting/charges",
+                wait_until="domcontentloaded",
+            )
+            expect(
+                page.get_by_role("heading", name="Charges", exact=True)
+            ).to_be_visible()
+            expect(
+                page.get_by_role(
+                    "button", name="Bulk Tenant Charges Upload", exact=True
+                )
+            ).to_have_count(0)
+
+            page.goto(
                 f"{BASE_URL}/dashboard/settings/features",
                 wait_until="domcontentloaded",
             )

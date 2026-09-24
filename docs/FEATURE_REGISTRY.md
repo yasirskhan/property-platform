@@ -521,7 +521,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Date / status filters | filters | — | — | — | — | — | ✅ present | Routine controls |
 | Charge table / drill-down | section | — | — | — | — | — | ✅ present | Existing list surface |
 | Charge edit rules | behavior | — | core | no | ACCOUNTING.CHARGES | no | ✅ present | Paid floor; no charge-to-credit conversion |
-| Bulk tenant charges upload | capability | release.accounting.charges.bulk_upload | bulk_charges | yes | ACCOUNTING.CHARGES | no | ❌ missing | Independent bulk workflow |
+| Bulk tenant charges upload | capability | release.accounting.charges.bulk_upload | bulk_charges | yes | ACCOUNTING.CHARGES | no | ⬜ hidden implementation present | Release-gated compatibility slot; bulk import workflow remains planned |
 
 ---
 

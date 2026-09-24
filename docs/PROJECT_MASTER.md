@@ -4651,3 +4651,21 @@ Phase **3.4.11 — customer release-gate consumption + Settings → Features**.
 
 Phase **3.4.12 — unit / plan-limit enforcement + upgrade path**. Enforce limits on backend unit creation/restoration first; customer upgrade messaging may explain the limit but never replace server enforcement.
 
+# SECTION 90 — FOUNDATION 3.4.21 (IN PROGRESS)
+
+**Phase:** `3.4.21`  
+**Started:** 2026-09-24
+
+## Charges compatibility retrofit
+
+- Preserve existing standalone-charge rules: org-scoped tenant/account validation, INCOME-only GL accounts, paid-floor edits, and no deletion of fully paid charges.
+- Backend list/detail access is governed by `ACCOUNTING.CHARGES`; create/update/delete additionally require ADMIN/OWNER/MANAGER.
+- Charges list/new pages consume shared display preferences.
+- Bulk Tenant Charges Upload is represented as `release.accounting.charges.bulk_upload`, a hidden compatibility slot only; the actual bulk-import workflow remains scheduled.
+- Regression coverage verifies access/write-role helpers, and authenticated E2E verifies the unreleased bulk action stays hidden.
+- No migration is required; Alembic head remains `8c4e2a7d1f90`.
+
+## Verification state
+
+Implementation checkpoint prepared; hosted CI verification pending.
+

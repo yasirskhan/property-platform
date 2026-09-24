@@ -72,13 +72,17 @@ Verified latest batch:
 - Alembic head remains 8c4e2a7d1f90.
 
 Current batch:
-- Phase 3.4.21 Charges compatibility retrofit.
+- Phase 3.4.21 Charges compatibility retrofit implementation is prepared in this checkpoint and awaits hosted CI verification.
+- Existing charge accounting/edit rules remain unchanged: org-scoped tenant/account validation, INCOME-only GL accounts, paid-floor edits, and no deletion of fully paid charges.
+- Backend list/detail require ACCOUNTING.CHARGES permission; create/update/delete additionally require ADMIN/OWNER/MANAGER.
+- Charges list/new surfaces consume shared display preferences.
+- Bulk Tenant Charges Upload is a hidden release-gated compatibility slot only; the actual bulk workflow remains scheduled.
+- Regression/E2E coverage is included; no migration is required and Alembic head remains 8c4e2a7d1f90.
 
 Next action:
-1. Read the existing Charges router/list/new surfaces and preserve verified charge accounting/edit rules.
-2. Add shared display compatibility and authoritative ACCOUNTING.CHARGES access/write enforcement where missing.
-3. Represent Bulk Tenant Charges Upload as a release-gated compatibility slot without prematurely implementing the workflow.
-4. Add regression/E2E coverage, verify through hosted CI, fix reds autonomously, update ledgers/handoff, and continue directly to the next compatibility retrofit.
+1. Verify this Phase 3.4.21 checkpoint through hosted CI.
+2. Fix any CI red autonomously.
+3. When green, record exact verification results in all ledgers/handoff and continue directly to the next ordered compatibility/core-product batch.
 
 Open blockers:
 - NONE
