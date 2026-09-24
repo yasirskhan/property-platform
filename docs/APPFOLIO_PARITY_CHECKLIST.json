@@ -13,8 +13,8 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 205,
-    "scheduled_count": 423,
+    "built_count": 206,
+    "scheduled_count": 422,
     "in_progress_count": 0
   },
   "items": [
@@ -1999,8 +1999,9 @@
       "id": "accounting.coa.recalculate_balances",
       "area": "Accounting / Chart of Accounts",
       "feature": "Recalculate Balances button (rebuild cached balances after COA edits)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Release-gated action recomputes and verifies live org-scoped GL aggregates directly from immutable gl_entries; no duplicate cached balance state is stored."
     },
     {
       "id": "accounting.coa.hide_semantics",

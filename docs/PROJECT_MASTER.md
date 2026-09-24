@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.6 — Accounting Polish: Chart of Accounts** is IN PROGRESS. GL Account Permissions is COMPLETE and VERIFIED in CI run 36068182088; Recalculate Balances is the next Chart of Accounts item.
+**Current activity:** Phase **3.6 — Accounting Polish: Chart of Accounts** is IN PROGRESS. GL Account Permissions is VERIFIED; Recalculate Balances is implemented as live-ledger recomputation and awaits hosted CI verification.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -35,7 +35,7 @@
 
 **Migration head:** `4d7f2a9c6e31`.
 
-**Current parity inventory:** 205 built, 0 in progress, 423 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 206 built, 0 in progress, 422 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -143,12 +143,12 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Continue Phase 3.6 — Accounting Polish: Chart of Accounts.**
+**Continue Phase 3.6 — Accounting Polish.**
 
-1. GL Account Permissions is VERIFIED in hosted CI run 36068182088: backend 260 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed.
-2. Resolve Recalculate Balances against the live-derived immutable `gl_entries` ledger without introducing duplicate cached financial state.
-3. Preserve independent release gating, ACCOUNTING.GL_ACCOUNTS authorization, org isolation, and all existing financial behavior.
-4. Verify in hosted CI, fix reds autonomously, update ledgers/handoff, and continue through Phase 3.6.
+1. Verify the Recalculate Balances batch in hosted CI and fix any reds autonomously.
+2. Once green, Chart of Accounts polish is complete: must-clear, offset-account, hide semantics, GL Account Permissions, and live-ledger recalculation are all resolved without duplicate balance state.
+3. Continue next with the Journal Entries block in Section 38: History/Recurring sub-tabs, recurring JEs, manually-post compatibility, Post GPR, and remarks-vs-description behavior.
+4. Preserve release gating, ACCOUNTING permissions, org isolation, immutable GL posting, and regression coverage.
 
 ## B2. AFTER THAT## B2. AFTER THAT (Phase 3.5 onward)
 

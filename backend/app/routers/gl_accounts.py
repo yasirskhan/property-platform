@@ -18,8 +18,11 @@
 # ============================================================
 
 from typing import List
+from datetime import datetime
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -27,6 +30,7 @@ from app.core.audit import log_action
 from app.routers.auth import get_current_user
 from app.models.user import User
 from app.models.gl_account import GLAccount, GLAccountPostingRestriction, ACCOUNT_TYPES
+from app.models.gl_entry import GLEntry
 from app.models.organization_feature_setting import OrganizationFeatureSetting
 from app.services.menu_resolver import permission_allows_user
 from app.services.release_gate_resolver import release_gate_allows_org
@@ -41,12 +45,14 @@ from app.schemas.gl_account import (
     GLAccountPostingPermissionRow,
     GLAccountPostingPermissionMatrixOut,
     GLAccountPostingPermissionMatrixUpdate,
+    GLAccountRecalculationOut,
 )
 
 router = APIRouter(prefix="/api/accounting/gl-accounts", tags=["GL Accounts"])
 
 WRITE_ROLES = {"ADMIN", "OWNER", "MANAGER"}
 GL_ACCOUNT_PERMISSIONS_GATE = "release.accounting.gl_account_permissions"
+GL_RECALCULATE_GATE = "release.accounting.gl_accounts.recalculate"
 
 
 # ------------------------------------------------------------
@@ -216,6 +222,56 @@ def update_gl_account_posting_permissions(
                 )
     db.commit()
     return get_gl_account_posting_permissions(db=db, current_user=current_user)
+
+# ============================================================
+# POST /api/accounting/gl-accounts/recalculate-balances
+# ============================================================
+
+@router.post("/recalculate-balances", response_model=GLAccountRecalculationOut)
+def recalculate_gl_balances(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_gl_accounts_access(db, current_user)
+    if not release_gate_allows_org(
+        db,
+        gate_key=GL_RECALCULATE_GATE,
+        organization_id=org_id,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Recalculate Balances is not available.",
+        )
+
+    account_count = db.query(GLAccount).filter(
+        GLAccount.organization_id == org_id
+    ).count()
+    entry_count = db.query(GLEntry).filter(
+        GLEntry.organization_id == org_id
+    ).count()
+    debit_total, credit_total = (
+        db.query(
+            func.coalesce(func.sum(GLEntry.debit), 0),
+            func.coalesce(func.sum(GLEntry.credit), 0),
+        )
+        .filter(GLEntry.organization_id == org_id)
+        .one()
+    )
+    debit_total = Decimal(debit_total or 0)
+    credit_total = Decimal(credit_total or 0)
+    net_balance = debit_total - credit_total
+
+    return GLAccountRecalculationOut(
+        source="gl_entries",
+        account_count=account_count,
+        entry_count=entry_count,
+        total_debits=debit_total,
+        total_credits=credit_total,
+        net_balance=net_balance,
+        is_balanced=abs(net_balance) <= Decimal("0.01"),
+        recalculated_at=datetime.utcnow(),
+    )
+
 
 # ============================================================
 # GET /api/accounting/gl-accounts/{account_id}

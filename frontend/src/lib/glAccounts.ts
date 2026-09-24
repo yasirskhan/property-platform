@@ -59,6 +59,17 @@ export type GLAccountPostingPermissionMatrix = {
   rows: GLAccountPostingPermissionRow[];
 };
 
+export type GLBalanceRecalculation = {
+  source: string;
+  account_count: number;
+  entry_count: number;
+  total_debits: string;
+  total_credits: string;
+  net_balance: string;
+  is_balanced: boolean;
+  recalculated_at: string;
+};
+
 export type GLAccountUpdate = {
   name?: string;
   account_type?: string;
@@ -123,4 +134,8 @@ export function updateGLAccountPostingPermissions(
   values: Record<number, Record<string, boolean>>
 ): Promise<GLAccountPostingPermissionMatrix> {
   return apiPut("/api/accounting/gl-accounts/posting-permissions", { values });
+}
+
+export function recalculateGLBalances(): Promise<GLBalanceRecalculation> {
+  return apiPost("/api/accounting/gl-accounts/recalculate-balances", {});
 }

@@ -371,7 +371,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Account ledger link | navigation | — | core | no | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Links to per-account ledger |
 | Must-clear-to-zero setting | field | — | — | — | — | — | ✅ present | Existing model flag is exposed through API, drawer, and list |
 | GL Account Permissions | capability | release.accounting.gl_account_permissions | core | yes | SETTINGS.PERMISSIONS | no | ✅ present | Release-gated subtract-only role/account posting restrictions; backend enforcement is centralized in post_transaction() |
-| Recalculate Balances | capability | release.accounting.gl_accounts.recalculate | core | no | ACCOUNTING.GL_ACCOUNTS | no | ⬜ hidden implementation present | Release-gated compatibility slot; rebuild workflow remains planned |
+| Recalculate Balances | capability | release.accounting.gl_accounts.recalculate | core | no | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Release-gated live-ledger recomputation verifies org-scoped debits/credits from immutable gl_entries without writing cached balances |
 | Hide semantics | behavior | — | core | yes | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Existing soft deactivation hides inactive accounts from default pickers while historical references remain |
 
 ---

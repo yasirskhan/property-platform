@@ -23,6 +23,8 @@ import {
   GLAccountPostingPermissionMatrix,
   getGLAccountPostingPermissions,
   updateGLAccountPostingPermissions,
+  GLBalanceRecalculation,
+  recalculateGLBalances,
 } from "@/lib/glAccounts";
 import { apiGet } from "@/lib/api";
 import GLAccountDrawer from "@/components/accounting/GLAccountDrawer";
@@ -51,6 +53,8 @@ export default function GLAccountsPage() {
   const [permissionsLoading, setPermissionsLoading] = useState(false);
   const [permissionsSaving, setPermissionsSaving] = useState(false);
   const [permissionMatrix, setPermissionMatrix] = useState<GLAccountPostingPermissionMatrix | null>(null);
+  const [recalculateBusy, setRecalculateBusy] = useState(false);
+  const [recalculateResult, setRecalculateResult] = useState<GLBalanceRecalculation | null>(null);
 
   async function load() {
     setLoading(true);
@@ -121,6 +125,19 @@ export default function GLAccountsPage() {
     } finally { setPermissionsSaving(false); }
   }
 
+  async function handleRecalculate() {
+    setRecalculateBusy(true);
+    setRecalculateResult(null);
+    setError("");
+    try {
+      setRecalculateResult(await recalculateGLBalances());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Balance recalculation failed");
+    } finally {
+      setRecalculateBusy(false);
+    }
+  }
+
   async function handleDelete() {
     if (!deactivateTarget) return;
     setDeactivateBusy(true);
@@ -166,8 +183,13 @@ export default function GLAccountsPage() {
             </button>
           </Flag>
           <Flag name="release.accounting.gl_accounts.recalculate">
-            <button type="button" disabled className="text-sm px-3 py-2 border border-slate-300 rounded-lg text-slate-500 disabled:opacity-60">
-              Recalculate Balances
+            <button
+              type="button"
+              onClick={handleRecalculate}
+              disabled={recalculateBusy}
+              className="text-sm px-3 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            >
+              {recalculateBusy ? "Recalculating…" : "Recalculate Balances"}
             </button>
           </Flag>
           <Link
@@ -192,6 +214,21 @@ export default function GLAccountsPage() {
           )}
         </div>
       </div>
+
+      {recalculateResult && (
+        <div
+          className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
+            recalculateResult.is_balanced
+              ? "border-green-200 bg-green-50 text-green-800"
+              : "border-red-200 bg-red-50 text-red-800"
+          }`}
+        >
+          Recomputed {recalculateResult.account_count} accounts from{" "}
+          {recalculateResult.entry_count} ledger entries. Debits and credits{" "}
+          {recalculateResult.is_balanced ? "are balanced." : "do not balance."}
+          {" "}No cached balances were written.
+        </div>
+      )}
 
       {/* Groups */}
       {ACCOUNT_TYPE_ORDER.map((type) => {

@@ -166,14 +166,17 @@ Verified latest batch:
 - Migration head: 4d7f2a9c6e31. Expected model-table count: 77.
 
 Current batch:
-- Continue Phase 3.6 Chart of Accounts with Recalculate Balances.
-- Balances are live-derived from immutable gl_entries; there is no stored balance cache to rebuild.
-- Resolve the compatibility capability by recomputing/verifying source-of-truth ledger aggregates without introducing duplicate financial state.
+- Phase 3.6 Chart of Accounts Recalculate Balances batch is implemented and awaits hosted CI verification.
+- The action is release-gated by release.accounting.gl_accounts.recalculate and requires ACCOUNTING.GL_ACCOUNTS through the existing authoritative access helper.
+- It recomputes org-scoped account/entry counts plus total debits/credits directly from immutable gl_entries.
+- It stores no cached financial balance state and does not mutate the ledger.
+- Customer UI now triggers the action only through the existing release-gated slot and reports balanced/unbalanced verification.
+- Parity/registry state is reconciled to built; no migration is required and Alembic head remains 4d7f2a9c6e31.
 
 Next action:
-1. Implement release-gated Recalculate Balances as a source-of-truth recomputation/integrity action.
-2. Preserve ACCOUNTING.GL_ACCOUNTS authorization and org isolation.
-3. Add backend/UI coverage, update parity/registry state, verify in hosted CI, and continue Phase 3.6.
+1. Verify this Recalculate Balances batch through hosted CI and fix reds autonomously.
+2. Record exact green evidence.
+3. Continue Phase 3.6 with the Journal Entries block: History/Recurring sub-tabs, recurring JEs, manually-post compatibility, Post GPR, and remarks-vs-description behavior.
 
 Open blockers:
 - NONE

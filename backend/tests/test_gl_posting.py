@@ -5,6 +5,7 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -20,6 +21,7 @@ from app.models.property import Property, Unit
 from app.models.user import Organization, User, UserRole
 from app.schemas.gl_transaction import PostingLine
 from app.services.gl_posting import PostingError, post_transaction, reverse_transaction
+import app.routers.gl_accounts as gl_accounts
 
 TEST_TABLES = [
     Organization.__table__, User.__table__, Property.__table__, Unit.__table__,
@@ -279,3 +281,98 @@ def test_org_can_disable_gl_account_restriction_layer(db: Session) -> None:
         lines=[PostingLine(gl_account_id=cash.id, debit=Decimal("25.00")), PostingLine(gl_account_id=income.id, credit=Decimal("25.00"))],
     )
     assert txn.id is not None
+
+
+@pytest.mark.accounting
+def test_recalculate_balances_is_hidden_until_release_gate_allows(
+    db: Session, monkeypatch
+) -> None:
+    org, user, _cash, _income = seed_accounting(db)
+    monkeypatch.setattr(
+        gl_accounts, "_require_gl_accounts_access", lambda _db, _user: org.id
+    )
+    monkeypatch.setattr(
+        gl_accounts, "release_gate_allows_org", lambda *args, **kwargs: False
+    )
+    with pytest.raises(HTTPException) as exc:
+        gl_accounts.recalculate_gl_balances(db=db, current_user=user)
+    assert exc.value.status_code == 404
+
+
+@pytest.mark.accounting
+def test_recalculate_balances_recomputes_live_org_scoped_ledger(
+    db: Session, monkeypatch
+) -> None:
+    org, user, cash, income = seed_accounting(db)
+    post_transaction(
+        db,
+        organization_id=org.id,
+        transaction_date=date(2026, 10, 2),
+        transaction_type="JOURNAL_ENTRY",
+        memo="recalculate probe",
+        created_by=user,
+        lines=[
+            PostingLine(gl_account_id=cash.id, debit=Decimal("125.50")),
+            PostingLine(gl_account_id=income.id, credit=Decimal("125.50")),
+        ],
+    )
+
+    other_org = Organization(name="Other Org", slug="other-org-recalc")
+    db.add(other_org)
+    db.flush()
+    other_cash = GLAccount(
+        organization_id=other_org.id,
+        gl_number="1150",
+        name="Other Cash",
+        account_type="ASSET",
+        is_active=True,
+    )
+    other_income = GLAccount(
+        organization_id=other_org.id,
+        gl_number="4100",
+        name="Other Income",
+        account_type="INCOME",
+        is_active=True,
+    )
+    other_user = User(
+        email="other-recalc@test.local",
+        hashed_password="not-used",
+        first_name="Other",
+        last_name="Admin",
+        role=UserRole.ADMIN,
+        organization_id=other_org.id,
+        is_active=True,
+        is_verified=True,
+    )
+    db.add_all([other_cash, other_income, other_user])
+    db.commit()
+    post_transaction(
+        db,
+        organization_id=other_org.id,
+        transaction_date=date(2026, 10, 2),
+        transaction_type="JOURNAL_ENTRY",
+        memo="other org probe",
+        created_by=other_user,
+        lines=[
+            PostingLine(gl_account_id=other_cash.id, debit=Decimal("50.00")),
+            PostingLine(gl_account_id=other_income.id, credit=Decimal("50.00")),
+        ],
+    )
+
+    monkeypatch.setattr(
+        gl_accounts, "_require_gl_accounts_access", lambda _db, _user: org.id
+    )
+    monkeypatch.setattr(
+        gl_accounts, "release_gate_allows_org", lambda *args, **kwargs: True
+    )
+
+    result = gl_accounts.recalculate_gl_balances(db=db, current_user=user)
+
+    assert result.source == "gl_entries"
+    assert result.account_count == 2
+    assert result.entry_count == 2
+    assert result.total_debits == Decimal("125.50")
+    assert result.total_credits == Decimal("125.50")
+    assert result.net_balance == Decimal("0.00")
+    assert result.is_balanced is True
+    assert db.query(GLEntry).filter(GLEntry.organization_id == org.id).count() == 2

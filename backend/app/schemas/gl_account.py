@@ -6,6 +6,7 @@
 
 from datetime import datetime
 from typing import Optional, List, Dict
+from decimal import Decimal
 from pydantic import BaseModel, Field
 
 
@@ -83,3 +84,13 @@ class GLAccountPostingPermissionMatrixOut(BaseModel):
 
 class GLAccountPostingPermissionMatrixUpdate(BaseModel):
     values: Dict[int, Dict[str, bool]]
+
+class GLAccountRecalculationOut(BaseModel):
+    source: str
+    account_count: int
+    entry_count: int
+    total_debits: Decimal
+    total_credits: Decimal
+    net_balance: Decimal
+    is_balanced: bool
+    recalculated_at: datetime
