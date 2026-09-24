@@ -3676,7 +3676,7 @@
       "feature": "Properties: use primitives on every tab",
       "status": "built",
       "phase": "3.4.22",
-      "notes": "Phase 3.4.22 compatibility checkpoint preserves property/unit org and assignment scope plus unit plan limits; adds shared display compatibility, authoritative PROPERTIES.ALL/ADD/UNITS permission layering, aligned client write roles, and hidden release-gated slots for planned property capabilities. Future workflows remain scheduled."
+      "notes": "Verified in hosted CI run 36056943124: backend 239 passed / 3 deselected, E2E 3 passed; property/unit org and assignment scope plus unit plan limits remain intact; shared display compatibility, authoritative PROPERTIES.ALL/ADD/UNITS permission layering, aligned client write roles, and hidden release-gated property capability slots are verified. Future workflows remain scheduled."
     },
     {
       "id": "compliance.currencies.use_primitives",

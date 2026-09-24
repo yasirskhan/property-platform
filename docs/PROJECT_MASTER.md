@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.22 — Properties compatibility retrofit** is IN PROGRESS. Phase 3.4.21 Charges is COMPLETE and VERIFIED.
+**Current activity:** Phase **3.4.22 — Properties compatibility retrofit** is COMPLETE and VERIFIED. Next implementation batch: **3.4.23 — Currencies compatibility retrofit**.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -146,14 +146,14 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Continue Phase 3.4.21 — Charges compatibility retrofit.**
+**Start Phase 3.4.23 — Currencies compatibility retrofit.**
 
-1. Preserve verified charge creation/edit rules and existing accounting behavior.
-2. Consume shared display primitives and enforce ACCOUNTING.CHARGES authorization server-side, with write roles aligned to the customer UI.
-3. Represent Bulk Tenant Charges Upload as an independently release-gated compatibility slot; do not prematurely implement the bulk workflow.
+1. Preserve verified custom-currency CRUD/default behavior.
+2. Consume shared display primitives on the Currencies surface and make the Display currency selector fetch the organization currency list from the existing API instead of using a hardcoded list.
+3. Keep authorization backend-authoritative and do not turn routine currency fields into release flags.
 4. Verify through the full CI gate, fix CI reds autonomously, update the ledgers/handoff, and continue directly to the next compatibility retrofit.
 
-Phase 3.4.20 Bank Accounts is VERIFIED in hosted CI run 36046681933: backend 223 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed. Continue autonomously through subsequent foundation phases using revised Section 82 when older phase numbers conflict.
+Phase 3.4.22 Properties is VERIFIED in hosted CI run 36056943124: backend 239 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed.
 
 ## B2. AFTER THAT## B2. AFTER THAT (Phase 3.5 onward)
 
@@ -4678,10 +4678,10 @@ Phase **3.4.12 — unit / plan-limit enforcement + upgrade path**. Enforce limit
 
 Phase **3.4.22 — Properties compatibility retrofit**. Preserve verified property/unit behavior while adding only planned compatibility boundaries and authoritative permission coverage.
 
-# SECTION 91 — FOUNDATION 3.4.22 (IN PROGRESS)
+# SECTION 91 — FOUNDATION 3.4.22 (COMPLETE)
 
 **Phase:** `3.4.22`  
-**Started:** 2026-09-24
+**Completed:** 2026-09-24
 
 ## Properties compatibility retrofit
 
@@ -4694,7 +4694,16 @@ Phase **3.4.22 — Properties compatibility retrofit**. Preserve verified proper
 - Existing routine/missing fields such as default bank account are not converted into feature flags.
 - No migration is required; Alembic head remains `8c4e2a7d1f90`.
 
-## Verification state
+## Verification evidence
 
-Implementation checkpoint prepared; hosted CI verification pending.
+- Final repair commit: `d26b2f4e8eee85e09643a29fcda68948d98c5192`.
+- Hosted CI run `36056943124`: SUCCESS.
+- Backend/PostgreSQL: **239 passed, 3 deselected, 1266 warnings in 36.66s**.
+- E2E: **3 passed in 10.40s**.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
+- Alembic head remains `8c4e2a7d1f90`.
+
+## Next
+
+Phase **3.4.23 — Currencies compatibility retrofit**. Preserve verified currency behavior while replacing hardcoded Display currency choices with the existing organization currency API and applying shared display compatibility.
 

@@ -82,10 +82,14 @@ Verified latest batch:
 - Bulk Tenant Charges Upload remains a hidden compatibility slot; the actual bulk workflow is still scheduled.
 - Alembic head remains 8c4e2a7d1f90.
 
-Current batch:
-- Phase 3.4.22 Properties compatibility retrofit implementation is prepared in this checkpoint.
-- CI repair: minimal org-isolation test schema now includes menu_permissions + user_permissions required by the authoritative property permission resolver; product authorization is unchanged.
-- Hosted CI verification is pending for this repair checkpoint.
+Verified latest batch:
+- Phase 3.4.22 Properties compatibility retrofit is COMPLETE and VERIFIED.
+- Final repair commit: d26b2f4e8eee85e09643a29fcda68948d98c5192.
+- GitHub CI run 36056943124: SUCCESS.
+- Backend/PostgreSQL: 239 passed, 3 deselected, 1266 warnings in 36.66s.
+- E2E: 3 passed in 10.40s.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
+- Minimal org-isolation test schema includes menu_permissions + user_permissions required by authoritative property permission resolution; product authorization is unchanged.
 - Existing org/assignment scope and unit plan-limit behavior are unchanged.
 - Backend routes now layer PROPERTIES.ALL, PROPERTIES.ADD, and PROPERTIES.UNITS menu permissions over existing scope/role checks.
 - Property list/detail/new/edit and unit new/edit surfaces consume shared display preferences and normalize role casing.
@@ -94,9 +98,10 @@ Current batch:
 - No migration is required; Alembic head remains 8c4e2a7d1f90.
 
 Next action:
-1. Verify the Phase 3.4.22 CI-repair checkpoint through hosted CI.
-2. Fix any CI red autonomously.
-3. When green, record exact verification evidence and continue directly to the next ordered compatibility batch.
+1. Start Phase 3.4.23 — Currencies compatibility retrofit.
+2. Preserve verified currency CRUD/default behavior; consume shared display primitives and make Display currency choices come from the existing currencies API rather than a hardcoded list.
+3. Keep backend authorization authoritative and represent only planned independently releasable capabilities as hidden slots.
+4. Verify through hosted CI, fix CI reds autonomously, update the handoff/roadmap/parity evidence, then continue directly to the next ordered compatibility batch.
 
 Open blockers:
 - NONE
