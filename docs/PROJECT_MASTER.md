@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.24 — Display compatibility retrofit** is IN PROGRESS. Phase 3.4.23 Currencies is COMPLETE and VERIFIED.
+**Current activity:** Phase **3.4.24 — Display compatibility retrofit** is COMPLETE and VERIFIED. Next implementation batch: **3.4.25 — Permissions compatibility retrofit**.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -143,14 +143,15 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Continue Phase 3.4.24 — Display compatibility retrofit.**
+**Start Phase 3.4.25 — Permissions compatibility retrofit.**
 
-1. Verify SETTINGS.DISPLAY server authorization and persisted display preferences.
-2. Verify shared stylesheet consumption for theme, density, font, accent, and reduce motion.
-3. Keep number-format rendering deferred until formatMoney() consumes it.
-4. Fix CI reds autonomously, update ledgers/handoff, and continue directly to the next compatibility retrofit.
+1. Preserve verified menu permission resolution, editor scoping, admin immutability, and subtract-only user overrides.
+2. Apply shared display compatibility to the Permissions surface.
+3. Enforce SETTINGS.PERMISSIONS for privileged permission-management endpoints while preserving the existing self-service My Preferences contract.
+4. Keep GL Account Permissions as a hidden release-gated future capability only.
+5. Verify through the full CI gate, fix CI reds autonomously, update ledgers/handoff, and continue directly to Sidebar compatibility.
 
-Phase 3.4.23 Currencies is VERIFIED in hosted CI run 36057866985: backend 249 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed.
+Phase 3.4.24 Display is VERIFIED in hosted CI run 36058923158: backend 252 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed.
 
 ## B2. AFTER THAT## B2. AFTER THAT (Phase 3.5 onward)
 
@@ -4735,10 +4736,10 @@ Phase **3.4.23 — Currencies compatibility retrofit**. Preserve verified curren
 Phase **3.4.24 — Display compatibility retrofit**.
 
 
-# SECTION 93 — FOUNDATION 3.4.24 (IN PROGRESS)
+# SECTION 93 — FOUNDATION 3.4.24 (COMPLETE)
 
 **Phase:** `3.4.24`  
-**Started:** 2026-09-24
+**Completed:** 2026-09-24
 
 ## Display compatibility retrofit
 
@@ -4750,6 +4751,15 @@ Phase **3.4.24 — Display compatibility retrofit**.
 - Date format remains consumed by the shared formatter. Number-format rendering remains deferred because `formatMoney()` does not yet consume that preference.
 - No migration is required; Alembic head remains `8c4e2a7d1f90`.
 
-## Verification state
+## Verification evidence
 
-Implementation checkpoint prepared; hosted CI verification pending.
+- Implementation commit: `4a58e2513004b3ad235d495b964a5749e5780faf`.
+- Hosted CI run `36058923158`: SUCCESS.
+- Backend/PostgreSQL: **252 passed, 3 deselected, 1266 warnings in 41.71s**.
+- E2E: **3 passed in 11.93s**.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
+- Alembic head remains `8c4e2a7d1f90`.
+
+## Next
+
+Phase **3.4.25 — Permissions compatibility retrofit**.

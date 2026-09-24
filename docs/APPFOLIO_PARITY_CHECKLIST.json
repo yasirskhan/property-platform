@@ -3692,7 +3692,7 @@
       "feature": "Display: consume layout / theme / dates / density in pages",
       "status": "built",
       "phase": "3.4.24",
-      "notes": "Phase 3.4.24 checkpoint preserves the display schema/API, adds authoritative SETTINGS.DISPLAY enforcement, consumes theme/density/font/accent/reduce-motion in shared CSS, and exposes persisted density/font/accent/motion controls. Number-format rendering remains deferred until the formatter consumes it."
+      "notes": "Verified in hosted CI run 36058923158: backend 252 passed / 3 deselected, E2E 3 passed; display schema/API remains intact, SETTINGS.DISPLAY is authoritative server-side, shared CSS consumes theme/density/font/accent/reduce-motion, and persisted density/font/accent/motion controls are active. Number-format rendering remains deferred until the formatter consumes it."
     },
     {
       "id": "compliance.permissions.use_primitives",

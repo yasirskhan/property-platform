@@ -110,8 +110,13 @@ Verified latest batch:
 - Display currency choices come from /api/settings/currencies; hardcoded alternate fallback currencies were removed, while the current org currency remains selectable if catalog loading fails.
 - No migration is required; Alembic head remains 8c4e2a7d1f90.
 
-Current batch:
-- Phase 3.4.24 Display compatibility retrofit implementation is prepared and awaits hosted CI verification.
+Verified latest batch:
+- Phase 3.4.24 Display compatibility retrofit is COMPLETE and VERIFIED.
+- Implementation commit: 4a58e2513004b3ad235d495b964a5749e5780faf.
+- GitHub CI run 36058923158: SUCCESS.
+- Backend/PostgreSQL: 252 passed, 3 deselected, 1266 warnings in 41.71s.
+- E2E: 3 passed in 11.93s.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
 - Existing display preference storage/API and org-currency write semantics are unchanged.
 - GET/PUT /api/settings/display now enforce SETTINGS.DISPLAY server-side.
 - DisplayContext's theme, density, font size, accent, and reduce-motion attributes are consumed by shared CSS.
@@ -120,9 +125,11 @@ Current batch:
 - No migration is required; Alembic head remains 8c4e2a7d1f90.
 
 Next action:
-1. Verify Phase 3.4.24 through hosted CI.
-2. Fix any CI red autonomously.
-3. When green, record exact evidence and continue directly to Phase 3.4.25 — Permissions compatibility retrofit.
+1. Start Phase 3.4.25 — Permissions compatibility retrofit.
+2. Preserve the verified role matrix, user overrides, personal preferences, admin immutability, and subtract-only access semantics.
+3. Apply shared display primitives to the Permissions surface and verify SETTINGS.PERMISSIONS backend authorization on privileged permission-management operations without restricting My Preferences beyond its existing contract.
+4. Keep GL Account Permissions as a hidden release-gated future capability; do not implement that workflow yet.
+5. Verify through hosted CI, fix reds autonomously, update handoff/roadmap/parity, then continue directly to Sidebar compatibility.
 
 Open blockers:
 - NONE
