@@ -23,6 +23,7 @@ from app.core.database import get_db
 from app.routers.auth import get_current_user
 from app.models.user import User, Organization
 from app.models.user_display_preference import UserDisplayPreference
+from app.services.menu_resolver import permission_allows_user
 
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
@@ -53,6 +54,24 @@ class DisplayResponse(DisplayPreferences):
 # ------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------
+def _require_display_access(db: Session, user: User) -> int:
+    if user.organization_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User has no organization.",
+        )
+    if not permission_allows_user(
+        db,
+        user=user,
+        menu_key="SETTINGS.DISPLAY",
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Display permission required.",
+        )
+    return user.organization_id
+
+
 def _get_or_create_prefs(db: Session, user: User) -> UserDisplayPreference:
     prefs = (
         db.query(UserDisplayPreference)
@@ -109,6 +128,7 @@ def get_display(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    _require_display_access(db, user)
     prefs = _get_or_create_prefs(db, user)
     return _build_response(prefs, _org_currency(db, user))
 
@@ -122,6 +142,7 @@ def update_display(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    _require_display_access(db, user)
     prefs = _get_or_create_prefs(db, user)
 
     prefs.layout_mode = payload.layout_mode

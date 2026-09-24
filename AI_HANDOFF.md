@@ -110,11 +110,19 @@ Verified latest batch:
 - Display currency choices come from /api/settings/currencies; hardcoded alternate fallback currencies were removed, while the current org currency remains selectable if catalog loading fails.
 - No migration is required; Alembic head remains 8c4e2a7d1f90.
 
+Current batch:
+- Phase 3.4.24 Display compatibility retrofit implementation is prepared and awaits hosted CI verification.
+- Existing display preference storage/API and org-currency write semantics are unchanged.
+- GET/PUT /api/settings/display now enforce SETTINGS.DISPLAY server-side.
+- DisplayContext's theme, density, font size, accent, and reduce-motion attributes are consumed by shared CSS.
+- The Display page consumes shared layout/density metadata; density, font size, accent color, and reduce-motion controls now drive already-existing persisted fields.
+- Number format remains intentionally deferred because formatMoney() does not yet consume it.
+- No migration is required; Alembic head remains 8c4e2a7d1f90.
+
 Next action:
-1. Start Phase 3.4.24 — Display compatibility retrofit.
-2. Preserve the existing display preference schema/API while enforcing SETTINGS.DISPLAY server-side.
-3. Wire the saved theme/density/font/accent/reduce-motion preferences into the shared stylesheet and make the Display page consume the same display metadata.
-4. Keep behavior deterministic and regression-protected; verify through hosted CI, fix reds autonomously, then continue directly to the next ordered compatibility batch.
+1. Verify Phase 3.4.24 through hosted CI.
+2. Fix any CI red autonomously.
+3. When green, record exact evidence and continue directly to Phase 3.4.25 — Permissions compatibility retrofit.
 
 Open blockers:
 - NONE

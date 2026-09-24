@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.23 — Currencies compatibility retrofit** is COMPLETE and VERIFIED. Next implementation batch: **3.4.24 — Display compatibility retrofit**.
+**Current activity:** Phase **3.4.24 — Display compatibility retrofit** is IN PROGRESS. Phase 3.4.23 Currencies is COMPLETE and VERIFIED.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -132,11 +132,8 @@ Deployment target (Phase 11):
   hand" GL account, add DR Bank / CR Cash on Hand in create_deposit().
 - Diagnostics currently detect only. Auto-fix postings deferred
   to Phase 3.6.
-- Currencies Display dropdown is still hardcoded. It does NOT
-  fetch /api/settings/currencies yet. Sweep is Phase 3.5.5.
-- Display settings save but no page consumes them yet (theme,
-  layout, date format, density, number format, font size, accent,
-  reduce motion). Sweep is Phase 3.5.5.
+- Currencies Display dropdown is API-backed and verified in Phase 3.4.23.
+- Display settings theme/density/font/accent/reduce-motion consumption is being completed in Phase 3.4.24; number-format rendering remains deferred until the formatter consumes it.
 - Section 12 says 61 GL accounts; header comment in gl_account.py
   still says 57. Fix in the next cleanup pass.
 
@@ -146,12 +143,12 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Start Phase 3.4.24 — Display compatibility retrofit.**
+**Continue Phase 3.4.24 — Display compatibility retrofit.**
 
-1. Preserve the existing display-preference storage and API contract.
-2. Enforce SETTINGS.DISPLAY server-side and make the Display page consume shared layout/density metadata.
-3. Wire saved theme/density/font/accent/reduce-motion preferences into the shared stylesheet without changing unrelated product behavior.
-4. Verify through the full CI gate, fix CI reds autonomously, update ledgers/handoff, and continue directly to the next compatibility retrofit.
+1. Verify SETTINGS.DISPLAY server authorization and persisted display preferences.
+2. Verify shared stylesheet consumption for theme, density, font, accent, and reduce motion.
+3. Keep number-format rendering deferred until formatMoney() consumes it.
+4. Fix CI reds autonomously, update ledgers/handoff, and continue directly to the next compatibility retrofit.
 
 Phase 3.4.23 Currencies is VERIFIED in hosted CI run 36057866985: backend 249 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed.
 
@@ -4736,3 +4733,23 @@ Phase **3.4.23 — Currencies compatibility retrofit**. Preserve verified curren
 ## Next
 
 Phase **3.4.24 — Display compatibility retrofit**.
+
+
+# SECTION 93 — FOUNDATION 3.4.24 (IN PROGRESS)
+
+**Phase:** `3.4.24`  
+**Started:** 2026-09-24
+
+## Display compatibility retrofit
+
+- Existing per-user display preference storage and API payload remain intact.
+- `SETTINGS.DISPLAY` is enforced server-side for GET/PUT display settings.
+- Existing ADMIN/OWNER-only organization-currency mutation semantics remain unchanged.
+- Shared CSS now consumes DisplayContext attributes for explicit light/dark theme, density-sensitive inputs, base font size, reduce-motion behavior, and accent color.
+- The Display page consumes shared layout/density metadata and exposes the already-persisted density, font-size, accent-color, and reduce-motion settings.
+- Date format remains consumed by the shared formatter. Number-format rendering remains deferred because `formatMoney()` does not yet consume that preference.
+- No migration is required; Alembic head remains `8c4e2a7d1f90`.
+
+## Verification state
+
+Implementation checkpoint prepared; hosted CI verification pending.

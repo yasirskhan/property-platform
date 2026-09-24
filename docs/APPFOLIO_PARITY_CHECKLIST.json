@@ -3691,7 +3691,8 @@
       "area": "Compliance / Page Retrofit",
       "feature": "Display: consume layout / theme / dates / density in pages",
       "status": "built",
-      "phase": "3.5.5"
+      "phase": "3.4.24",
+      "notes": "Phase 3.4.24 checkpoint preserves the display schema/API, adds authoritative SETTINGS.DISPLAY enforcement, consumes theme/density/font/accent/reduce-motion in shared CSS, and exposes persisted density/font/accent/motion controls. Number-format rendering remains deferred until the formatter consumes it."
     },
     {
       "id": "compliance.permissions.use_primitives",
