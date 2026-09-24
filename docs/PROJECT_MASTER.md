@@ -143,12 +143,12 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Continue Phase 3.4.26 — Sidebar compatibility retrofit.**
+**Verify Phase 3.4.26 — Sidebar compatibility retrofit.**
 
-1. Preserve the legacy /dashboard/settings/sidebar compatibility route while landing on Permissions → My Preferences.
+1. Verify the legacy /dashboard/settings/sidebar route lands directly on Permissions → My Preferences.
 2. Preserve personal sidebar order/hide semantics and backend-authoritative menu resolution.
-3. Verify the compatibility route and personal-preference behavior in hosted CI.
-4. Fix CI reds autonomously, update ledgers/handoff, and continue directly to the next planned compatibility batch.
+3. Fix CI reds autonomously.
+4. When green, record exact evidence and continue directly to the next planned compatibility batch.
 
 Phase 3.4.25 Permissions is VERIFIED in hosted CI run 36060022264: backend 256 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed.
 
@@ -4790,3 +4790,22 @@ Phase **3.4.25 — Permissions compatibility retrofit**.
 ## Next
 
 Phase **3.4.26 — Sidebar compatibility retrofit**. Preserve the legacy route while sending users directly to Permissions → My Preferences, keep personal sidebar customization self-service, and preserve backend-authoritative menu resolution.
+
+
+# SECTION 95 — FOUNDATION 3.4.26 (IN PROGRESS)
+
+**Phase:** `3.4.26`  
+**Started:** 2026-09-24
+
+## Sidebar compatibility retrofit
+
+- The legacy `/dashboard/settings/sidebar` customer route remains available for old bookmarks.
+- It now deep-links to `/dashboard/settings/permissions?tab=preferences` so ADMIN/OWNER/MANAGER users land on **My Preferences** instead of the privileged Roles tab.
+- The Permissions page accepts an allowed `tab` query selection while preserving role-based tab visibility and its existing default behavior when no tab is requested.
+- Existing personal sidebar order/hide storage, `/api/menu/me/preferences`, legacy `/settings/sidebar` API behavior, and backend-authoritative `/api/menu/me` resolution are unchanged.
+- Browser smoke coverage verifies the compatibility redirect reaches the self-service preference surface.
+- No migration is required; Alembic head remains `8c4e2a7d1f90`.
+
+## Verification state
+
+Implementation checkpoint prepared; hosted CI verification pending.

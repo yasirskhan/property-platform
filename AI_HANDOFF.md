@@ -139,13 +139,17 @@ Verified latest batch:
 - No migration is required; Alembic head remains 8c4e2a7d1f90.
 
 Current batch:
-- Phase 3.4.26 Sidebar compatibility retrofit is next.
+- Phase 3.4.26 Sidebar compatibility retrofit implementation is prepared and awaits hosted CI verification.
+- Legacy /dashboard/settings/sidebar now deep-links to /dashboard/settings/permissions?tab=preferences.
+- Permissions honors an allowed tab query while preserving role-based tab visibility and normal default behavior.
+- Existing /api/menu/me, /api/menu/me/preferences, legacy /settings/sidebar API semantics, storage, and resolver behavior are unchanged.
+- E2E now proves the compatibility route lands on the My Preferences surface.
+- No migration is required; Alembic head remains 8c4e2a7d1f90.
 
 Next action:
-1. Preserve the legacy /dashboard/settings/sidebar compatibility route while landing users on Permissions → My Preferences.
-2. Preserve personal sidebar order/hide behavior and backend-authoritative resolved-menu rendering.
-3. Verify compatibility behavior in E2E and keep legacy API semantics compatible.
-4. Fix CI reds autonomously, update ledgers/handoff, and continue to the next planned compatibility batch.
+1. Verify Phase 3.4.26 through hosted CI.
+2. Fix any CI red autonomously.
+3. When green, record exact evidence and continue directly to the next planned compatibility batch.
 
 Open blockers:
 - NONE

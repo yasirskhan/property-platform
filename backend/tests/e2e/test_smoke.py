@@ -213,11 +213,14 @@ def test_login_and_core_authenticated_pages() -> None:
                 wait_until="domcontentloaded",
             )
             page.wait_for_url(
-                re.compile(r"/dashboard/settings/permissions/?$"),
+                re.compile(r"/dashboard/settings/permissions\?tab=preferences$"),
                 timeout=15_000,
             )
             expect(
                 page.get_by_role("heading", name="Permissions", exact=True)
+            ).to_be_visible()
+            expect(
+                page.get_by_text(re.compile(r"Drag to reorder"))
             ).to_be_visible()
 
 

@@ -52,9 +52,21 @@ export default function PermissionsPage() {
     apiGet("/auth/me")
       .then((u: User) => {
         setUser(u);
-        // Default landing tab depends on role
-        if (ROLE_CAN_EDIT_ROLES.includes(String(u.role).toUpperCase())) {
+        const requestedTab = new URLSearchParams(window.location.search).get("tab");
+        const normalizedRole = String(u.role).toUpperCase();
+        const canEditRoles = ROLE_CAN_EDIT_ROLES.includes(normalizedRole);
+        const canEditUsers = ROLE_CAN_EDIT_USERS.includes(normalizedRole);
+
+        if (requestedTab === "preferences") {
+          setTab("preferences");
+        } else if (requestedTab === "users" && canEditUsers) {
+          setTab("users");
+        } else if (requestedTab === "roles" && canEditRoles) {
           setTab("roles");
+        } else if (canEditRoles) {
+          setTab("roles");
+        } else {
+          setTab("preferences");
         }
         setLoading(false);
       })

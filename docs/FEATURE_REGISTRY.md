@@ -685,7 +685,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 
 | Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
 |---|---|---|---|---|---|---|---|---|
-| Redirect to Permissions → My Preferences | compatibility route | — | core | no | — | no | ✅ present | Preserves old bookmarks; standalone sidebar page is deprecated |
+| Redirect to Permissions → My Preferences | compatibility route | — | core | no | — | no | ✅ present | Preserves old bookmarks and deep-links directly to the self-service My Preferences tab; standalone sidebar page is deprecated |
 
 ---
 

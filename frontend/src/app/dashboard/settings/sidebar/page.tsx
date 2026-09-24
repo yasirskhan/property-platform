@@ -17,7 +17,7 @@ export default function SidebarSettingsRedirect() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/dashboard/settings/permissions");
+    router.replace("/dashboard/settings/permissions?tab=preferences");
   }, [router]);
 
   return (
