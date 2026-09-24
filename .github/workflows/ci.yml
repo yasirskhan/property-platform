@@ -81,6 +81,27 @@ jobs:
       - name: Production build
         run: npm run build
 
+  platform-admin:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: platform-admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: platform-admin/package-lock.json
+      - name: Install platform admin dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
+
   security:
     runs-on: ubuntu-latest
     steps:
@@ -110,6 +131,9 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Audit frontend dependencies
         working-directory: frontend
+        run: npm audit --audit-level=high
+      - name: Audit platform admin dependencies
+        working-directory: platform-admin
         run: npm audit --audit-level=high
 
   e2e:
