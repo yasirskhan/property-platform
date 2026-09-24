@@ -225,6 +225,7 @@ def test_billing_read_routes_allow_admin_and_owner_only() -> None:
 
         assert read_billing_catalog(db, admin) == {"plans": []}
         assert read_billing_state(db, owner) == {
+            "organization_state": "ACTIVE",
             "billing_settings": None,
             "subscription": None,
             "latest_checkout": None,
