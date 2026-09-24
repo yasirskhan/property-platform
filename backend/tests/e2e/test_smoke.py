@@ -134,6 +134,23 @@ def test_login_and_core_authenticated_pages() -> None:
             ).to_have_count(0)
 
             page.goto(
+                f"{BASE_URL}/dashboard/accounting/management-fees",
+                wait_until="domcontentloaded",
+            )
+            expect(
+                page.get_by_role("heading", name="Management Fees", exact=True)
+            ).to_be_visible()
+            for hidden_action in [
+                "Pay Owners",
+                "Overcollection Strategy",
+                "Management Fee Exclusions",
+                "Post GPR",
+            ]:
+                expect(
+                    page.get_by_role("button", name=hidden_action, exact=True)
+                ).to_have_count(0)
+
+            page.goto(
                 f"{BASE_URL}/dashboard/settings/features",
                 wait_until="domcontentloaded",
             )

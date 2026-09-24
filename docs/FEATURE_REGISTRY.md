@@ -448,10 +448,10 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Two-tier fee calculation | behavior | — | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Rent + other income rules |
 | Flat / minimum / end-date overrides | settings | — | — | — | — | — | ✅ present | Existing per-property inputs |
 | Creates Bill as second step | behavior | — | core | no | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Existing accounting spine |
-| Pay Owners | capability | release.accounting.pay_owners | owner_payouts | yes | ACCOUNTING.MANAGEMENT_FEES | no | ❌ missing | Distribute remaining trust funds |
-| Overcollection strategy | capability | release.accounting.management_fees.overcollection | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ❌ missing | Org accounting policy |
-| Management Fee Exclusions | capability | release.accounting.management_fees.exclusions | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ❌ missing | Central exclusions list |
-| Post GPR | capability | release.accounting.management_fees.post_gpr | gpr_posting | yes | ACCOUNTING.MANAGEMENT_FEES | no | ❌ missing | GPR-related fee workflow |
+| Pay Owners | capability | release.accounting.pay_owners | owner_payouts | yes | ACCOUNTING.MANAGEMENT_FEES | no | ⬜ hidden implementation present | Release-gated compatibility slot; owner payout workflow remains planned |
+| Overcollection strategy | capability | release.accounting.management_fees.overcollection | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ⬜ hidden implementation present | Release-gated compatibility slot; accounting policy workflow remains planned |
+| Management Fee Exclusions | capability | release.accounting.management_fees.exclusions | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ⬜ hidden implementation present | Release-gated compatibility slot; central exclusions workflow remains planned |
+| Post GPR | capability | release.accounting.management_fees.post_gpr | gpr_posting | yes | ACCOUNTING.MANAGEMENT_FEES | no | ⬜ hidden implementation present | Release-gated compatibility slot; GPR-related fee workflow remains planned |
 
 ---
 

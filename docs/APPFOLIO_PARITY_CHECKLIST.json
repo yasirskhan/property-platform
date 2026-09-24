@@ -14,8 +14,8 @@
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
     "built_count": 199,
-    "scheduled_count": 429,
-    "in_progress_count": 0
+    "scheduled_count": 428,
+    "in_progress_count": 1
   },
   "items": [
     {
@@ -3747,8 +3747,9 @@
       "id": "compliance.management_fees.full_surface",
       "area": "Compliance / Page Retrofit",
       "feature": "Management Fees: add all planned slots (pay-owners, overcollection, exclusions)",
-      "status": "scheduled",
-      "phase": "3.5.5"
+      "status": "in_progress",
+      "phase": "3.4.18",
+      "notes": "Management Fees compatibility retrofit checkpoint: preserve Bill-creating two-step accounting spine; add shared display/date compatibility, authoritative ACCOUNTING.MANAGEMENT_FEES permission/write-role enforcement, and hidden release-gated Pay Owners/overcollection/exclusions/Post GPR slots. Awaiting hosted CI verification."
     },
     {
       "id": "compliance.owner_statements.full_surface",

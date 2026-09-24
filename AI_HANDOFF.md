@@ -49,15 +49,18 @@ Verified foundation through this checkpoint:
 - Alembic head remains 8c4e2a7d1f90.
 
 Current batch:
-- Phase 3.4.17 Journal Entries compatibility retrofit is verified complete.
-- Balanced manual posting, transaction memo vs line descriptions, permission enforcement, display/date compatibility, and hidden release-gated recurring/GPR compatibility slots are regression-protected.
-- No migration was introduced; Alembic head remains 8c4e2a7d1f90.
+- Phase 3.4.18 Management Fees compatibility retrofit implementation is prepared in the current checkpoint and awaiting hosted CI verification.
+- Existing fee calculation and two-step accounting spine remain unchanged: running a fee creates an unpaid Bill and posts DR Management Fee Expense / CR Accounts Payable; Bill payment remains the second step.
+- List/new surfaces consume display context and list/detail periods use shared date formatting.
+- Pay Owners, Overcollection Strategy, Management Fee Exclusions, and Post GPR are release-gated compatibility slots and remain invisible while HIDDEN.
+- Backend routes enforce ACCOUNTING.MANAGEMENT_FEES permission; preview/run/reverse additionally enforce ADMIN/OWNER/MANAGER write roles, matching the customer UI.
+- Regression coverage includes permission/write-role tests and authenticated E2E proof that unreleased capability buttons stay hidden.
+- No migration is required; Alembic head remains 8c4e2a7d1f90.
 
 Next action:
-1. Start Phase 3.4.18 Management Fees compatibility retrofit.
-2. Preserve the verified two-step fee workflow that creates a Bill.
-3. Add shared display compatibility, authoritative permission enforcement, and release-gated compatibility slots for Pay Owners, overcollection strategy, exclusions, and Post GPR without inventing per-field flags.
-4. Verify through hosted CI, fix reds autonomously, update all planning/handoff ledgers, then continue to the next compatibility retrofit.
+1. Verify the current Phase 3.4.18 checkpoint through hosted CI.
+2. Fix any CI red autonomously.
+3. When green, mark compliance.management_fees.full_surface built, record exact verification results, and continue directly into Owner Statements compatibility work without waiting for the user.
 
 Open blockers:
 - NONE

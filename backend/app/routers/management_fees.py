@@ -38,12 +38,15 @@ from app.services.management_fee_posting import (
     run_management_fee,
     reverse_management_fee_run,
 )
+from app.services.menu_resolver import permission_allows_user
 
 
 router = APIRouter(
     prefix="/api/accounting/management-fees",
     tags=["Management Fees"],
 )
+
+WRITE_ROLES = {"ADMIN", "OWNER", "MANAGER"}
 
 
 # ------------------------------------------------------------
@@ -57,6 +60,33 @@ def _require_org(current_user: User) -> int:
             detail="User has no organization.",
         )
     return current_user.organization_id
+
+
+def _norm_role(role) -> str:
+    if role is None:
+        return ""
+    value = role.value if hasattr(role, "value") else str(role)
+    return value.upper()
+
+
+def _require_management_fees_access(db: Session, current_user: User) -> int:
+    org_id = _require_management_fees_access(db, current_user)
+    if not permission_allows_user(
+        db, user=current_user, menu_key="ACCOUNTING.MANAGEMENT_FEES"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Management Fees permission required.",
+        )
+    return org_id
+
+
+def _require_write(current_user: User) -> None:
+    if _norm_role(current_user.role) not in WRITE_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not allowed to run or reverse management fees.",
+        )
 
 
 def _run_to_out(run: ManagementFeeRun) -> ManagementFeeRunOut:
@@ -109,7 +139,8 @@ def preview_fee(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    _require_write(current_user)
+    org_id = _require_management_fees_access(db, current_user)
     try:
         preview = preview_management_fee(
             db,
@@ -154,7 +185,8 @@ def run_fee(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    _require_write(current_user)
+    org_id = _require_management_fees_access(db, current_user)
     try:
         run = run_management_fee(
             db,
@@ -197,7 +229,7 @@ def list_runs(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_management_fees_access(db, current_user)
 
     q = (
         db.query(ManagementFeeRun)
@@ -243,7 +275,7 @@ def get_run(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_management_fees_access(db, current_user)
     run = (
         db.query(ManagementFeeRun)
         .options(
@@ -277,7 +309,8 @@ def reverse_fee(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    _require_write(current_user)
+    org_id = _require_management_fees_access(db, current_user)
     original = (
         db.query(ManagementFeeRun)
         .filter(

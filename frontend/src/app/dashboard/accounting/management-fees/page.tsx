@@ -13,7 +13,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiGet } from "@/lib/api";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, formatDate } from "@/lib/money";
+import Flag from "@/components/features/Flag";
+import { useDisplay } from "@/contexts/DisplayContext";
 import {
   listManagementFees,
   getManagementFee,
@@ -27,7 +29,10 @@ interface Me {
   role: string;
 }
 
+const WRITE_ROLES = ["ADMIN", "OWNER", "MANAGER"];
+
 export default function ManagementFeesPage() {
+  const { prefs } = useDisplay();
   const [me, setMe] = useState<Me | null>(null);
   const [runs, setRuns] = useState<ManagementFeeRun[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,6 +108,8 @@ export default function ManagementFeesPage() {
     }
   }
 
+  const canWrite = Boolean(me && WRITE_ROLES.includes(String(me.role).toUpperCase()));
+
   const totalFees = useMemo(
     () =>
       runs
@@ -112,19 +119,33 @@ export default function ManagementFeesPage() {
   );
 
   return (
-    <div className="p-6">
+    <div className="p-6" data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()} data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}>
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-xl font-semibold text-slate-900">
           Management Fees
         </h1>
-        {me && me.role !== "TENANT" && (
-          <Link
-            href="/dashboard/accounting/management-fees/new"
-            className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
-          >
-            + Pay Fees
-          </Link>
-        )}
+        <div className="flex flex-wrap justify-end gap-2">
+          <Flag name="release.accounting.pay_owners">
+            <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Pay Owners</button>
+          </Flag>
+          <Flag name="release.accounting.management_fees.overcollection">
+            <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Overcollection Strategy</button>
+          </Flag>
+          <Flag name="release.accounting.management_fees.exclusions">
+            <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Management Fee Exclusions</button>
+          </Flag>
+          <Flag name="release.accounting.management_fees.post_gpr">
+            <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Post GPR</button>
+          </Flag>
+          {canWrite && (
+            <Link
+              href="/dashboard/accounting/management-fees/new"
+              className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+            >
+              + Pay Fees
+            </Link>
+          )}
+        </div>
       </div>
       <p className="text-sm text-slate-500 mb-6">
         Two-tier: 9% of rent income + 100% of other eligible fees.
@@ -213,7 +234,7 @@ export default function ManagementFeesPage() {
                   {r.property_name || `Property #${r.property_id}`}
                 </td>
                 <td className="px-4 py-2 text-slate-500 text-xs">
-                  {r.period_start} → {r.period_end}
+                  {formatDate(r.period_start)} → {formatDate(r.period_end)}
                 </td>
                 <td className="px-4 py-2 text-right font-mono">
                   {formatMoney(r.rent_income_total)}
@@ -265,7 +286,7 @@ export default function ManagementFeesPage() {
                       {openRun.property_name || `Property #${openRun.property_id}`}
                     </h2>
                     <div className="text-sm text-slate-500">
-                      {openRun.period_start} → {openRun.period_end}
+                      {formatDate(openRun.period_start)} → {formatDate(openRun.period_end)}
                     </div>
                   </div>
                   <button
@@ -334,7 +355,7 @@ export default function ManagementFeesPage() {
 
                 <div className="flex items-center justify-between">
                   <div>
-                    {!openRun.is_reversed && me && me.role !== "TENANT" && (
+                    {!openRun.is_reversed && canWrite && (
                       <button
                         onClick={submitReverse}
                         disabled={reversing}
