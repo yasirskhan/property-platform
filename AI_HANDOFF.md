@@ -57,6 +57,7 @@ Current batch:
 - Required Reserves and Prepaid Rent are represented as structural compatibility slots with no fabricated balances because no verified accounting source/configuration exists yet.
 - Property Cash Summary, Owner Packet, and Email Statement are release-gated compatibility slots and remain invisible while HIDDEN.
 - Authenticated E2E coverage proves unreleased owner-reporting actions stay hidden.
+- First hosted CI run 36042783934 stopped at parity consistency because parity metadata still declared 199 built / 428 scheduled after the status transition. The repair checkpoint updates metadata to the computed 200 built / 1 in progress / 427 scheduled counts; product code is unchanged from the implementation checkpoint.
 - No migration is required; Alembic head remains 8c4e2a7d1f90.
 
 Next action:
