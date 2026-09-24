@@ -56,15 +56,28 @@ Last completed batch:
 - Model table count: 75.
 - Parity closeout updates 3.4.7/3.4.8 billing items to their verified state and shifts the remaining foundation numbering to match the actual revised sequence.
 
+Phase 3.4.9 closeout checkpoint:
+- Closeout commit: e33f421f3c8944e475f30369ed9cf3b7c247fce7.
+- GitHub CI run 35960596442: SUCCESS.
+- Backend/PostgreSQL: 154 passed, 2 deselected, 1096 warnings in 20.62s.
+- E2E: 2 passed in 6.42s.
+- Frontend, security, parity/registry, backup/restore, and live staging smoke: SUCCESS.
+
 Current batch:
-- Phase 3.4.10 separate internal admin app is NEXT and not yet implemented.
+- Phase 3.4.10 Batch 1 backend platform-control APIs are IMPLEMENTED; hosted CI verification is pending.
+- Adds platform-audience-only organization list/detail plus enterprise organization provisioning.
+- Enterprise platform-created organizations start PENDING_BILLING, seed the customer menu-permission matrix, and audit the platform actor; no customer credentials are created.
+- Adds platform plan catalog list/create/update controls with pricing-tier validation and immutable audit.
+- Adds platform staff-audit read API that returns only platform-actor audit rows.
+- Adds release-gate list API for platform admin/dev; existing release-gate mutation remains unchanged.
+- Role boundaries stay separate: sales can provision orgs and read plans; billing/admin manage plans; platform customer JWTs are never accepted by these endpoints.
+- No migration in this batch; Alembic head remains 6f1a9c4d2e7b.
 
 Next action:
-1. Re-read this file and inspect the current platform auth, org, release-gate, plan, fraud, and audit sources.
-2. Add platform-audience-only backend read/provisioning APIs required by the internal app, with role authorization and immutable audit for changes.
-3. Build a separate Next.js internal application for organizations, release gates, plans, fraud, and audit; do not mix it into the customer frontend.
-4. Add the internal app to CI lint/TypeScript/build gates.
-5. Verify CI, fix reds autonomously, update handoff/roadmap, and continue directly into Phase 3.4.11 customer release-gate consumption + Settings Features.
+1. Verify this 3.4.10 Batch 1 commit in hosted CI and fix any reds autonomously.
+2. Build the separate Next.js internal admin application for organizations, release gates, plans, fraud, and audit.
+3. Add that separate app to CI lint/TypeScript/build and npm-audit gates.
+4. Verify the complete 3.4.10 phase, update roadmap/parity/catalog/handoff, then continue directly into Phase 3.4.11 customer release-gate consumption + Settings Features.
 
 Open blockers:
 - NONE

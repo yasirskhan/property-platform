@@ -39,6 +39,17 @@ def _serialize_gate(gate: ReleaseGate) -> ReleaseGateOut:
     )
 
 
+
+@router.get("", response_model=list[ReleaseGateOut])
+def list_release_gates(
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+) -> list[ReleaseGateOut]:
+    _require_release_manager(current_user)
+    gates = db.query(ReleaseGate).order_by(ReleaseGate.key.asc()).all()
+    return [_serialize_gate(gate) for gate in gates]
+
+
 @router.put("/{key}", response_model=ReleaseGateOut)
 def update_release_gate(
     key: str,
