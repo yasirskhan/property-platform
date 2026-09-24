@@ -4613,3 +4613,41 @@ Phase **3.4.11 — customer release-gate consumption + Settings → Features**. 
 ## Next
 
 Phase **3.4.11 — customer release-gate consumption + Settings → Features**.
+
+# SECTION 89 — FOUNDATION 3.4.11 (COMPLETE)
+
+**Phase:** `3.4.11`  
+**Completed:** 2026-09-24  
+**Capability API commit:** `d32682c153b6ebbe83c262dc755e4104b0774710`  
+**Customer UI commit:** `bb43ad66e4aeb8608a0ec42e82f8c8a1b6e4bbf1`  
+**UX/E2E fix commit:** `d49368a07e6df74e78ed6d03f71e8afc3b3029aa`  
+**Verification:** hosted CI run `35985275368`
+
+## Customer capability consumption
+
+- Customer runtime resolves platform release state, commercial entitlement, organization configuration, and role/user permission as independent layers.
+- Hidden/unreleased platform stages are not exposed to customer clients.
+- Organization feature choices live in their own `organization_feature_settings` table and cannot mutate platform release state.
+- `SETTINGS.FEATURES` is itself release-gated; its organization toggle cannot self-disable the control surface.
+- Customer sidebar consumes the release gate while backend authorization remains authoritative.
+
+## Customer UI primitives
+
+- Added `FeatureProvider`, `useFlag()`, and the reusable `<Flag>` wrapper.
+- Added Settings → Features for ADMIN/OWNER organizations with org-level capability toggles.
+- Toggles update optimistically and roll back on API failure.
+- Deterministic E2E coverage proves a released configurable capability can be disabled and remains disabled after reload.
+
+## Verification evidence
+
+- Backend/PostgreSQL: **165 passed, 3 deselected, 1187 warnings in 43.02s**.
+- E2E: **3 passed in 9.05s**.
+- Customer frontend lint / TypeScript / production build: SUCCESS.
+- Platform-admin lint / TypeScript / production build: SUCCESS.
+- Security gates, PostgreSQL backup/restore, and live staging smoke: SUCCESS.
+- Alembic head: `3b8d1f5c7a20`; model table count: 76.
+
+## Next
+
+Phase **3.4.12 — unit / plan-limit enforcement + upgrade path**. Enforce limits on backend unit creation/restoration first; customer upgrade messaging may explain the limit but never replace server enforcement.
+

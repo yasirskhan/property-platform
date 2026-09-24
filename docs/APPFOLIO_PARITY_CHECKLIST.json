@@ -9,12 +9,12 @@
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
     "last_updated": "2026-09-24",
-    "migration_head": "6f1a9c4d2e7b",
+    "migration_head": "3b8d1f5c7a20",
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 190,
-    "scheduled_count": 438,
+    "built_count": 193,
+    "scheduled_count": 435,
     "in_progress_count": 0
   },
   "items": [
@@ -2780,7 +2780,7 @@
       "id": "platform.feature_flags.settings_page",
       "area": "Platform / Feature Flags",
       "feature": "Settings -> Features page (org-level toggles)",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.4.11"
     },
     {
@@ -4357,14 +4357,14 @@
       "id": "platform.use_flag_hook",
       "area": "Platform / Feature Flags",
       "feature": "useFlag() hook + <Flag> wrapper in customer app",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.4.11"
     },
     {
       "id": "platform.settings_features_page",
       "area": "Settings / Features",
       "feature": "Customer Settings -> Features page (org-level toggles)",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.4.11"
     },
     {

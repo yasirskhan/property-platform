@@ -87,18 +87,22 @@ Current batch:
 - No migration in Batch 2; Alembic head remains 6f1a9c4d2e7b.
 
 Current batch:
-- Phase 3.4.11 Batch 1 customer capability resolution is VERIFIED.
-- Batch 1 commit: d32682c153b6ebbe83c262dc755e4104b0774710.
-- GitHub CI run 35984126708: SUCCESS.
-- Backend/PostgreSQL: 165 passed, 3 deselected, 1187 warnings in 41.14s.
-- Customer frontend, platform-admin, security, E2E, backup/restore, and staging smoke: SUCCESS.
+- Phase 3.4.11 customer release-gate consumption + Settings → Features is COMPLETE and VERIFIED.
+- Capability API/storage commit: d32682c153b6ebbe83c262dc755e4104b0774710.
+- Customer UI commit: bb43ad66e4aeb8608a0ec42e82f8c8a1b6e4bbf1.
+- Toggle UX/E2E fix commit: d49368a07e6df74e78ed6d03f71e8afc3b3029aa.
+- GitHub CI run 35985275368: SUCCESS.
+- Backend/PostgreSQL: 165 passed, 3 deselected, 1187 warnings in 43.02s.
+- E2E: 3 passed in 9.05s.
+- Customer frontend, platform-admin, security, backup/restore, and staging smoke: SUCCESS.
 - Alembic head: 3b8d1f5c7a20; model table count: 76.
-- Phase 3.4.11 Batch 2 implementation commit bb43ad66e4aeb8608a0ec42e82f8c8a1b6e4bbf1 passed backend/frontend/security/staging but exposed an E2E UX race: the controlled feature checkbox did not update until the API response returned. The fix makes the toggle optimistic with rollback on API failure and is pending hosted verification.
+- Customer runtime now exposes released capability decisions without leaking hidden stages and keeps release, entitlement, org configuration, authorization, and personal presentation concerns independent.
+- Settings → Features, FeatureProvider, useFlag(), and <Flag> are verified.
 
 Next action:
-1. Verify Phase 3.4.11 Batch 2 in hosted CI and fix any reds autonomously.
-2. Close Phase 3.4.11 by updating the living ledger, registry/parity state, file catalog, and handoff with exact verified results.
-3. Continue directly into Phase 3.4.12 unit/plan-limit enforcement + upgrade path.
+1. Continue directly into Phase 3.4.12 unit/plan-limit enforcement + upgrade path.
+2. Enforce the limit in backend unit create and restore paths; UI upgrade messaging is explanatory only.
+3. Verify through backend, frontend, security, E2E, backup/restore, and staging gates, then continue to 3.4.13.
 
 Open blockers:
 - NONE

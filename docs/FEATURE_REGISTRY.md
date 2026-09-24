@@ -702,7 +702,7 @@ access boundary.
 | Accounting Settings | settings family | release.settings.accounting | core | yes | ACCOUNTING | no | ❌ missing | Key accounts, GPR, receipts, check writing, basis, fiscal year |
 | Security | settings family | release.settings.security | security_controls | yes | SETTINGS | no | ❌ missing | MFA, sessions, IP allowlist, password policy |
 | Data / Backup / Retention | settings family | release.settings.data | core | yes | SETTINGS | no | ❌ missing | Backup schedule/restore/export preferences |
-| Features | settings family | release.settings.features | core | yes | SETTINGS | no | ❌ missing | Org-level capability configuration; separate from release control |
+| Features | settings family | release.settings.features | core | yes | SETTINGS | no | ✅ built | Org-level capability configuration; release, entitlement, org config, permission, and user preference remain independent |
 | Documents | settings family | release.settings.documents | documents | yes | SETTINGS | no | ❌ missing | Templates/export/document defaults |
 | Leasing | settings family | release.settings.leasing | leasing | yes | SETTINGS | no | ❌ missing | Leasing configuration |
 | Maintenance | settings family | release.settings.maintenance | maintenance | yes | SETTINGS | no | ❌ missing | Maintenance configuration |
