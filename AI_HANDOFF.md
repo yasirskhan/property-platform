@@ -151,21 +151,29 @@ Verified latest batch:
 - No migration is required; Alembic head remains 8c4e2a7d1f90.
 - Phase 3.5.5 compatibility pass is now COMPLETE across the planned retrofit surfaces.
 
-Current batch:
-- Phase 3.6 Chart of Accounts GL Account Permissions batch is implemented and awaits hosted CI verification.
+Verified latest batch:
+- Phase 3.6 Chart of Accounts GL Account Permissions batch is COMPLETE and VERIFIED.
+- Implementation commit: 9290b52993615ceb6e7223999611ccca25a58c8c.
+- GitHub CI run 36068182088: SUCCESS.
+- Backend/PostgreSQL: 260 passed, 3 deselected, 1314 warnings in 42.69s.
+- E2E: 3 passed in 12.75s.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
 - gl_account_posting_restrictions is org/account/role scoped and subtract-only.
 - post_transaction() enforces restrictions only when the release gate is allowed and org configuration is enabled.
 - Existing module/role authorization remains authoritative; this feature never grants access.
 - Management API/UI requires SETTINGS.PERMISSIONS and remains release-gated.
 - must_clear and GL hide/deactivation parity items are reconciled to built.
-- Recalculate Balances remains scheduled because balances are live-derived from immutable gl_entries; there is no cache to rebuild.
-- New migration head: 4d7f2a9c6e31. Expected model-table count: 77.
+- Migration head: 4d7f2a9c6e31. Expected model-table count: 77.
+
+Current batch:
+- Continue Phase 3.6 Chart of Accounts with Recalculate Balances.
+- Balances are live-derived from immutable gl_entries; there is no stored balance cache to rebuild.
+- Resolve the compatibility capability by recomputing/verifying source-of-truth ledger aggregates without introducing duplicate financial state.
 
 Next action:
-1. Verify this Phase 3.6 batch through hosted CI.
-2. Fix CI reds autonomously.
-3. Record exact evidence when green.
-4. Resolve Recalculate Balances without duplicate balance state, then continue Phase 3.6.
+1. Implement release-gated Recalculate Balances as a source-of-truth recomputation/integrity action.
+2. Preserve ACCOUNTING.GL_ACCOUNTS authorization and org isolation.
+3. Add backend/UI coverage, update parity/registry state, verify in hosted CI, and continue Phase 3.6.
 
 Open blockers:
 - NONE

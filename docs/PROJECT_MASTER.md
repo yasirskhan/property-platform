@@ -2,7 +2,7 @@
 
 **Property Management Platform (AppFolio-equivalent)**
 **Single source of truth for the project.**
-**Last updated: 2026-09-23**
+**Last updated: 2026-09-24**
 
 ---
 
@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.25 — Permissions compatibility retrofit** is IN PROGRESS. Phase 3.4.24 Display is COMPLETE and VERIFIED.
+**Current activity:** Phase **3.6 — Accounting Polish: Chart of Accounts** is IN PROGRESS. GL Account Permissions is COMPLETE and VERIFIED in CI run 36068182088; Recalculate Balances is the next Chart of Accounts item.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -33,9 +33,9 @@
 
 **3.4.S closeout:** COMPLETE. Portable private-repo security checks (Bandit, pip-audit, npm audit, committed-secret scan, Dependabot) replaced the unavailable mandatory CodeQL upload gate and passed in hosted CI run 35917804417. CodeQL remains optional/manual if GitHub Code Security is enabled later.
 
-**Migration head:** `8c4e2a7d1f90`.
+**Migration head:** `4d7f2a9c6e31`.
 
-**Current parity inventory:** 202 built, 0 in progress, 426 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 205 built, 0 in progress, 423 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -143,15 +143,12 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Begin Phase 3.6 — Accounting Polish: Chart of Accounts.**
+**Continue Phase 3.6 — Accounting Polish: Chart of Accounts.**
 
-1. Reconcile already-built must-clear, offset-account, and hide behavior with the parity ledger.
-2. Implement real GL Account Permissions as subtract-only account posting controls enforced in the central GL posting service.
-3. Preserve independent release gating and all existing financial/module authorization.
-4. Resolve Recalculate Balances against the current live-derived ledger architecture without introducing duplicate cached financial state.
-5. Verify in hosted CI, fix reds autonomously, update ledgers/handoff, and continue through Phase 3.6.
-
-Phase 3.4.25 Permissions is VERIFIED in hosted CI run 36060022264: backend 256 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed.
+1. GL Account Permissions is VERIFIED in hosted CI run 36068182088: backend 260 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed.
+2. Resolve Recalculate Balances against the live-derived immutable `gl_entries` ledger without introducing duplicate cached financial state.
+3. Preserve independent release gating, ACCOUNTING.GL_ACCOUNTS authorization, org isolation, and all existing financial behavior.
+4. Verify in hosted CI, fix reds autonomously, update ledgers/handoff, and continue through Phase 3.6.
 
 ## B2. AFTER THAT## B2. AFTER THAT (Phase 3.5 onward)
 
