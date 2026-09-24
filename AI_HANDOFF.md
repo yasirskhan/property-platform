@@ -49,22 +49,25 @@ Verified foundation through this checkpoint:
 - Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
 - Alembic head remains 8c4e2a7d1f90.
 
-Current batch:
-- Phase 3.4.19 Owner Statements compatibility retrofit implementation is prepared in this checkpoint and awaits hosted CI verification.
+Verified latest batch:
+- Phase 3.4.19 Owner Statements compatibility retrofit is COMPLETE and VERIFIED.
+- Final repair commit: 2632f10e8d973a15fdcb7ee50f1b13d1ea91cd1f.
+- GitHub CI run 36043279261: SUCCESS.
+- Backend/PostgreSQL: 213 passed, 3 deselected, 1266 warnings in 28.28s.
+- E2E: 3 passed in 11.57s.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
 - Frozen statement snapshots and existing per-property transaction math remain unchanged.
-- List/new/detail surfaces consume display context; statement periods and transaction dates use shared date formatting.
-- Backend routes enforce ACCOUNTING.OWNER_STATEMENTS permission; preview/generate additionally enforce ADMIN/OWNER/MANAGER write roles.
-- Required Reserves and Prepaid Rent are represented as structural compatibility slots with no fabricated balances because no verified accounting source/configuration exists yet.
-- Property Cash Summary, Owner Packet, and Email Statement are release-gated compatibility slots and remain invisible while HIDDEN.
-- Authenticated E2E coverage proves unreleased owner-reporting actions stay hidden.
-- First hosted CI run 36042783934 stopped at parity consistency because parity metadata still declared 199 built / 428 scheduled after the status transition. The repair checkpoint updates metadata to the computed 200 built / 1 in progress / 427 scheduled counts; product code is unchanged from the implementation checkpoint.
-- Second hosted CI run 36042993467 cleared parity consistency but exposed the same helper-recursion defect previously seen in Management Fees: 3 failed, 210 passed, 3 deselected, 1266 warnings in 42.38s. The repair replaces the recursive owner-statement access call with `_require_org(current_user)`; no test is skipped or weakened.
-- No migration is required; Alembic head remains 8c4e2a7d1f90.
+- Display/date compatibility, ACCOUNTING.OWNER_STATEMENTS permission enforcement, ADMIN/OWNER/MANAGER write roles, structural reserve/prepaid slots, and hidden release-gated cash-summary/packet/email slots are verified.
+- Alembic head remains 8c4e2a7d1f90.
+
+Current batch:
+- Phase 3.4.20 Bank Accounts compatibility retrofit.
 
 Next action:
-1. Verify the current Phase 3.4.19 checkpoint through hosted CI.
-2. Fix any CI red autonomously.
-3. When green, mark compliance.owner_statements.full_surface built, record exact verification results, and continue directly into Bank Accounts compatibility work without waiting for the user.
+1. Inspect the existing Bank Accounts CRUD and preserve verified behavior.
+2. Add shared display compatibility and authoritative ACCOUNTING.BANK_ACCOUNTS permission/write-role enforcement.
+3. Represent reconciliation, QIF, check setup/printing, ACH generation/test, bank feed, and adjustments as independently release-gated compatibility slots without prematurely building those workflows.
+4. Add regression/E2E coverage, verify through hosted CI, fix reds autonomously, update ledgers/handoff, and continue directly to the next planned core-product batch.
 
 Open blockers:
 - NONE

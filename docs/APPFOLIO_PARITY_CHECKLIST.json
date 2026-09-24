@@ -3755,9 +3755,9 @@
       "id": "compliance.owner_statements.full_surface",
       "area": "Compliance / Page Retrofit",
       "feature": "Owner Statements: add all planned slots (reserves, prepaid, cash-summary, packet)",
-      "status": "in_progress",
+      "status": "built",
       "phase": "3.4.19",
-      "notes": "Owner Statements compatibility retrofit checkpoint: preserve frozen snapshots; add display/date compatibility, authoritative ACCOUNTING.OWNER_STATEMENTS permission/write-role enforcement, structural reserve/prepaid slots without fabricated values, and hidden release-gated cash-summary/packet/email actions. Awaiting hosted CI verification."
+      "notes": "Verified in hosted CI run 36043279261: backend 213 passed / 3 deselected, E2E 3 passed, preserved frozen snapshots, display/date compatibility, authoritative ACCOUNTING.OWNER_STATEMENTS permission/write-role enforcement, structural reserve/prepaid slots without fabricated values, and hidden release-gated cash-summary/packet/email actions."
     },
     {
       "id": "compliance.bank_accounts.full_surface",
