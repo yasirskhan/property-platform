@@ -58,6 +58,7 @@ from app.routers import charges as charges_router
 from app.routers import platform_auth as platform_auth_router
 from app.routers import platform_flags as platform_flags_router
 from app.routers import platform_jobs as platform_jobs_router
+from app.routers import platform_fraud as platform_fraud_router
 from app.routers import observability as observability_router
 from app.routers import billing_checkout as billing_checkout_router
 
@@ -131,6 +132,7 @@ app.include_router(charges_router.router)
 app.include_router(platform_auth_router.router)
 app.include_router(platform_flags_router.router)
 app.include_router(platform_jobs_router.router)
+app.include_router(platform_fraud_router.router)
 app.include_router(observability_router.router)
 app.include_router(billing_checkout_router.router)
 

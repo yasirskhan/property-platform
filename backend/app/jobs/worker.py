@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.observability import capture_exception, init_sentry
 from app.jobs import handlers  # noqa: F401 - registers built-in handlers
-from app.jobs.queue import get_redis_settings, stable_arq_job_id
+from app.jobs.queue import enqueue_job_run, get_redis_settings, stable_arq_job_id
 from app.jobs.registry import get_job_handler
 from app.models.job_run import JobRun, JobStatus
 from app.services.job_runtime import (
@@ -20,6 +20,7 @@ from app.services.job_runtime import (
     mark_job_retrying,
     mark_job_running,
     mark_job_succeeded,
+    reserve_job_run,
 )
 
 
@@ -120,6 +121,25 @@ async def recover_pending_jobs(ctx):
         db.close()
 
 
+async def schedule_hourly_fraud_refresh(ctx):
+    """Reserve one durable fraud-refresh job per UTC hour."""
+    now = datetime.now(timezone.utc)
+    db = SessionLocal()
+    try:
+        row, created = reserve_job_run(
+            db,
+            job_name="fraud.refresh",
+            idempotency_key=f"fraud-refresh:{now.strftime('%Y%m%d%H')}",
+            payload={"scheduled_hour": now.strftime("%Y-%m-%dT%H:00:00Z")},
+            max_attempts=3,
+        )
+        if created or row.status in {JobStatus.PENDING, JobStatus.RETRYING}:
+            await enqueue_job_run(db, ctx["redis"], row)
+        return {"job_run_id": row.id, "created": created}
+    finally:
+        db.close()
+
+
 class WorkerSettings:
     on_startup = worker_startup
     functions = [execute_job]
@@ -128,6 +148,13 @@ class WorkerSettings:
             recover_pending_jobs,
             minute=set(range(60)),
             second=15,
+            unique=True,
+            max_tries=1,
+        ),
+        cron(
+            schedule_hourly_fraud_refresh,
+            minute={0},
+            second=30,
             unique=True,
             max_tries=1,
         )

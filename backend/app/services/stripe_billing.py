@@ -19,6 +19,11 @@ from app.models.billing import (
 )
 from app.models.billing_checkout import BillingCheckoutSession, BillingCheckoutStatus
 from app.models.user import Organization
+from app.services.fraud import (
+    assess_checkout_velocity,
+    process_stripe_fraud_event,
+    require_checkout_not_blocked,
+)
 from app.services.billing_lifecycle import InvalidSubscriptionTransition, transition_subscription
 
 
@@ -151,6 +156,7 @@ def create_checkout_session(
     retries Stripe with the exact same provider idempotency key.
     """
     _require_stripe_enabled()
+    require_checkout_not_blocked(db, organization_id=organization_id)
 
     tier = (
         db.query(PricingTier)
@@ -222,6 +228,8 @@ def create_checkout_session(
     db.commit()
     db.refresh(attempt)
     db.refresh(billing_settings)
+    assess_checkout_velocity(db, organization_id=organization_id)
+    db.commit()
 
     metadata = {
         "organization_id": str(organization_id),
@@ -586,6 +594,13 @@ def process_stripe_event(db: Session, event: Any) -> str:
 
     if not event_id or not event_type or data_object is None:
         raise BillingWebhookIntegrityError("Stripe event is missing required fields")
+
+    try:
+        fraud_result = process_stripe_fraud_event(db, event)
+    except ValueError as exc:
+        raise BillingWebhookIntegrityError(str(exc)) from exc
+    if fraud_result is not None:
+        return fraud_result
 
     if event_type == "checkout.session.completed":
         return _process_checkout_completed(

@@ -12,6 +12,7 @@ from app.services.billing_read import (
     get_active_billing_catalog,
     get_organization_billing_state,
 )
+from app.services.fraud import FraudCheckoutBlocked
 from app.services.stripe_billing import (
     BillingWebhookIntegrityError,
     CheckoutIdempotencyConflict,
@@ -76,6 +77,12 @@ def start_checkout_session(
             requested_by_user_id=current_user.id,
             idempotency_key=payload.idempotency_key,
         )
+    except FraudCheckoutBlocked as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
     except ValueError as exc:
         db.rollback()
         status_code = (
