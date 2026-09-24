@@ -70,7 +70,7 @@ def _norm_role(role) -> str:
 
 
 def _require_management_fees_access(db: Session, current_user: User) -> int:
-    org_id = _require_management_fees_access(db, current_user)
+    org_id = _require_org(current_user)
     if not permission_allows_user(
         db, user=current_user, menu_key="ACCOUNTING.MANAGEMENT_FEES"
     ):

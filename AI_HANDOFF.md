@@ -55,6 +55,7 @@ Current batch:
 - Pay Owners, Overcollection Strategy, Management Fee Exclusions, and Post GPR are release-gated compatibility slots and remain invisible while HIDDEN.
 - Backend routes enforce ACCOUNTING.MANAGEMENT_FEES permission; preview/run/reverse additionally enforce ADMIN/OWNER/MANAGER write roles, matching the customer UI.
 - Regression coverage includes permission/write-role tests and authenticated E2E proof that unreleased capability buttons stay hidden.
+- First hosted CI run 36035758701 failed only in the new permission helper because `_require_management_fees_access()` accidentally called itself recursively. Backend summary: 3 failed, 200 passed, 3 deselected, 1266 warnings in 40.98s. The repair checkpoint replaces that recursive call with `_require_org(current_user)` and awaits hosted CI verification.
 - No migration is required; Alembic head remains 8c4e2a7d1f90.
 
 Next action:
