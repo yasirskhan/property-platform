@@ -39,6 +39,7 @@ from app.models.work_order import (
     WorkOrderStatus,
 )
 from app.routers.auth import get_current_user
+from app.routers.properties import check_property_access
 from app.schemas.work_order import (
     WorkOrderCreate,
     WorkOrderOut,
@@ -96,19 +97,16 @@ def _get_property_for_work_order(db: Session, wo: WorkOrder) -> Property:
 
 def _user_can_access_work_order(db: Session, user: User, wo: WorkOrder) -> bool:
     """Returns True if the user is allowed to view this work order."""
-    if user.role == UserRole.ADMIN:
-        return True
-
     if user.role == UserRole.TENANT:
         return wo.tenant_id == user.id
 
     if user.role == UserRole.CREW:
         return wo.assigned_to_id == user.id
 
-    if user.role in (UserRole.OWNER, UserRole.MANAGER):
+    if user.role in (UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER):
         prop = _get_property_for_work_order(db, wo)
 
-        if user.role == UserRole.OWNER:
+        if user.role in (UserRole.ADMIN, UserRole.OWNER):
             return prop.organization_id == user.organization_id
 
         # Manager: must be assigned to the property
@@ -136,16 +134,13 @@ def _visible_work_orders(db: Session, user: User):
     """Return a query pre-filtered to what this user can see."""
     q = db.query(WorkOrder)
 
-    if user.role == UserRole.ADMIN:
-        return q
-
     if user.role == UserRole.TENANT:
         return q.filter(WorkOrder.tenant_id == user.id)
 
     if user.role == UserRole.CREW:
         return q.filter(WorkOrder.assigned_to_id == user.id)
 
-    if user.role == UserRole.OWNER:
+    if user.role in (UserRole.ADMIN, UserRole.OWNER):
         return (
             q.join(Property, Property.id == WorkOrder.property_id)
             .filter(Property.organization_id == user.organization_id)
@@ -202,8 +197,9 @@ def submit_work_order(
             raise HTTPException(status_code=403, detail="You are not an active tenant in this unit")
         tenant_id = current_user.id
     else:
-        # Manager/owner/admin submitting on behalf. Require tenant_id in payload? No.
-        # Simplest: use the requesting user's ID as the submitter (staff member).
+        _require_role(current_user, UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER)
+        check_property_access(db, current_user, prop.id)
+        # Staff-originated work order: preserve existing submitter behavior.
         tenant_id = current_user.id
 
     wo = WorkOrder(
@@ -343,6 +339,9 @@ def assign_work_order(
     crew = db.query(User).filter(User.id == payload.crew_user_id).first()
     if not crew or crew.role != UserRole.CREW:
         raise HTTPException(status_code=400, detail="Invalid crew member")
+    prop = _get_property_for_work_order(db, wo)
+    if crew.organization_id != prop.organization_id:
+        raise HTTPException(status_code=403, detail="Crew member is not in this organization")
 
     assigned = (
         db.query(PropertyAssignment)

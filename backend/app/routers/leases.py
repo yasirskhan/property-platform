@@ -38,6 +38,7 @@ from app.models.lease import (
 from app.models.property import Property, Unit, PropertyAssignment
 from app.models.user import User, UserRole
 from app.routers.auth import get_current_user
+from app.routers.properties import check_property_access
 from app.schemas.lease import (
     LeaseCreate,
     LeaseOut,
@@ -72,30 +73,8 @@ def _get_unit_and_property(db: Session, unit_id: int):
 
 
 def _check_property_access(db: Session, user: User, prop: Property):
-    """Same rules as in routers/properties.py, but reused here."""
-    if user.role == UserRole.ADMIN:
-        return
-
-    if user.role == UserRole.OWNER:
-        if prop.organization_id != user.organization_id:
-            raise HTTPException(status_code=403, detail="Not your property")
-        return
-
-    if user.role == UserRole.MANAGER:
-        assigned = (
-            db.query(PropertyAssignment)
-            .filter(
-                PropertyAssignment.property_id == prop.id,
-                PropertyAssignment.user_id == user.id,
-                PropertyAssignment.is_active == True,  # noqa: E712
-            )
-            .first()
-        )
-        if not assigned:
-            raise HTTPException(status_code=403, detail="Not assigned to this property")
-        return
-
-    raise HTTPException(status_code=403, detail="Access denied")
+    """Use the canonical customer-side property scope rules."""
+    check_property_access(db, user, prop.id)
 
 
 def _check_lease_access(db: Session, user: User, lease: Lease) -> Lease:
@@ -180,6 +159,8 @@ def create_lease(
         raise HTTPException(status_code=404, detail="Tenant not found")
     if tenant.role != UserRole.TENANT:
         raise HTTPException(status_code=400, detail="The specified user is not a tenant")
+    if tenant.organization_id != prop.organization_id:
+        raise HTTPException(status_code=403, detail="Tenant is not in this organization")
 
     # Validate dates
     if payload.end_date <= payload.start_date:
@@ -223,12 +204,8 @@ def list_leases(
     if current_user.role == UserRole.CREW:
         raise HTTPException(status_code=403, detail="Crew members cannot list leases")
 
-    # Admin: all
-    if current_user.role == UserRole.ADMIN:
-        return db.query(Lease).all()
-
-    # Owner: leases for properties in their org
-    if current_user.role == UserRole.OWNER:
+    # Customer Admin / Owner: leases for properties in their org
+    if current_user.role in (UserRole.ADMIN, UserRole.OWNER):
         return (
             db.query(Lease)
             .join(Unit, Unit.id == Lease.unit_id)
