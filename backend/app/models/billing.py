@@ -1,12 +1,8 @@
-"""Commercial billing catalog models.
-
-Phase 3.4.7 intentionally limits this module to product/catalog data.
-Customer subscriptions, Stripe state, and entitlement resolution are added in
-later batches so the catalog remains independently testable and seedable.
-"""
+"""Commercial billing catalog and customer subscription models."""
 
 from __future__ import annotations
 
+import enum
 from datetime import datetime
 
 from sqlalchemy import (
@@ -14,6 +10,7 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     DateTime,
+    Enum as SqlEnum,
     ForeignKey,
     Integer,
     String,
@@ -52,6 +49,7 @@ class Plan(Base):
         cascade="all, delete-orphan",
         order_by="PricingTier.min_properties",
     )
+    subscriptions = relationship("Subscription", back_populates="plan")
 
 
 class Module(Base):
@@ -160,3 +158,69 @@ class PricingTier(Base):
     )
 
     plan = relationship("Plan", back_populates="pricing_tiers")
+
+
+class SubscriptionStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+    PAST_DUE = "PAST_DUE"
+    RESTRICTED = "RESTRICTED"
+    SUSPENDED = "SUSPENDED"
+    CANCELLED = "CANCELLED"
+
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+    __table_args__ = (
+        CheckConstraint(
+            "current_period_end IS NULL OR current_period_start IS NULL "
+            "OR current_period_end >= current_period_start",
+            name="ck_subscriptions_period_range",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    plan_id = Column(
+        Integer,
+        ForeignKey("plans.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    status = Column(
+        SqlEnum(
+            SubscriptionStatus,
+            name="subscription_status",
+            native_enum=False,
+            create_constraint=True,
+            length=20,
+            values_callable=lambda statuses: [status.value for status in statuses],
+        ),
+        nullable=False,
+        default=SubscriptionStatus.ACTIVE,
+        server_default=SubscriptionStatus.ACTIVE.value,
+        index=True,
+    )
+    current_period_start = Column(DateTime, nullable=True)
+    current_period_end = Column(DateTime, nullable=True)
+    cancel_at_period_end = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
+
+    organization = relationship("Organization")
+    plan = relationship("Plan", back_populates="subscriptions")

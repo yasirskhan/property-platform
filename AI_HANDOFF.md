@@ -29,13 +29,13 @@ Branch: chatgpt/checkpoint-005-safety
 Current HEAD hash: resolve from this branch with `git rev-parse HEAD`; this file is committed as part of HEAD, so the literal self-hash cannot be embedded without changing that hash.
 
 Last completed batch:
-- Phase 3.4.7 Batch 1 — billing catalog foundation: plans, modules, plan/module links, module features, and property-count pricing tiers.
+- Phase 3.4.7 Batch 2 — customer subscription storage with organization-to-plan lifecycle state.
 
 Next batch to run:
-- Phase 3.4.7 Batch 2 — customer subscription storage foundation and organization-to-plan subscription state, backend only.
+- Phase 3.4.7 Batch 3 — backend entitlement resolver using active subscription plan modules and module feature keys.
 
 Open blockers:
 - NONE
 
 Exact prompt for a new ChatGPT session:
-Read AI_HANDOFF.md at the repo root first. Continue only on branch `chatgpt/checkpoint-005-safety`. Do not switch branches, create branches, or touch `main`. Do not edit the frozen source-of-truth files under docs/: PROJECT_MASTER.md, FEATURE_REGISTRY.md, PLAN_GAPS.md, FILE_CATALOG.md, or APPFOLIO_PARITY_CHECKLIST.json. Follow the existing project plan and the user's one-batch/one-commit autonomous workflow. Resume with Phase 3.4.7 Batch 2: customer subscription storage foundation and organization-to-plan subscription state. Keep AI_HANDOFF.md at repo root and overwrite it after every BATCH DONE while preserving the permanent location-rule header at the top.
+Read AI_HANDOFF.md at the repo root first. Continue only on branch `chatgpt/checkpoint-005-safety`. Do not switch branches, create branches, or touch `main`. Do not edit the frozen source-of-truth files under docs/: PROJECT_MASTER.md, FEATURE_REGISTRY.md, PLAN_GAPS.md, FILE_CATALOG.md, or APPFOLIO_PARITY_CHECKLIST.json. Follow the existing project plan and the user's one-batch/one-commit autonomous workflow. Resume with Phase 3.4.7 Batch 3: implement the backend entitlement resolver from an organization's current subscription through its plan modules to module feature keys. Keep AI_HANDOFF.md at repo root and overwrite it after every BATCH DONE while preserving the permanent location-rule header at the top.
