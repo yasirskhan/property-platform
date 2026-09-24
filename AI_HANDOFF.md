@@ -61,13 +61,17 @@ Verified latest batch:
 - Alembic head remains 8c4e2a7d1f90.
 
 Current batch:
-- Phase 3.4.20 Bank Accounts compatibility retrofit.
+- Phase 3.4.20 Bank Accounts compatibility retrofit implementation is prepared in this checkpoint and awaits hosted CI verification.
+- Existing physical bank-account CRUD and GL-account mapping remain unchanged.
+- Customer page consumes shared display context and normalizes write-role casing.
+- Backend routes require ACCOUNTING.BANK_ACCOUNTS permission; create/update/delete additionally require ADMIN/OWNER/MANAGER.
+- Reconciliation, QIF, check setup/printing, ACH generation/test, bank feed, and adjustments are release-gated compatibility slots and remain invisible while HIDDEN.
+- Regression/E2E coverage is included; no migration is required and Alembic head remains 8c4e2a7d1f90.
 
 Next action:
-1. Inspect the existing Bank Accounts CRUD and preserve verified behavior.
-2. Add shared display compatibility and authoritative ACCOUNTING.BANK_ACCOUNTS permission/write-role enforcement.
-3. Represent reconciliation, QIF, check setup/printing, ACH generation/test, bank feed, and adjustments as independently release-gated compatibility slots without prematurely building those workflows.
-4. Add regression/E2E coverage, verify through hosted CI, fix reds autonomously, update ledgers/handoff, and continue directly to the next planned core-product batch.
+1. Verify this Phase 3.4.20 checkpoint through hosted CI.
+2. Fix any CI red autonomously.
+3. When green, mark compliance.bank_accounts.full_surface built, record exact verification results, and continue directly to the next ordered core-product batch.
 
 Open blockers:
 - NONE

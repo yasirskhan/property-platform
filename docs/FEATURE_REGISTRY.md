@@ -496,14 +496,14 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | List / detail / add / edit / deactivate | capability | — | core | no | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Existing CRUD |
 | Bank name / routing / account number | fields | — | — | — | — | — | ✅ present | Sensitive data; backend scope required |
 | ACH format | field | — | — | — | — | — | ✅ present | CSV / NACHA field exists |
-| Bank Reconciliation | capability | release.accounting.bank_reconciliation | bank_reconciliation | yes | ACCOUNTING.BANK_ACCOUNTS | no | ❌ missing | Major independently releasable workflow |
-| QIF Import | capability | release.accounting.bank_reconciliation.qif | bank_reconciliation | yes | ACCOUNTING.BANK_ACCOUNTS | no | ❌ missing | Reconciliation import helper |
-| Check Setup | capability | release.accounting.check_setup | check_writing | yes | ACCOUNTING.BANK_ACCOUNTS | no | ❌ missing | Check-layout/configuration |
-| ACH File Generation | capability | release.accounting.ach_files | ach_payments | yes | ACCOUNTING.BANK_ACCOUNTS | no | ❌ missing | NACHA / CSV generation |
-| $0 ACH Test File | capability | release.accounting.ach_test_file | ach_payments | yes | ACCOUNTING.BANK_ACCOUNTS | no | ❌ missing | Setup verification |
-| Check Printing | capability | release.accounting.check_printing | check_writing | yes | ACCOUNTING.BANK_ACCOUNTS | no | ❌ missing | Physical check workflow |
-| Bank Feed | capability | release.accounting.bank_feed | bank_feeds | yes | ACCOUNTING.BANK_ACCOUNTS | no | ❌ missing | Future Plaid/generic feed integration |
-| Adjustments | capability | release.accounting.bank_adjustments | core | yes | ACCOUNTING.BANK_ACCOUNTS | no | ❌ missing | Adjustment entity/sub-tab |
+| Bank Reconciliation | capability | release.accounting.bank_reconciliation | bank_reconciliation | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | Major independently releasable workflow |
+| QIF Import | capability | release.accounting.bank_reconciliation.qif | bank_reconciliation | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | Reconciliation import helper |
+| Check Setup | capability | release.accounting.check_setup | check_writing | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | Check-layout/configuration |
+| ACH File Generation | capability | release.accounting.ach_files | ach_payments | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | NACHA / CSV generation |
+| $0 ACH Test File | capability | release.accounting.ach_test_file | ach_payments | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | Setup verification |
+| Check Printing | capability | release.accounting.check_printing | check_writing | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | Physical check workflow |
+| Bank Feed | capability | release.accounting.bank_feed | bank_feeds | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | Future Plaid/generic feed integration |
+| Adjustments | capability | release.accounting.bank_adjustments | core | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | Adjustment entity/sub-tab |
 
 ---
 

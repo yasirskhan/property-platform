@@ -19,12 +19,15 @@ import {
   BankAccountList,
 } from "@/lib/bankAccounts";
 import { apiGet } from "@/lib/api";
+import Flag from "@/components/features/Flag";
+import { useDisplay } from "@/contexts/DisplayContext";
 
 type Me = { role: string };
 
 const WRITE_ROLES = ["ADMIN", "OWNER", "MANAGER"];
 
 export default function BankAccountsPage() {
+  const { prefs } = useDisplay();
   const [me, setMe] = useState<Me | null>(null);
   const [data, setData] = useState<BankAccountList | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,10 +58,10 @@ export default function BankAccountsPage() {
   if (error) return <div className="text-red-600">{error}</div>;
   if (!data) return null;
 
-  const canWrite = me ? WRITE_ROLES.includes(me.role) : false;
+  const canWrite = me ? WRITE_ROLES.includes(String(me.role).toUpperCase()) : false;
 
   return (
-    <div>
+    <div data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()} data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}>
       <div className="mb-4">
         <Link
           href="/dashboard"
@@ -68,12 +71,22 @@ export default function BankAccountsPage() {
         </Link>
       </div>
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-start justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Bank Accounts</h1>
           <p className="text-slate-500 mt-1">
             {data.total} {data.total === 1 ? "account" : "accounts"}
           </p>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Flag name="release.accounting.bank_reconciliation"><button type="button" disabled>Bank Reconciliation</button></Flag>
+          <Flag name="release.accounting.bank_reconciliation.qif"><button type="button" disabled>QIF Import</button></Flag>
+          <Flag name="release.accounting.check_setup"><button type="button" disabled>Check Setup</button></Flag>
+          <Flag name="release.accounting.ach_files"><button type="button" disabled>ACH File Generation</button></Flag>
+          <Flag name="release.accounting.ach_test_file"><button type="button" disabled>$0 ACH Test File</button></Flag>
+          <Flag name="release.accounting.check_printing"><button type="button" disabled>Check Printing</button></Flag>
+          <Flag name="release.accounting.bank_feed"><button type="button" disabled>Bank Feed</button></Flag>
+          <Flag name="release.accounting.bank_adjustments"><button type="button" disabled>Adjustments</button></Flag>
         </div>
       </div>
 

@@ -167,6 +167,18 @@ def test_login_and_core_authenticated_pages() -> None:
                 ).to_have_count(0)
 
             page.goto(
+                f"{BASE_URL}/dashboard/accounting/bank-accounts",
+                wait_until="domcontentloaded",
+            )
+            expect(page.get_by_role("heading", name="Bank Accounts", exact=True)).to_be_visible()
+            for hidden_action in [
+                "Bank Reconciliation", "QIF Import", "Check Setup",
+                "ACH File Generation", "$0 ACH Test File", "Check Printing",
+                "Bank Feed", "Adjustments",
+            ]:
+                expect(page.get_by_role("button", name=hidden_action, exact=True)).to_have_count(0)
+
+            page.goto(
                 f"{BASE_URL}/dashboard/settings/features",
                 wait_until="domcontentloaded",
             )
