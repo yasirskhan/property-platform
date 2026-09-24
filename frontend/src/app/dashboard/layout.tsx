@@ -31,6 +31,7 @@ import TopBar from "@/components/shell/TopBar";
 import { MenuProvider } from "@/contexts/MenuContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { DisplayProvider } from "@/contexts/DisplayContext";
+import { FeatureProvider } from "@/contexts/FeatureContext";
 
 type User = {
   id: number;
@@ -114,7 +115,8 @@ export default function DashboardLayout({
     <CurrencyProvider>
       <DisplayProvider>
         <MenuProvider>
-          <div className="min-h-screen flex bg-slate-50">
+          <FeatureProvider>
+            <div className="min-h-screen flex bg-slate-50">
             {/* LEFT: sidebar */}
             <Sidebar orgName={orgName} />
 
@@ -125,7 +127,8 @@ export default function DashboardLayout({
                 <div className="p-6">{children}</div>
               </main>
             </div>
-          </div>
+            </div>
+          </FeatureProvider>
         </MenuProvider>
       </DisplayProvider>
     </CurrencyProvider>

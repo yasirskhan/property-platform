@@ -71,11 +71,29 @@ def test_login_and_core_authenticated_pages() -> None:
                 ("/dashboard/settings/display", "Display"),
                 ("/dashboard/settings/currencies", "Currencies"),
                 ("/dashboard/settings/permissions", "Permissions"),
+                ("/dashboard/settings/features", "Features"),
                 ("/dashboard/team", "Team"),
             ]:
                 page.goto(f"{BASE_URL}{path}", wait_until="domcontentloaded")
                 expect(page.get_by_role("heading", name=heading, exact=True)).to_be_visible()
                 expect(page).not_to_have_url(re.compile(r"/login"))
+
+            page.goto(
+                f"{BASE_URL}/dashboard/settings/features",
+                wait_until="domcontentloaded",
+            )
+            map_toggle = page.get_by_role(
+                "checkbox",
+                name="Map view",
+                exact=True,
+            )
+            expect(map_toggle).to_be_checked()
+            map_toggle.uncheck()
+            expect(map_toggle).not_to_be_checked()
+            page.reload(wait_until="domcontentloaded")
+            expect(
+                page.get_by_role("checkbox", name="Map view", exact=True)
+            ).not_to_be_checked()
 
             page.goto(
                 f"{BASE_URL}/dashboard/settings/sidebar",

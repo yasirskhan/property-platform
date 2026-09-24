@@ -87,13 +87,18 @@ Current batch:
 - No migration in Batch 2; Alembic head remains 6f1a9c4d2e7b.
 
 Current batch:
-- Phase 3.4.11 Batch 1 implementation is committed for hosted verification: customer release-gate consumption API, separate organization feature-setting storage, release-aware SETTINGS.FEATURES menu exposure, and regression coverage for release/entitlement/org-config/permission separation.
-- Alembic head for this batch: 3b8d1f5c7a20; model table count: 76.
+- Phase 3.4.11 Batch 1 customer capability resolution is VERIFIED.
+- Batch 1 commit: d32682c153b6ebbe83c262dc755e4104b0774710.
+- GitHub CI run 35984126708: SUCCESS.
+- Backend/PostgreSQL: 165 passed, 3 deselected, 1187 warnings in 41.14s.
+- Customer frontend, platform-admin, security, E2E, backup/restore, and staging smoke: SUCCESS.
+- Alembic head: 3b8d1f5c7a20; model table count: 76.
+- Phase 3.4.11 Batch 2 is committed for hosted verification: FeatureProvider, useFlag(), <Flag>, Settings → Features customer UI, sidebar entry, deterministic released-feature E2E seed, and browser toggle persistence proof.
 
 Next action:
-1. Verify Phase 3.4.11 Batch 1 in hosted CI and fix any reds autonomously.
-2. Build Phase 3.4.11 Batch 2: customer useFlag() hook + <Flag> wrapper + Settings → Features UI and browser proof.
-3. Close Phase 3.4.11 only after all CI gates are green, then continue directly into Phase 3.4.12.
+1. Verify Phase 3.4.11 Batch 2 in hosted CI and fix any reds autonomously.
+2. Close Phase 3.4.11 by updating the living ledger, registry/parity state, file catalog, and handoff with exact verified results.
+3. Continue directly into Phase 3.4.12 unit/plan-limit enforcement + upgrade path.
 
 Open blockers:
 - NONE

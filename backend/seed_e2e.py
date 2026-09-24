@@ -6,6 +6,7 @@ import os
 from app.core.auth import create_user
 from app.core.database import SessionLocal
 from app.models.property import Property, PropertyType, Unit
+from app.models.release_gate import ReleaseGate, ReleaseStage
 from app.models.user import Organization, User, UserRole
 from app.schemas.user import UserCreate
 
@@ -67,7 +68,20 @@ def seed() -> None:
             is_available=True,
             is_active=True,
         )
-        db.add_all([property_obj, unit])
+        db.add_all(
+            [
+                property_obj,
+                unit,
+                ReleaseGate(
+                    key="release.settings.features",
+                    stage=ReleaseStage.ALL_ORGS,
+                ),
+                ReleaseGate(
+                    key="release.properties.map",
+                    stage=ReleaseStage.ALL_ORGS,
+                ),
+            ]
+        )
         db.commit()
         print(
             f"Seeded E2E admin id={user.id} org={user.organization_id} "

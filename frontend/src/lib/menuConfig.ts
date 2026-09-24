@@ -97,6 +97,7 @@ export const MENU_ENTRIES: Record<string, MenuEntry> = {
   "SETTINGS.CURRENCIES":  { key: "SETTINGS.CURRENCIES",  label: "Currencies",          href: "/dashboard/settings/currencies",  icon: "" },
   "SETTINGS.PERMISSIONS": { key: "SETTINGS.PERMISSIONS", label: "Menu Permissions",    href: "/dashboard/settings/permissions", icon: "" },
   "SETTINGS.SIDEBAR":     { key: "SETTINGS.SIDEBAR",     label: "Sidebar",             href: "/dashboard/settings/sidebar",     icon: "" },
+  "SETTINGS.FEATURES":    { key: "SETTINGS.FEATURES",    label: "Features",            href: "/dashboard/settings/features",    icon: "" },
 };
 
 // ------------------------------------------------------------
