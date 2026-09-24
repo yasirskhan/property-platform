@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.13 — Receipts compatibility retrofit (proof pattern)** is IN PROGRESS. Phase 3.4.12 is COMPLETE and VERIFIED.
+**Current activity:** Phase **3.4.13 — Receipts compatibility retrofit (proof pattern)** is COMPLETE and VERIFIED. Next implementation phase: **3.4.14 — Bills compatibility retrofit**.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -35,7 +35,7 @@
 
 **Migration head:** `8c4e2a7d1f90`.
 
-**Current parity inventory:** 194 built, 0 in progress, 434 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 195 built, 0 in progress, 433 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -146,12 +146,12 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Continue Phase 3.4.13 — Receipts compatibility retrofit (proof pattern).**
+**Continue Phase 3.4.14 — Bills compatibility retrofit.**
 
-1. Retrofit the existing Receipts list/new surfaces without changing verified accounting behavior.
-2. Consume shared money/date/display primitives and the existing customer capability resolver.
-3. Render planned independently releasable receipt capabilities behind their existing release gates; do not invent per-field flags.
-4. Keep backend authorization authoritative and verify the proof pattern through the full CI gate before continuing to 3.4.14+ remaining compatibility retrofits.
+1. Apply the verified Receipts compatibility pattern to the existing Bills surfaces without changing two-step accrual behavior.
+2. Consume shared display primitives and the existing customer capability resolver.
+3. Represent planned independently releasable Bill capabilities behind their registry release gates without inventing per-field flags.
+4. Keep backend authorization authoritative and verify the batch through the full CI gate before continuing to the next compatibility retrofit.
 
 Continue autonomously through CI fixes and subsequent foundation phases. Use revised Section 82 when older phase numbers conflict.
 

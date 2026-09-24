@@ -13,9 +13,9 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 194,
+    "built_count": 195,
     "scheduled_count": 433,
-    "in_progress_count": 1
+    "in_progress_count": 0
   },
   "items": [
     {
@@ -4379,9 +4379,9 @@
       "id": "platform.retrofit_receipts",
       "area": "Compliance / Page Retrofit",
       "feature": "Retrofit Receipts page (proof of pattern)",
-      "status": "in_progress",
+      "status": "built",
       "phase": "3.4.13",
-      "notes": "Phase 3.4.13 implementation checkpoint: receipt pages consume display context, future capability slots use resolved release flags, reverse uses shared styled confirmation, and backend Receivables permission enforcement is added. Awaiting hosted CI verification."
+      "notes": "Verified in hosted CI run 35991771953: Receipts compatibility proof consumes display context, hides unreleased capability slots behind resolved flags, uses styled reverse confirmation, and enforces backend ACCOUNTING.RECEIVABLES permission without changing verified posting behavior."
     },
     {
       "id": "platform.safety.ci",

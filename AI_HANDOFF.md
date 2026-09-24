@@ -112,18 +112,21 @@ Current batch:
 - Alembic head: 8c4e2a7d1f90; model table count remains 76.
 
 Current batch:
-- Phase 3.4.13 Receipts compatibility retrofit implementation is prepared in the current checkpoint and awaiting hosted CI verification.
-- Existing Tenant/Owner/Other posting and reversal accounting flows remain intact.
-- Receipt list/new pages consume display context while retaining shared formatMoney()/formatDate() primitives.
-- Planned unreleased receipt capabilities are represented as Flag-controlled compatibility slots and remain invisible while their gates are HIDDEN.
-- Receipt reverse confirmation now uses a reusable styled ConfirmModal instead of window.confirm().
-- Receipt backend routes now enforce ACCOUNTING.RECEIVABLES permission in addition to organization scoping.
-- Regression coverage includes permission-guard unit tests and E2E proof that hidden receipt compatibility actions do not leak into the customer UI.
+- Phase 3.4.13 Receipts compatibility retrofit is COMPLETE and VERIFIED.
+- Implementation commit: 04dcb56498355797563f830775865c89b653ba6f.
+- GitHub CI run 35991771953: SUCCESS.
+- Backend/PostgreSQL: 173 passed, 3 deselected, 1266 warnings in 42.16s.
+- E2E: 3 passed in 10.66s.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
+- Existing Tenant/Owner/Other posting and reversal accounting behavior remains intact.
+- Receipts now consume display context; unreleased capability slots are flag-controlled and remain hidden; reverse uses shared ConfirmModal; backend routes enforce ACCOUNTING.RECEIVABLES permission.
+- Alembic head remains 8c4e2a7d1f90; no migration in Phase 3.4.13.
 
 Next action:
-1. Verify the current Phase 3.4.13 checkpoint through hosted CI.
-2. Fix any CI red autonomously.
-3. When green, mark platform.retrofit_receipts built, record exact test results, and continue directly into 3.4.14+ remaining compatibility retrofits.
+1. Continue directly into Phase 3.4.14 Bills compatibility retrofit.
+2. Preserve verified two-step accrual/post/pay/reverse behavior.
+3. Apply the Receipts proof pattern: display compatibility, release-gated future slots, styled confirmation where applicable, backend-authoritative PAYABLES permission, regression coverage, full hosted CI.
+4. After green closeout, continue directly into the next compatibility retrofit without waiting for the user.
 
 Open blockers:
 - NONE
