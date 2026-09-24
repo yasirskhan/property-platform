@@ -3683,7 +3683,8 @@
       "area": "Compliance / Page Retrofit",
       "feature": "Currencies: use primitives + fetch list from API in Display",
       "status": "built",
-      "phase": "3.5.5"
+      "phase": "3.4.23",
+      "notes": "Phase 3.4.23 checkpoint preserves currency CRUD/protections, adds authoritative SETTINGS.CURRENCIES access enforcement, aligns ADMIN/OWNER mutation controls, consumes shared display metadata, and removes alternate hardcoded Display currency choices."
     },
     {
       "id": "compliance.display.use_primitives",
@@ -3774,7 +3775,8 @@
       "area": "Compliance / Page Retrofit",
       "feature": "Currencies: Display dropdown fetches list from /api/settings/currencies",
       "status": "built",
-      "phase": "3.5.5"
+      "phase": "3.4.23",
+      "notes": "Phase 3.4.23 removes alternate hardcoded fallback choices; the selector uses the organization currency catalog and retains only the current org currency if catalog loading fails."
     },
     {
       "id": "compliance.data_residency.column",

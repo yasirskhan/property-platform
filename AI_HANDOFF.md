@@ -97,11 +97,18 @@ Verified latest batch:
 - Planned Property Groups/Map and property-detail capabilities are hidden release-gated compatibility slots only; their workflows remain scheduled.
 - No migration is required; Alembic head remains 8c4e2a7d1f90.
 
+Current batch:
+- Phase 3.4.23 Currencies compatibility retrofit implementation is prepared and awaits hosted CI verification.
+- Existing per-org currency CRUD, system-currency protections, and current-currency delete/deactivate protections are unchanged.
+- Currency routes now enforce SETTINGS.CURRENCIES server-side in addition to existing ADMIN/OWNER write roles.
+- Currencies UI consumes shared display layout/density metadata and hides mutation controls from non-writers.
+- Display currency choices come from /api/settings/currencies; hardcoded alternate fallback currencies were removed, while the current org currency remains selectable if catalog loading fails.
+- No migration is required; Alembic head remains 8c4e2a7d1f90.
+
 Next action:
-1. Start Phase 3.4.23 — Currencies compatibility retrofit.
-2. Preserve verified currency CRUD/default behavior; consume shared display primitives and make Display currency choices come from the existing currencies API rather than a hardcoded list.
-3. Keep backend authorization authoritative and represent only planned independently releasable capabilities as hidden slots.
-4. Verify through hosted CI, fix CI reds autonomously, update the handoff/roadmap/parity evidence, then continue directly to the next ordered compatibility batch.
+1. Verify Phase 3.4.23 through hosted CI.
+2. Fix any CI red autonomously.
+3. When green, record exact evidence and continue directly to Phase 3.4.24 — Display compatibility retrofit.
 
 Open blockers:
 - NONE

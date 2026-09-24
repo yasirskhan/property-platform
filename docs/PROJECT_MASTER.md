@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.22 — Properties compatibility retrofit** is COMPLETE and VERIFIED. Next implementation batch: **3.4.23 — Currencies compatibility retrofit**.
+**Current activity:** Phase **3.4.23 — Currencies compatibility retrofit** is IN PROGRESS. Phase 3.4.22 Properties is COMPLETE and VERIFIED.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -4707,3 +4707,23 @@ Phase **3.4.22 — Properties compatibility retrofit**. Preserve verified proper
 
 Phase **3.4.23 — Currencies compatibility retrofit**. Preserve verified currency behavior while replacing hardcoded Display currency choices with the existing organization currency API and applying shared display compatibility.
 
+
+
+# SECTION 92 — FOUNDATION 3.4.23 (IN PROGRESS)
+
+**Phase:** `3.4.23`  
+**Started:** 2026-09-24
+
+## Currencies compatibility retrofit
+
+- Existing per-organization currency catalog CRUD is preserved.
+- System currencies remain non-deletable and the organization’s active currency remains protected from delete/deactivation.
+- `SETTINGS.CURRENCIES` is now enforced server-side for currency catalog routes; ADMIN/OWNER remain the only mutation roles.
+- The Currencies page consumes shared display layout/density metadata and aligns mutation controls with backend write roles.
+- Display currency choices are sourced from `/api/settings/currencies`; alternate hardcoded fallback choices are removed, while the current organization currency remains available if catalog loading fails.
+- Routine currency fields are not feature-flagged.
+- No migration is required; Alembic head remains `8c4e2a7d1f90`.
+
+## Verification state
+
+Implementation checkpoint prepared; hosted CI verification pending.

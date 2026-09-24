@@ -9,7 +9,8 @@
 //
 // The currency dropdown fetches the org's real currency list
 // from /api/settings/currencies (built in Section 68) so custom
-// currencies show up. Falls back to USD if the fetch fails.
+// currencies show up. If the catalog fetch fails, only the already-selected
+// organization currency remains available; no alternate hardcoded choices are offered.
 //
 // Density, number format, font size, accent, reduce motion
 // are shown but marked "Coming soon".
@@ -46,13 +47,9 @@ type CurrencyRow = {
   is_active: boolean;
 };
 
-// Fallback if the API call fails - keeps the page usable.
-const FALLBACK_CURRENCIES: CurrencyRow[] = [
-  { id: 0, code: "USD", name: "US Dollar", symbol: "$", locale: "en-US", decimal_places: 2, is_system: true, is_active: true },
-  { id: 0, code: "EUR", name: "Euro", symbol: "€", locale: "de-DE", decimal_places: 2, is_system: true, is_active: true },
-  { id: 0, code: "GBP", name: "British Pound", symbol: "£", locale: "en-GB", decimal_places: 2, is_system: true, is_active: true },
-  { id: 0, code: "INR", name: "Indian Rupee", symbol: "₹", locale: "en-IN", decimal_places: 2, is_system: true, is_active: true },
-];
+// The selector is API-backed. Start empty and keep the currently selected
+// organization currency as the only fallback option if loading fails.
+const INITIAL_CURRENCIES: CurrencyRow[] = [];
 
 // ------------------------------------------------------------
 // Small building blocks
@@ -122,7 +119,7 @@ export default function DisplaySettingsPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Org currency list, fetched from the API (Section 68).
-  const [currencies, setCurrencies] = useState<CurrencyRow[]>(FALLBACK_CURRENCIES);
+  const [currencies, setCurrencies] = useState<CurrencyRow[]>(INITIAL_CURRENCIES);
   const [currenciesLoaded, setCurrenciesLoaded] = useState(false);
 
   useEffect(() => {
@@ -144,7 +141,7 @@ export default function DisplaySettingsPage() {
         if (active.length > 0) setCurrencies(active);
       })
       .catch(() => {
-        // leave fallback list in place
+        // Keep the selector limited to the organization's current value below.
       })
       .finally(() => {
         if (!cancelled) setCurrenciesLoaded(true);
