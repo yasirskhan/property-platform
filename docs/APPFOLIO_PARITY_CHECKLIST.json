@@ -13,8 +13,8 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 200,
-    "scheduled_count": 427,
+    "built_count": 201,
+    "scheduled_count": 426,
     "in_progress_count": 1
   },
   "items": [

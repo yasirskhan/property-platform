@@ -67,6 +67,7 @@ Current batch:
 - Backend routes require ACCOUNTING.BANK_ACCOUNTS permission; create/update/delete additionally require ADMIN/OWNER/MANAGER.
 - Reconciliation, QIF, check setup/printing, ACH generation/test, bank feed, and adjustments are release-gated compatibility slots and remain invisible while HIDDEN.
 - Regression/E2E coverage is included; no migration is required and Alembic head remains 8c4e2a7d1f90.
+- First hosted CI run 36046518433 stopped at parity consistency only: actual counts were 201 built / 1 in progress / 426 scheduled while parity _meta still declared 200 built / 427 scheduled. This repair updates metadata only; product code is unchanged.
 
 Next action:
 1. Verify this Phase 3.4.20 checkpoint through hosted CI.
