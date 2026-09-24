@@ -5,7 +5,7 @@
 #
 # 4-layer resolution (every layer must pass for an item to show):
 #
-#   Layer 1: Plan gating        -> STUBBED to always-allow (Phase 1)
+#   Layer 1: Plan gating        -> billing catalog + subscription entitlements
 #   Layer 2: Role gating        -> menu_permissions table
 #   Layer 3: User overrides     -> user_permissions table
 #   Layer 4: Personal hiding    -> sidebar_preferences.hidden
@@ -15,9 +15,9 @@
 #   * Layers 2, 3, 4 can only SUBTRACT visibility. Layer 3 with
 #     visible=True cannot grant what Layer 2 denied.
 #
-#   * ADMIN role always sees everything. Its matrix is immutable
-#     and user overrides on an admin user are ignored. This makes
-#     it impossible for an admin to lock themselves out.
+#   * ADMIN role always sees everything permitted by commercial
+#     entitlement. Its role matrix is immutable and user overrides
+#     on an admin user are ignored.
 #
 #   * If a parent key is hidden, all its children are hidden,
 #     regardless of their own values.
@@ -37,6 +37,7 @@ from app.models.menu_permission import MenuPermission
 from app.models.user_permission import UserPermission
 from app.models.sidebar_preference import SidebarPreference
 from app.models.user import User
+from app.services.entitlement_resolver import resolve_entitlements
 
 
 # ------------------------------------------------------------
@@ -55,17 +56,6 @@ def _parent_of(menu_key: str) -> Optional[str]:
     if "." in menu_key:
         return menu_key.split(".", 1)[0]
     return None
-
-
-def _plan_allows(_menu_key: str, _org_id: Optional[int]) -> bool:
-    """Layer 1. Stubbed to always-allow in Phase 1.
-
-    When the Subscription & Billing module is built, this function
-    will look up the org's plan and check the module catalog. For
-    now it returns True for everything so the rest of the stack
-    works end-to-end.
-    """
-    return True
 
 
 # ------------------------------------------------------------
@@ -153,10 +143,17 @@ def resolve_menu_for_user(
     if org_id is None or not role:
         return []
 
+    # ---- Layer 1 ----
+    entitlement_matrix = resolve_entitlements(
+        db,
+        organization_id=org_id,
+        feature_keys=MENU_KEYS,
+    )
+
     # ---- Layer 2 ----
     role_matrix = _load_role_matrix(db, org_id, role)
 
-    # ---- Hard rule: ADMIN sees everything, always ----
+    # ---- Hard rule: ADMIN sees every role-permitted item ----
     if role == "ADMIN":
         role_matrix = {k: True for k in MENU_KEYS}
 
@@ -174,8 +171,8 @@ def resolve_menu_for_user(
     effective: Dict[str, bool] = {}
 
     for key in MENU_KEYS:
-        # Layer 1
-        if not _plan_allows(key, org_id):
+        # Layer 1 — only cataloged features are commercially gated.
+        if not entitlement_matrix.get(key, True):
             effective[key] = False
             continue
 
