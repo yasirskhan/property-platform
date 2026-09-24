@@ -5,7 +5,7 @@
 # ============================================================
 
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict
 from pydantic import BaseModel, Field
 
 
@@ -70,3 +70,16 @@ class GLAccountGroup(BaseModel):
 class GLAccountListOut(BaseModel):
     groups: List[GLAccountGroup]
     total: int
+
+class GLAccountPostingPermissionRow(BaseModel):
+    gl_account_id: int
+    gl_number: str
+    name: str
+    permissions: Dict[str, bool]
+
+class GLAccountPostingPermissionMatrixOut(BaseModel):
+    roles: List[str]
+    rows: List[GLAccountPostingPermissionRow]
+
+class GLAccountPostingPermissionMatrixUpdate(BaseModel):
+    values: Dict[int, Dict[str, bool]]

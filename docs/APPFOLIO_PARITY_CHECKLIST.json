@@ -9,12 +9,12 @@
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
     "last_updated": "2026-09-24",
-    "migration_head": "8c4e2a7d1f90",
+    "migration_head": "4d7f2a9c6e31",
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 202,
-    "scheduled_count": 426,
+    "built_count": 205,
+    "scheduled_count": 423,
     "in_progress_count": 0
   },
   "items": [
@@ -64,16 +64,17 @@
       "id": "accounting.coa.must_clear_flag",
       "area": "Accounting / Chart of Accounts",
       "feature": "Must-clear-to-zero flag (for Positive Fee diagnostic)",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.6",
-      "notes": "Column added in 59a25b856f18. UI to set it comes in Phase 3.6."
+      "notes": "Model, API, list column, and create/edit drawer checkbox are implemented."
     },
     {
       "id": "accounting.coa.gl_permissions",
       "area": "Accounting / Chart of Accounts",
       "feature": "GL Account Permissions (who can post to what)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Subtract-only role/account posting restrictions are stored per org and enforced centrally by post_transaction()."
     },
     {
       "id": "accounting.coa.standard_seed",
@@ -2005,8 +2006,9 @@
       "id": "accounting.coa.hide_semantics",
       "area": "Accounting / Chart of Accounts",
       "feature": "GL account Hide (excluded from pickers, still on reports)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Soft deactivation removes inactive accounts from default pickers/lists while historical GL references remain; UI can show inactive accounts."
     },
     {
       "id": "accounting.je.sub_tabs",

@@ -152,14 +152,20 @@ Verified latest batch:
 - Phase 3.5.5 compatibility pass is now COMPLETE across the planned retrofit surfaces.
 
 Current batch:
-- Phase 3.6 Accounting Polish begins with Chart of Accounts.
+- Phase 3.6 Chart of Accounts GL Account Permissions batch is implemented and awaits hosted CI verification.
+- gl_account_posting_restrictions is org/account/role scoped and subtract-only.
+- post_transaction() enforces restrictions only when the release gate is allowed and org configuration is enabled.
+- Existing module/role authorization remains authoritative; this feature never grants access.
+- Management API/UI requires SETTINGS.PERMISSIONS and remains release-gated.
+- must_clear and GL hide/deactivation parity items are reconciled to built.
+- Recalculate Balances remains scheduled because balances are live-derived from immutable gl_entries; there is no cache to rebuild.
+- New migration head: 4d7f2a9c6e31. Expected model-table count: 77.
 
 Next action:
-1. Reconcile already-built Chart of Accounts fields/hide behavior with parity state.
-2. Implement real GL Account Permissions as subtract-only posting authorization enforced centrally in post_transaction(), without weakening existing module/role permissions.
-3. Keep release gating independent; hidden gate preserves current posting behavior.
-4. Resolve the Recalculate Balances plan item against the current live-derived ledger architecture without introducing unnecessary duplicate balance state.
-5. Verify in hosted CI, fix reds autonomously, update ledgers/handoff, and continue through Phase 3.6.
+1. Verify this Phase 3.6 batch through hosted CI.
+2. Fix CI reds autonomously.
+3. Record exact evidence when green.
+4. Resolve Recalculate Balances without duplicate balance state, then continue Phase 3.6.
 
 Open blockers:
 - NONE

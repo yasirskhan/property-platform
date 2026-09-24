@@ -33,11 +33,15 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
 from app.models.user import Organization, User
-from app.models.gl_account import GLAccount
+from app.models.gl_account import GLAccount, GLAccountPostingRestriction
+from app.models.organization_feature_setting import OrganizationFeatureSetting
 from app.models.gl_transaction import GLTransaction
 from app.models.gl_entry import GLEntry
 from app.models.property import Property, Unit
 from app.schemas.gl_transaction import PostingLine
+from app.services.release_gate_resolver import release_gate_allows_org
+
+GL_ACCOUNT_PERMISSIONS_GATE = "release.accounting.gl_account_permissions"
 
 
 # Valid transaction types. Extend this list as new modules
@@ -68,6 +72,38 @@ class PostingError(Exception):
     catch this and turn it into an HTTP 400."""
     pass
 
+
+def _norm_role(role) -> str:
+    value = getattr(role, "value", role)
+    return str(value or "").upper()
+
+def _gl_account_restrictions_enabled(db: Session, *, organization_id: int) -> bool:
+    if not release_gate_allows_org(db, gate_key=GL_ACCOUNT_PERMISSIONS_GATE, organization_id=organization_id):
+        return False
+    setting = db.query(OrganizationFeatureSetting).filter(
+        OrganizationFeatureSetting.organization_id == organization_id,
+        OrganizationFeatureSetting.feature_key == GL_ACCOUNT_PERMISSIONS_GATE,
+    ).first()
+    return setting is None or bool(setting.enabled)
+
+def _enforce_gl_account_posting_restrictions(
+    db: Session, *, organization_id: int, account_ids: set[int],
+    created_by: User, accounts: list[GLAccount],
+) -> None:
+    if not account_ids or created_by is None or not _gl_account_restrictions_enabled(db, organization_id=organization_id):
+        return
+    role = _norm_role(created_by.role)
+    if not role:
+        return
+    denied_ids = {row.gl_account_id for row in db.query(GLAccountPostingRestriction).filter(
+        GLAccountPostingRestriction.organization_id == organization_id,
+        GLAccountPostingRestriction.role == role,
+        GLAccountPostingRestriction.gl_account_id.in_(account_ids),
+    ).all()}
+    if denied_ids:
+        number_by_id = {account.id: account.gl_number for account in accounts}
+        denied_numbers = sorted(number_by_id.get(account_id, str(account_id)) for account_id in denied_ids)
+        raise PostingError(f"Role {role} is not allowed to post to GL account(s): {', '.join(denied_numbers)}")
 
 # ------------------------------------------------------------
 # The one public function
@@ -202,6 +238,14 @@ def post_transaction(
         raise PostingError(
             f"Cannot post to inactive GL account(s): {sorted(inactive)}"
         )
+
+    _enforce_gl_account_posting_restrictions(
+        db,
+        organization_id=organization_id,
+        account_ids=account_ids,
+        created_by=created_by,
+        accounts=accounts,
+    )
 
     # -----------------------------------------------------------------
     # 6. Properties belong to this org (if given)

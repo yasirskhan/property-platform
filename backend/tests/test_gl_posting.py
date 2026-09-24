@@ -11,7 +11,9 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base
 from app.models.audit_log import AuditLog
-from app.models.gl_account import GLAccount
+from app.models.gl_account import GLAccount, GLAccountPostingRestriction
+from app.models.organization_feature_setting import OrganizationFeatureSetting
+from app.models.release_gate import ReleaseGate, ReleaseGateOrganization, ReleaseStage
 from app.models.gl_entry import GLEntry
 from app.models.gl_transaction import GLTransaction
 from app.models.property import Property, Unit
@@ -21,7 +23,9 @@ from app.services.gl_posting import PostingError, post_transaction, reverse_tran
 
 TEST_TABLES = [
     Organization.__table__, User.__table__, Property.__table__, Unit.__table__,
-    GLAccount.__table__, GLTransaction.__table__, GLEntry.__table__, AuditLog.__table__,
+    GLAccount.__table__, GLAccountPostingRestriction.__table__,
+    ReleaseGate.__table__, ReleaseGateOrganization.__table__, OrganizationFeatureSetting.__table__,
+    GLTransaction.__table__, GLEntry.__table__, AuditLog.__table__,
 ]
 
 
@@ -231,4 +235,47 @@ def test_first_open_day_after_lock_can_post(db: Session) -> None:
         ],
     )
 
+    assert txn.id is not None
+
+
+@pytest.mark.accounting
+def test_gl_account_restriction_is_inert_while_release_gate_hidden(db: Session) -> None:
+    org, user, cash, income = seed_accounting(db)
+    db.add(GLAccountPostingRestriction(organization_id=org.id, gl_account_id=income.id, role="ADMIN"))
+    db.commit()
+    txn = post_transaction(
+        db, organization_id=org.id, transaction_date=date(2026, 10, 1),
+        transaction_type="JOURNAL_ENTRY", memo="hidden gate", created_by=user,
+        lines=[PostingLine(gl_account_id=cash.id, debit=Decimal("25.00")), PostingLine(gl_account_id=income.id, credit=Decimal("25.00"))],
+    )
+    assert txn.id is not None
+
+@pytest.mark.accounting
+def test_released_gl_account_restriction_denies_matching_role(db: Session) -> None:
+    org, user, cash, income = seed_accounting(db)
+    db.add(ReleaseGate(key="release.accounting.gl_account_permissions", stage=ReleaseStage.ALL_ORGS))
+    db.add(GLAccountPostingRestriction(organization_id=org.id, gl_account_id=income.id, role="ADMIN"))
+    db.commit()
+    with pytest.raises(PostingError, match="Role ADMIN is not allowed"):
+        post_transaction(
+            db, organization_id=org.id, transaction_date=date(2026, 10, 1),
+            transaction_type="JOURNAL_ENTRY", memo="restricted", created_by=user,
+            lines=[PostingLine(gl_account_id=cash.id, debit=Decimal("25.00")), PostingLine(gl_account_id=income.id, credit=Decimal("25.00"))],
+        )
+    assert db.query(GLTransaction).count() == 0
+
+@pytest.mark.accounting
+def test_org_can_disable_gl_account_restriction_layer(db: Session) -> None:
+    org, user, cash, income = seed_accounting(db)
+    db.add(ReleaseGate(key="release.accounting.gl_account_permissions", stage=ReleaseStage.ALL_ORGS))
+    db.add(OrganizationFeatureSetting(
+        organization_id=org.id, feature_key="release.accounting.gl_account_permissions", enabled=False
+    ))
+    db.add(GLAccountPostingRestriction(organization_id=org.id, gl_account_id=income.id, role="ADMIN"))
+    db.commit()
+    txn = post_transaction(
+        db, organization_id=org.id, transaction_date=date(2026, 10, 1),
+        transaction_type="JOURNAL_ENTRY", memo="org disabled", created_by=user,
+        lines=[PostingLine(gl_account_id=cash.id, debit=Decimal("25.00")), PostingLine(gl_account_id=income.id, credit=Decimal("25.00"))],
+    )
     assert txn.id is not None

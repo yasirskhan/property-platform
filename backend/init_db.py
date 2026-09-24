@@ -59,7 +59,7 @@ from app.models.application import LeaseApplication, ApplicationPayment  # noqa:
 from app.models.screening import ScreeningProvider, OrganizationScreeningSettings  # noqa: F401
 
 # ---- General Ledger (Phase 2 Steps 1 + 2) ----
-from app.models.gl_account import GLAccount  # noqa: F401
+from app.models.gl_account import GLAccount, GLAccountPostingRestriction  # noqa: F401
 from app.models.gl_transaction import GLTransaction  # noqa: F401
 from app.models.gl_entry import GLEntry  # noqa: F401
 

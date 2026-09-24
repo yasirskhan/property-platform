@@ -20,6 +20,9 @@ import {
   GLAccountList,
   ACCOUNT_TYPE_LABELS,
   ACCOUNT_TYPE_ORDER,
+  GLAccountPostingPermissionMatrix,
+  getGLAccountPostingPermissions,
+  updateGLAccountPostingPermissions,
 } from "@/lib/glAccounts";
 import { apiGet } from "@/lib/api";
 import GLAccountDrawer from "@/components/accounting/GLAccountDrawer";
@@ -44,6 +47,10 @@ export default function GLAccountsPage() {
   const [editing, setEditing] = useState<GLAccount | null>(null);
   const [deactivateTarget, setDeactivateTarget] = useState<GLAccount | null>(null);
   const [deactivateBusy, setDeactivateBusy] = useState(false);
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
+  const [permissionsLoading, setPermissionsLoading] = useState(false);
+  const [permissionsSaving, setPermissionsSaving] = useState(false);
+  const [permissionMatrix, setPermissionMatrix] = useState<GLAccountPostingPermissionMatrix | null>(null);
 
   async function load() {
     setLoading(true);
@@ -78,6 +85,40 @@ export default function GLAccountsPage() {
   function closeDrawer() {
     setDrawerOpen(false);
     setEditing(null);
+  }
+
+  async function openPermissions() {
+    setPermissionsOpen(true);
+    setPermissionsLoading(true);
+    setError("");
+    try { setPermissionMatrix(await getGLAccountPostingPermissions()); }
+    catch (err) {
+      setPermissionsOpen(false);
+      setError(err instanceof Error ? err.message : "Permission load failed");
+    } finally { setPermissionsLoading(false); }
+  }
+
+  function setPostingPermission(accountId: number, role: string, allowed: boolean) {
+    setPermissionMatrix((current) => current ? ({
+      ...current,
+      rows: current.rows.map((row) => row.gl_account_id === accountId
+        ? {...row, permissions: {...row.permissions, [role]: allowed}}
+        : row),
+    }) : current);
+  }
+
+  async function savePostingPermissions() {
+    if (!permissionMatrix) return;
+    setPermissionsSaving(true);
+    setError("");
+    try {
+      const values: Record<number, Record<string, boolean>> = {};
+      for (const row of permissionMatrix.rows) values[row.gl_account_id] = row.permissions;
+      setPermissionMatrix(await updateGLAccountPostingPermissions(values));
+      setPermissionsOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Permission save failed");
+    } finally { setPermissionsSaving(false); }
   }
 
   async function handleDelete() {
@@ -120,7 +161,7 @@ export default function GLAccountsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Flag name="release.accounting.gl_account_permissions">
-            <button type="button" disabled className="text-sm px-3 py-2 border border-slate-300 rounded-lg text-slate-500 disabled:opacity-60">
+            <button type="button" onClick={openPermissions} className="text-sm px-3 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50">
               GL Account Permissions
             </button>
           </Flag>
@@ -271,6 +312,38 @@ export default function GLAccountsPage() {
         }}
         onConfirm={handleDelete}
       />
+
+      {permissionsOpen && (
+        <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-6">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[85vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-200">
+              <h2 className="text-lg font-semibold">GL Account Permissions</h2>
+              <p className="text-sm text-slate-500 mt-1">Uncheck a role to deny posting. This layer can only subtract access.</p>
+            </div>
+            <div className="flex-1 overflow-auto px-6 py-4">
+              {permissionsLoading || !permissionMatrix ? <div>Loading permissions…</div> : (
+                <table className="w-full text-sm">
+                  <thead><tr><th className="text-left py-2">GL Account</th>{permissionMatrix.roles.map((role)=><th key={role} className="px-2">{role.replace("_"," ")}</th>)}</tr></thead>
+                  <tbody>{permissionMatrix.rows.map((row)=><tr key={row.gl_account_id} className="border-t">
+                    <td className="py-2"><span className="font-mono">{row.gl_number}</span> {row.name}</td>
+                    {permissionMatrix.roles.map((role)=><td key={role} className="text-center">
+                      <input type="checkbox" aria-label={`${row.gl_number} ${role} posting`} checked={row.permissions[role] !== false}
+                        onChange={(e)=>setPostingPermission(row.gl_account_id, role, e.target.checked)} />
+                    </td>)}
+                  </tr>)}</tbody>
+                </table>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t flex justify-end gap-3">
+              <button type="button" onClick={()=>setPermissionsOpen(false)} disabled={permissionsSaving}>Cancel</button>
+              <button type="button" onClick={savePostingPermissions} disabled={permissionsSaving || permissionsLoading || !permissionMatrix}
+                className="px-4 py-2 bg-slate-900 text-white rounded-lg disabled:opacity-50">
+                {permissionsSaving ? "Saving…" : "Save permissions"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Drawer */}
       {drawerOpen && (

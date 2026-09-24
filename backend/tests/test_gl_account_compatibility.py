@@ -51,3 +51,17 @@ def test_must_clear_is_part_of_gl_account_api_contract() -> None:
     assert created.must_clear is True
     assert GLAccountUpdate(must_clear=True).must_clear is True
     assert "must_clear" in GLAccountOut.model_fields
+
+
+def test_gl_account_permissions_management_requires_settings_permission(monkeypatch) -> None:
+    user = SimpleNamespace(organization_id=42)
+    monkeypatch.setattr(gl_accounts, "_gl_account_permissions_feature_enabled", lambda *args, **kwargs: True)
+    seen = {}
+    def denied(_db, *, user, menu_key):
+        seen["menu_key"] = menu_key
+        return False
+    monkeypatch.setattr(gl_accounts, "permission_allows_user", denied)
+    with pytest.raises(HTTPException) as exc:
+        gl_accounts._require_gl_account_permissions_management(object(), user)
+    assert exc.value.status_code == 403
+    assert seen["menu_key"] == "SETTINGS.PERMISSIONS"

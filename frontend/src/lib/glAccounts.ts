@@ -48,6 +48,17 @@ export type GLAccountCreate = {
   must_clear?: boolean;
 };
 
+export type GLAccountPostingPermissionRow = {
+  gl_account_id: number;
+  gl_number: string;
+  name: string;
+  permissions: Record<string, boolean>;
+};
+export type GLAccountPostingPermissionMatrix = {
+  roles: string[];
+  rows: GLAccountPostingPermissionRow[];
+};
+
 export type GLAccountUpdate = {
   name?: string;
   account_type?: string;
@@ -104,4 +115,12 @@ export function updateGLAccount(
 
 export function deleteGLAccount(id: number): Promise<null> {
   return apiDelete(`/api/accounting/gl-accounts/${id}`);
+}
+export function getGLAccountPostingPermissions(): Promise<GLAccountPostingPermissionMatrix> {
+  return apiGet("/api/accounting/gl-accounts/posting-permissions");
+}
+export function updateGLAccountPostingPermissions(
+  values: Record<number, Record<string, boolean>>
+): Promise<GLAccountPostingPermissionMatrix> {
+  return apiPut("/api/accounting/gl-accounts/posting-permissions", { values });
 }

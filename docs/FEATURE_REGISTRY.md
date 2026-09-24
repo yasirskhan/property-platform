@@ -370,7 +370,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Include on cash flow | field | — | — | — | — | — | ✅ present | Accounting field |
 | Account ledger link | navigation | — | core | no | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Links to per-account ledger |
 | Must-clear-to-zero setting | field | — | — | — | — | — | ✅ present | Existing model flag is exposed through API, drawer, and list |
-| GL Account Permissions | capability | release.accounting.gl_account_permissions | core | yes | SETTINGS.PERMISSIONS | no | ⬜ hidden implementation present | Release-gated compatibility slot; per-account posting rules remain planned |
+| GL Account Permissions | capability | release.accounting.gl_account_permissions | core | yes | SETTINGS.PERMISSIONS | no | ✅ present | Release-gated subtract-only role/account posting restrictions; backend enforcement is centralized in post_transaction() |
 | Recalculate Balances | capability | release.accounting.gl_accounts.recalculate | core | no | ACCOUNTING.GL_ACCOUNTS | no | ⬜ hidden implementation present | Release-gated compatibility slot; rebuild workflow remains planned |
 | Hide semantics | behavior | — | core | yes | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Existing soft deactivation hides inactive accounts from default pickers while historical references remain |
 
@@ -671,7 +671,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Roles tab | capability | — | core | yes | SETTINGS.PERMISSIONS | no | ✅ present | Role-by-menu matrix |
 | Users tab | capability | — | core | yes | SETTINGS.PERMISSIONS | no | ✅ present | Per-user overrides |
 | My Preferences tab | capability | — | core | yes | — | no | ✅ present | Personal order/hiding |
-| GL Account Permissions | capability | release.accounting.gl_account_permissions | core | yes | SETTINGS.PERMISSIONS | no | ❌ missing | Finer posting authorization |
+| GL Account Permissions | capability | release.accounting.gl_account_permissions | core | yes | SETTINGS.PERMISSIONS | no | ✅ present | Finer posting authorization; configuration can only subtract posting access |
 
 ---
 
