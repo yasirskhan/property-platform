@@ -1,4 +1,4 @@
-"""Commercial billing catalog, subscription, item, and event models."""
+"""Commercial billing catalog, subscription, and payment models."""
 
 from __future__ import annotations
 
@@ -405,3 +405,104 @@ event.listen(
     "after_create",
     _POSTGRES_SUBSCRIPTION_EVENT_TRIGGER,
 )
+
+
+class BillingSettings(Base):
+    __tablename__ = "billing_settings"
+
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    stripe_customer_id = Column(
+        String(255),
+        nullable=True,
+        unique=True,
+        index=True,
+    )
+    billing_email = Column(String(255), nullable=True)
+    currency = Column(
+        String(3),
+        nullable=False,
+        default="USD",
+        server_default="USD",
+    )
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
+
+    organization = relationship("Organization")
+
+
+class PaymentMethod(Base):
+    __tablename__ = "payment_methods"
+    __table_args__ = (
+        CheckConstraint(
+            "last4 IS NULL OR length(last4) = 4",
+            name="ck_payment_methods_last4",
+        ),
+        CheckConstraint(
+            "exp_month IS NULL OR (exp_month >= 1 AND exp_month <= 12)",
+            name="ck_payment_methods_exp_month",
+        ),
+        CheckConstraint(
+            "exp_year IS NULL OR exp_year >= 2000",
+            name="ck_payment_methods_exp_year",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    provider = Column(
+        String(32),
+        nullable=False,
+        default="stripe",
+        server_default="stripe",
+    )
+    provider_payment_method_id = Column(
+        String(255),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    method_type = Column(String(32), nullable=False)
+    brand = Column(String(50), nullable=True)
+    last4 = Column(String(4), nullable=True)
+    exp_month = Column(Integer, nullable=True)
+    exp_year = Column(Integer, nullable=True)
+    is_default = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+        index=True,
+    )
+    is_active = Column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+        index=True,
+    )
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
+
+    organization = relationship("Organization")
