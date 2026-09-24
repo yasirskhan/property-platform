@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.23 — Currencies compatibility retrofit** is IN PROGRESS. Phase 3.4.22 Properties is COMPLETE and VERIFIED.
+**Current activity:** Phase **3.4.23 — Currencies compatibility retrofit** is COMPLETE and VERIFIED. Next implementation batch: **3.4.24 — Display compatibility retrofit**.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -146,14 +146,14 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Start Phase 3.4.23 — Currencies compatibility retrofit.**
+**Start Phase 3.4.24 — Display compatibility retrofit.**
 
-1. Preserve verified custom-currency CRUD/default behavior.
-2. Consume shared display primitives on the Currencies surface and make the Display currency selector fetch the organization currency list from the existing API instead of using a hardcoded list.
-3. Keep authorization backend-authoritative and do not turn routine currency fields into release flags.
-4. Verify through the full CI gate, fix CI reds autonomously, update the ledgers/handoff, and continue directly to the next compatibility retrofit.
+1. Preserve the existing display-preference storage and API contract.
+2. Enforce SETTINGS.DISPLAY server-side and make the Display page consume shared layout/density metadata.
+3. Wire saved theme/density/font/accent/reduce-motion preferences into the shared stylesheet without changing unrelated product behavior.
+4. Verify through the full CI gate, fix CI reds autonomously, update ledgers/handoff, and continue directly to the next compatibility retrofit.
 
-Phase 3.4.22 Properties is VERIFIED in hosted CI run 36056943124: backend 239 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed.
+Phase 3.4.23 Currencies is VERIFIED in hosted CI run 36057866985: backend 249 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed.
 
 ## B2. AFTER THAT## B2. AFTER THAT (Phase 3.5 onward)
 
@@ -4709,10 +4709,10 @@ Phase **3.4.23 — Currencies compatibility retrofit**. Preserve verified curren
 
 
 
-# SECTION 92 — FOUNDATION 3.4.23 (IN PROGRESS)
+# SECTION 92 — FOUNDATION 3.4.23 (COMPLETE)
 
 **Phase:** `3.4.23`  
-**Started:** 2026-09-24
+**Completed:** 2026-09-24
 
 ## Currencies compatibility retrofit
 
@@ -4724,6 +4724,15 @@ Phase **3.4.23 — Currencies compatibility retrofit**. Preserve verified curren
 - Routine currency fields are not feature-flagged.
 - No migration is required; Alembic head remains `8c4e2a7d1f90`.
 
-## Verification state
+## Verification evidence
 
-Implementation checkpoint prepared; hosted CI verification pending.
+- Implementation commit: `9b9dad9eec699887035f6acd9fbb6bbb7b150729`.
+- Hosted CI run `36057866985`: SUCCESS.
+- Backend/PostgreSQL: **249 passed, 3 deselected, 1266 warnings in 42.14s**.
+- E2E: **3 passed in 13.23s**.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
+- Alembic head remains `8c4e2a7d1f90`.
+
+## Next
+
+Phase **3.4.24 — Display compatibility retrofit**.

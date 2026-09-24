@@ -3684,7 +3684,7 @@
       "feature": "Currencies: use primitives + fetch list from API in Display",
       "status": "built",
       "phase": "3.4.23",
-      "notes": "Phase 3.4.23 checkpoint preserves currency CRUD/protections, adds authoritative SETTINGS.CURRENCIES access enforcement, aligns ADMIN/OWNER mutation controls, consumes shared display metadata, and removes alternate hardcoded Display currency choices."
+      "notes": "Verified in hosted CI run 36057866985: backend 249 passed / 3 deselected, E2E 3 passed; currency CRUD/protections remain intact, SETTINGS.CURRENCIES is authoritative server-side, ADMIN/OWNER mutation controls are aligned, shared display metadata is consumed, and alternate hardcoded Display currency choices are removed."
     },
     {
       "id": "compliance.display.use_primitives",
@@ -3776,7 +3776,7 @@
       "feature": "Currencies: Display dropdown fetches list from /api/settings/currencies",
       "status": "built",
       "phase": "3.4.23",
-      "notes": "Phase 3.4.23 removes alternate hardcoded fallback choices; the selector uses the organization currency catalog and retains only the current org currency if catalog loading fails."
+      "notes": "Verified in hosted CI run 36057866985: the selector uses the organization currency catalog, alternate hardcoded choices are removed, and only the current org currency is retained if catalog loading fails."
     },
     {
       "id": "compliance.data_residency.column",

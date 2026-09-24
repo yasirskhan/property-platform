@@ -97,8 +97,13 @@ Verified latest batch:
 - Planned Property Groups/Map and property-detail capabilities are hidden release-gated compatibility slots only; their workflows remain scheduled.
 - No migration is required; Alembic head remains 8c4e2a7d1f90.
 
-Current batch:
-- Phase 3.4.23 Currencies compatibility retrofit implementation is prepared and awaits hosted CI verification.
+Verified latest batch:
+- Phase 3.4.23 Currencies compatibility retrofit is COMPLETE and VERIFIED.
+- Implementation commit: 9b9dad9eec699887035f6acd9fbb6bbb7b150729.
+- GitHub CI run 36057866985: SUCCESS.
+- Backend/PostgreSQL: 249 passed, 3 deselected, 1266 warnings in 42.14s.
+- E2E: 3 passed in 13.23s.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
 - Existing per-org currency CRUD, system-currency protections, and current-currency delete/deactivate protections are unchanged.
 - Currency routes now enforce SETTINGS.CURRENCIES server-side in addition to existing ADMIN/OWNER write roles.
 - Currencies UI consumes shared display layout/density metadata and hides mutation controls from non-writers.
@@ -106,9 +111,10 @@ Current batch:
 - No migration is required; Alembic head remains 8c4e2a7d1f90.
 
 Next action:
-1. Verify Phase 3.4.23 through hosted CI.
-2. Fix any CI red autonomously.
-3. When green, record exact evidence and continue directly to Phase 3.4.24 — Display compatibility retrofit.
+1. Start Phase 3.4.24 — Display compatibility retrofit.
+2. Preserve the existing display preference schema/API while enforcing SETTINGS.DISPLAY server-side.
+3. Wire the saved theme/density/font/accent/reduce-motion preferences into the shared stylesheet and make the Display page consume the same display metadata.
+4. Keep behavior deterministic and regression-protected; verify through hosted CI, fix reds autonomously, then continue directly to the next ordered compatibility batch.
 
 Open blockers:
 - NONE
