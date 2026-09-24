@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models.billing import BillingSettings, Plan, Subscription
 from app.models.billing_checkout import BillingCheckoutSession
+from app.models.user import Organization
 
 
 def get_active_billing_catalog(db: Session) -> dict[str, Any]:
@@ -54,6 +55,10 @@ def get_organization_billing_state(
 
     Provider identifiers and idempotency keys are deliberately excluded.
     """
+    organization = db.get(Organization, organization_id)
+    if organization is None:
+        raise ValueError("Organization not found")
+
     billing_settings = (
         db.query(BillingSettings)
         .filter(BillingSettings.organization_id == organization_id)
@@ -116,6 +121,7 @@ def get_organization_billing_state(
         }
 
     return {
+        "organization_state": organization.state,
         "billing_settings": settings_payload,
         "subscription": subscription_payload,
         "latest_checkout": checkout_payload,

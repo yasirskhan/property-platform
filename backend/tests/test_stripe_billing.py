@@ -169,6 +169,7 @@ def test_checkout_completed_reconciles_customer_subscription_and_is_idempotent(
     db, engine = _session()
     try:
         org, user, plan, tier = _catalog(db)
+        org.state = "PENDING_BILLING"
         attempt = BillingCheckoutSession(
             organization_id=org.id,
             plan_id=plan.id,

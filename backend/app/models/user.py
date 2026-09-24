@@ -54,6 +54,9 @@ class UserRole(str, enum.Enum):
     APPLICANT = "APPLICANT"
 
 
+SELF_SERVE_PENDING_BILLING_STATE = "PENDING_BILLING"
+
+
 # ------------------------------------------------------------
 # ORGANIZATION
 # ------------------------------------------------------------
@@ -73,8 +76,11 @@ class Organization(Base):
     is_active = Column(Boolean, default=True)
     deleted_at = Column(DateTime, nullable=True, index=True)
 
-    # Subscription state placeholder.
-    # ACTIVE | PAST_DUE | RESTRICTED | SUSPENDED | CANCELLED
+    # Customer billing lifecycle state.
+    # Self-serve organizations begin PENDING_BILLING and Stripe
+    # webhook reconciliation promotes them to ACTIVE after payment.
+    # ACTIVE | PAST_DUE | RESTRICTED | SUSPENDED | CANCELLED are
+    # synchronized from the local subscription lifecycle.
     state = Column(String(20), nullable=False, default="ACTIVE", index=True)
 
     # Per-org currency. Each customer org operates in exactly

@@ -55,6 +55,7 @@ class CheckoutStateOut(BaseModel):
 
 
 class BillingStateOut(BaseModel):
+    organization_state: str
     billing_settings: BillingSettingsStateOut | None
     subscription: SubscriptionStateOut | None
     latest_checkout: CheckoutStateOut | None
