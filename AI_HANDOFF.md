@@ -30,7 +30,7 @@ Current HEAD hash: resolve from this branch with `git rev-parse HEAD`; this file
 
 Last completed batch:
 - Phase 3.4.7 basic billing foundation is COMPLETE at the backend/foundation level.
-- Maintenance after Phase 3.4.7 — CI backup/restore validation is schema-aware, and the authenticated property smoke opens the Units tab before asserting seeded unit data.
+- Maintenance after Phase 3.4.7 — CI backup/restore validation is schema-aware, schema-head/table-count guards are current, the authenticated property smoke opens the Units tab before asserting seeded unit data, and property/unit edit permission guards normalize role enum casing before client-side routing.
 - Phase 3.4.8 Batch 1 — backend-only Stripe Checkout foundation: durable DB-first checkout attempts, Stripe/provider idempotency, hosted subscription Checkout creation, signed raw-body webhook verification, Stripe customer/subscription reconciliation, and subscription/invoice lifecycle event handling. No frontend/UI changes.
 
 Next batch to run:

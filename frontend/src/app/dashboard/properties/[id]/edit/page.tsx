@@ -66,7 +66,8 @@ export default function EditPropertyPage() {
           apiGet(`/properties/${propertyId}`),
         ]);
 
-        if (meData.role !== "admin" && meData.role !== "owner" && meData.role !== "manager") {
+        const role = String(meData.role || "").toUpperCase();
+        if (role !== "ADMIN" && role !== "OWNER" && role !== "MANAGER") {
           router.replace(`/dashboard/properties/${propertyId}`);
           return;
         }

@@ -40,7 +40,8 @@ export default function EditUnitPage() {
           apiGet(`/properties/${propertyId}/units/${unitId}`),
         ]);
 
-        if (me.role !== "admin" && me.role !== "owner" && me.role !== "manager") {
+        const role = String(me.role || "").toUpperCase();
+        if (role !== "ADMIN" && role !== "OWNER" && role !== "MANAGER") {
           router.replace(`/dashboard/properties/${propertyId}`);
           return;
         }
