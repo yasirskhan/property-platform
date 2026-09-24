@@ -187,9 +187,10 @@ jobs:
           createdb -h 127.0.0.1 -U postgres property_platform_restore
           pg_restore -h 127.0.0.1 -U postgres -d property_platform_restore --exit-on-error /tmp/property-platform-e2e.dump
           USER_COUNT=$(psql -h 127.0.0.1 -U postgres -d property_platform_restore -Atc "select count(*) from users where email='e2e-admin@example.com';")
-          TABLE_COUNT=$(psql -h 127.0.0.1 -U postgres -d property_platform_restore -Atc "select count(*) from information_schema.tables where table_schema='public';")
+          SOURCE_TABLE_COUNT=$(psql -h 127.0.0.1 -U postgres -d property_platform_e2e -Atc "select count(*) from information_schema.tables where table_schema='public';")
+          RESTORED_TABLE_COUNT=$(psql -h 127.0.0.1 -U postgres -d property_platform_restore -Atc "select count(*) from information_schema.tables where table_schema='public';")
           test "$USER_COUNT" = "1"
-          test "$TABLE_COUNT" = "57"
+          test "$RESTORED_TABLE_COUNT" = "$SOURCE_TABLE_COUNT"
       - name: Run authenticated browser smoke test
         shell: bash
         run: |
