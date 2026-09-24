@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.17 — Journal Entries compatibility retrofit** is IN PROGRESS. Phase 3.4.16 GL Accounts is COMPLETE and VERIFIED.
+**Current activity:** Phase **3.4.17 — Journal Entries compatibility retrofit** is COMPLETE and VERIFIED. Next: **3.4.18 — Management Fees compatibility retrofit**.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -35,7 +35,7 @@
 
 **Migration head:** `8c4e2a7d1f90`.
 
-**Current parity inventory:** 198 built, 1 in progress, 429 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 199 built, 0 in progress, 429 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -146,14 +146,14 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Continue Phase 3.4.14 — Bills compatibility retrofit.**
+**Continue Phase 3.4.18 — Management Fees compatibility retrofit.**
 
-1. Apply the verified Receipts compatibility pattern to the existing Bills surfaces without changing two-step accrual behavior.
-2. Consume shared display primitives and the existing customer capability resolver.
-3. Represent planned independently releasable Bill capabilities behind their registry release gates without inventing per-field flags.
-4. Keep backend authorization authoritative and verify the batch through the full CI gate before continuing to the next compatibility retrofit.
+1. Preserve the verified two-step management-fee workflow that creates a Bill.
+2. Consume shared display primitives and enforce ACCOUNTING.MANAGEMENT_FEES authorization server-side.
+3. Represent Pay Owners, overcollection strategy, Management Fee Exclusions, and Post GPR as independently release-gated compatibility slots; do not invent per-field flags or prematurely implement their full workflows.
+4. Verify the batch through the full CI gate, fix CI reds autonomously, update the ledgers/handoff, and continue directly to the next compatibility retrofit.
 
-Continue autonomously through CI fixes and subsequent foundation phases. Use revised Section 82 when older phase numbers conflict.
+Phase 3.4.17 Journal Entries is VERIFIED in hosted CI run 35998021267: backend 193 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed. Continue autonomously through subsequent foundation phases using revised Section 82 when older phase numbers conflict.
 
 ## B2. AFTER THAT## B2. AFTER THAT (Phase 3.5 onward)
 

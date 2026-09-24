@@ -39,28 +39,25 @@ Verified foundation through this checkpoint:
 - Phase 3.4.13 Receipts compatibility retrofit.
 - Phase 3.4.14 Bills compatibility retrofit.
 - Phase 3.4.15 Bank Deposits compatibility retrofit.
-- Phase 3.4.16 GL Accounts compatibility retrofit is COMPLETE and VERIFIED.
-- Phase 3.4.16 implementation commit: 169949960b9ec2eb25e2ed6fa92b09ad1a2ddb30.
-- GitHub CI run 35997110696: SUCCESS.
-- Backend/PostgreSQL: 183 passed, 3 deselected, 1266 warnings in 41.98s.
-- E2E: 3 passed in 11.65s.
+- Phase 3.4.16 GL Accounts compatibility retrofit.
+- Phase 3.4.17 Journal Entries compatibility retrofit is COMPLETE and VERIFIED.
+- Phase 3.4.17 implementation commit: 57754c2c684d64ba8355e6634cc4c860fe0a6cd6.
+- GitHub CI run 35998021267: SUCCESS.
+- Backend/PostgreSQL: 193 passed, 3 deselected, 1266 warnings in 40.66s.
+- E2E: 3 passed in 8.44s.
 - Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
 - Alembic head remains 8c4e2a7d1f90.
 
 Current batch:
-- Phase 3.4.17 Journal Entries compatibility retrofit implementation is prepared in the current checkpoint and awaiting hosted CI verification.
-- Existing balanced manual JE posting remains routed through post_transaction(transaction_type="JOURNAL_ENTRY"); reversal-only posted-GL integrity is unchanged.
-- Journal list/new/detail surfaces consume display context; list/detail dates use shared date formatting.
-- Existing New Journal Entry flow is the real manual-post workflow, so the registry now marks that capability present rather than adding a duplicate.
-- Existing header memo and per-line description fields/API posting semantics satisfy the remarks-vs-line-description rule.
-- Recurring Journal Entries and Post GPR are release-gated compatibility slots and remain invisible while HIDDEN.
-- Journal entry backend routes enforce ACCOUNTING.JOURNAL_ENTRIES permission. POST additionally enforces ADMIN/OWNER/MANAGER write roles, matching the existing frontend contract.
-- Regression coverage includes permission/write-role tests and authenticated E2E proof that unreleased recurring/GPR actions stay hidden.
+- Phase 3.4.17 Journal Entries compatibility retrofit is verified complete.
+- Balanced manual posting, transaction memo vs line descriptions, permission enforcement, display/date compatibility, and hidden release-gated recurring/GPR compatibility slots are regression-protected.
+- No migration was introduced; Alembic head remains 8c4e2a7d1f90.
 
 Next action:
-1. Verify the current Phase 3.4.17 checkpoint through hosted CI.
-2. Fix any CI red autonomously.
-3. When green, mark compliance.journal_entries.full_surface built, record exact verification results, and continue directly into Management Fees compatibility work without waiting for the user.
+1. Start Phase 3.4.18 Management Fees compatibility retrofit.
+2. Preserve the verified two-step fee workflow that creates a Bill.
+3. Add shared display compatibility, authoritative permission enforcement, and release-gated compatibility slots for Pay Owners, overcollection strategy, exclusions, and Post GPR without inventing per-field flags.
+4. Verify through hosted CI, fix reds autonomously, update all planning/handoff ledgers, then continue to the next compatibility retrofit.
 
 Open blockers:
 - NONE
