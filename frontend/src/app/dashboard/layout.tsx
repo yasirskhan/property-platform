@@ -64,6 +64,23 @@ export default function DashboardLayout({
 
     apiGet("/auth/me")
       .then(async (u: User) => {
+        const role = String(u.role || "").toUpperCase();
+        if (
+          u.organization_id &&
+          (role === "ADMIN" || role === "OWNER")
+        ) {
+          try {
+            const billing = await apiGet("/api/billing/state");
+            if (billing.organization_state === "PENDING_BILLING") {
+              router.replace("/signup?checkout=pending");
+              return;
+            }
+          } catch {
+            router.replace("/signup?checkout=pending");
+            return;
+          }
+        }
+
         setUser(u);
 
         if (u.organization_id) {

@@ -19,6 +19,30 @@ PROPERTY_ID = 900001
 UNIT_ID = 900001
 
 
+def test_signup_page_uses_hosted_payment_flow_without_card_fields() -> None:
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page()
+        try:
+            page.goto(f"{BASE_URL}/signup", wait_until="domcontentloaded")
+            expect(
+                page.get_by_role("heading", name="Create your account", exact=True)
+            ).to_be_visible()
+            expect(page.get_by_label("Company name", exact=True)).to_be_visible()
+            expect(page.get_by_label("Email", exact=True)).to_be_visible()
+            expect(page.get_by_label("Password", exact=True)).to_be_visible()
+            expect(page.locator('input[autocomplete="cc-number"]')).to_have_count(0)
+            expect(page.locator('input[name="card_number"]')).to_have_count(0)
+            expect(page.locator('input[name="cvc"]')).to_have_count(0)
+            expect(
+                page.get_by_text(
+                    re.compile(r"Payment details are entered only on Stripe Checkout")
+                )
+            ).to_be_visible()
+        finally:
+            browser.close()
+
+
 def test_login_and_core_authenticated_pages() -> None:
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()

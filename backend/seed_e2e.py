@@ -6,7 +6,7 @@ import os
 from app.core.auth import create_user
 from app.core.database import SessionLocal
 from app.models.property import Property, PropertyType, Unit
-from app.models.user import User, UserRole
+from app.models.user import Organization, User, UserRole
 from app.schemas.user import UserCreate
 
 E2E_EMAIL = os.environ.get("E2E_ADMIN_EMAIL", "e2e-admin@example.com")
@@ -39,6 +39,12 @@ def seed() -> None:
                 organization_name=E2E_ORG,
             ),
         )
+        organization = db.get(Organization, user.organization_id)
+        if organization is None:
+            raise RuntimeError("Seeded E2E user is missing its organization")
+        # The core authenticated smoke represents an already-paid customer.
+        organization.state = "ACTIVE"
+
         property_obj = Property(
             id=E2E_PROPERTY_ID,
             organization_id=user.organization_id,

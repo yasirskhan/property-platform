@@ -12,7 +12,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { apiPost, saveToken, apiGet } from "@/lib/api";
+import { apiPost, saveToken, apiGet, clearToken } from "@/lib/api";
 
 type Me = {
   id: number;
@@ -41,11 +41,23 @@ export default function LoginPage() {
       // 2. Fetch the user's profile
       const me: Me = await apiGet("/auth/me");
 
-      // 3. Everyone lands on the shared dashboard.
-      //    The dashboard layout reads the role and renders the
-      //    right sidebar items based on menu permissions.
+      // 3. Self-serve buyer accounts must finish verified billing
+      //    before entering the full customer dashboard.
+      const role = String(me.role || "").toUpperCase();
+      if (
+        me.organization_id &&
+        (role === "ADMIN" || role === "OWNER")
+      ) {
+        const billing = await apiGet("/api/billing/state");
+        if (billing.organization_state === "PENDING_BILLING") {
+          router.push("/signup?checkout=pending");
+          return;
+        }
+      }
+
       router.push("/dashboard");
     } catch (err) {
+      clearToken();
       setError(err instanceof Error ? err.message : "Login failed");
       setLoading(false);
     }
