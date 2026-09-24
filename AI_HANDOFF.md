@@ -60,19 +60,25 @@ Verified latest batch:
 - Display/date compatibility, ACCOUNTING.OWNER_STATEMENTS permission enforcement, ADMIN/OWNER/MANAGER write roles, structural reserve/prepaid slots, and hidden release-gated cash-summary/packet/email slots are verified.
 - Alembic head remains 8c4e2a7d1f90.
 
-Current batch:
-- Phase 3.4.20 Bank Accounts compatibility retrofit implementation is prepared in this checkpoint and awaits hosted CI verification.
+Verified latest batch:
+- Phase 3.4.20 Bank Accounts compatibility retrofit is COMPLETE and VERIFIED.
+- Final repair commit: aa44bc1a53717188bc37a5adda04abc7505358fe.
+- GitHub CI run 36046681933: SUCCESS.
+- Backend/PostgreSQL: 223 passed, 3 deselected, 1266 warnings in 42.30s.
+- E2E: 3 passed in 10.75s.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
 - Existing physical bank-account CRUD and GL-account mapping remain unchanged.
-- Customer page consumes shared display context and normalizes write-role casing.
-- Backend routes require ACCOUNTING.BANK_ACCOUNTS permission; create/update/delete additionally require ADMIN/OWNER/MANAGER.
-- Reconciliation, QIF, check setup/printing, ACH generation/test, bank feed, and adjustments are release-gated compatibility slots and remain invisible while HIDDEN.
-- Regression/E2E coverage is included; no migration is required and Alembic head remains 8c4e2a7d1f90.
-- First hosted CI run 36046518433 stopped at parity consistency only: actual counts were 201 built / 1 in progress / 426 scheduled while parity _meta still declared 200 built / 427 scheduled. This repair updates metadata only; product code is unchanged.
+- Shared display compatibility, ACCOUNTING.BANK_ACCOUNTS permission enforcement, ADMIN/OWNER/MANAGER write roles, and hidden release-gated reconciliation/QIF/check/ACH/feed/adjustment slots are verified.
+- Alembic head remains 8c4e2a7d1f90.
+
+Current batch:
+- Phase 3.4.21 Charges compatibility retrofit.
 
 Next action:
-1. Verify this Phase 3.4.20 checkpoint through hosted CI.
-2. Fix any CI red autonomously.
-3. When green, mark compliance.bank_accounts.full_surface built, record exact verification results, and continue directly to the next ordered core-product batch.
+1. Read the existing Charges router/list/new surfaces and preserve verified charge accounting/edit rules.
+2. Add shared display compatibility and authoritative ACCOUNTING.CHARGES access/write enforcement where missing.
+3. Represent Bulk Tenant Charges Upload as a release-gated compatibility slot without prematurely implementing the workflow.
+4. Add regression/E2E coverage, verify through hosted CI, fix reds autonomously, update ledgers/handoff, and continue directly to the next compatibility retrofit.
 
 Open blockers:
 - NONE
