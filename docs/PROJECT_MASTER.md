@@ -143,12 +143,13 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Verify Phase 3.4.26 — Sidebar compatibility retrofit.**
+**Begin Phase 3.6 — Accounting Polish: Chart of Accounts.**
 
-1. Verify the legacy /dashboard/settings/sidebar route lands directly on Permissions → My Preferences.
-2. Preserve personal sidebar order/hide semantics and backend-authoritative menu resolution.
-3. Fix CI reds autonomously.
-4. When green, record exact evidence and continue directly to the next planned compatibility batch.
+1. Reconcile already-built must-clear, offset-account, and hide behavior with the parity ledger.
+2. Implement real GL Account Permissions as subtract-only account posting controls enforced in the central GL posting service.
+3. Preserve independent release gating and all existing financial/module authorization.
+4. Resolve Recalculate Balances against the current live-derived ledger architecture without introducing duplicate cached financial state.
+5. Verify in hosted CI, fix reds autonomously, update ledgers/handoff, and continue through Phase 3.6.
 
 Phase 3.4.25 Permissions is VERIFIED in hosted CI run 36060022264: backend 256 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed.
 
@@ -4792,10 +4793,10 @@ Phase **3.4.25 — Permissions compatibility retrofit**.
 Phase **3.4.26 — Sidebar compatibility retrofit**. Preserve the legacy route while sending users directly to Permissions → My Preferences, keep personal sidebar customization self-service, and preserve backend-authoritative menu resolution.
 
 
-# SECTION 95 — FOUNDATION 3.4.26 (IN PROGRESS)
+# SECTION 95 — FOUNDATION 3.4.26 (COMPLETE)
 
 **Phase:** `3.4.26`  
-**Started:** 2026-09-24
+**Completed:** 2026-09-24
 
 ## Sidebar compatibility retrofit
 
@@ -4806,6 +4807,15 @@ Phase **3.4.26 — Sidebar compatibility retrofit**. Preserve the legacy route w
 - Browser smoke coverage verifies the compatibility redirect reaches the self-service preference surface.
 - No migration is required; Alembic head remains `8c4e2a7d1f90`.
 
-## Verification state
+## Verification evidence
 
-Implementation checkpoint prepared; hosted CI verification pending.
+- Implementation commit: `b223d5746d5f19c361bf00b2ec749be0af25e756`.
+- Hosted CI run `36066815450`: SUCCESS.
+- Backend/PostgreSQL: **256 passed, 3 deselected, 1266 warnings in 40.31s**.
+- E2E: **3 passed in 9.03s**.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
+- Alembic head remains `8c4e2a7d1f90`.
+
+## Next
+
+Phase **3.6 — Accounting Polish** begins with Chart of Accounts. The 3.5.5 compatibility pass is complete.

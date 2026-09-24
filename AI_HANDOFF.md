@@ -138,18 +138,28 @@ Verified latest batch:
 - GL Account Permissions remains a hidden release-gated future capability; its workflow is still scheduled.
 - No migration is required; Alembic head remains 8c4e2a7d1f90.
 
-Current batch:
-- Phase 3.4.26 Sidebar compatibility retrofit implementation is prepared and awaits hosted CI verification.
-- Legacy /dashboard/settings/sidebar now deep-links to /dashboard/settings/permissions?tab=preferences.
-- Permissions honors an allowed tab query while preserving role-based tab visibility and normal default behavior.
-- Existing /api/menu/me, /api/menu/me/preferences, legacy /settings/sidebar API semantics, storage, and resolver behavior are unchanged.
-- E2E now proves the compatibility route lands on the My Preferences surface.
+Verified latest batch:
+- Phase 3.4.26 Sidebar compatibility retrofit is COMPLETE and VERIFIED.
+- Implementation commit: b223d5746d5f19c361bf00b2ec749be0af25e756.
+- GitHub CI run 36066815450: SUCCESS.
+- Backend/PostgreSQL: 256 passed, 3 deselected, 1266 warnings in 40.31s.
+- E2E: 3 passed in 9.03s.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
+- Legacy /dashboard/settings/sidebar deep-links to /dashboard/settings/permissions?tab=preferences.
+- Permissions honors allowed tab deep-links while preserving role-based visibility/defaults.
+- Existing /api/menu/me, /api/menu/me/preferences, legacy /settings/sidebar API semantics, storage, and backend-authoritative resolver behavior are unchanged.
 - No migration is required; Alembic head remains 8c4e2a7d1f90.
+- Phase 3.5.5 compatibility pass is now COMPLETE across the planned retrofit surfaces.
+
+Current batch:
+- Phase 3.6 Accounting Polish begins with Chart of Accounts.
 
 Next action:
-1. Verify Phase 3.4.26 through hosted CI.
-2. Fix any CI red autonomously.
-3. When green, record exact evidence and continue directly to the next planned compatibility batch.
+1. Reconcile already-built Chart of Accounts fields/hide behavior with parity state.
+2. Implement real GL Account Permissions as subtract-only posting authorization enforced centrally in post_transaction(), without weakening existing module/role permissions.
+3. Keep release gating independent; hidden gate preserves current posting behavior.
+4. Resolve the Recalculate Balances plan item against the current live-derived ledger architecture without introducing unnecessary duplicate balance state.
+5. Verify in hosted CI, fix reds autonomously, update ledgers/handoff, and continue through Phase 3.6.
 
 Open blockers:
 - NONE
