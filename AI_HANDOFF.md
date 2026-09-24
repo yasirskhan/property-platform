@@ -177,16 +177,21 @@ Verified latest batch:
 - No migration in this batch; Alembic head remains 4d7f2a9c6e31.
 
 Current batch:
-- Continue Phase 3.6 with the Journal Entries block.
-- Existing manual JE posting already provides the Manually Post workflow through post_transaction(), and the transaction memo vs line description rule is already implemented and verified.
-- Reconcile those existing capabilities to built while implementing the real recurring JE workflow and History/Recurring tabs.
-- Post GPR remains the next Journal Entries sub-batch after recurring JEs.
+- Phase 3.6 recurring Journal Entries batch is implemented and awaits hosted CI verification.
+- New org-scoped recurring_journal_entries + recurring_journal_entry_lines store balanced monthly templates and schedule state.
+- New migration head: 6a1d9e3f4b72. Expected model-table count: 79.
+- The recurring API remains authoritative behind ACCOUNTING.JOURNAL_ENTRIES plus the independent release/entitlement/org-config capability resolver; writes remain ADMIN/OWNER/MANAGER only.
+- Journal Entries customer UI now has real History/Recurring tabs, recurring schedule list, pause/resume controls, and a New Recurring Entry form.
+- Due postings use source_type=recurring_je, pass through post_transaction(), preserve memo vs line description semantics, use an atomic schedule/posting commit, and are idempotent per schedule/date.
+- The Arq jobs runtime now reserves one durable recurring-JE due sweep per UTC date; monthly 29/30/31 schedules clamp to the calendar month end and catch up missed due dates.
+- Existing Manually Post and remarks-vs-description behavior is reconciled to built rather than rebuilt.
+- Parity inventory: 211 built, 0 in progress, 417 scheduled, 628 total.
+- Post GPR remains the next Journal Entries sub-batch.
 
 Next action:
-1. Implement release-gated recurring Journal Entries with org-scoped schedules/templates, History/Recurring tabs, and durable due-posting integration.
-2. Preserve ACCOUNTING.JOURNAL_ENTRIES permission, ADMIN/OWNER/MANAGER write roles, central post_transaction(), immutable posted entries, and org isolation.
-3. Reconcile manually-post and remarks-vs-description parity items to built.
-4. Verify in hosted CI, fix reds autonomously, then continue with Post GPR.
+1. Verify this recurring Journal Entries batch in hosted CI and fix reds autonomously.
+2. Record exact green evidence in this handoff.
+3. Implement Journal Entries Post GPR next, then continue Phase 3.6 without stopping.
 
 Open blockers:
 - NONE

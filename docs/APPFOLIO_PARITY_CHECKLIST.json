@@ -13,8 +13,8 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 206,
-    "scheduled_count": 422,
+    "built_count": 211,
+    "scheduled_count": 417,
     "in_progress_count": 0
   },
   "items": [
@@ -179,8 +179,9 @@
       "id": "accounting.gl.recurring_jes",
       "area": "Accounting / General Ledger",
       "feature": "Recurring Journal Entries",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Recurring schedules store org-scoped balanced templates and post due monthly entries through the central GL posting service."
     },
     {
       "id": "accounting.receipts.tenant",
@@ -805,8 +806,9 @@
       "id": "accounting.je.recurring",
       "area": "Accounting / Journal Entries",
       "feature": "Recurring JEs",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Recurring JE create/list/pause/resume workflow plus durable daily due-posting is implemented behind the recurring Journal Entries capability."
     },
     {
       "id": "properties.core.crud",
@@ -2015,22 +2017,25 @@
       "id": "accounting.je.sub_tabs",
       "area": "Accounting / Journal Entries",
       "feature": "Journal Entry sub-tabs (History | Recurring)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Journal Entries now has History and release-gated Recurring tabs."
     },
     {
       "id": "accounting.je.manually_post",
       "area": "Accounting / Journal Entries",
       "feature": "Manually Post Journal Entries (search + post)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Existing New Journal Entry workflow is the manual posting workflow and posts balanced entries through post_transaction()."
     },
     {
       "id": "accounting.je.remarks_vs_description",
       "area": "Accounting / Journal Entries",
       "feature": "Remarks (statement-level) vs Description (line-level) rule",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Existing contract is implemented: transaction memo is statement-level remarks and GLEntry.description is line-level description."
     },
     {
       "id": "accounting.receipts.print",

@@ -22,13 +22,23 @@ from app.core.database import get_db
 from app.routers.auth import get_current_user
 from app.models.user import User
 from app.models.gl_transaction import GLTransaction
+from app.models.recurring_journal_entry import RecurringJournalEntry
 from app.schemas.gl_transaction import PostingLine
 from app.schemas.journal_entry import (
     JournalEntryCreateIn,
     JournalEntryOut,
     JournalEntryListOut,
+    RecurringJournalEntryCreateIn,
+    RecurringJournalEntryListOut,
+    RecurringJournalEntryOut,
+    RecurringJournalEntryStatusIn,
 )
+from app.services.audit import append_audit_log
 from app.services.gl_posting import PostingError, post_transaction
+from app.services.recurring_journal_entries import (
+    create_recurring_journal_entry,
+    recurring_journal_entries_enabled_for_org,
+)
 from app.services.menu_resolver import permission_allows_user
 
 
@@ -76,6 +86,22 @@ def _require_write(current_user: User) -> None:
         )
 
 
+def _require_recurring_access(db: Session, current_user: User) -> int:
+    org_id = _require_journal_entries_access(db, current_user)
+    if not recurring_journal_entries_enabled_for_org(
+        db, organization_id=org_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Recurring Journal Entries is not available.",
+        )
+    return org_id
+
+
+def _recurring_to_out(row: RecurringJournalEntry) -> RecurringJournalEntryOut:
+    return RecurringJournalEntryOut.model_validate(row)
+
+
 def _txn_to_out(t: GLTransaction) -> JournalEntryOut:
     return JournalEntryOut(
         id=t.id,
@@ -93,6 +119,104 @@ def _txn_to_out(t: GLTransaction) -> JournalEntryOut:
         created_at=t.created_at,
         updated_at=t.updated_at,
     )
+
+
+# ============================================================
+# RECURRING JOURNAL ENTRIES
+# ============================================================
+
+@router.get("/recurring", response_model=RecurringJournalEntryListOut)
+def list_recurring_journal_entries(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_recurring_access(db, current_user)
+    rows = (
+        db.query(RecurringJournalEntry)
+        .filter(RecurringJournalEntry.organization_id == org_id)
+        .order_by(
+            RecurringJournalEntry.is_active.desc(),
+            RecurringJournalEntry.next_post_date.asc(),
+            RecurringJournalEntry.id.asc(),
+        )
+        .all()
+    )
+    return RecurringJournalEntryListOut(
+        items=[_recurring_to_out(row) for row in rows],
+        total=len(rows),
+    )
+
+
+@router.post(
+    "/recurring",
+    response_model=RecurringJournalEntryOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_recurring_journal_entry_route(
+    payload: RecurringJournalEntryCreateIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_write(current_user)
+    org_id = _require_recurring_access(db, current_user)
+    try:
+        row = create_recurring_journal_entry(
+            db,
+            organization_id=org_id,
+            created_by=current_user,
+            name=payload.name,
+            start_date=payload.start_date,
+            end_date=payload.end_date,
+            day_of_month=payload.day_of_month,
+            reference_number=payload.reference_number,
+            memo=payload.memo,
+            lines=payload.lines,
+        )
+    except PostingError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+    return _recurring_to_out(row)
+
+
+@router.patch(
+    "/recurring/{schedule_id}/status",
+    response_model=RecurringJournalEntryOut,
+)
+def update_recurring_journal_entry_status(
+    schedule_id: int,
+    payload: RecurringJournalEntryStatusIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_write(current_user)
+    org_id = _require_recurring_access(db, current_user)
+    row = (
+        db.query(RecurringJournalEntry)
+        .filter(
+            RecurringJournalEntry.id == schedule_id,
+            RecurringJournalEntry.organization_id == org_id,
+        )
+        .first()
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Recurring journal entry not found.",
+        )
+    row.is_active = payload.is_active
+    append_audit_log(
+        db,
+        user_id=current_user.id,
+        organization_id=org_id,
+        entity_type="recurring_journal_entry",
+        entity_id=row.id,
+        action="activate" if payload.is_active else "pause",
+    )
+    db.commit()
+    db.refresh(row)
+    return _recurring_to_out(row)
 
 
 # ============================================================

@@ -95,3 +95,76 @@ class JournalEntryOut(BaseModel):
 class JournalEntryListOut(BaseModel):
     items: List[JournalEntryOut]
     total: int
+
+# ============================================================
+# RECURRING JOURNAL ENTRIES
+# ============================================================
+
+class RecurringJournalEntryCreateIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    start_date: date
+    end_date: Optional[date] = None
+    day_of_month: int = Field(..., ge=1, le=31)
+    reference_number: Optional[str] = Field(None, max_length=60)
+    memo: Optional[str] = None
+    lines: List[JournalEntryLineIn] = Field(..., min_length=2)
+
+    @field_validator("lines")
+    @classmethod
+    def _validate_recurring_balance(
+        cls, v: List[JournalEntryLineIn]
+    ) -> List[JournalEntryLineIn]:
+        total_debit = sum((ln.debit or Decimal("0")) for ln in v)
+        total_credit = sum((ln.credit or Decimal("0")) for ln in v)
+        if total_debit == 0 and total_credit == 0:
+            raise ValueError("At least one line must have a debit or credit.")
+        if abs(total_debit - total_credit) > Decimal("0.01"):
+            raise ValueError(
+                f"Recurring journal entry does not balance: "
+                f"debits={total_debit} credits={total_credit}."
+            )
+        return v
+
+
+class RecurringJournalEntryStatusIn(BaseModel):
+    is_active: bool
+
+
+class RecurringJournalEntryLineOut(BaseModel):
+    id: int
+    gl_account_id: int
+    property_id: Optional[int] = None
+    unit_id: Optional[int] = None
+    owner_id: Optional[int] = None
+    description: Optional[str] = None
+    debit: Decimal
+    credit: Decimal
+
+    class Config:
+        from_attributes = True
+
+
+class RecurringJournalEntryOut(BaseModel):
+    id: int
+    organization_id: int
+    name: str
+    start_date: date
+    end_date: Optional[date] = None
+    day_of_month: int
+    next_post_date: date
+    last_posted_date: Optional[date] = None
+    reference_number: Optional[str] = None
+    memo: Optional[str] = None
+    is_active: bool
+    created_by_id: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+    lines: List[RecurringJournalEntryLineOut]
+
+    class Config:
+        from_attributes = True
+
+
+class RecurringJournalEntryListOut(BaseModel):
+    items: List[RecurringJournalEntryOut]
+    total: int

@@ -62,6 +62,10 @@ from app.models.screening import ScreeningProvider, OrganizationScreeningSetting
 from app.models.gl_account import GLAccount, GLAccountPostingRestriction  # noqa: F401
 from app.models.gl_transaction import GLTransaction  # noqa: F401
 from app.models.gl_entry import GLEntry  # noqa: F401
+from app.models.recurring_journal_entry import (  # noqa: F401
+    RecurringJournalEntry,
+    RecurringJournalEntryLine,
+)
 
 # ---- Receipts (Phase 2 Step 5) ----
 from app.models.receipt import Receipt  # noqa: F401

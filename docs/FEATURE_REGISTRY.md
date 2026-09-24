@@ -389,7 +389,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 |---|---|---|---|---|---|---|---|---|
 | Journal Entries page | page | release.accounting.journal_entries | core | no | ACCOUNTING.JOURNAL_ENTRIES | yes | ✅ present | Core GL workflow |
 | Date filters + list | section | — | — | — | — | — | ✅ present | Existing history view |
-| History / Recurring tabs | capability | release.accounting.journal_entries.recurring | recurring_journal_entries | yes | ACCOUNTING.JOURNAL_ENTRIES | no | ⬜ hidden implementation present | Release-gated recurring-JE compatibility slot; recurring management remains planned |
+| History / Recurring tabs | capability | release.accounting.journal_entries.recurring | recurring_journal_entries | yes | ACCOUNTING.JOURNAL_ENTRIES | no | ✅ present | Real recurring-JE schedules/templates with History/Recurring tabs, pause/resume management, monthly catch-up posting, and durable daily due sweep through the jobs runtime |
 | Post GPR | capability | release.accounting.journal_entries.post_gpr | gpr_posting | yes | ACCOUNTING.JOURNAL_ENTRIES | no | ⬜ hidden implementation present | Release-gated compatibility slot; GPR posting workflow remains planned |
 | Manually Post Journal Entries | capability | release.accounting.journal_entries.manual_post | core | no | ACCOUNTING.JOURNAL_ENTRIES | no | ✅ present | Existing New Journal Entry workflow posts balanced manual entries through the GL posting service |
 

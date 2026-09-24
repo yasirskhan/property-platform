@@ -140,6 +140,25 @@ async def schedule_hourly_fraud_refresh(ctx):
         db.close()
 
 
+async def schedule_daily_recurring_journal_entries(ctx):
+    """Reserve one durable recurring-JE due sweep per UTC date."""
+    now = datetime.now(timezone.utc)
+    db = SessionLocal()
+    try:
+        row, created = reserve_job_run(
+            db,
+            job_name="accounting.recurring_journal_entries.post_due",
+            idempotency_key=f"recurring-je-due:{now.strftime('%Y%m%d')}",
+            payload={"as_of": now.date().isoformat()},
+            max_attempts=3,
+        )
+        if created or row.status in {JobStatus.PENDING, JobStatus.RETRYING}:
+            await enqueue_job_run(db, ctx["redis"], row)
+        return {"job_run_id": row.id, "created": created}
+    finally:
+        db.close()
+
+
 class WorkerSettings:
     on_startup = worker_startup
     functions = [execute_job]
@@ -155,6 +174,14 @@ class WorkerSettings:
             schedule_hourly_fraud_refresh,
             minute={0},
             second=30,
+            unique=True,
+            max_tries=1,
+        ),
+        cron(
+            schedule_daily_recurring_journal_entries,
+            hour={0},
+            minute={10},
+            second=0,
             unique=True,
             max_tries=1,
         )

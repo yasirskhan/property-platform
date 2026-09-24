@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.6 — Accounting Polish: Journal Entries** is IN PROGRESS. Chart of Accounts polish is COMPLETE and VERIFIED in CI run 36072399702; recurring Journal Entries is the next implementation block.
+**Current activity:** Phase **3.6 — Accounting Polish: Journal Entries** is IN PROGRESS. Recurring Journal Entries + History/Recurring tabs are implemented and await hosted CI verification; Post GPR is next after this batch is green.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -35,7 +35,7 @@
 
 **Migration head:** `4d7f2a9c6e31`.
 
-**Current parity inventory:** 206 built, 0 in progress, 422 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 211 built, 0 in progress, 417 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -145,10 +145,10 @@ Deployment target (Phase 11):
 
 **Continue Phase 3.6 — Accounting Polish: Journal Entries.**
 
-1. Chart of Accounts polish is COMPLETE and VERIFIED in hosted CI run 36072399702: backend 262 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed.
-2. Implement recurring Journal Entries with History/Recurring tabs and durable due-posting while preserving the central GL posting service and immutable posted-entry rules.
-3. Reconcile the already-existing Manually Post workflow and remarks-vs-line-description behavior to built parity state.
-4. Then implement Post GPR as the next Journal Entries sub-batch and continue through Phase 3.6 without stopping.
+1. Verify the recurring Journal Entries batch in hosted CI and fix reds autonomously.
+2. The recurring workflow stores org-scoped balanced templates, exposes History/Recurring tabs and pause/resume management, and posts due monthly entries through the durable jobs runtime plus central post_transaction() service.
+3. Existing Manually Post and remarks-vs-line-description behavior is reconciled to built parity state rather than duplicated.
+4. Once green, implement Post GPR as the next Journal Entries sub-batch and continue through Phase 3.6 without stopping.
 
 ## B2. AFTER THAT## B2. AFTER THAT (Phase 3.5 onward)
 
