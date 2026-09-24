@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.5 — Locked Accounting Periods + Core Organization Settings** is COMPLETE. Next implementation batch: **3.4.6 — end-to-end verification of the existing core product**.
+**Current activity:** Phase **3.4.9 — Fraud / Abuse Foundation** is COMPLETE and VERIFIED. Next implementation phase: **3.4.10 — separate internal admin app (organizations, release gates, plans, fraud, audit)**.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -33,9 +33,9 @@
 
 **3.4.S closeout:** COMPLETE. Portable private-repo security checks (Bandit, pip-audit, npm audit, committed-secret scan, Dependabot) replaced the unavailable mandatory CodeQL upload gate and passed in hosted CI run 35917804417. CodeQL remains optional/manual if GitHub Code Security is enabled later.
 
-**Migration head:** `46c3d8f2ab10`.
+**Migration head:** `6f1a9c4d2e7b`.
 
-**Current parity inventory:** 160 built, 0 in progress, 468 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 186 built, 0 in progress, 442 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -146,14 +146,14 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Finish Phase 3.4.S hosted closeout.**
+**Continue Phase 3.4.10 — separate internal admin app.**
 
-1. Run CodeQL with `contents: read`, `security-events: write`, and `actions: read`.
-2. Start the Docker Compose staging stack in CI and prove backend `/health` plus frontend `/login`.
-3. Keep parity/registry CLEAN and all existing backend/frontend/E2E gates green.
-4. Update the living ledger + AI handoff with the final green commit.
+1. Add platform-audience-only APIs needed by the internal app for organizations, release gates, plans, fraud review, and platform audit.
+2. Build a separate Next.js internal application rather than mixing platform staff into the customer frontend.
+3. Keep platform identities completely separate from customer users and keep all privileged changes audited.
+4. Add the internal app to CI lint / TypeScript / production-build gates and verify the phase before advancing to customer flag consumption.
 
-Phase 3.4.S and 3.4.3 are VERIFIED. Start **3.4.4 — release-gate storage/resolver + jobs runtime foundation** next. Do not jump ahead to billing, expansion products, or broad page retrofits before that dependency order.
+Continue autonomously through CI fixes and subsequent foundation phases. Use revised Section 82 when older phase numbers conflict.
 
 ## B2. AFTER THAT## B2. AFTER THAT (Phase 3.5 onward)
 
@@ -4347,8 +4347,12 @@ The gap review identified compliance, infrastructure, product-scope, and operati
 | 7 | 3.4.6 | End-to-end verification of existing core product |
 | 8 | 3.4.7 | Basic billing foundation |
 | 9 | 3.4.8 | Self-serve signup/payment flow |
-| later | foundation | Fraud/admin/unit enforcement where justified |
-| then | compatibility | Receipts first, then remaining page retrofits |
+| 10 | 3.4.9 | Fraud / abuse foundation: Stripe Radar, internal signals, review queue |
+| 11 | 3.4.10 | Separate internal admin app: organizations, release gates, plans, fraud, audit |
+| 12 | 3.4.11 | Customer release-gate consumption + Settings → Features |
+| 13 | 3.4.12 | Unit / plan-limit enforcement + upgrade path |
+| 14 | 3.4.13 | Receipts compatibility retrofit (proof pattern) |
+| 15 | 3.4.14+ | Remaining compatibility page retrofits |
 | then | core product | Resume Phase 3.6 through launch |
 | post-launch | expansion | Specialized product lines unless business priority changes |
 
@@ -4536,3 +4540,35 @@ Hosted CI run **35934453373** passed backend/PostgreSQL, frontend, security, mig
 ## Next
 
 Phase **3.4.6 — end-to-end verification of the existing core product**. This phase verifies existing behavior before 3.4.7 begins basic billing foundation work.
+
+
+# SECTION 87 — FOUNDATION 3.4.9 (COMPLETE)
+
+**Phase:** `3.4.9`  
+**Completed:** 2026-09-24  
+**Implementation commit:** `27fdf78524ddb4665bf3cc416b59c8289e4e8d51`  
+**Verification:** hosted CI run `35960071377`
+
+## Fraud / abuse foundation
+
+- Added durable `fraud_cases` and `fraud_signals` storage.
+- Signed Stripe Radar early-fraud-warning and review events plus fraud-related disputes feed an idempotent internal review queue.
+- No raw card data is stored by the fraud layer.
+- Internal checkout-attempt velocity creates HIGH / CRITICAL signals in a one-hour window.
+- New Checkout requests fail closed while an unresolved CRITICAL fraud case exists.
+- Platform-only fraud list/detail/review APIs enforce platform roles and audit review decisions.
+- Existing durable Arq/Redis jobs runtime schedules an hourly fraud refresh.
+- Alembic head is `6f1a9c4d2e7b`; model table count is 75.
+
+## Verification evidence
+
+- Backend/PostgreSQL: **154 passed, 2 deselected, 1096 warnings in 35.89s**.
+- E2E: **2 passed in 6.63s**.
+- Frontend lint / TypeScript / production build: SUCCESS.
+- Security gates: SUCCESS.
+- Staging build / live smoke: SUCCESS.
+- Parity/registry and committed-secret checks: SUCCESS.
+
+## Next
+
+Phase **3.4.10 — separate internal admin app**. Keep platform staff identity and authorization separate from customer-side identities; build organization, release-gate, plan, fraud, and audit administration behind platform-audience authentication.

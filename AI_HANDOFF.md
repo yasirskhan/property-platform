@@ -40,23 +40,31 @@ Completed and verified before this batch:
 - Frontend, security, staging: SUCCESS.
 - Alembic head before 3.4.9: 2d4f8a6c9b10.
 
+Last completed batch:
+- Phase 3.4.9 fraud/abuse foundation is COMPLETE and VERIFIED.
+- Implementation commit: 27fdf78524ddb4665bf3cc416b59c8289e4e8d51.
+- GitHub CI run 35960071377: SUCCESS.
+- Backend/PostgreSQL: 154 passed, 2 deselected, 1096 warnings in 35.89s.
+- E2E: 2 passed in 6.63s.
+- Frontend lint/TypeScript/build, security, backup/restore, and live staging smoke: SUCCESS.
+- Durable fraud_cases + fraud_signals review storage is active.
+- Stripe Radar early-fraud-warning/review events and fraud-related disputes feed the idempotent review queue without raw card data.
+- Checkout velocity escalates HIGH -> CRITICAL; unresolved CRITICAL cases block new Checkout requests.
+- Platform-only fraud review APIs audit decisions.
+- Existing Arq/Redis runtime schedules hourly fraud-refresh jobs.
+- Alembic head: 6f1a9c4d2e7b.
+- Model table count: 75.
+- Parity closeout updates 3.4.7/3.4.8 billing items to their verified state and shifts the remaining foundation numbering to match the actual revised sequence.
+
 Current batch:
-- Phase 3.4.9 fraud/abuse foundation is IMPLEMENTED; hosted CI verification is pending.
-- Durable fraud_cases + fraud_signals review storage.
-- Signed Stripe Radar early-fraud-warning/review events and fraud-related disputes enter an idempotent review queue without card data.
-- Internal checkout-attempt velocity signals escalate HIGH -> CRITICAL.
-- New checkout is blocked only while an unresolved CRITICAL fraud case exists.
-- Platform-only fraud queue list/detail/review APIs with immutable audit of review decisions.
-- Existing Arq/Redis runtime schedules one durable fraud-refresh job each UTC hour.
-- New Alembic head: 6f1a9c4d2e7b.
-- Expected model table count: 75.
-- Regression coverage added for Stripe signal idempotency/linking, non-fraud dispute filtering, velocity escalation, critical checkout blocking, and platform review authorization.
+- Phase 3.4.10 separate internal admin app is NEXT and not yet implemented.
 
 Next action:
-1. Verify this 3.4.9 implementation in hosted CI.
-2. Fix CI failures autonomously.
-3. When green, update PROJECT_MASTER/parity state and this handoff with exact verification evidence.
-4. Continue directly into the next revised foundation phase: separate internal admin app for organizations, release gates, plans, fraud, and audit. Do not stop at the phase boundary.
+1. Re-read this file and inspect the current platform auth, org, release-gate, plan, fraud, and audit sources.
+2. Add platform-audience-only backend read/provisioning APIs required by the internal app, with role authorization and immutable audit for changes.
+3. Build a separate Next.js internal application for organizations, release gates, plans, fraud, and audit; do not mix it into the customer frontend.
+4. Add the internal app to CI lint/TypeScript/build gates.
+5. Verify CI, fix reds autonomously, update handoff/roadmap, and continue directly into Phase 3.4.11 customer release-gate consumption + Settings Features.
 
 Open blockers:
 - NONE
