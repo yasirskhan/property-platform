@@ -32,9 +32,10 @@ Last completed batch:
 - Phase 3.4.7 basic billing foundation is COMPLETE at the backend/foundation level.
 - Maintenance after Phase 3.4.7 — CI backup/restore validation is schema-aware, schema-head/table-count guards are current, the authenticated property smoke opens the Units tab before asserting seeded unit data, and property/unit edit permission guards normalize role enum casing before client-side routing.
 - Phase 3.4.8 Batch 1 — backend-only Stripe Checkout foundation: durable DB-first checkout attempts, Stripe/provider idempotency, hosted subscription Checkout creation, signed raw-body webhook verification, Stripe customer/subscription reconciliation, and subscription/invoice lifecycle event handling. No frontend/UI changes.
+- Phase 3.4.8 Batch 2 — backend-only customer billing read APIs: authenticated ADMIN/OWNER catalog reads expose active plans with ordered pricing tiers, while org-scoped billing state exposes safe billing settings, current subscription status, and the latest checkout attempt without provider customer/subscription/session IDs or idempotency keys. No frontend/UI changes.
 
 Next batch to run:
-- Phase 3.4.8 Batch 2 — backend-only customer billing read APIs for active plans/pricing tiers plus current checkout/subscription state. Do not build user-visible UI in this batch.
+- Phase 3.4.8 Batch 3 — integrate the customer signup lifecycle with billing so a brand-new ADMIN/OWNER organization cannot be treated as fully subscribed before verified checkout completion. Keep the work backend-only until the lifecycle and regression coverage are verified.
 
 Open blockers:
 - NONE

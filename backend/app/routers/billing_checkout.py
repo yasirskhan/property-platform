@@ -7,6 +7,11 @@ from app.core.database import get_db
 from app.models.user import User, UserRole
 from app.routers.auth import get_current_user
 from app.schemas.billing_checkout import CheckoutSessionCreate, CheckoutSessionOut
+from app.schemas.billing_read import BillingCatalogOut, BillingStateOut
+from app.services.billing_read import (
+    get_active_billing_catalog,
+    get_organization_billing_state,
+)
 from app.services.stripe_billing import (
     BillingWebhookIntegrityError,
     CheckoutIdempotencyConflict,
@@ -22,12 +27,7 @@ from app.services.stripe_billing import (
 router = APIRouter(prefix="/api/billing", tags=["Billing"])
 
 
-@router.post("/checkout-session", response_model=CheckoutSessionOut)
-def start_checkout_session(
-    payload: CheckoutSessionCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+def _billing_admin_organization_id(current_user: User) -> int:
     if current_user.organization_id is None:
         raise HTTPException(status_code=400, detail="Organization is required")
     if current_user.role not in {UserRole.ADMIN, UserRole.OWNER}:
@@ -35,11 +35,42 @@ def start_checkout_session(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Organization admin or owner only",
         )
+    return current_user.organization_id
+
+
+@router.get("/catalog", response_model=BillingCatalogOut)
+def read_billing_catalog(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _billing_admin_organization_id(current_user)
+    return get_active_billing_catalog(db)
+
+
+@router.get("/state", response_model=BillingStateOut)
+def read_billing_state(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    organization_id = _billing_admin_organization_id(current_user)
+    return get_organization_billing_state(
+        db,
+        organization_id=organization_id,
+    )
+
+
+@router.post("/checkout-session", response_model=CheckoutSessionOut)
+def start_checkout_session(
+    payload: CheckoutSessionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    organization_id = _billing_admin_organization_id(current_user)
 
     try:
         return create_checkout_session(
             db,
-            organization_id=current_user.organization_id,
+            organization_id=organization_id,
             pricing_tier_id=payload.pricing_tier_id,
             billing_email=current_user.email,
             requested_by_user_id=current_user.id,
