@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.10 — Separate Internal Admin App** is COMPLETE and VERIFIED. Next implementation phase: **3.4.11 — customer release-gate consumption + Settings → Features**.
+**Current activity:** Phase **3.4.12 — Unit / Plan-Limit Enforcement + Upgrade Path** is COMPLETE and VERIFIED. Next implementation phase: **3.4.13 — Receipts compatibility retrofit (proof pattern)**.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -33,9 +33,9 @@
 
 **3.4.S closeout:** COMPLETE. Portable private-repo security checks (Bandit, pip-audit, npm audit, committed-secret scan, Dependabot) replaced the unavailable mandatory CodeQL upload gate and passed in hosted CI run 35917804417. CodeQL remains optional/manual if GitHub Code Security is enabled later.
 
-**Migration head:** `6f1a9c4d2e7b`.
+**Migration head:** `8c4e2a7d1f90`.
 
-**Current parity inventory:** 190 built, 0 in progress, 438 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 194 built, 0 in progress, 434 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -146,12 +146,12 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Continue Phase 3.4.10 — separate internal admin app.**
+**Continue Phase 3.4.13 — Receipts compatibility retrofit (proof pattern).**
 
-1. Add platform-audience-only APIs needed by the internal app for organizations, release gates, plans, fraud review, and platform audit.
-2. Build a separate Next.js internal application rather than mixing platform staff into the customer frontend.
-3. Keep platform identities completely separate from customer users and keep all privileged changes audited.
-4. Add the internal app to CI lint / TypeScript / production-build gates and verify the phase before advancing to customer flag consumption.
+1. Retrofit the existing Receipts list/new surfaces without changing verified accounting behavior.
+2. Consume shared money/date/display primitives and the existing customer capability resolver.
+3. Render planned independently releasable receipt capabilities behind their existing release gates; do not invent per-field flags.
+4. Keep backend authorization authoritative and verify the proof pattern through the full CI gate before continuing to 3.4.14+ remaining compatibility retrofits.
 
 Continue autonomously through CI fixes and subsequent foundation phases. Use revised Section 82 when older phase numbers conflict.
 

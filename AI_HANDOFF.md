@@ -100,16 +100,21 @@ Current batch:
 - Settings → Features, FeatureProvider, useFlag(), and <Flag> are verified.
 
 Current batch:
-- Phase 3.4.12 unit/plan-limit enforcement implementation is committed in the current checkpoint and awaiting hosted CI verification.
-- Subscription rows now persist the purchased pricing tier; migration 8c4e2a7d1f90 backfills from completed checkout history when available.
+- Phase 3.4.12 unit/plan-limit enforcement is COMPLETE and VERIFIED.
+- Implementation commit: 7ec0a66007a37cc44cdccc77136cd867ebaf7673.
+- GitHub CI run 35988371618: SUCCESS.
+- Backend/PostgreSQL: 170 passed, 3 deselected, 1266 warnings in 38.00s.
+- E2E: 3 passed in 9.32s.
+- Customer frontend, platform-admin, security, backup/restore, and staging smoke: SUCCESS.
+- Subscription rows persist the purchased pricing tier; migration 8c4e2a7d1f90 backfills from completed checkout history when available.
 - Active-unit capacity is enforced authoritatively on unit create and soft-delete restore. Legacy/enterprise subscriptions without a pricing tier remain uncapped.
 - Add Unit shows an explanatory plan-options prompt when the backend returns the unit-limit conflict.
-- Regression coverage covers limit resolution, create/restore blocking, Stripe tier reconciliation, and migration-head guards.
+- Alembic head: 8c4e2a7d1f90; model table count remains 76.
 
 Next action:
-1. Verify the current Phase 3.4.12 checkpoint through hosted CI.
-2. Fix any CI red autonomously.
-3. When green, record the verified 3.4.12 closeout and continue directly into 3.4.13 Receipts compatibility retrofit.
+1. Continue directly into Phase 3.4.13 Receipts compatibility retrofit (proof pattern).
+2. Preserve verified receipt accounting behavior while consuming display primitives and release gates for planned capabilities.
+3. Verify the retrofit through the full hosted CI gate, update parity/registry state, and continue directly into 3.4.14+ remaining compatibility retrofits.
 
 Open blockers:
 - NONE

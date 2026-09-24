@@ -9,12 +9,12 @@
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
     "last_updated": "2026-09-24",
-    "migration_head": "3b8d1f5c7a20",
+    "migration_head": "8c4e2a7d1f90",
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 193,
-    "scheduled_count": 435,
+    "built_count": 194,
+    "scheduled_count": 434,
     "in_progress_count": 0
   },
   "items": [
@@ -4371,8 +4371,9 @@
       "id": "platform.unit_enforcement",
       "area": "Platform / Plan Limits",
       "feature": "Unit cap enforcement + upgrade prompt",
-      "status": "scheduled",
-      "phase": "3.4.12"
+      "status": "built",
+      "phase": "3.4.12",
+      "notes": "Verified in hosted CI run 35988371618: subscription pricing-tier binding, authoritative active-unit create/restore enforcement, upgrade prompt, migration guards, and full customer/platform/staging regression gates."
     },
     {
       "id": "platform.retrofit_receipts",
