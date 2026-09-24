@@ -13,8 +13,8 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 197,
-    "scheduled_count": 430,
+    "built_count": 198,
+    "scheduled_count": 429,
     "in_progress_count": 1
   },
   "items": [
@@ -3731,16 +3731,17 @@
       "id": "compliance.gl_accounts.full_surface",
       "area": "Compliance / Page Retrofit",
       "feature": "GL Accounts: add all planned slots (recalc, hide, offset, must-clear)",
-      "status": "in_progress",
+      "status": "built",
       "phase": "3.4.16",
-      "notes": "GL Accounts compatibility retrofit checkpoint: display compatibility, real must-clear-to-zero API/UI exposure, styled soft-deactivate confirmation, release-gated GL Account Permissions/Recalculate Balances slots, existing hide semantics, and authoritative ACCOUNTING.GL_ACCOUNTS permission enforcement. Awaiting hosted CI verification."
+      "notes": "Verified in hosted CI run 35997110696: display compatibility, real must-clear-to-zero API/UI exposure, styled soft-deactivation confirmation, hidden future admin capability slots, and authoritative ACCOUNTING.GL_ACCOUNTS permission enforcement."
     },
     {
       "id": "compliance.journal_entries.full_surface",
       "area": "Compliance / Page Retrofit",
       "feature": "Journal Entries: add all planned slots (sub-tabs, recurring, manually-post, post-gpr)",
-      "status": "scheduled",
-      "phase": "3.5.5"
+      "status": "in_progress",
+      "phase": "3.4.17",
+      "notes": "Journal Entries compatibility retrofit checkpoint: display/date compatibility, authoritative ACCOUNTING.JOURNAL_ENTRIES permission enforcement, write-role enforcement, release-gated recurring/Post GPR slots, and verified memo-vs-line-description semantics. Awaiting hosted CI verification."
     },
     {
       "id": "compliance.management_fees.full_surface",

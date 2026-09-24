@@ -38,28 +38,29 @@ Verified foundation through this checkpoint:
 - Phase 3.4.12 unit/plan-limit enforcement.
 - Phase 3.4.13 Receipts compatibility retrofit.
 - Phase 3.4.14 Bills compatibility retrofit.
-- Phase 3.4.15 Bank Deposits compatibility retrofit is COMPLETE and VERIFIED.
-- Phase 3.4.15 implementation commit: db52aa57572ba0d0a58b536e711893b44f0978e8.
-- GitHub CI run 35996299575: SUCCESS.
-- Backend/PostgreSQL: 179 passed, 3 deselected, 1266 warnings in 40.76s.
-- E2E: 3 passed in 9.80s.
+- Phase 3.4.15 Bank Deposits compatibility retrofit.
+- Phase 3.4.16 GL Accounts compatibility retrofit is COMPLETE and VERIFIED.
+- Phase 3.4.16 implementation commit: 169949960b9ec2eb25e2ed6fa92b09ad1a2ddb30.
+- GitHub CI run 35997110696: SUCCESS.
+- Backend/PostgreSQL: 183 passed, 3 deselected, 1266 warnings in 41.98s.
+- E2E: 3 passed in 11.65s.
 - Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
 - Alembic head remains 8c4e2a7d1f90.
 
 Current batch:
-- Phase 3.4.16 GL Accounts compatibility retrofit implementation is prepared in the current checkpoint and awaiting hosted CI verification.
-- Existing GL account CRUD, grouping, sub-account nesting, offset-account behavior, historical references, and soft-deactivation behavior remain intact.
-- The existing must_clear database flag is now exposed through backend schemas, create/update behavior, typed frontend API, drawer editing, and the account list.
-- Chart of Accounts consumes display context.
-- GL Account Permissions and Recalculate Balances are release-gated compatibility slots and remain invisible while HIDDEN.
-- Deactivation now uses the shared styled confirmation modal; soft-deactivate semantics remain unchanged.
-- GL account backend routes enforce ACCOUNTING.GL_ACCOUNTS permission in addition to org scoping; write routes retain ADMIN/OWNER/MANAGER role enforcement.
-- Regression coverage includes permission/API-contract tests and authenticated E2E proof that unreleased capability buttons stay hidden.
+- Phase 3.4.17 Journal Entries compatibility retrofit implementation is prepared in the current checkpoint and awaiting hosted CI verification.
+- Existing balanced manual JE posting remains routed through post_transaction(transaction_type="JOURNAL_ENTRY"); reversal-only posted-GL integrity is unchanged.
+- Journal list/new/detail surfaces consume display context; list/detail dates use shared date formatting.
+- Existing New Journal Entry flow is the real manual-post workflow, so the registry now marks that capability present rather than adding a duplicate.
+- Existing header memo and per-line description fields/API posting semantics satisfy the remarks-vs-line-description rule.
+- Recurring Journal Entries and Post GPR are release-gated compatibility slots and remain invisible while HIDDEN.
+- Journal entry backend routes enforce ACCOUNTING.JOURNAL_ENTRIES permission. POST additionally enforces ADMIN/OWNER/MANAGER write roles, matching the existing frontend contract.
+- Regression coverage includes permission/write-role tests and authenticated E2E proof that unreleased recurring/GPR actions stay hidden.
 
 Next action:
-1. Verify the current Phase 3.4.16 checkpoint through hosted CI.
+1. Verify the current Phase 3.4.17 checkpoint through hosted CI.
 2. Fix any CI red autonomously.
-3. When green, mark compliance.gl_accounts.full_surface built, record exact verification results, and continue directly into the next compatibility retrofit from FEATURE_REGISTRY/parity order without waiting for the user.
+3. When green, mark compliance.journal_entries.full_surface built, record exact verification results, and continue directly into Management Fees compatibility work without waiting for the user.
 
 Open blockers:
 - NONE

@@ -120,6 +120,20 @@ def test_login_and_core_authenticated_pages() -> None:
             ).to_have_count(0)
 
             page.goto(
+                f"{BASE_URL}/dashboard/accounting/journal-entries",
+                wait_until="domcontentloaded",
+            )
+            expect(
+                page.get_by_role("heading", name="Journal Entries", exact=True)
+            ).to_be_visible()
+            expect(
+                page.get_by_role("button", name="Recurring Journal Entries", exact=True)
+            ).to_have_count(0)
+            expect(
+                page.get_by_role("button", name="Post GPR", exact=True)
+            ).to_have_count(0)
+
+            page.goto(
                 f"{BASE_URL}/dashboard/settings/features",
                 wait_until="domcontentloaded",
             )

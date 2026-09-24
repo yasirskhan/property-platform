@@ -29,12 +29,15 @@ from app.schemas.journal_entry import (
     JournalEntryListOut,
 )
 from app.services.gl_posting import PostingError, post_transaction
+from app.services.menu_resolver import permission_allows_user
 
 
 router = APIRouter(
     prefix="/api/accounting/journal-entries",
     tags=["Journal Entries"],
 )
+
+WRITE_ROLES = {"ADMIN", "OWNER", "MANAGER"}
 
 
 def _require_org(current_user: User) -> int:
@@ -44,6 +47,33 @@ def _require_org(current_user: User) -> int:
             detail="User has no organization.",
         )
     return current_user.organization_id
+
+
+def _norm_role(role) -> str:
+    if role is None:
+        return ""
+    value = role.value if hasattr(role, "value") else str(role)
+    return value.upper()
+
+
+def _require_journal_entries_access(db: Session, current_user: User) -> int:
+    org_id = _require_org(current_user)
+    if not permission_allows_user(
+        db, user=current_user, menu_key="ACCOUNTING.JOURNAL_ENTRIES"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Journal Entries permission required.",
+        )
+    return org_id
+
+
+def _require_write(current_user: User) -> None:
+    if _norm_role(current_user.role) not in WRITE_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not allowed to post journal entries.",
+        )
 
 
 def _txn_to_out(t: GLTransaction) -> JournalEntryOut:
@@ -78,7 +108,7 @@ def list_journal_entries(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_journal_entries_access(db, current_user)
 
     q = (
         db.query(GLTransaction)
@@ -122,7 +152,8 @@ def create_journal_entry(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    _require_write(current_user)
+    org_id = _require_journal_entries_access(db, current_user)
 
     # Convert schema lines into PostingLine objects
     posting_lines = [

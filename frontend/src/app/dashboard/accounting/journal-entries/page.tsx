@@ -18,12 +18,16 @@ import {
   JournalEntryList,
 } from "@/lib/journalEntries";
 import { apiGet } from "@/lib/api";
+import { formatDate } from "@/lib/money";
+import Flag from "@/components/features/Flag";
+import { useDisplay } from "@/contexts/DisplayContext";
 
 type Me = { role: string };
 
 const WRITE_ROLES = ["ADMIN", "OWNER", "MANAGER"];
 
 export default function JournalEntriesPage() {
+  const { prefs } = useDisplay();
   const [me, setMe] = useState<Me | null>(null);
   const [data, setData] = useState<JournalEntryList | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,7 +89,13 @@ export default function JournalEntriesPage() {
             {data.total} {data.total === 1 ? "entry" : "entries"}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Flag name="release.accounting.journal_entries.recurring">
+            <button type="button" disabled className="text-sm px-3 py-2 border border-slate-300 rounded-lg text-slate-500 disabled:opacity-60">Recurring Journal Entries</button>
+          </Flag>
+          <Flag name="release.accounting.journal_entries.post_gpr">
+            <button type="button" disabled className="text-sm px-3 py-2 border border-slate-300 rounded-lg text-slate-500 disabled:opacity-60">Post GPR</button>
+          </Flag>
           <Link
             href="/dashboard/accounting/gl-accounts"
             className="text-sm px-3 py-2 text-slate-600 hover:text-slate-900"
@@ -185,7 +195,7 @@ export default function JournalEntriesPage() {
                   #{je.id}
                 </td>
                 <td className="px-4 py-2 text-slate-700">
-                  {je.transaction_date}
+                  {formatDate(je.transaction_date)}
                 </td>
                 <td className="px-4 py-2 text-slate-600 text-xs font-mono">
                   {je.reference_number || "—"}

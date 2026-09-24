@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.16 — GL Accounts compatibility retrofit** is IN PROGRESS. Phase 3.4.15 Bank Deposits is COMPLETE and VERIFIED.
+**Current activity:** Phase **3.4.17 — Journal Entries compatibility retrofit** is IN PROGRESS. Phase 3.4.16 GL Accounts is COMPLETE and VERIFIED.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -35,7 +35,7 @@
 
 **Migration head:** `8c4e2a7d1f90`.
 
-**Current parity inventory:** 197 built, 1 in progress, 430 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 198 built, 1 in progress, 429 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 

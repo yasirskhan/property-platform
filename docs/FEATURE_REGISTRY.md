@@ -389,9 +389,9 @@ These platform surfaces do not change the customer five-layer access model. Cust
 |---|---|---|---|---|---|---|---|---|
 | Journal Entries page | page | release.accounting.journal_entries | core | no | ACCOUNTING.JOURNAL_ENTRIES | yes | ✅ present | Core GL workflow |
 | Date filters + list | section | — | — | — | — | — | ✅ present | Existing history view |
-| History / Recurring tabs | capability | release.accounting.journal_entries.recurring | recurring_journal_entries | yes | ACCOUNTING.JOURNAL_ENTRIES | no | ❌ missing | Adds recurring-JE management |
-| Post GPR | capability | release.accounting.journal_entries.post_gpr | gpr_posting | yes | ACCOUNTING.JOURNAL_ENTRIES | no | ❌ missing | Gross Potential Rent posting |
-| Manually Post Journal Entries | capability | release.accounting.journal_entries.manual_post | core | no | ACCOUNTING.JOURNAL_ENTRIES | no | ❌ missing | Search/select/post workflow |
+| History / Recurring tabs | capability | release.accounting.journal_entries.recurring | recurring_journal_entries | yes | ACCOUNTING.JOURNAL_ENTRIES | no | ⬜ hidden implementation present | Release-gated recurring-JE compatibility slot; recurring management remains planned |
+| Post GPR | capability | release.accounting.journal_entries.post_gpr | gpr_posting | yes | ACCOUNTING.JOURNAL_ENTRIES | no | ⬜ hidden implementation present | Release-gated compatibility slot; GPR posting workflow remains planned |
+| Manually Post Journal Entries | capability | release.accounting.journal_entries.manual_post | core | no | ACCOUNTING.JOURNAL_ENTRIES | no | ✅ present | Existing New Journal Entry workflow posts balanced manual entries through the GL posting service |
 
 ---
 
@@ -410,7 +410,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Multi-line account/property/description/debit/credit grid | section | — | — | — | — | — | ✅ present | Core JE entry |
 | Add/remove line controls | controls | — | — | — | — | — | ✅ present | Routine controls |
 | Live debit/credit balance | behavior | — | core | no | ACCOUNTING.JOURNAL_ENTRIES | no | ✅ present | Prevents unbalanced submit |
-| Remarks vs line description rule | behavior | — | core | no | ACCOUNTING.JOURNAL_ENTRIES | no | ❌ missing | Statement-level vs line-level semantics |
+| Remarks vs line description rule | behavior | — | core | no | ACCOUNTING.JOURNAL_ENTRIES | no | ✅ present | Header memo is transaction-level while each posting line carries its own description |
 
 ---
 

@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPost } from "@/lib/api";
 import { formatMoney } from "@/lib/money";
+import { useDisplay } from "@/contexts/DisplayContext";
 
 interface Property {
   id: number;
@@ -37,6 +38,7 @@ interface LineRow {
 
 export default function NewJournalEntryPage() {
   const router = useRouter();
+  const { prefs } = useDisplay();
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [accounts, setAccounts] = useState<GLAccount[]>([]);
@@ -176,7 +178,7 @@ export default function NewJournalEntryPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
+    <div className="max-w-5xl mx-auto p-6" data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()} data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}>
       <h1 className="text-xl font-semibold text-slate-900 mb-1">
         New Journal Entry
       </h1>
