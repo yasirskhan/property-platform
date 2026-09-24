@@ -79,6 +79,15 @@ def test_login_and_core_authenticated_pages() -> None:
                 expect(page).not_to_have_url(re.compile(r"/login"))
 
             page.goto(
+                f"{BASE_URL}/dashboard/accounting/receipts",
+                wait_until="domcontentloaded",
+            )
+            expect(page.get_by_role("heading", name="Receipts", exact=True)).to_be_visible()
+            expect(page.get_by_role("button", name="Export", exact=True)).to_have_count(0)
+            expect(page.get_by_role("button", name="Print list", exact=True)).to_have_count(0)
+            expect(page.get_by_role("button", name="Bulk actions", exact=True)).to_have_count(0)
+
+            page.goto(
                 f"{BASE_URL}/dashboard/settings/features",
                 wait_until="domcontentloaded",
             )

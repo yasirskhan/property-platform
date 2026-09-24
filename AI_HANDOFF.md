@@ -111,10 +111,19 @@ Current batch:
 - Add Unit shows an explanatory plan-options prompt when the backend returns the unit-limit conflict.
 - Alembic head: 8c4e2a7d1f90; model table count remains 76.
 
+Current batch:
+- Phase 3.4.13 Receipts compatibility retrofit implementation is prepared in the current checkpoint and awaiting hosted CI verification.
+- Existing Tenant/Owner/Other posting and reversal accounting flows remain intact.
+- Receipt list/new pages consume display context while retaining shared formatMoney()/formatDate() primitives.
+- Planned unreleased receipt capabilities are represented as Flag-controlled compatibility slots and remain invisible while their gates are HIDDEN.
+- Receipt reverse confirmation now uses a reusable styled ConfirmModal instead of window.confirm().
+- Receipt backend routes now enforce ACCOUNTING.RECEIVABLES permission in addition to organization scoping.
+- Regression coverage includes permission-guard unit tests and E2E proof that hidden receipt compatibility actions do not leak into the customer UI.
+
 Next action:
-1. Continue directly into Phase 3.4.13 Receipts compatibility retrofit (proof pattern).
-2. Preserve verified receipt accounting behavior while consuming display primitives and release gates for planned capabilities.
-3. Verify the retrofit through the full hosted CI gate, update parity/registry state, and continue directly into 3.4.14+ remaining compatibility retrofits.
+1. Verify the current Phase 3.4.13 checkpoint through hosted CI.
+2. Fix any CI red autonomously.
+3. When green, mark platform.retrofit_receipts built, record exact test results, and continue directly into 3.4.14+ remaining compatibility retrofits.
 
 Open blockers:
 - NONE

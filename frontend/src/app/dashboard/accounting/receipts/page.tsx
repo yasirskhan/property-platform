@@ -13,6 +13,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiGet } from "@/lib/api";
 import { formatMoney, formatDate } from "@/lib/money";
+import Flag from "@/components/features/Flag";
+import ConfirmModal from "@/components/ui/ConfirmModal";
+import { useDisplay } from "@/contexts/DisplayContext";
 import {
   listReceipts,
   getReceipt,
@@ -30,6 +33,7 @@ interface Me {
 }
 
 export default function ReceiptsPage() {
+  const { prefs } = useDisplay();
   const [me, setMe] = useState<Me | null>(null);
   const [rows, setRows] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +48,7 @@ export default function ReceiptsPage() {
   const [openReceipt, setOpenReceipt] = useState<ReceiptDetail | null>(null);
   const [openLoading, setOpenLoading] = useState(false);
   const [reversing, setReversing] = useState(false);
+  const [confirmReverseOpen, setConfirmReverseOpen] = useState(false);
 
   useEffect(() => {
     apiGet("/auth/me").then((u) => setMe(u as Me)).catch(() => setMe(null));
@@ -88,12 +93,6 @@ export default function ReceiptsPage() {
 
   async function submitReverse() {
     if (!openReceipt) return;
-    if (
-      !confirm(
-        `Reverse receipt ${openReceipt.id}? This will be marked Reversed and cannot be undone.`
-      )
-    )
-      return;
     setReversing(true);
     setError(null);
     try {
@@ -101,6 +100,7 @@ export default function ReceiptsPage() {
         reversal_date: new Date().toISOString().slice(0, 10),
       });
       setOpenReceipt(updated);
+      setConfirmReverseOpen(false);
       await load();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Could not reverse receipt.");
@@ -118,17 +118,21 @@ export default function ReceiptsPage() {
   );
 
   return (
-    <div className="p-6">
+    <div
+      className="p-6"
+      data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()}
+      data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}
+    >
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-xl font-semibold text-slate-900">Receipts</h1>
-        {me && me.role !== "TENANT" && (
-          <Link
-            href="/dashboard/accounting/receipts/new"
-            className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
-          >
-            + New Receipt
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          <Flag name="release.reporting.export"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Export</button></Flag>
+          <Flag name="release.accounting.receipts.list_print"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Print list</button></Flag>
+          <Flag name="release.accounting.receipts.bulk"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Bulk actions</button></Flag>
+          {me && me.role !== "TENANT" && (
+            <Link href="/dashboard/accounting/receipts/new" className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">+ New Receipt</Link>
+          )}
+        </div>
       </div>
       <p className="text-sm text-slate-500 mb-6">
         All payments received: tenants, owners, and others.
@@ -383,14 +387,14 @@ export default function ReceiptsPage() {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between">
-                  <div>
+                <span hidden aria-hidden="true" data-compat-slot="receipts.edit-lock-after-deposit" />
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Flag name="release.accounting.receipts.print"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Print receipt</button></Flag>
+                    <Flag name="release.accounting.receipts.repeat"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Repeat receipt</button></Flag>
+                    <Flag name="release.accounting.receipts.process_nsf"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Process NSF</button></Flag>
                     {!openReceipt.is_reversed && me && me.role !== "TENANT" && (
-                      <button
-                        onClick={submitReverse}
-                        disabled={reversing}
-                        className="px-3 py-1.5 rounded-md border border-red-300 text-red-700 text-sm font-medium hover:bg-red-50 disabled:opacity-50"
-                      >
+                      <button onClick={() => setConfirmReverseOpen(true)} disabled={reversing} className="px-3 py-1.5 rounded-md border border-red-300 text-red-700 text-sm font-medium hover:bg-red-50 disabled:opacity-50">
                         {reversing ? "Reversing..." : "Reverse receipt"}
                       </button>
                     )}
@@ -407,6 +411,16 @@ export default function ReceiptsPage() {
           </div>
         </div>
       )}
+      <ConfirmModal
+        open={confirmReverseOpen}
+        title="Reverse receipt?"
+        description={openReceipt ? `Receipt #${openReceipt.id} will be marked reversed and a reversing entry will be posted. This cannot be undone.` : ""}
+        confirmLabel="Reverse receipt"
+        busy={reversing}
+        danger
+        onCancel={() => setConfirmReverseOpen(false)}
+        onConfirm={submitReverse}
+      />
     </div>
   );
 }

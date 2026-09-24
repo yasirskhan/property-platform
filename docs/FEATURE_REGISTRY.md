@@ -125,13 +125,13 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Detail modal | modal | — | — | — | — | — | ✅ present | Part of page |
 | Reverse receipt action | action | — | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Backend authorization still required; no independent rollout currently needed |
 | Footer total row | row | — | — | — | — | — | ✅ present | Routine UI |
-| Print one receipt | capability | release.accounting.receipts.print | core | no | ACCOUNTING.RECEIVABLES | no | ❌ missing | Internal rollout/kill switch; not a separate paid feature |
-| Repeat prior receipt | capability | release.accounting.receipts.repeat | core | no | ACCOUNTING.RECEIVABLES | no | ❌ missing | Copies prior receipt into new form |
-| Edit-lock-after-deposit indicator | behavior | — | core | no | ACCOUNTING.RECEIVABLES | no | ❌ missing | Data integrity behavior, not a saleable/release module |
-| Export CSV / Excel | capability | release.reporting.export | core | yes | REPORTING.ALL | no | ❌ missing | Cross-page export capability |
-| Print receipts list | capability | release.accounting.receipts.list_print | core | no | ACCOUNTING.RECEIVABLES | no | ❌ missing | Print-friendly list |
-| Process NSF | capability | release.accounting.receipts.process_nsf | nsf_processing | yes | ACCOUNTING.RECEIVABLES | no | ❌ missing | Backend must enforce entitlement + permission |
-| Bulk actions | capability | release.accounting.receipts.bulk | core | no | ACCOUNTING.RECEIVABLES | no | ❌ missing | Batch operations |
+| Print one receipt | capability | release.accounting.receipts.print | core | no | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Compatibility slot rendered through Flag; endpoint remains planned |
+| Repeat prior receipt | capability | release.accounting.receipts.repeat | core | no | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Compatibility slot rendered through Flag; workflow remains planned |
+| Edit-lock-after-deposit indicator | behavior | — | core | no | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Structural compatibility slot present; integrity behavior remains Phase 3.6 |
+| Export CSV / Excel | capability | release.reporting.export | core | yes | REPORTING.ALL | no | ⬜ hidden implementation present | Flagged compatibility slot; export endpoint remains planned |
+| Print receipts list | capability | release.accounting.receipts.list_print | core | no | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; print view remains planned |
+| Process NSF | capability | release.accounting.receipts.process_nsf | nsf_processing | yes | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Flagged compatibility slot only; backend workflow remains planned |
+| Bulk actions | capability | release.accounting.receipts.bulk | core | no | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; batch workflow remains planned |
 
 ## Backend endpoints the full surface requires
 
@@ -175,10 +175,10 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Property | field | — | — | — | — | — | ✅ present | Routine field |
 | Reference # | field | — | — | — | — | — | ✅ present | Routine field |
 | Remarks | field | — | — | — | — | — | ✅ present | Routine field |
-| Cash Account “Automatic” option | behavior | — | core | yes | ACCOUNTING.RECEIVABLES | no | ❌ missing | Configuration/behavior, not independently released |
-| CTRL+K repeat form | capability | release.universal.repeat_form | core | yes | — | no | ❌ missing | Cross-page productivity capability |
-| CTRL+J repeat field | capability | release.universal.repeat_field | core | yes | — | no | ❌ missing | Cross-page productivity capability |
-| Print preview | capability | release.accounting.receipts.print | core | no | ACCOUNTING.RECEIVABLES | no | ❌ missing | Same print capability as list page |
+| Cash Account “Automatic” option | behavior | — | core | yes | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Structural compatibility slot present; current 1150 default behavior preserved |
+| CTRL+K repeat form | capability | release.universal.repeat_form | core | yes | — | no | ⬜ hidden implementation present | Flagged compatibility slot; shortcut behavior remains planned |
+| CTRL+J repeat field | capability | release.universal.repeat_field | core | yes | — | no | ⬜ hidden implementation present | Flagged compatibility slot; shortcut behavior remains planned |
+| Print preview | capability | release.accounting.receipts.print | core | no | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; print behavior remains planned |
 
 ## Surface — Tenant receipt
 
@@ -191,7 +191,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Prepayment checkbox | field | — | — | — | — | — | ✅ present | Routine field |
 | Add/remove line controls | controls | — | — | — | — | — | ✅ present | Routine controls |
 | Running total | row | — | — | — | — | — | ✅ present | Routine UI |
-| Charge Late Fees | capability | release.accounting.late_fees | late_fees | yes | ACCOUNTING.RECEIVABLES | no | ❌ missing | Separate workflow |
+| Charge Late Fees | capability | release.accounting.late_fees | late_fees | yes | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; late-fee workflow remains planned |
 | Per-lease picker for multi-lease tenant | field | — | — | — | — | — | ❌ missing | Appears when data requires it; not a release capability |
 
 ## Surface — Owner receipt
@@ -218,7 +218,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 
 | Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
 |---|---|---|---|---|---|---|---|---|
-| Application Fee mode/tab | capability | release.accounting.receipts.application_fee | application_fees | yes | ACCOUNTING.RECEIVABLES | no | ❌ missing | Independently releasable workflow |
+| Application Fee mode/tab | capability | release.accounting.receipts.application_fee | application_fees | yes | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Flagged compatibility tab slot; application-fee backend remains planned |
 | Applicant name | field | — | — | — | — | — | ❌ missing | Inherits Application Fee access |
 | Amount | field | — | — | — | — | — | ❌ missing | |
 | Property + unit | fields | — | — | — | — | — | ❌ missing | |

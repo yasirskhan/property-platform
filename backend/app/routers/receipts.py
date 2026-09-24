@@ -41,6 +41,7 @@ from app.schemas.receipt import (
 )
 from app.services.gl_posting import PostingError
 from app.services.receipt_posting import post_receipt, reverse_receipt
+from app.services.menu_resolver import permission_allows_user
 
 
 router = APIRouter(
@@ -60,6 +61,13 @@ def _require_org(current_user: User) -> int:
             detail="User has no organization.",
         )
     return current_user.organization_id
+
+
+def _require_receipts_access(db: Session, current_user: User) -> int:
+    org_id = _require_org(current_user)
+    if not permission_allows_user(db, user=current_user, menu_key="ACCOUNTING.RECEIVABLES"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Receivables permission required.")
+    return org_id
 
 
 def _receipt_to_out(r: Receipt) -> ReceiptOut:
@@ -138,7 +146,7 @@ def list_receipts(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_receipts_access(db, current_user)
 
     q = (
         db.query(Receipt)
@@ -189,7 +197,7 @@ def list_tenant_open_charges(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_receipts_access(db, current_user)
 
     # The tenant must belong to this org
     tenant = (
@@ -317,7 +325,7 @@ def get_receipt(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_receipts_access(db, current_user)
 
     r = (
         db.query(Receipt)
@@ -354,7 +362,7 @@ def create_receipt(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_receipts_access(db, current_user)
 
     try:
         receipt = post_receipt(
@@ -397,7 +405,7 @@ def reverse_receipt_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_receipts_access(db, current_user)
 
     original = (
         db.query(Receipt)

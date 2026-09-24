@@ -14,8 +14,8 @@
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
     "built_count": 194,
-    "scheduled_count": 434,
-    "in_progress_count": 0
+    "scheduled_count": 433,
+    "in_progress_count": 1
   },
   "items": [
     {
@@ -4379,8 +4379,9 @@
       "id": "platform.retrofit_receipts",
       "area": "Compliance / Page Retrofit",
       "feature": "Retrofit Receipts page (proof of pattern)",
-      "status": "scheduled",
-      "phase": "3.4.13"
+      "status": "in_progress",
+      "phase": "3.4.13",
+      "notes": "Phase 3.4.13 implementation checkpoint: receipt pages consume display context, future capability slots use resolved release flags, reverse uses shared styled confirmation, and backend Receivables permission enforcement is added. Awaiting hosted CI verification."
     },
     {
       "id": "platform.safety.ci",

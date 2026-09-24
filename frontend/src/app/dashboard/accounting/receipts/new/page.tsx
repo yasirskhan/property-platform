@@ -33,6 +33,8 @@ import {
 } from "@/lib/receipts";
 import { apiGet } from "@/lib/api";
 import { formatMoney } from "@/lib/money";
+import Flag from "@/components/features/Flag";
+import { useDisplay } from "@/contexts/DisplayContext";
 import { listGLAccounts, GLAccount } from "@/lib/glAccounts";
 
 type Tab = "TENANT" | "OWNER" | "OTHER";
@@ -64,6 +66,7 @@ let adhocCounter = 0;
 
 export default function NewReceiptPage() {
   const router = useRouter();
+  const { prefs } = useDisplay();
 
   const [tab, setTab] = useState<Tab>("TENANT");
   const [submitting, setSubmitting] = useState(false);
@@ -380,7 +383,7 @@ export default function NewReceiptPage() {
   // Render
   // ------------------------------------------------------------
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-5xl" data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()} data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}>
       <div className="mb-6">
         <Link
           href="/dashboard/accounting/receipts"
@@ -394,19 +397,16 @@ export default function NewReceiptPage() {
       {/* Tabs */}
       <div className="flex border-b border-slate-200 mb-6">
         {RECEIPT_TYPE_ORDER.map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className={`px-5 py-2 text-sm font-medium -mb-px border-b-2 ${
-              tab === t
-                ? "border-slate-900 text-slate-900"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-          >
+          <button key={t} type="button" onClick={() => setTab(t)} className={`px-5 py-2 text-sm font-medium -mb-px border-b-2 ${tab === t ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800"}`}>
             {RECEIPT_TYPE_LABELS[t]}
           </button>
         ))}
+        <Flag name="release.accounting.receipts.application_fee"><button type="button" disabled className="px-5 py-2 text-sm font-medium -mb-px border-b-2 border-transparent text-slate-400 disabled:opacity-60">Application Fee</button></Flag>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <Flag name="release.universal.repeat_form"><button type="button" disabled className="text-xs px-3 py-1.5 border border-slate-300 rounded-md text-slate-500 disabled:opacity-60">Repeat form</button></Flag>
+        <Flag name="release.universal.repeat_field"><button type="button" disabled className="text-xs px-3 py-1.5 border border-slate-300 rounded-md text-slate-500 disabled:opacity-60">Repeat field</button></Flag>
+        <Flag name="release.accounting.receipts.print"><button type="button" disabled className="text-xs px-3 py-1.5 border border-slate-300 rounded-md text-slate-500 disabled:opacity-60">Print preview</button></Flag>
       </div>
 
       {error && (
@@ -434,6 +434,7 @@ export default function NewReceiptPage() {
             <label className="block text-xs text-slate-500 mb-1">
               Cash account *
             </label>
+            <span hidden aria-hidden="true" data-compat-slot="receipts.cash-account-automatic" />
             <select
               required
               value={cashAccountId}
@@ -529,8 +530,9 @@ export default function NewReceiptPage() {
               </div>
             </div>
 
-            <div className="text-sm font-semibold text-slate-700 mb-2">
-              Lines ({tenantLines.length})
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div className="text-sm font-semibold text-slate-700">Lines ({tenantLines.length})</div>
+              <Flag name="release.accounting.late_fees"><button type="button" disabled className="text-xs px-3 py-1.5 border border-slate-300 rounded-md text-slate-500 disabled:opacity-60">Charge Late Fees</button></Flag>
             </div>
 
             <table className="w-full text-sm">
