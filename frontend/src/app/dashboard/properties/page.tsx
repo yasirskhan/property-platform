@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiGet } from "@/lib/api";
+import Flag from "@/components/features/Flag";
+import { useDisplay } from "@/contexts/DisplayContext";
 
 type Property = {
   id: number;
@@ -28,6 +30,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export default function PropertiesPage() {
+  const { prefs } = useDisplay();
   const [me, setMe] = useState<Me | null>(null);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +42,8 @@ export default function PropertiesPage() {
         const meData = await apiGet("/auth/me");
         setMe(meData);
 
-        if (meData.role === "crew" || meData.role === "tenant") {
+        const role = String(meData.role || "").toUpperCase();
+        if (role === "CREW" || role === "TENANT") {
           setError("You don't have access to properties.");
           setLoading(false);
           return;
@@ -58,10 +62,14 @@ export default function PropertiesPage() {
   if (loading) return <div className="text-slate-500">Loading…</div>;
   if (error) return <div className="text-red-600">{error}</div>;
 
-  const canCreate = me?.role === "admin" || me?.role === "owner";
+  const role = String(me?.role || "").toUpperCase();
+  const canCreate = role === "ADMIN" || role === "OWNER";
 
   return (
-    <div>
+    <div
+      data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()}
+      data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}
+    >
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Properties</h1>
@@ -70,14 +78,22 @@ export default function PropertiesPage() {
             {properties.length === 1 ? "property" : "properties"}
           </p>
         </div>
-        {canCreate && (
-          <Link
-            href="/dashboard/properties/new"
-            className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700"
-          >
-            + Add Property
-          </Link>
-        )}
+        <div className="flex flex-wrap justify-end gap-2">
+          <Flag name="release.properties.groups">
+            <button type="button" disabled>Property Groups</button>
+          </Flag>
+          <Flag name="release.properties.map">
+            <button type="button" disabled>Map View</button>
+          </Flag>
+          {canCreate && (
+            <Link
+              href="/dashboard/properties/new"
+              className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700"
+            >
+              + Add Property
+            </Link>
+          )}
+        </div>
       </div>
 
       {properties.length === 0 ? (

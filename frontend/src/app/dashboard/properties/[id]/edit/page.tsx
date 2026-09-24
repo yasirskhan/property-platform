@@ -7,10 +7,12 @@ import { apiGet, apiPatch } from "@/lib/api";
 import { PARKING_TYPES } from "@/lib/usStates";
 import StateAutocomplete from "@/components/StateAutocomplete";
 import AddressAutocomplete, { AddressSuggestion } from "@/components/AddressAutocomplete";
+import { useDisplay } from "@/contexts/DisplayContext";
 
 type Me = { role: string };
 
 export default function EditPropertyPage() {
+  const { prefs } = useDisplay();
   const params = useParams();
   const router = useRouter();
   const propertyId = Number(params.id);
@@ -67,7 +69,7 @@ export default function EditPropertyPage() {
         ]);
 
         const role = String(meData.role || "").toUpperCase();
-        if (role !== "ADMIN" && role !== "OWNER" && role !== "MANAGER") {
+        if (role !== "ADMIN" && role !== "OWNER") {
           router.replace(`/dashboard/properties/${propertyId}`);
           return;
         }
@@ -173,7 +175,11 @@ export default function EditPropertyPage() {
   if (!me) return <div className="text-red-600">{error || "Not found"}</div>;
 
   return (
-    <div className="max-w-3xl">
+    <div
+      className="max-w-3xl"
+      data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()}
+      data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}
+    >
       <Link
         href={`/dashboard/properties/${propertyId}`}
         className="text-sm text-slate-500 hover:text-slate-900 mb-4 inline-block"

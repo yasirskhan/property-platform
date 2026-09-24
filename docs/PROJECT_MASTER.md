@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.21 — Charges compatibility retrofit** is COMPLETE and VERIFIED. Next: **3.4.22 — Properties compatibility retrofit**.
+**Current activity:** Phase **3.4.22 — Properties compatibility retrofit** is IN PROGRESS. Phase 3.4.21 Charges is COMPLETE and VERIFIED.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -4677,4 +4677,24 @@ Phase **3.4.12 — unit / plan-limit enforcement + upgrade path**. Enforce limit
 ## Next
 
 Phase **3.4.22 — Properties compatibility retrofit**. Preserve verified property/unit behavior while adding only planned compatibility boundaries and authoritative permission coverage.
+
+# SECTION 91 — FOUNDATION 3.4.22 (IN PROGRESS)
+
+**Phase:** `3.4.22`  
+**Started:** 2026-09-24
+
+## Properties compatibility retrofit
+
+- Existing organization/assignment property scope and unit plan-limit enforcement remain intact.
+- Backend routes layer menu authorization onto scope: `PROPERTIES.ALL` for property reads/core mutations, `PROPERTIES.ADD` for property creation, and `PROPERTIES.UNITS` for unit routes.
+- Existing role contracts remain authoritative: property create/update/delete/restore are ADMIN/OWNER; unit create/update/delete are ADMIN/OWNER/MANAGER; unit restore remains ADMIN/OWNER.
+- Customer list/detail/new/edit/unit surfaces consume shared display preferences and normalize role casing.
+- The property Edit link/page now matches backend ADMIN/OWNER authorization while MANAGER retains unit and allowed child-tab management.
+- Property Groups, Map View, Photo Editor, Keys, Statement Settings, Attachments, Non-Revenue, Staff, Budget, Fixed Assets, RUBs, and Compliance are represented only as hidden release-gated compatibility slots. Their workflows remain scheduled.
+- Existing routine/missing fields such as default bank account are not converted into feature flags.
+- No migration is required; Alembic head remains `8c4e2a7d1f90`.
+
+## Verification state
+
+Implementation checkpoint prepared; hosted CI verification pending.
 

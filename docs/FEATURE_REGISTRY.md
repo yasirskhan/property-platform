@@ -555,8 +555,8 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Properties list | page | release.properties | core | no | PROPERTIES.ALL | yes | ✅ present | Core property-management page |
 | Property cards / unit summary | section | — | — | — | — | — | ✅ present | Existing list surface |
 | Add Property navigation | action | — | core | no | PROPERTIES.ADD | no | ✅ present | Existing create route |
-| Property Groups | capability | release.properties.groups | property_groups | yes | PROPERTIES.GROUPS | no | ❌ missing | Grouping/filtering capability |
-| Map view | capability | release.properties.map | core | yes | PROPERTIES.ALL | no | ❌ missing | Planned map tab/view |
+| Property Groups | capability | release.properties.groups | property_groups | yes | PROPERTIES.GROUPS | no | ⬜ hidden implementation present | Release-gated compatibility slot; grouping workflow remains planned |
+| Map view | capability | release.properties.map | core | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility slot; map workflow remains planned |
 
 ---
 
@@ -591,16 +591,16 @@ These platform surfaces do not change the customer five-layer access model. Cust
 
 | Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
 |---|---|---|---|---|---|---|---|---|
-| Photo editor | capability | release.properties.photo_editor | core | yes | PROPERTIES.ALL | no | ❌ missing | Crop / rotate |
-| Keys tracking | capability | release.properties.keys | core | yes | PROPERTIES.ALL | no | ❌ missing | Physical key inventory |
-| Statement Settings | capability | release.properties.statement_settings | owner_statements | yes | PROPERTIES.ALL | no | ❌ missing | Property-specific owner-statement behavior |
-| Non-Revenue tab | capability | release.properties.non_revenue | core | yes | PROPERTIES.ALL | no | ❌ missing | Planned parity tab |
-| Staff tab | capability | release.properties.staff | core | yes | PROPERTIES.ALL | no | ❌ missing | Property assignments |
-| Budget tab | capability | release.properties.budget | budgeting | yes | PROPERTIES.ALL | no | ❌ missing | Budget workflow |
-| Fixed Assets tab | capability | release.properties.fixed_assets | fixed_assets | yes | PROPERTIES.ALL | no | ❌ missing | Maintenance/asset module |
-| RUBs tab | capability | release.properties.rubs | rubs | yes | PROPERTIES.ALL | no | ❌ missing | Expansion product |
-| Compliance tab | capability | release.properties.compliance | compliance | yes | PROPERTIES.ALL | no | ❌ missing | Program enrollment/recerts/etc. |
-| Universal attachments | capability | release.documents.attachments | core | yes | PROPERTIES.ALL | no | ❌ missing | Shared attachment framework across tabs |
+| Photo editor | capability | release.properties.photo_editor | core | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility slot; crop/rotate remains planned |
+| Keys tracking | capability | release.properties.keys | core | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility slot; physical key inventory remains planned |
+| Statement Settings | capability | release.properties.statement_settings | owner_statements | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility slot; property-specific statement settings remain planned |
+| Non-Revenue tab | capability | release.properties.non_revenue | core | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility tab slot; workflow remains planned |
+| Staff tab | capability | release.properties.staff | core | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility tab slot; assignments workflow remains planned |
+| Budget tab | capability | release.properties.budget | budgeting | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility tab slot; budget workflow remains planned |
+| Fixed Assets tab | capability | release.properties.fixed_assets | fixed_assets | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility tab slot; asset workflow remains planned |
+| RUBs tab | capability | release.properties.rubs | rubs | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility tab slot; expansion workflow remains planned |
+| Compliance tab | capability | release.properties.compliance | compliance | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility tab slot; compliance workflow remains planned |
+| Universal attachments | capability | release.documents.attachments | core | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility slot; shared attachment framework remains planned |
 
 ## Backend surface
 

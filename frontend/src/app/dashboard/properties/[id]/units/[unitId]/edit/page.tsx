@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiGet, apiPatch } from "@/lib/api";
+import { useDisplay } from "@/contexts/DisplayContext";
 
 export default function EditUnitPage() {
+  const { prefs } = useDisplay();
   const params = useParams();
   const router = useRouter();
   const propertyId = Number(params.id);
@@ -118,7 +120,11 @@ export default function EditUnitPage() {
   if (loading) return <div className="text-slate-500">Loading…</div>;
 
   return (
-    <div className="max-w-2xl">
+    <div
+      className="max-w-2xl"
+      data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()}
+      data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}
+    >
       <Link
         href={`/dashboard/properties/${propertyId}`}
         className="text-sm text-slate-500 hover:text-slate-900 mb-4 inline-block"

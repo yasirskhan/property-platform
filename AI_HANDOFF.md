@@ -83,14 +83,18 @@ Verified latest batch:
 - Alembic head remains 8c4e2a7d1f90.
 
 Current batch:
-- Phase 3.4.22 Properties compatibility retrofit.
+- Phase 3.4.22 Properties compatibility retrofit implementation is prepared in this checkpoint and awaits hosted CI verification.
+- Existing org/assignment scope and unit plan-limit behavior are unchanged.
+- Backend routes now layer PROPERTIES.ALL, PROPERTIES.ADD, and PROPERTIES.UNITS menu permissions over existing scope/role checks.
+- Property list/detail/new/edit and unit new/edit surfaces consume shared display preferences and normalize role casing.
+- Property edit UI now matches backend ADMIN/OWNER authorization while MANAGER keeps allowed unit/child-tab management.
+- Planned Property Groups/Map and property-detail capabilities are hidden release-gated compatibility slots only; their workflows remain scheduled.
+- No migration is required; Alembic head remains 8c4e2a7d1f90.
 
 Next action:
-1. Read AI_HANDOFF.md completely before the batch.
-2. Inspect the existing Properties list/detail/edit/unit surfaces and preserve verified property/unit behavior.
-3. Add missing shared display compatibility and authoritative PROPERTIES permission/write enforcement where needed.
-4. Represent planned independent property capabilities as release-gated compatibility slots without implementing expansion workflows.
-5. Add regression/E2E coverage, verify through hosted CI, fix reds autonomously, update ledgers/handoff, and continue directly to the next ordered batch.
+1. Verify this Phase 3.4.22 checkpoint through hosted CI.
+2. Fix any CI red autonomously.
+3. When green, record exact verification evidence and continue directly to the next ordered compatibility batch.
 
 Open blockers:
 - NONE

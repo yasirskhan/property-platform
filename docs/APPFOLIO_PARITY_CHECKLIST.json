@@ -3675,7 +3675,8 @@
       "area": "Compliance / Page Retrofit",
       "feature": "Properties: use primitives on every tab",
       "status": "built",
-      "phase": "3.5.5"
+      "phase": "3.4.22",
+      "notes": "Phase 3.4.22 compatibility checkpoint preserves property/unit org and assignment scope plus unit plan limits; adds shared display compatibility, authoritative PROPERTIES.ALL/ADD/UNITS permission layering, aligned client write roles, and hidden release-gated slots for planned property capabilities. Future workflows remain scheduled."
     },
     {
       "id": "compliance.currencies.use_primitives",

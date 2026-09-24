@@ -222,12 +222,35 @@ def test_login_and_core_authenticated_pages() -> None:
 
 
             page.goto(
+                f"{BASE_URL}/dashboard/properties",
+                wait_until="domcontentloaded",
+            )
+            expect(page.get_by_role("button", name="Property Groups", exact=True)).to_have_count(0)
+            expect(page.get_by_role("button", name="Map View", exact=True)).to_have_count(0)
+
+            page.goto(
                 f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
                 wait_until="domcontentloaded",
             )
             expect(
                 page.get_by_role("heading", name="E2E Test Property", exact=True)
             ).to_be_visible()
+            for hidden_action in [
+                "Photo Editor",
+                "Keys",
+                "Statement Settings",
+                "Attachments",
+                "Non-Revenue",
+                "Staff",
+                "Budget",
+                "Fixed Assets",
+                "RUBs",
+                "Compliance",
+            ]:
+                expect(
+                    page.get_by_role("button", name=hidden_action, exact=True)
+                ).to_have_count(0)
+
             page.get_by_role("button", name="Units", exact=True).click()
             expect(page.get_by_role("link", name="E2E-1", exact=True)).to_be_visible()
 
