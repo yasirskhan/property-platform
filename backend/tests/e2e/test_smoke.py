@@ -88,6 +88,15 @@ def test_login_and_core_authenticated_pages() -> None:
             expect(page.get_by_role("button", name="Bulk actions", exact=True)).to_have_count(0)
 
             page.goto(
+                f"{BASE_URL}/dashboard/accounting/bills",
+                wait_until="domcontentloaded",
+            )
+            expect(page.get_by_role("heading", name="Bills", exact=True)).to_be_visible()
+            expect(page.get_by_role("button", name="Recurring Bills", exact=True)).to_have_count(0)
+            expect(page.get_by_role("button", name="Write Checks", exact=True)).to_have_count(0)
+            expect(page.get_by_role("button", name="Enter Credit", exact=True)).to_have_count(0)
+
+            page.goto(
                 f"{BASE_URL}/dashboard/settings/features",
                 wait_until="domcontentloaded",
             )

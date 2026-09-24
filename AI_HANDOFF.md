@@ -122,11 +122,20 @@ Current batch:
 - Receipts now consume display context; unreleased capability slots are flag-controlled and remain hidden; reverse uses shared ConfirmModal; backend routes enforce ACCOUNTING.RECEIVABLES permission.
 - Alembic head remains 8c4e2a7d1f90; no migration in Phase 3.4.13.
 
+Current batch:
+- Phase 3.4.14 Bills compatibility retrofit implementation is prepared in the current checkpoint and awaiting hosted CI verification.
+- Verified two-step accrual, partial payment, unpaid reversal, and GL posting behavior remains unchanged.
+- Bills list/new surfaces consume display context and shared date/money formatting.
+- Planned recurring/check-writing/vendor-credit/manual-post/owner-draw/tenant-payable/work-order capabilities are represented as release-gated compatibility slots and remain invisible while HIDDEN.
+- Planned ungated Bill rules/fields are represented by non-visual structural compatibility slots.
+- Bill reverse confirmation now uses the shared ConfirmModal.
+- Bill backend routes now enforce ACCOUNTING.PAYABLES permission in addition to organization scoping.
+- Regression coverage includes permission-guard tests and E2E proof that unreleased Bill actions remain hidden.
+
 Next action:
-1. Continue directly into Phase 3.4.14 Bills compatibility retrofit.
-2. Preserve verified two-step accrual/post/pay/reverse behavior.
-3. Apply the Receipts proof pattern: display compatibility, release-gated future slots, styled confirmation where applicable, backend-authoritative PAYABLES permission, regression coverage, full hosted CI.
-4. After green closeout, continue directly into the next compatibility retrofit without waiting for the user.
+1. Verify the current Phase 3.4.14 checkpoint through hosted CI.
+2. Fix any CI red autonomously.
+3. When green, mark compliance.bills.full_surface built, record exact verification results, and continue directly into the Bank Deposits compatibility retrofit.
 
 Open blockers:
 - NONE

@@ -46,6 +46,7 @@ from app.services.bill_posting import (
     pay_bill,
     reverse_bill,
 )
+from app.services.menu_resolver import permission_allows_user
 
 
 router = APIRouter(
@@ -65,6 +66,13 @@ def _require_org(current_user: User) -> int:
             detail="User has no organization.",
         )
     return current_user.organization_id
+
+
+def _require_bills_access(db: Session, current_user: User) -> int:
+    org_id = _require_org(current_user)
+    if not permission_allows_user(db, user=current_user, menu_key="ACCOUNTING.PAYABLES"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Payables permission required.")
+    return org_id
 
 
 def _bill_to_out(b: Bill) -> BillOut:
@@ -143,7 +151,7 @@ def list_bills(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_bills_access(db, current_user)
 
     q = (
         db.query(Bill)
@@ -188,7 +196,7 @@ def get_bill(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_bills_access(db, current_user)
 
     b = (
         db.query(Bill)
@@ -225,7 +233,7 @@ def create_bill(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_bills_access(db, current_user)
 
     try:
         bill = post_bill(
@@ -268,7 +276,7 @@ def pay_bill_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_bills_access(db, current_user)
 
     bill = (
         db.query(Bill)
@@ -326,7 +334,7 @@ def reverse_bill_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_bills_access(db, current_user)
 
     original = (
         db.query(Bill)

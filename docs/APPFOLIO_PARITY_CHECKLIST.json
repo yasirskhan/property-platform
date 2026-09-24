@@ -14,8 +14,8 @@
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
     "built_count": 195,
-    "scheduled_count": 433,
-    "in_progress_count": 0
+    "scheduled_count": 432,
+    "in_progress_count": 1
   },
   "items": [
     {
@@ -3715,8 +3715,9 @@
       "id": "compliance.bills.full_surface",
       "area": "Compliance / Page Retrofit",
       "feature": "Bills: add all planned slots (cash-field, recurring, write-checks, credit, delete-rules, post-codes)",
-      "status": "scheduled",
-      "phase": "3.5.5"
+      "status": "in_progress",
+      "phase": "3.4.14",
+      "notes": "Bills compatibility retrofit implementation checkpoint: full planned surface is represented through hidden structural/flagged slots, display primitives are consumed, reverse confirmation is styled, and backend PAYABLES permission enforcement is added. Awaiting hosted CI verification."
     },
     {
       "id": "compliance.deposits.full_surface",

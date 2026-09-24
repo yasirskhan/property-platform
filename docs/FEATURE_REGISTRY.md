@@ -264,14 +264,14 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Bill detail modal | modal | — | — | — | ACCOUNTING.PAYABLES | — | ✅ present | Includes line details and payment history |
 | Pay Bill | capability | — | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Partial payment allowed |
 | Reverse unpaid bill | action | — | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Existing reversal rule |
-| Reverse after partial payment | behavior | — | core | no | ACCOUNTING.PAYABLES | no | ❌ missing | Planned AppFolio behavior fix |
-| Recurring Bills | capability | release.accounting.bills.recurring | recurring_bills | yes | ACCOUNTING.PAYABLES | no | ❌ missing | Independent recurring workflow |
-| Write Checks | capability | release.accounting.write_checks | check_writing | yes | ACCOUNTING.PAYABLES | no | ❌ missing | Payment/check workflow |
-| Enter Credit | capability | release.accounting.vendor_credits | vendor_credits | yes | ACCOUNTING.PAYABLES | no | ❌ missing | Vendor credit workflow |
-| Manually Post Bills | capability | release.accounting.bills.manual_post | core | no | ACCOUNTING.PAYABLES | no | ❌ missing | Search/select/post workflow |
-| Owner Draw | capability | release.accounting.owner_draw | core | yes | ACCOUNTING.PAYABLES | no | ❌ missing | Owner payable workflow |
-| Tenant Payable | capability | release.accounting.tenant_payable | core | yes | ACCOUNTING.PAYABLES | no | ❌ missing | Tenant payable workflow |
-| Convert Work Order to Bill | capability | release.maintenance.work_order_to_bill | maintenance | yes | ACCOUNTING.PAYABLES | no | ❌ missing | Cross-module workflow |
+| Reverse after partial payment | behavior | — | core | no | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Structural compatibility slot present; behavior fix remains planned |
+| Recurring Bills | capability | release.accounting.bills.recurring | recurring_bills | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
+| Write Checks | capability | release.accounting.write_checks | check_writing | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
+| Enter Credit | capability | release.accounting.vendor_credits | vendor_credits | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
+| Manually Post Bills | capability | release.accounting.bills.manual_post | core | no | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
+| Owner Draw | capability | release.accounting.owner_draw | core | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
+| Tenant Payable | capability | release.accounting.tenant_payable | core | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
+| Convert Work Order to Bill | capability | release.maintenance.work_order_to_bill | maintenance | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
 
 ## Backend surface
 
@@ -300,10 +300,10 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Payee / bill date / due date / reference / remarks | fields | — | — | — | — | — | ✅ present | Routine fields |
 | Multi-line account/property/description/amount table | section | — | — | — | — | — | ✅ present | Two-step accrual entry |
 | Add/remove line controls + total | controls | — | — | — | — | — | ✅ present | Routine controls |
-| Real Vendor entity picker | behavior | — | core | no | ACCOUNTING.PAYABLES | no | ❌ missing | Current UI uses payee text; vendor entity planned |
-| Cash Account field at bill entry | field | — | — | — | — | — | ❌ missing | Planned parity field |
-| Post Code for recurring bill | field | — | — | — | — | — | ❌ missing | Applies when recurring capability is active |
-| Delete visibility rule | behavior | — | core | no | ACCOUNTING.PAYABLES | no | ❌ missing | Delete only when unpaid |
+| Real Vendor entity picker | behavior | — | core | no | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Structural compatibility slot present; current payee text behavior preserved |
+| Cash Account field at bill entry | field | — | — | — | — | — | ⬜ hidden implementation present | Structural compatibility slot present; field behavior remains planned |
+| Post Code for recurring bill | field | — | — | — | — | — | ⬜ hidden implementation present | Structural compatibility slot present; recurring workflow remains planned |
+| Delete visibility rule | behavior | — | core | no | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Structural compatibility slot present; delete workflow remains planned |
 
 ---
 

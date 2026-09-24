@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPost } from "@/lib/api";
 import { formatMoney } from "@/lib/money";
+import { useDisplay } from "@/contexts/DisplayContext";
 
 interface Property {
   id: number;
@@ -36,6 +37,7 @@ interface LineRow {
 
 export default function NewBillPage() {
   const router = useRouter();
+  const { prefs } = useDisplay();
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [accounts, setAccounts] = useState<GLAccount[]>([]);
@@ -165,7 +167,11 @@ export default function NewBillPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-4xl mx-auto p-6" data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()} data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}>
+      <span hidden aria-hidden="true" data-compat-slot="bills.real-vendor-picker" />
+      <span hidden aria-hidden="true" data-compat-slot="bills.cash-account-entry" />
+      <span hidden aria-hidden="true" data-compat-slot="bills.recurring-post-code" />
+      <span hidden aria-hidden="true" data-compat-slot="bills.delete-visibility-rule" />
       <h1 className="text-xl font-semibold text-slate-900 mb-1">New Bill</h1>
       <p className="text-sm text-slate-500 mb-6">
         Enter a vendor bill. Posts DR Expense / CR Accounts Payable.

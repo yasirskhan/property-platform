@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.13 — Receipts compatibility retrofit (proof pattern)** is COMPLETE and VERIFIED. Next implementation phase: **3.4.14 — Bills compatibility retrofit**.
+**Current activity:** Phase **3.4.14 — Bills compatibility retrofit** is IN PROGRESS. Phase 3.4.13 is COMPLETE and VERIFIED.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
