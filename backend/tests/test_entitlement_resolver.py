@@ -11,6 +11,7 @@ from app.models.billing import (
     Plan,
     PlanModule,
     Subscription,
+    SubscriptionItem,
     SubscriptionStatus,
 )
 from app.models.user import Organization
@@ -163,6 +164,42 @@ def test_inactive_plan_or_module_does_not_grant_paid_feature() -> None:
         assert entitlement_allows_feature(
             db, organization_id=org.id, feature_key="LEASING"
         ) is False
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_subscription_item_add_on_grants_paid_module_feature() -> None:
+    db, engine = _session()
+    try:
+        org = _org(db, slug="item-addon")
+        module = _feature(
+            db,
+            key="REPORTING.BUILDER",
+            module_key="report-builder",
+        )
+        plan = Plan(code="base-with-addon", name="Base")
+        db.add(plan)
+        db.flush()
+        subscription = Subscription(
+            organization_id=org.id,
+            plan_id=plan.id,
+        )
+        db.add(subscription)
+        db.flush()
+        db.add(
+            SubscriptionItem(
+                subscription_id=subscription.id,
+                module_id=module.id,
+            )
+        )
+        db.commit()
+
+        assert entitlement_allows_feature(
+            db,
+            organization_id=org.id,
+            feature_key="REPORTING.BUILDER",
+        ) is True
     finally:
         db.close()
         engine.dispose()

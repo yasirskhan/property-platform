@@ -17,6 +17,7 @@ from app.models.billing import (
     Plan,
     PlanModule,
     Subscription,
+    SubscriptionItem,
     SubscriptionStatus,
 )
 
@@ -100,6 +101,14 @@ def resolve_entitlements(
             .all()
         )
     }
+    included_module_ids.update(
+        row[0]
+        for row in (
+            db.query(SubscriptionItem.module_id)
+            .filter(SubscriptionItem.subscription_id == subscription.id)
+            .all()
+        )
+    )
     for key in paid_keys:
         result[key] = any(
             module_id in included_module_ids
