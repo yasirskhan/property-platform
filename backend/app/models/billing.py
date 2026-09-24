@@ -235,6 +235,12 @@ class Subscription(Base):
         nullable=False,
         index=True,
     )
+    stripe_subscription_id = Column(
+        String(255),
+        nullable=True,
+        unique=True,
+        index=True,
+    )
     status = Column(
         SqlEnum(
             SubscriptionStatus,
