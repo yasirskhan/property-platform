@@ -26,6 +26,45 @@ class AccessDecision:
     reason: str | None = None
 
 
+def resolve_release_gates_for_org(
+    db: Session,
+    *,
+    gate_keys: list[str],
+    organization_id: int | None,
+) -> dict[str, bool]:
+    """Resolve many platform release gates for one organization."""
+    keys = list(dict.fromkeys(key.strip() for key in gate_keys if key.strip()))
+    result = {key: False for key in keys}
+    if not keys:
+        return result
+
+    gates = db.query(ReleaseGate).filter(ReleaseGate.key.in_(keys)).all()
+    allowlisted_gate_ids: set[int] = set()
+    if organization_id is not None and gates:
+        gate_ids = [gate.id for gate in gates]
+        allowlisted_gate_ids = {
+            row[0]
+            for row in db.query(ReleaseGateOrganization.release_gate_id)
+            .filter(
+                ReleaseGateOrganization.organization_id == organization_id,
+                ReleaseGateOrganization.release_gate_id.in_(gate_ids),
+            )
+            .all()
+        }
+
+    for gate in gates:
+        stage = gate.stage
+        if isinstance(stage, str):
+            stage = ReleaseStage(stage)
+        if stage == ReleaseStage.ALL_ORGS:
+            result[gate.key] = True
+        elif stage in {ReleaseStage.BETA, ReleaseStage.ROLLOUT}:
+            result[gate.key] = (
+                organization_id is not None and gate.id in allowlisted_gate_ids
+            )
+    return result
+
+
 def release_gate_allows_org(
     db: Session,
     *,
@@ -40,31 +79,11 @@ def release_gate_allows_org(
     key = gate_key.strip()
     if not key:
         return False
-
-    gate = db.query(ReleaseGate).filter(ReleaseGate.key == key).first()
-    if gate is None:
-        return False
-
-    stage = gate.stage
-    if isinstance(stage, str):
-        stage = ReleaseStage(stage)
-
-    if stage == ReleaseStage.HIDDEN:
-        return False
-    if stage == ReleaseStage.ALL_ORGS:
-        return True
-    if organization_id is None:
-        return False
-
-    return (
-        db.query(ReleaseGateOrganization.id)
-        .filter(
-            ReleaseGateOrganization.release_gate_id == gate.id,
-            ReleaseGateOrganization.organization_id == organization_id,
-        )
-        .first()
-        is not None
-    )
+    return resolve_release_gates_for_org(
+        db,
+        gate_keys=[key],
+        organization_id=organization_id,
+    ).get(key, False)
 
 
 def resolve_capability_access(

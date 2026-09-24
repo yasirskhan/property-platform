@@ -37,6 +37,7 @@ from app.models.billing_extras import AddOn, Discount  # noqa: F401
 from app.models.billing_quotes import Quote, QuoteLineItem  # noqa: F401
 from app.models.billing_checkout import BillingCheckoutSession  # noqa: F401
 from app.models.fraud import FraudCase, FraudSignal  # noqa: F401
+from app.models.organization_feature_setting import OrganizationFeatureSetting  # noqa: F401
 from app.models.property import Property, Unit, PropertyAssignment  # noqa: F401
 from app.models.lease import Lease, RentInvoice, Payment  # noqa: F401
 from app.models.work_order import WorkOrder, WorkOrderUpdate  # noqa: F401

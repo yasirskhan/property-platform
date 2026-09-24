@@ -86,10 +86,14 @@ Current batch:
 - CI now has a dedicated platform-admin lint/TypeScript/production-build job and npm-audit gate.
 - No migration in Batch 2; Alembic head remains 6f1a9c4d2e7b.
 
+Current batch:
+- Phase 3.4.11 Batch 1 implementation is committed for hosted verification: customer release-gate consumption API, separate organization feature-setting storage, release-aware SETTINGS.FEATURES menu exposure, and regression coverage for release/entitlement/org-config/permission separation.
+- Alembic head for this batch: 3b8d1f5c7a20; model table count: 76.
+
 Next action:
-1. Verify the Phase 3.4.10 closeout checkpoint in hosted CI and fix any reds autonomously.
-2. Continue directly into Phase 3.4.11 customer release-gate consumption + Settings → Features.
-3. Keep the five access concerns independent; customer UI visibility must never substitute for backend authorization.
+1. Verify Phase 3.4.11 Batch 1 in hosted CI and fix any reds autonomously.
+2. Build Phase 3.4.11 Batch 2: customer useFlag() hook + <Flag> wrapper + Settings → Features UI and browser proof.
+3. Close Phase 3.4.11 only after all CI gates are green, then continue directly into Phase 3.4.12.
 
 Open blockers:
 - NONE

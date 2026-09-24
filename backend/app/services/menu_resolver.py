@@ -38,6 +38,12 @@ from app.models.user_permission import UserPermission
 from app.models.sidebar_preference import SidebarPreference
 from app.models.user import User
 from app.services.entitlement_resolver import resolve_entitlements
+from app.services.release_gate_resolver import release_gate_allows_org
+
+
+MENU_RELEASE_GATES = {
+    "SETTINGS.FEATURES": "release.settings.features",
+}
 
 
 # ------------------------------------------------------------
@@ -123,6 +129,35 @@ def _load_personal_prefs(
     return hidden, order
 
 
+def permission_allows_user(
+    db: Session,
+    *,
+    user: User,
+    menu_key: str,
+) -> bool:
+    """Resolve role + user-override authorization only."""
+    if menu_key not in MENU_KEYS or user.organization_id is None:
+        return False
+    role = _norm_role(user.role)
+    if not role:
+        return False
+
+    role_matrix = _load_role_matrix(db, user.organization_id, role)
+    overrides = _load_user_overrides(db, user.id)
+    if role == "ADMIN":
+        role_matrix = {key: True for key in MENU_KEYS}
+        overrides = {}
+
+    current: Optional[str] = menu_key
+    while current is not None:
+        if not role_matrix.get(current, False):
+            return False
+        if overrides.get(current) is False:
+            return False
+        current = _parent_of(current)
+    return True
+
+
 # ------------------------------------------------------------
 # The resolver
 # ------------------------------------------------------------
@@ -171,6 +206,15 @@ def resolve_menu_for_user(
     effective: Dict[str, bool] = {}
 
     for key in MENU_KEYS:
+        release_key = MENU_RELEASE_GATES.get(key)
+        if release_key and not release_gate_allows_org(
+            db,
+            gate_key=release_key,
+            organization_id=org_id,
+        ):
+            effective[key] = False
+            continue
+
         # Layer 1 — only cataloged features are commercially gated.
         if not entitlement_matrix.get(key, True):
             effective[key] = False
