@@ -32,6 +32,7 @@ Last completed batch:
 - Phase 3.4.7 Batch 10 — transactional subscription lifecycle service with append-only events and provider-event idempotency.
 - Phase 3.4.7 basic billing foundation is COMPLETE at the backend/foundation level: catalog, subscriptions/items/events, invoices/usage, billing settings/payment-method metadata, entitlements, menu gating, add-ons/discounts/quotes, and lifecycle transitions are now represented.
 - Maintenance after Batch 10 — CI backup/restore validation now compares restored schema table count to the source schema instead of a stale hardcoded count.
+- Maintenance after Batch 10 — authenticated E2E property smoke now opens the Units tab before asserting seeded unit data, matching the current property-detail UI.
 
 Next batch to run:
 - Phase 3.4.8 Batch 1 — backend-only Stripe Checkout session and webhook foundation for self-serve signup/payment. Do not build user-visible UI in this batch.

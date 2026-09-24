@@ -73,6 +73,7 @@ def test_login_and_core_authenticated_pages() -> None:
             expect(
                 page.get_by_role("heading", name="E2E Test Property", exact=True)
             ).to_be_visible()
+            page.get_by_role("button", name="Units", exact=True).click()
             expect(page.get_by_text("E2E-1", exact=True)).to_be_visible()
 
             page.goto(
