@@ -74,7 +74,7 @@ def test_login_and_core_authenticated_pages() -> None:
                 page.get_by_role("heading", name="E2E Test Property", exact=True)
             ).to_be_visible()
             page.get_by_role("button", name="Units", exact=True).click()
-            expect(page.get_by_text("E2E-1", exact=True)).to_be_visible()
+            expect(page.get_by_role("link", name="E2E-1", exact=True)).to_be_visible()
 
             page.goto(
                 f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}/edit",
