@@ -10,8 +10,8 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import DBAPIError
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_HEAD = "46c3d8f2ab10"
-EXPECTED_MODEL_TABLES = 56
+EXPECTED_HEAD = "a4f7c2d9e813"
+EXPECTED_MODEL_TABLES = 61
 
 
 @pytest.mark.integration
@@ -46,7 +46,6 @@ def test_postgres_fresh_bootstrap_when_ci_database_is_available() -> None:
         with engine.connect() as conn:
             version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
         assert version == EXPECTED_HEAD
-
 
         with engine.begin() as conn:
             audit_id = conn.execute(
