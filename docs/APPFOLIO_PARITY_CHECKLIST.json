@@ -3668,7 +3668,7 @@
       "feature": "Charges: use primitives",
       "status": "built",
       "phase": "3.4.21",
-      "notes": "Phase 3.4.21 compatibility retrofit preserves charge paid-floor/delete rules, adds shared display compatibility and authoritative ACCOUNTING.CHARGES access/write enforcement, and represents bulk tenant charge upload as a hidden release-gated slot without implementing the bulk workflow."
+      "notes": "Verified in hosted CI run 36051620935: charge paid-floor/delete rules remain intact; shared display compatibility and authoritative ACCOUNTING.CHARGES access/write enforcement are covered; Bulk Tenant Charges Upload is represented only as a hidden release-gated slot and the actual bulk workflow remains scheduled."
     },
     {
       "id": "compliance.properties.use_primitives",

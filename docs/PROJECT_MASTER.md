@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.21 — Charges compatibility retrofit** is IN PROGRESS. Phase 3.4.20 Bank Accounts is COMPLETE and VERIFIED.
+**Current activity:** Phase **3.4.21 — Charges compatibility retrofit** is COMPLETE and VERIFIED. Next: **3.4.22 — Properties compatibility retrofit**.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -4651,10 +4651,12 @@ Phase **3.4.11 — customer release-gate consumption + Settings → Features**.
 
 Phase **3.4.12 — unit / plan-limit enforcement + upgrade path**. Enforce limits on backend unit creation/restoration first; customer upgrade messaging may explain the limit but never replace server enforcement.
 
-# SECTION 90 — FOUNDATION 3.4.21 (IN PROGRESS)
+# SECTION 90 — FOUNDATION 3.4.21 (COMPLETE)
 
 **Phase:** `3.4.21`  
-**Started:** 2026-09-24
+**Completed:** 2026-09-24  
+**Implementation commit:** `7148b788315be7c6a245884da8d2dec5e0f02913`  
+**Verification:** hosted CI run `36051620935`
 
 ## Charges compatibility retrofit
 
@@ -4665,7 +4667,14 @@ Phase **3.4.12 — unit / plan-limit enforcement + upgrade path**. Enforce limit
 - Regression coverage verifies access/write-role helpers, and authenticated E2E verifies the unreleased bulk action stays hidden.
 - No migration is required; Alembic head remains `8c4e2a7d1f90`.
 
-## Verification state
+## Verification evidence
 
-Implementation checkpoint prepared; hosted CI verification pending.
+- Backend/PostgreSQL: **233 passed, 3 deselected, 1266 warnings in 36.78s**.
+- E2E: **3 passed in 11.77s**.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
+- Alembic head remains `8c4e2a7d1f90`.
+
+## Next
+
+Phase **3.4.22 — Properties compatibility retrofit**. Preserve verified property/unit behavior while adding only planned compatibility boundaries and authoritative permission coverage.
 

@@ -71,18 +71,26 @@ Verified latest batch:
 - Shared display compatibility, ACCOUNTING.BANK_ACCOUNTS permission enforcement, ADMIN/OWNER/MANAGER write roles, and hidden release-gated reconciliation/QIF/check/ACH/feed/adjustment slots are verified.
 - Alembic head remains 8c4e2a7d1f90.
 
+Verified latest batch:
+- Phase 3.4.21 Charges compatibility retrofit is COMPLETE and VERIFIED.
+- Implementation commit: 7148b788315be7c6a245884da8d2dec5e0f02913.
+- GitHub CI run 36051620935: SUCCESS.
+- Backend/PostgreSQL: 233 passed, 3 deselected, 1266 warnings in 36.78s.
+- E2E: 3 passed in 11.77s.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
+- Existing charge paid-floor/delete rules remain unchanged; ACCOUNTING.CHARGES permission/write-role enforcement and display compatibility are verified.
+- Bulk Tenant Charges Upload remains a hidden compatibility slot; the actual bulk workflow is still scheduled.
+- Alembic head remains 8c4e2a7d1f90.
+
 Current batch:
-- Phase 3.4.21 Charges compatibility retrofit implementation is prepared in this checkpoint and awaits hosted CI verification.
-- Existing charge accounting/edit rules remain unchanged: org-scoped tenant/account validation, INCOME-only GL accounts, paid-floor edits, and no deletion of fully paid charges.
-- Backend list/detail require ACCOUNTING.CHARGES permission; create/update/delete additionally require ADMIN/OWNER/MANAGER.
-- Charges list/new surfaces consume shared display preferences.
-- Bulk Tenant Charges Upload is a hidden release-gated compatibility slot only; the actual bulk workflow remains scheduled.
-- Regression/E2E coverage is included; no migration is required and Alembic head remains 8c4e2a7d1f90.
+- Phase 3.4.22 Properties compatibility retrofit.
 
 Next action:
-1. Verify this Phase 3.4.21 checkpoint through hosted CI.
-2. Fix any CI red autonomously.
-3. When green, record exact verification results in all ledgers/handoff and continue directly to the next ordered compatibility/core-product batch.
+1. Read AI_HANDOFF.md completely before the batch.
+2. Inspect the existing Properties list/detail/edit/unit surfaces and preserve verified property/unit behavior.
+3. Add missing shared display compatibility and authoritative PROPERTIES permission/write enforcement where needed.
+4. Represent planned independent property capabilities as release-gated compatibility slots without implementing expansion workflows.
+5. Add regression/E2E coverage, verify through hosted CI, fix reds autonomously, update ledgers/handoff, and continue directly to the next ordered batch.
 
 Open blockers:
 - NONE
