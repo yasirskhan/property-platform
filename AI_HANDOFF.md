@@ -73,7 +73,13 @@ Current batch:
 - Backend/PostgreSQL: 160 passed, 2 deselected, 1132 warnings in 40.37s.
 - Platform-admin lint/TypeScript/build and npm-audit: SUCCESS.
 - Customer frontend, security, existing E2E, backup/restore, and staging: SUCCESS.
-- Phase 3.4.10 Batch 3 deterministic platform-admin browser proof is IMPLEMENTED; first hosted CI run 35981264180 exposed only a pytest module-name collision between backend/tests/test_platform_admin.py and the E2E module. The E2E module is renamed to test_platform_admin_e2e.py; re-verification is pending.
+- Phase 3.4.10 Batch 3 deterministic platform-admin browser proof is VERIFIED.
+- Rename/fix commit: e195a2b98e0a1d5686580f89842ccd56726b0f0c.
+- GitHub CI run 35981504331: SUCCESS.
+- Backend/PostgreSQL: 160 passed, 3 deselected, 1132 warnings in 39.14s.
+- E2E: 3 passed in 9.49s.
+- Customer frontend, platform-admin frontend, security, backup/restore, and staging smoke: SUCCESS.
+- Phase 3.4.10 is COMPLETE and VERIFIED.
 - The internal app lives in platform-admin/, uses only platform-audience authentication/API routes, stores a separate platform_access_token, and does not reuse customer frontend auth state.
 - Internal surfaces cover organizations, plan catalog, release gates, fraud review, and platform staff audit with backend role authorization remaining authoritative.
 - Backend CORS permits the local internal app on port 3001.
@@ -81,9 +87,9 @@ Current batch:
 - No migration in Batch 2; Alembic head remains 6f1a9c4d2e7b.
 
 Next action:
-1. Verify Phase 3.4.10 Batch 3 in hosted CI and fix any reds autonomously.
-2. Complete Phase 3.4.10 roadmap/parity/catalog closeout.
-3. Continue directly into Phase 3.4.11 customer release-gate consumption + Settings Features.
+1. Verify the Phase 3.4.10 closeout checkpoint in hosted CI and fix any reds autonomously.
+2. Continue directly into Phase 3.4.11 customer release-gate consumption + Settings → Features.
+3. Keep the five access concerns independent; customer UI visibility must never substitute for backend authorization.
 
 Open blockers:
 - NONE

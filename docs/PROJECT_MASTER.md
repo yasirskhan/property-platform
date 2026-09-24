@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.9 — Fraud / Abuse Foundation** is COMPLETE and VERIFIED. Next implementation phase: **3.4.10 — separate internal admin app (organizations, release gates, plans, fraud, audit)**.
+**Current activity:** Phase **3.4.10 — Separate Internal Admin App** is COMPLETE and VERIFIED. Next implementation phase: **3.4.11 — customer release-gate consumption + Settings → Features**.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -35,7 +35,7 @@
 
 **Migration head:** `6f1a9c4d2e7b`.
 
-**Current parity inventory:** 186 built, 0 in progress, 442 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 190 built, 0 in progress, 438 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -4571,4 +4571,45 @@ Phase **3.4.6 — end-to-end verification of the existing core product**. This p
 
 ## Next
 
-Phase **3.4.10 — separate internal admin app**. Keep platform staff identity and authorization separate from customer-side identities; build organization, release-gate, plan, fraud, and audit administration behind platform-audience authentication.
+Phase **3.4.11 — customer release-gate consumption + Settings → Features**. Customer-side capability visibility must consume release-stage resolution without conflating it with plan entitlement, organization configuration, role permission, or user preference.
+
+
+# SECTION 88 — FOUNDATION 3.4.10 (COMPLETE)
+
+**Phase:** `3.4.10`  
+**Completed:** 2026-09-24  
+**Platform-control API commit:** `764f6816b8334490c93d095a47a721b8ccbf380d`  
+**Internal-app commit:** `02ddfa7a622d9b155ca1c71899316c6b163755a2`  
+**Browser-proof commits:** `39e7d3e3a39c77dbc9a1b3388f2115e400b2cdc6`, `e195a2b98e0a1d5686580f89842ccd56726b0f0c`  
+**Verification:** hosted CI run `35981504331`
+
+## Separate internal administration application
+
+- Added a separate Next.js application under `platform-admin/`; platform staff are not mixed into the customer frontend.
+- Platform login uses the platform JWT audience and a separate browser token key, `platform_access_token`.
+- Customer JWTs and the customer `token` key are not reused by the internal application.
+- Internal surfaces cover organizations, plans, release gates, fraud review, and platform staff audit.
+- Backend platform-role authorization remains authoritative for every privileged operation.
+
+## Platform controls
+
+- Platform staff can list customer organizations and authorized sales/admin staff can provision enterprise organizations without creating customer credentials.
+- Billing/admin staff can manage the plan catalog; sales remains read-only.
+- Platform admin/dev can inspect and update release stages and organization allowlists.
+- Authorized platform staff can review fraud cases.
+- Platform audit reads expose platform-actor activity only.
+- Privileged mutations are immutably audited.
+
+## CI and browser proof
+
+- CI has a dedicated platform-admin lint, TypeScript, and production-build job plus npm audit.
+- Disposable E2E setup seeds a platform administrator and runs the internal app on port 3001 beside the customer frontend.
+- Playwright proves platform login, the core internal surfaces, a populated `platform_access_token`, and absence of the customer `token` key.
+- Backend/PostgreSQL: **160 passed, 3 deselected, 1132 warnings in 39.14s**.
+- E2E: **3 passed in 9.49s**.
+- Customer frontend, platform-admin frontend, security, backup/restore, and staging smoke: SUCCESS.
+- Alembic head remains `6f1a9c4d2e7b`; this phase added no migration.
+
+## Next
+
+Phase **3.4.11 — customer release-gate consumption + Settings → Features**.

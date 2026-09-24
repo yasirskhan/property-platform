@@ -13,8 +13,8 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 186,
-    "scheduled_count": 442,
+    "built_count": 190,
+    "scheduled_count": 438,
     "in_progress_count": 0
   },
   "items": [
@@ -2400,8 +2400,9 @@
       "id": "internal.admin_portal",
       "area": "Internal Team",
       "feature": "Internal admin portal shell (admin.yourcompany.com)",
-      "status": "scheduled",
-      "phase": "3.4.10"
+      "status": "built",
+      "phase": "3.4.10",
+      "notes": "Verified in hosted CI run 35981504331 with separate platform-audience authentication and internal-app browser coverage."
     },
     {
       "id": "internal.platform_audit",
@@ -2780,7 +2781,7 @@
       "area": "Platform / Feature Flags",
       "feature": "Settings -> Features page (org-level toggles)",
       "status": "scheduled",
-      "phase": "3.4.10"
+      "phase": "3.4.11"
     },
     {
       "id": "platform.feature_flags.audit",
@@ -3552,8 +3553,9 @@
       "id": "platform.gating.internal_admin_panel",
       "area": "Platform / Gating",
       "feature": "Internal admin panel to flip platform stages",
-      "status": "scheduled",
-      "phase": "9"
+      "status": "built",
+      "phase": "3.4.10",
+      "notes": "Verified in hosted CI run 35981504331 with separate platform-audience authentication and internal-app browser coverage."
     },
     {
       "id": "platform.gating.websocket_propagation",
@@ -4193,8 +4195,9 @@
       "id": "platform.org_creation_admin",
       "area": "Platform / Orgs",
       "feature": "Admin-side org creation (enterprise, no self-serve)",
-      "status": "scheduled",
-      "phase": "3.4.10"
+      "status": "built",
+      "phase": "3.4.10",
+      "notes": "Verified in hosted CI run 35981504331 with separate platform-audience authentication and internal-app browser coverage."
     },
     {
       "id": "platform.org_overrides",
@@ -4346,8 +4349,9 @@
       "id": "platform.internal_admin_app",
       "area": "Platform / Internal Admin",
       "feature": "Separate internal admin app (orgs, flags, plans, fraud, audit)",
-      "status": "scheduled",
-      "phase": "3.4.10"
+      "status": "built",
+      "phase": "3.4.10",
+      "notes": "Verified in hosted CI run 35981504331 with separate platform-audience authentication and internal-app browser coverage."
     },
     {
       "id": "platform.use_flag_hook",

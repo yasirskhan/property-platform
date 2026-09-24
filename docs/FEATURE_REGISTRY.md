@@ -1,7 +1,7 @@
 # FEATURE REGISTRY
 
 **The surface and access map. Every page. Every capability. Every slot.**
-**Last updated: 2026-09-23**
+**Last updated: 2026-09-24**
 
 Companion to PROJECT_MASTER.md and PLAN_GAPS.md.
 
@@ -87,6 +87,20 @@ when a capability needs finer authorization than its page.
 | `/dashboard/settings/permissions` | §Settings — Permissions | ✅ written |
 | `/dashboard/settings/sidebar` | §Settings — compatibility route | ✅ written |
 | Future settings families | §Settings — planned capability pages | ✅ planned surface written |
+
+## Internal platform application
+
+Phase 3.4.10 added a separate `platform-admin/` Next.js application for platform staff. It is intentionally outside the customer `/dashboard` route registry and uses the platform JWT audience plus its own browser token namespace.
+
+Verified internal surfaces:
+- Organizations: platform list/detail and authorized enterprise provisioning.
+- Plans: read/manage catalog according to platform role.
+- Release Gates: platform stage and organization-allowlist control.
+- Fraud Review: platform review queue and audited decisions.
+- Staff Audit: platform-actor audit history.
+
+These platform surfaces do not change the customer five-layer access model. Customer release consumption and Settings → Features begin in Phase 3.4.11.
+
 
 ---
 
