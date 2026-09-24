@@ -73,7 +73,7 @@ Current batch:
 - Backend/PostgreSQL: 160 passed, 2 deselected, 1132 warnings in 40.37s.
 - Platform-admin lint/TypeScript/build and npm-audit: SUCCESS.
 - Customer frontend, security, existing E2E, backup/restore, and staging: SUCCESS.
-- Phase 3.4.10 Batch 3 deterministic platform-admin browser proof is IMPLEMENTED; hosted CI verification is pending.
+- Phase 3.4.10 Batch 3 deterministic platform-admin browser proof is IMPLEMENTED; first hosted CI run 35981264180 exposed only a pytest module-name collision between backend/tests/test_platform_admin.py and the E2E module. The E2E module is renamed to test_platform_admin_e2e.py; re-verification is pending.
 - The internal app lives in platform-admin/, uses only platform-audience authentication/API routes, stores a separate platform_access_token, and does not reuse customer frontend auth state.
 - Internal surfaces cover organizations, plan catalog, release gates, fraud review, and platform staff audit with backend role authorization remaining authoritative.
 - Backend CORS permits the local internal app on port 3001.
