@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.6 — Accounting Polish: Chart of Accounts** is IN PROGRESS. GL Account Permissions is VERIFIED; Recalculate Balances is implemented as live-ledger recomputation and awaits hosted CI verification.
+**Current activity:** Phase **3.6 — Accounting Polish: Journal Entries** is IN PROGRESS. Chart of Accounts polish is COMPLETE and VERIFIED in CI run 36072399702; recurring Journal Entries is the next implementation block.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -143,12 +143,12 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Continue Phase 3.6 — Accounting Polish.**
+**Continue Phase 3.6 — Accounting Polish: Journal Entries.**
 
-1. Verify the Recalculate Balances batch in hosted CI and fix any reds autonomously.
-2. Once green, Chart of Accounts polish is complete: must-clear, offset-account, hide semantics, GL Account Permissions, and live-ledger recalculation are all resolved without duplicate balance state.
-3. Continue next with the Journal Entries block in Section 38: History/Recurring sub-tabs, recurring JEs, manually-post compatibility, Post GPR, and remarks-vs-description behavior.
-4. Preserve release gating, ACCOUNTING permissions, org isolation, immutable GL posting, and regression coverage.
+1. Chart of Accounts polish is COMPLETE and VERIFIED in hosted CI run 36072399702: backend 262 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed.
+2. Implement recurring Journal Entries with History/Recurring tabs and durable due-posting while preserving the central GL posting service and immutable posted-entry rules.
+3. Reconcile the already-existing Manually Post workflow and remarks-vs-line-description behavior to built parity state.
+4. Then implement Post GPR as the next Journal Entries sub-batch and continue through Phase 3.6 without stopping.
 
 ## B2. AFTER THAT## B2. AFTER THAT (Phase 3.5 onward)
 

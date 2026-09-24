@@ -165,18 +165,28 @@ Verified latest batch:
 - must_clear and GL hide/deactivation parity items are reconciled to built.
 - Migration head: 4d7f2a9c6e31. Expected model-table count: 77.
 
+Verified latest batch:
+- Phase 3.6 Chart of Accounts Recalculate Balances is COMPLETE and VERIFIED.
+- Implementation commit: 0dee9e28ebafed043eb71a03001e6a31b1e16781.
+- GitHub CI run 36072399702: SUCCESS.
+- Backend/PostgreSQL: 262 passed, 3 deselected, 1351 warnings in 26.13s.
+- E2E: 3 passed in 11.50s.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
+- Recalculate Balances is release-gated by release.accounting.gl_accounts.recalculate, requires ACCOUNTING.GL_ACCOUNTS, recomputes directly from immutable org-scoped gl_entries, and writes no cached balances.
+- Chart of Accounts Phase 3.6 polish is now complete: hide/deactivation semantics, offset account UI, must-clear UI, GL Account Permissions, and Recalculate Balances are resolved.
+- No migration in this batch; Alembic head remains 4d7f2a9c6e31.
+
 Current batch:
-- Phase 3.6 Chart of Accounts Recalculate Balances batch is implemented and awaits hosted CI verification.
-- The action is release-gated by release.accounting.gl_accounts.recalculate and requires ACCOUNTING.GL_ACCOUNTS through the existing authoritative access helper.
-- It recomputes org-scoped account/entry counts plus total debits/credits directly from immutable gl_entries.
-- It stores no cached financial balance state and does not mutate the ledger.
-- Customer UI now triggers the action only through the existing release-gated slot and reports balanced/unbalanced verification.
-- Parity/registry state is reconciled to built; no migration is required and Alembic head remains 4d7f2a9c6e31.
+- Continue Phase 3.6 with the Journal Entries block.
+- Existing manual JE posting already provides the Manually Post workflow through post_transaction(), and the transaction memo vs line description rule is already implemented and verified.
+- Reconcile those existing capabilities to built while implementing the real recurring JE workflow and History/Recurring tabs.
+- Post GPR remains the next Journal Entries sub-batch after recurring JEs.
 
 Next action:
-1. Verify this Recalculate Balances batch through hosted CI and fix reds autonomously.
-2. Record exact green evidence.
-3. Continue Phase 3.6 with the Journal Entries block: History/Recurring sub-tabs, recurring JEs, manually-post compatibility, Post GPR, and remarks-vs-description behavior.
+1. Implement release-gated recurring Journal Entries with org-scoped schedules/templates, History/Recurring tabs, and durable due-posting integration.
+2. Preserve ACCOUNTING.JOURNAL_ENTRIES permission, ADMIN/OWNER/MANAGER write roles, central post_transaction(), immutable posted entries, and org isolation.
+3. Reconcile manually-post and remarks-vs-description parity items to built.
+4. Verify in hosted CI, fix reds autonomously, then continue with Post GPR.
 
 Open blockers:
 - NONE
