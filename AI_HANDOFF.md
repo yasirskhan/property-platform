@@ -24,118 +24,41 @@ parity consistency checks green.
 Branch: chatgpt/checkpoint-005-safety
 Current HEAD hash: resolve from this branch; this file is committed as part of HEAD, so it does not embed its own hash.
 
-Completed and verified before this batch:
+Verified foundation through this checkpoint:
 - Phase 3.4.S engineering safety foundation.
 - Phase 3.4.3 identity boundary + immutable audit.
-- Phase 3.4.4 Hybrid Capability Gating runtime + durable Arq/Redis jobs + Sentry foundation.
+- Phase 3.4.4 Hybrid Capability Gating + jobs runtime + Sentry foundation.
 - Phase 3.4.5 locked accounting periods + core organization settings + GDPR schema foundation.
-- Phase 3.4.6 end-to-end verification of the existing core product.
-- Phase 3.4.7 basic billing foundation.
-- Phase 3.4.8 self-serve signup/payment flow.
-- Phase 3.4.8 implementation commit: 939358c5a517b67a5978dbb2f2832b6c5f26196f.
-- Phase 3.4.8 closeout commit: 7e43a316d8a572f1b912383e335fd6ea30498b5d.
-- GitHub CI run 35957428019: SUCCESS.
-- Backend: 149 passed, 2 deselected, 1042 warnings in 31.05s.
-- E2E: 2 passed in 6.61s.
-- Frontend, security, staging: SUCCESS.
-- Alembic head before 3.4.9: 2d4f8a6c9b10.
-
-Last completed batch:
-- Phase 3.4.9 fraud/abuse foundation is COMPLETE and VERIFIED.
-- Implementation commit: 27fdf78524ddb4665bf3cc416b59c8289e4e8d51.
-- GitHub CI run 35960071377: SUCCESS.
-- Backend/PostgreSQL: 154 passed, 2 deselected, 1096 warnings in 35.89s.
-- E2E: 2 passed in 6.63s.
-- Frontend lint/TypeScript/build, security, backup/restore, and live staging smoke: SUCCESS.
-- Durable fraud_cases + fraud_signals review storage is active.
-- Stripe Radar early-fraud-warning/review events and fraud-related disputes feed the idempotent review queue without raw card data.
-- Checkout velocity escalates HIGH -> CRITICAL; unresolved CRITICAL cases block new Checkout requests.
-- Platform-only fraud review APIs audit decisions.
-- Existing Arq/Redis runtime schedules hourly fraud-refresh jobs.
-- Alembic head: 6f1a9c4d2e7b.
-- Model table count: 75.
-- Parity closeout updates 3.4.7/3.4.8 billing items to their verified state and shifts the remaining foundation numbering to match the actual revised sequence.
-
-Phase 3.4.9 closeout checkpoint:
-- Closeout commit: e33f421f3c8944e475f30369ed9cf3b7c247fce7.
-- GitHub CI run 35960596442: SUCCESS.
-- Backend/PostgreSQL: 154 passed, 2 deselected, 1096 warnings in 20.62s.
-- E2E: 2 passed in 6.42s.
-- Frontend, security, parity/registry, backup/restore, and live staging smoke: SUCCESS.
-
-Current batch:
-- Phase 3.4.10 Batch 1 platform-control APIs are VERIFIED.
-- Batch 1 commit: 764f6816b8334490c93d095a47a721b8ccbf380d.
-- GitHub CI run 35961065567: SUCCESS.
-- Phase 3.4.10 Batch 2 separate internal Next.js admin application is VERIFIED.
-- Batch 2 commit: 02ddfa7a622d9b155ca1c71899316c6b163755a2.
-- GitHub CI run 35980762441: SUCCESS.
-- Backend/PostgreSQL: 160 passed, 2 deselected, 1132 warnings in 40.37s.
-- Platform-admin lint/TypeScript/build and npm-audit: SUCCESS.
-- Customer frontend, security, existing E2E, backup/restore, and staging: SUCCESS.
-- Phase 3.4.10 Batch 3 deterministic platform-admin browser proof is VERIFIED.
-- Rename/fix commit: e195a2b98e0a1d5686580f89842ccd56726b0f0c.
-- GitHub CI run 35981504331: SUCCESS.
-- Backend/PostgreSQL: 160 passed, 3 deselected, 1132 warnings in 39.14s.
-- E2E: 3 passed in 9.49s.
-- Customer frontend, platform-admin frontend, security, backup/restore, and staging smoke: SUCCESS.
-- Phase 3.4.10 is COMPLETE and VERIFIED.
-- The internal app lives in platform-admin/, uses only platform-audience authentication/API routes, stores a separate platform_access_token, and does not reuse customer frontend auth state.
-- Internal surfaces cover organizations, plan catalog, release gates, fraud review, and platform staff audit with backend role authorization remaining authoritative.
-- Backend CORS permits the local internal app on port 3001.
-- CI now has a dedicated platform-admin lint/TypeScript/production-build job and npm-audit gate.
-- No migration in Batch 2; Alembic head remains 6f1a9c4d2e7b.
-
-Current batch:
-- Phase 3.4.11 customer release-gate consumption + Settings → Features is COMPLETE and VERIFIED.
-- Capability API/storage commit: d32682c153b6ebbe83c262dc755e4104b0774710.
-- Customer UI commit: bb43ad66e4aeb8608a0ec42e82f8c8a1b6e4bbf1.
-- Toggle UX/E2E fix commit: d49368a07e6df74e78ed6d03f71e8afc3b3029aa.
-- GitHub CI run 35985275368: SUCCESS.
-- Backend/PostgreSQL: 165 passed, 3 deselected, 1187 warnings in 43.02s.
-- E2E: 3 passed in 9.05s.
-- Customer frontend, platform-admin, security, backup/restore, and staging smoke: SUCCESS.
-- Alembic head: 3b8d1f5c7a20; model table count: 76.
-- Customer runtime now exposes released capability decisions without leaking hidden stages and keeps release, entitlement, org configuration, authorization, and personal presentation concerns independent.
-- Settings → Features, FeatureProvider, useFlag(), and <Flag> are verified.
-
-Current batch:
-- Phase 3.4.12 unit/plan-limit enforcement is COMPLETE and VERIFIED.
-- Implementation commit: 7ec0a66007a37cc44cdccc77136cd867ebaf7673.
-- GitHub CI run 35988371618: SUCCESS.
-- Backend/PostgreSQL: 170 passed, 3 deselected, 1266 warnings in 38.00s.
-- E2E: 3 passed in 9.32s.
-- Customer frontend, platform-admin, security, backup/restore, and staging smoke: SUCCESS.
-- Subscription rows persist the purchased pricing tier; migration 8c4e2a7d1f90 backfills from completed checkout history when available.
-- Active-unit capacity is enforced authoritatively on unit create and soft-delete restore. Legacy/enterprise subscriptions without a pricing tier remain uncapped.
-- Add Unit shows an explanatory plan-options prompt when the backend returns the unit-limit conflict.
-- Alembic head: 8c4e2a7d1f90; model table count remains 76.
-
-Current batch:
-- Phase 3.4.13 Receipts compatibility retrofit is COMPLETE and VERIFIED.
-- Implementation commit: 04dcb56498355797563f830775865c89b653ba6f.
-- GitHub CI run 35991771953: SUCCESS.
-- Backend/PostgreSQL: 173 passed, 3 deselected, 1266 warnings in 42.16s.
-- E2E: 3 passed in 10.66s.
+- Phase 3.4.6 end-to-end verification.
+- Phase 3.4.7 billing foundation.
+- Phase 3.4.8 self-serve signup/payment.
+- Phase 3.4.9 fraud/abuse foundation.
+- Phase 3.4.10 separate internal admin app.
+- Phase 3.4.11 customer release-gate consumption + Settings → Features.
+- Phase 3.4.12 unit/plan-limit enforcement.
+- Phase 3.4.13 Receipts compatibility retrofit.
+- Phase 3.4.14 Bills compatibility retrofit is COMPLETE and VERIFIED.
+- Phase 3.4.14 implementation commit: a7da11d20b7a88e00df4055fb486e22aa12ce727.
+- GitHub CI run 35992544919: SUCCESS.
+- Backend/PostgreSQL: 176 passed, 3 deselected, 1266 warnings in 35.15s.
+- E2E: 3 passed in 12.01s.
 - Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
-- Existing Tenant/Owner/Other posting and reversal accounting behavior remains intact.
-- Receipts now consume display context; unreleased capability slots are flag-controlled and remain hidden; reverse uses shared ConfirmModal; backend routes enforce ACCOUNTING.RECEIVABLES permission.
-- Alembic head remains 8c4e2a7d1f90; no migration in Phase 3.4.13.
+- Alembic head remains 8c4e2a7d1f90.
 
 Current batch:
-- Phase 3.4.14 Bills compatibility retrofit implementation is prepared in the current checkpoint and awaiting hosted CI verification.
-- Verified two-step accrual, partial payment, unpaid reversal, and GL posting behavior remains unchanged.
-- Bills list/new surfaces consume display context and shared date/money formatting.
-- Planned recurring/check-writing/vendor-credit/manual-post/owner-draw/tenant-payable/work-order capabilities are represented as release-gated compatibility slots and remain invisible while HIDDEN.
-- Planned ungated Bill rules/fields are represented by non-visual structural compatibility slots.
-- Bill reverse confirmation now uses the shared ConfirmModal.
-- Bill backend routes now enforce ACCOUNTING.PAYABLES permission in addition to organization scoping.
-- Regression coverage includes permission-guard tests and E2E proof that unreleased Bill actions remain hidden.
+- Phase 3.4.15 Bank Deposits compatibility retrofit implementation is prepared in the current checkpoint and awaiting hosted CI verification.
+- Existing deposit accounting contract remains unchanged: deposits group already-posted receipts and do not create new GL postings.
+- Deposit list/new surfaces consume display context and shared date/money formatting.
+- New Deposit warns when selected receipt dates differ from the deposit date.
+- Planned print/edit/NSF/escrow-refund actions are release-gated compatibility slots and remain invisible while HIDDEN.
+- Bank-specific deposit numbering is represented by a non-visual structural compatibility seam; the verified current global numbering behavior is unchanged.
+- Deposit backend routes enforce ACCOUNTING.DEPOSITS permission in addition to organization scoping.
+- Regression coverage includes permission-guard tests and authenticated E2E page proof.
 
 Next action:
-1. Verify the current Phase 3.4.14 checkpoint through hosted CI.
+1. Verify the current Phase 3.4.15 checkpoint through hosted CI.
 2. Fix any CI red autonomously.
-3. When green, mark compliance.bills.full_surface built, record exact verification results, and continue directly into the Bank Deposits compatibility retrofit.
+3. When green, mark compliance.deposits.full_surface built, record exact verification results, and continue directly into the next compatibility retrofit from FEATURE_REGISTRY / parity order without waiting for the user.
 
 Open blockers:
 - NONE

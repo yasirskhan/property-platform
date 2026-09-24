@@ -97,6 +97,15 @@ def test_login_and_core_authenticated_pages() -> None:
             expect(page.get_by_role("button", name="Enter Credit", exact=True)).to_have_count(0)
 
             page.goto(
+                f"{BASE_URL}/dashboard/accounting/deposits",
+                wait_until="domcontentloaded",
+            )
+            expect(
+                page.get_by_role("heading", name="Bank Deposits", exact=True)
+            ).to_be_visible()
+            expect(page).not_to_have_url(re.compile(r"/login"))
+
+            page.goto(
                 f"{BASE_URL}/dashboard/settings/features",
                 wait_until="domcontentloaded",
             )

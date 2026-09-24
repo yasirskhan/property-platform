@@ -13,8 +13,8 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 195,
-    "scheduled_count": 432,
+    "built_count": 196,
+    "scheduled_count": 431,
     "in_progress_count": 1
   },
   "items": [
@@ -3715,16 +3715,17 @@
       "id": "compliance.bills.full_surface",
       "area": "Compliance / Page Retrofit",
       "feature": "Bills: add all planned slots (cash-field, recurring, write-checks, credit, delete-rules, post-codes)",
-      "status": "in_progress",
+      "status": "built",
       "phase": "3.4.14",
-      "notes": "Bills compatibility retrofit implementation checkpoint: full planned surface is represented through hidden structural/flagged slots, display primitives are consumed, reverse confirmation is styled, and backend PAYABLES permission enforcement is added. Awaiting hosted CI verification."
+      "notes": "Verified in hosted CI run 35992544919: display compatibility, hidden future capability slots, styled reversal confirmation, and authoritative ACCOUNTING.PAYABLES backend permission enforcement."
     },
     {
       "id": "compliance.deposits.full_surface",
       "area": "Compliance / Page Retrofit",
       "feature": "Deposits: add all planned slots (print, date-warn, numbering, edit)",
-      "status": "scheduled",
-      "phase": "3.5.5"
+      "status": "in_progress",
+      "phase": "3.4.15",
+      "notes": "Bank Deposits compatibility retrofit checkpoint: display compatibility, date-mismatch warning, flagged future deposit actions, structural bank-specific numbering seam, and authoritative ACCOUNTING.DEPOSITS backend permission enforcement. Awaiting hosted CI verification."
     },
     {
       "id": "compliance.gl_accounts.full_surface",

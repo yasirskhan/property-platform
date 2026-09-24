@@ -37,6 +37,7 @@ from app.schemas.deposit import (
     UndepositedReceiptsOut,
 )
 from app.services.gl_posting import PostingError
+from app.services.menu_resolver import permission_allows_user
 from app.services.deposit_posting import (
     create_deposit,
     list_undeposited_receipts,
@@ -60,6 +61,18 @@ def _require_org(current_user: User) -> int:
             detail="User has no organization.",
         )
     return current_user.organization_id
+
+
+def _require_deposits_access(db: Session, current_user: User) -> int:
+    org_id = _require_org(current_user)
+    if not permission_allows_user(
+        db, user=current_user, menu_key="ACCOUNTING.DEPOSITS"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Deposits permission required.",
+        )
+    return org_id
 
 
 def _receipt_payer_label(r: Receipt) -> str:
@@ -139,7 +152,7 @@ def list_deposits(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_deposits_access(db, current_user)
 
     q = (
         db.query(Deposit)
@@ -189,7 +202,7 @@ def get_undeposited_receipts(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_deposits_access(db, current_user)
 
     receipts = list_undeposited_receipts(
         db,
@@ -240,7 +253,7 @@ def get_deposit(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_deposits_access(db, current_user)
 
     d = (
         db.query(Deposit)
@@ -277,7 +290,7 @@ def create_deposit_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_deposits_access(db, current_user)
 
     try:
         deposit = create_deposit(
