@@ -60,7 +60,7 @@ def _norm_role(role) -> str:
 
 
 def _require_owner_statements_access(db: Session, current_user: User) -> int:
-    org_id = _require_owner_statements_access(db, current_user)
+    org_id = _require_org(current_user)
     if not permission_allows_user(
         db, user=current_user, menu_key="ACCOUNTING.OWNER_STATEMENTS"
     ):

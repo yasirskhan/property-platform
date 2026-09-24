@@ -58,6 +58,7 @@ Current batch:
 - Property Cash Summary, Owner Packet, and Email Statement are release-gated compatibility slots and remain invisible while HIDDEN.
 - Authenticated E2E coverage proves unreleased owner-reporting actions stay hidden.
 - First hosted CI run 36042783934 stopped at parity consistency because parity metadata still declared 199 built / 428 scheduled after the status transition. The repair checkpoint updates metadata to the computed 200 built / 1 in progress / 427 scheduled counts; product code is unchanged from the implementation checkpoint.
+- Second hosted CI run 36042993467 cleared parity consistency but exposed the same helper-recursion defect previously seen in Management Fees: 3 failed, 210 passed, 3 deselected, 1266 warnings in 42.38s. The repair replaces the recursive owner-statement access call with `_require_org(current_user)`; no test is skipped or weakened.
 - No migration is required; Alembic head remains 8c4e2a7d1f90.
 
 Next action:
