@@ -83,7 +83,9 @@ Verified latest batch:
 - Alembic head remains 8c4e2a7d1f90.
 
 Current batch:
-- Phase 3.4.22 Properties compatibility retrofit implementation is prepared in this checkpoint and awaits hosted CI verification.
+- Phase 3.4.22 Properties compatibility retrofit implementation is prepared in this checkpoint.
+- CI repair: minimal org-isolation test schema now includes menu_permissions + user_permissions required by the authoritative property permission resolver; product authorization is unchanged.
+- Hosted CI verification is pending for this repair checkpoint.
 - Existing org/assignment scope and unit plan-limit behavior are unchanged.
 - Backend routes now layer PROPERTIES.ALL, PROPERTIES.ADD, and PROPERTIES.UNITS menu permissions over existing scope/role checks.
 - Property list/detail/new/edit and unit new/edit surfaces consume shared display preferences and normalize role casing.
@@ -92,7 +94,7 @@ Current batch:
 - No migration is required; Alembic head remains 8c4e2a7d1f90.
 
 Next action:
-1. Verify this Phase 3.4.22 checkpoint through hosted CI.
+1. Verify the Phase 3.4.22 CI-repair checkpoint through hosted CI.
 2. Fix any CI red autonomously.
 3. When green, record exact verification evidence and continue directly to the next ordered compatibility batch.
 

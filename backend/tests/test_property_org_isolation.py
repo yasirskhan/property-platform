@@ -7,8 +7,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base
+from app.models.menu_permission import MenuPermission
 from app.models.property import Property, PropertyType
 from app.models.user import Organization, User, UserRole
+from app.models.user_permission import UserPermission
 from app.routers.properties import (
     check_property_access,
     create_property,
@@ -21,6 +23,8 @@ from app.schemas.property import PropertyCreate
 TEST_TABLES = [
     Organization.__table__,
     User.__table__,
+    MenuPermission.__table__,
+    UserPermission.__table__,
     Property.__table__,
 ]
 
