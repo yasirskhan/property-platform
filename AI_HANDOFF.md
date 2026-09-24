@@ -124,12 +124,19 @@ Verified latest batch:
 - Number format remains intentionally deferred because formatMoney() does not yet consume it.
 - No migration is required; Alembic head remains 8c4e2a7d1f90.
 
+Current batch:
+- Phase 3.4.25 Permissions compatibility retrofit implementation is prepared and awaits hosted CI verification.
+- Existing role matrix/editor hierarchy, immutable ADMIN role, user override semantics, and My Preferences storage are unchanged.
+- Privileged role-matrix and user-override endpoints now require SETTINGS.PERMISSIONS server-side.
+- /api/menu/me and /api/menu/me/preferences remain self-service and are intentionally not gated by SETTINGS.PERMISSIONS.
+- Permissions UI consumes shared display layout/density metadata and normalizes role casing.
+- GL Account Permissions is represented only as a hidden release-gated future capability; its workflow remains scheduled.
+- No migration is required; Alembic head remains 8c4e2a7d1f90.
+
 Next action:
-1. Start Phase 3.4.25 — Permissions compatibility retrofit.
-2. Preserve the verified role matrix, user overrides, personal preferences, admin immutability, and subtract-only access semantics.
-3. Apply shared display primitives to the Permissions surface and verify SETTINGS.PERMISSIONS backend authorization on privileged permission-management operations without restricting My Preferences beyond its existing contract.
-4. Keep GL Account Permissions as a hidden release-gated future capability; do not implement that workflow yet.
-5. Verify through hosted CI, fix reds autonomously, update handoff/roadmap/parity, then continue directly to Sidebar compatibility.
+1. Verify Phase 3.4.25 through hosted CI.
+2. Fix any CI red autonomously.
+3. When green, record exact evidence and continue directly to Phase 3.4.26 — Sidebar compatibility.
 
 Open blockers:
 - NONE

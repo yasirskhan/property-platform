@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.24 — Display compatibility retrofit** is COMPLETE and VERIFIED. Next implementation batch: **3.4.25 — Permissions compatibility retrofit**.
+**Current activity:** Phase **3.4.25 — Permissions compatibility retrofit** is IN PROGRESS. Phase 3.4.24 Display is COMPLETE and VERIFIED.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -143,13 +143,12 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Start Phase 3.4.25 — Permissions compatibility retrofit.**
+**Continue Phase 3.4.25 — Permissions compatibility retrofit.**
 
-1. Preserve verified menu permission resolution, editor scoping, admin immutability, and subtract-only user overrides.
-2. Apply shared display compatibility to the Permissions surface.
-3. Enforce SETTINGS.PERMISSIONS for privileged permission-management endpoints while preserving the existing self-service My Preferences contract.
-4. Keep GL Account Permissions as a hidden release-gated future capability only.
-5. Verify through the full CI gate, fix CI reds autonomously, update ledgers/handoff, and continue directly to Sidebar compatibility.
+1. Verify SETTINGS.PERMISSIONS on role-matrix and per-user override management.
+2. Preserve /api/menu/me and My Preferences self-service behavior.
+3. Verify display compatibility and hidden GL Account Permissions slot.
+4. Fix CI reds autonomously, update ledgers/handoff, and continue directly to Sidebar compatibility.
 
 Phase 3.4.24 Display is VERIFIED in hosted CI run 36058923158: backend 252 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed.
 
@@ -4763,3 +4762,22 @@ Phase **3.4.24 — Display compatibility retrofit**.
 ## Next
 
 Phase **3.4.25 — Permissions compatibility retrofit**.
+
+
+# SECTION 94 — FOUNDATION 3.4.25 (IN PROGRESS)
+
+**Phase:** `3.4.25`  
+**Started:** 2026-09-24
+
+## Permissions compatibility retrofit
+
+- Existing menu resolver behavior, editor-role hierarchy, immutable ADMIN matrix, subtract-only user override behavior, and personal sidebar preferences are preserved.
+- Privileged role-matrix and per-user override management endpoints require `SETTINGS.PERMISSIONS` server-side.
+- Resolved-menu reads and each user’s own `/api/menu/me/preferences` remain self-service and are intentionally independent of privileged permission-management access.
+- The Permissions page consumes shared display layout/density metadata and normalizes role casing.
+- GL Account Permissions is represented only as a hidden `release.accounting.gl_account_permissions` compatibility slot; the workflow remains scheduled.
+- No migration is required; Alembic head remains `8c4e2a7d1f90`.
+
+## Verification state
+
+Implementation checkpoint prepared; hosted CI verification pending.

@@ -3699,7 +3699,8 @@
       "area": "Compliance / Page Retrofit",
       "feature": "Permissions: use primitives",
       "status": "built",
-      "phase": "3.5.5"
+      "phase": "3.4.25",
+      "notes": "Phase 3.4.25 checkpoint preserves role/user/personal preference semantics, adds authoritative SETTINGS.PERMISSIONS enforcement to privileged management endpoints, consumes shared display metadata, and represents GL Account Permissions only as a hidden release-gated future slot."
     },
     {
       "id": "compliance.sidebar.use_primitives",
