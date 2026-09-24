@@ -24,6 +24,8 @@ from app.models.billing import (  # noqa: F401
     ModuleFeature,
     PricingTier,
     Subscription,
+    SubscriptionItem,
+    SubscriptionEvent,
 )
 from app.models.property import Property, Unit, PropertyAssignment  # noqa: F401
 from app.models.lease import Lease, RentInvoice, Payment  # noqa: F401

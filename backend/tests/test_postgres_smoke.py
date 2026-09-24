@@ -10,8 +10,8 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import DBAPIError
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_HEAD = "c5a8e2f14b76"
-EXPECTED_MODEL_TABLES = 62
+EXPECTED_HEAD = "d7e9a3c5f218"
+EXPECTED_MODEL_TABLES = 64
 
 
 @pytest.mark.integration
@@ -36,7 +36,9 @@ def test_postgres_fresh_bootstrap_when_ci_database_is_available() -> None:
         text=True,
         timeout=120,
     )
-    assert result.returncode == 0, f"PostgreSQL bootstrap failed:\n{result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, (
+        f"PostgreSQL bootstrap failed:\n{result.stdout}\n{result.stderr}"
+    )
 
     engine = create_engine(url)
     try:
@@ -44,7 +46,9 @@ def test_postgres_fresh_bootstrap_when_ci_database_is_available() -> None:
         assert "alembic_version" in tables
         assert len(tables - {"alembic_version"}) == EXPECTED_MODEL_TABLES
         with engine.connect() as conn:
-            version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+            version = conn.execute(
+                text("SELECT version_num FROM alembic_version")
+            ).scalar_one()
         assert version == EXPECTED_HEAD
 
         with engine.begin() as conn:
@@ -60,7 +64,9 @@ def test_postgres_fresh_bootstrap_when_ci_database_is_available() -> None:
         with pytest.raises(DBAPIError, match="append-only"):
             with engine.begin() as conn:
                 conn.execute(
-                    text("UPDATE audit_log SET action='tampered' WHERE id=:id"),
+                    text(
+                        "UPDATE audit_log SET action='tampered' WHERE id=:id"
+                    ),
                     {"id": audit_id},
                 )
 
@@ -69,6 +75,66 @@ def test_postgres_fresh_bootstrap_when_ci_database_is_available() -> None:
                 conn.execute(
                     text("DELETE FROM audit_log WHERE id=:id"),
                     {"id": audit_id},
+                )
+
+        with engine.begin() as conn:
+            org_id = conn.execute(
+                text(
+                    "INSERT INTO organizations "
+                    "(name, slug, state, currency, data_region, created_at, updated_at) "
+                    "VALUES "
+                    "('Billing Probe', 'billing-probe', 'ACTIVE', 'USD', "
+                    "'us-east-1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) "
+                    "RETURNING id"
+                )
+            ).scalar_one()
+            plan_id = conn.execute(
+                text(
+                    "INSERT INTO plans "
+                    "(code, name, is_active, created_at, updated_at) "
+                    "VALUES "
+                    "('ci-probe', 'CI Probe', true, "
+                    "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) "
+                    "RETURNING id"
+                )
+            ).scalar_one()
+            subscription_id = conn.execute(
+                text(
+                    "INSERT INTO subscriptions "
+                    "(organization_id, plan_id, status, cancel_at_period_end, "
+                    "created_at, updated_at) "
+                    "VALUES "
+                    "(:org_id, :plan_id, 'ACTIVE', false, "
+                    "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) "
+                    "RETURNING id"
+                ),
+                {"org_id": org_id, "plan_id": plan_id},
+            ).scalar_one()
+            event_id = conn.execute(
+                text(
+                    "INSERT INTO subscription_events "
+                    "(subscription_id, event_type, created_at) "
+                    "VALUES (:subscription_id, 'created', CURRENT_TIMESTAMP) "
+                    "RETURNING id"
+                ),
+                {"subscription_id": subscription_id},
+            ).scalar_one()
+
+        with pytest.raises(DBAPIError, match="append-only"):
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "UPDATE subscription_events "
+                        "SET event_type='tampered' WHERE id=:id"
+                    ),
+                    {"id": event_id},
+                )
+
+        with pytest.raises(DBAPIError, match="append-only"):
+            with engine.begin() as conn:
+                conn.execute(
+                    text("DELETE FROM subscription_events WHERE id=:id"),
+                    {"id": event_id},
                 )
     finally:
         engine.dispose()

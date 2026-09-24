@@ -29,13 +29,13 @@ Branch: chatgpt/checkpoint-005-safety
 Current HEAD hash: resolve from this branch with `git rev-parse HEAD`; this file is committed as part of HEAD, so the literal self-hash cannot be embedded without changing that hash.
 
 Last completed batch:
-- Phase 3.4.7 Batch 3 — backend subscription entitlement resolver wired into menu visibility with uncataloged-feature compatibility.
+- Phase 3.4.7 Batch 4 — subscription item storage plus append-only subscription event history.
 
 Next batch to run:
-- Phase 3.4.7 Batch 4 — subscription item and subscription event-history storage foundation, backend only.
+- Phase 3.4.7 Batch 5 — include active subscription-item modules as add-on entitlement overlays in the backend resolver.
 
 Open blockers:
 - NONE
 
 Exact prompt for a new ChatGPT session:
-Read AI_HANDOFF.md at the repo root first. Continue only on branch `chatgpt/checkpoint-005-safety`. Do not switch branches, create branches, or touch `main`. Do not edit the frozen source-of-truth files under docs/: PROJECT_MASTER.md, FEATURE_REGISTRY.md, PLAN_GAPS.md, FILE_CATALOG.md, or APPFOLIO_PARITY_CHECKLIST.json. Follow the existing project plan and the user's one-batch/one-commit autonomous workflow. Resume with Phase 3.4.7 Batch 4: add backend-only subscription item and subscription event-history storage. Keep AI_HANDOFF.md at repo root and overwrite it after every BATCH DONE while preserving the permanent location-rule header at the top.
+Read AI_HANDOFF.md at the repo root first. Continue only on branch `chatgpt/checkpoint-005-safety`. Do not switch branches, create branches, or touch `main`. Do not edit the frozen source-of-truth files under docs/: PROJECT_MASTER.md, FEATURE_REGISTRY.md, PLAN_GAPS.md, FILE_CATALOG.md, or APPFOLIO_PARITY_CHECKLIST.json. Follow the existing project plan and the user's one-batch/one-commit autonomous workflow. Resume with Phase 3.4.7 Batch 5: include subscription-item module add-ons in backend entitlement resolution without adding user-visible UI. Keep AI_HANDOFF.md at repo root and overwrite it after every BATCH DONE while preserving the permanent location-rule header at the top.

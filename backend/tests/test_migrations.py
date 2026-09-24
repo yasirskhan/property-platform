@@ -10,8 +10,8 @@ import pytest
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = BACKEND_ROOT / "tests" / "fixtures" / "pre_alembic_1d77_schema.sql"
-EXPECTED_HEAD = "c5a8e2f14b76"
-EXPECTED_MODEL_TABLES = 62
+EXPECTED_HEAD = "d7e9a3c5f218"
+EXPECTED_MODEL_TABLES = 64
 
 
 def _run(command: list[str], database_url: str) -> subprocess.CompletedProcess[str]:
@@ -38,18 +38,23 @@ def _version(db_path: Path) -> str:
 
 
 @pytest.mark.integration
-def test_fresh_database_bootstrap_creates_current_schema_and_stamps_head(tmp_path: Path) -> None:
+def test_fresh_database_bootstrap_creates_current_schema_and_stamps_head(
+    tmp_path: Path,
+) -> None:
     db_path = tmp_path / "fresh.db"
     url = f"sqlite:///{db_path.as_posix()}"
     result = _run([sys.executable, "bootstrap_fresh_db.py"], url)
-    assert result.returncode == 0, f"Bootstrap failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert result.returncode == 0, (
+        f"Bootstrap failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
     assert _version(db_path) == EXPECTED_HEAD
 
     conn = sqlite3.connect(db_path)
     try:
         count = conn.execute(
             "SELECT COUNT(*) FROM sqlite_master "
-            "WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'alembic_version'"
+            "WHERE type='table' AND name NOT LIKE 'sqlite_%' "
+            "AND name != 'alembic_version'"
         ).fetchone()[0]
     finally:
         conn.close()
@@ -64,7 +69,10 @@ def test_fresh_bootstrap_refuses_nonempty_database(tmp_path: Path) -> None:
     conn.commit()
     conn.close()
 
-    result = _run([sys.executable, "bootstrap_fresh_db.py"], f"sqlite:///{db_path.as_posix()}")
+    result = _run(
+        [sys.executable, "bootstrap_fresh_db.py"],
+        f"sqlite:///{db_path.as_posix()}",
+    )
     assert result.returncode != 0
     assert "Refusing fresh bootstrap" in (result.stdout + result.stderr)
 
@@ -83,5 +91,7 @@ def test_legacy_schema_snapshot_upgrades_to_head(tmp_path: Path) -> None:
         [sys.executable, "-m", "alembic", "upgrade", "head"],
         f"sqlite:///{db_path.as_posix()}",
     )
-    assert result.returncode == 0, f"Alembic failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert result.returncode == 0, (
+        f"Alembic failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
     assert _version(db_path) == EXPECTED_HEAD

@@ -1,4 +1,4 @@
-"""Commercial billing catalog and customer subscription models."""
+"""Commercial billing catalog, subscription, item, and event models."""
 
 from __future__ import annotations
 
@@ -10,12 +10,15 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     DateTime,
+    DDL,
     Enum as SqlEnum,
     ForeignKey,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
+    event,
 )
 from sqlalchemy.orm import relationship
 
@@ -29,7 +32,13 @@ class Plan(Base):
     code = Column(String(80), nullable=False, unique=True, index=True)
     name = Column(String(160), nullable=False)
     description = Column(Text, nullable=True)
-    is_active = Column(Boolean, nullable=False, default=True, server_default="true", index=True)
+    is_active = Column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+        index=True,
+    )
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(
         DateTime,
@@ -59,8 +68,19 @@ class Module(Base):
     key = Column(String(120), nullable=False, unique=True, index=True)
     name = Column(String(160), nullable=False)
     description = Column(Text, nullable=True)
-    is_core = Column(Boolean, nullable=False, default=False, server_default="false")
-    is_active = Column(Boolean, nullable=False, default=True, server_default="true", index=True)
+    is_core = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
+    is_active = Column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+        index=True,
+    )
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(
         DateTime,
@@ -84,7 +104,11 @@ class Module(Base):
 class PlanModule(Base):
     __tablename__ = "plan_modules"
     __table_args__ = (
-        UniqueConstraint("plan_id", "module_id", name="uq_plan_modules_plan_module"),
+        UniqueConstraint(
+            "plan_id",
+            "module_id",
+            name="uq_plan_modules_plan_module",
+        ),
     )
 
     id = Column(Integer, primary_key=True)
@@ -109,7 +133,11 @@ class PlanModule(Base):
 class ModuleFeature(Base):
     __tablename__ = "module_features"
     __table_args__ = (
-        UniqueConstraint("module_id", "feature_key", name="uq_module_features_module_key"),
+        UniqueConstraint(
+            "module_id",
+            "feature_key",
+            name="uq_module_features_module_key",
+        ),
     )
 
     id = Column(Integer, primary_key=True)
@@ -129,13 +157,23 @@ class ModuleFeature(Base):
 class PricingTier(Base):
     __tablename__ = "pricing_tiers"
     __table_args__ = (
-        CheckConstraint("min_properties >= 1", name="ck_pricing_tiers_min_properties"),
+        CheckConstraint(
+            "min_properties >= 1",
+            name="ck_pricing_tiers_min_properties",
+        ),
         CheckConstraint(
             "max_properties IS NULL OR max_properties >= min_properties",
             name="ck_pricing_tiers_property_range",
         ),
-        CheckConstraint("monthly_price_cents >= 0", name="ck_pricing_tiers_price"),
-        UniqueConstraint("plan_id", "min_properties", name="uq_pricing_tiers_plan_min"),
+        CheckConstraint(
+            "monthly_price_cents >= 0",
+            name="ck_pricing_tiers_price",
+        ),
+        UniqueConstraint(
+            "plan_id",
+            "min_properties",
+            name="uq_pricing_tiers_plan_min",
+        ),
     )
 
     id = Column(Integer, primary_key=True)
@@ -148,7 +186,12 @@ class PricingTier(Base):
     min_properties = Column(Integer, nullable=False)
     max_properties = Column(Integer, nullable=True)
     monthly_price_cents = Column(Integer, nullable=False)
-    currency = Column(String(3), nullable=False, default="USD", server_default="USD")
+    currency = Column(
+        String(3),
+        nullable=False,
+        default="USD",
+        server_default="USD",
+    )
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(
         DateTime,
@@ -199,7 +242,9 @@ class Subscription(Base):
             native_enum=False,
             create_constraint=True,
             length=20,
-            values_callable=lambda statuses: [status.value for status in statuses],
+            values_callable=lambda statuses: [
+                status.value for status in statuses
+            ],
         ),
         nullable=False,
         default=SubscriptionStatus.ACTIVE,
@@ -224,3 +269,139 @@ class Subscription(Base):
 
     organization = relationship("Organization")
     plan = relationship("Plan", back_populates="subscriptions")
+    items = relationship(
+        "SubscriptionItem",
+        back_populates="subscription",
+        cascade="all, delete-orphan",
+    )
+    events = relationship("SubscriptionEvent", back_populates="subscription")
+
+
+class SubscriptionItem(Base):
+    __tablename__ = "subscription_items"
+    __table_args__ = (
+        CheckConstraint(
+            "quantity >= 1",
+            name="ck_subscription_items_quantity",
+        ),
+        CheckConstraint(
+            "unit_price_cents IS NULL OR unit_price_cents >= 0",
+            name="ck_subscription_items_unit_price",
+        ),
+        UniqueConstraint(
+            "subscription_id",
+            "module_id",
+            name="uq_subscription_items_subscription_module",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+    subscription_id = Column(
+        Integer,
+        ForeignKey("subscriptions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    module_id = Column(
+        Integer,
+        ForeignKey("modules.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    quantity = Column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default="1",
+    )
+    unit_price_cents = Column(Integer, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
+
+    subscription = relationship("Subscription", back_populates="items")
+    module = relationship("Module")
+
+
+class SubscriptionEvent(Base):
+    __tablename__ = "subscription_events"
+
+    id = Column(Integer, primary_key=True)
+    subscription_id = Column(
+        Integer,
+        ForeignKey("subscriptions.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    event_type = Column(String(100), nullable=False, index=True)
+    provider = Column(String(32), nullable=True, index=True)
+    provider_event_id = Column(
+        String(255),
+        nullable=True,
+        unique=True,
+        index=True,
+    )
+    payload = Column(JSON, nullable=True)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        index=True,
+    )
+
+    subscription = relationship("Subscription", back_populates="events")
+
+
+def _reject_subscription_event_mutation(*_args, **_kwargs) -> None:
+    raise RuntimeError(
+        "subscription_events is append-only; UPDATE and DELETE are forbidden"
+    )
+
+
+event.listen(
+    SubscriptionEvent,
+    "before_update",
+    _reject_subscription_event_mutation,
+    propagate=True,
+)
+event.listen(
+    SubscriptionEvent,
+    "before_delete",
+    _reject_subscription_event_mutation,
+    propagate=True,
+)
+
+_POSTGRES_SUBSCRIPTION_EVENT_FUNCTION = DDL(
+    """
+    CREATE OR REPLACE FUNCTION prevent_subscription_event_mutation()
+    RETURNS trigger AS $$
+    BEGIN
+        RAISE EXCEPTION 'subscription_events is append-only; UPDATE and DELETE are forbidden';
+    END;
+    $$ LANGUAGE plpgsql;
+    """
+).execute_if(dialect="postgresql")
+
+_POSTGRES_SUBSCRIPTION_EVENT_TRIGGER = DDL(
+    """
+    CREATE TRIGGER subscription_events_immutable
+    BEFORE UPDATE OR DELETE ON subscription_events
+    FOR EACH ROW
+    EXECUTE FUNCTION prevent_subscription_event_mutation();
+    """
+).execute_if(dialect="postgresql")
+
+event.listen(
+    SubscriptionEvent.__table__,
+    "after_create",
+    _POSTGRES_SUBSCRIPTION_EVENT_FUNCTION,
+)
+event.listen(
+    SubscriptionEvent.__table__,
+    "after_create",
+    _POSTGRES_SUBSCRIPTION_EVENT_TRIGGER,
+)

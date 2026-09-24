@@ -9,8 +9,8 @@ from pathlib import Path
 from sqlalchemy import create_engine, inspect, text
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_HEAD = "c5a8e2f14b76"
-EXPECTED_MODEL_TABLES = 62
+EXPECTED_HEAD = "d7e9a3c5f218"
+EXPECTED_MODEL_TABLES = 64
 
 
 def run_prepare(db_path: Path) -> subprocess.CompletedProcess[str]:
@@ -26,7 +26,9 @@ def run_prepare(db_path: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_prepare_database_bootstraps_empty_then_upgrades_safely(tmp_path: Path) -> None:
+def test_prepare_database_bootstraps_empty_then_upgrades_safely(
+    tmp_path: Path,
+) -> None:
     db_path = tmp_path / "staging.db"
 
     first = run_prepare(db_path)
@@ -38,7 +40,9 @@ def test_prepare_database_bootstraps_empty_then_upgrades_safely(tmp_path: Path) 
         tables = set(inspect(engine).get_table_names())
         assert len(tables - {"alembic_version"}) == EXPECTED_MODEL_TABLES
         with engine.connect() as conn:
-            version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+            version = conn.execute(
+                text("SELECT version_num FROM alembic_version")
+            ).scalar_one()
         assert version == EXPECTED_HEAD
     finally:
         engine.dispose()
@@ -48,7 +52,9 @@ def test_prepare_database_bootstraps_empty_then_upgrades_safely(tmp_path: Path) 
     assert "upgraded" in second.stdout
 
 
-def test_prepare_database_refuses_nonempty_unversioned_database(tmp_path: Path) -> None:
+def test_prepare_database_refuses_nonempty_unversioned_database(
+    tmp_path: Path,
+) -> None:
     db_path = tmp_path / "legacy-unknown.db"
     conn = sqlite3.connect(db_path)
     conn.execute("CREATE TABLE unknown_legacy_table (id INTEGER PRIMARY KEY)")
