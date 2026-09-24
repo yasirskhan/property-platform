@@ -124,19 +124,28 @@ Verified latest batch:
 - Number format remains intentionally deferred because formatMoney() does not yet consume it.
 - No migration is required; Alembic head remains 8c4e2a7d1f90.
 
-Current batch:
-- Phase 3.4.25 Permissions compatibility retrofit implementation is prepared and awaits hosted CI verification.
-- Existing role matrix/editor hierarchy, immutable ADMIN role, user override semantics, and My Preferences storage are unchanged.
-- Privileged role-matrix and user-override endpoints now require SETTINGS.PERMISSIONS server-side.
-- /api/menu/me and /api/menu/me/preferences remain self-service and are intentionally not gated by SETTINGS.PERMISSIONS.
+Verified latest batch:
+- Phase 3.4.25 Permissions compatibility retrofit is COMPLETE and VERIFIED.
+- Implementation commit: 9a0680914e0f1f3ac96a93e2751d6db180a2eadf.
+- GitHub CI run 36060022264: SUCCESS.
+- Backend/PostgreSQL: 256 passed, 3 deselected, 1266 warnings in 41.97s.
+- E2E: 3 passed in 10.77s.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
+- Existing role matrix/editor hierarchy, immutable ADMIN role, user override semantics, and My Preferences storage remain unchanged.
+- Privileged role-matrix and user-override endpoints require SETTINGS.PERMISSIONS server-side.
+- /api/menu/me and /api/menu/me/preferences remain self-service and intentionally independent of SETTINGS.PERMISSIONS.
 - Permissions UI consumes shared display layout/density metadata and normalizes role casing.
-- GL Account Permissions is represented only as a hidden release-gated future capability; its workflow remains scheduled.
+- GL Account Permissions remains a hidden release-gated future capability; its workflow is still scheduled.
 - No migration is required; Alembic head remains 8c4e2a7d1f90.
 
+Current batch:
+- Phase 3.4.26 Sidebar compatibility retrofit is next.
+
 Next action:
-1. Verify Phase 3.4.25 through hosted CI.
-2. Fix any CI red autonomously.
-3. When green, record exact evidence and continue directly to Phase 3.4.26 — Sidebar compatibility.
+1. Preserve the legacy /dashboard/settings/sidebar compatibility route while landing users on Permissions → My Preferences.
+2. Preserve personal sidebar order/hide behavior and backend-authoritative resolved-menu rendering.
+3. Verify compatibility behavior in E2E and keep legacy API semantics compatible.
+4. Fix CI reds autonomously, update ledgers/handoff, and continue to the next planned compatibility batch.
 
 Open blockers:
 - NONE

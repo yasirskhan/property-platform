@@ -143,14 +143,14 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Continue Phase 3.4.25 — Permissions compatibility retrofit.**
+**Continue Phase 3.4.26 — Sidebar compatibility retrofit.**
 
-1. Verify SETTINGS.PERMISSIONS on role-matrix and per-user override management.
-2. Preserve /api/menu/me and My Preferences self-service behavior.
-3. Verify display compatibility and hidden GL Account Permissions slot.
-4. Fix CI reds autonomously, update ledgers/handoff, and continue directly to Sidebar compatibility.
+1. Preserve the legacy /dashboard/settings/sidebar compatibility route while landing on Permissions → My Preferences.
+2. Preserve personal sidebar order/hide semantics and backend-authoritative menu resolution.
+3. Verify the compatibility route and personal-preference behavior in hosted CI.
+4. Fix CI reds autonomously, update ledgers/handoff, and continue directly to the next planned compatibility batch.
 
-Phase 3.4.24 Display is VERIFIED in hosted CI run 36058923158: backend 252 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed.
+Phase 3.4.25 Permissions is VERIFIED in hosted CI run 36060022264: backend 256 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed.
 
 ## B2. AFTER THAT## B2. AFTER THAT (Phase 3.5 onward)
 
@@ -4764,10 +4764,10 @@ Phase **3.4.24 — Display compatibility retrofit**.
 Phase **3.4.25 — Permissions compatibility retrofit**.
 
 
-# SECTION 94 — FOUNDATION 3.4.25 (IN PROGRESS)
+# SECTION 94 — FOUNDATION 3.4.25 (COMPLETE)
 
 **Phase:** `3.4.25`  
-**Started:** 2026-09-24
+**Completed:** 2026-09-24
 
 ## Permissions compatibility retrofit
 
@@ -4778,6 +4778,15 @@ Phase **3.4.25 — Permissions compatibility retrofit**.
 - GL Account Permissions is represented only as a hidden `release.accounting.gl_account_permissions` compatibility slot; the workflow remains scheduled.
 - No migration is required; Alembic head remains `8c4e2a7d1f90`.
 
-## Verification state
+## Verification evidence
 
-Implementation checkpoint prepared; hosted CI verification pending.
+- Implementation commit: `9a0680914e0f1f3ac96a93e2751d6db180a2eadf`.
+- Hosted CI run `36060022264`: SUCCESS.
+- Backend/PostgreSQL: **256 passed, 3 deselected, 1266 warnings in 41.97s**.
+- E2E: **3 passed in 10.77s**.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
+- Alembic head remains `8c4e2a7d1f90`.
+
+## Next
+
+Phase **3.4.26 — Sidebar compatibility retrofit**. Preserve the legacy route while sending users directly to Permissions → My Preferences, keep personal sidebar customization self-service, and preserve backend-authoritative menu resolution.
