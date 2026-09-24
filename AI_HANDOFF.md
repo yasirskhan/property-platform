@@ -93,7 +93,7 @@ Current batch:
 - Backend/PostgreSQL: 165 passed, 3 deselected, 1187 warnings in 41.14s.
 - Customer frontend, platform-admin, security, E2E, backup/restore, and staging smoke: SUCCESS.
 - Alembic head: 3b8d1f5c7a20; model table count: 76.
-- Phase 3.4.11 Batch 2 is committed for hosted verification: FeatureProvider, useFlag(), <Flag>, Settings → Features customer UI, sidebar entry, deterministic released-feature E2E seed, and browser toggle persistence proof.
+- Phase 3.4.11 Batch 2 implementation commit bb43ad66e4aeb8608a0ec42e82f8c8a1b6e4bbf1 passed backend/frontend/security/staging but exposed an E2E UX race: the controlled feature checkbox did not update until the API response returned. The fix makes the toggle optimistic with rollback on API failure and is pending hosted verification.
 
 Next action:
 1. Verify Phase 3.4.11 Batch 2 in hosted CI and fix any reds autonomously.

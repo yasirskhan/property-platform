@@ -51,6 +51,11 @@ export default function FeaturesSettingsPage() {
   async function setEnabled(item: FeatureSetting, enabled: boolean) {
     setSavingKey(item.key);
     setError(null);
+    setItems((current) =>
+      current.map((row) =>
+        row.key === item.key ? { ...row, enabled } : row
+      )
+    );
     try {
       const updated = (await apiPut(
         `/api/features/settings/${encodeURIComponent(item.key)}`,
@@ -61,6 +66,11 @@ export default function FeaturesSettingsPage() {
       );
       await refreshFlags();
     } catch (err) {
+      setItems((current) =>
+        current.map((row) =>
+          row.key === item.key ? { ...row, enabled: item.enabled } : row
+        )
+      );
       setError(err instanceof Error ? err.message : "Could not update feature.");
     } finally {
       setSavingKey(null);
