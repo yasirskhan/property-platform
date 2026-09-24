@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import { formatMoney } from "@/lib/money";
+import { useDisplay } from "@/contexts/DisplayContext";
 import {
   previewOwnerStatement,
   generateOwnerStatement,
@@ -34,6 +35,7 @@ function personLabel(p: Person): string {
 
 export default function NewOwnerStatementPage() {
   const router = useRouter();
+  const { prefs } = useDisplay();
 
   const [owners, setOwners] = useState<Person[]>([]);
   const [ownerId, setOwnerId] = useState<number | "">("");
@@ -113,7 +115,7 @@ export default function NewOwnerStatementPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
+    <div className="max-w-3xl mx-auto p-6" data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()} data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}>
       <h1 className="text-xl font-semibold text-slate-900 mb-1">
         New Owner Statement
       </h1>

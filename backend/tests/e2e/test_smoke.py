@@ -151,6 +151,22 @@ def test_login_and_core_authenticated_pages() -> None:
                 ).to_have_count(0)
 
             page.goto(
+                f"{BASE_URL}/dashboard/accounting/owner-statements",
+                wait_until="domcontentloaded",
+            )
+            expect(
+                page.get_by_role("heading", name="Owner Statements", exact=True)
+            ).to_be_visible()
+            for hidden_action in [
+                "Property Cash Summary",
+                "Owner Packet",
+                "Email Statement",
+            ]:
+                expect(
+                    page.get_by_role("button", name=hidden_action, exact=True)
+                ).to_have_count(0)
+
+            page.goto(
                 f"{BASE_URL}/dashboard/settings/features",
                 wait_until="domcontentloaded",
             )

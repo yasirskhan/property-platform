@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.4.18 — Management Fees compatibility retrofit** is IN PROGRESS. Phase 3.4.17 Journal Entries is COMPLETE and VERIFIED.
+**Current activity:** Phase **3.4.19 — Owner Statements compatibility retrofit** is IN PROGRESS. Phase 3.4.18 Management Fees is COMPLETE and VERIFIED.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -35,7 +35,7 @@
 
 **Migration head:** `8c4e2a7d1f90`.
 
-**Current parity inventory:** 199 built, 1 in progress, 428 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 200 built, 1 in progress, 427 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -146,14 +146,15 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Continue Phase 3.4.18 — Management Fees compatibility retrofit.**
+**Continue Phase 3.4.19 — Owner Statements compatibility retrofit.**
 
-1. Preserve the verified two-step management-fee workflow that creates a Bill.
-2. Consume shared display primitives and enforce ACCOUNTING.MANAGEMENT_FEES authorization server-side.
-3. Represent Pay Owners, overcollection strategy, Management Fee Exclusions, and Post GPR as independently release-gated compatibility slots; do not invent per-field flags or prematurely implement their full workflows.
-4. Verify the batch through the full CI gate, fix CI reds autonomously, update the ledgers/handoff, and continue directly to the next compatibility retrofit.
+1. Preserve the verified frozen-snapshot owner-statement engine and per-property transaction rendering.
+2. Consume shared display/date primitives and enforce ACCOUNTING.OWNER_STATEMENTS authorization server-side.
+3. Enforce ADMIN/OWNER/MANAGER write roles for preview/generate while keeping reads permission-scoped.
+4. Represent Property Cash Summary, Owner Packet, and Email Statement as independently release-gated compatibility slots. Keep Required Reserves and Prepaid Rent as structural statement slots until real accounting sources/configuration exist; do not fabricate balances.
+5. Verify the batch through the full CI gate, fix CI reds autonomously, update the ledgers/handoff, and continue directly to Bank Accounts compatibility work.
 
-Phase 3.4.17 Journal Entries is VERIFIED in hosted CI run 35998021267: backend 193 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed. Continue autonomously through subsequent foundation phases using revised Section 82 when older phase numbers conflict.
+Phase 3.4.18 Management Fees is VERIFIED in hosted CI run 36036233118: backend 203 passed / 3 deselected, E2E 3 passed, and frontend/platform-admin/security/staging gates all passed. Continue autonomously through subsequent foundation phases using revised Section 82 when older phase numbers conflict.
 
 ## B2. AFTER THAT## B2. AFTER THAT (Phase 3.5 onward)
 

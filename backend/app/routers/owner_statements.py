@@ -28,6 +28,7 @@ from app.schemas.owner_statement import (
     StatementPropertyBlock,
 )
 from app.services.gl_posting import PostingError
+from app.services.menu_resolver import permission_allows_user
 from app.services.owner_statements import (
     preview_owner_statement,
     generate_owner_statement,
@@ -39,6 +40,8 @@ router = APIRouter(
     tags=["Owner Statements"],
 )
 
+WRITE_ROLES = {"ADMIN", "OWNER", "MANAGER"}
+
 
 def _require_org(current_user: User) -> int:
     if current_user.organization_id is None:
@@ -47,6 +50,33 @@ def _require_org(current_user: User) -> int:
             detail="User has no organization.",
         )
     return current_user.organization_id
+
+
+def _norm_role(role) -> str:
+    if role is None:
+        return ""
+    value = role.value if hasattr(role, "value") else str(role)
+    return value.upper()
+
+
+def _require_owner_statements_access(db: Session, current_user: User) -> int:
+    org_id = _require_owner_statements_access(db, current_user)
+    if not permission_allows_user(
+        db, user=current_user, menu_key="ACCOUNTING.OWNER_STATEMENTS"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Owner Statements permission required.",
+        )
+    return org_id
+
+
+def _require_write(current_user: User) -> None:
+    if _norm_role(current_user.role) not in WRITE_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not allowed to generate owner statements.",
+        )
 
 
 def _stmt_to_out(s: OwnerStatement) -> OwnerStatementOut:
@@ -103,7 +133,8 @@ def preview_statement(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    _require_write(current_user)
+    org_id = _require_owner_statements_access(db, current_user)
     try:
         result = preview_owner_statement(
             db,
@@ -149,7 +180,8 @@ def generate_statement(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    _require_write(current_user)
+    org_id = _require_owner_statements_access(db, current_user)
     try:
         stmt = generate_owner_statement(
             db,
@@ -186,7 +218,7 @@ def list_statements(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_owner_statements_access(db, current_user)
 
     q = (
         db.query(OwnerStatement)
@@ -227,7 +259,7 @@ def get_statement(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_owner_statements_access(db, current_user)
     stmt = (
         db.query(OwnerStatement)
         .options(joinedload(OwnerStatement.owner))

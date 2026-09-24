@@ -473,11 +473,11 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Running balance | behavior | — | core | no | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Existing transaction rendering |
 | Beginning / ending cash | behavior | — | core | no | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Existing summary |
 | Print / Save PDF | capability | — | core | no | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Browser print-ready output |
-| Required Reserves line | behavior | — | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ❌ missing | Statement accounting enhancement |
-| Prepaid Rent line | behavior | — | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ❌ missing | Statement accounting enhancement |
-| Property Cash Summary | capability | release.accounting.owner_statements.cash_summary | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ❌ missing | Enhanced owner reporting |
-| Owner Packet customizer | capability | release.owner_portal.packet_customizer | owner_portal | yes | ACCOUNTING.OWNER_STATEMENTS | no | ❌ missing | Phase 7 portal/document capability |
-| Email statement | capability | release.owner_statements.email | owner_portal | yes | ACCOUNTING.OWNER_STATEMENTS | no | ❌ missing | Delivery workflow |
+| Required Reserves line | behavior | — | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ⬜ hidden implementation present | Structural compatibility slot present; real reserve configuration/accounting source remains planned |
+| Prepaid Rent line | behavior | — | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ⬜ hidden implementation present | Structural compatibility slot present; real prepaid-rent accounting source remains planned |
+| Property Cash Summary | capability | release.accounting.owner_statements.cash_summary | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ⬜ hidden implementation present | Release-gated compatibility slot; enhanced owner reporting workflow remains planned |
+| Owner Packet customizer | capability | release.owner_portal.packet_customizer | owner_portal | yes | ACCOUNTING.OWNER_STATEMENTS | no | ⬜ hidden implementation present | Release-gated compatibility slot; Phase 7 portal/document workflow remains planned |
+| Email statement | capability | release.owner_statements.email | owner_portal | yes | ACCOUNTING.OWNER_STATEMENTS | no | ⬜ hidden implementation present | Release-gated compatibility slot; delivery workflow remains planned |
 
 ---
 

@@ -12,12 +12,15 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { formatMoney, formatDate } from "@/lib/money";
+import Flag from "@/components/features/Flag";
+import { useDisplay } from "@/contexts/DisplayContext";
 import {
   getOwnerStatement,
   type OwnerStatementDetail,
 } from "@/lib/ownerStatements";
 
 export default function OwnerStatementDetailPage() {
+  const { prefs } = useDisplay();
   const params = useParams<{ id: string }>();
   const statementId = Number(params.id);
 
@@ -50,7 +53,7 @@ export default function OwnerStatementDetailPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-4xl mx-auto p-6" data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()} data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}>
       <div className="flex items-center justify-between mb-6 print:hidden">
         <div>
           <h1 className="text-xl font-semibold text-slate-900">
@@ -60,7 +63,16 @@ export default function OwnerStatementDetailPage() {
             {stmt.owner_name || stmt.owner_email || `Owner #${stmt.owner_id}`}
           </div>
         </div>
-        <div className="flex gap-3 items-center">
+        <div className="flex flex-wrap gap-3 items-center justify-end">
+          <Flag name="release.accounting.owner_statements.cash_summary">
+            <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Property Cash Summary</button>
+          </Flag>
+          <Flag name="release.owner_portal.packet_customizer">
+            <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Owner Packet</button>
+          </Flag>
+          <Flag name="release.owner_statements.email">
+            <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Email Statement</button>
+          </Flag>
           <span className="text-xs text-slate-500">
             Generated{" "}
             {stmt.generated_at ? formatDate(stmt.generated_at) : "—"}
@@ -80,7 +92,7 @@ export default function OwnerStatementDetailPage() {
           <div>
             <div className="text-xs text-slate-500">Period</div>
             <div className="font-medium">
-              {stmt.period_start} → {stmt.period_end}
+              {formatDate(stmt.period_start)} → {formatDate(stmt.period_end)}
             </div>
           </div>
           <div>
@@ -108,6 +120,14 @@ export default function OwnerStatementDetailPage() {
             <div className="font-mono font-semibold">
               {formatMoney(stmt.total_net)}
             </div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-500">Required reserves</div>
+            <div className="font-mono text-slate-400">—</div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-500">Prepaid rent</div>
+            <div className="font-mono text-slate-400">—</div>
           </div>
         </div>
 

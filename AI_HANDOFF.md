@@ -41,27 +41,28 @@ Verified foundation through this checkpoint:
 - Phase 3.4.15 Bank Deposits compatibility retrofit.
 - Phase 3.4.16 GL Accounts compatibility retrofit.
 - Phase 3.4.17 Journal Entries compatibility retrofit is COMPLETE and VERIFIED.
-- Phase 3.4.17 implementation commit: 57754c2c684d64ba8355e6634cc4c860fe0a6cd6.
-- GitHub CI run 35998021267: SUCCESS.
-- Backend/PostgreSQL: 193 passed, 3 deselected, 1266 warnings in 40.66s.
-- E2E: 3 passed in 8.44s.
+- Phase 3.4.18 Management Fees compatibility retrofit is COMPLETE and VERIFIED.
+- Phase 3.4.18 repair/final implementation commit: 1ee39901d7ffd42f01c26db158ce692993f1deb1.
+- GitHub CI run 36036233118: SUCCESS.
+- Backend/PostgreSQL: 203 passed, 3 deselected, 1266 warnings in 39.57s.
+- E2E: 3 passed in 11.89s.
 - Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
 - Alembic head remains 8c4e2a7d1f90.
 
 Current batch:
-- Phase 3.4.18 Management Fees compatibility retrofit implementation is prepared in the current checkpoint and awaiting hosted CI verification.
-- Existing fee calculation and two-step accounting spine remain unchanged: running a fee creates an unpaid Bill and posts DR Management Fee Expense / CR Accounts Payable; Bill payment remains the second step.
-- List/new surfaces consume display context and list/detail periods use shared date formatting.
-- Pay Owners, Overcollection Strategy, Management Fee Exclusions, and Post GPR are release-gated compatibility slots and remain invisible while HIDDEN.
-- Backend routes enforce ACCOUNTING.MANAGEMENT_FEES permission; preview/run/reverse additionally enforce ADMIN/OWNER/MANAGER write roles, matching the customer UI.
-- Regression coverage includes permission/write-role tests and authenticated E2E proof that unreleased capability buttons stay hidden.
-- First hosted CI run 36035758701 failed only in the new permission helper because `_require_management_fees_access()` accidentally called itself recursively. Backend summary: 3 failed, 200 passed, 3 deselected, 1266 warnings in 40.98s. The repair checkpoint replaces that recursive call with `_require_org(current_user)` and awaits hosted CI verification.
+- Phase 3.4.19 Owner Statements compatibility retrofit implementation is prepared in this checkpoint and awaits hosted CI verification.
+- Frozen statement snapshots and existing per-property transaction math remain unchanged.
+- List/new/detail surfaces consume display context; statement periods and transaction dates use shared date formatting.
+- Backend routes enforce ACCOUNTING.OWNER_STATEMENTS permission; preview/generate additionally enforce ADMIN/OWNER/MANAGER write roles.
+- Required Reserves and Prepaid Rent are represented as structural compatibility slots with no fabricated balances because no verified accounting source/configuration exists yet.
+- Property Cash Summary, Owner Packet, and Email Statement are release-gated compatibility slots and remain invisible while HIDDEN.
+- Authenticated E2E coverage proves unreleased owner-reporting actions stay hidden.
 - No migration is required; Alembic head remains 8c4e2a7d1f90.
 
 Next action:
-1. Verify the current Phase 3.4.18 checkpoint through hosted CI.
+1. Verify the current Phase 3.4.19 checkpoint through hosted CI.
 2. Fix any CI red autonomously.
-3. When green, mark compliance.management_fees.full_surface built, record exact verification results, and continue directly into Owner Statements compatibility work without waiting for the user.
+3. When green, mark compliance.owner_statements.full_surface built, record exact verification results, and continue directly into Bank Accounts compatibility work without waiting for the user.
 
 Open blockers:
 - NONE

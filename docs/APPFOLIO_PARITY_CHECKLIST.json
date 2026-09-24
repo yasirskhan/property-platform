@@ -3747,16 +3747,17 @@
       "id": "compliance.management_fees.full_surface",
       "area": "Compliance / Page Retrofit",
       "feature": "Management Fees: add all planned slots (pay-owners, overcollection, exclusions)",
-      "status": "in_progress",
+      "status": "built",
       "phase": "3.4.18",
-      "notes": "Management Fees compatibility retrofit checkpoint: preserve Bill-creating two-step accounting spine; add shared display/date compatibility, authoritative ACCOUNTING.MANAGEMENT_FEES permission/write-role enforcement, and hidden release-gated Pay Owners/overcollection/exclusions/Post GPR slots. Awaiting hosted CI verification."
+      "notes": "Verified in hosted CI run 36036233118: backend 203 passed / 3 deselected, E2E 3 passed, display/date compatibility, authoritative ACCOUNTING.MANAGEMENT_FEES permission/write-role enforcement, unchanged Bill-creating two-step accounting spine, and hidden release-gated Pay Owners/overcollection/exclusions/Post GPR slots."
     },
     {
       "id": "compliance.owner_statements.full_surface",
       "area": "Compliance / Page Retrofit",
       "feature": "Owner Statements: add all planned slots (reserves, prepaid, cash-summary, packet)",
-      "status": "scheduled",
-      "phase": "3.5.5"
+      "status": "in_progress",
+      "phase": "3.4.19",
+      "notes": "Owner Statements compatibility retrofit checkpoint: preserve frozen snapshots; add display/date compatibility, authoritative ACCOUNTING.OWNER_STATEMENTS permission/write-role enforcement, structural reserve/prepaid slots without fabricated values, and hidden release-gated cash-summary/packet/email actions. Awaiting hosted CI verification."
     },
     {
       "id": "compliance.bank_accounts.full_surface",

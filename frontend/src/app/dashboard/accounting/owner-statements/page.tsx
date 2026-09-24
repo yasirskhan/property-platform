@@ -12,6 +12,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatMoney, formatDate } from "@/lib/money";
+import { apiGet } from "@/lib/api";
+import Flag from "@/components/features/Flag";
+import { useDisplay } from "@/contexts/DisplayContext";
 import {
   listOwnerStatements,
   type OwnerStatement,
@@ -23,7 +26,10 @@ interface Me {
   role: string;
 }
 
+const WRITE_ROLES = ["ADMIN", "OWNER", "MANAGER"];
+
 export default function OwnerStatementsPage() {
+  const { prefs } = useDisplay();
   const [me, setMe] = useState<Me | null>(null);
   const [statements, setStatements] = useState<OwnerStatement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,12 +39,7 @@ export default function OwnerStatementsPage() {
   const [dateTo, setDateTo] = useState("");
 
   useEffect(() => {
-    fetch("/auth/me", {
-      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((u) => setMe(u))
-      .catch(() => setMe(null));
+    apiGet("/auth/me").then((u) => setMe(u as Me)).catch(() => setMe(null));
   }, []);
 
   async function load() {
@@ -62,20 +63,39 @@ export default function OwnerStatementsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const canWrite = Boolean(
+    me && WRITE_ROLES.includes(String(me.role).toUpperCase())
+  );
+
   return (
-    <div className="p-6">
+    <div
+      className="p-6"
+      data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()}
+      data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}
+    >
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-xl font-semibold text-slate-900">
           Owner Statements
         </h1>
-        {me && me.role !== "TENANT" && (
-          <Link
-            href="/dashboard/accounting/owner-statements/new"
-            className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
-          >
-            + New Statement
-          </Link>
-        )}
+<div className="flex flex-wrap justify-end gap-2">
+          <Flag name="release.accounting.owner_statements.cash_summary">
+            <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Property Cash Summary</button>
+          </Flag>
+          <Flag name="release.owner_portal.packet_customizer">
+            <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Owner Packet</button>
+          </Flag>
+          <Flag name="release.owner_statements.email">
+            <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Email Statement</button>
+          </Flag>
+          {canWrite && (
+            <Link
+              href="/dashboard/accounting/owner-statements/new"
+              className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+            >
+              + New Statement
+            </Link>
+          )}
+        </div>
       </div>
       <p className="text-sm text-slate-500 mb-6">
         Frozen snapshot documents. Once generated, they never change.
@@ -156,7 +176,7 @@ export default function OwnerStatementsPage() {
                   </Link>
                 </td>
                 <td className="px-4 py-2 text-slate-500 text-xs">
-                  {s.period_start} → {s.period_end}
+                  {formatDate(s.period_start)} → {formatDate(s.period_end)}
                 </td>
                 <td className="px-4 py-2 text-slate-500 text-xs">
                   {s.generated_at ? formatDate(s.generated_at) : "—"}
