@@ -21,6 +21,7 @@ class GLAccountCreate(BaseModel):
     offset_account: Optional[str] = Field(None, max_length=20)
     subject_to_mgmt_fees: bool = False
     include_on_cash_flow: bool = True
+    must_clear: bool = False
 
 
 class GLAccountUpdate(BaseModel):
@@ -31,6 +32,7 @@ class GLAccountUpdate(BaseModel):
     offset_account: Optional[str] = Field(None, max_length=20)
     subject_to_mgmt_fees: Optional[bool] = None
     include_on_cash_flow: Optional[bool] = None
+    must_clear: Optional[bool] = None
 
 
 # ------------------------------------------------------------
@@ -47,6 +49,7 @@ class GLAccountOut(BaseModel):
     offset_account: Optional[str] = None
     subject_to_mgmt_fees: bool
     include_on_cash_flow: bool
+    must_clear: bool
     is_active: bool
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

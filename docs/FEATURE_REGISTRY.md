@@ -369,10 +369,10 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Subject to management fees | field | — | — | — | — | — | ✅ present | Accounting field |
 | Include on cash flow | field | — | — | — | — | — | ✅ present | Accounting field |
 | Account ledger link | navigation | — | core | no | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Links to per-account ledger |
-| Must-clear-to-zero setting | field | — | — | — | — | — | ❌ missing | Supports positive-fee diagnostic |
-| GL Account Permissions | capability | release.accounting.gl_account_permissions | core | yes | SETTINGS.PERMISSIONS | no | ❌ missing | Restricts posting by account |
-| Recalculate Balances | capability | release.accounting.gl_accounts.recalculate | core | no | ACCOUNTING.GL_ACCOUNTS | no | ❌ missing | Administrative rebuild action |
-| Hide semantics | behavior | — | core | yes | ACCOUNTING.GL_ACCOUNTS | no | ❌ missing | Hidden from pickers, retained in reports |
+| Must-clear-to-zero setting | field | — | — | — | — | — | ✅ present | Existing model flag is exposed through API, drawer, and list |
+| GL Account Permissions | capability | release.accounting.gl_account_permissions | core | yes | SETTINGS.PERMISSIONS | no | ⬜ hidden implementation present | Release-gated compatibility slot; per-account posting rules remain planned |
+| Recalculate Balances | capability | release.accounting.gl_accounts.recalculate | core | no | ACCOUNTING.GL_ACCOUNTS | no | ⬜ hidden implementation present | Release-gated compatibility slot; rebuild workflow remains planned |
+| Hide semantics | behavior | — | core | yes | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Existing soft deactivation hides inactive accounts from default pickers while historical references remain |
 
 ---
 

@@ -21,6 +21,7 @@ export type GLAccount = {
   offset_account: string | null;
   subject_to_mgmt_fees: boolean;
   include_on_cash_flow: boolean;
+  must_clear: boolean;
   is_active: boolean;
   created_at: string | null;
   updated_at: string | null;
@@ -44,6 +45,7 @@ export type GLAccountCreate = {
   offset_account?: string | null;
   subject_to_mgmt_fees?: boolean;
   include_on_cash_flow?: boolean;
+  must_clear?: boolean;
 };
 
 export type GLAccountUpdate = {
@@ -53,6 +55,7 @@ export type GLAccountUpdate = {
   offset_account?: string | null;
   subject_to_mgmt_fees?: boolean;
   include_on_cash_flow?: boolean;
+  must_clear?: boolean;
 };
 
 // ------------------------------------------------------------

@@ -23,12 +23,16 @@ import {
 } from "@/lib/glAccounts";
 import { apiGet } from "@/lib/api";
 import GLAccountDrawer from "@/components/accounting/GLAccountDrawer";
+import Flag from "@/components/features/Flag";
+import ConfirmModal from "@/components/ui/ConfirmModal";
+import { useDisplay } from "@/contexts/DisplayContext";
 
 type Me = { role: string };
 
 const WRITE_ROLES = ["ADMIN", "OWNER", "MANAGER"];
 
 export default function GLAccountsPage() {
+  const { prefs } = useDisplay();
   const [me, setMe] = useState<Me | null>(null);
   const [data, setData] = useState<GLAccountList | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,6 +42,8 @@ export default function GLAccountsPage() {
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<GLAccount | null>(null);
+  const [deactivateTarget, setDeactivateTarget] = useState<GLAccount | null>(null);
+  const [deactivateBusy, setDeactivateBusy] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -74,18 +80,17 @@ export default function GLAccountsPage() {
     setEditing(null);
   }
 
-  async function handleDelete(account: GLAccount) {
-    const ok = window.confirm(
-      `Deactivate GL account ${account.gl_number} ${account.name}?\n\n` +
-        `The account will be hidden from active lists but historical ` +
-        `transactions will still reference it.`
-    );
-    if (!ok) return;
+  async function handleDelete() {
+    if (!deactivateTarget) return;
+    setDeactivateBusy(true);
     try {
-      await deleteGLAccount(account.id);
+      await deleteGLAccount(deactivateTarget.id);
+      setDeactivateTarget(null);
       await load();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Delete failed");
+      setError(err instanceof Error ? err.message : "Deactivate failed");
+    } finally {
+      setDeactivateBusy(false);
     }
   }
 
@@ -113,7 +118,17 @@ export default function GLAccountsPage() {
             {data.total} {data.total === 1 ? "account" : "accounts"}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Flag name="release.accounting.gl_account_permissions">
+            <button type="button" disabled className="text-sm px-3 py-2 border border-slate-300 rounded-lg text-slate-500 disabled:opacity-60">
+              GL Account Permissions
+            </button>
+          </Flag>
+          <Flag name="release.accounting.gl_accounts.recalculate">
+            <button type="button" disabled className="text-sm px-3 py-2 border border-slate-300 rounded-lg text-slate-500 disabled:opacity-60">
+              Recalculate Balances
+            </button>
+          </Flag>
           <Link
             href="/dashboard/accounting/trial-balance"
             className="text-sm px-3 py-2 text-slate-600 hover:text-slate-900"
@@ -166,6 +181,9 @@ export default function GLAccountsPage() {
                     <th className="text-center px-4 py-2 font-medium text-slate-700 w-28">
                       Cash Flow
                     </th>
+                    <th className="text-center px-4 py-2 font-medium text-slate-700 w-28">
+                      Must Clear
+                    </th>
                     {canWrite && <th className="w-48"></th>}
                   </tr>
                 </thead>
@@ -208,6 +226,9 @@ export default function GLAccountsPage() {
                         <td className="px-4 py-2 text-center text-slate-600">
                           {a.include_on_cash_flow ? "Yes" : "—"}
                         </td>
+                        <td className="px-4 py-2 text-center text-slate-600">
+                          {a.must_clear ? "Yes" : "—"}
+                        </td>
                         {canWrite && (
                           <td className="px-4 py-2 text-right whitespace-nowrap">
                             <button
@@ -218,7 +239,7 @@ export default function GLAccountsPage() {
                             </button>
                             {a.is_active && (
                               <button
-                                onClick={() => handleDelete(a)}
+                                onClick={() => setDeactivateTarget(a)}
                                 className="text-red-600 hover:text-red-800 text-xs ml-4"
                               >
                                 Deactivate
@@ -235,6 +256,21 @@ export default function GLAccountsPage() {
           </div>
         );
       })}
+
+      <span hidden aria-hidden="true" data-compat-slot="gl-accounts.hide-semantics" />
+
+      <ConfirmModal
+        open={deactivateTarget !== null}
+        title="Deactivate GL account?"
+        description={deactivateTarget ? `${deactivateTarget.gl_number} ${deactivateTarget.name} will be hidden from active lists while historical transactions remain intact.` : ""}
+        confirmLabel="Deactivate account"
+        busy={deactivateBusy}
+        danger
+        onCancel={() => {
+          if (!deactivateBusy) setDeactivateTarget(null);
+        }}
+        onConfirm={handleDelete}
+      />
 
       {/* Drawer */}
       {drawerOpen && (

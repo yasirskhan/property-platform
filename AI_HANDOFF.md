@@ -37,28 +37,29 @@ Verified foundation through this checkpoint:
 - Phase 3.4.11 customer release-gate consumption + Settings → Features.
 - Phase 3.4.12 unit/plan-limit enforcement.
 - Phase 3.4.13 Receipts compatibility retrofit.
-- Phase 3.4.14 Bills compatibility retrofit is COMPLETE and VERIFIED.
-- Phase 3.4.14 implementation commit: a7da11d20b7a88e00df4055fb486e22aa12ce727.
-- GitHub CI run 35992544919: SUCCESS.
-- Backend/PostgreSQL: 176 passed, 3 deselected, 1266 warnings in 35.15s.
-- E2E: 3 passed in 12.01s.
+- Phase 3.4.14 Bills compatibility retrofit.
+- Phase 3.4.15 Bank Deposits compatibility retrofit is COMPLETE and VERIFIED.
+- Phase 3.4.15 implementation commit: db52aa57572ba0d0a58b536e711893b44f0978e8.
+- GitHub CI run 35996299575: SUCCESS.
+- Backend/PostgreSQL: 179 passed, 3 deselected, 1266 warnings in 40.76s.
+- E2E: 3 passed in 9.80s.
 - Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
 - Alembic head remains 8c4e2a7d1f90.
 
 Current batch:
-- Phase 3.4.15 Bank Deposits compatibility retrofit implementation is prepared in the current checkpoint and awaiting hosted CI verification.
-- Existing deposit accounting contract remains unchanged: deposits group already-posted receipts and do not create new GL postings.
-- Deposit list/new surfaces consume display context and shared date/money formatting.
-- New Deposit warns when selected receipt dates differ from the deposit date.
-- Planned print/edit/NSF/escrow-refund actions are release-gated compatibility slots and remain invisible while HIDDEN.
-- Bank-specific deposit numbering is represented by a non-visual structural compatibility seam; the verified current global numbering behavior is unchanged.
-- Deposit backend routes enforce ACCOUNTING.DEPOSITS permission in addition to organization scoping.
-- Regression coverage includes permission-guard tests and authenticated E2E page proof.
+- Phase 3.4.16 GL Accounts compatibility retrofit implementation is prepared in the current checkpoint and awaiting hosted CI verification.
+- Existing GL account CRUD, grouping, sub-account nesting, offset-account behavior, historical references, and soft-deactivation behavior remain intact.
+- The existing must_clear database flag is now exposed through backend schemas, create/update behavior, typed frontend API, drawer editing, and the account list.
+- Chart of Accounts consumes display context.
+- GL Account Permissions and Recalculate Balances are release-gated compatibility slots and remain invisible while HIDDEN.
+- Deactivation now uses the shared styled confirmation modal; soft-deactivate semantics remain unchanged.
+- GL account backend routes enforce ACCOUNTING.GL_ACCOUNTS permission in addition to org scoping; write routes retain ADMIN/OWNER/MANAGER role enforcement.
+- Regression coverage includes permission/API-contract tests and authenticated E2E proof that unreleased capability buttons stay hidden.
 
 Next action:
-1. Verify the current Phase 3.4.15 checkpoint through hosted CI.
+1. Verify the current Phase 3.4.16 checkpoint through hosted CI.
 2. Fix any CI red autonomously.
-3. When green, mark compliance.deposits.full_surface built, record exact verification results, and continue directly into the next compatibility retrofit from FEATURE_REGISTRY / parity order without waiting for the user.
+3. When green, mark compliance.gl_accounts.full_surface built, record exact verification results, and continue directly into the next compatibility retrofit from FEATURE_REGISTRY/parity order without waiting for the user.
 
 Open blockers:
 - NONE

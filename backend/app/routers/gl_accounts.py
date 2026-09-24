@@ -27,6 +27,7 @@ from app.core.audit import log_action
 from app.routers.auth import get_current_user
 from app.models.user import User
 from app.models.gl_account import GLAccount, ACCOUNT_TYPES
+from app.services.menu_resolver import permission_allows_user
 from app.schemas.gl_account import (
     GLAccountCreate,
     GLAccountUpdate,
@@ -58,6 +59,18 @@ def _require_org(current_user: User) -> int:
             detail="User has no organization.",
         )
     return current_user.organization_id
+
+
+def _require_gl_accounts_access(db: Session, current_user: User) -> int:
+    org_id = _require_org(current_user)
+    if not permission_allows_user(
+        db, user=current_user, menu_key="ACCOUNTING.GL_ACCOUNTS"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="GL Accounts permission required.",
+        )
+    return org_id
 
 
 def _require_write(current_user: User) -> None:
@@ -95,7 +108,7 @@ def list_gl_accounts(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_gl_accounts_access(db, current_user)
 
     q = db.query(GLAccount).filter(GLAccount.organization_id == org_id)
     if not include_inactive:
@@ -132,7 +145,7 @@ def get_gl_account(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_gl_accounts_access(db, current_user)
     return _fetch_or_404(db, org_id, account_id)
 
 
@@ -147,7 +160,7 @@ def create_gl_account(
     current_user: User = Depends(get_current_user),
 ):
     _require_write(current_user)
-    org_id = _require_org(current_user)
+    org_id = _require_gl_accounts_access(db, current_user)
 
     account_type = payload.account_type.upper()
     if account_type not in ACCOUNT_TYPES:
@@ -184,6 +197,7 @@ def create_gl_account(
         offset_account=payload.offset_account,
         subject_to_mgmt_fees=payload.subject_to_mgmt_fees,
         include_on_cash_flow=payload.include_on_cash_flow,
+        must_clear=payload.must_clear,
         is_active=True,
     )
     db.add(account)
@@ -216,7 +230,7 @@ def update_gl_account(
     current_user: User = Depends(get_current_user),
 ):
     _require_write(current_user)
-    org_id = _require_org(current_user)
+    org_id = _require_gl_accounts_access(db, current_user)
     account = _fetch_or_404(db, org_id, account_id)
 
     data = payload.model_dump(exclude_unset=True)
