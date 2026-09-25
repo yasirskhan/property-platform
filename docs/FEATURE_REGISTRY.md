@@ -510,7 +510,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | $0 ACH Test File | capability | release.accounting.ach_test_file | ach_payments | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | Setup verification |
 | Check Printing | capability | release.accounting.check_printing | check_writing | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Printable check view backed by org-scoped check detail |
 | Bank Feed | capability | release.accounting.bank_feed | bank_feeds | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | Future Plaid/generic feed integration |
-| Adjustments | capability | release.accounting.bank_adjustments | core | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | Adjustment entity/sub-tab |
+| Adjustments | capability | release.accounting.bank_adjustments | core | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Verified in CI run 36097448099: ledger-native per-bank adjustments, org-scoped offset validation, immutable reversal, and reconciliation visibility |
 
 ---
 

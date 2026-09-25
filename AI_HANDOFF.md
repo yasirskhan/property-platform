@@ -9,9 +9,9 @@ Keep it here and overwrite it after every meaningful batch.
 
 Branch: chatgpt/checkpoint-005-safety
 
-Latest product batch commit:
-- dc84db4602b2de4e04c93ac35dc6a4ff29525bad
-- "Phase 3.6 Bank Adjustments: add ledger workflow"
+Latest verified product commits:
+- dc84db4602b2de4e04c93ac35dc6a4ff29525bad — backend ledger workflow
+- 4d037b6608c07d142974c758e2aecee406f373d7 — customer workflow
 
 Resolve the branch HEAD again before any write. This handoff file is committed
 after the product batch, so it does not embed its own final hash.
@@ -105,15 +105,26 @@ Frontend files:
 - frontend/src/app/dashboard/accounting/bank-accounts/[id]/adjustments/page.tsx
 - frontend/src/app/dashboard/accounting/bank-accounts/page.tsx
 
-Current verification state:
-- Hosted CI is being checked for the backend and frontend batches.
-- TESTS NOT RUN locally in this connector-only session.
+Bank Adjustments verification:
+- Hosted CI run 36097448099: SUCCESS
+- Backend: 295 passed, 3 deselected, 2121 warnings in 51.57s
+- E2E: 3 passed in 13.46s
+- Frontend: SUCCESS
+- Platform admin: SUCCESS
+- Security: SUCCESS
+- Staging build/start/health: SUCCESS
+- PostgreSQL bootstrap + backup/restore: SUCCESS
+- Parity after closeout: 236 built / 392 scheduled / 628 total
 
-Next:
-1. Fix any hosted CI red from Bank Adjustments.
-2. After green, mark Bank Adjustments complete in FEATURE_REGISTRY,
-   APPFOLIO parity, FILE_CATALOG, and PROJECT_MASTER where possible.
-3. Continue directly to Bank Feed import.
+Bank Adjustments is COMPLETE/VERIFIED.
+
+Next product batch:
+1. Bank Feed import (Phase 3.6).
+2. Keep Phase 3.6 provider-neutral: durable/manual feed import and matching.
+3. Do not pull live Plaid connectivity forward; that remains Phase 8.
+4. Preserve release.accounting.bank_feed, bank_feeds entitlement,
+   ACCOUNTING.BANK_ACCOUNTS permission, org isolation, and no implicit GL mutation.
+5. Run hosted CI, fix reds autonomously, update planning docs and this handoff.
 
 # Verified Foundation / Contracts to Preserve
 

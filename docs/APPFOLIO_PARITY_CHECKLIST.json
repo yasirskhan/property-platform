@@ -13,8 +13,8 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 235,
-    "scheduled_count": 393,
+    "built_count": 236,
+    "scheduled_count": 392,
     "in_progress_count": 0
   },
   "items": [
@@ -2193,8 +2193,9 @@
       "id": "accounting.bank_accounts.adjustments",
       "area": "Accounting / Bank Accounts",
       "feature": "Bank Account Adjustments (entity + sub-tab list + Make Adjustment)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Verified in CI run 36097448099: ledger-native per-bank increase/decrease adjustments use central GL posting, enforce org-scoped offset accounts and locked periods, reverse immutably, and appear in bank reconciliation."
     },
     {
       "id": "accounting.banks.zero_dollar_test_file",
