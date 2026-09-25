@@ -154,12 +154,21 @@ Frontend files:
 - frontend/src/app/dashboard/accounting/bank-accounts/[id]/bank-feed/page.tsx
 - frontend/src/app/dashboard/accounting/bank-accounts/page.tsx
 
+Bank Feed CI fix:
+- CI run 36098247913 reached 296 passed / 2 failed / 3 deselected.
+- The two failures were stale schema checkpoint constants only:
+  test_postgres_smoke.py and test_prepare_database.py still expected
+  Alembic f2a4c6e8b0d5 / 89 tables.
+- Bank Feed regression tests themselves passed.
+- b655d3274644ea515fb34b1f5bb9c66ae9d7878a updates both checkpoints
+  to Alembic a4b6c8d0e2f1 / 90 tables.
+
 Current verification:
-- Hosted CI for the complete Bank Feed backend + frontend workflow is pending/being checked.
+- Hosted CI rerun on the schema-checkpoint fix is pending/being checked.
 - TESTS NOT RUN locally in this connector-only session.
 
 Next:
-1. Fix any hosted CI red from Bank Feed.
+1. Fix any remaining hosted CI red from Bank Feed.
 2. When green, close Bank Feed in FEATURE_REGISTRY, parity JSON,
    FILE_CATALOG, PROJECT_MASTER, and this handoff.
 3. Continue the remaining Phase 3.6 order from PROJECT_MASTER without stopping.
