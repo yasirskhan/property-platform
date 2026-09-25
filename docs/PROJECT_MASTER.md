@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.6 — Accounting Polish: Journal Entries** is IN PROGRESS. Recurring Journal Entries + History/Recurring tabs are implemented and await hosted CI verification; Post GPR is next after this batch is green.
+**Current activity:** Phase **3.6 — Accounting Polish: Receipts** is IN PROGRESS. Chart of Accounts polish, Recurring Journal Entries, and Post GPR are verified; the next ordered work is the Receipts polish batch (Application Fee, Process NSF, print/repeat, deposit integrity, and automatic cash-account behavior).
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -33,9 +33,9 @@
 
 **3.4.S closeout:** COMPLETE. Portable private-repo security checks (Bandit, pip-audit, npm audit, committed-secret scan, Dependabot) replaced the unavailable mandatory CodeQL upload gate and passed in hosted CI run 35917804417. CodeQL remains optional/manual if GitHub Code Security is enabled later.
 
-**Migration head:** `4d7f2a9c6e31`.
+**Migration head:** `6a1d9e3f4b72`.
 
-**Current parity inventory:** 211 built, 0 in progress, 417 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 213 built, 0 in progress, 415 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -143,12 +143,12 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Continue Phase 3.6 — Accounting Polish: Journal Entries.**
+**Continue Phase 3.6 — Accounting Polish: Receipts.**
 
-1. Verify the recurring Journal Entries batch in hosted CI and fix reds autonomously.
-2. The recurring workflow stores org-scoped balanced templates, exposes History/Recurring tabs and pause/resume management, and posts due monthly entries through the durable jobs runtime plus central post_transaction() service.
-3. Existing Manually Post and remarks-vs-line-description behavior is reconciled to built parity state rather than duplicated.
-4. Once green, implement Post GPR as the next Journal Entries sub-batch and continue through Phase 3.6 without stopping.
+1. Implement the ordered Receipts polish batch from Section 38: dedicated Application Fee workflow, Process NSF, Print Receipt, Repeat Receipt, deposited-receipt integrity visibility, and Cash Account Automatic behavior.
+2. Reuse the verified immutable receipt/deposit accounting spine and central post_transaction() service; do not redesign verified receipt/reversal/deposit behavior.
+3. Keep capability release control, entitlement, org configuration, and permission layers independent and enforce independent capability access server-side.
+4. Verify in hosted CI, fix reds autonomously, update checkpoint/planning state, then continue to the next Phase 3.6 accounting subsection without stopping.
 
 ## B2. AFTER THAT## B2. AFTER THAT (Phase 3.5 onward)
 

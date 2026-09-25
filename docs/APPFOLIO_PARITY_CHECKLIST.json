@@ -9,12 +9,12 @@
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
     "last_updated": "2026-09-24",
-    "migration_head": "4d7f2a9c6e31",
+    "migration_head": "6a1d9e3f4b72",
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 211,
-    "scheduled_count": 417,
+    "built_count": 213,
+    "scheduled_count": 415,
     "in_progress_count": 0
   },
   "items": [
@@ -172,8 +172,9 @@
       "id": "accounting.gl.post_gpr",
       "area": "Accounting / General Ledger",
       "feature": "Post GPR (Gross Potential Rent)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Verified in hosted CI run 36076785230: gated monthly GPR workflow uses unit market rent, active-lease scheduled rent, balanced 4100/4115/4120 reclassification entries through post_transaction(), org scoping, vacancy loss, and duplicate unit/month protection."
     },
     {
       "id": "accounting.gl.recurring_jes",
@@ -799,8 +800,9 @@
       "id": "accounting.je.post_gpr",
       "area": "Accounting / Journal Entries",
       "feature": "Post GPR",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Verified in hosted CI run 36076785230: gated monthly GPR workflow uses unit market rent, active-lease scheduled rent, balanced 4100/4115/4120 reclassification entries through post_transaction(), org scoping, vacancy loss, and duplicate unit/month protection."
     },
     {
       "id": "accounting.je.recurring",
