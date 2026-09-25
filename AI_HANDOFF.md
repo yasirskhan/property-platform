@@ -38,17 +38,15 @@ Verified foundation:
 
 Current phase:
 - Phase 3.6 — Accounting Polish.
-- Next ordered subsection: Bank Accounts.
-- Bank Accounts order: Bank Reconciliation (Section 37), QIF Import, Check Setup, ACH file generation, Bank Adjustments, Bank Feed import.
+- Active subsection: Bank Reconciliation + QIF implementation committed for hosted verification.
+- Remaining Bank Accounts order after this batch: Check Setup, ACH file generation, Bank Adjustments, Bank Feed import.
 - Preserve verified bank account CRUD and all accounting isolation/immutability contracts.
 
 Next exact action:
-1. Read current Bank Account source and Section 37 before implementation.
-2. Build the Bank Reconciliation foundation/workflow as the next coherent batch: statement date/ending balance, clearable deposits + checks/payments, reconcile calculator, balanced finish, and QIF import support where it naturally belongs to the reconciliation workflow.
-3. Keep ACCOUNTING.BANK_ACCOUNTS backend permission authoritative and gate reconciliation/QIF through their existing independent release + entitlement/config layers.
-4. Verify in hosted CI and fix reds autonomously.
-5. Update PROJECT_MASTER / FEATURE_REGISTRY / APPFOLIO_PARITY_CHECKLIST / FILE_CATALOG / AI_HANDOFF after green.
-6. Continue directly through Check Setup, ACH generation, Bank Adjustments, and Bank Feed without waiting for user approval.
+1. Verify the Bank Reconciliation + QIF batch in hosted CI and fix reds autonomously.
+2. The batch snapshots deposits, issued checks, and other bank-account GL activity; tracks cleared selection; computes beginning/cleared/statement/difference; only finishes at zero difference; QIF exact date+amount matches auto-clear unique candidates.
+3. After green, update planning/parity/catalog/checkpoint state.
+4. Continue directly to Check Setup, ACH generation, Bank Adjustments, and Bank Feed.
 
 Open blockers:
 - NONE
