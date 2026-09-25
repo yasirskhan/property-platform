@@ -514,6 +514,37 @@ These platform surfaces do not change the customer five-layer access model. Cust
 
 ---
 
+# §Owner ACH Setup
+
+**Route:** `/dashboard/accounting/owners/[id]/ach`  
+**AppFolio reference:** Manager Guide owner ACH setup / payments  
+**JSON id:** `people.owners.ach_setup`  
+**Page release gate:** `release.accounting.owner_ach_setup`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Owner ACH Setup page | page | release.accounting.owner_ach_setup | ach_payments | yes | PEOPLE.OWNERS | no | ✅ present | Durable one-owner/one-org bank destination; full account numbers are write-only to the browser and masked on reads |
+| Account holder / bank / routing / account / account type | fields | — | — | — | — | — | ✅ present | Routing uses the verified ABA validator; saving configuration creates no payment or GL entry |
+| Enable owner ACH destination | control | — | — | — | — | — | ✅ present | Configuration only; payout execution remains a separate workflow |
+| Owner self-service scope | behavior | — | ach_payments | yes | PEOPLE.OWNERS | no | ✅ present | OWNER may manage self only; ADMIN may manage owners in the same organization; manager/other-owner access is denied |
+
+## Backend surface
+
+| Endpoint / service | Access requirement | Status |
+|---|---|---|
+| GET `/api/accounting/owners/{owner_id}/ach` | release + entitlement/config + PEOPLE.OWNERS + same-org owner scope | built |
+| PUT `/api/accounting/owners/{owner_id}/ach` | release + entitlement/config + ADMIN or owner-self + same-org owner scope | built |
+
+## Notes
+
+- Owners remain customer-side `User(role=OWNER)` records. No duplicate owner identity table is introduced.
+- Stored bank details follow the existing Phase 11 encryption-at-rest deferral used by Bank Accounts.
+- Full bank account numbers are never returned by the read API.
+
+---
+
 # §Charges — list page
 
 **Route:** `/dashboard/accounting/charges`  
