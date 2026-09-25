@@ -2686,3 +2686,32 @@ Re-run `python generate_file_catalog.py` after adding or renaming files.
 - Frontend TS/TSX files: 112
 - Platform admin TS/TSX files: 6
 - Total: 440
+
+
+## Phase 3.6 Bank Reconciliation + QIF checkpoint additions
+
+#### `backend/app/models/bank_reconciliation.py`
+- `BankReconciliation`, `BankReconciliationItem`, and `BankStatementLine` durable reconciliation state.
+
+#### `backend/app/schemas/bank_reconciliation.py`
+- Reconciliation start/selection/output and QIF import schemas.
+
+#### `backend/app/services/bank_reconciliation.py`
+- Candidate snapshots, clear selection, balance calculation, finish guard, QIF parsing and matching.
+
+#### `backend/app/routers/bank_reconciliation.py`
+- Org-scoped reconciliation/QIF API under `/api/accounting/bank-accounts`.
+
+#### `backend/alembic/versions/d8e0f2a4b6c3_bank_reconciliation.py`
+- revision: `d8e0f2a4b6c3`
+- down_revision: `c7d9e1f3a5b2`
+- creates reconciliation, reconciliation-item, and bank-statement-line storage plus release gates.
+
+#### `backend/tests/test_bank_reconciliation.py`
+- Coverage for balanced finish rejection/acceptance and exact QIF matching.
+
+#### `frontend/src/lib/bankReconciliation.ts`
+- Reconciliation and QIF API client helpers.
+
+#### `frontend/src/app/dashboard/accounting/bank-accounts/[id]/reconcile/page.tsx`
+- Bank reconciliation customer workflow and QIF upload surface.
