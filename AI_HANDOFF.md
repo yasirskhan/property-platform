@@ -47,18 +47,25 @@ Current phase:
 - Active subsection: Bills.
 - Charges subsection is already built in current source/parity: standalone entry/list plus paid-floor/no-paid-delete backend edit rules.
 
-Current Bills lifecycle batch:
-- Partial-payment reversal stages reversal of all unreversed bill-payment GL transactions plus the original accrual and commits the full unwind atomically.
+Verified Bills lifecycle batch:
+- Product commit: a5bf7a42d3a0bc3d859efbac3d7df1b9ea79c008.
+- Test-fixture repair commit: d58dbff17137a6d9fa1cbfadbf2a845f22b6adc2.
+- Hosted CI run 36080191707: SUCCESS.
+- Backend/PostgreSQL: 275 passed, 3 deselected, 1687 warnings in 30.37s.
+- E2E: 3 passed in 12.16s.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
+- Partial-payment reversal now unwinds every unreversed bill-payment GL transaction plus the original accrual atomically.
 - Fully paid bills remain protected from reversal.
 - DELETE is accounting-safe and unpaid-only: it reverses the accrual, preserves the immutable GL trail, and soft-hides the bill/reversal records.
 - Bills carry an optional default cash account; entering the bill remains accrual-only and later payments may use or override that default.
-- Customer New Bill exposes the default cash account and the bill detail payment flow preselects it.
-- Migration 9c2e4f6a8b10 adds bills.cash_gl_account_id; expected model-table count remains 79.
-- Regression coverage is added in backend/tests/test_bill_polish.py.
+- Migration head is 9c2e4f6a8b10; expected model-table count remains 79.
 
-Next exact action:
-1. Verify this Bills lifecycle batch in hosted CI and fix reds autonomously.
-2. On green, checkpoint its evidence and continue the Bills subsection with recurring bills/Post Codes, Enter Credit, Write Checks, and Manually Post Bills.
+Next exact batch:
+1. Continue Bills polish with Recurring Bills (Bill/Credit toggle + Post Code), Manually Post Bills, Enter Credit, and Write Checks.
+2. Reuse the verified recurring-JE scheduling pattern and existing independent release/entitlement/org-config/permission layers; do not create a parallel gating system.
+3. Model vendor credits as a real positive-value credit workflow, not a negative bill.
+4. Preserve central post_transaction(), locked-period, org-isolation, and verified bill lifecycle contracts.
+5. Verify in hosted CI, fix reds autonomously, checkpoint docs, then continue into Checks without waiting.
 
 Open blockers:
 - NONE

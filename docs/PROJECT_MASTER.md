@@ -33,9 +33,9 @@
 
 **3.4.S closeout:** COMPLETE. Portable private-repo security checks (Bandit, pip-audit, npm audit, committed-secret scan, Dependabot) replaced the unavailable mandatory CodeQL upload gate and passed in hosted CI run 35917804417. CodeQL remains optional/manual if GitHub Code Security is enabled later.
 
-**Migration head:** `6a1d9e3f4b72`.
+**Migration head:** `9c2e4f6a8b10`.
 
-**Current parity inventory:** 213 built, 0 in progress, 415 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 222 built, 0 in progress, 406 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -145,7 +145,7 @@ Deployment target (Phase 11):
 
 **Continue Phase 3.6 — Accounting Polish: Bills.**
 
-1. Implement the ordered Bills polish batch from Section 38: reverse after partial payment; recurring bills with Bill/Credit toggle and Post Codes; Write Checks; Enter Credit; unpaid-only delete; Manually Post Bills; Cash Account field on bill. Vendor linking remains Phase 4-dependent.
+1. The Bills lifecycle batch is VERIFIED: reverse after partial payment, unpaid-only accounting-safe delete, and bill-level default Cash Account are green in CI run 36080191707. Continue with recurring bills (Bill/Credit toggle + Post Codes), Manually Post Bills, Enter Credit, and Write Checks. Vendor linking remains Phase 4-dependent.
 2. Preserve verified two-step accrual, partial payment, reversal, organization isolation, locked-period behavior, and central post_transaction() accounting contracts.
 3. Keep release control, entitlement, org configuration, role permission, and user preference independent where applicable; backend authorization remains authoritative.
 4. Verify in hosted CI, fix reds autonomously, update checkpoint/planning state, then continue to the next Phase 3.6 subsection without stopping.

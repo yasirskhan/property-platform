@@ -9,12 +9,12 @@
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
     "last_updated": "2026-09-24",
-    "migration_head": "6a1d9e3f4b72",
+    "migration_head": "9c2e4f6a8b10",
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 219,
-    "scheduled_count": 409,
+    "built_count": 222,
+    "scheduled_count": 406,
     "in_progress_count": 0
   },
   "items": [
@@ -323,9 +323,9 @@
       "id": "accounting.bills.reverse_after_partial",
       "area": "Accounting / Bills",
       "feature": "Allow reversal after partial payment (AppFolio behavior)",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.6",
-      "notes": "Behavior fix — our rule is too strict"
+      "notes": "Partial-payment reversal atomically reverses unreversed bill-payment transactions plus the original accrual."
     },
     {
       "id": "accounting.bills.recurring",
@@ -2101,8 +2101,9 @@
       "id": "accounting.bills.cash_account_field",
       "area": "Accounting / Bills",
       "feature": "Cash Account field on Enter Bill (not only Pay step)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Enter Bill supports an optional default cash account; entering remains accrual-only and payment may use or override it."
     },
     {
       "id": "accounting.bills.post_codes",
@@ -2122,8 +2123,9 @@
       "id": "accounting.bills.delete_rules",
       "area": "Accounting / Bills",
       "feature": "Delete Bill only if unpaid (link visibility rule)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Delete is exposed only for unpaid zero-paid bills and preserves the accounting trail through reversal + soft-hide."
     },
     {
       "id": "accounting.checks.list_view",

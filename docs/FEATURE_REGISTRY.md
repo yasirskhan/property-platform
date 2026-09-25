@@ -264,7 +264,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Bill detail modal | modal | — | — | — | ACCOUNTING.PAYABLES | — | ✅ present | Includes line details and payment history |
 | Pay Bill | capability | — | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Partial payment allowed |
 | Reverse unpaid bill | action | — | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Existing reversal rule |
-| Reverse after partial payment | behavior | — | core | no | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Structural compatibility slot present; behavior fix remains planned |
+| Reverse after partial payment | behavior | — | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Reverses unreversed bill-payment GL transactions and the original accrual atomically |
 | Recurring Bills | capability | release.accounting.bills.recurring | recurring_bills | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
 | Write Checks | capability | release.accounting.write_checks | check_writing | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
 | Enter Credit | capability | release.accounting.vendor_credits | vendor_credits | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
@@ -282,6 +282,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | POST `/api/accounting/bills/{id}/pay` | permission + org scope + accounting rules | built |
 | POST `/api/accounting/bills/{id}/reverse` | permission + org scope + reversal rules | built |
 | POST `/api/accounting/bills` | permission + posting rules | built |
+| DELETE `/api/accounting/bills/{id}` | permission + org scope + unpaid-only accounting-safe reversal | built |
 | Recurring / credits / check-writing / manual-post services | corresponding release + entitlement/config where applicable + permission | planned |
 
 ---
@@ -297,6 +298,8 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
 |---|---|---|---|---|---|---|---|---|
 | New Bill page | page | release.accounting.bills | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Core bill-entry workflow |
+| Default Cash Account | field | — | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Optional payment default; bill entry remains accrual-only |
+| Delete unpaid Bill | action | — | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Visible only for unpaid zero-paid bills; backend enforces rule |
 | Payee / bill date / due date / reference / remarks | fields | — | — | — | — | — | ✅ present | Routine fields |
 | Multi-line account/property/description/amount table | section | — | — | — | — | — | ✅ present | Two-step accrual entry |
 | Add/remove line controls + total | controls | — | — | — | — | — | ✅ present | Routine controls |
