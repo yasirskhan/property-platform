@@ -37,8 +37,15 @@ from app.models.lease import (
 )
 from app.models.property import Property, Unit, PropertyAssignment
 from app.models.user import User, UserRole
+from app.models.accounting_key_account import AccountingKeyAccount
 from app.routers.auth import get_current_user
 from app.routers.properties import check_property_access
+from app.services.owner_held_deposits import (
+    OWNER_HELD_DEPOSIT_KEY_TYPE,
+    OwnerHeldDepositError,
+    owner_held_feature_allowed,
+    validate_owner_held_deposit_account,
+)
 from app.schemas.lease import (
     LeaseCreate,
     LeaseOut,
@@ -87,6 +94,47 @@ def _check_lease_access(db: Session, user: User, lease: Lease) -> Lease:
     unit, prop = _get_unit_and_property(db, lease.unit_id)
     _check_property_access(db, user, prop)
     return lease
+
+
+def _validate_security_deposit_account_choice(
+    db: Session,
+    *,
+    current_user: User,
+    organization_id: int,
+    gl_account_id: int | None,
+) -> None:
+    if gl_account_id is None:
+        return
+    if not owner_held_feature_allowed(db, user=current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Owner Held Security Deposits capability is not enabled.",
+        )
+    configured = (
+        db.query(AccountingKeyAccount)
+        .filter(
+            AccountingKeyAccount.organization_id == organization_id,
+            AccountingKeyAccount.key_type == OWNER_HELD_DEPOSIT_KEY_TYPE,
+            AccountingKeyAccount.gl_account_id == gl_account_id,
+        )
+        .first()
+    )
+    if configured is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Select a configured deposit Key Account.",
+        )
+    try:
+        validate_owner_held_deposit_account(
+            db,
+            organization_id=organization_id,
+            gl_account_id=gl_account_id,
+        )
+    except OwnerHeldDepositError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
 
 
 def _generate_invoices_for_lease(db: Session, lease: Lease) -> List[RentInvoice]:
@@ -165,6 +213,13 @@ def create_lease(
     # Validate dates
     if payload.end_date <= payload.start_date:
         raise HTTPException(status_code=400, detail="end_date must be after start_date")
+
+    _validate_security_deposit_account_choice(
+        db,
+        current_user=current_user,
+        organization_id=prop.organization_id,
+        gl_account_id=payload.security_deposit_gl_account_id,
+    )
 
     # Check the unit isn't already actively leased
     existing = (
@@ -264,7 +319,17 @@ def update_lease(
 
     _check_lease_access(db, current_user, lease)
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    update_values = payload.model_dump(exclude_unset=True)
+    if "security_deposit_gl_account_id" in update_values:
+        _unit, prop = _get_unit_and_property(db, lease.unit_id)
+        _validate_security_deposit_account_choice(
+            db,
+            current_user=current_user,
+            organization_id=prop.organization_id,
+            gl_account_id=update_values["security_deposit_gl_account_id"],
+        )
+
+    for field, value in update_values.items():
         setattr(lease, field, value)
 
     db.commit()

@@ -177,6 +177,14 @@ export default function GLAccountsPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <Flag name="release.accounting.owner_held_security_deposits">
+            <Link
+              href="/dashboard/accounting/owner-held-security-deposits"
+              className="text-sm px-3 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50"
+            >
+              Owner Held Deposits
+            </Link>
+          </Flag>
           <Flag name="release.accounting.gl_account_permissions">
             <button type="button" onClick={openPermissions} className="text-sm px-3 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50">
               GL Account Permissions

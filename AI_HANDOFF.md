@@ -41,8 +41,8 @@ Current parity source-of-truth:
 - built_count: 239
 - scheduled_count: 389
 - in_progress_count: 0
-- migration_head: b6d8f0a2c4e7
-- expected model-table count: 91
+- migration_head: c1e3a5d7f9b2
+- expected model-table count: 92
 
 # Bank Adjustments
 
@@ -165,10 +165,33 @@ Verification:
 - Frontend, platform-admin, security, PostgreSQL backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 - TESTS NOT RUN locally in this connector-only session.
 
-# Next: Owner Held Security Deposits
+# Owner Held Security Deposits — Current Batch
+
+Implementation is on the branch and awaiting hosted CI verification.
+
+Design:
+- reuses custom GL Accounts for the liability-account setup
+- adds an org-scoped AccountingKeyAccount registry for deposit liability choices
+- validates owner-held deposit accounts as active LIABILITY accounts offset to the org's Operating Cash GL
+- rejects accounts subject to management fees or included on cash flow
+- stores the selected approved deposit account on the Lease for move-in use
+- customer page configures Key Accounts and assigns the account/amount to a lease
+- no new GL posting path is introduced; existing receipt posting remains authoritative
+
+Schema:
+- new table accounting_key_accounts
+- new leases.security_deposit_gl_account_id
+- migration head c1e3a5d7f9b2
+- expected model tables 92
+
+Verification:
+- Hosted CI pending.
+- TESTS NOT RUN locally in this connector-only session.
+
+# Next: Owner Held Security Deposits verification
 
 Locked order from PROJECT_MASTER:
-1. Owner Held Security Deposits
+1. Verify Owner Held Security Deposits and fix any CI reds
 2. Continue remaining Phase 3.6 items in PROJECT_MASTER order
 
 Known existing contracts to preserve:

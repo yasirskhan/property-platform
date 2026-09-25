@@ -70,6 +70,7 @@ from app.routers import bank_feed as bank_feed_router
 from app.routers import check_setup as check_setup_router
 from app.routers import ach_files as ach_files_router
 from app.routers import owner_ach as owner_ach_router
+from app.routers import owner_held_deposits as owner_held_deposits_router
 
 # ------------------------------------------------------------
 # Create the FastAPI app
@@ -155,6 +156,7 @@ app.include_router(bank_feed_router.router)
 app.include_router(check_setup_router.router)
 app.include_router(ach_files_router.router)
 app.include_router(owner_ach_router.router)
+app.include_router(owner_held_deposits_router.router)
 
 
 # ------------------------------------------------------------

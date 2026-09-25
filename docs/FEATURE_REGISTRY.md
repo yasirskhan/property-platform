@@ -545,6 +545,32 @@ These platform surfaces do not change the customer five-layer access model. Cust
 
 ---
 
+# §Owner Held Security Deposits
+
+**Route:** `/dashboard/accounting/owner-held-security-deposits`  
+**AppFolio reference:** Manager Guide p.33  
+**JSON id:** `accounting.owners.owner_held_security_deposits`  
+**Page release gate:** `release.accounting.owner_held_security_deposits`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Owner Held Security Deposits page | page | release.accounting.owner_held_security_deposits | core | yes | ACCOUNTING.GL_ACCOUNTS | no | ⬜ hidden implementation present | Configure deposit Key Accounts and choose one for a lease move-in |
+| Deposit Key Accounts | capability | — | core | yes | ACCOUNTING.GL_ACCOUNTS | no | ⬜ hidden implementation present | Only active LIABILITY accounts offset to Operating Cash, excluded from management fees and cash flow |
+| Move-in deposit account selection | capability | — | core | yes | ACCOUNTING.GL_ACCOUNTS | no | ⬜ hidden implementation present | Stores the approved deposit liability on Lease.security_deposit_gl_account_id |
+
+## Backend surface
+
+| Endpoint / service | Access requirement | Status |
+|---|---|---|
+| GET `/api/accounting/owner-held-security-deposits` | capability + ACCOUNTING.GL_ACCOUNTS | built |
+| POST `/api/accounting/owner-held-security-deposits/key-accounts` | capability + ADMIN/OWNER/MANAGER | built |
+| DELETE `/api/accounting/owner-held-security-deposits/key-accounts/{id}` | capability + ADMIN/OWNER/MANAGER | built |
+| POST/PATCH `/leases` deposit-account field | property scope + configured deposit Key Account + capability | built |
+
+---
+
 # §Charges — list page
 
 **Route:** `/dashboard/accounting/charges`  

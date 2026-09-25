@@ -42,6 +42,7 @@ FEATURE_DEFINITIONS: dict[str, dict[str, object]] = {
     "release.accounting.management_fees.overcollection": {"label": "Overcollection strategy", "entitlement": "core", "org_configurable": True, "permission": "ACCOUNTING.MANAGEMENT_FEES"},
     "release.accounting.management_fees.post_gpr": {"label": "Post GPR", "entitlement": "gpr_posting", "org_configurable": True, "permission": "ACCOUNTING.MANAGEMENT_FEES"},
     "release.accounting.owner_ach_setup": {"label": "Owner ACH Setup", "entitlement": "ach_payments", "org_configurable": True, "permission": "PEOPLE.OWNERS"},
+    "release.accounting.owner_held_security_deposits": {"label": "Owner Held Security Deposits", "entitlement": "core", "org_configurable": True, "permission": "ACCOUNTING.GL_ACCOUNTS"},
     "release.accounting.owner_draw": {"label": "Owner Draw", "entitlement": "core", "org_configurable": True, "permission": "ACCOUNTING.PAYABLES"},
     "release.accounting.owner_statements": {"label": "Statements list", "entitlement": "core", "org_configurable": True, "permission": "ACCOUNTING.OWNER_STATEMENTS"},
     "release.accounting.owner_statements.cash_summary": {"label": "Property Cash Summary", "entitlement": "core", "org_configurable": True, "permission": "ACCOUNTING.OWNER_STATEMENTS"},
