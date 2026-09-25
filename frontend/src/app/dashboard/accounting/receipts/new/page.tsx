@@ -21,11 +21,12 @@
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   createReceipt,
+  getReceiptRepeatData,
   listTenantOpenCharges,
   RECEIPT_TYPE_ORDER,
   RECEIPT_TYPE_LABELS,
@@ -37,7 +38,7 @@ import Flag from "@/components/features/Flag";
 import { useDisplay } from "@/contexts/DisplayContext";
 import { listGLAccounts, GLAccount } from "@/lib/glAccounts";
 
-type Tab = "TENANT" | "OWNER" | "OTHER";
+type Tab = "TENANT" | "OWNER" | "OTHER" | "APPLICATION_FEE";
 
 type Property = { id: number; name: string };
 
@@ -66,7 +67,9 @@ let adhocCounter = 0;
 
 export default function NewReceiptPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { prefs } = useDisplay();
+  const suppressTenantAutofill = useRef(false);
 
   const [tab, setTab] = useState<Tab>("TENANT");
   const [submitting, setSubmitting] = useState(false);
@@ -82,7 +85,7 @@ export default function NewReceiptPage() {
   const [receiptDate, setReceiptDate] = useState<string>(
     new Date().toISOString().slice(0, 10)
   );
-  const [cashAccountId, setCashAccountId] = useState<number | "">("");
+  const [cashAccountId, setCashAccountId] = useState<number | "AUTO">("AUTO");
   const [propertyId, setPropertyId] = useState<number | "">("");
   const [reference, setReference] = useState("");
   const [remarks, setRemarks] = useState("");
@@ -104,6 +107,10 @@ export default function NewReceiptPage() {
   const [otherIncomeAccountId, setOtherIncomeAccountId] = useState<number | "">("");
   const [otherExclude, setOtherExclude] = useState(false);
 
+  // APPLICATION_FEE state
+  const [applicationFeeAmount, setApplicationFeeAmount] = useState("");
+  const [applicationFeePayer, setApplicationFeePayer] = useState("");
+
   // ------------------------------------------------------------
   // Load reference data
   // ------------------------------------------------------------
@@ -114,9 +121,6 @@ export default function NewReceiptPage() {
         const flat: GLAccount[] = [];
         for (const g of accts.groups) flat.push(...g.accounts);
         setAccounts(flat);
-
-        const cash = flat.find((a) => a.gl_number === "1150");
-        if (cash) setCashAccountId(cash.id);
 
         const ownerFunds = flat.find((a) => a.gl_number === "2401");
         if (ownerFunds) setOwnerIncomeAccountId(ownerFunds.id);
@@ -163,6 +167,10 @@ export default function NewReceiptPage() {
   // the tenant's rent GL account.
   // ------------------------------------------------------------
   useEffect(() => {
+    if (suppressTenantAutofill.current) {
+      suppressTenantAutofill.current = false;
+      return;
+    }
     if (!tenantUserId) {
       setTenantLines([]);
       return;
@@ -204,6 +212,71 @@ export default function NewReceiptPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantUserId]);
+
+  // ------------------------------------------------------------
+  // Repeat prior receipt -> hydrate this form from gated server data
+  // ------------------------------------------------------------
+  useEffect(() => {
+    const raw = searchParams.get("repeat");
+    const repeatId = raw ? Number(raw) : 0;
+    if (!repeatId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await getReceiptRepeatData(repeatId);
+        if (cancelled) return;
+
+        setReceiptDate(new Date().toISOString().slice(0, 10));
+        setCashAccountId(data.cash_gl_account_id);
+        setPropertyId(data.property_id ?? "");
+        setReference("");
+        setRemarks(data.remarks ?? "");
+
+        if (data.type === "TENANT") {
+          suppressTenantAutofill.current = true;
+          setTab("TENANT");
+          setTenantUserId(data.tenant_user_id ?? "");
+          setTenantLines(
+            data.lines.map((line) => ({
+              key: `repeat-${line.id}`,
+              gl_account_id: line.gl_account_id,
+              gl_account_number: line.gl_account_number ?? "",
+              gl_account_name: line.gl_account_name ?? "",
+              description: line.description ?? "",
+              amount_to_pay: Number(line.amount_to_pay),
+              is_prepayment: line.is_prepayment,
+              line_date: new Date().toISOString().slice(0, 10),
+            }))
+          );
+        } else if (data.type === "OWNER") {
+          setTab("OWNER");
+          setOwnerUserId(data.owner_user_id ?? "");
+          setOwnerPayerName(data.payer_name ?? "");
+          setOwnerAmount(data.amount);
+          setOwnerIncomeAccountId(data.income_gl_account_id ?? "");
+        } else if (data.type === "APPLICATION_FEE") {
+          setTab("APPLICATION_FEE");
+          setApplicationFeeAmount(data.amount);
+          setApplicationFeePayer(data.received_from ?? "");
+        } else {
+          setTab("OTHER");
+          setOtherAmount(data.amount);
+          setOtherReceivedFrom(data.received_from ?? "");
+          setOtherIncomeAccountId(data.income_gl_account_id ?? "");
+          setOtherExclude(data.exclude_from_mgmt_fee);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Could not repeat receipt");
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams]);
 
   // ------------------------------------------------------------
   // Derived
@@ -292,10 +365,8 @@ export default function NewReceiptPage() {
     e.preventDefault();
     setError("");
 
-    if (!cashAccountId) {
-      setError("Pick a cash account.");
-      return;
-    }
+    const cashGlAccountId =
+      cashAccountId === "AUTO" ? null : Number(cashAccountId);
 
     let payload: ReceiptCreateIn;
 
@@ -309,7 +380,7 @@ export default function NewReceiptPage() {
         type: "TENANT",
         receipt_date: receiptDate,
         amount: tenantTotal,
-        cash_gl_account_id: Number(cashAccountId),
+        cash_gl_account_id: cashGlAccountId,
         tenant_user_id: tenantUserId ? Number(tenantUserId) : null,
         property_id: propertyId ? Number(propertyId) : null,
         reference_number: reference || null,
@@ -336,7 +407,7 @@ export default function NewReceiptPage() {
         type: "OWNER",
         receipt_date: receiptDate,
         amount: amt,
-        cash_gl_account_id: Number(cashAccountId),
+        cash_gl_account_id: cashGlAccountId,
         owner_user_id: ownerUserId ? Number(ownerUserId) : null,
         income_gl_account_id: Number(ownerIncomeAccountId),
         payer_name: ownerPayerName || null,
@@ -344,7 +415,7 @@ export default function NewReceiptPage() {
         reference_number: reference || null,
         remarks: remarks || null,
       };
-    } else {
+    } else if (tab === "OTHER") {
       const amt = Number(otherAmount);
       if (!amt || amt <= 0) {
         setError("Enter an amount greater than zero.");
@@ -358,10 +429,30 @@ export default function NewReceiptPage() {
         type: "OTHER",
         receipt_date: receiptDate,
         amount: amt,
-        cash_gl_account_id: Number(cashAccountId),
+        cash_gl_account_id: cashGlAccountId,
         income_gl_account_id: Number(otherIncomeAccountId),
         received_from: otherReceivedFrom || null,
         exclude_from_mgmt_fee: otherExclude,
+        property_id: propertyId ? Number(propertyId) : null,
+        reference_number: reference || null,
+        remarks: remarks || null,
+      };
+    } else {
+      const amt = Number(applicationFeeAmount);
+      if (!amt || amt <= 0) {
+        setError("Enter an application fee greater than zero.");
+        return;
+      }
+      if (!applicationFeePayer.trim()) {
+        setError("Enter the applicant or payer name.");
+        return;
+      }
+      payload = {
+        type: "APPLICATION_FEE",
+        receipt_date: receiptDate,
+        amount: amt,
+        cash_gl_account_id: cashGlAccountId,
+        received_from: applicationFeePayer.trim(),
         property_id: propertyId ? Number(propertyId) : null,
         reference_number: reference || null,
         remarks: remarks || null,
@@ -401,7 +492,15 @@ export default function NewReceiptPage() {
             {RECEIPT_TYPE_LABELS[t]}
           </button>
         ))}
-        <Flag name="release.accounting.receipts.application_fee"><button type="button" disabled className="px-5 py-2 text-sm font-medium -mb-px border-b-2 border-transparent text-slate-400 disabled:opacity-60">Application Fee</button></Flag>
+        <Flag name="release.accounting.receipts.application_fee">
+          <button
+            type="button"
+            onClick={() => setTab("APPLICATION_FEE")}
+            className={`px-5 py-2 text-sm font-medium -mb-px border-b-2 ${tab === "APPLICATION_FEE" ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+          >
+            Application Fee
+          </button>
+        </Flag>
       </div>
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <Flag name="release.universal.repeat_form"><button type="button" disabled className="text-xs px-3 py-1.5 border border-slate-300 rounded-md text-slate-500 disabled:opacity-60">Repeat form</button></Flag>
@@ -434,16 +533,16 @@ export default function NewReceiptPage() {
             <label className="block text-xs text-slate-500 mb-1">
               Cash account *
             </label>
-            <span hidden aria-hidden="true" data-compat-slot="receipts.cash-account-automatic" />
             <select
-              required
               value={cashAccountId}
               onChange={(e) =>
-                setCashAccountId(e.target.value ? Number(e.target.value) : "")
+                setCashAccountId(
+                  e.target.value === "AUTO" ? "AUTO" : Number(e.target.value)
+                )
               }
               className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
             >
-              <option value="">— Select —</option>
+              <option value="AUTO">Automatic (Operating bank / 1150 fallback)</option>
               {cashAccounts.map((a) => (
                 <option key={a.id} value={a.id}>
                   {accountLabel(a)}
@@ -802,6 +901,42 @@ export default function NewReceiptPage() {
                 />
                 Exclude from management fee
               </label>
+            </div>
+          </div>
+        )}
+
+        {/* APPLICATION FEE tab */}
+        {tab === "APPLICATION_FEE" && (
+          <div className="bg-white border border-slate-200 rounded-xl p-5 grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">
+                Applicant / payer *
+              </label>
+              <input
+                type="text"
+                required
+                value={applicationFeePayer}
+                onChange={(e) => setApplicationFeePayer(e.target.value)}
+                placeholder="Applicant name"
+                className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">
+                Application fee *
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                required
+                value={applicationFeeAmount}
+                onChange={(e) => setApplicationFeeAmount(e.target.value)}
+                className="w-full border border-slate-300 rounded px-3 py-2 text-sm font-mono"
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                Posts to standard Application Fee income account 4420.
+              </p>
             </div>
           </div>
         )}

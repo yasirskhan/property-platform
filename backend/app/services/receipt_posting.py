@@ -33,6 +33,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
+from app.models.bank_account import BankAccount
 from app.models.gl_account import GLAccount
 from app.models.gl_transaction import GLTransaction
 from app.models.receipt import Receipt
@@ -69,6 +70,72 @@ def _get_account(
     return acct
 
 
+
+
+def resolve_cash_gl_account_id(
+    db: Session,
+    *,
+    organization_id: int,
+    requested_id: int | None,
+) -> int:
+    """Resolve an explicit or Automatic receipt cash account.
+
+    Automatic uses the org's first active OPERATING bank-account mapping.
+    If no physical bank account is configured yet, it falls back to the
+    standard 1150 Rental Trust GL account.
+    """
+    if requested_id is not None:
+        return _get_account(db, organization_id, requested_id).id
+
+    bank = (
+        db.query(BankAccount)
+        .filter(
+            BankAccount.organization_id == organization_id,
+            BankAccount.account_type == "OPERATING",
+            BankAccount.is_active.is_(True),
+        )
+        .order_by(BankAccount.id.asc())
+        .first()
+    )
+    if bank is not None:
+        return _get_account(db, organization_id, bank.gl_account_id).id
+
+    fallback = (
+        db.query(GLAccount)
+        .filter(
+            GLAccount.organization_id == organization_id,
+            GLAccount.gl_number == "1150",
+            GLAccount.is_active.is_(True),
+        )
+        .first()
+    )
+    if fallback is None:
+        raise PostingError(
+            "Automatic cash account requires an active OPERATING bank account "
+            "or the standard 1150 Rental Trust GL account."
+        )
+    return fallback.id
+
+
+def _resolve_application_fee_account_id(
+    db: Session, *, organization_id: int
+) -> int:
+    account = (
+        db.query(GLAccount)
+        .filter(
+            GLAccount.organization_id == organization_id,
+            GLAccount.gl_number == "4420",
+            GLAccount.is_active.is_(True),
+        )
+        .first()
+    )
+    if account is None:
+        raise PostingError(
+            "Application Fee receipts require active GL account 4420."
+        )
+    return account.id
+
+
 # ============================================================
 # Helper: build the posting lines for a receipt
 # ============================================================
@@ -83,7 +150,9 @@ def _build_posting_lines(
 
     Money IN = debit cash, credit income.
     """
-    # Sanity: the cash account must exist and belong to us.
+    # Sanity: post_receipt resolves Automatic before calling this helper.
+    if payload.cash_gl_account_id is None:
+        raise PostingError("Cash account was not resolved.")
     _get_account(db, organization_id, payload.cash_gl_account_id)
 
     lines: List[PostingLine] = []
@@ -154,10 +223,10 @@ def _build_posting_lines(
             )
         )
 
-    elif payload.type == "OTHER":
+    elif payload.type in {"OTHER", "APPLICATION_FEE"}:
         if payload.income_gl_account_id is None:
             raise PostingError(
-                "An OTHER receipt must specify income_gl_account_id."
+                f"An {payload.type} receipt must specify income_gl_account_id."
             )
         _get_account(db, organization_id, payload.income_gl_account_id)
         lines.append(
@@ -166,7 +235,10 @@ def _build_posting_lines(
                 property_id=payload.property_id,
                 unit_id=payload.unit_id,
                 owner_id=payload.owner_id,
-                description=payload.received_from or "Other receipt",
+                description=(
+                    payload.received_from
+                    or ("Application fee" if payload.type == "APPLICATION_FEE" else "Other receipt")
+                ),
                 debit=Decimal("0"),
                 credit=Decimal(payload.amount),
             )
@@ -196,8 +268,21 @@ def post_receipt(
     On failure: rolls back and raises PostingError.
     """
     # ---------------------------------------------------------
-    # 1. Build the GL lines
+    # 1. Resolve Automatic/default accounts, then build GL lines
     # ---------------------------------------------------------
+    updates = {
+        "cash_gl_account_id": resolve_cash_gl_account_id(
+            db,
+            organization_id=organization_id,
+            requested_id=payload.cash_gl_account_id,
+        )
+    }
+    if payload.type == "APPLICATION_FEE":
+        updates["income_gl_account_id"] = _resolve_application_fee_account_id(
+            db, organization_id=organization_id
+        )
+        updates["exclude_from_mgmt_fee"] = False
+    payload = payload.model_copy(update=updates)
     posting_lines = _build_posting_lines(db, organization_id, payload)
 
     # ---------------------------------------------------------
@@ -272,7 +357,7 @@ def post_receipt(
                     )
                 )
         else:
-            # OWNER or OTHER: a single auto-line on the income side
+            # OWNER / OTHER / APPLICATION_FEE: one income-side line
             db.add(
                 ReceiptLine(
                     organization_id=organization_id,
@@ -423,4 +508,45 @@ def reverse_receipt(
     except Exception:
         pass
 
+    return mirror
+
+def process_nsf_receipt(
+    db: Session,
+    *,
+    original: Receipt,
+    process_date: date,
+    memo: Optional[str],
+    created_by: User,
+) -> Receipt:
+    """Process a bounced receipt using the verified reversal spine.
+
+    The original receipt/deposit history stays intact. The returned mirror
+    receipt and reversal GL transaction remove the bounced cash/income effect.
+    An NSF fee, when desired, remains a separate tenant Charge so accounting
+    policy can control its amount independently.
+    """
+    note = (memo or "").strip()
+    nsf_memo = "NSF / bounced payment"
+    if note:
+        nsf_memo = f"{nsf_memo}: {note}"
+    mirror = reverse_receipt(
+        db=db,
+        original=original,
+        reversal_date=process_date,
+        memo=nsf_memo,
+        created_by=created_by,
+    )
+    try:
+        log_action(
+            db=db,
+            user=created_by,
+            entity_type="receipt",
+            entity_id=original.id,
+            action="process_nsf",
+            field_name="is_reversed",
+            old_value="False",
+            new_value=f"True (NSF mirror receipt #{mirror.id})",
+        )
+    except Exception:
+        pass
     return mirror

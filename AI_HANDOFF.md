@@ -56,19 +56,21 @@ Current parity inventory:
 Current phase:
 - Phase 3.6 — Accounting Polish.
 - Active subsection: Receipts.
+- Post GPR checkpoint commit 538f04ac9d8e6f2bb60e71036765da045d4824ad is green in hosted CI run 36077315410.
 
-Next exact ordered batch:
-1. Read this file completely and inspect real current receipt/deposit/bank-account source.
-2. Implement the Receipts polish batch:
-   - Dedicated Application Fee workflow.
-   - Process NSF.
-   - Print one receipt.
-   - Repeat prior receipt.
-   - Deposited-receipt integrity visibility / lock semantics without weakening existing immutable receipt behavior.
-   - Cash Account “Automatic” behavior using existing verified bank/GL configuration; do not invent a property-bank relationship that does not exist.
-3. Preserve existing tenant/owner/other receipt posting, reversal, deposit grouping, org isolation, and central post_transaction() contracts.
-4. Apply release/entitlement/org-config/permission gating server-side to independent capabilities where required.
-5. Verify in hosted CI, fix reds autonomously, update this handoff and planning docs, then continue Phase 3.6 without stopping.
+Current Receipts batch (implementation prepared; hosted CI verification required after commit):
+- Dedicated APPLICATION_FEE receipt mode posts to standard 4420 and is server-gated by release.accounting.receipts.application_fee.
+- Cash Account Automatic resolves the org's active OPERATING bank mapping, falling back to active 1150 Rental Trust when no bank mapping exists.
+- Process NSF is a server-gated bounced-payment action that reuses the verified reversal spine and preserves original deposit history; any NSF fee remains a separate tenant Charge.
+- Print one receipt has a server-gated print-data endpoint and dedicated printable customer page.
+- Repeat prior receipt has a server-gated repeat-data endpoint that hydrates the existing New Receipt form instead of auto-posting a duplicate.
+- Receipt responses expose deposit_id/is_deposited so deposited history is visible; posted receipts remain immutable and corrections stay reversal/NSF based.
+- No migration is planned for this batch; Alembic head should remain 6a1d9e3f4b72 and expected model-table count 79.
+
+Next exact action:
+1. Push/verify the coherent Receipts implementation in hosted CI and fix all reds autonomously.
+2. On green, update PROJECT_MASTER/FEATURE_REGISTRY/APPFOLIO_PARITY_CHECKLIST/FILE_CATALOG plus this handoff with exact evidence.
+3. Continue directly to the next ordered Phase 3.6 accounting subsection without waiting.
 
 Open blockers:
 - NONE

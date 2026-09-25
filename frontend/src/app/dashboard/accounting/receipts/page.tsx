@@ -20,6 +20,7 @@ import {
   listReceipts,
   getReceipt,
   reverseReceipt,
+  processReceiptNSF,
   RECEIPT_TYPE_LABELS,
   RECEIPT_TYPE_ORDER,
   type Receipt,
@@ -49,6 +50,8 @@ export default function ReceiptsPage() {
   const [openLoading, setOpenLoading] = useState(false);
   const [reversing, setReversing] = useState(false);
   const [confirmReverseOpen, setConfirmReverseOpen] = useState(false);
+  const [confirmNSFOpen, setConfirmNSFOpen] = useState(false);
+  const [processingNSF, setProcessingNSF] = useState(false);
 
   useEffect(() => {
     apiGet("/auth/me").then((u) => setMe(u as Me)).catch(() => setMe(null));
@@ -106,6 +109,25 @@ export default function ReceiptsPage() {
       setError(e instanceof Error ? e.message : "Could not reverse receipt.");
     } finally {
       setReversing(false);
+    }
+  }
+
+  async function submitNSF() {
+    if (!openReceipt) return;
+    setProcessingNSF(true);
+    setError(null);
+    try {
+      await processReceiptNSF(openReceipt.id, {
+        process_date: new Date().toISOString().slice(0, 10),
+        memo: "Payment returned by bank",
+      });
+      setConfirmNSFOpen(false);
+      setOpenReceipt(null);
+      await load();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not process NSF.");
+    } finally {
+      setProcessingNSF(false);
     }
   }
 
@@ -316,6 +338,11 @@ export default function ReceiptsPage() {
                     This receipt has been reversed.
                   </div>
                 )}
+                {openReceipt.is_deposited && (
+                  <div className="text-sm text-blue-700 mb-3 bg-blue-50 border border-blue-200 rounded-md px-3 py-2">
+                    Deposited in bank deposit #{openReceipt.deposit_id}. Posted receipt fields remain immutable; corrections use reversal or NSF processing.
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
                   <div>
@@ -390,9 +417,35 @@ export default function ReceiptsPage() {
                 <span hidden aria-hidden="true" data-compat-slot="receipts.edit-lock-after-deposit" />
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Flag name="release.accounting.receipts.print"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Print receipt</button></Flag>
-                    <Flag name="release.accounting.receipts.repeat"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Repeat receipt</button></Flag>
-                    <Flag name="release.accounting.receipts.process_nsf"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Process NSF</button></Flag>
+                    <Flag name="release.accounting.receipts.print">
+                      <Link
+                        href={`/dashboard/accounting/receipts/${openReceipt.id}/print`}
+                        target="_blank"
+                        className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50"
+                      >
+                        Print receipt
+                      </Link>
+                    </Flag>
+                    <Flag name="release.accounting.receipts.repeat">
+                      <Link
+                        href={`/dashboard/accounting/receipts/new?repeat=${openReceipt.id}`}
+                        className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50"
+                      >
+                        Repeat receipt
+                      </Link>
+                    </Flag>
+                    {!openReceipt.is_reversed && (
+                      <Flag name="release.accounting.receipts.process_nsf">
+                        <button
+                          type="button"
+                          onClick={() => setConfirmNSFOpen(true)}
+                          disabled={processingNSF}
+                          className="px-3 py-1.5 rounded-md border border-amber-300 text-amber-800 text-sm hover:bg-amber-50 disabled:opacity-50"
+                        >
+                          {processingNSF ? "Processing…" : "Process NSF"}
+                        </button>
+                      </Flag>
+                    )}
                     {!openReceipt.is_reversed && me && me.role !== "TENANT" && (
                       <button onClick={() => setConfirmReverseOpen(true)} disabled={reversing} className="px-3 py-1.5 rounded-md border border-red-300 text-red-700 text-sm font-medium hover:bg-red-50 disabled:opacity-50">
                         {reversing ? "Reversing..." : "Reverse receipt"}
@@ -411,6 +464,16 @@ export default function ReceiptsPage() {
           </div>
         </div>
       )}
+      <ConfirmModal
+        open={confirmNSFOpen}
+        title="Process NSF?"
+        description={openReceipt ? `Receipt #${openReceipt.id} will be reversed as a bounced payment. The original deposit history remains intact.` : ""}
+        confirmLabel="Process NSF"
+        busy={processingNSF}
+        danger
+        onCancel={() => setConfirmNSFOpen(false)}
+        onConfirm={submitNSF}
+      />
       <ConfirmModal
         open={confirmReverseOpen}
         title="Reverse receipt?"
