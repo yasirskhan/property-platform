@@ -1,4 +1,4 @@
-import { apiGet, apiPut } from "@/lib/api";
+import { apiGet, apiPost, apiPut } from "@/lib/api";
 
 export type OwnerACH = {
   owner_id: number;
@@ -30,4 +30,31 @@ export function saveOwnerACH(
   payload: OwnerACHUpsert,
 ): Promise<OwnerACH> {
   return apiPut(`/api/accounting/owners/${ownerId}/ach`, payload);
+}
+
+
+export type ACHTestFileRequest = {
+  effective_date: string;
+  company_id: string | null;
+  entry_description: string;
+};
+
+export type ACHTestFileResult = {
+  format: "CSV" | "NACHA";
+  filename: string;
+  content_type: string;
+  content: string;
+  owner_id: number;
+  amount: number | string;
+};
+
+export function generateOwnerACHTestFile(
+  ownerId: number,
+  bankId: number,
+  payload: ACHTestFileRequest,
+): Promise<ACHTestFileResult> {
+  return apiPost(
+    `/api/accounting/owners/${ownerId}/ach/test-file/${bankId}`,
+    payload,
+  );
 }
