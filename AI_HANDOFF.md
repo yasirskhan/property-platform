@@ -27,7 +27,7 @@ IMPORTANT:
 - Owner Statements — Required Reserves + Prepaid Rent + Property Cash Summary is COMPLETE/VERIFIED.
 - Owner Packets — Customizer fields is COMPLETE/VERIFIED.
 - Settings — Accounting Settings (Key Accounts, GPR, Receipts, Checks, Reports) is COMPLETE/VERIFIED.
-- Current batch: Settings — Accounting Basis toggle (Accrual default | Cash), report layer only.
+- Current batch: Settings — Accounting Basis toggle (Accrual default | Cash), report layer only. IMPLEMENTATION PREPARED; CI pending.
 
 # Latest Verified Green Checkpoint
 
@@ -455,4 +455,13 @@ Plan:
 - Expose the choice inside the verified Accounting Settings API/page rather than creating a duplicate settings surface.
 - Make the reporting layer able to resolve the selected basis explicitly so Phase 3.7 reports can apply it consistently.
 - Add regression coverage proving default ACCRUAL, audited ADMIN/OWNER updates, and no posting mutation.
-- Mark settings.accounting.accounting_basis built only after hosted CI is green.
+- Implementation commit: 17586caa21898c1c2caab68a8aa7da3c621fce20.
+- AccountingSettings now stores accounting_basis with ACCRUAL default and CASH as the only alternative.
+- The verified Accounting Settings API/page exposes the choice; writes remain audited and ADMIN/OWNER-only.
+- New app.services.reporting_basis.get_accounting_basis() resolves the org choice for Phase 3.7.
+- GL posting remains unchanged; this setting is report-layer metadata only.
+- Migration head advances to c8e0a2b4d6f9; model-table count remains 95.
+- Parity inventory is now 253 built / 375 scheduled / 0 in-progress.
+- Regression coverage extends backend/tests/test_accounting_settings.py.
+- TESTS NOT RUN locally in this connector-only session.
+- Hosted CI verification pending.
