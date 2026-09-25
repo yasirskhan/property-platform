@@ -17,18 +17,19 @@ IMPORTANT:
 - Bank Accounts subsection is COMPLETE through Bank Feed import.
 - Owner ACH Setup, $0 ACH Test File, and Owner Held Security Deposits are COMPLETE/VERIFIED.
 - Management Fees — Pay Owners is COMPLETE/VERIFIED.
-- Current batch: Management Fees — Overcollection strategy setting is implemented and pending hosted CI verification.
+- Management Fees — Overcollection Strategy is COMPLETE/VERIFIED.
+- Current batch: Management Fees — Post GPR.
 
 # Latest Verified Green Checkpoint
 
-Pay Owners verification checkpoint:
-- 81cc4ae9466af243d8aff2e6881fe20a71d7e654
-- "CI: fix Pay Owners verification guards"
+Overcollection strategy implementation checkpoint:
+- 2c08c0f313d7b5ae7c7c188179700d183c2e1a65
+- "Phase 3.6: add management fee overcollection policy"
 
 Hosted CI:
-- Run 36181749221: SUCCESS
-- Backend: 316 passed, 3 deselected, 2479 warnings in 42.42s
-- E2E: 3 passed in 12.66s
+- Run 36184596917: SUCCESS
+- Backend: 320 passed, 3 deselected, 2493 warnings in 52.51s
+- E2E: 3 passed in 12.20s
 - Frontend: SUCCESS
 - Platform admin: SUCCESS
 - Security: SUCCESS
@@ -39,9 +40,9 @@ Hosted CI:
 
 Current parity source-of-truth:
 - total_items: 628
-- built_count: 241
+- built_count: 242
 - scheduled_count: 386
-- in_progress_count: 1
+- in_progress_count: 0
 - migration_head: e4f6a8c0d2b5
 - expected model-table count: 93
 
@@ -229,7 +230,7 @@ Verification:
 - E2E: 3 passed in 12.66s.
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 
-# Overcollection Strategy — Current Batch
+# Overcollection Strategy — COMPLETE / VERIFIED
 
 Implementation:
 - Organization.management_fee_overcollection_strategy stores the org policy.
@@ -241,14 +242,16 @@ Implementation:
 - Migration head e4f6a8c0d2b5; model-table count remains 93.
 - Regression coverage: backend/tests/test_management_fee_overcollection.py.
 - TESTS NOT RUN locally in this connector-only session.
-- Hosted CI verification pending.
+- Hosted CI run 36184596917: SUCCESS.
+- Backend: 320 passed, 3 deselected, 2493 warnings in 52.51s.
+- E2E: 3 passed in 12.20s.
+- Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Overcollection strategy setting
-2. Post GPR
-3. Management Fee Exclusions list
+1. Post GPR
+2. Management Fee Exclusions list
 4. Continue remaining Phase 3.6 items in Section 38 order
 
 # Working Rules

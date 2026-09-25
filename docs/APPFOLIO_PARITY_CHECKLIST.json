@@ -13,9 +13,9 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 241,
+    "built_count": 242,
     "scheduled_count": 386,
-    "in_progress_count": 1
+    "in_progress_count": 0
   },
   "items": [
     {
@@ -604,9 +604,9 @@
       "id": "accounting.mgmt_fees.overcollection",
       "area": "Accounting / Management Fees",
       "feature": "Overcollection strategy setting",
-      "status": "in_progress",
+      "status": "built",
       "phase": "3.6",
-      "notes": "Implementation on branch pending hosted CI: org-scoped Credits then Receipts (default/recommended) or Receipts then Credits policy, independently release-gated, audited, and customer-configurable from Management Fees."
+      "notes": "Verified in hosted CI run 36184596917: org-scoped Credits then Receipts (default/recommended) or Receipts then Credits policy, independently release-gated, audited, and customer-configurable from Management Fees."
     },
     {
       "id": "accounting.mgmt_fees.exclusions_list",
