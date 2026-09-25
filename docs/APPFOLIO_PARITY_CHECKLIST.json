@@ -8,13 +8,13 @@
       "planned_no_phase": "Planned but no phase assigned yet -- THIS IS A BUG",
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
-    "last_updated": "2026-09-24",
-    "migration_head": "c7d9e1f3a5b2",
+    "last_updated": "2026-09-25",
+    "migration_head": "f2a4c6e8b0d5",
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 234,
-    "scheduled_count": 394,
+    "built_count": 235,
+    "scheduled_count": 393,
     "in_progress_count": 0
   },
   "items": [
