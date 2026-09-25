@@ -2715,3 +2715,29 @@ Re-run `python generate_file_catalog.py` after adding or renaming files.
 
 #### `frontend/src/app/dashboard/accounting/bank-accounts/[id]/reconcile/page.tsx`
 - Bank reconciliation customer workflow and QIF upload surface.
+
+
+## Phase 3.6 Check Setup checkpoint additions
+
+#### `backend/app/models/bank_check_setup.py`
+- `BankCheckSetup` stores one per-bank numbering and check-stock configuration.
+
+#### `backend/app/schemas/bank_check_setup.py`
+- Check Setup read/write schemas and stock-position validation.
+
+#### `backend/app/routers/check_setup.py`
+- Independently gated org-scoped Check Setup GET/PUT routes.
+
+#### `backend/alembic/versions/f2a4c6e8b0d5_add_bank_check_setup.py`
+- revision: `f2a4c6e8b0d5`
+- down_revision: `d8e0f2a4b6c3`
+- creates per-bank check setup storage.
+
+#### `frontend/src/lib/checkSetup.ts`
+- Typed Check Setup API client.
+
+#### `frontend/src/app/dashboard/accounting/bank-accounts/[id]/check-setup/page.tsx`
+- Customer Check Setup workflow.
+
+#### `backend/app/services/checks.py`
+- Write Checks reserves and advances configured automatic numbers when no explicit check number is supplied.

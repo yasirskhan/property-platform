@@ -35,7 +35,7 @@
 
 **Migration head:** `c7d9e1f3a5b2`.
 
-**Current parity inventory:** 236 built, 0 in progress, 392 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 237 built, 0 in progress, 391 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -145,8 +145,8 @@ Deployment target (Phase 11):
 
 **Continue Phase 3.6 — Accounting Polish: Bank Accounts.**
 
-1. Bank Reconciliation + QIF Import are VERIFIED in CI run 36087388737. Backend: 286 passed, 3 deselected. E2E: 3 passed. Verified behavior includes durable reconciliation snapshots, clearable deposits/checks/GL activity, zero-difference finish enforcement, and exact-date/amount QIF auto-matching.
-2. Continue Bank Accounts in the documented order: Check Setup, ACH file generation, Bank Adjustments, then Bank Feed import.
+1. Check Setup is VERIFIED in CI run 36091014657. Backend: 287 passed, 3 deselected. E2E: 3 passed. Verified behavior includes per-bank automatic check numbering, optional prefixes, check stock positioning, and memo/signature print preferences consumed by Write Checks when no explicit number is supplied.
+2. Continue Bank Accounts in the documented order: ACH file generation, Bank Adjustments, then Bank Feed import.
 3. Preserve existing bank-account CRUD, reconciliation/QIF behavior, organization isolation, immutable GL/reversal rules, and backend ACCOUNTING.BANK_ACCOUNTS authorization. Gate independently releasable workflows through the hybrid capability system.
 4. Verify each coherent batch in hosted CI, fix reds autonomously, update checkpoint/planning state, then continue without waiting.
 
