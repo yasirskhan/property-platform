@@ -13,6 +13,7 @@ from app.core.database import SessionLocal
 from app.jobs.registry import register_job_handler
 from app.services.fraud import refresh_checkout_velocity_cases
 from app.services.recurring_journal_entries import post_due_recurring_journal_entries
+from app.services.bill_workflows import post_due_recurring_bills
 
 
 @register_job_handler("health.noop")
@@ -43,5 +44,16 @@ async def recurring_journal_entries_post_due(
     db = SessionLocal()
     try:
         return post_due_recurring_journal_entries(db, as_of=as_of)
+    finally:
+        db.close()
+
+
+@register_job_handler("accounting.recurring_bills.post_due")
+async def recurring_bills_post_due(payload: dict[str, Any]) -> dict[str, int]:
+    raw_as_of = str(payload.get("as_of") or date.today().isoformat())
+    as_of = date.fromisoformat(raw_as_of)
+    db = SessionLocal()
+    try:
+        return post_due_recurring_bills(db, as_of=as_of)
     finally:
         db.close()

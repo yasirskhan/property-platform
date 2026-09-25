@@ -74,6 +74,7 @@ from app.models.receipt_line import ReceiptLine  # noqa: F401
 # ---- Bills (Phase 2 Step 6) ----
 from app.models.bill import Bill  # noqa: F401
 from app.models.bill_line import BillLine  # noqa: F401
+from app.models.bill_workflow import RecurringBill, RecurringBillLine, VendorCredit, VendorCreditLine  # noqa: F401
 
 # ---- Deposits (Phase 2 Step 7) ----
 from app.models.deposit import Deposit  # noqa: F401
