@@ -438,3 +438,6 @@ Implementation prepared:
 - Regression coverage added in backend/tests/test_accounting_settings.py.
 - TESTS NOT RUN locally in this connector-only session.
 - Hosted CI verification pending.
+
+- CI run 36200953404 stopped before backend tests at parity/registry consistency because the Owner Packet closeout updated four item statuses without refreshing parity _meta counts. Product code was not implicated.
+- Metadata correction: parity counts refreshed to 252 built / 376 scheduled / 0 in-progress and migration head b7d9f1a3c5e8. CI verification pending.
