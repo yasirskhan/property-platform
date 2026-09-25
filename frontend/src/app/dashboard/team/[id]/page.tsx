@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiGet, apiPatch, apiPost, fileUrl } from "@/lib/api";
+import { useFlag } from "@/hooks/useFlag";
 
 type User = {
   id: number;
@@ -30,6 +31,7 @@ export default function UserDetailPage() {
   const params = useParams();
   const router = useRouter();
   const userId = Number(params.id);
+  const ownerACHEnabled = useFlag("release.accounting.owner_ach_setup");
 
   const [me, setMe] = useState<Me | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -167,6 +169,21 @@ export default function UserDetailPage() {
       {success && (
         <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg px-4 py-3 mb-6">
           {success}
+        </div>
+      )}
+
+      {ownerACHEnabled && String(user.role).toUpperCase() === "OWNER" && (
+        <div className="mb-6 rounded-xl border border-slate-200 bg-white p-6">
+          <h2 className="font-semibold text-slate-900">Owner ACH</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Configure the owner payout bank destination. Bank numbers are masked after saving.
+          </p>
+          <Link
+            href={`/dashboard/accounting/owners/${user.id}/ach`}
+            className="mt-4 inline-block rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50"
+          >
+            Open ACH Setup
+          </Link>
         </div>
       )}
 
