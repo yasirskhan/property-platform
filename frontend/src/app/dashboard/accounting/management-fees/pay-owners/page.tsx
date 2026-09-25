@@ -143,10 +143,10 @@ export default function PayOwnersPage() {
         effective_date: effectiveDate,
         payouts: chosen,
       });
-      setResult(created);
       const payoutData = await listOwnerPayouts(25);
       setHistory(payoutData.items);
       await loadPreview();
+      setResult(created);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Could not save payout draft.");
     } finally {
