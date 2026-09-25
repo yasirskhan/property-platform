@@ -2783,3 +2783,21 @@ Re-run `python generate_file_catalog.py` after adding or renaming files.
 
 #### `frontend/src/app/dashboard/accounting/management-fees/post-gpr/page.tsx`
 - Customer workflow for selecting monthly unit GPR rows and posting through the shared accounting engine.
+
+
+## 2026-09-25 Phase 3.6 Owner Statements + Owner Packet checkpoint additions
+
+### Owner statement financial detail
+- `backend/app/services/owner_statements.py` — freezes required reserves, prepaid-rent liability, available cash, and cash-summary totals.
+- `backend/app/routers/owner_statements.py` — Property Cash Summary API plus owner packet settings API.
+- `backend/tests/test_owner_statement_financials.py` — reserve/prepaid/cash snapshot regression coverage.
+- `backend/alembic/versions/f5a7c9e1b3d6_property_required_reserve.py` — adds explicit property reserve configuration.
+
+### Owner Packet customizer
+- `backend/app/models/owner_statement.py` — `OwnerPacketSettings`.
+- `backend/app/schemas/owner_statement.py` — packet settings read/write contracts and report validation.
+- `backend/alembic/versions/a6c8e0f2b4d7_owner_packet_settings.py` — creates `owner_packet_settings`.
+- `backend/tests/test_owner_packet_settings.py` — default/update/gating/validation coverage.
+- `frontend/src/lib/ownerStatements.ts` — packet settings API helpers.
+- `frontend/src/app/dashboard/accounting/owner-statements/packet-settings/page.tsx` — customer customizer page.
+- Verified CI: run `36200032326`, backend 344 passed / 3 deselected, E2E 3 passed.

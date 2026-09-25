@@ -4816,3 +4816,36 @@ Phase **3.4.26 — Sidebar compatibility retrofit**. Preserve the legacy route w
 ## Next
 
 Phase **3.6 — Accounting Polish** begins with Chart of Accounts. The 3.5.5 compatibility pass is complete.
+
+
+# SECTION 96 — PHASE 3.6 OWNER STATEMENTS + OWNER PACKET CUSTOMIZER (COMPLETE)
+
+**Completed:** 2026-09-25
+
+## Owner Statements financial detail
+
+- Required reserve amounts are explicit per-property accounting configuration.
+- Prepaid rent is derived from the property-scoped 2300 liability balance as of statement period end.
+- Frozen statement snapshots preserve required reserves, prepaid rent, and available cash.
+- Property Cash Summary is release-gated and organization-scoped.
+- Verified implementation commit: `415a9dbfe08c191c729e3c582c03dfc31db9937e`.
+- Hosted CI run `36197438770`: SUCCESS.
+
+## Owner Packet customizer
+
+- Durable organization-level packet settings select Owner Statement and/or Property Cash Summary.
+- At least one report is required.
+- Optional owner-email preference and cover message are stored for the later delivery workflow.
+- Backend access remains behind `release.owner_portal.packet_customizer` and `ACCOUNTING.OWNER_STATEMENTS`.
+- ADMIN/MANAGER may change global packet settings; OWNER cannot change organization-global configuration.
+- This phase does not send packets or email; generation/delivery remains Phase 3.7.
+- Migration head: `a6c8e0f2b4d7`; expected model-table count: 94.
+- Verified implementation commit: `825a3eaef5834a8c3dcc08550cc7d409445add62`.
+- Hosted CI run `36200032326`: SUCCESS.
+- Backend/PostgreSQL: **344 passed, 3 deselected, 2799 warnings in 55.94s**.
+- E2E: **3 passed in 8.50s**.
+- Customer frontend, platform-admin, security, PostgreSQL backup/restore, staging, parity/registry, and secret scan: SUCCESS.
+
+## Next
+
+Continue Phase 3.6 with **Settings — Accounting Settings (Key Accounts, GPR, Receipts, Checks, Reports)**, then the Accounting Basis report-layer toggle and remaining Section 38 items.

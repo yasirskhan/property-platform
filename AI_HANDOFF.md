@@ -25,18 +25,19 @@ IMPORTANT:
 - Diagnostics — Real Positive Fee check (must_clear) is COMPLETE/VERIFIED.
 - Diagnostics — Additional checks to reach 9 total is COMPLETE/VERIFIED.
 - Owner Statements — Required Reserves + Prepaid Rent + Property Cash Summary is COMPLETE/VERIFIED.
-- Current batch: Owner Packets — Customizer fields.
+- Owner Packets — Customizer fields is COMPLETE/VERIFIED.
+- Current batch: Settings — Accounting Settings (Key Accounts, GPR, Receipts, Checks, Reports).
 
 # Latest Verified Green Checkpoint
 
-Diagnostics Nine-Check checkpoint:
-- 16ff35cd2c7308908e59f015b4a8728e01d56415
-- "Phase 3.6: complete nine financial diagnostics"
+Owner Packet customizer checkpoint:
+- 825a3eaef5834a8c3dcc08550cc7d409445add62
+- "Phase 3.6: add owner packet customizer settings"
 
 Hosted CI:
-- Run 36196379096: SUCCESS
-- Backend: 336 passed, 3 deselected, 2743 warnings in 55.21s
-- E2E: 3 passed in 9.62s
+- Run 36200032326: SUCCESS
+- Backend: 344 passed, 3 deselected, 2799 warnings in 55.94s
+- E2E: 3 passed in 8.50s
 - Frontend: SUCCESS
 - Platform admin: SUCCESS
 - Security: SUCCESS
@@ -47,11 +48,11 @@ Hosted CI:
 
 Current parity source-of-truth:
 - total_items: 628
-- built_count: 248
-- scheduled_count: 380
+- built_count: 252
+- scheduled_count: 376
 - in_progress_count: 0
-- migration_head: f5a7c9e1b3d6
-- expected model-table count: 93
+- migration_head: a6c8e0f2b4d7
+- expected model-table count: 94
 
 # Bank Adjustments
 
@@ -385,17 +386,24 @@ Implementation prepared:
 - Migration head advances to a6c8e0f2b4d7; expected model-table count 94.
 - Regression coverage added in backend/tests/test_owner_packet_settings.py.
 - TESTS NOT RUN locally in this connector-only session.
-- Hosted CI verification pending.
+- Hosted CI run 36200032326: SUCCESS.
+- Backend: 344 passed, 3 deselected, 2799 warnings in 55.94s.
+- E2E: 3 passed in 8.50s.
+- Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Owner Statements — Required Reserves
-2. Owner Statements — Prepaid Rent
-3. Owner Statements — Property Cash Summary
-4. Owner Packets — Customizer fields
-5. Settings — Accounting Settings
-6. Continue remaining Phase 3.6 items in Section 38 order
+1. Settings — Accounting Settings (Key Accounts, GPR, Receipts, Checks, Reports)
+2. Settings — Accounting Basis toggle (Accrual default | Cash), report layer only
+3. Settings — My Settings
+4. Settings — Auditing Center
+5. Settings — Two-step verification
+6. Settings — Login history
+7. Universal — delete_reason UI
+8. Universal — Notes expansion
+9. Universal — Audit Log expansion
+10. Continue into Phase 3.7 without stopping at the phase boundary
 
 # Working Rules
 

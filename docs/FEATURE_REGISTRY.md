@@ -491,7 +491,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 
 # §Owner Statements
 
-**Routes:** `/dashboard/accounting/owner-statements`, `/dashboard/accounting/owner-statements/new`, `/dashboard/accounting/owner-statements/[id]`  
+**Routes:** `/dashboard/accounting/owner-statements`, `/dashboard/accounting/owner-statements/new`, `/dashboard/accounting/owner-statements/[id]`, `/dashboard/accounting/owner-statements/packet-settings`  
 **AppFolio reference:** Accounting / Owner Statements  
 **JSON id:** `accounting.owner_statements`  
 **Page release gate:** `release.accounting.owner_statements`
@@ -507,10 +507,10 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Running balance | behavior | — | core | no | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Existing transaction rendering |
 | Beginning / ending cash | behavior | — | core | no | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Existing summary |
 | Print / Save PDF | capability | — | core | no | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Browser print-ready output |
-| Required Reserves line | behavior | — | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ⬜ hidden implementation present | Structural compatibility slot present; real reserve configuration/accounting source remains planned |
-| Prepaid Rent line | behavior | — | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ⬜ hidden implementation present | Structural compatibility slot present; real prepaid-rent accounting source remains planned |
-| Property Cash Summary | capability | release.accounting.owner_statements.cash_summary | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ⬜ hidden implementation present | Release-gated compatibility slot; enhanced owner reporting workflow remains planned |
-| Owner Packet customizer | capability | release.owner_portal.packet_customizer | owner_portal | yes | ACCOUNTING.OWNER_STATEMENTS | no | ⬜ hidden implementation present | Release-gated compatibility slot; Phase 7 portal/document workflow remains planned |
+| Required Reserves line | behavior | — | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Verified explicit per-property reserve input feeds frozen statements and cash summary |
+| Prepaid Rent line | behavior | — | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Verified from property-scoped GL 2300 liability balance at period end |
+| Property Cash Summary | capability | release.accounting.owner_statements.cash_summary | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Verified release-gated snapshot summary of cash, reserves, prepaid rent, and available cash |
+| Owner Packet customizer | capability | release.owner_portal.packet_customizer | owner_portal | yes | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Verified durable report selection, email preference, and cover message; generation/delivery remains Phase 3.7 |
 | Email statement | capability | release.owner_statements.email | owner_portal | yes | ACCOUNTING.OWNER_STATEMENTS | no | ⬜ hidden implementation present | Release-gated compatibility slot; delivery workflow remains planned |
 
 ---

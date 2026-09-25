@@ -663,29 +663,33 @@
       "id": "accounting.owner_statements.required_reserves",
       "area": "Accounting / Owner Statements",
       "feature": "Required Reserves line",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Verified in CI run 36197438770: explicit property reserve configuration feeds frozen owner-statement snapshots and Property Cash Summary."
     },
     {
       "id": "accounting.owner_statements.prepaid_rent",
       "area": "Accounting / Owner Statements",
       "feature": "Prepaid Rent line",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Verified in CI run 36197438770: prepaid rent is derived from the property-scoped 2300 liability balance as of statement period end and frozen into the statement snapshot."
     },
     {
       "id": "accounting.owner_statements.property_cash_summary",
       "area": "Accounting / Owner Statements",
       "feature": "Property Cash Summary",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Verified in CI run 36197438770: release-gated org-scoped cash summary exposes ending cash, required reserves, prepaid rent, and available cash."
     },
     {
       "id": "accounting.owner_statements.packet_customizer",
       "area": "Accounting / Owner Statements",
       "feature": "Owner Packet customizer",
-      "status": "scheduled",
-      "phase": "7"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Verified in CI run 36200032326: durable org-level packet report selection, email-owner preference, and optional cover message. Packet generation/delivery remains Phase 3.7."
     },
     {
       "id": "accounting.owner_statements.email",
