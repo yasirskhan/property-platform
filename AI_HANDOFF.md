@@ -9,198 +9,98 @@ Keep it here and overwrite it after every meaningful batch.
 
 Branch: chatgpt/checkpoint-005-safety
 
-Latest verified product commits:
-- dc84db4602b2de4e04c93ac35dc6a4ff29525bad — backend ledger workflow
-- 4d037b6608c07d142974c758e2aecee406f373d7 — customer workflow
-
-Resolve the branch HEAD again before any write. This handoff file is committed
-after the product batch, so it does not embed its own final hash.
-
 IMPORTANT:
 - Do NOT resume old Phase 3.4.x work.
 - Phase 3.4.S and Phases 3.4.3 through 3.4.26 are COMPLETE/VERIFIED.
 - Phase 3.5.5 compatibility pass is COMPLETE.
-- Current work is Phase 3.6 — Accounting Polish, Bank Accounts subsection.
+- Current work is Phase 3.6 — Accounting Polish.
+- Bank Accounts subsection is now COMPLETE through Bank Feed import.
+- Next ordered item: Owner ACH Setup.
 
-# Newly Verified Green Checkpoint
+# Latest Verified Green Checkpoint
 
-Parity bookkeeping repair commit:
-- 863f0f98729c86de2f0ab7f5b3c6a8f7598b5e34
-- "Docs: reconcile parity metadata"
+Bank Feed verification trigger:
+- 84469ab3473ecc682d35b1c9ff12d2b164fd8dae
+- "Docs: trigger Bank Feed revalidation checkpoint"
 
 Hosted CI:
-- Run 36095431108: SUCCESS
-- Backend: 290 passed, 3 deselected, 2039 warnings in 47.66s
-- E2E: 3 passed in 11.84s
+- Run 36099568648: SUCCESS
+- Backend: 298 passed, 3 deselected, 2184 warnings in 36.14s
+- E2E: 3 passed in 13.65s
 - Frontend: SUCCESS
 - Platform admin: SUCCESS
 - Security: SUCCESS
+- PostgreSQL bootstrap + backup/restore: SUCCESS
 - Staging build/start/health: SUCCESS
 - Parity/registry consistency: CLEAN
 - Secret-pattern scan: CLEAN
 
-Current parity source-of-truth counts:
+Current parity source-of-truth:
 - total_items: 628
-- built_count: 235
-- scheduled_count: 393
+- built_count: 237
+- scheduled_count: 391
 - in_progress_count: 0
-- migration_head metadata: f2a4c6e8b0d5
+- migration_head: a4b6c8d0e2f1
+- expected model-table count: 90
 
-Verified current migration state remains:
-- Alembic head: f2a4c6e8b0d5
-- Expected model-table count: 89
+# Bank Adjustments
 
-# Planning Metadata Note
+COMPLETE/VERIFIED.
+- Backend ledger workflow: dc84db4602b2de4e04c93ac35dc6a4ff29525bad
+- Customer workflow: 4d037b6608c07d142974c758e2aecee406f373d7
+- Verification: CI run 36097448099
+- Uses GLTransaction, source_type=bank_adjustment, central posting/reversal, org-scoped offset validation, locked-period protection, immutable reversal, reconciliation visibility.
 
-docs/APPFOLIO_PARITY_CHECKLIST.json is repaired and CI-green.
+# Bank Feed
 
-docs/PROJECT_MASTER.md still contains stale top-level text:
-- parity 238 built / 390 scheduled
-- migration head c7d9e1f3a5b2
+COMPLETE/VERIFIED.
 
-The connected GitHub write path refused the required full-file PROJECT_MASTER rewrite.
-Do not change feature statuses to compensate. Reconcile only the stale PROJECT_MASTER
-summary text when an edit path is available.
+Implementation:
+- 1c1e3128429c0ca0e48bfe053c1fb81b33947b99 — durable CSV import/matching backend
+- cbedb3f015cf71d8881b77972afce6b055cffc78 — customer import workflow
+- b655d3274644ea515fb34b1f5bb9c66ae9d7878a — schema checkpoint expectations
 
-# Bank Adjustments Current State
-
-Backend ledger workflow is now implemented:
-- release gate: release.accounting.bank_adjustments
-- permission: ACCOUNTING.BANK_ACCOUNTS
-- durable entity: GLTransaction, no duplicate adjustment table or migration
-- transaction_type = BANK_ADJUSTMENT
-- source_type = "bank_adjustment"
-- source_id = bank_account.id
-- INCREASE: debit bank GL, credit selected offset GL
-- DECREASE: debit selected offset GL, credit bank GL
-- reversal uses reverse_transaction() and preserves immutable history
-- listing is org + bank scoped
-- reconciliation discovers the GL transaction automatically
-
-Implemented by dc84db4602b2de4e04c93ac35dc6a4ff29525bad:
-- backend/app/services/bank_adjustments.py
-- backend/app/routers/bank_adjustments.py
-- backend/tests/test_bank_adjustments.py
-- backend/app/main.py
-- backend/app/services/gl_posting.py
-- existing backend/app/schemas/bank_adjustment.py is reused
-
-Regression coverage added for:
-- increase/decrease bank-side posting
-- cross-organization offset rejection
-- locked-period rejection
-- immutable one-time reversal
-- disabled customer feature rejection
-
-Current verification state:
-- Hosted CI for the backend batch is pending/being checked.
-- TESTS NOT RUN locally in this connector-only session.
-
-Frontend Bank Adjustments workflow is implemented by:
-- 4d037b6608c07d142974c758e2aecee406f373d7
-- "Phase 3.6 Bank Adjustments: add customer workflow"
-
-Frontend files:
-- frontend/src/lib/bankAdjustments.ts
-- frontend/src/app/dashboard/accounting/bank-accounts/[id]/adjustments/page.tsx
-- frontend/src/app/dashboard/accounting/bank-accounts/page.tsx
-
-Bank Adjustments verification:
-- Hosted CI run 36097448099: SUCCESS
-- Backend: 295 passed, 3 deselected, 2121 warnings in 51.57s
-- E2E: 3 passed in 13.46s
-- Frontend: SUCCESS
-- Platform admin: SUCCESS
-- Security: SUCCESS
-- Staging build/start/health: SUCCESS
-- PostgreSQL bootstrap + backup/restore: SUCCESS
-- Parity after closeout: 236 built / 392 scheduled / 628 total
-
-Bank Adjustments is COMPLETE/VERIFIED.
-
-Bank Feed backend foundation is implemented by:
-- 1c1e3128429c0ca0e48bfe053c1fb81b33947b99
-- "Phase 3.6 Bank Feed: add durable CSV import and matching"
-
-Backend files:
+Key files:
 - backend/app/models/bank_feed.py
 - backend/app/schemas/bank_feed.py
 - backend/app/services/bank_feed.py
 - backend/app/routers/bank_feed.py
 - backend/alembic/versions/a4b6c8d0e2f1_bank_feed_transactions.py
 - backend/tests/test_bank_feed.py
-- backend/init_db.py
-- backend/app/main.py
-- backend/tests/test_migrations.py
-
-Bank Feed design:
-- provider-neutral durable bank_feed_transactions inbox
-- manual CSV import now; future Plaid/provider sync can reuse the same table
-- stable duplicate protection using external IDs or normalized row occurrence hashes
-- exact unique date+amount matching to reconciliation-equivalent bank activity:
-  deposits, issued checks, and qualifying GL bank-side transactions
-- matched source identity is durable; unmatched rows can be rematched later
-- import/rematch do not create, modify, or reverse GL transactions
-- release.accounting.bank_feed + bank_feeds entitlement +
-  ACCOUNTING.BANK_ACCOUNTS remain authoritative
-- new Alembic head a4b6c8d0e2f1; expected model tables 90
-
-Bank Feed customer workflow is implemented by:
-- cbedb3f015cf71d8881b77972afce6b055cffc78
-- "Phase 3.6 Bank Feed: add customer import workflow"
-
-Frontend files:
 - frontend/src/lib/bankFeed.ts
 - frontend/src/app/dashboard/accounting/bank-accounts/[id]/bank-feed/page.tsx
-- frontend/src/app/dashboard/accounting/bank-accounts/page.tsx
 
-Bank Feed CI fix:
-- CI run 36098247913 reached 296 passed / 2 failed / 3 deselected.
-- The two failures were stale schema checkpoint constants only:
-  test_postgres_smoke.py and test_prepare_database.py still expected
-  Alembic f2a4c6e8b0d5 / 89 tables.
-- Bank Feed regression tests themselves passed.
-- b655d3274644ea515fb34b1f5bb9c66ae9d7878a updates both checkpoints
-  to Alembic a4b6c8d0e2f1 / 90 tables.
+Design contract:
+- provider-neutral durable inbox
+- manual CSV import in Phase 3.6; Plaid/provider connectivity stays Phase 8
+- duplicate protection via external IDs or normalized occurrence hashes
+- exact unique date+amount matching to reconciliation-equivalent bank activity
+- durable matched source identity; unmatched rows can be rematched
+- import/rematch do not create, modify, or reverse GL transactions
+- release.accounting.bank_feed + bank_feeds entitlement + ACCOUNTING.BANK_ACCOUNTS remain authoritative
 
-Current verification:
-- Prior CI on b655d3274644ea515fb34b1f5bb9c66ae9d7878a was cancelled by subsequent branch activity, not failed.
-- Fresh hosted CI revalidation is being triggered from the current branch state before Bank Feed closeout.
-- TESTS NOT RUN locally in this connector-only session.
+Closeout metadata commits:
+- 52fe05a7433e0032c2f1113efad6201bfadcadfd — FEATURE_REGISTRY
+- d3a94ac8dcb33637b91b10fd1da397f6bc4b9404 — parity JSON
+- 4400e4cafb5c3cdb0759f724dc8c9b2c53caaab8 — FILE_CATALOG locator
+- 8991512adb9a12e0c8581eecab4aabce5856a909 — PROJECT_MASTER advance to Owners
 
-Next:
-1. Fix any remaining hosted CI red from Bank Feed.
-2. When green, close Bank Feed in FEATURE_REGISTRY, parity JSON,
-   FILE_CATALOG, PROJECT_MASTER, and this handoff.
-3. Continue the remaining Phase 3.6 order from PROJECT_MASTER without stopping.
+# Next: Owner ACH Setup
 
-# Verified Foundation / Contracts to Preserve
+Locked order from PROJECT_MASTER:
+1. Owner ACH Setup
+2. $0 ACH Test File
+3. Owner Held Security Deposits
+4. Continue remaining Phase 3.6 items in PROJECT_MASTER order
 
-Verified Phase 3.6 work includes:
-- Chart of Accounts
-- Journal Entries
-- Receipts
-- Charges
-- Bills lifecycle
-- Recurring Bills/Credits
-- Post Codes
-- Manually Post Bills
-- Vendor Credits
-- Write Checks / Checks
-- Bank Deposits polish
-- Bank Reconciliation
-- QIF Import
-- Check Setup
-- ACH File Generation
-
-Existing VERIFIED behavior is a contract.
-Backend authorization is authoritative; UI hiding is never security.
-Release control, entitlement, org configuration, role permission, and user preference
-remain independent layers.
-Every GL posting goes through the central posting service.
-Never write financial GL state directly.
-Customer/platform identity boundaries and organization isolation are permanent.
-Never use Alembic autogenerate.
+Known existing contracts to preserve:
+- Owners are customer-side User rows with role OWNER, scoped by organization_id.
+- Owner ACH should not create a duplicate owner identity model.
+- Reuse verified ACH validation/generation behavior where appropriate.
+- Backend authorization is authoritative; UI hiding is never security.
+- Release, entitlement, org-config, permission, and user preference layers remain separate.
+- Never write financial GL state directly; use central accounting/posting services.
+- Never use Alembic autogenerate.
 
 # Working Rules
 
@@ -209,8 +109,8 @@ Never use Alembic autogenerate.
 - Never create or switch branches.
 - Inspect real source before editing.
 - Fix CI reds autonomously.
-- Keep AI_HANDOFF.md current after meaningful batches.
-- Use real test counts only.
+- Keep AI_HANDOFF.md current after every meaningful batch.
+- Use real test numbers only.
 - If tests did not run, say TESTS NOT RUN.
 - Do not stop at phase boundaries.
 - Stop only for a true blocker that cannot be resolved.
