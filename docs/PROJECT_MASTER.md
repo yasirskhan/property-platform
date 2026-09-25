@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.6 — Accounting Polish** is IN PROGRESS. Chart of Accounts, Journal Entries, Receipts, Charges, Bills lifecycle, Recurring Bills/Credits, Post Codes, Manually Post Bills, Vendor Credits, Write Checks / Checks, Bank Deposits polish, Bank Reconciliation/QIF, Check Setup, ACH File Generation, Bank Adjustments, and Bank Feed import are verified. The next ordered item is Owner ACH Setup.
+**Current activity:** Phase **3.6 — Accounting Polish** is IN PROGRESS. Chart of Accounts, Journal Entries, Receipts, Charges, Bills lifecycle, Recurring Bills/Credits, Post Codes, Manually Post Bills, Vendor Credits, Write Checks / Checks, Bank Deposits polish, Bank Reconciliation/QIF, Check Setup, ACH File Generation, Bank Adjustments, Bank Feed import, and Owner ACH Setup are verified. The next ordered item is the $0 ACH Test File.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -33,9 +33,9 @@
 
 **3.4.S closeout:** COMPLETE. Portable private-repo security checks (Bandit, pip-audit, npm audit, committed-secret scan, Dependabot) replaced the unavailable mandatory CodeQL upload gate and passed in hosted CI run 35917804417. CodeQL remains optional/manual if GitHub Code Security is enabled later.
 
-**Migration head:** `a4b6c8d0e2f1`.
+**Migration head:** `b6d8f0a2c4e7`.
 
-**Current parity inventory:** 237 built, 0 in progress, 391 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 238 built, 0 in progress, 390 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -145,8 +145,8 @@ Deployment target (Phase 11):
 
 **Continue Phase 3.6 — Accounting Polish: Owners.**
 
-1. Bank Feed import is VERIFIED in CI run 36099568648. Backend: 298 passed, 3 deselected. E2E: 3 passed. Frontend, platform-admin, security, PostgreSQL backup/restore, and staging passed.
-2. Continue with Owner ACH Setup, then the $0 ACH Test File, then Owner Held Security Deposits.
+1. Owner ACH Setup is VERIFIED in CI run 36100394485. Backend: 302 passed, 3 deselected. E2E: 3 passed. Frontend, platform-admin, security, PostgreSQL backup/restore, and staging passed.
+2. Continue with the $0 ACH Test File, then Owner Held Security Deposits.
 3. Preserve organization isolation and the existing owner-as-customer-user model. Reuse the verified ACH validation/generation spine where appropriate and keep financial postings behind the central accounting services.
 4. Verify each coherent batch in hosted CI, fix reds autonomously, update checkpoint/planning state, then continue without waiting.
 
