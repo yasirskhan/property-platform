@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base
+from app.models.accounting_settings import AccountingSettings
 from app.models.audit_log import AuditLog
 from app.models.gl_account import GLAccount, GLAccountPostingRestriction
 from app.models.gl_entry import GLEntry
@@ -23,6 +24,7 @@ import app.services.gpr_posting as gpr
 
 TEST_TABLES = [
     Organization.__table__,
+    AccountingSettings.__table__,
     User.__table__,
     Property.__table__,
     Unit.__table__,
