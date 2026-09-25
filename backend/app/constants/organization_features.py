@@ -29,6 +29,7 @@ FEATURE_DEFINITIONS: dict[str, dict[str, object]] = {
     "release.accounting.deposits.escrow_refund": {"label": "Escrow refund", "entitlement": "escrow_refunds", "org_configurable": True, "permission": "ACCOUNTING.DEPOSITS"},
     "release.accounting.deposits.print": {"label": "Print Bank Deposit", "entitlement": "core", "org_configurable": False, "permission": "ACCOUNTING.DEPOSITS"},
     "release.accounting.deposits.process_nsf": {"label": "Process NSF from deposit", "entitlement": "nsf_processing", "org_configurable": True, "permission": "ACCOUNTING.DEPOSITS"},
+    "release.accounting.diagnostics.refund_negative": {"label": "Refund Negative Diagnostic", "entitlement": "core", "org_configurable": True, "permission": "ACCOUNTING.DIAGNOSTICS"},
     "release.accounting.gl_account_permissions": {"label": "GL Account Permissions", "entitlement": "core", "org_configurable": True, "permission": "SETTINGS.PERMISSIONS"},
     "release.accounting.gl_accounts": {"label": "Chart of Accounts page", "entitlement": "core", "org_configurable": False, "permission": "ACCOUNTING.GL_ACCOUNTS"},
     "release.accounting.gl_accounts.recalculate": {"label": "Recalculate Balances", "entitlement": "core", "org_configurable": False, "permission": "ACCOUNTING.GL_ACCOUNTS"},

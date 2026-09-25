@@ -20,7 +20,7 @@ IMPORTANT:
 - Management Fees — Overcollection Strategy is COMPLETE/VERIFIED.
 - Management Fees — Post GPR is COMPLETE/VERIFIED.
 - Management Fee Exclusions is COMPLETE/VERIFIED.
-- Current batch: Diagnostics — Auto-fix Refund Negative Diagnostic.
+- Current batch: Diagnostics — Auto-fix Refund Negative Diagnostic is implemented and pending hosted CI verification.
 
 # Latest Verified Green Checkpoint
 
@@ -282,6 +282,22 @@ Implementation:
 - Backend: 325 passed, 3 deselected, 2539 warnings in 53.64s.
 - E2E: 3 passed in 9.38s.
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
+
+# Diagnostics — Auto-fix Refund Negative Diagnostic — Current Batch
+
+Implementation:
+- Adds independent gate release.accounting.diagnostics.refund_negative.
+- GET diagnostics now enforces ACCOUNTING.DIAGNOSTICS server-side.
+- Correction is one account at a time and requires ADMIN/OWNER/MANAGER plus the diagnostics permission/gate.
+- Only active 44xx INCOME accounts with a real negative balance are eligible.
+- The fee account must have an explicit active same-org offset_account; the workflow never guesses a cash/expense/liability account.
+- Posts REFUND_NEGATIVE_DIAGNOSTIC through central post_transaction(): debit configured offset, credit fee account for the exact deficit.
+- Locked accounting periods and GL posting restrictions remain authoritative.
+- Repeating the action after the balance is fixed fails safely because the account is no longer negative.
+- Customer diagnostics page exposes the action only behind the release gate and disables it until an offset account is configured.
+- No schema migration; head remains e4f6a8c0d2b5 / 93 model tables.
+- TESTS NOT RUN locally in this connector-only session.
+- Hosted CI verification pending.
 
 # Next Work
 

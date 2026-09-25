@@ -78,6 +78,7 @@ when a capability needs finer authorization than its page.
 | `/dashboard/accounting/gl-accounts` | §GL Accounts | ✅ written |
 | `/dashboard/accounting/journal-entries` + `/new` + `/[id]` | §Journal Entries | ✅ written |
 | `/dashboard/accounting/management-fees` + `/new` | §Management Fees | ✅ written |
+| `/dashboard/accounting/diagnostics` | §Diagnostics | ✅ written |
 | `/dashboard/accounting/owner-statements` + `/new` + `/[id]` | §Owner Statements | ✅ written |
 | `/dashboard/accounting/bank-accounts` | §Bank Accounts | ✅ written |
 | `/dashboard/accounting/charges` + `/new` | §Charges | ✅ written |
@@ -459,6 +460,32 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Overcollection strategy | capability | release.accounting.management_fees.overcollection | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Verified in CI run 36184596917: org-scoped Credits then Receipts / Receipts then Credits policy with audited API and customer workflow |
 | Management Fee Exclusions | capability | release.accounting.management_fees.exclusions | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Verified in CI run 36187449354: org-scoped read-only audit list over the existing exclusion flag with date/property filters and reversed-source history |
 | Post GPR | capability | release.accounting.management_fees.post_gpr | gpr_posting | yes | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Verified in CI run 36186643771: Management Fees entry point reuses the central GPR candidate/posting engine and shared duplicate unit/month protection |
+
+---
+
+# §Diagnostics
+
+**Route:** `/dashboard/accounting/diagnostics`  
+**AppFolio reference:** Financial Diagnostics / PROJECT_MASTER §35  
+**JSON id:** `accounting.diagnostics`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Diagnostics report | page | — | core | no | ACCOUNTING.DIAGNOSTICS | yes | ✅ present | Backend permission is authoritative |
+| Six core financial checks | behavior | — | core | no | ACCOUNTING.DIAGNOSTICS | no | ✅ present | Existing health report |
+| Refund Negative Diagnostic | action | release.accounting.diagnostics.refund_negative | core | yes | ACCOUNTING.DIAGNOSTICS | no | ⬜ hidden implementation present | Implementation uses the configured offset account and central GL posting; pending hosted CI verification |
+| Bank reconciliation lapse check | behavior | — | core | no | ACCOUNTING.DIAGNOSTICS | no | ❌ missing | Phase 3.6 next |
+| Real positive fee check | behavior | — | core | no | ACCOUNTING.DIAGNOSTICS | no | ⬜ hidden implementation present | Placeholder exists; must_clear-driven behavior remains |
+| Additional checks to 9 | behavior | — | core | no | ACCOUNTING.DIAGNOSTICS | no | ❌ missing | Phase 3.6 |
+
+## Backend endpoints
+
+| Endpoint | Access requirement | Status |
+|---|---|---|
+| GET /api/accounting/diagnostics | ACCOUNTING.DIAGNOSTICS | built |
+| POST /api/accounting/diagnostics/refund-negative | release gate + ACCOUNTING.DIAGNOSTICS + accounting write role | implemented, pending CI |
 
 ---
 

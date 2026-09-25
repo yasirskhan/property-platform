@@ -31,6 +31,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from typing import Dict, List, Optional
 
@@ -40,6 +41,8 @@ from sqlalchemy.orm import Session
 from app.models.gl_account import GLAccount
 from app.models.gl_entry import GLEntry
 from app.models.gl_transaction import GLTransaction
+from app.schemas.gl_transaction import PostingLine
+from app.services.gl_posting import PostingError, post_transaction
 from app.services.owner_ledger import get_owner_subledger_total
 
 
@@ -368,9 +371,11 @@ def check_negative_fee_accounts(
         if income_balance < -Decimal("0.01"):
             bad.append(
                 {
+                    "gl_account_id": acct.id,
                     "gl": acct.gl_number,
                     "name": acct.name,
                     "balance": str(income_balance),
+                    "offset_account": acct.offset_account,
                 }
             )
 
@@ -394,6 +399,94 @@ def check_negative_fee_accounts(
             f"likely over-refunded."
         ),
         "details": bad,
+    }
+
+
+# ============================================================
+# CORRECTIVE ACTION — Refund Negative Diagnostic
+# ============================================================
+
+def refund_negative_fee_account(
+    db: Session,
+    *,
+    organization_id: int,
+    gl_account_id: int,
+    transaction_date: date,
+    created_by,
+):
+    """Bring one negative 44xx fee-income account back to zero."""
+    fee_account = (
+        db.query(GLAccount)
+        .filter(
+            GLAccount.id == gl_account_id,
+            GLAccount.organization_id == organization_id,
+            GLAccount.is_active.is_(True),
+            GLAccount.account_type == "INCOME",
+            GLAccount.gl_number.like("44%"),
+        )
+        .first()
+    )
+    if fee_account is None:
+        raise PostingError("Active fee income account was not found in this organization.")
+
+    raw_balance = _balance_of(db, organization_id, fee_account)
+    income_balance = -raw_balance
+    if income_balance >= -Decimal("0.01"):
+        raise PostingError("This fee account no longer has a negative balance.")
+
+    offset_number = (fee_account.offset_account or "").strip()
+    if not offset_number:
+        raise PostingError(
+            f"Fee account {fee_account.gl_number} has no offset account configured."
+        )
+    if offset_number == fee_account.gl_number:
+        raise PostingError("A fee account cannot use itself as its diagnostic offset.")
+
+    offset_account = (
+        db.query(GLAccount)
+        .filter(
+            GLAccount.organization_id == organization_id,
+            GLAccount.gl_number == offset_number,
+            GLAccount.is_active.is_(True),
+        )
+        .first()
+    )
+    if offset_account is None:
+        raise PostingError(
+            f"Configured offset account {offset_number} was not found or is inactive."
+        )
+
+    amount = abs(income_balance)
+    txn = post_transaction(
+        db=db,
+        organization_id=organization_id,
+        transaction_date=transaction_date,
+        transaction_type="REFUND_NEGATIVE_DIAGNOSTIC",
+        memo=f"Refund Negative Diagnostic: zero negative fee account {fee_account.gl_number}",
+        reference_number=f"RND-{fee_account.gl_number}",
+        source_type="financial_diagnostic",
+        source_id=fee_account.id,
+        created_by=created_by,
+        lines=[
+            PostingLine(
+                gl_account_id=offset_account.id,
+                description=f"Refund Negative Diagnostic offset for {fee_account.gl_number}",
+                debit=amount,
+            ),
+            PostingLine(
+                gl_account_id=fee_account.id,
+                description=f"Refund Negative Diagnostic correction for {fee_account.gl_number}",
+                credit=amount,
+            ),
+        ],
+    )
+    return {
+        "transaction_id": txn.id,
+        "gl_account_id": fee_account.id,
+        "gl_number": fee_account.gl_number,
+        "offset_gl_account_id": offset_account.id,
+        "offset_gl_number": offset_account.gl_number,
+        "amount": amount,
     }
 
 
