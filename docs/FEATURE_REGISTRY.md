@@ -525,7 +525,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 
 | Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
 |---|---|---|---|---|---|---|---|---|
-| Owner ACH Setup page | page | release.accounting.owner_ach_setup | ach_payments | yes | PEOPLE.OWNERS | no | ✅ present | Durable one-owner/one-org bank destination; full account numbers are write-only to the browser and masked on reads |
+| Owner ACH Setup page | page | release.accounting.owner_ach_setup | ach_payments | yes | PEOPLE.OWNERS | no | ✅ present | Verified in CI run 36100394485: durable one-owner/one-org bank destination; full account numbers are write-only to the browser and masked on reads |
 | Account holder / bank / routing / account / account type | fields | — | — | — | — | — | ✅ present | Routing uses the verified ABA validator; saving configuration creates no payment or GL entry |
 | Enable owner ACH destination | control | — | — | — | — | — | ✅ present | Configuration only; payout execution remains a separate workflow |
 | Owner self-service scope | behavior | — | ach_payments | yes | PEOPLE.OWNERS | no | ✅ present | OWNER may manage self only; ADMIN may manage owners in the same organization; manager/other-owner access is denied |
