@@ -9,9 +9,12 @@ Keep it here and overwrite it after every meaningful batch.
 
 Branch: chatgpt/checkpoint-005-safety
 
-Current HEAD:
+Handoff prepared from parent HEAD:
 - 000005157c8f1754ba92855b5f0ae51671a7f0f6
 - "Phase 3.6 Bank Adjustments: add schemas"
+
+Resolve the branch HEAD again before any write. This handoff file is itself
+committed after the parent HEAD above, so it does not embed its own final hash.
 
 IMPORTANT:
 - Do NOT resume old Phase 3.4.x work.
