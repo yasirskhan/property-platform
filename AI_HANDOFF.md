@@ -15,7 +15,7 @@ IMPORTANT:
 - Phase 3.5.5 compatibility pass is COMPLETE.
 - Current work is Phase 3.6 — Accounting Polish.
 - Bank Accounts subsection is now COMPLETE through Bank Feed import.
-- Next ordered item: Owner ACH Setup (implemented; CI pending).
+- Next ordered item: $0 ACH Test File.
 
 # Latest Verified Green Checkpoint
 
@@ -37,12 +37,11 @@ Hosted CI:
 
 Current parity source-of-truth:
 - total_items: 628
-- built_count: 237
-- scheduled_count: 391
+- built_count: 238
+- scheduled_count: 390
 - in_progress_count: 0
-- last verified migration_head: a4b6c8d0e2f1
-- last verified model-table count: 90
-- pending Owner ACH schema head: b6d8f0a2c4e7 / 91 model tables
+- migration_head: b6d8f0a2c4e7
+- expected model-table count: 91
 
 # Bank Adjustments
 
@@ -86,9 +85,18 @@ Closeout metadata commits:
 - 4400e4cafb5c3cdb0759f724dc8c9b2c53caaab8 — FILE_CATALOG locator
 - 8991512adb9a12e0c8581eecab4aabce5856a909 — PROJECT_MASTER advance to Owners
 
-# Owner ACH Setup — Current Batch
+# Owner ACH Setup — COMPLETE / VERIFIED
 
-Implementation is now on the branch and awaiting hosted CI verification.
+Verified in hosted CI run 36100394485:
+- Backend: 302 passed, 3 deselected
+- E2E: 3 passed
+- Frontend: SUCCESS
+- Platform admin: SUCCESS
+- Security: SUCCESS
+- PostgreSQL backup/restore: SUCCESS
+- Staging: SUCCESS
+- Parity/registry consistency: CLEAN
+- Secret-pattern scan: CLEAN
 
 Backend:
 - backend/app/models/owner_ach.py
@@ -119,17 +127,17 @@ Security / behavior:
 - release.accounting.owner_ach_setup uses ach_payments + PEOPLE.OWNERS
 - gate is registered in FEATURE_REGISTRY so normal release-gate seeding can discover it
 
-Verification:
-- Hosted CI on the final batch checkpoint is pending.
+Verification checkpoint:
+- 3e1b273af6d82fcb9488a0d9cb18d32610450db6
+- CI run 36100394485: SUCCESS
 - TESTS NOT RUN locally in this connector-only session.
 
-# Next: Owner ACH Setup
+# Next: $0 ACH Test File
 
 Locked order from PROJECT_MASTER:
-1. Owner ACH Setup
-2. $0 ACH Test File
-3. Owner Held Security Deposits
-4. Continue remaining Phase 3.6 items in PROJECT_MASTER order
+1. $0 ACH Test File
+2. Owner Held Security Deposits
+3. Continue remaining Phase 3.6 items in PROJECT_MASTER order
 
 Known existing contracts to preserve:
 - Owners are customer-side User rows with role OWNER, scoped by organization_id.
