@@ -227,3 +227,34 @@ export function postManagementFeeGPR(
     unit_ids: unitIds,
   });
 }
+
+
+export type ManagementFeeExclusion = {
+  receipt_id: number;
+  receipt_date: string;
+  receipt_type: string;
+  amount: string;
+  property_id: number | null;
+  property_name: string | null;
+  reference_number: string | null;
+  source_name: string | null;
+  remarks: string | null;
+  is_reversed: boolean;
+};
+
+export type ManagementFeeExclusionList = {
+  items: ManagementFeeExclusion[];
+  total: number;
+};
+
+export function listManagementFeeExclusions(filters: {
+  date_from?: string;
+  date_to?: string;
+  property_id?: number;
+  include_reversed?: boolean;
+  limit?: number;
+} = {}): Promise<ManagementFeeExclusionList> {
+  return apiGet(
+    `/api/accounting/management-fees/exclusions${qs(filters)}`
+  );
+}

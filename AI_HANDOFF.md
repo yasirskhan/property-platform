@@ -19,7 +19,7 @@ IMPORTANT:
 - Management Fees — Pay Owners is COMPLETE/VERIFIED.
 - Management Fees — Overcollection Strategy is COMPLETE/VERIFIED.
 - Management Fees — Post GPR is COMPLETE/VERIFIED.
-- Current batch: Management Fee Exclusions list.
+- Current batch: Management Fee Exclusions list is implemented and pending hosted CI verification.
 
 # Latest Verified Green Checkpoint
 
@@ -264,10 +264,25 @@ Implementation:
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 - TESTS NOT RUN locally in this connector-only session.
 
+# Management Fee Exclusions — Current Batch
+
+Implementation:
+- Read-only audit list over the existing Receipt.exclude_from_mgmt_fee flag.
+- Independent gate: release.accounting.management_fees.exclusions.
+- Authorization remains ACCOUNTING.MANAGEMENT_FEES; no new mutation path was introduced.
+- Source receipt reversals may be included for audit history, while generated reversal mirrors are never listed as source exclusions.
+- Organization/date/property filtering is enforced in the backend query.
+- Customer workflow: /dashboard/accounting/management-fees/exclusions.
+- Posted receipt immutability and the verified fee calculation remain unchanged.
+- No schema migration; head remains e4f6a8c0d2b5 / 93 model tables.
+- Regression coverage: backend/tests/test_management_fee_exclusions.py.
+- TESTS NOT RUN locally in this connector-only session.
+- Hosted CI verification pending.
+
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Management Fee Exclusions list
+1. Verify Management Fee Exclusions and fix CI reds
 2. Continue remaining Phase 3.6 items in Section 38 order
 
 # Working Rules

@@ -23,6 +23,8 @@ from app.core.database import get_db
 from app.routers.auth import get_current_user
 from app.models.user import Organization, User
 from app.models.management_fee_run import ManagementFeeRun
+from app.models.property import Property
+from app.models.receipt import Receipt
 from app.schemas.management_fee import (
     FeePreviewIn,
     FeePreviewOut,
@@ -33,6 +35,8 @@ from app.schemas.management_fee import (
     EligibleIncomeLine,
     OvercollectionStrategyOut,
     OvercollectionStrategyUpdate,
+    ManagementFeeExclusionOut,
+    ManagementFeeExclusionListOut,
 )
 from app.schemas.journal_entry import (
     GPRCandidateListOut,
@@ -60,6 +64,7 @@ router = APIRouter(
 WRITE_ROLES = {"ADMIN", "OWNER", "MANAGER"}
 OVERCOLLECTION_FEATURE_KEY = "release.accounting.management_fees.overcollection"
 MANAGEMENT_FEE_GPR_FEATURE_KEY = "release.accounting.management_fees.post_gpr"
+EXCLUSIONS_FEATURE_KEY = "release.accounting.management_fees.exclusions"
 DEFAULT_OVERCOLLECTION_STRATEGY = "CREDITS_THEN_RECEIPTS"
 
 
@@ -135,6 +140,24 @@ def _require_management_fee_gpr_feature(db: Session, current_user: User) -> int:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Management Fees Post GPR is not enabled.",
+        )
+    return org_id
+
+
+def _require_exclusions_feature(db: Session, current_user: User) -> int:
+    org_id = _require_management_fees_access(db, current_user)
+    decision = next(
+        (
+            item
+            for item in resolve_customer_features(db, user=current_user)
+            if item.key == EXCLUSIONS_FEATURE_KEY
+        ),
+        None,
+    )
+    if decision is None or not decision.allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Management Fee Exclusions is not enabled.",
         )
     return org_id
 
@@ -449,6 +472,70 @@ def post_management_fee_gpr(
         month=normalized,
         posted=len(transactions),
         transaction_ids=[row.id for row in transactions],
+    )
+
+
+# ============================================================
+# GET /exclusions
+# ============================================================
+
+@router.get("/exclusions", response_model=ManagementFeeExclusionListOut)
+def list_management_fee_exclusions(
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    property_id: Optional[int] = Query(None),
+    include_reversed: bool = Query(True),
+    limit: int = Query(200, ge=1, le=2000),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_exclusions_feature(db, current_user)
+    q = (
+        db.query(Receipt, Property)
+        .outerjoin(Property, Property.id == Receipt.property_id)
+        .filter(
+            Receipt.organization_id == org_id,
+            Receipt.exclude_from_mgmt_fee.is_(True),
+            Receipt.is_active.is_(True),
+            Receipt.reversal_of_id.is_(None),
+        )
+    )
+    if date_from is not None:
+        q = q.filter(Receipt.receipt_date >= date_from)
+    if date_to is not None:
+        q = q.filter(Receipt.receipt_date <= date_to)
+    if property_id is not None:
+        q = q.filter(Receipt.property_id == property_id)
+    if not include_reversed:
+        q = q.filter(Receipt.is_reversed.is_(False))
+
+    total = q.count()
+    rows = (
+        q.order_by(Receipt.receipt_date.desc(), Receipt.id.desc())
+        .limit(limit)
+        .all()
+    )
+    return ManagementFeeExclusionListOut(
+        items=[
+            ManagementFeeExclusionOut(
+                receipt_id=receipt.id,
+                receipt_date=receipt.receipt_date,
+                receipt_type=receipt.type,
+                amount=receipt.amount,
+                property_id=receipt.property_id,
+                property_name=prop.name if prop else None,
+                reference_number=receipt.reference_number,
+                source_name=(
+                    receipt.received_from
+                    or receipt.payer_name
+                    or ("Tenant receipt" if receipt.tenant_user_id else None)
+                ),
+                remarks=receipt.remarks,
+                is_reversed=receipt.is_reversed,
+            )
+            for receipt, prop in rows
+        ],
+        total=total,
     )
 
 
