@@ -23,18 +23,19 @@ IMPORTANT:
 - Diagnostics — Auto-fix Refund Negative Diagnostic is COMPLETE/VERIFIED.
 - Diagnostics — Bank Reconciliation Lapses 60-day check is COMPLETE/VERIFIED.
 - Diagnostics — Real Positive Fee check (must_clear) is COMPLETE/VERIFIED.
-- Current batch: Diagnostics — Additional checks to reach 9 total is implemented and pending hosted CI verification.
+- Diagnostics — Additional checks to reach 9 total is COMPLETE/VERIFIED.
+- Current batch: Owner Statements — Required Reserves + Prepaid Rent + Property Cash Summary.
 
 # Latest Verified Green Checkpoint
 
-Diagnostics Bank Reconciliation Lapses checkpoint:
-- 9760174467971c836f297efacd4f6d75281139d2
-- "Phase 3.6: add bank reconciliation lapse diagnostic"
+Diagnostics Nine-Check checkpoint:
+- 16ff35cd2c7308908e59f015b4a8728e01d56415
+- "Phase 3.6: complete nine financial diagnostics"
 
 Hosted CI:
-- Run 36191470527: SUCCESS
-- Backend: 331 passed, 3 deselected, 2640 warnings in 56.57s
-- E2E: 3 passed in 8.79s
+- Run 36196379096: SUCCESS
+- Backend: 336 passed, 3 deselected, 2743 warnings in 55.21s
+- E2E: 3 passed in 9.62s
 - Frontend: SUCCESS
 - Platform admin: SUCCESS
 - Security: SUCCESS
@@ -45,8 +46,8 @@ Hosted CI:
 
 Current parity source-of-truth:
 - total_items: 628
-- built_count: 243
-- scheduled_count: 385
+- built_count: 248
+- scheduled_count: 380
 - in_progress_count: 0
 - migration_head: e4f6a8c0d2b5
 - expected model-table count: 93
@@ -335,7 +336,7 @@ Implementation:
 - Hosted CI run 36192333662: SUCCESS.
 - Backend and all required CI gates passed after the inactive-account fixture correction in a769588935994ea0d588d71779d13d6bb7479792.
 
-# Diagnostics — Additional Checks to Reach 9 Total — Current Batch
+# Diagnostics — Additional Checks to Reach 9 Total — COMPLETE / VERIFIED
 
 Implementation:
 - Adds Posted GL Transaction Integrity: detects transactions with fewer than two lines, zero-sided totals, or debit/credit differences over one cent.
@@ -344,16 +345,31 @@ Implementation:
 - No schema migration; head remains e4f6a8c0d2b5 / 93 model tables.
 - Regression coverage: backend/tests/test_diagnostic_integrity.py.
 - TESTS NOT RUN locally in this connector-only session.
-- Hosted CI verification pending.
+- Hosted CI run 36196379096: SUCCESS.
+- Backend: 336 passed, 3 deselected, 2743 warnings in 55.21s.
+- E2E: 3 passed in 9.62s.
+- Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
+
+# Owner Statements — Current Batch
+
+Plan:
+- Implement Required Reserves from an explicit durable property-level configuration; do not fabricate a value.
+- Compute Prepaid Rent from the existing 2300 Prepayment liability where property-scoped GL entries exist.
+- Freeze both values into generated owner-statement property snapshots so later changes do not rewrite historical statements.
+- Add a Property Cash Summary derived from the frozen per-property statement values.
+- Preserve existing owner-statement permissions, organization isolation, ownership behavior, and frozen-snapshot contract.
+- Inspect property configuration and receipt/prepayment source behavior before implementation.
+- No implementation committed yet for this batch.
 
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Verify Diagnostics — Additional checks to reach 9 total
-2. Owner Statements — Required Reserves
-3. Owner Statements — Prepaid Rent
-4. Owner Statements — Property Cash Summary
-5. Continue remaining Phase 3.6 items in Section 38 order
+1. Owner Statements — Required Reserves
+2. Owner Statements — Prepaid Rent
+3. Owner Statements — Property Cash Summary
+4. Owner Packets — Customizer fields
+5. Settings — Accounting Settings
+6. Continue remaining Phase 3.6 items in Section 38 order
 
 # Working Rules
 

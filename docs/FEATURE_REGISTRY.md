@@ -474,11 +474,11 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
 |---|---|---|---|---|---|---|---|---|
 | Diagnostics report | page | — | core | no | ACCOUNTING.DIAGNOSTICS | yes | ✅ present | Backend permission is authoritative |
-| Seven core financial checks | behavior | — | core | no | ACCOUNTING.DIAGNOSTICS | no | ✅ present | Existing health report plus 60-day reconciliation lapse detection |
+| Nine financial checks | behavior | — | core | no | ACCOUNTING.DIAGNOSTICS | no | ✅ present | Verified in CI run 36196379096; includes 60-day bank reconciliation lapses, posted-GL integrity, and bank-to-GL mapping health |
 | Refund Negative Diagnostic | action | release.accounting.diagnostics.refund_negative | core | yes | ACCOUNTING.DIAGNOSTICS | no | ✅ present | Verified in CI run 36189649244; uses the configured offset account and central GL posting |
 | Bank reconciliation lapse check | behavior | — | core | no | ACCOUNTING.DIAGNOSTICS | no | ✅ present | Verified in CI run 36191470527; flags active accounts over the 60-day window, including never-reconciled aged accounts |
-| Real positive fee check | behavior | — | core | no | ACCOUNTING.DIAGNOSTICS | no | ⬜ hidden implementation present | must_clear-driven implementation present; pending hosted CI verification |
-| Additional checks to 9 | behavior | — | core | no | ACCOUNTING.DIAGNOSTICS | no | ❌ missing | Phase 3.6 |
+| Real positive fee check | behavior | — | core | no | ACCOUNTING.DIAGNOSTICS | no | ✅ present | must_clear-driven check verified in CI run 36192333662 |
+| Additional checks to 9 | behavior | — | core | no | ACCOUNTING.DIAGNOSTICS | no | ✅ present | Posted GL Transaction Integrity + Bank Account GL Mapping Health verified in CI run 36196379096 |
 
 ## Backend endpoints
 

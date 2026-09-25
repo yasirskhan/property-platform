@@ -13,8 +13,8 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 246,
-    "scheduled_count": 382,
+    "built_count": 248,
+    "scheduled_count": 380,
     "in_progress_count": 0
   },
   "items": [
@@ -747,9 +747,9 @@
       "id": "accounting.diagnostics.positive_fees_real",
       "area": "Accounting / Diagnostics",
       "feature": "Real Positive Balance on Fee GLs check (uses must_clear)",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.6",
-      "notes": "must_clear-driven implementation present; pending hosted CI verification"
+      "notes": "Verified in CI run 36192333662: active same-org must_clear INCOME accounts use immutable GL balances; positive natural balances are flagged."
     },
     {
       "id": "accounting.diagnostics.three_way",
@@ -778,8 +778,9 @@
       "id": "accounting.diagnostics.additional",
       "area": "Accounting / Diagnostics",
       "feature": "Additional AppFolio diagnostics (9 total)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Verified in CI run 36196379096: nine total diagnostics include posted GL transaction integrity and active bank-account GL mapping health."
     },
     {
       "id": "accounting.je.manual",

@@ -143,12 +143,12 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Continue Phase 3.6 — Accounting Polish: Management Fees.**
+**Continue Phase 3.6 — Accounting Polish: Owner Statements.**
 
-1. Owner Held Security Deposits is VERIFIED in CI run 36103471013: backend 310 passed, 3 deselected; E2E 3 passed; frontend, platform-admin, security, PostgreSQL backup/restore, staging, parity/registry consistency, and secret scan passed.
-2. Pay Owners, Overcollection Strategy, Management Fees Post GPR, Management Fee Exclusions, Refund Negative Diagnostic, and the 60-day Bank Reconciliation Lapse diagnostic are VERIFIED. Continue with the real must_clear-driven Positive Fee diagnostic, then the additional diagnostics needed to reach nine total.
-3. Preserve organization isolation, the existing owner-as-customer-user model, owner ACH destination rules, and central accounting/posting services.
-4. Verify each coherent batch in hosted CI, fix reds autonomously, update checkpoint/planning state, then continue without waiting.
+1. Diagnostics now has nine real checks and is VERIFIED in CI run 36196379096: backend 336 passed, 3 deselected; E2E 3 passed; frontend, platform-admin, security, PostgreSQL backup/restore, staging, parity/registry consistency, and secret scan passed.
+2. Implement Owner Statements in Section 38 order: Required Reserves, Prepaid Rent, then Property Cash Summary.
+3. Preserve organization isolation, the frozen owner-statement snapshot contract, existing owner/property ownership behavior, and central immutable GL as the accounting source.
+4. Do not fabricate reserve/prepaid values: add or reuse explicit durable source data, freeze computed values into statement snapshots, verify in hosted CI, fix reds autonomously, update checkpoint/planning state, then continue without waiting.
 
 ## B2. AFTER THAT## B2. AFTER THAT (Phase 3.5 onward)
 
