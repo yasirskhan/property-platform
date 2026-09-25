@@ -17,7 +17,7 @@ IMPORTANT:
 - Bank Accounts subsection is COMPLETE through Bank Feed import.
 - Owner ACH Setup, $0 ACH Test File, and Owner Held Security Deposits are COMPLETE/VERIFIED.
 - Management Fees — Pay Owners is COMPLETE/VERIFIED.
-- Current batch: Management Fees — Overcollection strategy setting.
+- Current batch: Management Fees — Overcollection strategy setting is implemented and pending hosted CI verification.
 
 # Latest Verified Green Checkpoint
 
@@ -40,9 +40,9 @@ Hosted CI:
 Current parity source-of-truth:
 - total_items: 628
 - built_count: 241
-- scheduled_count: 387
-- in_progress_count: 0
-- migration_head: d3f5a7c9e1b4
+- scheduled_count: 386
+- in_progress_count: 1
+- migration_head: e4f6a8c0d2b5
 - expected model-table count: 93
 
 # Bank Adjustments
@@ -228,6 +228,20 @@ Verification:
 - Backend: 316 passed, 3 deselected, 2479 warnings in 42.42s.
 - E2E: 3 passed in 12.66s.
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
+
+# Overcollection Strategy — Current Batch
+
+Implementation:
+- Organization.management_fee_overcollection_strategy stores the org policy.
+- Allowed values: CREDITS_THEN_RECEIPTS and RECEIPTS_THEN_CREDITS.
+- CREDITS_THEN_RECEIPTS is the default/recommended setting.
+- GET/PUT /api/accounting/management-fees/overcollection-strategy are protected by ACCOUNTING.MANAGEMENT_FEES plus release.accounting.management_fees.overcollection.
+- Updates append an immutable audit-log record.
+- Customer workflow: /dashboard/accounting/management-fees/overcollection.
+- Migration head e4f6a8c0d2b5; model-table count remains 93.
+- Regression coverage: backend/tests/test_management_fee_overcollection.py.
+- TESTS NOT RUN locally in this connector-only session.
+- Hosted CI verification pending.
 
 # Next Work
 

@@ -137,7 +137,14 @@ export default function ManagementFeesPage() {
             )}
           </Flag>
           <Flag name="release.accounting.management_fees.overcollection">
-            <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Overcollection Strategy</button>
+            {canWrite && (
+              <Link
+                href="/dashboard/accounting/management-fees/overcollection"
+                className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50"
+              >
+                Overcollection Strategy
+              </Link>
+            )}
           </Flag>
           <Flag name="release.accounting.management_fees.exclusions">
             <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Management Fee Exclusions</button>

@@ -102,6 +102,14 @@ class Organization(Base):
         index=True,
     )
 
+    # Phase 3.6 management-fee collection policy.
+    management_fee_overcollection_strategy = Column(
+        String(32),
+        nullable=False,
+        default="CREDITS_THEN_RECEIPTS",
+        server_default="CREDITS_THEN_RECEIPTS",
+    )
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

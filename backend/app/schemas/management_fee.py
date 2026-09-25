@@ -10,7 +10,7 @@
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -47,6 +47,22 @@ class FeeRunIn(BaseModel):
 class FeeReverseIn(BaseModel):
     reversal_date: date
     memo: Optional[str] = None
+
+
+OvercollectionStrategy = Literal[
+    "CREDITS_THEN_RECEIPTS",
+    "RECEIPTS_THEN_CREDITS",
+]
+
+
+class OvercollectionStrategyUpdate(BaseModel):
+    strategy: OvercollectionStrategy
+
+
+class OvercollectionStrategyOut(BaseModel):
+    strategy: OvercollectionStrategy
+    label: str
+    recommended: bool
 
 
 # ============================================================

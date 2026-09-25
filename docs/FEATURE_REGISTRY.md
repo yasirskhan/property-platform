@@ -456,7 +456,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Flat / minimum / end-date overrides | settings | — | — | — | — | — | ✅ present | Existing per-property inputs |
 | Creates Bill as second step | behavior | — | core | no | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Existing accounting spine |
 | Pay Owners | capability | release.accounting.pay_owners | owner_payouts | yes | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Verified in CI run 36181749221. Staff preview owner balances and masked ACH readiness, create durable drafts, then record externally completed payouts through central GL posting; app does not initiate payment |
-| Overcollection strategy | capability | release.accounting.management_fees.overcollection | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ⬜ hidden implementation present | Release-gated compatibility slot; accounting policy workflow remains planned |
+| Overcollection strategy | capability | release.accounting.management_fees.overcollection | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ⬜ hidden implementation present | Org-scoped Credits then Receipts / Receipts then Credits policy is implemented with audited API and customer workflow; hosted CI verification pending |
 | Management Fee Exclusions | capability | release.accounting.management_fees.exclusions | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ⬜ hidden implementation present | Release-gated compatibility slot; central exclusions workflow remains planned |
 | Post GPR | capability | release.accounting.management_fees.post_gpr | gpr_posting | yes | ACCOUNTING.MANAGEMENT_FEES | no | ⬜ hidden implementation present | Release-gated compatibility slot; GPR-related fee workflow remains planned |
 

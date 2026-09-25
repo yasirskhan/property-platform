@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
 from app.routers.auth import get_current_user
-from app.models.user import User
+from app.models.user import Organization, User
 from app.models.management_fee_run import ManagementFeeRun
 from app.schemas.management_fee import (
     FeePreviewIn,
@@ -31,6 +31,8 @@ from app.schemas.management_fee import (
     ManagementFeeRunListOut,
     ManagementFeeRunOut,
     EligibleIncomeLine,
+    OvercollectionStrategyOut,
+    OvercollectionStrategyUpdate,
 )
 from app.services.gl_posting import PostingError
 from app.services.management_fee_posting import (
@@ -38,6 +40,8 @@ from app.services.management_fee_posting import (
     run_management_fee,
     reverse_management_fee_run,
 )
+from app.services.audit import append_audit_log
+from app.services.customer_features import resolve_customer_features
 from app.services.menu_resolver import permission_allows_user
 
 
@@ -47,6 +51,8 @@ router = APIRouter(
 )
 
 WRITE_ROLES = {"ADMIN", "OWNER", "MANAGER"}
+OVERCOLLECTION_FEATURE_KEY = "release.accounting.management_fees.overcollection"
+DEFAULT_OVERCOLLECTION_STRATEGY = "CREDITS_THEN_RECEIPTS"
 
 
 # ------------------------------------------------------------
@@ -87,6 +93,40 @@ def _require_write(current_user: User) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not allowed to run or reverse management fees.",
         )
+
+
+def _require_overcollection_feature(db: Session, current_user: User) -> int:
+    org_id = _require_management_fees_access(db, current_user)
+    decision = next(
+        (
+            item
+            for item in resolve_customer_features(db, user=current_user)
+            if item.key == OVERCOLLECTION_FEATURE_KEY
+        ),
+        None,
+    )
+    if decision is None or not decision.allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Management fee overcollection strategy is not enabled.",
+        )
+    return org_id
+
+
+def _overcollection_out(org: Organization) -> OvercollectionStrategyOut:
+    strategy = (
+        org.management_fee_overcollection_strategy
+        or DEFAULT_OVERCOLLECTION_STRATEGY
+    )
+    return OvercollectionStrategyOut(
+        strategy=strategy,
+        label=(
+            "Credits then Receipts"
+            if strategy == "CREDITS_THEN_RECEIPTS"
+            else "Receipts then Credits"
+        ),
+        recommended=strategy == "CREDITS_THEN_RECEIPTS",
+    )
 
 
 def _run_to_out(run: ManagementFeeRun) -> ManagementFeeRunOut:
@@ -263,6 +303,62 @@ def list_runs(
         items=[_run_to_out(r) for r in rows],
         total=total,
     )
+
+
+# ============================================================
+# GET/PUT /overcollection-strategy
+# ============================================================
+
+@router.get(
+    "/overcollection-strategy",
+    response_model=OvercollectionStrategyOut,
+)
+def get_overcollection_strategy(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_overcollection_feature(db, current_user)
+    org = db.get(Organization, org_id)
+    if org is None:
+        raise HTTPException(status_code=404, detail="Organization not found.")
+    return _overcollection_out(org)
+
+
+@router.put(
+    "/overcollection-strategy",
+    response_model=OvercollectionStrategyOut,
+)
+def update_overcollection_strategy(
+    payload: OvercollectionStrategyUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_write(current_user)
+    org_id = _require_overcollection_feature(db, current_user)
+    org = db.get(Organization, org_id)
+    if org is None:
+        raise HTTPException(status_code=404, detail="Organization not found.")
+
+    old_strategy = (
+        org.management_fee_overcollection_strategy
+        or DEFAULT_OVERCOLLECTION_STRATEGY
+    )
+    org.management_fee_overcollection_strategy = payload.strategy
+    db.flush()
+    append_audit_log(
+        db,
+        user_id=current_user.id,
+        organization_id=org_id,
+        entity_type="organization",
+        entity_id=org_id,
+        action="management_fee_overcollection_strategy_updated",
+        field_name="management_fee_overcollection_strategy",
+        old_value=old_strategy,
+        new_value=payload.strategy,
+    )
+    db.commit()
+    db.refresh(org)
+    return _overcollection_out(org)
 
 
 # ============================================================

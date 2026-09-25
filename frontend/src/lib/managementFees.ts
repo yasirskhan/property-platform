@@ -7,7 +7,7 @@
 // Run: actually posts the fee to the GL.
 // ============================================================
 
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, apiPut } from "@/lib/api";
 
 // ------------------------------------------------------------
 // Shapes
@@ -110,6 +110,16 @@ export type FeeReverseIn = {
   memo?: string | null;
 };
 
+export type OvercollectionStrategy =
+  | "CREDITS_THEN_RECEIPTS"
+  | "RECEIPTS_THEN_CREDITS";
+
+export type OvercollectionStrategyState = {
+  strategy: OvercollectionStrategy;
+  label: string;
+  recommended: boolean;
+};
+
 // ------------------------------------------------------------
 // Helpers
 // ------------------------------------------------------------
@@ -160,4 +170,16 @@ export function reverseManagementFee(
   payload: FeeReverseIn
 ): Promise<ManagementFeeRun> {
   return apiPost(`/api/accounting/management-fees/${id}/reverse`, payload);
+}
+
+export function getOvercollectionStrategy(): Promise<OvercollectionStrategyState> {
+  return apiGet("/api/accounting/management-fees/overcollection-strategy");
+}
+
+export function updateOvercollectionStrategy(
+  strategy: OvercollectionStrategy
+): Promise<OvercollectionStrategyState> {
+  return apiPut("/api/accounting/management-fees/overcollection-strategy", {
+    strategy,
+  });
 }
