@@ -81,7 +81,6 @@ export default function BankAccountsPage() {
         <div className="flex flex-wrap justify-end gap-2">
           
           <Flag name="release.accounting.bank_reconciliation.qif"><button type="button" disabled>QIF Import</button></Flag>
-          <Flag name="release.accounting.check_setup"><button type="button" disabled>Check Setup</button></Flag>
           <Flag name="release.accounting.ach_files"><button type="button" disabled>ACH File Generation</button></Flag>
           <Flag name="release.accounting.ach_test_file"><button type="button" disabled>$0 ACH Test File</button></Flag>
           <Flag name="release.accounting.check_printing"><button type="button" disabled>Check Printing</button></Flag>
@@ -156,6 +155,7 @@ export default function BankAccountsPage() {
                 </td>
                 <td className="px-4 py-2 text-right">
                   <Flag name="release.accounting.bank_reconciliation"><Link href={`/dashboard/accounting/bank-accounts/${b.id}/reconcile`} className="text-blue-600 hover:text-blue-800 text-xs mr-3">Reconcile</Link></Flag>
+                  <Flag name="release.accounting.check_setup"><Link href={`/dashboard/accounting/bank-accounts/${b.id}/check-setup`} className="text-blue-600 hover:text-blue-800 text-xs mr-3">Check Setup</Link></Flag>
                   {canWrite && (
                     <button
                       onClick={() => setSelected(b)}

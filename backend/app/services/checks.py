@@ -4,6 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from sqlalchemy.orm import Session, joinedload
 from app.models.bank_account import BankAccount
+from app.models.bank_check_setup import BankCheckSetup
 from app.models.bill import Bill
 from app.models.check import Check, CheckBillAllocation
 from app.models.gl_transaction import GLTransaction
@@ -32,7 +33,17 @@ def issue_check(db:Session,*,organization_id:int,payload:CheckIssueIn,created_by
         posting.append(PostingLine(gl_account_id=bill.payable_gl_account_id,property_id=bill.property_id,unit_id=bill.unit_id,owner_id=bill.owner_id,description=f"Check payment: {bill.payee_name}",debit=amount,credit=Decimal("0")))
     posting.append(PostingLine(gl_account_id=bank.gl_account_id,description=f"Check payment: {bills[0].payee_name}",debit=Decimal("0"),credit=total))
     try:
-        row=Check(organization_id=organization_id,bank_account_id=bank.id,check_number=payload.check_number or None,check_date=payload.check_date,payee_name=bills[0].payee_name,memo=payload.memo,amount=total,status="ISSUED",created_by_id=created_by.id)
+        requested_number=(payload.check_number or "").strip() or None
+        setup=None
+        if requested_number is None:
+            setup=(db.query(BankCheckSetup).filter(
+                BankCheckSetup.organization_id==organization_id,
+                BankCheckSetup.bank_account_id==bank.id,
+            ).with_for_update().first())
+            if setup is not None:
+                requested_number=f"{setup.check_number_prefix or ''}{setup.next_check_number}"
+                setup.next_check_number+=1
+        row=Check(organization_id=organization_id,bank_account_id=bank.id,check_number=requested_number,check_date=payload.check_date,payee_name=bills[0].payee_name,memo=payload.memo,amount=total,status="ISSUED",created_by_id=created_by.id)
         db.add(row); db.flush()
         if not row.check_number: row.check_number=f"CHK-{row.id:06d}"
         for alloc in payload.allocations: db.add(CheckBillAllocation(check_id=row.id,bill_id=alloc.bill_id,amount=_money(alloc.amount)))
