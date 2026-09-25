@@ -9,12 +9,12 @@
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
     "last_updated": "2026-09-25",
-    "migration_head": "f2a4c6e8b0d5",
+    "migration_head": "a4b6c8d0e2f1",
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 236,
-    "scheduled_count": 392,
+    "built_count": 237,
+    "scheduled_count": 391,
     "in_progress_count": 0
   },
   "items": [
@@ -511,8 +511,9 @@
       "id": "accounting.banks.bank_feed",
       "area": "Accounting / Bank Accounts",
       "feature": "Bank feed import",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Verified in CI run 36099568648: provider-neutral durable CSV import with stable duplicate protection, organization/bank-scoped exact matching and rematch, customer import workflow, and no GL mutation. Live provider/Plaid connectivity remains Phase 8."
     },
     {
       "id": "accounting.banks.activity_rpt",
