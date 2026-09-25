@@ -265,10 +265,10 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Pay Bill | capability | — | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Partial payment allowed |
 | Reverse unpaid bill | action | — | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Existing reversal rule |
 | Reverse after partial payment | behavior | — | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Reverses unreversed bill-payment GL transactions and the original accrual atomically |
-| Recurring Bills | capability | release.accounting.bills.recurring | recurring_bills | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
+| Recurring Bills | capability | release.accounting.bills.recurring | recurring_bills | yes | ACCOUNTING.PAYABLES | no | ✅ present | Monthly Bill/Credit schedules with Post Code, date window, due day, line allocations, and durable due posting |
 | Write Checks | capability | release.accounting.write_checks | check_writing | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
-| Enter Credit | capability | release.accounting.vendor_credits | vendor_credits | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
-| Manually Post Bills | capability | release.accounting.bills.manual_post | core | no | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
+| Enter Credit | capability | release.accounting.vendor_credits | vendor_credits | yes | ACCOUNTING.PAYABLES | no | ✅ present | Positive-value vendor credits post DR Accounts Payable / CR selected expense accounts |
+| Manually Post Bills | capability | release.accounting.bills.manual_post | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Select recurring schedules and post due occurrences through a chosen date |
 | Owner Draw | capability | release.accounting.owner_draw | core | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
 | Tenant Payable | capability | release.accounting.tenant_payable | core | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
 | Convert Work Order to Bill | capability | release.maintenance.work_order_to_bill | maintenance | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
@@ -283,7 +283,10 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | POST `/api/accounting/bills/{id}/reverse` | permission + org scope + reversal rules | built |
 | POST `/api/accounting/bills` | permission + posting rules | built |
 | DELETE `/api/accounting/bills/{id}` | permission + org scope + unpaid-only accounting-safe reversal | built |
-| Recurring / credits / check-writing / manual-post services | corresponding release + entitlement/config where applicable + permission | planned |
+| GET/POST `/api/accounting/bills/recurring/schedules` | recurring release + entitlement/config + ACCOUNTING.PAYABLES | built |
+| POST `/api/accounting/bills/recurring/post` | manual-post release + entitlement/config + ACCOUNTING.PAYABLES | built |
+| GET `/api/accounting/bills/credits/list` + POST `/api/accounting/bills/credits` | vendor-credit release + entitlement/config + ACCOUNTING.PAYABLES | built |
+| Check-writing services | write-checks release + entitlement/config + ACCOUNTING.PAYABLES | planned |
 
 ---
 

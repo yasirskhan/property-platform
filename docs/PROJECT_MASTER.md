@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.6 — Accounting Polish: Bills** is IN PROGRESS. Chart of Accounts, Journal Entries, and Receipts polish are verified; Charges are already built, so the next unfinished ordered subsection is Bills.
+**Current activity:** Phase **3.6 — Accounting Polish: Bills** is IN PROGRESS. Chart of Accounts, Journal Entries, Receipts, the Bills lifecycle, Recurring Bills/Credits, Post Codes, Manually Post Bills, and Vendor Credits are verified. The next unfinished ordered Bills subsection is Write Checks / Checks.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -33,9 +33,9 @@
 
 **3.4.S closeout:** COMPLETE. Portable private-repo security checks (Bandit, pip-audit, npm audit, committed-secret scan, Dependabot) replaced the unavailable mandatory CodeQL upload gate and passed in hosted CI run 35917804417. CodeQL remains optional/manual if GitHub Code Security is enabled later.
 
-**Migration head:** `9c2e4f6a8b10`.
+**Migration head:** `ad3e5f7b9c21`.
 
-**Current parity inventory:** 222 built, 0 in progress, 406 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 226 built, 0 in progress, 402 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -143,10 +143,10 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Continue Phase 3.6 — Accounting Polish: Bills.**
+**Continue Phase 3.6 — Accounting Polish: Write Checks / Checks.**
 
-1. The Bills lifecycle batch is VERIFIED: reverse after partial payment, unpaid-only accounting-safe delete, and bill-level default Cash Account are green in CI run 36080191707. Continue with recurring bills (Bill/Credit toggle + Post Codes), Manually Post Bills, Enter Credit, and Write Checks. Vendor linking remains Phase 4-dependent.
-2. Preserve verified two-step accrual, partial payment, reversal, organization isolation, locked-period behavior, and central post_transaction() accounting contracts.
+1. Recurring Bills/Credits, Post Codes, Manually Post Bills, and positive-value Vendor Credits are VERIFIED in CI run 36083621549. Backend: 280 passed, 3 deselected. E2E: 3 passed. Continue with Write Checks (Find Bills -> Confirm & Finalize -> Print), then Checks list, Void Check, and Check Memo.
+2. Preserve verified two-step accrual, partial payment, reversal, organization isolation, locked-period behavior, recurring posting idempotency, and central post_transaction() accounting contracts.
 3. Keep release control, entitlement, org configuration, role permission, and user preference independent where applicable; backend authorization remains authoritative.
 4. Verify in hosted CI, fix reds autonomously, update checkpoint/planning state, then continue to the next Phase 3.6 subsection without stopping.
 

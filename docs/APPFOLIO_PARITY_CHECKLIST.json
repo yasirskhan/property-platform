@@ -9,12 +9,12 @@
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
     "last_updated": "2026-09-24",
-    "migration_head": "9c2e4f6a8b10",
+    "migration_head": "ad3e5f7b9c21",
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 222,
-    "scheduled_count": 406,
+    "built_count": 226,
+    "scheduled_count": 402,
     "in_progress_count": 0
   },
   "items": [
@@ -331,8 +331,9 @@
       "id": "accounting.bills.recurring",
       "area": "Accounting / Bills",
       "feature": "Recurring Bills",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Monthly Bill/Credit schedules with date window, Bill Day/Due Day, Post Code, line allocations, durable scheduled posting, and customer UI."
     },
     {
       "id": "accounting.bills.write_checks",
@@ -345,8 +346,9 @@
       "id": "accounting.bills.enter_credit",
       "area": "Accounting / Bills",
       "feature": "Enter Credit (vendor credits)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Positive-value vendor-credit workflow posts DR Accounts Payable / CR selected expense accounts; customer entry UI is independently gated."
     },
     {
       "id": "accounting.bills.convert_wo",
@@ -2109,15 +2111,17 @@
       "id": "accounting.bills.post_codes",
       "area": "Accounting / Bills",
       "feature": "Post Codes for recurring bills",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Recurring Bill/Credit schedules persist and display Post Codes."
     },
     {
       "id": "accounting.bills.manually_post",
       "area": "Accounting / Bills",
       "feature": "Manually Post Bills (search + select + Post)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Customer can select recurring schedules and post due occurrences through a chosen as-of date; backend enforces release/config/permission layers."
     },
     {
       "id": "accounting.bills.delete_rules",
