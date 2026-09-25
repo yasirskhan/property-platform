@@ -84,7 +84,6 @@ export default function BankAccountsPage() {
           <Flag name="release.accounting.ach_test_file"><button type="button" disabled>$0 ACH Test File</button></Flag>
           <Flag name="release.accounting.check_printing"><button type="button" disabled>Check Printing</button></Flag>
           <Flag name="release.accounting.bank_feed"><button type="button" disabled>Bank Feed</button></Flag>
-          <Flag name="release.accounting.bank_adjustments"><button type="button" disabled>Adjustments</button></Flag>
         </div>
       </div>
 
@@ -110,7 +109,7 @@ export default function BankAccountsPage() {
               <th className="text-left px-4 py-2 font-medium text-slate-700 w-28">
                 ACH
               </th>
-              <th className="w-16"></th>
+              <th className="w-64"></th>
             </tr>
           </thead>
           <tbody>
@@ -156,6 +155,7 @@ export default function BankAccountsPage() {
                   <Flag name="release.accounting.bank_reconciliation"><Link href={`/dashboard/accounting/bank-accounts/${b.id}/reconcile`} className="text-blue-600 hover:text-blue-800 text-xs mr-3">Reconcile</Link></Flag>
                   <Flag name="release.accounting.check_setup"><Link href={`/dashboard/accounting/bank-accounts/${b.id}/check-setup`} className="text-blue-600 hover:text-blue-800 text-xs mr-3">Check Setup</Link></Flag>
                   <Flag name="release.accounting.ach_files"><Link href={`/dashboard/accounting/bank-accounts/${b.id}/ach`} className="text-blue-600 hover:text-blue-800 text-xs mr-3">ACH File</Link></Flag>
+                  <Flag name="release.accounting.bank_adjustments"><Link href={`/dashboard/accounting/bank-accounts/${b.id}/adjustments`} className="text-blue-600 hover:text-blue-800 text-xs mr-3">Adjustments</Link></Flag>
                   {canWrite && (
                     <button
                       onClick={() => setSelected(b)}
