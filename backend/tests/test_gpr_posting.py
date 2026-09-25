@@ -15,6 +15,7 @@ from app.models.gl_entry import GLEntry
 from app.models.gl_transaction import GLTransaction
 from app.models.lease import Lease, LeaseStatus
 from app.models.property import Property, Unit
+from app.models.release_gate import ReleaseGate, ReleaseGateOrganization
 from app.models.user import Organization, User, UserRole
 from app.services.gl_posting import PostingError
 import app.services.gpr_posting as gpr
@@ -28,6 +29,8 @@ TEST_TABLES = [
     Lease.__table__,
     GLAccount.__table__,
     GLAccountPostingRestriction.__table__,
+    ReleaseGate.__table__,
+    ReleaseGateOrganization.__table__,
     GLTransaction.__table__,
     GLEntry.__table__,
     AuditLog.__table__,
