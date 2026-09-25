@@ -91,6 +91,7 @@ from app.models.owner_statement import OwnerStatement  # noqa: F401
 from app.models.bank_account import BankAccount  # noqa: F401
 from app.models.bank_reconciliation import BankReconciliation, BankReconciliationItem, BankStatementLine  # noqa: F401
 from app.models.bank_check_setup import BankCheckSetup  # noqa: F401
+from app.models.bank_feed import BankFeedTransaction  # noqa: F401
 
 # ---- Property Detail tabs (Phase 3) ----
 from app.models.property_amenity import PropertyAmenity  # noqa: F401
