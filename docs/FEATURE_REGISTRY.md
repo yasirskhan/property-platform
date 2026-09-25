@@ -506,7 +506,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Bank Reconciliation | capability | release.accounting.bank_reconciliation | bank_reconciliation | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Verified in CI run 36087388737: durable snapshot, clearable activity, balance calculator, and zero-difference finish guard |
 | QIF Import | capability | release.accounting.bank_reconciliation.qif | bank_reconciliation | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Verified in CI run 36087388737: statement-line import with exact date+amount unique auto-match |
 | Check Setup | capability | release.accounting.check_setup | check_writing | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Verified in CI run 36091014657: per-bank auto numbering, prefix, stock position, memo/signature preferences |
-| ACH File Generation | capability | release.accounting.ach_files | ach_payments | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | NACHA / CSV generation |
+| ACH File Generation | capability | release.accounting.ach_files | ach_payments | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Verified CSV/NACHA generation; no accounting-state mutation |
 | $0 ACH Test File | capability | release.accounting.ach_test_file | ach_payments | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | Setup verification |
 | Check Printing | capability | release.accounting.check_printing | check_writing | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Printable check view backed by org-scoped check detail |
 | Bank Feed | capability | release.accounting.bank_feed | bank_feeds | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | Future Plaid/generic feed integration |

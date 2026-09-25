@@ -34,20 +34,23 @@ Verified foundation:
 - E2E: 3 passed in 11.75s.
 - Frontend, platform-admin, security, and staging: SUCCESS.
 - Current migration head: f2a4c6e8b0d5; expected model-table count: 89.
-- Parity inventory: 237 built, 0 in progress, 391 scheduled, 628 total.
+- Parity inventory: 238 built, 0 in progress, 390 scheduled, 628 total.
 
 Current phase:
 - Phase 3.6 — Accounting Polish.
 - Active subsection: Bank Accounts.
-- Active subsection: ACH File Generation implementation committed for hosted verification.
-- Remaining Bank Accounts order after this batch: Bank Adjustments, Bank Feed import.
+- ACH File Generation is COMPLETE/VERIFIED in CI run 36091648909.
+- Backend: 290 passed, 3 deselected, 2039 warnings in 51.71s.
+- E2E: 3 passed in 11.18s; frontend, platform-admin, security, and staging all succeeded.
+- Active subsection: Bank Adjustments.
+- Remaining Bank Accounts order after Bank Adjustments: Bank Feed import.
 - Preserve verified bank account CRUD, reconciliation/QIF, Check Setup, and all accounting isolation/immutability contracts.
 
 Next exact action:
-1. Verify the ACH File Generation batch in hosted CI and fix reds autonomously.
-2. The batch generates transient CSV or NACHA credit files from manually supplied recipient rows, validates source and recipient ABA routing data, requires NACHA company identity, and does not create payments or GL entries.
-3. After green, update planning/parity/catalog/checkpoint state.
-4. Continue directly to Bank Adjustments and Bank Feed without waiting for user approval.
+1. Implement Bank Adjustments as one coherent batch under release.accounting.bank_adjustments and ACCOUNTING.BANK_ACCOUNTS.
+2. Use the central GL posting service for any financial posting, preserve immutable/reversal accounting contracts, and keep organization scope authoritative.
+3. Add the customer-visible adjustment sub-tab/workflow and regression coverage.
+4. Verify in hosted CI, fix reds autonomously, update planning/parity/catalog/checkpoint state, then continue directly to Bank Feed import.
 
 Open blockers:
 - NONE

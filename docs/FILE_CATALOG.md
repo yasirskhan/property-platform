@@ -2741,3 +2741,24 @@ Re-run `python generate_file_catalog.py` after adding or renaming files.
 
 #### `backend/app/services/checks.py`
 - Write Checks reserves and advances configured automatic numbers when no explicit check number is supplied.
+
+
+## Phase 3.6 ACH File Generation checkpoint additions
+
+#### `backend/app/schemas/ach_file.py`
+- ACH recipient/generation request and response schemas.
+
+#### `backend/app/services/ach_file.py`
+- Stateless CSV/NACHA credit-file generation with ABA validation and no accounting-state mutation.
+
+#### `backend/app/routers/ach_files.py`
+- Independently gated org-scoped ACH generation route under `/api/accounting/bank-accounts/{bank_id}/ach-file`.
+
+#### `backend/tests/test_ach_file.py`
+- Coverage for CSV/NACHA generation, routing validation, and non-mutating behavior.
+
+#### `frontend/src/app/dashboard/accounting/bank-accounts/[id]/ach/page.tsx`
+- Customer ACH file generation workflow.
+
+#### `frontend/src/lib/achFiles.ts`
+- Typed ACH generation API client.

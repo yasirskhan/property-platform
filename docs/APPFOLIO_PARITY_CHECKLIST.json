@@ -495,8 +495,9 @@
       "id": "accounting.banks.ach_file_gen",
       "area": "Accounting / Bank Accounts",
       "feature": "ACH file generation (NACHA / CSV)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Verified in CI run 36091648909: org-scoped transient CSV/NACHA credit-file generation with ABA validation and no GL/payment mutation."
     },
     {
       "id": "accounting.banks.check_printing",
