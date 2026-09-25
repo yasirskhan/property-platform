@@ -41,6 +41,7 @@ export default function NewBillPage() {
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [accounts, setAccounts] = useState<GLAccount[]>([]);
+  const [cashAccounts, setCashAccounts] = useState<GLAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +53,7 @@ export default function NewBillPage() {
   const [dueDate, setDueDate] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [cashAccountId, setCashAccountId] = useState<number | "">("");
 
   function newRow(key: string): LineRow {
     return {
@@ -88,6 +90,11 @@ export default function NewBillPage() {
           .filter((g) => (g.account_type || "").toUpperCase() === "EXPENSE")
           .flatMap((g) => g.accounts);
         setAccounts(expenseAccounts);
+        const cash = groups
+          .filter((g) => (g.account_type || "").toUpperCase() === "ASSET")
+          .flatMap((g) => g.accounts)
+          .filter((a) => a.gl_number.startsWith("11"));
+        setCashAccounts(cash);
       } catch (e: unknown) {
         if (!cancelled) {
           setError(
@@ -145,6 +152,7 @@ export default function NewBillPage() {
         due_date: dueDate || null,
         reference_number: referenceNumber || null,
         remarks: remarks || null,
+        cash_gl_account_id: cashAccountId || null,
         lines: validLines.map((r) => ({
           gl_account_id: r.gl_account_id,
           property_id: r.property_id || null,
@@ -229,6 +237,28 @@ export default function NewBillPage() {
               className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm"
             />
           </div>
+        </div>
+        <div>
+          <label className="block text-xs text-slate-600 mb-1">
+            Default cash account
+          </label>
+          <select
+            value={cashAccountId}
+            onChange={(e) =>
+              setCashAccountId(e.target.value ? Number(e.target.value) : "")
+            }
+            className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm bg-white"
+          >
+            <option value="">Choose when paying</option>
+            {cashAccounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.gl_number} {a.name}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-slate-500 mt-1">
+            This is the default payment account; entering the bill remains accrual-only.
+          </p>
         </div>
         <div>
           <label className="block text-xs text-slate-600 mb-1">Remarks</label>

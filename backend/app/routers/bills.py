@@ -98,6 +98,13 @@ def _bill_to_out(b: Bill) -> BillOut:
         payable_gl_account_name=(
             b.payable_gl_account.name if b.payable_gl_account else None
         ),
+        cash_gl_account_id=b.cash_gl_account_id,
+        cash_gl_account_number=(
+            b.cash_gl_account.gl_number if b.cash_gl_account else None
+        ),
+        cash_gl_account_name=(
+            b.cash_gl_account.name if b.cash_gl_account else None
+        ),
         remarks=b.remarks,
         notes=b.notes,
         source_type=b.source_type,
@@ -155,7 +162,10 @@ def list_bills(
 
     q = (
         db.query(Bill)
-        .options(joinedload(Bill.payable_gl_account))
+        .options(
+            joinedload(Bill.payable_gl_account),
+            joinedload(Bill.cash_gl_account),
+        )
         .filter(Bill.organization_id == org_id)
         .filter(Bill.is_active.is_(True))
     )
@@ -202,6 +212,7 @@ def get_bill(
         db.query(Bill)
         .options(
             joinedload(Bill.payable_gl_account),
+            joinedload(Bill.cash_gl_account),
             joinedload(Bill.lines).joinedload(BillLine.gl_account),
         )
         .filter(
@@ -252,6 +263,7 @@ def create_bill(
         db.query(Bill)
         .options(
             joinedload(Bill.payable_gl_account),
+            joinedload(Bill.cash_gl_account),
             joinedload(Bill.lines).joinedload(BillLine.gl_account),
         )
         .filter(Bill.id == bill.id)
@@ -310,6 +322,7 @@ def pay_bill_endpoint(
         db.query(Bill)
         .options(
             joinedload(Bill.payable_gl_account),
+            joinedload(Bill.cash_gl_account),
             joinedload(Bill.lines).joinedload(BillLine.gl_account),
         )
         .filter(Bill.id == bill.id)
@@ -368,6 +381,7 @@ def reverse_bill_endpoint(
         db.query(Bill)
         .options(
             joinedload(Bill.payable_gl_account),
+            joinedload(Bill.cash_gl_account),
             joinedload(Bill.lines).joinedload(BillLine.gl_account),
         )
         .filter(Bill.id == mirror.id)
@@ -375,3 +389,41 @@ def reverse_bill_endpoint(
     )
 
     return _detail_out(b)
+
+# ============================================================
+# DELETE /api/accounting/bills/{id} -- unpaid only
+# ============================================================
+
+@router.delete("/{bill_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_bill_endpoint(
+    bill_id: int,
+    reversal_date: Optional[date] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_bills_access(db, current_user)
+    original = (
+        db.query(Bill)
+        .filter(
+            Bill.id == bill_id,
+            Bill.organization_id == org_id,
+            Bill.is_active.is_(True),
+        )
+        .first()
+    )
+    if original is None:
+        raise HTTPException(status_code=404, detail="Bill not found.")
+
+    try:
+        reverse_bill(
+            db=db,
+            original=original,
+            reversal_date=reversal_date or date.today(),
+            memo=f"Deleted unpaid bill #{original.id}",
+            created_by=current_user,
+            deactivate=True,
+        )
+    except PostingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return None

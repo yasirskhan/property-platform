@@ -21,6 +21,7 @@ import {
   getBill,
   payBill,
   reverseBill,
+  deleteBill,
   BILL_STATUS_LABELS,
   BILL_STATUS_COLORS,
   type Bill,
@@ -61,6 +62,8 @@ export default function BillsPage() {
   >([]);
   const [paySaving, setPaySaving] = useState(false);
   const [confirmReverseOpen, setConfirmReverseOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     apiGet("/auth/me").then((u) => setMe(u as Me)).catch(() => setMe(null));
@@ -95,6 +98,7 @@ export default function BillsPage() {
     try {
       const detail = await getBill(billId);
       setOpenBill(detail);
+      setPayCash(detail.cash_gl_account_id ?? "");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Could not load bill.");
     } finally {
@@ -160,6 +164,22 @@ export default function BillsPage() {
       await load();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Could not reverse bill.");
+    }
+  }
+
+  async function submitDelete() {
+    if (!openBill) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteBill(openBill.id, new Date().toISOString().slice(0, 10));
+      setConfirmDeleteOpen(false);
+      setOpenBill(null);
+      await load();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not delete bill.");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -537,7 +557,10 @@ export default function BillsPage() {
                       openBill.status !== "VOID" && (
                         <button
                           onClick={() => {
-                            if (!payOpen) loadCashAccounts();
+                            if (!payOpen) {
+                              loadCashAccounts();
+                              setPayCash(openBill.cash_gl_account_id ?? "");
+                            }
                             setPayAmount(
                               (
                                 parseFloat(openBill.amount) -
@@ -559,6 +582,16 @@ export default function BillsPage() {
                         Reverse
                       </button>
                     )}
+                    {!openBill.is_reversed &&
+                      openBill.status === "UNPAID" &&
+                      parseFloat(openBill.amount_paid) === 0 && (
+                        <button
+                          onClick={() => setConfirmDeleteOpen(true)}
+                          className="px-3 py-1.5 rounded-md border border-red-300 text-red-700 text-sm font-medium hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      )}
                   </div>
                   <Link
                     href="/dashboard/accounting/bills"
@@ -572,6 +605,16 @@ export default function BillsPage() {
           </div>
         </div>
       )}
+      <ConfirmModal
+        open={confirmDeleteOpen}
+        title="Delete unpaid bill?"
+        description={openBill ? `Bill ${openBill.bill_number || openBill.id} will be hidden and its accrual will be reversed. The accounting audit trail remains.` : ""}
+        confirmLabel="Delete bill"
+        busy={deleting}
+        danger
+        onCancel={() => setConfirmDeleteOpen(false)}
+        onConfirm={submitDelete}
+      />
       <ConfirmModal
         open={confirmReverseOpen}
         title="Reverse bill?"

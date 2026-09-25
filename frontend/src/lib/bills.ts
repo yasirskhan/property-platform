@@ -10,7 +10,7 @@
 // All calls go through lib/api.ts for auth + error handling.
 // ============================================================
 
-import { apiGet, apiPost } from "@/lib/api";
+import { apiDelete, apiGet, apiPost } from "@/lib/api";
 
 // ------------------------------------------------------------
 // Shapes (mirror backend schemas)
@@ -50,6 +50,10 @@ export type Bill = {
   payable_gl_account_id: number;
   payable_gl_account_number: string | null;
   payable_gl_account_name: string | null;
+
+  cash_gl_account_id: number | null;
+  cash_gl_account_number: string | null;
+  cash_gl_account_name: string | null;
 
   remarks: string | null;
   notes: string | null;
@@ -98,6 +102,7 @@ export type BillCreateIn = {
   bill_number?: string | null;
 
   payable_gl_account_id?: number | null;
+  cash_gl_account_id?: number | null;
 
   property_id?: number | null;
   unit_id?: number | null;
@@ -113,7 +118,7 @@ export type BillCreateIn = {
 
 export type BillPayIn = {
   payment_date: string;
-  cash_gl_account_id: number;
+  cash_gl_account_id?: number | null;
   amount: number | string;
   reference_number?: string | null;
   remarks?: string | null;
@@ -178,6 +183,12 @@ export function reverseBill(
   payload: BillReverseIn
 ): Promise<BillDetail> {
   return apiPost(`/api/accounting/bills/${id}/reverse`, payload);
+}
+
+export function deleteBill(id: number, reversalDate: string): Promise<null> {
+  return apiDelete(
+    `/api/accounting/bills/${id}?reversal_date=${encodeURIComponent(reversalDate)}`
+  );
 }
 
 // ------------------------------------------------------------

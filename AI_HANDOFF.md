@@ -47,20 +47,18 @@ Current phase:
 - Active subsection: Bills.
 - Charges subsection is already built in current source/parity: standalone entry/list plus paid-floor/no-paid-delete backend edit rules.
 
-Next exact ordered batch:
-1. Read this file completely and inspect current Bills model/router/service/frontend/tests before changing anything.
-2. Implement the coherent Phase 3.6 Bills polish batch from PROJECT_MASTER Section 38:
-   - reverse after partial payment
-   - recurring bills + Bill/Credit toggle + Post Codes
-   - Write Checks flow
-   - Enter Credit
-   - delete bill only if unpaid
-   - Manually Post Bills
-   - Cash Account field on bill
-   - vendor link remains dependent on Phase 4 where applicable
-3. Preserve verified two-step accrual, partial payment, reversal, org isolation, locked-period, and central post_transaction() contracts.
-4. Use independent capability gating where the feature is independently releasable; backend authorization remains authoritative.
-5. Verify in hosted CI, fix reds autonomously, update planning/checkpoint files, then continue without waiting.
+Current Bills lifecycle batch:
+- Partial-payment reversal stages reversal of all unreversed bill-payment GL transactions plus the original accrual and commits the full unwind atomically.
+- Fully paid bills remain protected from reversal.
+- DELETE is accounting-safe and unpaid-only: it reverses the accrual, preserves the immutable GL trail, and soft-hides the bill/reversal records.
+- Bills carry an optional default cash account; entering the bill remains accrual-only and later payments may use or override that default.
+- Customer New Bill exposes the default cash account and the bill detail payment flow preselects it.
+- Migration 9c2e4f6a8b10 adds bills.cash_gl_account_id; expected model-table count remains 79.
+- Regression coverage is added in backend/tests/test_bill_polish.py.
+
+Next exact action:
+1. Verify this Bills lifecycle batch in hosted CI and fix reds autonomously.
+2. On green, checkpoint its evidence and continue the Bills subsection with recurring bills/Post Codes, Enter Credit, Write Checks, and Manually Post Bills.
 
 Open blockers:
 - NONE
