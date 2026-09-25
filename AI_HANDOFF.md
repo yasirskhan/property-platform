@@ -220,7 +220,8 @@ Verification:
 - regression coverage: backend/tests/test_owner_payouts.py
 - PostgreSQL/prepare-database guards advanced to d3f5a7c9e1b4 / 93 model tables
 - TESTS NOT RUN locally in this connector-only session.
-- Hosted CI run 36108140538 stopped at parity/registry consistency before backend tests because FEATURE_REGISTRY used a non-canonical 🟨 status marker for Pay Owners. Corrected to the canonical ⬜ marker; verification rerun is pending.
+- Hosted CI run 36108140538 stopped at parity/registry consistency before backend tests because FEATURE_REGISTRY used a non-canonical 🟨 status marker for Pay Owners. Corrected to the canonical ⬜ marker in df09d8a53e9ac1ec0699b28a30d0dad90c6f2ecb.
+- Hosted CI run 36181435831 reached the backend suite: 313 passed, 3 deselected, 3 failed. Two failures were stale test_migrations.py schema-head/table-count guards; the third was a missing-ACH regression fixture whose owner had no positive balance, so validation correctly failed earlier. Test-only guard/fixture corrections are being committed for verification.
 
 # Next after Pay Owners verification
 

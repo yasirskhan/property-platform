@@ -329,6 +329,43 @@ def test_owner_payout_draft_rejects_overpayment_without_partial_state(db: Sessio
 def test_owner_payout_draft_rejects_missing_ach_before_saving(db: Session) -> None:
     org, admin, _manager, owner, owner_without_ach, bank = seed(db)
 
+    income = (
+        db.query(GLAccount)
+        .filter(
+            GLAccount.organization_id == org.id,
+            GLAccount.gl_number == "4100",
+        )
+        .one()
+    )
+    post_transaction(
+        db=db,
+        organization_id=org.id,
+        transaction_date=date(2026, 9, 25),
+        transaction_type="JOURNAL_ENTRY",
+        memo="Seed missing-ACH owner balance",
+        created_by=admin,
+        lines=[
+            PostingLine(
+                gl_account_id=bank.gl_account_id,
+                property_id=None,
+                unit_id=None,
+                owner_id=None,
+                description="Cash",
+                debit=Decimal("1.00"),
+                credit=Decimal("0.00"),
+            ),
+            PostingLine(
+                gl_account_id=income.id,
+                property_id=None,
+                unit_id=None,
+                owner_id=owner_without_ach.id,
+                description="Owner income",
+                debit=Decimal("0.00"),
+                credit=Decimal("1.00"),
+            ),
+        ],
+    )
+
     payload = OwnerPayoutDraftIn(
         bank_account_id=bank.id,
         effective_date=date(2026, 9, 26),
