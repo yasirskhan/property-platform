@@ -22,7 +22,8 @@ IMPORTANT:
 - Management Fee Exclusions is COMPLETE/VERIFIED.
 - Diagnostics — Auto-fix Refund Negative Diagnostic is COMPLETE/VERIFIED.
 - Diagnostics — Bank Reconciliation Lapses 60-day check is COMPLETE/VERIFIED.
-- Current batch: Diagnostics — Real Positive Fee check (must_clear) is implemented and pending hosted CI verification.
+- Diagnostics — Real Positive Fee check (must_clear) is COMPLETE/VERIFIED.
+- Current batch: Diagnostics — Additional checks to reach 9 total is implemented and pending hosted CI verification.
 
 # Latest Verified Green Checkpoint
 
@@ -320,7 +321,7 @@ Implementation:
 - E2E: 3 passed in 8.79s.
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 
-# Diagnostics — Real Positive Fee Check — Current Batch
+# Diagnostics — Real Positive Fee Check — COMPLETE / VERIFIED
 
 Implementation:
 - Replaces the placeholder positive-fee diagnostic with real must_clear-driven balance logic.
@@ -331,14 +332,28 @@ Implementation:
 - The must_clear model/API/Chart-of-Accounts UI already exists, so no schema migration is required.
 - Migration head remains e4f6a8c0d2b5 / 93 model tables.
 - TESTS NOT RUN locally in this connector-only session.
+- Hosted CI run 36192333662: SUCCESS.
+- Backend and all required CI gates passed after the inactive-account fixture correction in a769588935994ea0d588d71779d13d6bb7479792.
+
+# Diagnostics — Additional Checks to Reach 9 Total — Current Batch
+
+Implementation:
+- Adds Posted GL Transaction Integrity: detects transactions with fewer than two lines, zero-sided totals, or debit/credit differences over one cent.
+- Adds Bank Account GL Mapping Health: every active bank account must map to an active same-organization ASSET GL account.
+- Both checks are read-only, organization-scoped, and reuse existing ledger/bank data.
+- No schema migration; head remains e4f6a8c0d2b5 / 93 model tables.
+- Regression coverage: backend/tests/test_diagnostic_integrity.py.
+- TESTS NOT RUN locally in this connector-only session.
 - Hosted CI verification pending.
 
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Diagnostics — Real Positive Fee check (must_clear flag)
-2. Additional checks to reach 9 total
-3. Continue remaining Phase 3.6 items in Section 38 order
+1. Verify Diagnostics — Additional checks to reach 9 total
+2. Owner Statements — Required Reserves
+3. Owner Statements — Prepaid Rent
+4. Owner Statements — Property Cash Summary
+5. Continue remaining Phase 3.6 items in Section 38 order
 
 # Working Rules
 

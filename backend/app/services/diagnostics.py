@@ -3,13 +3,16 @@
 # ------------------------------------------------------------
 # Financial health checks over the General Ledger.
 #
-# Six checks (Section 35 of PROJECT_MASTER):
+# Nine checks (Section 35 + Phase 3.6 additions in PROJECT_MASTER):
 #   1. Security Deposit Funds Mismatch
 #   2. Escrow Cash Account Balance Mismatch
 #   3. Non-Zero Security Clearing Account Balances
 #   4. Negative Balance on Fee GL Accounts
 #   5. Positive Balance on Fee GL Accounts
-#   6. Trust Account 3-Way Reconciliation
+#   6. Bank Reconciliation Lapses
+#   7. Unbalanced Posted GL Transactions
+#   8. Bank Account GL Mapping Health
+#   9. Trust Account 3-Way Reconciliation
 #
 # Each check is a function that returns:
 #   {
@@ -666,7 +669,158 @@ def check_bank_reconciliation_lapses(
 
 
 # ============================================================
-# CHECK 7 — Trust Account 3-Way Reconciliation
+# CHECK 7 — Unbalanced Posted GL Transactions
+# ------------------------------------------------------------
+# Central posting rejects unbalanced transactions, but this
+# integrity check detects legacy/import/manual database corruption.
+# It is read-only and scoped to the current organization.
+# ============================================================
+
+def check_unbalanced_gl_transactions(
+    db: Session, organization_id: int
+) -> Dict:
+    rows = (
+        db.query(
+            GLTransaction.id,
+            GLTransaction.transaction_date,
+            GLTransaction.transaction_type,
+            GLTransaction.reference_number,
+            func.count(GLEntry.id).label("entry_count"),
+            func.coalesce(func.sum(GLEntry.debit), 0).label("debit_total"),
+            func.coalesce(func.sum(GLEntry.credit), 0).label("credit_total"),
+        )
+        .outerjoin(
+            GLEntry,
+            (GLEntry.transaction_id == GLTransaction.id)
+            & (GLEntry.organization_id == organization_id),
+        )
+        .filter(GLTransaction.organization_id == organization_id)
+        .group_by(
+            GLTransaction.id,
+            GLTransaction.transaction_date,
+            GLTransaction.transaction_type,
+            GLTransaction.reference_number,
+        )
+        .order_by(GLTransaction.id.asc())
+        .all()
+    )
+
+    bad = []
+    for row in rows:
+        debit_total = Decimal(row.debit_total or 0)
+        credit_total = Decimal(row.credit_total or 0)
+        entry_count = int(row.entry_count or 0)
+        if (
+            entry_count < 2
+            or debit_total <= Decimal("0")
+            or credit_total <= Decimal("0")
+            or abs(debit_total - credit_total) > Decimal("0.01")
+        ):
+            bad.append(
+                {
+                    "transaction_id": row.id,
+                    "transaction_date": row.transaction_date.isoformat(),
+                    "transaction_type": row.transaction_type,
+                    "reference_number": row.reference_number,
+                    "entry_count": entry_count,
+                    "debits": str(debit_total),
+                    "credits": str(credit_total),
+                    "difference": str(debit_total - credit_total),
+                }
+            )
+
+    if not bad:
+        return {
+            "key": "UNBALANCED_GL_TRANSACTIONS",
+            "label": "Posted GL Transaction Integrity",
+            "passed": True,
+            "severity": "ok",
+            "message": f"All {len(rows)} posted GL transaction(s) are balanced.",
+            "details": [],
+        }
+
+    return {
+        "key": "UNBALANCED_GL_TRANSACTIONS",
+        "label": "Posted GL Transaction Integrity",
+        "passed": False,
+        "severity": "error",
+        "message": (
+            f"{len(bad)} posted GL transaction(s) are missing lines or do not balance."
+        ),
+        "details": bad,
+    }
+
+
+# ============================================================
+# CHECK 8 — Bank Account GL Mapping Health
+# ------------------------------------------------------------
+# Every active physical bank account must map to an active ASSET
+# GL account owned by the same organization.
+# ============================================================
+
+def check_bank_account_gl_mappings(
+    db: Session, organization_id: int
+) -> Dict:
+    bank_accounts = (
+        db.query(BankAccount)
+        .filter(
+            BankAccount.organization_id == organization_id,
+            BankAccount.is_active.is_(True),
+        )
+        .order_by(BankAccount.id.asc())
+        .all()
+    )
+
+    bad = []
+    for bank in bank_accounts:
+        gl_account = db.get(GLAccount, bank.gl_account_id)
+        reason = None
+        if gl_account is None:
+            reason = "GL_ACCOUNT_NOT_FOUND"
+        elif gl_account.organization_id != organization_id:
+            reason = "CROSS_ORGANIZATION_GL"
+        elif not gl_account.is_active:
+            reason = "INACTIVE_GL_ACCOUNT"
+        elif gl_account.account_type != "ASSET":
+            reason = "GL_ACCOUNT_NOT_ASSET"
+
+        if reason:
+            bad.append(
+                {
+                    "bank_account_id": bank.id,
+                    "bank_account": bank.name,
+                    "gl_account_id": bank.gl_account_id,
+                    "gl_number": gl_account.gl_number if gl_account else None,
+                    "gl_account_type": gl_account.account_type if gl_account else None,
+                    "reason": reason,
+                }
+            )
+
+    if not bad:
+        return {
+            "key": "BANK_ACCOUNT_GL_MAPPINGS",
+            "label": "Bank Account GL Mapping Health",
+            "passed": True,
+            "severity": "ok",
+            "message": (
+                f"All {len(bank_accounts)} active bank account(s) map to active "
+                "same-organization ASSET GL accounts."
+            ),
+            "details": [],
+        }
+
+    return {
+        "key": "BANK_ACCOUNT_GL_MAPPINGS",
+        "label": "Bank Account GL Mapping Health",
+        "passed": False,
+        "severity": "error",
+        "message": f"{len(bad)} active bank account mapping(s) require correction.",
+        "details": bad,
+    }
+
+
+# ============================================================
+# CHECK 9 — Trust Account 3-Way Reconciliation
 # ------------------------------------------------------------
 # THE critical check. Three numbers must agree:
 #
@@ -754,6 +908,8 @@ def run_all_diagnostics(
         check_negative_fee_accounts(db, organization_id),
         check_positive_fee_accounts(db, organization_id),
         check_bank_reconciliation_lapses(db, organization_id),
+        check_unbalanced_gl_transactions(db, organization_id),
+        check_bank_account_gl_mappings(db, organization_id),
         check_three_way_reconciliation(db, organization_id),
     ]
 
