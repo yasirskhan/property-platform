@@ -39,16 +39,15 @@ Verified foundation:
 Current phase:
 - Phase 3.6 — Accounting Polish.
 - Active subsection: Bank Accounts.
-- Remaining Bank Accounts order: ACH file generation, Bank Adjustments, Bank Feed import.
+- Active subsection: ACH File Generation implementation committed for hosted verification.
+- Remaining Bank Accounts order after this batch: Bank Adjustments, Bank Feed import.
 - Preserve verified bank account CRUD, reconciliation/QIF, Check Setup, and all accounting isolation/immutability contracts.
 
 Next exact action:
-1. Read this handoff completely, then inspect existing ACH fields, owner/payment data, Write Checks, and Phase 3.6 Bank Accounts guidance.
-2. Implement ACH file generation as one coherent independently gated batch under release.accounting.ach_files and ACCOUNTING.BANK_ACCOUNTS.
-3. Support configured CSV and NACHA output without mutating accounting state; validate required bank routing/account data and keep organization boundaries authoritative.
-4. Verify in hosted CI and fix reds autonomously.
-5. Update planning/parity/catalog/checkpoint state after green.
-6. Continue directly to Bank Adjustments and Bank Feed without waiting for user approval.
+1. Verify the ACH File Generation batch in hosted CI and fix reds autonomously.
+2. The batch generates transient CSV or NACHA credit files from manually supplied recipient rows, validates source and recipient ABA routing data, requires NACHA company identity, and does not create payments or GL entries.
+3. After green, update planning/parity/catalog/checkpoint state.
+4. Continue directly to Bank Adjustments and Bank Feed without waiting for user approval.
 
 Open blockers:
 - NONE

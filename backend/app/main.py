@@ -66,6 +66,7 @@ from app.routers import features as features_router
 from app.routers import checks as checks_router
 from app.routers import bank_reconciliation as bank_reconciliation_router
 from app.routers import check_setup as check_setup_router
+from app.routers import ach_files as ach_files_router
 
 # ------------------------------------------------------------
 # Create the FastAPI app
@@ -147,6 +148,7 @@ app.include_router(features_router.router)
 app.include_router(checks_router.router)
 app.include_router(bank_reconciliation_router.router)
 app.include_router(check_setup_router.router)
+app.include_router(ach_files_router.router)
 
 
 # ------------------------------------------------------------
