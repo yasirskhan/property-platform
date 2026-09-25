@@ -31,13 +31,15 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.models.bank_account import BankAccount
+from app.models.bank_reconciliation import BankReconciliation
 from app.models.gl_account import GLAccount
 from app.models.gl_entry import GLEntry
 from app.models.gl_transaction import GLTransaction
@@ -525,7 +527,102 @@ def check_positive_fee_accounts(
 
 
 # ============================================================
-# CHECK 6 — Trust Account 3-Way Reconciliation
+# CHECK 6 — Bank Reconciliation Lapses
+# ------------------------------------------------------------
+# Active bank accounts should be reconciled at least every
+# 60 days. Accounts that have never been reconciled are flagged
+# once they have existed for more than 60 days.
+# ============================================================
+
+def check_bank_reconciliation_lapses(
+    db: Session,
+    organization_id: int,
+    *,
+    as_of: date | None = None,
+) -> Dict:
+    as_of = as_of or date.today()
+    cutoff = as_of - timedelta(days=60)
+    bank_accounts = (
+        db.query(BankAccount)
+        .filter(
+            BankAccount.organization_id == organization_id,
+            BankAccount.is_active.is_(True),
+        )
+        .order_by(BankAccount.id.asc())
+        .all()
+    )
+
+    overdue = []
+    for account in bank_accounts:
+        last = (
+            db.query(BankReconciliation)
+            .filter(
+                BankReconciliation.organization_id == organization_id,
+                BankReconciliation.bank_account_id == account.id,
+                BankReconciliation.status == "RECONCILED",
+            )
+            .order_by(
+                BankReconciliation.statement_date.desc(),
+                BankReconciliation.id.desc(),
+            )
+            .first()
+        )
+
+        if last is not None:
+            days_since = (as_of - last.statement_date).days
+            if last.statement_date < cutoff:
+                overdue.append(
+                    {
+                        "bank_account_id": account.id,
+                        "bank_account": account.name,
+                        "last_reconciled_statement_date": last.statement_date.isoformat(),
+                        "days_since_reconciliation": days_since,
+                        "status": "OVERDUE",
+                    }
+                )
+            continue
+
+        created_date = account.created_at.date() if account.created_at else as_of
+        days_since = (as_of - created_date).days
+        if created_date < cutoff:
+            overdue.append(
+                {
+                    "bank_account_id": account.id,
+                    "bank_account": account.name,
+                    "last_reconciled_statement_date": None,
+                    "days_since_reconciliation": days_since,
+                    "status": "NEVER_RECONCILED",
+                }
+            )
+
+    if not overdue:
+        return {
+            "key": "BANK_RECONCILIATION_LAPSES",
+            "label": "Bank Reconciliation Lapses",
+            "passed": True,
+            "severity": "ok",
+            "message": (
+                f"All {len(bank_accounts)} active bank account(s) are within "
+                "the 60-day reconciliation window."
+            ),
+            "details": [],
+        }
+
+    return {
+        "key": "BANK_RECONCILIATION_LAPSES",
+        "label": "Bank Reconciliation Lapses",
+        "passed": False,
+        "severity": "warning",
+        "message": (
+            f"{len(overdue)} active bank account(s) have not been reconciled "
+            "within 60 days."
+        ),
+        "details": overdue,
+    }
+
+
+# ============================================================
+# CHECK 7 — Trust Account 3-Way Reconciliation
 # ------------------------------------------------------------
 # THE critical check. Three numbers must agree:
 #
@@ -612,6 +709,7 @@ def run_all_diagnostics(
         check_clearing_accounts(db, organization_id),
         check_negative_fee_accounts(db, organization_id),
         check_positive_fee_accounts(db, organization_id),
+        check_bank_reconciliation_lapses(db, organization_id),
         check_three_way_reconciliation(db, organization_id),
     ]
 

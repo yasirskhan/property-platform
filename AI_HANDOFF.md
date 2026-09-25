@@ -20,18 +20,19 @@ IMPORTANT:
 - Management Fees — Overcollection Strategy is COMPLETE/VERIFIED.
 - Management Fees — Post GPR is COMPLETE/VERIFIED.
 - Management Fee Exclusions is COMPLETE/VERIFIED.
-- Current batch: Diagnostics — Auto-fix Refund Negative Diagnostic is implemented and pending hosted CI verification.
+- Diagnostics — Auto-fix Refund Negative Diagnostic is COMPLETE/VERIFIED.
+- Current batch: Diagnostics — Bank Reconciliation Lapses 60-day check is implemented and pending hosted CI verification.
 
 # Latest Verified Green Checkpoint
 
-Management Fees Post GPR implementation checkpoint:
-- 8e31312a2de3953e3e2b5a6c2e36ef13e9c7819f
-- "Phase 3.6: add Management Fees Post GPR workflow"
+Diagnostics Refund Negative checkpoint:
+- 0b26ff5666fa2dac91488e59041d96b0e5460929
+- "CI: refresh parity inventory counts"
 
 Hosted CI:
-- Run 36186643771: SUCCESS
-- Backend: 323 passed, 3 deselected, 2505 warnings in 55.08s
-- E2E: 3 passed in 9.27s
+- Run 36189649244: SUCCESS
+- Backend: 329 passed, 3 deselected, 2605 warnings in 54.32s
+- E2E: 3 passed in 8.75s
 - Frontend: SUCCESS
 - Platform admin: SUCCESS
 - Security: SUCCESS
@@ -283,7 +284,7 @@ Implementation:
 - E2E: 3 passed in 9.38s.
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 
-# Diagnostics — Auto-fix Refund Negative Diagnostic — Current Batch
+# Diagnostics — Auto-fix Refund Negative Diagnostic — COMPLETE / VERIFIED
 
 Implementation:
 - Adds independent gate release.accounting.diagnostics.refund_negative.
@@ -297,16 +298,31 @@ Implementation:
 - Customer diagnostics page exposes the action only behind the release gate and disables it until an offset account is configured.
 - No schema migration; head remains e4f6a8c0d2b5 / 93 model tables.
 - TESTS NOT RUN locally in this connector-only session.
+- Hosted CI run 36189649244: SUCCESS.
+- Backend: 329 passed, 3 deselected, 2605 warnings in 54.32s.
+- E2E: 3 passed in 8.75s.
+- Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
+
+# Diagnostics — Bank Reconciliation Lapses — Current Batch
+
+Implementation:
+- Adds a seventh diagnostics check over active organization bank accounts.
+- A reconciled account is flagged when its latest RECONCILED statement date is more than 60 days before the report date.
+- A never-reconciled account is flagged once the bank account itself is more than 60 days old.
+- Exactly 60 days is still within the allowed window.
+- Inactive and other-organization bank accounts are excluded.
+- Read-only diagnostic only; no GL posting or reconciliation mutation is introduced.
+- No schema migration; head remains e4f6a8c0d2b5 / 93 model tables.
+- TESTS NOT RUN locally in this connector-only session.
 - Hosted CI verification pending.
 
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Diagnostics — Auto-fix Refund Negative Diagnostic
-2. Bank Reconciliation Lapses 60 days
-3. Real Positive Fee check (must_clear flag)
-4. Additional checks to reach 9 total
-5. Continue remaining Phase 3.6 items in Section 38 order
+1. Diagnostics — Bank Reconciliation Lapses 60 days
+2. Real Positive Fee check (must_clear flag)
+3. Additional checks to reach 9 total
+4. Continue remaining Phase 3.6 items in Section 38 order
 
 # Working Rules
 
