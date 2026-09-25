@@ -4,8 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
+import { useFlag } from "@/hooks/useFlag";
 import { apiGet } from "@/lib/api";
 import {
+  listBankAccounts,
+  type BankAccount,
+} from "@/lib/bankAccounts";
+import {
+  generateOwnerACHTestFile,
   getOwnerACH,
   saveOwnerACH,
   type OwnerACH,
@@ -21,6 +27,7 @@ type OwnerUser = {
 
 export default function OwnerACHPage() {
   const ownerId = Number(useParams().id);
+  const testFileEnabled = useFlag("release.accounting.ach_test_file");
   const [owner, setOwner] = useState<OwnerUser | null>(null);
   const [setup, setSetup] = useState<OwnerACH | null>(null);
   const [holderName, setHolderName] = useState("");
@@ -33,6 +40,12 @@ export default function OwnerACHPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const [banks, setBanks] = useState<BankAccount[]>([]);
+  const [testBankId, setTestBankId] = useState("");
+  const [testDate, setTestDate] = useState("");
+  const [testCompanyId, setTestCompanyId] = useState("");
+  const [generatingTest, setGeneratingTest] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -57,6 +70,19 @@ export default function OwnerACHPage() {
       }
     })();
   }, [ownerId]);
+
+  useEffect(() => {
+    if (!testFileEnabled) return;
+    listBankAccounts()
+      .then((result) => {
+        const configured = result.items.filter((bank) => Boolean(bank.ach_format));
+        setBanks(configured);
+        if (configured.length === 1) setTestBankId(String(configured[0].id));
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Could not load ACH source banks.");
+      });
+  }, [testFileEnabled]);
 
   async function handleSave(event: React.FormEvent) {
     event.preventDefault();
@@ -94,6 +120,56 @@ export default function OwnerACHPage() {
       setError(err instanceof Error ? err.message : "Could not save owner ACH setup.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleGenerateTestFile() {
+    setError("");
+    setSuccess("");
+    if (!setup?.configured || !setup.is_enabled) {
+      setError("Configure and enable the owner ACH destination first.");
+      return;
+    }
+    if (!testBankId) {
+      setError("Choose the source bank account.");
+      return;
+    }
+    if (!testDate) {
+      setError("Choose the effective date.");
+      return;
+    }
+
+    const bank = banks.find((item) => item.id === Number(testBankId));
+    if (bank?.ach_format === "NACHA" && !testCompanyId.trim()) {
+      setError("Company ID is required for a NACHA test file.");
+      return;
+    }
+
+    setGeneratingTest(true);
+    try {
+      const result = await generateOwnerACHTestFile(
+        ownerId,
+        Number(testBankId),
+        {
+          effective_date: testDate,
+          company_id: testCompanyId.trim() || null,
+          entry_description: "PRENOTE",
+        },
+      );
+      const blob = new Blob([result.content], { type: result.content_type });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = result.filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setSuccess("$0 ACH test file generated. No payment or accounting entry was created.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not generate ACH test file.");
+    } finally {
+      setGeneratingTest(false);
     }
   }
 
@@ -234,6 +310,69 @@ export default function OwnerACHPage() {
           </span>
         </div>
       </form>
+
+      {testFileEnabled && (
+        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-6">
+          <h2 className="font-semibold text-slate-900">$0 ACH Test File</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Generate a zero-dollar CSV test row or NACHA prenote for this owner. This verifies file setup only and does not post a payment.
+          </p>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <label className="text-sm text-slate-700">
+              Source bank account
+              <select
+                value={testBankId}
+                onChange={(event) => setTestBankId(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              >
+                <option value="">Choose a bank</option>
+                {banks.map((bank) => (
+                  <option key={bank.id} value={bank.id}>
+                    {bank.name} · {bank.ach_format}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm text-slate-700">
+              Effective date
+              <input
+                type="date"
+                value={testDate}
+                onChange={(event) => setTestDate(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              />
+            </label>
+
+            <label className="text-sm text-slate-700 md:col-span-2">
+              Company ID
+              <input
+                value={testCompanyId}
+                maxLength={10}
+                onChange={(event) => setTestCompanyId(event.target.value)}
+                placeholder="Required for NACHA"
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              />
+            </label>
+          </div>
+
+          {banks.length === 0 && (
+            <p className="mt-4 text-sm text-amber-700">
+              No active bank account has an ACH format configured yet.
+            </p>
+          )}
+
+          <button
+            type="button"
+            disabled={generatingTest || banks.length === 0}
+            onClick={() => void handleGenerateTestFile()}
+            className="mt-5 rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+          >
+            {generatingTest ? "Generating…" : "Generate $0 Test File"}
+          </button>
+        </section>
+      )}
     </div>
   );
 }
