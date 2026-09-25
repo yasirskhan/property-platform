@@ -15,7 +15,7 @@ IMPORTANT:
 - Phase 3.5.5 compatibility pass is COMPLETE.
 - Current work is Phase 3.6 — Accounting Polish.
 - Bank Accounts subsection is now COMPLETE through Bank Feed import.
-- Next ordered item: Owner ACH Setup.
+- Next ordered item: Owner ACH Setup (implemented; CI pending).
 
 # Latest Verified Green Checkpoint
 
@@ -40,8 +40,9 @@ Current parity source-of-truth:
 - built_count: 237
 - scheduled_count: 391
 - in_progress_count: 0
-- migration_head: a4b6c8d0e2f1
-- expected model-table count: 90
+- last verified migration_head: a4b6c8d0e2f1
+- last verified model-table count: 90
+- pending Owner ACH schema head: b6d8f0a2c4e7 / 91 model tables
 
 # Bank Adjustments
 
@@ -84,6 +85,43 @@ Closeout metadata commits:
 - d3a94ac8dcb33637b91b10fd1da397f6bc4b9404 — parity JSON
 - 4400e4cafb5c3cdb0759f724dc8c9b2c53caaab8 — FILE_CATALOG locator
 - 8991512adb9a12e0c8581eecab4aabce5856a909 — PROJECT_MASTER advance to Owners
+
+# Owner ACH Setup — Current Batch
+
+Implementation is now on the branch and awaiting hosted CI verification.
+
+Backend:
+- backend/app/models/owner_ach.py
+- backend/app/schemas/owner_ach.py
+- backend/app/services/owner_ach.py
+- backend/app/routers/owner_ach.py
+- backend/alembic/versions/b6d8f0a2c4e7_owner_ach_accounts.py
+- backend/tests/test_owner_ach.py
+- backend/init_db.py
+- backend/app/main.py
+- backend/app/constants/organization_features.py
+- migration checkpoint tests advanced to b6d8f0a2c4e7 / 91 model tables
+
+Frontend:
+- frontend/src/lib/ownerAch.ts
+- frontend/src/app/dashboard/accounting/owners/[id]/ach/page.tsx
+- owner detail links to ACH setup when release.accounting.owner_ach_setup is enabled
+
+Security / behavior:
+- no duplicate owner identity model; owner_id references existing User(role=OWNER)
+- unique one ACH configuration per organization + owner
+- full account numbers are never returned by the read API
+- ABA routing reuses the verified ACH validator
+- ADMIN may manage same-org owners
+- OWNER may manage self only
+- MANAGER and other-owner access is denied
+- setup changes create no payment and no GL entry
+- release.accounting.owner_ach_setup uses ach_payments + PEOPLE.OWNERS
+- gate is registered in FEATURE_REGISTRY so normal release-gate seeding can discover it
+
+Verification:
+- Hosted CI on the final batch checkpoint is pending.
+- TESTS NOT RUN locally in this connector-only session.
 
 # Next: Owner ACH Setup
 
