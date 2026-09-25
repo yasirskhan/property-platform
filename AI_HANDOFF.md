@@ -26,7 +26,8 @@ IMPORTANT:
 - Diagnostics — Additional checks to reach 9 total is COMPLETE/VERIFIED.
 - Owner Statements — Required Reserves + Prepaid Rent + Property Cash Summary is COMPLETE/VERIFIED.
 - Owner Packets — Customizer fields is COMPLETE/VERIFIED.
-- Current batch: Settings — Accounting Settings (Key Accounts, GPR, Receipts, Checks, Reports). IMPLEMENTATION PREPARED; CI pending.
+- Settings — Accounting Settings (Key Accounts, GPR, Receipts, Checks, Reports) is COMPLETE/VERIFIED.
+- Current batch: Settings — Accounting Basis toggle (Accrual default | Cash), report layer only.
 
 # Latest Verified Green Checkpoint
 
@@ -419,9 +420,9 @@ Locked order from PROJECT_MASTER:
 - Stop only for a true blocker that cannot be resolved.
 
 
-# Accounting Settings — Current Batch
+# Accounting Settings — COMPLETE / VERIFIED
 
-Implementation prepared:
+Implementation:
 - New org-scoped AccountingSettings row stores optional GPR account overrides, optional default receipt cash account, report export format, and fiscal-year start month.
 - GPR posting preserves verified standard 4100/4115/4120 behavior when no override exists; configured overrides must be active same-org INCOME accounts.
 - Receipt posting preserves explicit receipt selections and existing Automatic bank/1150 fallback; an org default only participates when explicitly configured and must be an active same-org ASSET account.
@@ -437,7 +438,21 @@ Implementation prepared:
 - Migration head advances to b7d9f1a3c5e8; expected model-table count 95.
 - Regression coverage added in backend/tests/test_accounting_settings.py.
 - TESTS NOT RUN locally in this connector-only session.
-- Hosted CI verification pending.
-
 - CI run 36200953404 stopped before backend tests at parity/registry consistency because the Owner Packet closeout updated four item statuses without refreshing parity _meta counts. Product code was not implicated.
-- Metadata correction: parity counts refreshed to 252 built / 376 scheduled / 0 in-progress and migration head b7d9f1a3c5e8. CI verification pending.
+- Metadata correction: parity counts refreshed to 252 built / 376 scheduled / 0 in-progress and migration head b7d9f1a3c5e8.
+- CI run 36201059367 reached backend tests and exposed four SQLite fixture omissions for the new AccountingSettings table; product behavior was not implicated.
+- Fixture correction commit: 8f02d268502f5ce9fe45aaa4f756b6f983a2fde7.
+- Hosted CI run 36201923654: SUCCESS.
+- Backend: 349 passed, 3 deselected, 2870 warnings in 45.88s.
+- E2E: 3 passed in 5.95s.
+- Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
+
+# Accounting Basis — Current Batch
+
+Plan:
+- Add an organization Accounting Basis choice with ACCRUAL as the default and CASH as the only alternative.
+- Keep all GL posting behavior unchanged; the setting is report-layer metadata only.
+- Expose the choice inside the verified Accounting Settings API/page rather than creating a duplicate settings surface.
+- Make the reporting layer able to resolve the selected basis explicitly so Phase 3.7 reports can apply it consistently.
+- Add regression coverage proving default ACCRUAL, audited ADMIN/OWNER updates, and no posting mutation.
+- Mark settings.accounting.accounting_basis built only after hosted CI is green.
