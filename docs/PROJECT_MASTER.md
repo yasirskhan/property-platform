@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.6 — Accounting Polish: Receipts** is IN PROGRESS. Chart of Accounts polish, Recurring Journal Entries, and Post GPR are verified; the next ordered work is the Receipts polish batch (Application Fee, Process NSF, print/repeat, deposit integrity, and automatic cash-account behavior).
+**Current activity:** Phase **3.6 — Accounting Polish: Bills** is IN PROGRESS. Chart of Accounts, Journal Entries, and Receipts polish are verified; Charges are already built, so the next unfinished ordered subsection is Bills.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -143,12 +143,12 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Continue Phase 3.6 — Accounting Polish: Receipts.**
+**Continue Phase 3.6 — Accounting Polish: Bills.**
 
-1. Implement the ordered Receipts polish batch from Section 38: dedicated Application Fee workflow, Process NSF, Print Receipt, Repeat Receipt, deposited-receipt integrity visibility, and Cash Account Automatic behavior.
-2. Reuse the verified immutable receipt/deposit accounting spine and central post_transaction() service; do not redesign verified receipt/reversal/deposit behavior.
-3. Keep capability release control, entitlement, org configuration, and permission layers independent and enforce independent capability access server-side.
-4. Verify in hosted CI, fix reds autonomously, update checkpoint/planning state, then continue to the next Phase 3.6 accounting subsection without stopping.
+1. Implement the ordered Bills polish batch from Section 38: reverse after partial payment; recurring bills with Bill/Credit toggle and Post Codes; Write Checks; Enter Credit; unpaid-only delete; Manually Post Bills; Cash Account field on bill. Vendor linking remains Phase 4-dependent.
+2. Preserve verified two-step accrual, partial payment, reversal, organization isolation, locked-period behavior, and central post_transaction() accounting contracts.
+3. Keep release control, entitlement, org configuration, role permission, and user preference independent where applicable; backend authorization remains authoritative.
+4. Verify in hosted CI, fix reds autonomously, update checkpoint/planning state, then continue to the next Phase 3.6 subsection without stopping.
 
 ## B2. AFTER THAT## B2. AFTER THAT (Phase 3.5 onward)
 

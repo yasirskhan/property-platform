@@ -125,12 +125,12 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Detail modal | modal | — | — | — | — | — | ✅ present | Part of page |
 | Reverse receipt action | action | — | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Backend authorization still required; no independent rollout currently needed |
 | Footer total row | row | — | — | — | — | — | ✅ present | Routine UI |
-| Print one receipt | capability | release.accounting.receipts.print | core | no | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Compatibility slot rendered through Flag; endpoint remains planned |
-| Repeat prior receipt | capability | release.accounting.receipts.repeat | core | no | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Compatibility slot rendered through Flag; workflow remains planned |
-| Edit-lock-after-deposit indicator | behavior | — | core | no | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Structural compatibility slot present; integrity behavior remains Phase 3.6 |
+| Print one receipt | capability | release.accounting.receipts.print | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Gated print-data endpoint + dedicated printable customer page |
+| Repeat prior receipt | capability | release.accounting.receipts.repeat | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Gated repeat-data endpoint hydrates the existing New Receipt form |
+| Edit-lock-after-deposit indicator | behavior | — | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Deposit linkage is exposed; posted receipt fields remain immutable and corrections use reversal/NSF |
 | Export CSV / Excel | capability | release.reporting.export | core | yes | REPORTING.ALL | no | ⬜ hidden implementation present | Flagged compatibility slot; export endpoint remains planned |
 | Print receipts list | capability | release.accounting.receipts.list_print | core | no | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; print view remains planned |
-| Process NSF | capability | release.accounting.receipts.process_nsf | nsf_processing | yes | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Flagged compatibility slot only; backend workflow remains planned |
+| Process NSF | capability | release.accounting.receipts.process_nsf | nsf_processing | yes | ACCOUNTING.RECEIVABLES | no | ✅ present | Gated NSF action reuses verified reversal spine and preserves original deposit history |
 | Bulk actions | capability | release.accounting.receipts.bulk | core | no | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; batch workflow remains planned |
 
 ## Backend endpoints the full surface requires
@@ -140,9 +140,9 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | GET /api/accounting/receipts | page access + permission | built |
 | GET /api/accounting/receipts/{id} | page access + row scope | built |
 | POST /api/accounting/receipts/{id}/reverse | permission + row scope | built |
-| GET /api/accounting/receipts/{id}/print-data | release print + permission | planned |
-| POST /api/accounting/receipts/{id}/repeat | release repeat + permission | planned |
-| POST /api/accounting/receipts/{id}/process-nsf | release NSF + entitlement if required + org config + permission | planned |
+| GET /api/accounting/receipts/{id}/print-data | release print + permission | built |
+| GET /api/accounting/receipts/{id}/repeat-data | release repeat + permission | built |
+| POST /api/accounting/receipts/{id}/process-nsf | release NSF + entitlement if required + org config + permission | built |
 | GET /api/accounting/receipts/export | release export + permission | planned |
 | GET /api/accounting/receipts/print-view | release list-print + permission | planned |
 
@@ -175,10 +175,10 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Property | field | — | — | — | — | — | ✅ present | Routine field |
 | Reference # | field | — | — | — | — | — | ✅ present | Routine field |
 | Remarks | field | — | — | — | — | — | ✅ present | Routine field |
-| Cash Account “Automatic” option | behavior | — | core | yes | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Structural compatibility slot present; current 1150 default behavior preserved |
+| Cash Account “Automatic” option | behavior | — | core | yes | ACCOUNTING.RECEIVABLES | no | ✅ present | Resolves active OPERATING bank mapping, with active 1150 fallback |
 | CTRL+K repeat form | capability | release.universal.repeat_form | core | yes | — | no | ⬜ hidden implementation present | Flagged compatibility slot; shortcut behavior remains planned |
 | CTRL+J repeat field | capability | release.universal.repeat_field | core | yes | — | no | ⬜ hidden implementation present | Flagged compatibility slot; shortcut behavior remains planned |
-| Print preview | capability | release.accounting.receipts.print | core | no | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; print behavior remains planned |
+| Print preview | capability | release.accounting.receipts.print | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Dedicated printable receipt route backed by gated print-data |
 
 ## Surface — Tenant receipt
 

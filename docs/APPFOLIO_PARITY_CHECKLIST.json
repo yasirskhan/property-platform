@@ -13,8 +13,8 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 213,
-    "scheduled_count": 415,
+    "built_count": 219,
+    "scheduled_count": 409,
     "in_progress_count": 0
   },
   "items": [
@@ -244,15 +244,17 @@
       "id": "accounting.receipts.application_fee_form",
       "area": "Accounting / Receipts",
       "feature": "Dedicated Application Fee form",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Dedicated APPLICATION_FEE mode posts to standard 4420 behind release.accounting.receipts.application_fee."
     },
     {
       "id": "accounting.receipts.process_nsf",
       "area": "Accounting / Receipts",
       "feature": "Process NSF (bounced check)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Gated NSF action reuses receipt reversal and preserves original deposit history."
     },
     {
       "id": "accounting.receipts.echeck",
@@ -2043,29 +2045,33 @@
       "id": "accounting.receipts.print",
       "area": "Accounting / Receipts",
       "feature": "Print receipt",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Gated print-data endpoint plus dedicated printable receipt page."
     },
     {
       "id": "accounting.receipts.repeat",
       "area": "Accounting / Receipts",
       "feature": "Repeat Receipt button",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Gated repeat-data hydrates the existing New Receipt form."
     },
     {
       "id": "accounting.receipts.edit_lock_after_deposit",
       "area": "Accounting / Receipts",
       "feature": "Lock GL Account + Cash Account after deposit",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Deposit linkage is visible and posted receipt fields remain immutable; corrections use reversal/NSF."
     },
     {
       "id": "accounting.receipts.cash_account_automatic",
       "area": "Accounting / Receipts",
       "feature": "Cash Account 'Automatic' default (uses property default bank)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Automatic resolves active OPERATING bank mapping, then active 1150 Rental Trust fallback."
     },
     {
       "id": "accounting.charges.enter_charge",
