@@ -9,12 +9,12 @@ Keep it here and overwrite it after every meaningful batch.
 
 Branch: chatgpt/checkpoint-005-safety
 
-Handoff prepared from parent HEAD:
-- 000005157c8f1754ba92855b5f0ae51671a7f0f6
-- "Phase 3.6 Bank Adjustments: add schemas"
+Latest product batch commit:
+- dc84db4602b2de4e04c93ac35dc6a4ff29525bad
+- "Phase 3.6 Bank Adjustments: add ledger workflow"
 
-Resolve the branch HEAD again before any write. This handoff file is itself
-committed after the parent HEAD above, so it does not embed its own final hash.
+Resolve the branch HEAD again before any write. This handoff file is committed
+after the product batch, so it does not embed its own final hash.
 
 IMPORTANT:
 - Do NOT resume old Phase 3.4.x work.
@@ -64,71 +64,46 @@ summary text when an edit path is available.
 
 # Bank Adjustments Current State
 
-Next product batch remains Bank Adjustments:
+Backend ledger workflow is now implemented:
 - release gate: release.accounting.bank_adjustments
 - permission: ACCOUNTING.BANK_ACCOUNTS
-- then continue directly to Bank Feed import
-
-Source inspection is complete. Existing contracts to reuse:
-- bank account organization scope and ACCOUNTING.BANK_ACCOUNTS authorization
-- customer feature resolver for release/entitlement/org-config/permission composition
-- central post_transaction() for all GL writes
-- reverse_transaction() for immutable reversals
-- locked-period enforcement in post_transaction()
-- GL account posting restrictions in post_transaction()
-- reconciliation already discovers qualifying GL transactions that touch the bank GL account
-
-Chosen implementation design:
-- Use GLTransaction itself as the durable adjustment entity.
-- Do NOT add a duplicate bank-adjustments table or migration.
-- Add BANK_ADJUSTMENT to VALID_TRANSACTION_TYPES.
+- durable entity: GLTransaction, no duplicate adjustment table or migration
+- transaction_type = BANK_ADJUSTMENT
 - source_type = "bank_adjustment"
 - source_id = bank_account.id
-- INCREASE: debit bank GL, credit selected offset GL.
-- DECREASE: debit selected offset GL, credit bank GL.
-- Reversal must use reverse_transaction().
-- Listing filters org + BANK_ADJUSTMENT + source_type/source_id.
-- This automatically makes adjustments visible to reconciliation without synchronization state.
+- INCREASE: debit bank GL, credit selected offset GL
+- DECREASE: debit selected offset GL, credit bank GL
+- reversal uses reverse_transaction() and preserves immutable history
+- listing is org + bank scoped
+- reconciliation discovers the GL transaction automatically
 
-Intended files:
-- backend/app/schemas/bank_adjustment.py
+Implemented by dc84db4602b2de4e04c93ac35dc6a4ff29525bad:
 - backend/app/services/bank_adjustments.py
 - backend/app/routers/bank_adjustments.py
 - backend/tests/test_bank_adjustments.py
 - backend/app/main.py
 - backend/app/services/gl_posting.py
-- frontend/src/lib/bankAdjustments.ts
-- frontend/src/app/dashboard/accounting/bank-accounts/[id]/adjustments/page.tsx
-- frontend/src/app/dashboard/accounting/bank-accounts/page.tsx
+- existing backend/app/schemas/bank_adjustment.py is reused
 
-Partial implementation currently present:
-- backend/app/schemas/bank_adjustment.py ONLY
-- added by commit 000005157c8f1754ba92855b5f0ae51671a7f0f6
+Regression coverage added for:
+- increase/decrease bank-side posting
+- cross-organization offset rejection
+- locked-period rejection
+- immutable one-time reversal
+- disabled customer feature rejection
 
-No Bank Adjustments service, router, UI, tests, migration, or GL transaction-type
-change has been committed.
+Current verification state:
+- Hosted CI for the backend batch is pending/being checked.
+- TESTS NOT RUN locally in this connector-only session.
 
-# Current True Blocker
-
-The connected GitHub safety layer rejected the bookkeeping service write that calls
-the existing GL posting/reversal services. A second attempt explicitly documenting
-that the code is internal bookkeeping only and does not move external funds was also
-rejected. The same layer also rejected deleting the schema-only partial file.
-
-Do not disguise or bypass that safety control.
-
-When an edit path that permits the legitimate internal-accounting code is available:
-1. Re-read this file and resolve current branch HEAD.
-2. Continue Bank Adjustments from the schema-only partial state, or remove that file
-   first if replacing the design.
-3. Implement the ledger-native design above.
-4. Add regression coverage for increase/decrease, org-scoped offset validation,
-   locked-period rejection, and reversal immutability.
-5. Add the customer-visible per-bank Adjustments workflow.
-6. Run hosted CI and fix reds autonomously.
-7. After green, update FEATURE_REGISTRY, APPFOLIO parity, FILE_CATALOG,
-   PROJECT_MASTER where possible, and this handoff.
-8. Continue directly to Bank Feed import.
+Next Bank Adjustments batch:
+1. Fix any hosted CI red from the backend batch.
+2. Add frontend/src/lib/bankAdjustments.ts.
+3. Add frontend/src/app/dashboard/accounting/bank-accounts/[id]/adjustments/page.tsx.
+4. Add an Adjustments link to the Bank Accounts list under the release flag.
+5. Run hosted CI and fix reds autonomously.
+6. Mark Bank Adjustments complete in registry/parity/catalog/project docs.
+7. Continue directly to Bank Feed import.
 
 # Verified Foundation / Contracts to Preserve
 
