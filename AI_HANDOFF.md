@@ -132,6 +132,34 @@ Verification checkpoint:
 - CI run 36100394485: SUCCESS
 - TESTS NOT RUN locally in this connector-only session.
 
+# $0 ACH Test File — Current Batch
+
+Implementation is on the branch and awaiting hosted CI verification.
+
+Backend:
+- backend/app/schemas/ach_file.py: ACHTestFileIn / ACHTestFileOut
+- backend/app/services/ach_file.py: CSV zero-dollar test row + NACHA prenote generation
+- backend/app/routers/owner_ach.py: gated owner test-file endpoint
+- backend/tests/test_ach_test_file.py: CSV/NACHA/validation coverage
+
+Frontend:
+- frontend/src/lib/ownerAch.ts: typed test-file API
+- frontend/src/app/dashboard/accounting/owners/[id]/ach/page.tsx: source-bank selection and download workflow
+
+Behavior:
+- release.accounting.ach_test_file remains independently gated
+- uses configured source BankAccount and enabled OwnerACHAccount in the same organization
+- ADMIN or owner-self scope is preserved
+- CSV output carries amount 0.00
+- NACHA uses credit prenote transaction codes 23 (checking) / 33 (savings) with a zero amount
+- company_id is required for NACHA
+- generation does not create a payment, GL transaction, or GL entry
+- no schema migration is required; head remains b6d8f0a2c4e7 / 91 model tables
+
+Verification:
+- Hosted CI on the final batch checkpoint is pending.
+- TESTS NOT RUN locally in this connector-only session.
+
 # Next: $0 ACH Test File
 
 Locked order from PROJECT_MASTER:
