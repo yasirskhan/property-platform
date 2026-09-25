@@ -49,7 +49,7 @@ Current parity source-of-truth:
 - built_count: 248
 - scheduled_count: 380
 - in_progress_count: 0
-- migration_head: e4f6a8c0d2b5
+- migration_head: f5a7c9e1b3d6
 - expected model-table count: 93
 
 # Bank Adjustments
@@ -359,7 +359,17 @@ Plan:
 - Add a Property Cash Summary derived from the frozen per-property statement values.
 - Preserve existing owner-statement permissions, organization isolation, ownership behavior, and frozen-snapshot contract.
 - Inspect property configuration and receipt/prepayment source behavior before implementation.
-- No implementation committed yet for this batch.
+Implementation prepared in this batch:
+- Property.required_reserve_amount is the explicit durable non-negative reserve source.
+- Owner-statement previews freeze required reserve plus GL 2300 Prepayment natural liability balances per property at period end.
+- Frozen property blocks include required_reserves, prepaid_rent, and available_cash.
+- Detail totals are derived from frozen property_data for backward-compatible historical snapshots.
+- Property Cash Summary is served by a dedicated backend endpoint protected by release.accounting.owner_statements.cash_summary and ACCOUNTING.OWNER_STATEMENTS.
+- Property edit exposes Required Owner Reserve; statement preview/detail show real reserve/prepaid/available values.
+- Migration head advances to f5a7c9e1b3d6; model-table count remains 93.
+- Regression coverage added for frozen reserve/prepaid/cash behavior and feature authorization.
+- TESTS NOT RUN locally in this connector-only session.
+- Hosted CI verification pending.
 
 # Next Work
 

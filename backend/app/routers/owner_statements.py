@@ -26,9 +26,12 @@ from app.schemas.owner_statement import (
     StatementPreviewIn,
     StatementPreviewOut,
     StatementPropertyBlock,
+    PropertyCashSummaryLine,
+    OwnerStatementCashSummaryOut,
 )
 from app.services.gl_posting import PostingError
 from app.services.menu_resolver import permission_allows_user
+from app.services.customer_features import resolve_customer_features
 from app.services.owner_statements import (
     preview_owner_statement,
     generate_owner_statement,
@@ -41,6 +44,7 @@ router = APIRouter(
 )
 
 WRITE_ROLES = {"ADMIN", "OWNER", "MANAGER"}
+CASH_SUMMARY_FEATURE = "release.accounting.owner_statements.cash_summary"
 
 
 def _require_org(current_user: User) -> int:
@@ -67,6 +71,24 @@ def _require_owner_statements_access(db: Session, current_user: User) -> int:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Owner Statements permission required.",
+        )
+    return org_id
+
+
+def _require_cash_summary_feature(db: Session, current_user: User) -> int:
+    org_id = _require_owner_statements_access(db, current_user)
+    decision = next(
+        (
+            item
+            for item in resolve_customer_features(db, user=current_user)
+            if item.key == CASH_SUMMARY_FEATURE
+        ),
+        None,
+    )
+    if decision is None or not decision.allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Property Cash Summary is not enabled.",
         )
     return org_id
 
@@ -120,7 +142,16 @@ def _stmt_to_detail(s: OwnerStatement) -> OwnerStatementDetailOut:
         except Exception:
             continue
 
-    return OwnerStatementDetailOut(**base.model_dump(), properties=blocks)
+    total_required_reserves = sum((b.required_reserves for b in blocks), start=0)
+    total_prepaid_rent = sum((b.prepaid_rent for b in blocks), start=0)
+    total_available_cash = sum((b.available_cash for b in blocks), start=0)
+    return OwnerStatementDetailOut(
+        **base.model_dump(),
+        properties=blocks,
+        total_required_reserves=total_required_reserves,
+        total_prepaid_rent=total_prepaid_rent,
+        total_available_cash=total_available_cash,
+    )
 
 
 # ============================================================
@@ -160,6 +191,9 @@ def preview_statement(
         total_income=result["total_income"],
         total_expense=result["total_expense"],
         total_net=result["total_net"],
+        total_required_reserves=result["total_required_reserves"],
+        total_prepaid_rent=result["total_prepaid_rent"],
+        total_available_cash=result["total_available_cash"],
         properties=blocks,
         can_generate=result["can_generate"],
         reason=result["reason"],
@@ -246,6 +280,50 @@ def list_statements(
     return OwnerStatementListOut(
         items=[_stmt_to_out(r) for r in rows],
         total=total,
+    )
+
+
+# ============================================================
+# GET /{id}/cash-summary
+# ============================================================
+
+@router.get("/{statement_id}/cash-summary", response_model=OwnerStatementCashSummaryOut)
+def get_statement_cash_summary(
+    statement_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_cash_summary_feature(db, current_user)
+    stmt = (
+        db.query(OwnerStatement)
+        .options(joinedload(OwnerStatement.owner))
+        .filter(
+            OwnerStatement.id == statement_id,
+            OwnerStatement.organization_id == org_id,
+        )
+        .first()
+    )
+    if stmt is None:
+        raise HTTPException(status_code=404, detail="Statement not found.")
+
+    detail = _stmt_to_detail(stmt)
+    return OwnerStatementCashSummaryOut(
+        statement_id=stmt.id,
+        total_ending_cash=detail.total_ending_cash,
+        total_required_reserves=detail.total_required_reserves,
+        total_prepaid_rent=detail.total_prepaid_rent,
+        total_available_cash=detail.total_available_cash,
+        properties=[
+            PropertyCashSummaryLine(
+                property_id=row.property_id,
+                property_name=row.property_name,
+                ending_cash=row.ending_cash,
+                required_reserves=row.required_reserves,
+                prepaid_rent=row.prepaid_rent,
+                available_cash=row.available_cash,
+            )
+            for row in detail.properties
+        ],
     )
 
 

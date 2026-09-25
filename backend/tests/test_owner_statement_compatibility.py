@@ -51,3 +51,34 @@ def test_owner_statement_write_roles_reject_non_accounting_users(role) -> None:
     with pytest.raises(HTTPException) as exc:
         owner_statements._require_write(SimpleNamespace(role=role))
     assert exc.value.status_code == 403
+
+
+def test_owner_statement_cash_summary_requires_feature(monkeypatch) -> None:
+    monkeypatch.setattr(
+        owner_statements, "permission_allows_user", lambda *args, **kwargs: True
+    )
+    monkeypatch.setattr(
+        owner_statements, "resolve_customer_features", lambda *args, **kwargs: []
+    )
+    user = SimpleNamespace(organization_id=42)
+    with pytest.raises(HTTPException) as exc:
+        owner_statements._require_cash_summary_feature(object(), user)
+    assert exc.value.status_code == 403
+
+
+def test_owner_statement_cash_summary_allows_resolved_feature(monkeypatch) -> None:
+    monkeypatch.setattr(
+        owner_statements, "permission_allows_user", lambda *args, **kwargs: True
+    )
+    monkeypatch.setattr(
+        owner_statements,
+        "resolve_customer_features",
+        lambda *args, **kwargs: [
+            SimpleNamespace(
+                key=owner_statements.CASH_SUMMARY_FEATURE,
+                allowed=True,
+            )
+        ],
+    )
+    user = SimpleNamespace(organization_id=42)
+    assert owner_statements._require_cash_summary_feature(object(), user) == 42

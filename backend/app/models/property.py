@@ -86,6 +86,11 @@ class Property(Base):
     # --- Financial ---
     estimated_rent = Column(Numeric(10, 2), nullable=True)
     security_deposit = Column(Numeric(10, 2), nullable=True)
+    # Minimum property cash retained before owner distributions.
+    # Owner statements freeze this configured amount with the snapshot.
+    required_reserve_amount = Column(
+        Numeric(14, 2), nullable=False, default=0, server_default="0.00"
+    )
     ownership_status = Column(String(50), nullable=True)
 
     # --- Ownership (AppFolio parity, Step 8a) ---

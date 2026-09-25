@@ -29,6 +29,9 @@ export type StatementPropertyBlock = {
   income: string;
   expense: string;
   net: string;
+  required_reserves: string;
+  prepaid_rent: string;
+  available_cash: string;
   transactions: StatementTransactionLine[];
 };
 
@@ -43,6 +46,9 @@ export type StatementPreview = {
   total_income: string;
   total_expense: string;
   total_net: string;
+  total_required_reserves: string;
+  total_prepaid_rent: string;
+  total_available_cash: string;
   properties: StatementPropertyBlock[];
   can_generate: boolean;
   reason: string | null;
@@ -72,6 +78,25 @@ export type OwnerStatement = {
 
 export type OwnerStatementDetail = OwnerStatement & {
   properties: StatementPropertyBlock[];
+  total_required_reserves: string;
+  total_prepaid_rent: string;
+  total_available_cash: string;
+};
+
+export type OwnerStatementCashSummary = {
+  statement_id: number;
+  total_ending_cash: string;
+  total_required_reserves: string;
+  total_prepaid_rent: string;
+  total_available_cash: string;
+  properties: Array<{
+    property_id: number;
+    property_name: string;
+    ending_cash: string;
+    required_reserves: string;
+    prepaid_rent: string;
+    available_cash: string;
+  }>;
 };
 
 export type OwnerStatementList = {
@@ -139,4 +164,10 @@ export function getOwnerStatement(
   id: number
 ): Promise<OwnerStatementDetail> {
   return apiGet(`/api/accounting/owner-statements/${id}`);
+}
+
+export function getOwnerStatementCashSummary(
+  id: number
+): Promise<OwnerStatementCashSummary> {
+  return apiGet(`/api/accounting/owner-statements/${id}/cash-summary`);
 }

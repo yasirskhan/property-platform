@@ -58,6 +58,9 @@ class StatementPropertyBlock(BaseModel):
     income: Decimal
     expense: Decimal
     net: Decimal
+    required_reserves: Decimal = Decimal("0")
+    prepaid_rent: Decimal = Decimal("0")
+    available_cash: Decimal = Decimal("0")
     transactions: List[StatementTransactionLine] = []
 
 
@@ -74,6 +77,9 @@ class StatementPreviewOut(BaseModel):
     total_income: Decimal
     total_expense: Decimal
     total_net: Decimal
+    total_required_reserves: Decimal = Decimal("0")
+    total_prepaid_rent: Decimal = Decimal("0")
+    total_available_cash: Decimal = Decimal("0")
 
     properties: List[StatementPropertyBlock] = []
 
@@ -113,6 +119,27 @@ class OwnerStatementOut(BaseModel):
 class OwnerStatementDetailOut(OwnerStatementOut):
     """Statement WITH the frozen property_data block expanded."""
     properties: List[StatementPropertyBlock] = []
+    total_required_reserves: Decimal = Decimal("0")
+    total_prepaid_rent: Decimal = Decimal("0")
+    total_available_cash: Decimal = Decimal("0")
+
+
+class PropertyCashSummaryLine(BaseModel):
+    property_id: int
+    property_name: str
+    ending_cash: Decimal
+    required_reserves: Decimal
+    prepaid_rent: Decimal
+    available_cash: Decimal
+
+
+class OwnerStatementCashSummaryOut(BaseModel):
+    statement_id: int
+    total_ending_cash: Decimal
+    total_required_reserves: Decimal
+    total_prepaid_rent: Decimal
+    total_available_cash: Decimal
+    properties: List[PropertyCashSummaryLine] = []
 
 
 class OwnerStatementListOut(BaseModel):

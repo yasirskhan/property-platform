@@ -38,6 +38,7 @@ export default function EditPropertyPage() {
   const [parkingType, setParkingType] = useState("");
   const [estimatedRent, setEstimatedRent] = useState("");
   const [securityDeposit, setSecurityDeposit] = useState("");
+  const [requiredReserveAmount, setRequiredReserveAmount] = useState("");
   const [ownershipStatus, setOwnershipStatus] = useState("");
   const [petsAllowed, setPetsAllowed] = useState(false);
   const [petTypesAllowed, setPetTypesAllowed] = useState("");
@@ -90,6 +91,7 @@ export default function EditPropertyPage() {
         setParkingType(prop.parking_type || "");
         setEstimatedRent(prop.estimated_rent?.toString() || "");
         setSecurityDeposit(prop.security_deposit?.toString() || "");
+        setRequiredReserveAmount(prop.required_reserve_amount?.toString() || "0");
         setOwnershipStatus(prop.ownership_status || "");
         setPetsAllowed(prop.pets_allowed ?? false);
         setPetTypesAllowed(prop.pet_types_allowed || "");
@@ -140,6 +142,7 @@ export default function EditPropertyPage() {
         parking_type: parkingType || null,
         estimated_rent: estimatedRent ? Number(estimatedRent) : null,
         security_deposit: securityDeposit ? Number(securityDeposit) : null,
+        required_reserve_amount: requiredReserveAmount ? Number(requiredReserveAmount) : 0,
         ownership_status: ownershipStatus || null,
         description: description || null,
         notes: notes || null,
@@ -418,6 +421,20 @@ export default function EditPropertyPage() {
               />
             </div>
           </div>
+
+          <Field label="Required Owner Reserve ($)">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={requiredReserveAmount}
+              onChange={(e) => setRequiredReserveAmount(e.target.value)}
+              className="input"
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              Minimum property cash to retain before owner distributions.
+            </p>
+          </Field>
 
           <Field label="Ownership Status">
             <select

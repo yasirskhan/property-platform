@@ -205,11 +205,21 @@ export default function NewOwnerStatementPage() {
                 {formatMoney(preview.total_expense)}
               </div>
             </div>
-            <div className="col-span-2 border-t border-slate-200 pt-3">
-              <div className="text-xs text-slate-500">Net</div>
-              <div className="text-lg font-semibold font-mono">
-                {formatMoney(preview.total_net)}
-              </div>
+            <div>
+              <div className="text-xs text-slate-500">Required reserves</div>
+              <div className="font-mono">{formatMoney(preview.total_required_reserves)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500">Prepaid rent</div>
+              <div className="font-mono">{formatMoney(preview.total_prepaid_rent)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500">Available cash</div>
+              <div className="font-mono">{formatMoney(preview.total_available_cash)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500">Net movement</div>
+              <div className="font-mono">{formatMoney(preview.total_net)}</div>
             </div>
           </div>
 

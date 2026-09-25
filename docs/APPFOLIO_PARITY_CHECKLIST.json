@@ -9,7 +9,7 @@
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
     "last_updated": "2026-09-25",
-    "migration_head": "e4f6a8c0d2b5",
+    "migration_head": "f5a7c9e1b3d6",
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
