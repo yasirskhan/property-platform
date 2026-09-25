@@ -164,7 +164,8 @@ Bank Feed CI fix:
   to Alembic a4b6c8d0e2f1 / 90 tables.
 
 Current verification:
-- Hosted CI rerun on the schema-checkpoint fix is pending/being checked.
+- Prior CI on b655d3274644ea515fb34b1f5bb9c66ae9d7878a was cancelled by subsequent branch activity, not failed.
+- Fresh hosted CI revalidation is being triggered from the current branch state before Bank Feed closeout.
 - TESTS NOT RUN locally in this connector-only session.
 
 Next:
