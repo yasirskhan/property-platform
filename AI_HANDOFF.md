@@ -118,13 +118,44 @@ Bank Adjustments verification:
 
 Bank Adjustments is COMPLETE/VERIFIED.
 
-Next product batch:
-1. Bank Feed import (Phase 3.6).
-2. Keep Phase 3.6 provider-neutral: durable/manual feed import and matching.
-3. Do not pull live Plaid connectivity forward; that remains Phase 8.
-4. Preserve release.accounting.bank_feed, bank_feeds entitlement,
-   ACCOUNTING.BANK_ACCOUNTS permission, org isolation, and no implicit GL mutation.
-5. Run hosted CI, fix reds autonomously, update planning docs and this handoff.
+Bank Feed backend foundation is implemented by:
+- 1c1e3128429c0ca0e48bfe053c1fb81b33947b99
+- "Phase 3.6 Bank Feed: add durable CSV import and matching"
+
+Backend files:
+- backend/app/models/bank_feed.py
+- backend/app/schemas/bank_feed.py
+- backend/app/services/bank_feed.py
+- backend/app/routers/bank_feed.py
+- backend/alembic/versions/a4b6c8d0e2f1_bank_feed_transactions.py
+- backend/tests/test_bank_feed.py
+- backend/init_db.py
+- backend/app/main.py
+- backend/tests/test_migrations.py
+
+Bank Feed design:
+- provider-neutral durable bank_feed_transactions inbox
+- manual CSV import now; future Plaid/provider sync can reuse the same table
+- stable duplicate protection using external IDs or normalized row occurrence hashes
+- exact unique date+amount matching to reconciliation-equivalent bank activity:
+  deposits, issued checks, and qualifying GL bank-side transactions
+- matched source identity is durable; unmatched rows can be rematched later
+- import/rematch do not create, modify, or reverse GL transactions
+- release.accounting.bank_feed + bank_feeds entitlement +
+  ACCOUNTING.BANK_ACCOUNTS remain authoritative
+- new Alembic head a4b6c8d0e2f1; expected model tables 90
+
+Current verification:
+- Hosted CI for the Bank Feed backend batch is pending/being checked.
+- TESTS NOT RUN locally in this connector-only session.
+
+Next:
+1. Fix any hosted CI red from the Bank Feed backend batch.
+2. Add the customer Bank Feed API client/page and release-gated per-bank link.
+3. Verify the complete workflow in hosted CI.
+4. Close Bank Feed in FEATURE_REGISTRY, parity JSON, FILE_CATALOG,
+   PROJECT_MASTER, and this handoff.
+5. Continue the remaining Phase 3.6 order from PROJECT_MASTER without stopping.
 
 # Verified Foundation / Contracts to Preserve
 
