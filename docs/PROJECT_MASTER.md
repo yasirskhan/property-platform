@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.6 — Accounting Polish** is IN PROGRESS. Chart of Accounts, Journal Entries, Receipts, Charges, Bills lifecycle, Recurring Bills/Credits, Post Codes, Manually Post Bills, Vendor Credits, Write Checks / Checks, Bank Deposits polish, Bank Reconciliation/QIF, Check Setup, ACH File Generation, Bank Adjustments, Bank Feed import, Owner ACH Setup, the $0 ACH Test File, and Owner Held Security Deposits are verified. The next ordered item is Management Fees — Pay Owners flow.
+**Current activity:** Phase **3.6 — Accounting Polish** is IN PROGRESS. Chart of Accounts, Journal Entries, Receipts, Charges, Bills lifecycle, Recurring Bills/Credits, Post Codes, Manually Post Bills, Vendor Credits, Write Checks / Checks, Bank Deposits polish, Bank Reconciliation/QIF, Check Setup, ACH File Generation, Bank Adjustments, Bank Feed import, Owner ACH Setup, the $0 ACH Test File, and Owner Held Security Deposits are verified. Management Fees — Pay Owners is implemented on the branch and pending hosted CI verification.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -33,9 +33,9 @@
 
 **3.4.S closeout:** COMPLETE. Portable private-repo security checks (Bandit, pip-audit, npm audit, committed-secret scan, Dependabot) replaced the unavailable mandatory CodeQL upload gate and passed in hosted CI run 35917804417. CodeQL remains optional/manual if GitHub Code Security is enabled later.
 
-**Migration head:** `c1e3a5d7f9b2`.
+**Migration head:** `d3f5a7c9e1b4`.
 
-**Current parity inventory:** 240 built, 0 in progress, 388 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 240 built, 1 in progress, 387 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -146,7 +146,7 @@ Deployment target (Phase 11):
 **Continue Phase 3.6 — Accounting Polish: Management Fees.**
 
 1. Owner Held Security Deposits is VERIFIED in CI run 36103471013: backend 310 passed, 3 deselected; E2E 3 passed; frontend, platform-admin, security, PostgreSQL backup/restore, staging, parity/registry consistency, and secret scan passed.
-2. Continue with Pay Owners flow, then Overcollection strategy setting, Post GPR, and Management Fee Exclusions list in Section 38 order.
+2. Verify the Pay Owners flow in hosted CI and fix any reds, then continue with Overcollection strategy setting, Post GPR, and Management Fee Exclusions list in Section 38 order.
 3. Preserve organization isolation, the existing owner-as-customer-user model, owner ACH destination rules, and central accounting/posting services.
 4. Verify each coherent batch in hosted CI, fix reds autonomously, update checkpoint/planning state, then continue without waiting.
 

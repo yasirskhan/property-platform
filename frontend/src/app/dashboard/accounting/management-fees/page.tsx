@@ -109,6 +109,7 @@ export default function ManagementFeesPage() {
   }
 
   const canWrite = Boolean(me && WRITE_ROLES.includes(String(me.role).toUpperCase()));
+  const canPayOwners = Boolean(me && ["ADMIN", "MANAGER"].includes(String(me.role).toUpperCase()));
 
   const totalFees = useMemo(
     () =>
@@ -126,7 +127,14 @@ export default function ManagementFeesPage() {
         </h1>
         <div className="flex flex-wrap justify-end gap-2">
           <Flag name="release.accounting.pay_owners">
-            <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Pay Owners</button>
+            {canPayOwners && (
+              <Link
+                href="/dashboard/accounting/management-fees/pay-owners"
+                className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50"
+              >
+                Pay Owners
+              </Link>
+            )}
           </Flag>
           <Flag name="release.accounting.management_fees.overcollection">
             <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Overcollection Strategy</button>

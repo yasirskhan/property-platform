@@ -9,13 +9,13 @@
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
     "last_updated": "2026-09-25",
-    "migration_head": "c1e3a5d7f9b2",
+    "migration_head": "d3f5a7c9e1b4",
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
     "built_count": 240,
-    "scheduled_count": 388,
-    "in_progress_count": 0
+    "scheduled_count": 387,
+    "in_progress_count": 1
   },
   "items": [
     {
@@ -596,9 +596,9 @@
       "id": "accounting.mgmt_fees.pay_owners",
       "area": "Accounting / Management Fees",
       "feature": "Pay Owners flow (distribute remaining trust to owners)",
-      "status": "scheduled",
+      "status": "in_progress",
       "phase": "3.6",
-      "notes": "Critical — AppFolio's whole trust cycle needs this"
+      "notes": "Implementation on branch pending hosted CI: owner sub-ledger preview, masked ACH readiness, bank book-balance guard, durable payout drafts, and human-confirmed external-payment accounting. The app does not initiate or transmit owner payments."
     },
     {
       "id": "accounting.mgmt_fees.overcollection",

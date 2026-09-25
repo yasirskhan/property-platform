@@ -16,7 +16,7 @@ IMPORTANT:
 - Current work is Phase 3.6 — Accounting Polish.
 - Bank Accounts subsection is COMPLETE through Bank Feed import.
 - Owner ACH Setup, $0 ACH Test File, and Owner Held Security Deposits are COMPLETE/VERIFIED.
-- Next ordered item: Management Fees — Pay Owners flow.
+- Current batch: Management Fees — Pay Owners flow, implemented and pending hosted CI verification.
 
 # Latest Verified Green Checkpoint
 
@@ -39,10 +39,10 @@ Hosted CI:
 Current parity source-of-truth:
 - total_items: 628
 - built_count: 240
-- scheduled_count: 388
-- in_progress_count: 0
-- migration_head: c1e3a5d7f9b2
-- expected model-table count: 92
+- scheduled_count: 387
+- in_progress_count: 1
+- migration_head: d3f5a7c9e1b4
+- expected model-table count: 93
 
 # Bank Adjustments
 
@@ -194,23 +194,42 @@ Verification:
 - Owner Held Security Deposits regression coverage remains included in the green backend suite.
 - TESTS NOT RUN locally in this connector-only session.
 
-# Next: Management Fees — Pay Owners flow
+# Pay Owners — Current Batch
+
+Implementation is on the branch and awaiting hosted CI verification.
+
+Backend:
+- durable owner_payouts table; migration head d3f5a7c9e1b4; expected model-table count 93
+- preview uses the existing org-scoped owner sub-ledger and source-bank GL book balance
+- owner ACH readiness is checked, but only masked destination last4 is exposed or stored on payout history
+- only ADMIN/MANAGER can prepare or confirm payouts
+- Pay Owners remains behind release.accounting.pay_owners + owner_payouts entitlement + ACCOUNTING.MANAGEMENT_FEES
+- draft creation validates positive owner balances, enabled ACH destinations, duplicate owners, and source-bank book balance
+- creating a draft does not move funds and does not post the GL
+- after staff confirms a payment was completed externally, the accounting step posts OWNER_DRAW through central post_transaction()
+- external confirmation debits GL 2401 Owner Funds and credits the configured operating-bank cash GL; only the cash line carries owner_id so the owner sub-ledger is reduced once
+- an already-confirmed batch cannot be confirmed twice
+- no automatic ACH payment transmission or payout-file creation is wired into this flow
+
+Frontend:
+- live Pay Owners link replaces the compatibility placeholder for ADMIN/MANAGER
+- new page previews owner balances and masked ACH readiness, creates reviewable drafts, shows history, and requires an explicit human confirmation before accounting is posted
+- the confirmation copy states that the app does not move funds
+
+Verification:
+- regression coverage: backend/tests/test_owner_payouts.py
+- PostgreSQL/prepare-database guards advanced to d3f5a7c9e1b4 / 93 model tables
+- TESTS NOT RUN locally in this connector-only session.
+- Hosted CI: pending.
+
+# Next after Pay Owners verification
 
 Locked order from PROJECT_MASTER:
-1. Pay Owners flow
+1. Fix any Pay Owners CI reds and verify the batch
 2. Overcollection strategy setting
 3. Post GPR
 4. Management Fee Exclusions list
 5. Continue remaining Phase 3.6 items in Section 38 order
-
-Known existing contracts to preserve:
-- Owners are customer-side User rows with role OWNER, scoped by organization_id.
-- Owner ACH should not create a duplicate owner identity model.
-- Reuse verified ACH validation/generation behavior where appropriate.
-- Backend authorization is authoritative; UI hiding is never security.
-- Release, entitlement, org-config, permission, and user preference layers remain separate.
-- Never write financial GL state directly; use central accounting/posting services.
-- Never use Alembic autogenerate.
 
 # Working Rules
 

@@ -83,6 +83,7 @@ from app.models.deposit_line import DepositLine  # noqa: F401
 
 # ---- Management Fees (Phase 2 Step 9) ----
 from app.models.management_fee_run import ManagementFeeRun  # noqa: F401
+from app.models.owner_payout import OwnerPayout  # noqa: F401
 
 # ---- Owner Statements (Phase 2 Step 10) ----
 from app.models.owner_statement import OwnerStatement  # noqa: F401
