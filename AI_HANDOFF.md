@@ -220,7 +220,7 @@ Verification:
 - regression coverage: backend/tests/test_owner_payouts.py
 - PostgreSQL/prepare-database guards advanced to d3f5a7c9e1b4 / 93 model tables
 - TESTS NOT RUN locally in this connector-only session.
-- Hosted CI: pending.
+- Hosted CI run 36108140538 stopped at parity/registry consistency before backend tests because FEATURE_REGISTRY used a non-canonical 🟨 status marker for Pay Owners. Corrected to the canonical ⬜ marker; verification rerun is pending.
 
 # Next after Pay Owners verification
 
