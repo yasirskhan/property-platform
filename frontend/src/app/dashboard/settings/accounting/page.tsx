@@ -56,6 +56,7 @@ export default function AccountingSettingsPage() {
         receipt_cash_gl_account_id: data.receipt_cash_gl_account_id,
         report_export_format: data.report_export_format,
         fiscal_year_start_month: data.fiscal_year_start_month,
+        accounting_basis: data.accounting_basis,
       });
       setMessage("Accounting Settings saved.");
     } catch (err) {

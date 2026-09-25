@@ -464,4 +464,5 @@ Plan:
 - Parity inventory is now 253 built / 375 scheduled / 0 in-progress.
 - Regression coverage extends backend/tests/test_accounting_settings.py.
 - TESTS NOT RUN locally in this connector-only session.
-- Hosted CI verification pending.
+- CI run 36202362237 found one frontend TypeScript red: the post-save Accounting Settings form rehydration omitted the new required accounting_basis field. Backend verification was still running when the corrected head superseded the run.
+- Corrected the post-save form rehydration; hosted CI verification pending.
