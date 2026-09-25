@@ -65,7 +65,7 @@ def _seed(db):
         name="Inactive Must Clear",
         account_type="INCOME",
         must_clear=True,
-        is_active=False,
+        is_active=True,
     )
     other_flagged = GLAccount(
         organization_id=other.id,
@@ -123,6 +123,8 @@ def test_positive_fee_diagnostic_flags_only_active_must_clear_income_accounts():
             account=inactive,
             amount="50.00",
         )
+        inactive.is_active = False
+        db.commit()
 
         report = check_positive_fee_accounts(db, org.id)
 
