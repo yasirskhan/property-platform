@@ -11,6 +11,8 @@ from app.models.owner_ach import OwnerACHAccount
 from app.models.user import Organization, User, UserRole
 from app.schemas.owner_ach import OwnerACHUpsertIn
 from app.services.owner_ach import OwnerACHError, get_owner_ach, upsert_owner_ach
+from app.routers.owner_ach import _require_scope
+from fastapi import HTTPException
 
 
 TABLES = [
@@ -193,3 +195,31 @@ def test_owner_ach_rejects_invalid_routing_cross_org_and_non_owner(db: Session) 
             organization_id=org.id,
             owner_id=manager.id,
         )
+
+
+@pytest.mark.accounting
+def test_owner_ach_sensitive_route_scope_allows_admin_and_owner_self_only(db: Session) -> None:
+    _org, _other, admin, owner, _other_owner, manager = seed(db)
+
+    _require_scope(admin, owner.id)
+    _require_scope(owner, owner.id)
+
+    with pytest.raises(HTTPException) as manager_error:
+        _require_scope(manager, owner.id)
+    assert manager_error.value.status_code == 403
+
+    second_owner = User(
+        email="second-owner-ach@example.com",
+        hashed_password="x",
+        first_name="Second",
+        last_name="Owner",
+        role=UserRole.OWNER,
+        organization_id=owner.organization_id,
+        is_active=True,
+        is_verified=True,
+    )
+    db.add(second_owner)
+    db.commit()
+    with pytest.raises(HTTPException) as owner_error:
+        _require_scope(owner, second_owner.id)
+    assert owner_error.value.status_code == 403
