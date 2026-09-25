@@ -145,17 +145,24 @@ Bank Feed design:
   ACCOUNTING.BANK_ACCOUNTS remain authoritative
 - new Alembic head a4b6c8d0e2f1; expected model tables 90
 
+Bank Feed customer workflow is implemented by:
+- cbedb3f015cf71d8881b77972afce6b055cffc78
+- "Phase 3.6 Bank Feed: add customer import workflow"
+
+Frontend files:
+- frontend/src/lib/bankFeed.ts
+- frontend/src/app/dashboard/accounting/bank-accounts/[id]/bank-feed/page.tsx
+- frontend/src/app/dashboard/accounting/bank-accounts/page.tsx
+
 Current verification:
-- Hosted CI for the Bank Feed backend batch is pending/being checked.
+- Hosted CI for the complete Bank Feed backend + frontend workflow is pending/being checked.
 - TESTS NOT RUN locally in this connector-only session.
 
 Next:
-1. Fix any hosted CI red from the Bank Feed backend batch.
-2. Add the customer Bank Feed API client/page and release-gated per-bank link.
-3. Verify the complete workflow in hosted CI.
-4. Close Bank Feed in FEATURE_REGISTRY, parity JSON, FILE_CATALOG,
-   PROJECT_MASTER, and this handoff.
-5. Continue the remaining Phase 3.6 order from PROJECT_MASTER without stopping.
+1. Fix any hosted CI red from Bank Feed.
+2. When green, close Bank Feed in FEATURE_REGISTRY, parity JSON,
+   FILE_CATALOG, PROJECT_MASTER, and this handoff.
+3. Continue the remaining Phase 3.6 order from PROJECT_MASTER without stopping.
 
 # Verified Foundation / Contracts to Preserve
 
