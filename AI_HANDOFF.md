@@ -16,18 +16,19 @@ IMPORTANT:
 - Current work is Phase 3.6 — Accounting Polish.
 - Bank Accounts subsection is COMPLETE through Bank Feed import.
 - Owner ACH Setup, $0 ACH Test File, and Owner Held Security Deposits are COMPLETE/VERIFIED.
-- Current batch: Management Fees — Pay Owners flow, implemented and pending hosted CI verification.
+- Management Fees — Pay Owners is COMPLETE/VERIFIED.
+- Current batch: Management Fees — Overcollection strategy setting.
 
 # Latest Verified Green Checkpoint
 
-Owner Held Security Deposits checkpoint:
-- b234e308f05a43e88b1a3ac670374a8600cf976e
-- "CI: advance schema checkpoint expectations"
+Pay Owners verification checkpoint:
+- 81cc4ae9466af243d8aff2e6881fe20a71d7e654
+- "CI: fix Pay Owners verification guards"
 
 Hosted CI:
-- Run 36103471013: SUCCESS
-- Backend: 310 passed, 3 deselected, 2322 warnings in 51.75s
-- E2E: 3 passed in 12.82s
+- Run 36181749221: SUCCESS
+- Backend: 316 passed, 3 deselected, 2479 warnings in 42.42s
+- E2E: 3 passed in 12.66s
 - Frontend: SUCCESS
 - Platform admin: SUCCESS
 - Security: SUCCESS
@@ -38,9 +39,9 @@ Hosted CI:
 
 Current parity source-of-truth:
 - total_items: 628
-- built_count: 240
+- built_count: 241
 - scheduled_count: 387
-- in_progress_count: 1
+- in_progress_count: 0
 - migration_head: d3f5a7c9e1b4
 - expected model-table count: 93
 
@@ -194,9 +195,9 @@ Verification:
 - Owner Held Security Deposits regression coverage remains included in the green backend suite.
 - TESTS NOT RUN locally in this connector-only session.
 
-# Pay Owners — Current Batch
+# Pay Owners — COMPLETE / VERIFIED
 
-Implementation is on the branch and awaiting hosted CI verification.
+Implementation is verified on the branch.
 
 Backend:
 - durable owner_payouts table; migration head d3f5a7c9e1b4; expected model-table count 93
@@ -221,16 +222,20 @@ Verification:
 - PostgreSQL/prepare-database guards advanced to d3f5a7c9e1b4 / 93 model tables
 - TESTS NOT RUN locally in this connector-only session.
 - Hosted CI run 36108140538 stopped at parity/registry consistency before backend tests because FEATURE_REGISTRY used a non-canonical 🟨 status marker for Pay Owners. Corrected to the canonical ⬜ marker in df09d8a53e9ac1ec0699b28a30d0dad90c6f2ecb.
-- Hosted CI run 36181435831 reached the backend suite: 313 passed, 3 deselected, 3 failed. Two failures were stale test_migrations.py schema-head/table-count guards; the third was a missing-ACH regression fixture whose owner had no positive balance, so validation correctly failed earlier. Test-only guard/fixture corrections are being committed for verification.
+- Hosted CI run 36181435831 reached the backend suite: 313 passed, 3 deselected, 3 failed. Two failures were stale test_migrations.py schema-head/table-count guards; the third was a missing-ACH regression fixture whose owner had no positive balance, so validation correctly failed earlier.
+- CI guard/fixture corrections landed in 81cc4ae9466af243d8aff2e6881fe20a71d7e654.
+- Hosted CI run 36181749221: SUCCESS.
+- Backend: 316 passed, 3 deselected, 2479 warnings in 42.42s.
+- E2E: 3 passed in 12.66s.
+- Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 
-# Next after Pay Owners verification
+# Next Work
 
 Locked order from PROJECT_MASTER:
-1. Fix any Pay Owners CI reds and verify the batch
-2. Overcollection strategy setting
-3. Post GPR
-4. Management Fee Exclusions list
-5. Continue remaining Phase 3.6 items in Section 38 order
+1. Overcollection strategy setting
+2. Post GPR
+3. Management Fee Exclusions list
+4. Continue remaining Phase 3.6 items in Section 38 order
 
 # Working Rules
 
