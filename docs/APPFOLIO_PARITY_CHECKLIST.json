@@ -13,8 +13,8 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 238,
-    "scheduled_count": 390,
+    "built_count": 239,
+    "scheduled_count": 389,
     "in_progress_count": 0
   },
   "items": [
@@ -2203,8 +2203,9 @@
       "id": "accounting.banks.zero_dollar_test_file",
       "area": "Accounting / Bank Accounts",
       "feature": "$0 ACH Test File generation",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Verified in CI run 36101023004 attempt 2: owner-scoped zero-dollar CSV/NACHA prenote generation, source-bank validation, independent release gating, and no payment or GL mutation."
     },
     {
       "id": "accounting.owners.owner_held_security_deposits",

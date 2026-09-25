@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.6 — Accounting Polish** is IN PROGRESS. Chart of Accounts, Journal Entries, Receipts, Charges, Bills lifecycle, Recurring Bills/Credits, Post Codes, Manually Post Bills, Vendor Credits, Write Checks / Checks, Bank Deposits polish, Bank Reconciliation/QIF, Check Setup, ACH File Generation, Bank Adjustments, Bank Feed import, and Owner ACH Setup are verified. The next ordered item is the $0 ACH Test File.
+**Current activity:** Phase **3.6 — Accounting Polish** is IN PROGRESS. Chart of Accounts, Journal Entries, Receipts, Charges, Bills lifecycle, Recurring Bills/Credits, Post Codes, Manually Post Bills, Vendor Credits, Write Checks / Checks, Bank Deposits polish, Bank Reconciliation/QIF, Check Setup, ACH File Generation, Bank Adjustments, Bank Feed import, Owner ACH Setup, and the $0 ACH Test File are verified. The next ordered item is Owner Held Security Deposits.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -35,7 +35,7 @@
 
 **Migration head:** `b6d8f0a2c4e7`.
 
-**Current parity inventory:** 238 built, 0 in progress, 390 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 239 built, 0 in progress, 389 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -145,9 +145,9 @@ Deployment target (Phase 11):
 
 **Continue Phase 3.6 — Accounting Polish: Owners.**
 
-1. Owner ACH Setup is VERIFIED in CI run 36100394485. Backend: 302 passed, 3 deselected. E2E: 3 passed. Frontend, platform-admin, security, PostgreSQL backup/restore, and staging passed.
-2. Continue with the $0 ACH Test File, then Owner Held Security Deposits.
-3. Preserve organization isolation and the existing owner-as-customer-user model. Reuse the verified ACH validation/generation spine where appropriate and keep financial postings behind the central accounting services.
+1. Owner ACH Setup is VERIFIED in CI run 36100394485. The $0 ACH Test File is VERIFIED in CI run 36101023004 attempt 2: backend 305 passed, 3 deselected; E2E 3 passed; frontend, platform-admin, security, PostgreSQL backup/restore, and staging passed.
+2. Continue with Owner Held Security Deposits, then the remaining Phase 3.6 items in Section 38 order.
+3. Preserve organization isolation and the existing owner-as-customer-user model. Keep financial postings behind the central accounting services and preserve independent release/entitlement/org/permission layers.
 4. Verify each coherent batch in hosted CI, fix reds autonomously, update checkpoint/planning state, then continue without waiting.
 
 ## B2. AFTER THAT## B2. AFTER THAT (Phase 3.5 onward)
@@ -2013,7 +2013,7 @@ the summary:
 - ⬜ Bank Account Adjustments (entity + sub-tab list) — Phase 3.6 [PDF p.44]
 - ⬜ Recalculate Balances button on GL Accounts — Phase 3.6 [PDF p.48]
 - ⬜ Post Codes for recurring bills — Phase 3.6 [PDF p.55]
-- ⬜ $0 ACH Test File — Phase 3.6 [PDF p.28]
+- ✅ $0 ACH Test File — Phase 3.6 [PDF p.28]
 - ⬜ Transfer Funds (property to property) — Phase 3.6 [PDF p.67]
 - ⬜ Manually Post Journal Entries — Phase 3.6 [PDF p.51]
 - ⬜ Manually Post Bills — Phase 3.6 [PDF p.61]

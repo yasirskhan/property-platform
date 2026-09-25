@@ -14,19 +14,20 @@ IMPORTANT:
 - Phase 3.4.S and Phases 3.4.3 through 3.4.26 are COMPLETE/VERIFIED.
 - Phase 3.5.5 compatibility pass is COMPLETE.
 - Current work is Phase 3.6 — Accounting Polish.
-- Bank Accounts subsection is now COMPLETE through Bank Feed import.
-- Next ordered item: $0 ACH Test File.
+- Bank Accounts subsection is COMPLETE through Bank Feed import.
+- Owner ACH Setup and $0 ACH Test File are COMPLETE/VERIFIED.
+- Next ordered item: Owner Held Security Deposits.
 
 # Latest Verified Green Checkpoint
 
-Bank Feed verification trigger:
-- 84469ab3473ecc682d35b1c9ff12d2b164fd8dae
-- "Docs: trigger Bank Feed revalidation checkpoint"
+$0 ACH Test File checkpoint:
+- 7965c2f7ff67b576f07756142b0231ed7900245e
+- "Docs: checkpoint $0 ACH Test File batch for CI"
 
 Hosted CI:
-- Run 36099568648: SUCCESS
-- Backend: 298 passed, 3 deselected, 2184 warnings in 36.14s
-- E2E: 3 passed in 13.65s
+- Run 36101023004, attempt 2: SUCCESS
+- Backend: 305 passed, 3 deselected, 2239 warnings in 44.50s
+- E2E: 3 passed in 11.96s
 - Frontend: SUCCESS
 - Platform admin: SUCCESS
 - Security: SUCCESS
@@ -37,8 +38,8 @@ Hosted CI:
 
 Current parity source-of-truth:
 - total_items: 628
-- built_count: 238
-- scheduled_count: 390
+- built_count: 239
+- scheduled_count: 389
 - in_progress_count: 0
 - migration_head: b6d8f0a2c4e7
 - expected model-table count: 91
@@ -132,9 +133,9 @@ Verification checkpoint:
 - CI run 36100394485: SUCCESS
 - TESTS NOT RUN locally in this connector-only session.
 
-# $0 ACH Test File — Current Batch
+# $0 ACH Test File — COMPLETE / VERIFIED
 
-Implementation is on the branch and awaiting hosted CI verification.
+Implementation is verified on the branch.
 
 Backend:
 - backend/app/schemas/ach_file.py: ACHTestFileIn / ACHTestFileOut
@@ -157,15 +158,18 @@ Behavior:
 - no schema migration is required; head remains b6d8f0a2c4e7 / 91 model tables
 
 Verification:
-- Hosted CI on the final batch checkpoint is pending.
+- CI run 36101023004 attempt 1 had a transient Playwright login-navigation timeout only; backend/frontend/security/staging all passed.
+- Re-running the failed E2E job produced attempt 2 SUCCESS.
+- Backend: 305 passed, 3 deselected, 2239 warnings in 44.50s.
+- E2E: 3 passed in 11.96s.
+- Frontend, platform-admin, security, PostgreSQL backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 - TESTS NOT RUN locally in this connector-only session.
 
-# Next: $0 ACH Test File
+# Next: Owner Held Security Deposits
 
 Locked order from PROJECT_MASTER:
-1. $0 ACH Test File
-2. Owner Held Security Deposits
-3. Continue remaining Phase 3.6 items in PROJECT_MASTER order
+1. Owner Held Security Deposits
+2. Continue remaining Phase 3.6 items in PROJECT_MASTER order
 
 Known existing contracts to preserve:
 - Owners are customer-side User rows with role OWNER, scoped by organization_id.
