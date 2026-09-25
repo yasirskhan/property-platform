@@ -15,19 +15,19 @@ IMPORTANT:
 - Phase 3.5.5 compatibility pass is COMPLETE.
 - Current work is Phase 3.6 — Accounting Polish.
 - Bank Accounts subsection is COMPLETE through Bank Feed import.
-- Owner ACH Setup and $0 ACH Test File are COMPLETE/VERIFIED.
-- Next ordered item: Owner Held Security Deposits.
+- Owner ACH Setup, $0 ACH Test File, and Owner Held Security Deposits are COMPLETE/VERIFIED.
+- Next ordered item: Management Fees — Pay Owners flow.
 
 # Latest Verified Green Checkpoint
 
-$0 ACH Test File checkpoint:
-- 7965c2f7ff67b576f07756142b0231ed7900245e
-- "Docs: checkpoint $0 ACH Test File batch for CI"
+Owner Held Security Deposits checkpoint:
+- b234e308f05a43e88b1a3ac670374a8600cf976e
+- "CI: advance schema checkpoint expectations"
 
 Hosted CI:
-- Run 36101023004, attempt 2: SUCCESS
-- Backend: 305 passed, 3 deselected, 2239 warnings in 44.50s
-- E2E: 3 passed in 11.96s
+- Run 36103471013: SUCCESS
+- Backend: 310 passed, 3 deselected, 2322 warnings in 51.75s
+- E2E: 3 passed in 12.82s
 - Frontend: SUCCESS
 - Platform admin: SUCCESS
 - Security: SUCCESS
@@ -38,8 +38,8 @@ Hosted CI:
 
 Current parity source-of-truth:
 - total_items: 628
-- built_count: 239
-- scheduled_count: 389
+- built_count: 240
+- scheduled_count: 388
 - in_progress_count: 0
 - migration_head: c1e3a5d7f9b2
 - expected model-table count: 92
@@ -165,9 +165,11 @@ Verification:
 - Frontend, platform-admin, security, PostgreSQL backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 - TESTS NOT RUN locally in this connector-only session.
 
-# Owner Held Security Deposits — Current Batch
+# Owner Held Security Deposits — COMPLETE / VERIFIED
 
-Implementation is on the branch and awaiting hosted CI verification.
+Implementation:
+- 73e657fac05d4e3afb4c935c2b62c2caeb8bbf5d — feature implementation
+- b234e308f05a43e88b1a3ac670374a8600cf976e — schema checkpoint guards
 
 Design:
 - reuses custom GL Accounts for the liability-account setup
@@ -185,17 +187,21 @@ Schema:
 - expected model tables 92
 
 Verification:
-- Hosted CI run 36103205314: feature implementation compiled; parity/registry, secret scan, frontend lint/TypeScript/build, platform-admin, and security passed.
-- Owner Held Security Deposits tests: 5 passed.
-- Backend summary: 308 passed, 3 deselected, 2 failed because test_postgres_smoke.py and test_prepare_database.py still expected the previous b6d8f0a2c4e7 / 91-table schema checkpoint.
-- CI checkpoint guards are now advanced to c1e3a5d7f9b2 / 92 tables; revalidation is pending.
+- Hosted CI run 36103471013: SUCCESS.
+- Backend: 310 passed, 3 deselected, 2322 warnings in 51.75s.
+- E2E: 3 passed in 12.82s.
+- Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
+- Owner Held Security Deposits regression coverage remains included in the green backend suite.
 - TESTS NOT RUN locally in this connector-only session.
 
-# Next: Owner Held Security Deposits verification
+# Next: Management Fees — Pay Owners flow
 
 Locked order from PROJECT_MASTER:
-1. Verify Owner Held Security Deposits and fix any CI reds
-2. Continue remaining Phase 3.6 items in PROJECT_MASTER order
+1. Pay Owners flow
+2. Overcollection strategy setting
+3. Post GPR
+4. Management Fee Exclusions list
+5. Continue remaining Phase 3.6 items in Section 38 order
 
 Known existing contracts to preserve:
 - Owners are customer-side User rows with role OWNER, scoped by organization_id.

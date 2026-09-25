@@ -556,9 +556,9 @@ These platform surfaces do not change the customer five-layer access model. Cust
 
 | Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
 |---|---|---|---|---|---|---|---|---|
-| Owner Held Security Deposits page | page | release.accounting.owner_held_security_deposits | core | yes | ACCOUNTING.GL_ACCOUNTS | no | ⬜ hidden implementation present | Configure deposit Key Accounts and choose one for a lease move-in |
-| Deposit Key Accounts | capability | — | core | yes | ACCOUNTING.GL_ACCOUNTS | no | ⬜ hidden implementation present | Only active LIABILITY accounts offset to Operating Cash, excluded from management fees and cash flow |
-| Move-in deposit account selection | capability | — | core | yes | ACCOUNTING.GL_ACCOUNTS | no | ⬜ hidden implementation present | Stores the approved deposit liability on Lease.security_deposit_gl_account_id |
+| Owner Held Security Deposits page | page | release.accounting.owner_held_security_deposits | core | yes | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Verified in CI run 36103471013: configure deposit Key Accounts and choose one for a lease move-in |
+| Deposit Key Accounts | capability | — | core | yes | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Verified: only active LIABILITY accounts offset to Operating Cash, excluded from management fees and cash flow |
+| Move-in deposit account selection | capability | — | core | yes | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Verified: stores the approved deposit liability on Lease.security_deposit_gl_account_id |
 
 ## Backend surface
 

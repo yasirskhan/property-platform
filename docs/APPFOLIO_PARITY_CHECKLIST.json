@@ -13,8 +13,8 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 239,
-    "scheduled_count": 389,
+    "built_count": 240,
+    "scheduled_count": 388,
     "in_progress_count": 0
   },
   "items": [
@@ -2211,8 +2211,9 @@
       "id": "accounting.owners.owner_held_security_deposits",
       "area": "Accounting / Owners",
       "feature": "Owner Held Security Deposits (GL setup + Key Accounts + Move In use)",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Verified in CI run 36103471013: org-scoped deposit Key Accounts, lease move-in assignment, schema checkpoint c1e3a5d7f9b2 / 92 tables, and no new GL posting path."
     },
     {
       "id": "accounting.reports.security_deposit_detail",
