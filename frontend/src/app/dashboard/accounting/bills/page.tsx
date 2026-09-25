@@ -200,7 +200,7 @@ export default function BillsPage() {
         <h1 className="text-xl font-semibold text-slate-900">Bills</h1>
         <div className="flex flex-wrap items-center gap-2">
           <Flag name="release.accounting.bills.recurring"><Link href="/dashboard/accounting/bills/recurring" className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Recurring Bills</Link></Flag>
-          <Flag name="release.accounting.write_checks"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Write Checks</button></Flag>
+          <Flag name="release.accounting.write_checks"><Link href="/dashboard/accounting/checks/write" className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Write Checks</Link></Flag>\n          <Flag name="release.accounting.write_checks"><Link href="/dashboard/accounting/checks" className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Checks</Link></Flag>
           <Flag name="release.accounting.vendor_credits"><Link href="/dashboard/accounting/bills/credits/new" className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Enter Credit</Link></Flag>
           <Flag name="release.accounting.bills.manual_post"><Link href="/dashboard/accounting/bills/recurring" className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Manually Post Bills</Link></Flag>
           <Flag name="release.accounting.owner_draw"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Owner Draw</button></Flag>

@@ -63,6 +63,7 @@ from app.routers import platform_admin as platform_admin_router
 from app.routers import observability as observability_router
 from app.routers import billing_checkout as billing_checkout_router
 from app.routers import features as features_router
+from app.routers import checks as checks_router
 
 # ------------------------------------------------------------
 # Create the FastAPI app
@@ -141,6 +142,7 @@ app.include_router(platform_admin_router.router)
 app.include_router(observability_router.router)
 app.include_router(billing_checkout_router.router)
 app.include_router(features_router.router)
+app.include_router(checks_router.router)
 
 
 # ------------------------------------------------------------

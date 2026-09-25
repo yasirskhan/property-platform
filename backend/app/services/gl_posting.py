@@ -51,6 +51,7 @@ GL_ACCOUNT_PERMISSIONS_GATE = "release.accounting.gl_account_permissions"
 VALID_TRANSACTION_TYPES = {
     "RECEIPT",
     "BILL",
+    "CHECK",
     "VENDOR_CREDIT",
     "JOURNAL_ENTRY",
     "DEPOSIT",
