@@ -96,14 +96,24 @@ Current verification state:
 - Hosted CI for the backend batch is pending/being checked.
 - TESTS NOT RUN locally in this connector-only session.
 
-Next Bank Adjustments batch:
-1. Fix any hosted CI red from the backend batch.
-2. Add frontend/src/lib/bankAdjustments.ts.
-3. Add frontend/src/app/dashboard/accounting/bank-accounts/[id]/adjustments/page.tsx.
-4. Add an Adjustments link to the Bank Accounts list under the release flag.
-5. Run hosted CI and fix reds autonomously.
-6. Mark Bank Adjustments complete in registry/parity/catalog/project docs.
-7. Continue directly to Bank Feed import.
+Frontend Bank Adjustments workflow is implemented by:
+- 4d037b6608c07d142974c758e2aecee406f373d7
+- "Phase 3.6 Bank Adjustments: add customer workflow"
+
+Frontend files:
+- frontend/src/lib/bankAdjustments.ts
+- frontend/src/app/dashboard/accounting/bank-accounts/[id]/adjustments/page.tsx
+- frontend/src/app/dashboard/accounting/bank-accounts/page.tsx
+
+Current verification state:
+- Hosted CI is being checked for the backend and frontend batches.
+- TESTS NOT RUN locally in this connector-only session.
+
+Next:
+1. Fix any hosted CI red from Bank Adjustments.
+2. After green, mark Bank Adjustments complete in FEATURE_REGISTRY,
+   APPFOLIO parity, FILE_CATALOG, and PROJECT_MASTER where possible.
+3. Continue directly to Bank Feed import.
 
 # Verified Foundation / Contracts to Preserve
 
