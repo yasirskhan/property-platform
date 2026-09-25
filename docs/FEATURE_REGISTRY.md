@@ -509,7 +509,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | ACH File Generation | capability | release.accounting.ach_files | ach_payments | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Verified CSV/NACHA generation; no accounting-state mutation |
 | $0 ACH Test File | capability | release.accounting.ach_test_file | ach_payments | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | Setup verification |
 | Check Printing | capability | release.accounting.check_printing | check_writing | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Printable check view backed by org-scoped check detail |
-| Bank Feed | capability | release.accounting.bank_feed | bank_feeds | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | Future Plaid/generic feed integration |
+| Bank Feed | capability | release.accounting.bank_feed | bank_feeds | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Verified in CI run 36099568648: provider-neutral durable CSV import, duplicate protection, org/bank-scoped exact matching, rematch workflow, and no GL mutation; live Plaid remains Phase 8 |
 | Adjustments | capability | release.accounting.bank_adjustments | core | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Verified in CI run 36097448099: ledger-native per-bank adjustments, org-scoped offset validation, immutable reversal, and reconciliation visibility |
 
 ---
