@@ -330,8 +330,8 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Deposit table + total footer | section | — | — | — | — | — | ✅ present | Deposit #, date, account, description, total |
 | Deposit detail modal | modal | — | — | — | ACCOUNTING.DEPOSITS | — | ✅ present | Shows included receipts |
 | No direct reverse rule | behavior | — | core | no | ACCOUNTING.DEPOSITS | no | ✅ present | Corrections through accounting workflow |
-| Print Bank Deposit | capability | release.accounting.deposits.print | core | no | ACCOUNTING.DEPOSITS | no | ⬜ hidden implementation present | Flagged compatibility slot; printable view remains planned |
-| Edit Bank Deposit | capability | release.accounting.deposits.edit | core | no | ACCOUNTING.DEPOSITS | no | ⬜ hidden implementation present | Flagged compatibility slot; post-creation edit workflow remains planned |
+| Print Bank Deposit | capability | release.accounting.deposits.print | core | no | ACCOUNTING.DEPOSITS | no | ✅ present | Gated printable deposit slip backed by org-scoped deposit detail |
+| Edit Bank Deposit | capability | release.accounting.deposits.edit | core | no | ACCOUNTING.DEPOSITS | no | ✅ present | Safe metadata/receipt-membership edit; no duplicate GL posting |
 | Process NSF from deposit | capability | release.accounting.deposits.process_nsf | nsf_processing | yes | ACCOUNTING.DEPOSITS | no | ⬜ hidden implementation present | Flagged compatibility slot; correction workflow remains planned |
 | Escrow refund | capability | release.accounting.deposits.escrow_refund | escrow_refunds | yes | ACCOUNTING.DEPOSITS | no | ⬜ hidden implementation present | Flagged compatibility slot; escrow-refund workflow remains planned |
 
@@ -353,7 +353,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | All / None quick select | controls | — | — | — | — | — | ✅ present | Core batch helper |
 | Running included count + total | row | — | — | — | — | — | ✅ present | Core UI |
 | Date mismatch warning | behavior | — | core | no | ACCOUNTING.DEPOSITS | no | ✅ present | Warns when any selected receipt date differs from the deposit date |
-| Deposit number auto-increment per bank | behavior | — | core | yes | ACCOUNTING.DEPOSITS | no | ⬜ hidden implementation present | Structural compatibility slot present; current global deposit numbering remains unchanged |
+| Deposit number auto-increment per bank | behavior | — | core | yes | ACCOUNTING.DEPOSITS | no | ✅ present | Durable per-bank sequence with D-00001-style automatic numbering |
 
 ---
 

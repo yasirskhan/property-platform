@@ -2662,11 +2662,27 @@ Re-run `python generate_file_catalog.py` after adding or renaming files.
 #### `frontend/src/app/dashboard/accounting/checks/[id]/print/page.tsx`
   **Export:** default `PrintCheckPage`
 
+## Phase 3.6 Bank Deposits polish checkpoint additions
+
+#### `backend/alembic/versions/c7d9e1f3a5b2_deposit_polish.py`
+  - revision: `c7d9e1f3a5b2`
+  - down_revision: `f4a6c8d0e2b1`
+  - adds durable per-bank deposit sequencing and enables deposit print/edit gates
+
+#### `backend/tests/test_deposit_polish.py`
+  **Coverage:** per-bank automatic numbering and safe deposit membership/total edits
+
+#### `frontend/src/app/dashboard/accounting/deposits/[id]/edit/page.tsx`
+  **Export:** default `EditDepositPage`
+
+#### `frontend/src/app/dashboard/accounting/deposits/[id]/print/page.tsx`
+  **Export:** default `PrintDepositPage`
+
 ---
 
 ## Counts
 
-- Backend Python files: 320
-- Frontend TS/TSX files: 110
+- Backend Python files: 322
+- Frontend TS/TSX files: 112
 - Platform admin TS/TSX files: 6
-- Total: 436
+- Total: 440
