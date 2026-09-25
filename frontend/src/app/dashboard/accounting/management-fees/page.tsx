@@ -150,7 +150,14 @@ export default function ManagementFeesPage() {
             <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Management Fee Exclusions</button>
           </Flag>
           <Flag name="release.accounting.management_fees.post_gpr">
-            <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Post GPR</button>
+            {canWrite && (
+              <Link
+                href="/dashboard/accounting/management-fees/post-gpr"
+                className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50"
+              >
+                Post GPR
+              </Link>
+            )}
           </Flag>
           {canWrite && (
             <Link

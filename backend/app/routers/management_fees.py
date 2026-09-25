@@ -34,6 +34,12 @@ from app.schemas.management_fee import (
     OvercollectionStrategyOut,
     OvercollectionStrategyUpdate,
 )
+from app.schemas.journal_entry import (
+    GPRCandidateListOut,
+    GPRCandidateOut,
+    GPRPostIn,
+    GPRPostResultOut,
+)
 from app.services.gl_posting import PostingError
 from app.services.management_fee_posting import (
     preview_management_fee,
@@ -43,6 +49,7 @@ from app.services.management_fee_posting import (
 from app.services.audit import append_audit_log
 from app.services.customer_features import resolve_customer_features
 from app.services.menu_resolver import permission_allows_user
+from app.services.gpr_posting import list_gpr_candidates, month_bounds, post_gpr
 
 
 router = APIRouter(
@@ -52,6 +59,7 @@ router = APIRouter(
 
 WRITE_ROLES = {"ADMIN", "OWNER", "MANAGER"}
 OVERCOLLECTION_FEATURE_KEY = "release.accounting.management_fees.overcollection"
+MANAGEMENT_FEE_GPR_FEATURE_KEY = "release.accounting.management_fees.post_gpr"
 DEFAULT_OVERCOLLECTION_STRATEGY = "CREDITS_THEN_RECEIPTS"
 
 
@@ -109,6 +117,24 @@ def _require_overcollection_feature(db: Session, current_user: User) -> int:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Management fee overcollection strategy is not enabled.",
+        )
+    return org_id
+
+
+def _require_management_fee_gpr_feature(db: Session, current_user: User) -> int:
+    org_id = _require_management_fees_access(db, current_user)
+    decision = next(
+        (
+            item
+            for item in resolve_customer_features(db, user=current_user)
+            if item.key == MANAGEMENT_FEE_GPR_FEATURE_KEY
+        ),
+        None,
+    )
+    if decision is None or not decision.allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Management Fees Post GPR is not enabled.",
         )
     return org_id
 
@@ -359,6 +385,71 @@ def update_overcollection_strategy(
     db.commit()
     db.refresh(org)
     return _overcollection_out(org)
+
+
+# ============================================================
+# GET/POST /post-gpr
+# ============================================================
+
+@router.get("/post-gpr", response_model=GPRCandidateListOut)
+def get_management_fee_gpr_candidates(
+    month: date = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_management_fee_gpr_feature(db, current_user)
+    normalized, _ = month_bounds(month)
+    try:
+        rows = list_gpr_candidates(db, organization_id=org_id, month=normalized)
+    except PostingError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    items = [
+        GPRCandidateOut(
+            unit_id=row.unit_id,
+            property_id=row.property_id,
+            property_name=row.property_name,
+            unit_number=row.unit_number,
+            lease_id=row.lease_id,
+            market_rent=row.market_rent,
+            scheduled_rent=row.scheduled_rent,
+            loss_gain=row.loss_gain,
+            already_posted=row.already_posted,
+            transaction_id=row.transaction_id,
+        )
+        for row in rows
+    ]
+    return GPRCandidateListOut(
+        month=normalized,
+        items=items,
+        total=len(items),
+        unposted=sum(1 for row in rows if not row.already_posted),
+    )
+
+
+@router.post("/post-gpr", response_model=GPRPostResultOut)
+def post_management_fee_gpr(
+    payload: GPRPostIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_write(current_user)
+    org_id = _require_management_fee_gpr_feature(db, current_user)
+    normalized, _ = month_bounds(payload.month)
+    try:
+        transactions = post_gpr(
+            db,
+            organization_id=org_id,
+            month=normalized,
+            unit_ids=payload.unit_ids,
+            created_by=current_user,
+        )
+    except PostingError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return GPRPostResultOut(
+        month=normalized,
+        posted=len(transactions),
+        transaction_ids=[row.id for row in transactions],
+    )
 
 
 # ============================================================

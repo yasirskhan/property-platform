@@ -183,3 +183,47 @@ export function updateOvercollectionStrategy(
     strategy,
   });
 }
+
+export type ManagementFeeGPRCandidate = {
+  unit_id: number;
+  property_id: number;
+  property_name: string;
+  unit_number: string;
+  lease_id: number | null;
+  market_rent: string;
+  scheduled_rent: string;
+  loss_gain: string;
+  already_posted: boolean;
+  transaction_id: number | null;
+};
+
+export type ManagementFeeGPRCandidateList = {
+  month: string;
+  items: ManagementFeeGPRCandidate[];
+  total: number;
+  unposted: number;
+};
+
+export type ManagementFeeGPRPostResult = {
+  month: string;
+  posted: number;
+  transaction_ids: number[];
+};
+
+export function listManagementFeeGPRCandidates(
+  month: string
+): Promise<ManagementFeeGPRCandidateList> {
+  return apiGet(
+    `/api/accounting/management-fees/post-gpr?month=${encodeURIComponent(month)}`
+  );
+}
+
+export function postManagementFeeGPR(
+  month: string,
+  unitIds: number[]
+): Promise<ManagementFeeGPRPostResult> {
+  return apiPost("/api/accounting/management-fees/post-gpr", {
+    month,
+    unit_ids: unitIds,
+  });
+}
