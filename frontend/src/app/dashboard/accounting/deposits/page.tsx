@@ -266,8 +266,8 @@ export default function DepositsPage() {
                     <span className="font-mono">{formatMoney(openDeposit.total)}</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Flag name="release.accounting.deposits.print"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Print Bank Deposit</button></Flag>
-                    <Flag name="release.accounting.deposits.edit"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Edit Bank Deposit</button></Flag>
+                    <Flag name="release.accounting.deposits.print"><Link href={`/dashboard/accounting/deposits/${openDeposit.id}/print`} className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Print Bank Deposit</Link></Flag>
+                    <Flag name="release.accounting.deposits.edit"><Link href={`/dashboard/accounting/deposits/${openDeposit.id}/edit`} className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Edit Bank Deposit</Link></Flag>
                     <Flag name="release.accounting.deposits.process_nsf"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Process NSF</button></Flag>
                     <Flag name="release.accounting.deposits.escrow_refund"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Escrow Refund</button></Flag>
                   </div>

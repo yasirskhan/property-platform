@@ -38,17 +38,15 @@ Verified foundation:
 
 Current phase:
 - Phase 3.6 — Accounting Polish.
-- Next ordered subsection: Bank Deposits.
+- Active subsection: Bank Deposits implementation committed for hosted verification.
 - Preserve verified deposit contract: receipts already post cash; deposits group receipts only through deposit_lines and do not create another GL transaction.
 - Verified accounting contracts remain fixed: org isolation, locked periods, central post_transaction() for real GL writes, atomic financial workflows, and immutable/reversal accounting semantics.
 
 Next exact action:
-1. Implement Bank Deposits polish in one coherent batch: Print Bank Deposit, date-mismatch warning, per-bank-account numbering, and Edit Deposit.
-2. Inspect existing deposit models/services/router/pages first and reuse the existing date-mismatch warning already present on the new-deposit page.
-3. Preserve deposit_lines as the source of truth for deposited receipts; do not add a duplicate deposited flag or double-post cash.
-4. Gate independently releasable deposit actions through the existing hybrid capability system and keep ACCOUNTING.DEPOSITS backend permission authoritative.
-5. Verify in hosted CI, fix reds autonomously, update PROJECT_MASTER / FEATURE_REGISTRY / APPFOLIO_PARITY_CHECKLIST / FILE_CATALOG / AI_HANDOFF.
-6. Continue directly to the next ordered Phase 3.6 subsection without waiting for user approval.
+1. Verify the Bank Deposits polish batch in hosted CI and fix reds autonomously.
+2. Batch includes durable per-bank deposit sequencing, existing date mismatch warnings, gated print slips, and safe post-creation edit of metadata/receipt membership without GL writes.
+3. After green, update PROJECT_MASTER / FEATURE_REGISTRY / APPFOLIO_PARITY_CHECKLIST / FILE_CATALOG / AI_HANDOFF.
+4. Continue directly to the next ordered Phase 3.6 subsection without waiting for user approval.
 
 Open blockers:
 - NONE

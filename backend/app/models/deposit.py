@@ -64,6 +64,9 @@ class Deposit(Base):
     # Human-facing deposit slip number / batch id.
     deposit_number = Column(String(40), nullable=True, index=True)
 
+    # Per-bank durable sequence used when the human deposit number is auto-assigned.
+    bank_sequence = Column(Integer, nullable=True, index=True)
+
     # Free-text description shown on the deposit slip.
     description = Column(String(500), nullable=True)
 

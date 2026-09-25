@@ -29,6 +29,7 @@ from app.models.deposit import Deposit
 from app.models.deposit_line import DepositLine
 from app.schemas.deposit import (
     DepositCreateIn,
+    DepositUpdateIn,
     DepositDetailOut,
     DepositLineOut,
     DepositListOut,
@@ -38,8 +39,10 @@ from app.schemas.deposit import (
 )
 from app.services.gl_posting import PostingError
 from app.services.menu_resolver import permission_allows_user
+from app.services.customer_features import resolve_customer_features
 from app.services.deposit_posting import (
     create_deposit,
+    edit_deposit,
     list_undeposited_receipts,
 )
 
@@ -75,6 +78,22 @@ def _require_deposits_access(db: Session, current_user: User) -> int:
     return org_id
 
 
+def _require_deposit_capability(
+    db: Session, current_user: User, key: str
+) -> int:
+    org_id = _require_deposits_access(db, current_user)
+    decision = next(
+        (item for item in resolve_customer_features(db, user=current_user) if item.key == key),
+        None,
+    )
+    if decision is None or not decision.allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Deposit capability is not enabled.",
+        )
+    return org_id
+
+
 def _receipt_payer_label(r: Receipt) -> str:
     if r.type == "TENANT" and r.tenant_user_id is not None:
         return f"Tenant #{r.tenant_user_id}"
@@ -103,6 +122,7 @@ def _deposit_to_out(d: Deposit) -> DepositOut:
         deposit_date=d.deposit_date,
         deposit_number=d.deposit_number,
         description=d.description,
+        bank_sequence=d.bank_sequence,
         total=d.total,
         notes=d.notes,
         is_active=d.is_active,
@@ -321,3 +341,81 @@ def create_deposit_endpoint(
     )
 
     return _detail_out(d)
+
+
+# ============================================================
+# PATCH /api/accounting/deposits/{deposit_id} -- safe edit
+# ============================================================
+
+@router.patch("/{deposit_id}", response_model=DepositDetailOut)
+def edit_deposit_endpoint(
+    deposit_id: int,
+    payload: DepositUpdateIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_deposit_capability(
+        db, current_user, "release.accounting.deposits.edit"
+    )
+    deposit = (
+        db.query(Deposit)
+        .filter(
+            Deposit.id == deposit_id,
+            Deposit.organization_id == org_id,
+            Deposit.is_active.is_(True),
+        )
+        .first()
+    )
+    if deposit is None:
+        raise HTTPException(status_code=404, detail="Deposit not found.")
+    try:
+        edit_deposit(
+            db,
+            deposit=deposit,
+            deposit_date=payload.deposit_date,
+            deposit_number=payload.deposit_number,
+            description=payload.description,
+            notes=payload.notes,
+            receipt_ids=payload.receipt_ids,
+            fields_set=set(payload.model_fields_set),
+            edited_by=current_user,
+        )
+    except PostingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    refreshed = (
+        db.query(Deposit)
+        .options(
+            joinedload(Deposit.bank_gl_account),
+            joinedload(Deposit.lines).joinedload(DepositLine.receipt),
+        )
+        .filter(Deposit.id == deposit.id, Deposit.organization_id == org_id)
+        .one()
+    )
+    return _detail_out(refreshed)
+
+
+@router.get("/{deposit_id}/print", response_model=DepositDetailOut)
+def print_deposit(
+    deposit_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_deposit_capability(
+        db, current_user, "release.accounting.deposits.print"
+    )
+    deposit = (
+        db.query(Deposit)
+        .options(
+            joinedload(Deposit.bank_gl_account),
+            joinedload(Deposit.lines).joinedload(DepositLine.receipt),
+        )
+        .filter(
+            Deposit.id == deposit_id,
+            Deposit.organization_id == org_id,
+            Deposit.is_active.is_(True),
+        )
+        .first()
+    )
+    if deposit is None:
+        raise HTTPException(status_code=404, detail="Deposit not found.")
+    return _detail_out(deposit)
