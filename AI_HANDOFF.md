@@ -185,7 +185,10 @@ Schema:
 - expected model tables 92
 
 Verification:
-- Hosted CI pending.
+- Hosted CI run 36103205314: feature implementation compiled; parity/registry, secret scan, frontend lint/TypeScript/build, platform-admin, and security passed.
+- Owner Held Security Deposits tests: 5 passed.
+- Backend summary: 308 passed, 3 deselected, 2 failed because test_postgres_smoke.py and test_prepare_database.py still expected the previous b6d8f0a2c4e7 / 91-table schema checkpoint.
+- CI checkpoint guards are now advanced to c1e3a5d7f9b2 / 92 tables; revalidation is pending.
 - TESTS NOT RUN locally in this connector-only session.
 
 # Next: Owner Held Security Deposits verification
