@@ -13,8 +13,8 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 242,
-    "scheduled_count": 386,
+    "built_count": 243,
+    "scheduled_count": 385,
     "in_progress_count": 0
   },
   "items": [
@@ -619,8 +619,9 @@
       "id": "accounting.mgmt_fees.post_gpr",
       "area": "Accounting / Management Fees",
       "feature": "Post GPR",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Verified in hosted CI run 36186643771: independently gated Management Fees entry point reuses the verified central GPR candidate/posting engine, organization scoping, central GL posting, and shared duplicate unit/month protection."
     },
     {
       "id": "accounting.owner_statements.snapshot",

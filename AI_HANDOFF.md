@@ -18,18 +18,19 @@ IMPORTANT:
 - Owner ACH Setup, $0 ACH Test File, and Owner Held Security Deposits are COMPLETE/VERIFIED.
 - Management Fees — Pay Owners is COMPLETE/VERIFIED.
 - Management Fees — Overcollection Strategy is COMPLETE/VERIFIED.
-- Current batch: Management Fees — Post GPR.
+- Management Fees — Post GPR is COMPLETE/VERIFIED.
+- Current batch: Management Fee Exclusions list.
 
 # Latest Verified Green Checkpoint
 
-Overcollection strategy implementation checkpoint:
-- 2c08c0f313d7b5ae7c7c188179700d183c2e1a65
-- "Phase 3.6: add management fee overcollection policy"
+Management Fees Post GPR implementation checkpoint:
+- 8e31312a2de3953e3e2b5a6c2e36ef13e9c7819f
+- "Phase 3.6: add Management Fees Post GPR workflow"
 
 Hosted CI:
-- Run 36184596917: SUCCESS
-- Backend: 320 passed, 3 deselected, 2493 warnings in 52.51s
-- E2E: 3 passed in 12.20s
+- Run 36186643771: SUCCESS
+- Backend: 323 passed, 3 deselected, 2505 warnings in 55.08s
+- E2E: 3 passed in 9.27s
 - Frontend: SUCCESS
 - Platform admin: SUCCESS
 - Security: SUCCESS
@@ -40,8 +41,8 @@ Hosted CI:
 
 Current parity source-of-truth:
 - total_items: 628
-- built_count: 242
-- scheduled_count: 386
+- built_count: 243
+- scheduled_count: 385
 - in_progress_count: 0
 - migration_head: e4f6a8c0d2b5
 - expected model-table count: 93
@@ -247,12 +248,27 @@ Implementation:
 - E2E: 3 passed in 12.20s.
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 
+# Management Fees Post GPR — COMPLETE / VERIFIED
+
+Implementation:
+- Independent gate: release.accounting.management_fees.post_gpr.
+- Authorization: ACCOUNTING.MANAGEMENT_FEES plus existing ADMIN/OWNER/MANAGER write-role policy.
+- Reuses the verified central GPR candidate/posting engine; no duplicate accounting path was introduced.
+- Duplicate unit/month protection is shared with Journal Entries Post GPR.
+- Customer workflow: /dashboard/accounting/management-fees/post-gpr.
+- No schema migration; migration head remains e4f6a8c0d2b5 and model-table count remains 93.
+- Regression coverage: backend/tests/test_management_fee_post_gpr.py.
+- Hosted CI run 36186643771: SUCCESS.
+- Backend: 323 passed, 3 deselected, 2505 warnings in 55.08s.
+- E2E: 3 passed in 9.27s.
+- Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
+- TESTS NOT RUN locally in this connector-only session.
+
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Post GPR
-2. Management Fee Exclusions list
-4. Continue remaining Phase 3.6 items in Section 38 order
+1. Management Fee Exclusions list
+2. Continue remaining Phase 3.6 items in Section 38 order
 
 # Working Rules
 

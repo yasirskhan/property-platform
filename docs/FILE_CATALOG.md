@@ -2768,3 +2768,18 @@ Re-run `python generate_file_catalog.py` after adding or renaming files.
 
 #### `frontend/src/lib/achFiles.ts`
 - Typed ACH generation API client.
+
+
+## Phase 3.6 Management Fees Post GPR checkpoint additions
+
+#### `backend/app/routers/management_fees.py`
+- Adds independently gated Management Fees GET/POST Post GPR endpoints that delegate to the verified shared GPR service.
+
+#### `backend/tests/test_management_fee_post_gpr.py`
+- Covers independent capability gating, organization/month normalization, and delegation to the shared GPR candidate/posting engine.
+
+#### `frontend/src/lib/managementFees.ts`
+- Adds typed Management Fees GPR candidate and posting API helpers.
+
+#### `frontend/src/app/dashboard/accounting/management-fees/post-gpr/page.tsx`
+- Customer workflow for selecting monthly unit GPR rows and posting through the shared accounting engine.
