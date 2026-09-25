@@ -21,18 +21,19 @@ IMPORTANT:
 - Management Fees — Post GPR is COMPLETE/VERIFIED.
 - Management Fee Exclusions is COMPLETE/VERIFIED.
 - Diagnostics — Auto-fix Refund Negative Diagnostic is COMPLETE/VERIFIED.
-- Current batch: Diagnostics — Bank Reconciliation Lapses 60-day check is implemented and pending hosted CI verification.
+- Diagnostics — Bank Reconciliation Lapses 60-day check is COMPLETE/VERIFIED.
+- Current batch: Diagnostics — Real Positive Fee check (must_clear) is implemented and pending hosted CI verification.
 
 # Latest Verified Green Checkpoint
 
-Diagnostics Refund Negative checkpoint:
-- 0b26ff5666fa2dac91488e59041d96b0e5460929
-- "CI: refresh parity inventory counts"
+Diagnostics Bank Reconciliation Lapses checkpoint:
+- 9760174467971c836f297efacd4f6d75281139d2
+- "Phase 3.6: add bank reconciliation lapse diagnostic"
 
 Hosted CI:
-- Run 36189649244: SUCCESS
-- Backend: 329 passed, 3 deselected, 2605 warnings in 54.32s
-- E2E: 3 passed in 8.75s
+- Run 36191470527: SUCCESS
+- Backend: 331 passed, 3 deselected, 2640 warnings in 56.57s
+- E2E: 3 passed in 8.79s
 - Frontend: SUCCESS
 - Platform admin: SUCCESS
 - Security: SUCCESS
@@ -303,7 +304,7 @@ Implementation:
 - E2E: 3 passed in 8.75s.
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 
-# Diagnostics — Bank Reconciliation Lapses — Current Batch
+# Diagnostics — Bank Reconciliation Lapses — COMPLETE / VERIFIED
 
 Implementation:
 - Adds a seventh diagnostics check over active organization bank accounts.
@@ -314,15 +315,30 @@ Implementation:
 - Read-only diagnostic only; no GL posting or reconciliation mutation is introduced.
 - No schema migration; head remains e4f6a8c0d2b5 / 93 model tables.
 - TESTS NOT RUN locally in this connector-only session.
+- Hosted CI run 36191470527: SUCCESS.
+- Backend: 331 passed, 3 deselected, 2640 warnings in 56.57s.
+- E2E: 3 passed in 8.79s.
+- Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
+
+# Diagnostics — Real Positive Fee Check — Current Batch
+
+Implementation:
+- Replaces the placeholder positive-fee diagnostic with real must_clear-driven balance logic.
+- Evaluates only active same-org INCOME accounts explicitly marked must_clear.
+- Uses the existing immutable GL as the balance source; no cached balance or mutation path is introduced.
+- Positive natural income balances greater than $0.01 are warnings; zero and negative balances pass this check.
+- Non-must-clear, inactive, and other-organization accounts are excluded.
+- The must_clear model/API/Chart-of-Accounts UI already exists, so no schema migration is required.
+- Migration head remains e4f6a8c0d2b5 / 93 model tables.
+- TESTS NOT RUN locally in this connector-only session.
 - Hosted CI verification pending.
 
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Diagnostics — Bank Reconciliation Lapses 60 days
-2. Real Positive Fee check (must_clear flag)
-3. Additional checks to reach 9 total
-4. Continue remaining Phase 3.6 items in Section 38 order
+1. Diagnostics — Real Positive Fee check (must_clear flag)
+2. Additional checks to reach 9 total
+3. Continue remaining Phase 3.6 items in Section 38 order
 
 # Working Rules
 

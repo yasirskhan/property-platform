@@ -501,28 +501,72 @@ def refund_negative_fee_account(
 # ANY fee account with a positive balance is flagged so the
 # manager knows to review. (Refine later if needed.)
 #
-# NOTE: For the moment we don't have a list of "must clear"
-# accounts, so we only flag accounts whose NAME suggests they
-# are clearing accounts but have drifted positive. If you add
-# a `must_clear` flag to gl_accounts later, switch to that.
+# Only active income accounts explicitly marked must_clear are
+# evaluated. The flag is configured on the Chart of Accounts.
 # ============================================================
 
 def check_positive_fee_accounts(
     db: Session, organization_id: int
 ) -> Dict:
-    # No accounts are currently marked "must clear to zero" in
-    # the schema. Return a pass so the report is clean, but keep
-    # the check present so the field is populated for the UI.
+    must_clear_accounts = (
+        db.query(GLAccount)
+        .filter(
+            GLAccount.organization_id == organization_id,
+            GLAccount.is_active.is_(True),
+            GLAccount.account_type == "INCOME",
+            GLAccount.must_clear.is_(True),
+        )
+        .order_by(GLAccount.gl_number.asc(), GLAccount.id.asc())
+        .all()
+    )
+
+    if not must_clear_accounts:
+        return {
+            "key": "POSITIVE_FEE_ACCOUNTS",
+            "label": "Positive Balance on Fee GL Accounts",
+            "passed": True,
+            "severity": "ok",
+            "message": "No active income accounts are marked as must-clear.",
+            "details": [],
+        }
+
+    bad = []
+    for acct in must_clear_accounts:
+        raw = _balance_of(db, organization_id, acct)
+        income_balance = -raw
+        if income_balance > Decimal("0.01"):
+            bad.append(
+                {
+                    "gl_account_id": acct.id,
+                    "gl": acct.gl_number,
+                    "name": acct.name,
+                    "balance": str(income_balance),
+                }
+            )
+
+    if not bad:
+        return {
+            "key": "POSITIVE_FEE_ACCOUNTS",
+            "label": "Positive Balance on Fee GL Accounts",
+            "passed": True,
+            "severity": "ok",
+            "message": (
+                f"All {len(must_clear_accounts)} must-clear income "
+                "account(s) are at zero or below."
+            ),
+            "details": [],
+        }
+
     return {
         "key": "POSITIVE_FEE_ACCOUNTS",
         "label": "Positive Balance on Fee GL Accounts",
-        "passed": True,
-        "severity": "ok",
+        "passed": False,
+        "severity": "warning",
         "message": (
-            "No accounts are flagged as must-clear. "
-            "(Add a `must_clear` flag to gl_accounts to enable this check.)"
+            f"{len(bad)} must-clear income account(s) have positive "
+            "balances that should be reviewed."
         ),
-        "details": [],
+        "details": bad,
     }
 
 

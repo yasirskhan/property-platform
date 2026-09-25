@@ -146,7 +146,7 @@ Deployment target (Phase 11):
 **Continue Phase 3.6 — Accounting Polish: Management Fees.**
 
 1. Owner Held Security Deposits is VERIFIED in CI run 36103471013: backend 310 passed, 3 deselected; E2E 3 passed; frontend, platform-admin, security, PostgreSQL backup/restore, staging, parity/registry consistency, and secret scan passed.
-2. Pay Owners, Overcollection Strategy, Management Fees Post GPR, and Management Fee Exclusions are VERIFIED. Continue with Diagnostics — Auto-fix Refund Negative Diagnostic, then the remaining Phase 3.6 items in Section 38 order.
+2. Pay Owners, Overcollection Strategy, Management Fees Post GPR, Management Fee Exclusions, Refund Negative Diagnostic, and the 60-day Bank Reconciliation Lapse diagnostic are VERIFIED. Continue with the real must_clear-driven Positive Fee diagnostic, then the additional diagnostics needed to reach nine total.
 3. Preserve organization isolation, the existing owner-as-customer-user model, owner ACH destination rules, and central accounting/posting services.
 4. Verify each coherent batch in hosted CI, fix reds autonomously, update checkpoint/planning state, then continue without waiting.
 

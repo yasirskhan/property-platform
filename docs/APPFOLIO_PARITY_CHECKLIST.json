@@ -13,8 +13,8 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 244,
-    "scheduled_count": 384,
+    "built_count": 246,
+    "scheduled_count": 382,
     "in_progress_count": 0
   },
   "items": [
@@ -749,7 +749,7 @@
       "feature": "Real Positive Balance on Fee GLs check (uses must_clear)",
       "status": "scheduled",
       "phase": "3.6",
-      "notes": "Currently a placeholder that always passes"
+      "notes": "must_clear-driven implementation present; pending hosted CI verification"
     },
     {
       "id": "accounting.diagnostics.three_way",
@@ -762,15 +762,17 @@
       "id": "accounting.diagnostics.auto_fix_refund",
       "area": "Accounting / Diagnostics",
       "feature": "Auto-fix Refund Negative Diagnostic",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Verified in CI run 36189649244: gated one-account correction uses explicit same-org offset accounts and central GL posting."
     },
     {
       "id": "accounting.diagnostics.bank_rec_lapses",
       "area": "Accounting / Diagnostics",
       "feature": "Bank Reconciliation Lapses 60-day check",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Verified in CI run 36191470527: active same-org bank accounts are flagged after more than 60 days since the latest reconciled statement or account creation when never reconciled."
     },
     {
       "id": "accounting.diagnostics.additional",
