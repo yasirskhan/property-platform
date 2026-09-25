@@ -168,3 +168,38 @@ class RecurringJournalEntryOut(BaseModel):
 class RecurringJournalEntryListOut(BaseModel):
     items: List[RecurringJournalEntryOut]
     total: int
+
+
+# ============================================================
+# GROSS POTENTIAL RENT POSTING
+# ============================================================
+
+class GPRCandidateOut(BaseModel):
+    unit_id: int
+    property_id: int
+    property_name: str
+    unit_number: str
+    lease_id: Optional[int] = None
+    market_rent: Decimal
+    scheduled_rent: Decimal
+    loss_gain: Decimal
+    already_posted: bool
+    transaction_id: Optional[int] = None
+
+
+class GPRCandidateListOut(BaseModel):
+    month: date
+    items: List[GPRCandidateOut]
+    total: int
+    unposted: int
+
+
+class GPRPostIn(BaseModel):
+    month: date
+    unit_ids: List[int] = Field(..., min_length=1)
+
+
+class GPRPostResultOut(BaseModel):
+    month: date
+    posted: int
+    transaction_ids: List[int]

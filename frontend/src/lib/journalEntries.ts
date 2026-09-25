@@ -148,3 +148,46 @@ export function setRecurringJournalEntryActive(
     { is_active: isActive }
   );
 }
+
+
+export type GPRCandidate = {
+  unit_id: number;
+  property_id: number;
+  property_name: string;
+  unit_number: string;
+  lease_id: number | null;
+  market_rent: string;
+  scheduled_rent: string;
+  loss_gain: string;
+  already_posted: boolean;
+  transaction_id: number | null;
+};
+
+export type GPRCandidateList = {
+  month: string;
+  items: GPRCandidate[];
+  total: number;
+  unposted: number;
+};
+
+export type GPRPostResult = {
+  month: string;
+  posted: number;
+  transaction_ids: number[];
+};
+
+export function listGPRCandidates(month: string): Promise<GPRCandidateList> {
+  return apiGet(
+    `/api/accounting/journal-entries/gpr?month=${encodeURIComponent(month)}`
+  );
+}
+
+export function postGPR(
+  month: string,
+  unitIds: number[]
+): Promise<GPRPostResult> {
+  return apiPost("/api/accounting/journal-entries/gpr", {
+    month,
+    unit_ids: unitIds,
+  });
+}

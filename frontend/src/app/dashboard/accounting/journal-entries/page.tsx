@@ -114,13 +114,14 @@ export default function JournalEntriesPage() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Flag name="release.accounting.journal_entries.post_gpr">
-            <button
-              type="button"
-              disabled
-              className="text-sm px-3 py-2 border border-slate-300 rounded-lg text-slate-500 disabled:opacity-60"
-            >
-              Post GPR
-            </button>
+            {canWrite && (
+              <Link
+                href="/dashboard/accounting/journal-entries/post-gpr"
+                className="text-sm px-3 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50"
+              >
+                Post GPR
+              </Link>
+            )}
           </Flag>
           <Link href="/dashboard/accounting/gl-accounts" className="text-sm px-3 py-2 text-slate-600 hover:text-slate-900">
             Chart of Accounts

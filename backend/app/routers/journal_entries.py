@@ -32,6 +32,10 @@ from app.schemas.journal_entry import (
     RecurringJournalEntryListOut,
     RecurringJournalEntryOut,
     RecurringJournalEntryStatusIn,
+    GPRCandidateListOut,
+    GPRCandidateOut,
+    GPRPostIn,
+    GPRPostResultOut,
 )
 from app.services.audit import append_audit_log
 from app.services.gl_posting import PostingError, post_transaction
@@ -40,6 +44,12 @@ from app.services.recurring_journal_entries import (
     recurring_journal_entries_enabled_for_org,
 )
 from app.services.menu_resolver import permission_allows_user
+from app.services.gpr_posting import (
+    gpr_posting_enabled_for_org,
+    list_gpr_candidates,
+    month_bounds,
+    post_gpr,
+)
 
 
 router = APIRouter(
@@ -217,6 +227,85 @@ def update_recurring_journal_entry_status(
     db.commit()
     db.refresh(row)
     return _recurring_to_out(row)
+
+
+# ============================================================
+# GROSS POTENTIAL RENT
+# ============================================================
+
+def _require_gpr_access(db: Session, current_user: User) -> int:
+    org_id = _require_journal_entries_access(db, current_user)
+    if not gpr_posting_enabled_for_org(db, organization_id=org_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post GPR is not available.",
+        )
+    return org_id
+
+
+@router.get("/gpr", response_model=GPRCandidateListOut)
+def get_gpr_candidates(
+    month: date = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_gpr_access(db, current_user)
+    normalized, _ = month_bounds(month)
+    try:
+        rows = list_gpr_candidates(db, organization_id=org_id, month=normalized)
+    except PostingError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        )
+    items = [
+        GPRCandidateOut(
+            unit_id=row.unit_id,
+            property_id=row.property_id,
+            property_name=row.property_name,
+            unit_number=row.unit_number,
+            lease_id=row.lease_id,
+            market_rent=row.market_rent,
+            scheduled_rent=row.scheduled_rent,
+            loss_gain=row.loss_gain,
+            already_posted=row.already_posted,
+            transaction_id=row.transaction_id,
+        )
+        for row in rows
+    ]
+    return GPRCandidateListOut(
+        month=normalized,
+        items=items,
+        total=len(items),
+        unposted=sum(1 for row in rows if not row.already_posted),
+    )
+
+
+@router.post("/gpr", response_model=GPRPostResultOut)
+def post_gpr_route(
+    payload: GPRPostIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_write(current_user)
+    org_id = _require_gpr_access(db, current_user)
+    normalized, _ = month_bounds(payload.month)
+    try:
+        transactions = post_gpr(
+            db,
+            organization_id=org_id,
+            month=normalized,
+            unit_ids=payload.unit_ids,
+            created_by=current_user,
+        )
+    except PostingError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        )
+    return GPRPostResultOut(
+        month=normalized,
+        posted=len(transactions),
+        transaction_ids=[row.id for row in transactions],
+    )
 
 
 # ============================================================
