@@ -16,7 +16,7 @@ router = APIRouter(
 )
 
 FEATURE_KEY = "release.accounting.owner_ach_setup"
-WRITE_ROLES = {"ADMIN", "OWNER", "MANAGER"}
+WRITE_ROLES = {"ADMIN", "OWNER"}
 
 
 def _role_value(role) -> str:
