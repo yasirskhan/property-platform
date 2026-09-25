@@ -46,3 +46,18 @@ class ACHGenerateOut(BaseModel):
     content: str
     entry_count: int
     total_amount: Decimal
+
+
+class ACHTestFileIn(BaseModel):
+    effective_date: date
+    company_id: Optional[str] = Field(None, max_length=10)
+    entry_description: str = Field("PRENOTE", min_length=1, max_length=10)
+
+
+class ACHTestFileOut(BaseModel):
+    format: Literal["CSV", "NACHA"]
+    filename: str
+    content_type: str
+    content: str
+    owner_id: int
+    amount: Decimal = Decimal("0.00")
