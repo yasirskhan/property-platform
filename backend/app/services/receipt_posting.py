@@ -33,6 +33,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
+from app.models.accounting_settings import AccountingSettings
 from app.models.bank_account import BankAccount
 from app.models.gl_account import GLAccount
 from app.models.gl_transaction import GLTransaction
@@ -86,6 +87,17 @@ def resolve_cash_gl_account_id(
     """
     if requested_id is not None:
         return _get_account(db, organization_id, requested_id).id
+
+    settings = db.get(AccountingSettings, organization_id)
+    if settings is not None and settings.receipt_cash_gl_account_id is not None:
+        account = _get_account(
+            db, organization_id, settings.receipt_cash_gl_account_id
+        )
+        if account.account_type != "ASSET":
+            raise PostingError(
+                "Configured receipt cash account must be an active ASSET account."
+            )
+        return account.id
 
     bank = (
         db.query(BankAccount)

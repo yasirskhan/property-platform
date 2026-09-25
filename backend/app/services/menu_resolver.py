@@ -43,6 +43,7 @@ from app.services.release_gate_resolver import release_gate_allows_org
 
 MENU_RELEASE_GATES = {
     "SETTINGS.FEATURES": "release.settings.features",
+    "SETTINGS.ACCOUNTING": "release.settings.accounting",
 }
 
 

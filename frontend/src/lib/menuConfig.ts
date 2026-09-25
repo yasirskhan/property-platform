@@ -98,6 +98,7 @@ export const MENU_ENTRIES: Record<string, MenuEntry> = {
   "SETTINGS.PERMISSIONS": { key: "SETTINGS.PERMISSIONS", label: "Menu Permissions",    href: "/dashboard/settings/permissions", icon: "" },
   "SETTINGS.SIDEBAR":     { key: "SETTINGS.SIDEBAR",     label: "Sidebar",             href: "/dashboard/settings/sidebar",     icon: "" },
   "SETTINGS.FEATURES":    { key: "SETTINGS.FEATURES",    label: "Features",            href: "/dashboard/settings/features",    icon: "" },
+  "SETTINGS.ACCOUNTING":  { key: "SETTINGS.ACCOUNTING",  label: "Accounting",          href: "/dashboard/settings/accounting",  icon: "" },
 };
 
 // ------------------------------------------------------------

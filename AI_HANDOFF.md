@@ -26,7 +26,7 @@ IMPORTANT:
 - Diagnostics — Additional checks to reach 9 total is COMPLETE/VERIFIED.
 - Owner Statements — Required Reserves + Prepaid Rent + Property Cash Summary is COMPLETE/VERIFIED.
 - Owner Packets — Customizer fields is COMPLETE/VERIFIED.
-- Current batch: Settings — Accounting Settings (Key Accounts, GPR, Receipts, Checks, Reports).
+- Current batch: Settings — Accounting Settings (Key Accounts, GPR, Receipts, Checks, Reports). IMPLEMENTATION PREPARED; CI pending.
 
 # Latest Verified Green Checkpoint
 
@@ -417,3 +417,24 @@ Locked order from PROJECT_MASTER:
 - If tests did not run, say TESTS NOT RUN.
 - Do not stop at phase boundaries.
 - Stop only for a true blocker that cannot be resolved.
+
+
+# Accounting Settings — Current Batch
+
+Implementation prepared:
+- New org-scoped AccountingSettings row stores optional GPR account overrides, optional default receipt cash account, report export format, and fiscal-year start month.
+- GPR posting preserves verified standard 4100/4115/4120 behavior when no override exists; configured overrides must be active same-org INCOME accounts.
+- Receipt posting preserves explicit receipt selections and existing Automatic bank/1150 fallback; an org default only participates when explicitly configured and must be an active same-org ASSET account.
+- Key Accounts are read from the existing accounting_key_accounts source; no duplicate key-account storage.
+- Check Writing is summarized from existing BankAccount/BankCheckSetup rows and links to the verified per-bank Check Setup workflow; no duplicate check configuration.
+- Management-fee overcollection remains in its existing verified workflow and is linked, not duplicated.
+- New backend route: GET/PUT /api/settings/accounting.
+- New customer route: /dashboard/settings/accounting.
+- New menu key SETTINGS.ACCOUNTING is release-gated by release.settings.accounting; default visibility is ADMIN/OWNER only.
+- Organization-wide writes are ADMIN/OWNER only and append immutable audit history.
+- FEATURE_REGISTRY permission is finalized as SETTINGS.ACCOUNTING.
+- Accounting Basis is intentionally NOT included here; it remains the next separate report-layer batch.
+- Migration head advances to b7d9f1a3c5e8; expected model-table count 95.
+- Regression coverage added in backend/tests/test_accounting_settings.py.
+- TESTS NOT RUN locally in this connector-only session.
+- Hosted CI verification pending.

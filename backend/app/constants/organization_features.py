@@ -75,7 +75,7 @@ FEATURE_DEFINITIONS: dict[str, dict[str, object]] = {
     "release.properties.staff": {"label": "Staff tab", "entitlement": "core", "org_configurable": True, "permission": "PROPERTIES.ALL"},
     "release.properties.statement_settings": {"label": "Statement Settings", "entitlement": "owner_statements", "org_configurable": True, "permission": "PROPERTIES.ALL"},
     "release.reporting.export": {"label": "Export CSV / Excel", "entitlement": "core", "org_configurable": True, "permission": "REPORTING.ALL"},
-    "release.settings.accounting": {"label": "Accounting Settings", "entitlement": "core", "org_configurable": True, "permission": "ACCOUNTING"},
+    "release.settings.accounting": {"label": "Accounting Settings", "entitlement": "core", "org_configurable": True, "permission": "SETTINGS.ACCOUNTING"},
     "release.settings.approvals": {"label": "Approvals", "entitlement": "approvals", "org_configurable": True, "permission": "SETTINGS"},
     "release.settings.audit": {"label": "Auditing Center", "entitlement": "audit_center", "org_configurable": True, "permission": "SETTINGS"},
     "release.settings.communication": {"label": "Communication", "entitlement": "messaging", "org_configurable": True, "permission": "SETTINGS"},

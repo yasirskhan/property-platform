@@ -790,7 +790,7 @@ access boundary.
 | Capability | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
 |---|---|---|---|---|---|---|---|---|
 | Company / Branding | settings family | release.settings.company | core | yes | SETTINGS | no | ❌ missing | Company identity, logo, address, time zone, packet cover |
-| Accounting Settings | settings family | release.settings.accounting | core | yes | ACCOUNTING | no | ❌ missing | Key accounts, GPR, receipts, check writing, basis, fiscal year |
+| Accounting Settings | settings family | release.settings.accounting | core | yes | SETTINGS.ACCOUNTING | no | ✅ present | Key Accounts hub, configurable GPR/receipt defaults, per-bank Check Setup links, fiscal year/report export defaults; Accounting Basis is the next separate report-layer batch |
 | Security | settings family | release.settings.security | security_controls | yes | SETTINGS | no | ❌ missing | MFA, sessions, IP allowlist, password policy |
 | Data / Backup / Retention | settings family | release.settings.data | core | yes | SETTINGS | no | ❌ missing | Backup schedule/restore/export preferences |
 | Features | settings family | release.settings.features | core | yes | SETTINGS | no | ✅ built | Org-level capability configuration; release, entitlement, org config, permission, and user preference remain independent |

@@ -9,6 +9,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.models.accounting_settings import AccountingSettings
 from app.models.gl_account import GLAccount
 from app.models.gl_transaction import GLTransaction
 from app.models.lease import Lease, LeaseStatus
@@ -149,24 +150,55 @@ def list_gpr_candidates(
 
 
 def _required_accounts(db: Session, *, organization_id: int) -> dict[str, GLAccount]:
-    rows = (
-        db.query(GLAccount)
-        .filter(
-            GLAccount.organization_id == organization_id,
-            GLAccount.gl_number.in_([RENT_GL, GPR_GL, LOSS_GAIN_GL]),
-            GLAccount.is_active.is_(True),
+    settings = db.get(AccountingSettings, organization_id)
+    configured_ids = {
+        RENT_GL: settings.gpr_rent_gl_account_id if settings else None,
+        GPR_GL: settings.gpr_market_gl_account_id if settings else None,
+        LOSS_GAIN_GL: settings.gpr_loss_gain_gl_account_id if settings else None,
+    }
+    result: dict[str, GLAccount] = {}
+    missing: list[str] = []
+    for standard_number, configured_id in configured_ids.items():
+        if configured_id is not None:
+            account = (
+                db.query(GLAccount)
+                .filter(
+                    GLAccount.id == configured_id,
+                    GLAccount.organization_id == organization_id,
+                    GLAccount.account_type == "INCOME",
+                    GLAccount.is_active.is_(True),
+                )
+                .first()
+            )
+            if account is None:
+                raise PostingError(
+                    f"Configured GPR account {configured_id} for {standard_number} "
+                    "must be an active same-organization INCOME account."
+                )
+            result[standard_number] = account
+            continue
+
+        account = (
+            db.query(GLAccount)
+            .filter(
+                GLAccount.organization_id == organization_id,
+                GLAccount.gl_number == standard_number,
+                GLAccount.is_active.is_(True),
+            )
+            .first()
         )
-        .all()
-    )
-    by_number = {row.gl_number: row for row in rows}
-    missing = [number for number in [RENT_GL, GPR_GL, LOSS_GAIN_GL] if number not in by_number]
+        if account is None:
+            missing.append(standard_number)
+        else:
+            result[standard_number] = account
+
     if missing:
         raise PostingError(
             "Post GPR requires active standard GL account(s): "
             + ", ".join(missing)
             + "."
         )
-    return by_number
+    return result
 
 
 def post_gpr(
