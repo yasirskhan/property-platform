@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.6 — Accounting Polish** is IN PROGRESS. Chart of Accounts, Journal Entries, Receipts, Charges, Bills lifecycle, Recurring Bills/Credits, Post Codes, Manually Post Bills, Vendor Credits, Write Checks / Checks, Bank Deposits polish, Bank Reconciliation/QIF, Check Setup, ACH File Generation, and Bank Adjustments are verified. The next ordered Bank Accounts item is Bank Feed import.
+**Current activity:** Phase **3.6 — Accounting Polish** is IN PROGRESS. Chart of Accounts, Journal Entries, Receipts, Charges, Bills lifecycle, Recurring Bills/Credits, Post Codes, Manually Post Bills, Vendor Credits, Write Checks / Checks, Bank Deposits polish, Bank Reconciliation/QIF, Check Setup, ACH File Generation, Bank Adjustments, and Bank Feed import are verified. The next ordered item is Owner ACH Setup.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -33,9 +33,9 @@
 
 **3.4.S closeout:** COMPLETE. Portable private-repo security checks (Bandit, pip-audit, npm audit, committed-secret scan, Dependabot) replaced the unavailable mandatory CodeQL upload gate and passed in hosted CI run 35917804417. CodeQL remains optional/manual if GitHub Code Security is enabled later.
 
-**Migration head:** `f2a4c6e8b0d5`.
+**Migration head:** `a4b6c8d0e2f1`.
 
-**Current parity inventory:** 236 built, 0 in progress, 392 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 237 built, 0 in progress, 391 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -143,11 +143,11 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Continue Phase 3.6 — Accounting Polish: Bank Accounts.**
+**Continue Phase 3.6 — Accounting Polish: Owners.**
 
-1. Bank Adjustments is VERIFIED in CI run 36097448099. Backend: 295 passed, 3 deselected. E2E: 3 passed. It uses immutable ledger-native GL transactions, central posting/reversal controls, organization-scoped offset validation, and automatic reconciliation visibility.
-2. Continue Bank Accounts with Bank Feed import. Phase 3.6 is the provider-neutral import workflow; live Plaid connectivity remains Phase 8.
-3. Preserve existing bank-account CRUD, reconciliation/QIF behavior, organization isolation, immutable GL/reversal rules, and backend ACCOUNTING.BANK_ACCOUNTS authorization. Gate independently releasable workflows through the hybrid capability system.
+1. Bank Feed import is VERIFIED in CI run 36099568648. Backend: 298 passed, 3 deselected. E2E: 3 passed. Frontend, platform-admin, security, PostgreSQL backup/restore, and staging passed.
+2. Continue with Owner ACH Setup, then the $0 ACH Test File, then Owner Held Security Deposits.
+3. Preserve organization isolation and the existing owner-as-customer-user model. Reuse the verified ACH validation/generation spine where appropriate and keep financial postings behind the central accounting services.
 4. Verify each coherent batch in hosted CI, fix reds autonomously, update checkpoint/planning state, then continue without waiting.
 
 ## B2. AFTER THAT## B2. AFTER THAT (Phase 3.5 onward)
