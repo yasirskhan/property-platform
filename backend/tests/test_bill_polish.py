@@ -15,6 +15,7 @@ from app.models.bill_line import BillLine
 from app.models.gl_account import GLAccount, GLAccountPostingRestriction
 from app.models.gl_entry import GLEntry
 from app.models.gl_transaction import GLTransaction
+from app.models.release_gate import ReleaseGate, ReleaseGateOrganization
 from app.models.user import Organization, User, UserRole
 from app.schemas.bill import BillCreateIn, BillLineIn, BillPayIn
 from app.services.bill_posting import pay_bill, post_bill, reverse_bill
@@ -25,6 +26,8 @@ TEST_TABLES = [
     User.__table__,
     GLAccount.__table__,
     GLAccountPostingRestriction.__table__,
+    ReleaseGate.__table__,
+    ReleaseGateOrganization.__table__,
     GLTransaction.__table__,
     GLEntry.__table__,
     Bill.__table__,
