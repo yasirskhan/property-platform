@@ -266,7 +266,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Reverse unpaid bill | action | — | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Existing reversal rule |
 | Reverse after partial payment | behavior | — | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Reverses unreversed bill-payment GL transactions and the original accrual atomically |
 | Recurring Bills | capability | release.accounting.bills.recurring | recurring_bills | yes | ACCOUNTING.PAYABLES | no | ✅ present | Monthly Bill/Credit schedules with Post Code, date window, due day, line allocations, and durable due posting |
-| Write Checks | capability | release.accounting.write_checks | check_writing | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
+| Write Checks | capability | release.accounting.write_checks | check_writing | yes | ACCOUNTING.PAYABLES | no | ✅ present | Find Bills -> Confirm & Finalize -> Print with durable check/bill allocations and atomic issue/void accounting |
 | Enter Credit | capability | release.accounting.vendor_credits | vendor_credits | yes | ACCOUNTING.PAYABLES | no | ✅ present | Positive-value vendor credits post DR Accounts Payable / CR selected expense accounts |
 | Manually Post Bills | capability | release.accounting.bills.manual_post | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Select recurring schedules and post due occurrences through a chosen date |
 | Owner Draw | capability | release.accounting.owner_draw | core | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
@@ -286,7 +286,8 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | GET/POST `/api/accounting/bills/recurring/schedules` | recurring release + entitlement/config + ACCOUNTING.PAYABLES | built |
 | POST `/api/accounting/bills/recurring/post` | manual-post release + entitlement/config + ACCOUNTING.PAYABLES | built |
 | GET `/api/accounting/bills/credits/list` + POST `/api/accounting/bills/credits` | vendor-credit release + entitlement/config + ACCOUNTING.PAYABLES | built |
-| Check-writing services | write-checks release + entitlement/config + ACCOUNTING.PAYABLES | planned |
+| GET/POST `/api/accounting/checks` + eligible bills / bank accounts / detail / memo / void | write-checks release + entitlement/config + ACCOUNTING.PAYABLES | built |
+| GET `/api/accounting/checks/{id}/print` | check-printing release + entitlement/config + ACCOUNTING.BANK_ACCOUNTS | built |
 
 ---
 
@@ -507,7 +508,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Check Setup | capability | release.accounting.check_setup | check_writing | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | Check-layout/configuration |
 | ACH File Generation | capability | release.accounting.ach_files | ach_payments | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | NACHA / CSV generation |
 | $0 ACH Test File | capability | release.accounting.ach_test_file | ach_payments | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | Setup verification |
-| Check Printing | capability | release.accounting.check_printing | check_writing | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | Physical check workflow |
+| Check Printing | capability | release.accounting.check_printing | check_writing | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Printable check view backed by org-scoped check detail |
 | Bank Feed | capability | release.accounting.bank_feed | bank_feeds | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | Future Plaid/generic feed integration |
 | Adjustments | capability | release.accounting.bank_adjustments | core | yes | ACCOUNTING.BANK_ACCOUNTS | no | ⬜ hidden implementation present | Adjustment entity/sub-tab |
 

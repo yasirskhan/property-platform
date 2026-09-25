@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.6 — Accounting Polish: Bills** is IN PROGRESS. Chart of Accounts, Journal Entries, Receipts, the Bills lifecycle, Recurring Bills/Credits, Post Codes, Manually Post Bills, and Vendor Credits are verified. The next unfinished ordered Bills subsection is Write Checks / Checks.
+**Current activity:** Phase **3.6 — Accounting Polish** is IN PROGRESS. Chart of Accounts, Journal Entries, Receipts, Charges, Bills lifecycle, Recurring Bills/Credits, Post Codes, Manually Post Bills, Vendor Credits, and Write Checks / Checks are verified. The next unfinished ordered subsection is Bank Deposits polish.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -33,9 +33,9 @@
 
 **3.4.S closeout:** COMPLETE. Portable private-repo security checks (Bandit, pip-audit, npm audit, committed-secret scan, Dependabot) replaced the unavailable mandatory CodeQL upload gate and passed in hosted CI run 35917804417. CodeQL remains optional/manual if GitHub Code Security is enabled later.
 
-**Migration head:** `ad3e5f7b9c21`.
+**Migration head:** `f4a6c8d0e2b1`.
 
-**Current parity inventory:** 226 built, 0 in progress, 402 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 230 built, 0 in progress, 398 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
@@ -143,12 +143,12 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Continue Phase 3.6 — Accounting Polish: Write Checks / Checks.**
+**Continue Phase 3.6 — Accounting Polish: Bank Deposits.**
 
-1. Recurring Bills/Credits, Post Codes, Manually Post Bills, and positive-value Vendor Credits are VERIFIED in CI run 36083621549. Backend: 280 passed, 3 deselected. E2E: 3 passed. Continue with Write Checks (Find Bills -> Confirm & Finalize -> Print), then Checks list, Void Check, and Check Memo.
-2. Preserve verified two-step accrual, partial payment, reversal, organization isolation, locked-period behavior, recurring posting idempotency, and central post_transaction() accounting contracts.
-3. Keep release control, entitlement, org configuration, role permission, and user preference independent where applicable; backend authorization remains authoritative.
-4. Verify in hosted CI, fix reds autonomously, update checkpoint/planning state, then continue to the next Phase 3.6 subsection without stopping.
+1. Write Checks / Checks is VERIFIED in CI run 36085905091. Backend: 282 passed, 3 deselected. E2E: 3 passed. The verified workflow includes Find Bills -> Confirm & Finalize -> Print, durable check/bill allocations, bank-account-backed CHECK posting, check memo, checks list/date filtering/drill-down, and atomic Void Check restoration.
+2. Continue with Bank Deposits in the documented order: Print Bank Deposit, date-mismatch warning, per-bank-account numbering, and Edit Deposit. Preserve deposit_lines as the source of truth and the verified no-extra-GL-posting deposit model.
+3. Preserve organization isolation and existing receipt/deposit accounting contracts. Keep backend authorization authoritative and independently gate releasable capabilities.
+4. Verify in hosted CI, fix reds autonomously, update checkpoint/planning state, then continue to Bank Accounts without stopping.
 
 ## B2. AFTER THAT## B2. AFTER THAT (Phase 3.5 onward)
 

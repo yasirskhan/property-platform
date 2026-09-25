@@ -27,27 +27,28 @@ Current HEAD hash: resolve from this branch; this file is committed as part of H
 Verified foundation:
 - Phase 3.4.S and Phases 3.4.3 through 3.4.26 are COMPLETE/VERIFIED.
 - Phase 3.5.5 compatibility pass is COMPLETE.
-- Phase 3.6 Chart of Accounts, Journal Entries, Receipts, Charges, and Bills lifecycle polish are COMPLETE/VERIFIED.
-- Bills lifecycle CI: run 36080191707, 275 passed, 3 deselected.
-- Recurring Bills/Credits backend foundation: e1a7ee2037b3065261b8531b90bfa368379a4b46 + repair d068eb3cdab90647c5ea9249067bfcf1952d79a6.
-- Recurring customer workflows: ea5367284813669fee383fc63438bde02df82f1e.
-- Recurring Bills/Credits, Post Codes, Manually Post Bills, and positive-value Vendor Credits are COMPLETE/VERIFIED in CI run 36083621549.
-- CI 36083621549: backend 280 passed, 3 deselected, 1807 warnings in 50.46s; E2E 3 passed in 13.00s; frontend/platform-admin/security/staging all SUCCESS.
-- Current migration head: ad3e5f7b9c21; expected model-table count: 83.
-- Parity inventory after this closeout: 226 built, 0 in progress, 402 scheduled, 628 total.
+- Phase 3.6 Chart of Accounts, Journal Entries, Receipts, Charges, Bills lifecycle, Recurring Bills/Credits, Post Codes, Manually Post Bills, Vendor Credits, and Write Checks / Checks are COMPLETE/VERIFIED.
+- Write Checks implementation commit: 5a13033641035aceffa0283d48c470c894e008dd.
+- Write Checks CI run 36085905091: SUCCESS.
+- Backend: 282 passed, 3 deselected, 1889 warnings in 48.45s.
+- E2E: 3 passed in 12.39s.
+- Frontend, platform-admin, security, and staging: SUCCESS.
+- Current migration head: f4a6c8d0e2b1; expected model-table count: 85.
+- Parity inventory: 230 built, 0 in progress, 398 scheduled, 628 total.
 
 Current phase:
 - Phase 3.6 — Accounting Polish.
-- Active subsection: Write Checks / Checks.
-- Verified Bills contracts remain fixed: two-step accrual, partial payment, partial-payment reversal, unpaid-only safe delete, default cash account, recurring posting idempotency, positive vendor credits, locked periods, organization isolation, and central post_transaction() accounting.
+- Next ordered subsection: Bank Deposits.
+- Preserve verified deposit contract: receipts already post cash; deposits group receipts only through deposit_lines and do not create another GL transaction.
+- Verified accounting contracts remain fixed: org isolation, locked periods, central post_transaction() for real GL writes, atomic financial workflows, and immutable/reversal accounting semantics.
 
 Next exact action:
-1. Implement Write Checks flow in one coherent batch: Find Bills -> Confirm & Finalize -> Print.
-2. Add durable Check + Check/Bill allocation storage, bank-account-backed cash posting, Check Memo, list/date filtering/drill-down, and accounting-safe Void Check.
-3. Gate check writing independently with release.accounting.write_checks + check_writing entitlement/config + ACCOUNTING.PAYABLES backend permission.
-4. Preserve bill amount_paid/status semantics and make issue/void financial state atomic.
-5. Verify in hosted CI, fix reds autonomously, update PROJECT_MASTER / FEATURE_REGISTRY / APPFOLIO_PARITY_CHECKLIST / FILE_CATALOG / AI_HANDOFF, then continue directly to the next ordered Phase 3.6 subsection.
-6. Do not stop at phase boundaries; continue unless truly blocked or context handoff is required.
+1. Implement Bank Deposits polish in one coherent batch: Print Bank Deposit, date-mismatch warning, per-bank-account numbering, and Edit Deposit.
+2. Inspect existing deposit models/services/router/pages first and reuse the existing date-mismatch warning already present on the new-deposit page.
+3. Preserve deposit_lines as the source of truth for deposited receipts; do not add a duplicate deposited flag or double-post cash.
+4. Gate independently releasable deposit actions through the existing hybrid capability system and keep ACCOUNTING.DEPOSITS backend permission authoritative.
+5. Verify in hosted CI, fix reds autonomously, update PROJECT_MASTER / FEATURE_REGISTRY / APPFOLIO_PARITY_CHECKLIST / FILE_CATALOG / AI_HANDOFF.
+6. Continue directly to the next ordered Phase 3.6 subsection without waiting for user approval.
 
 Open blockers:
 - NONE

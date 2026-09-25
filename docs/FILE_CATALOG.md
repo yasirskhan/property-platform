@@ -2623,10 +2623,50 @@ Re-run `python generate_file_catalog.py` after adding or renaming files.
   - const `PARKING_TYPES`
 
 
+## Phase 3.6 Write Checks / Checks checkpoint additions
+
+#### `backend/app/models/check.py`
+  _"Bank-account-backed checks and bill allocations."_
+  **Classes:** `Check`, `CheckBillAllocation`
+
+#### `backend/app/schemas/check.py`
+  **Classes:** check issue, void, memo, eligible-bill, bank-account, allocation, detail and list schemas
+
+#### `backend/app/services/checks.py`
+  _"Accounting-safe check issue/void workflows."_
+  **Functions:** `issue_check`, `void_check`
+
+#### `backend/app/routers/checks.py`
+  **Routes:** eligible bills, bank accounts, list/create/detail, memo, void and print under `/api/accounting/checks`
+
+#### `backend/alembic/versions/f4a6c8d0e2b1_add_checks_and_bill_allocations.py`
+  - revision: `f4a6c8d0e2b1`
+  - down_revision: `ad3e5f7b9c21`
+  - creates `checks` and `check_bill_allocations`
+
+#### `backend/tests/test_checks.py`
+  **Coverage:** atomic issue/void accounting and cross-organization rejection
+
+#### `frontend/src/lib/checks.ts`
+  **Exports:** checks API types and list/issue/void/memo/print helpers
+
+#### `frontend/src/app/dashboard/accounting/checks/page.tsx`
+  **Export:** default `ChecksPage`
+
+#### `frontend/src/app/dashboard/accounting/checks/write/page.tsx`
+  **Export:** default `WriteChecksPage`
+
+#### `frontend/src/app/dashboard/accounting/checks/[id]/page.tsx`
+  **Export:** default `CheckDetailPage`
+
+#### `frontend/src/app/dashboard/accounting/checks/[id]/print/page.tsx`
+  **Export:** default `PrintCheckPage`
+
 ---
 
 ## Counts
 
-- Backend Python files: 164
-- Frontend TS/TSX files: 92
-- Total: 256
+- Backend Python files: 320
+- Frontend TS/TSX files: 110
+- Platform admin TS/TSX files: 6
+- Total: 436
