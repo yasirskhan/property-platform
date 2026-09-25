@@ -432,14 +432,14 @@ def delete_bill_endpoint(
     return None
 
 
-@router.get("/recurring", response_model=list[RecurringBillOut])
+@router.get("/recurring/schedules", response_model=list[RecurringBillOut])
 def list_recurring_bills(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     org_id = _require_bills_access(db, current_user)
     if not recurring_bills_enabled_for_org(db, organization_id=org_id):
         raise HTTPException(status_code=403, detail="Recurring bills are not enabled.")
     return db.query(RecurringBill).filter(RecurringBill.organization_id == org_id).order_by(RecurringBill.is_active.desc(), RecurringBill.next_post_date.asc(), RecurringBill.id.asc()).all()
 
-@router.post("/recurring", response_model=RecurringBillOut, status_code=status.HTTP_201_CREATED)
+@router.post("/recurring/schedules", response_model=RecurringBillOut, status_code=status.HTTP_201_CREATED)
 def create_recurring_bill_endpoint(payload: RecurringBillCreateIn, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     org_id = _require_bills_access(db, current_user)
     if not recurring_bills_enabled_for_org(db, organization_id=org_id):
@@ -456,7 +456,7 @@ def manually_post_recurring_bills(payload: RecurringBillPostIn, db: Session = De
         raise HTTPException(status_code=403, detail="Manual bill posting is not enabled.")
     return post_due_recurring_bills(db, as_of=payload.as_of, organization_id=org_id, schedule_ids=payload.schedule_ids, created_by=current_user, require_manual_gate=True)
 
-@router.get("/credits", response_model=list[VendorCreditOut])
+@router.get("/credits/list", response_model=list[VendorCreditOut])
 def list_vendor_credits(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     org_id = _require_bills_access(db, current_user)
     if not vendor_credits_enabled_for_org(db, organization_id=org_id):

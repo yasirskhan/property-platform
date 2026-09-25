@@ -33,3 +33,12 @@ def test_bills_access_returns_org_when_permission_allows(monkeypatch) -> None:
     monkeypatch.setattr(bills, "permission_allows_user", lambda *args, **kwargs: True)
     user = SimpleNamespace(organization_id=42)
     assert bills._require_bills_access(object(), user) == 42
+
+
+def test_bill_workflow_static_routes_do_not_collide_with_bill_id_route() -> None:
+    paths = {route.path for route in bills.router.routes}
+    assert "/api/accounting/bills/recurring/schedules" in paths
+    assert "/api/accounting/bills/recurring/post" in paths
+    assert "/api/accounting/bills/credits/list" in paths
+    assert "/api/accounting/bills/recurring" not in paths
+    assert "/api/accounting/bills/credits" in paths

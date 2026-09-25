@@ -27,22 +27,25 @@ Current HEAD hash: resolve from this branch; this file is committed as part of H
 Verified foundation:
 - Phase 3.4.S and Phases 3.4.3 through 3.4.26 are COMPLETE/VERIFIED.
 - Phase 3.5.5 compatibility pass is COMPLETE.
-- Phase 3.6 Chart of Accounts, Journal Entries, and Receipts polish are COMPLETE/VERIFIED.
-- Phase 3.6 Bills lifecycle batch is COMPLETE/VERIFIED at commits a5bf7a42d3a0bc3d859efbac3d7df1b9ea79c008 + d58dbff17137a6d9fa1cbfadbf2a845f22b6adc2; CI run 36080191707 was green with 275 passed, 3 deselected.
+- Phase 3.6 Chart of Accounts, Journal Entries, Receipts, and the first Bills lifecycle batch are COMPLETE/VERIFIED.
+- Bills lifecycle verification: CI run 36080191707, 275 passed, 3 deselected.
+- Recurring Bills / Vendor Credits backend foundation is COMPLETE/VERIFIED at commits e1a7ee2037b3065261b8531b90bfa368379a4b46 + d068eb3cdab90647c5ea9249067bfcf1952d79a6.
+- Backend foundation verification: CI run 36083078977 SUCCESS; 279 passed, 3 deselected, 1807 warnings in 45.37s; E2E 3 passed in 12.14s; frontend/platform-admin/security/staging green.
+- Current migration head: ad3e5f7b9c21; expected model-table count: 83.
 
 Current phase:
 - Phase 3.6 — Accounting Polish.
 - Active subsection: Bills.
-- Current implementation batch: recurring Bill/Credit schedules + Post Codes + Manually Post Bills + real positive-value Vendor Credits backend foundation.
-- This batch adds durable recurring-bill schedules, selected/manual due posting, a daily durable-job sweep, and vendor credits posted as DR Accounts Payable / CR line accounts rather than negative bills.
-- Product commit for this batch is pending hosted CI verification.
-- Migration head for this batch: ad3e5f7b9c21; expected model-table count: 83.
+- Current implementation batch: customer UI for Recurring Bills/Credits, Post Codes, selected Manually Post Bills, and Enter Vendor Credit.
+- Existing release gates remain independent and backend ACCOUNTING.PAYABLES authorization is authoritative.
+- Static workflow routes use unambiguous paths so GET /{bill_id} cannot shadow recurring/credit reads.
+- Product commit for this UI batch is pending hosted CI verification.
 
 Next exact action:
-1. Verify the current Bills workflow backend batch in hosted CI.
-2. Fix any CI red autonomously without waiting.
-3. When green, activate the customer UI for Recurring Bills, Manually Post Bills, and Enter Credit using the existing release gates and ACCOUNTING.PAYABLES authorization.
-4. Update planning/registry/parity state and FILE_CATALOG as appropriate, checkpoint AI_HANDOFF.md, then continue directly into Write Checks / Checks list / Void Check / Check Memo.
+1. Verify the current Bills workflow UI batch in hosted CI and fix any red autonomously.
+2. When green, update PROJECT_MASTER / FEATURE_REGISTRY / APPFOLIO_PARITY_CHECKLIST / FILE_CATALOG for the verified recurring bills, post codes, manual posting, and vendor credits capability.
+3. Continue immediately into Write Checks: Find Bills -> Confirm & Finalize -> Print, then Checks list, Void Check, and Check Memo.
+4. Preserve central post_transaction(), locked periods, organization isolation, payment/reversal contracts, and independent access layers.
 5. Do not stop at the phase boundary; continue ordered Phase 3.6 work unless truly blocked.
 
 Open blockers:

@@ -199,10 +199,10 @@ export default function BillsPage() {
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-xl font-semibold text-slate-900">Bills</h1>
         <div className="flex flex-wrap items-center gap-2">
-          <Flag name="release.accounting.bills.recurring"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Recurring Bills</button></Flag>
+          <Flag name="release.accounting.bills.recurring"><Link href="/dashboard/accounting/bills/recurring" className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Recurring Bills</Link></Flag>
           <Flag name="release.accounting.write_checks"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Write Checks</button></Flag>
-          <Flag name="release.accounting.vendor_credits"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Enter Credit</button></Flag>
-          <Flag name="release.accounting.bills.manual_post"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Manually Post Bills</button></Flag>
+          <Flag name="release.accounting.vendor_credits"><Link href="/dashboard/accounting/bills/credits/new" className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Enter Credit</Link></Flag>
+          <Flag name="release.accounting.bills.manual_post"><Link href="/dashboard/accounting/bills/recurring" className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Manually Post Bills</Link></Flag>
           <Flag name="release.accounting.owner_draw"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Owner Draw</button></Flag>
           <Flag name="release.accounting.tenant_payable"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Tenant Payable</button></Flag>
           <Flag name="release.maintenance.work_order_to_bill"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Work Order to Bill</button></Flag>
