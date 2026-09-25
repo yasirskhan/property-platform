@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.database import get_db
 from app.routers.auth import get_current_user
 from app.models.user import User
-from app.models.owner_statement import OwnerStatement
+from app.models.owner_statement import OwnerPacketSettings, OwnerStatement
 from app.schemas.owner_statement import (
     OwnerStatementDetailOut,
     OwnerStatementListOut,
@@ -28,8 +28,11 @@ from app.schemas.owner_statement import (
     StatementPropertyBlock,
     PropertyCashSummaryLine,
     OwnerStatementCashSummaryOut,
+    OwnerPacketSettingsOut,
+    OwnerPacketSettingsUpdate,
 )
 from app.services.gl_posting import PostingError
+from app.services.audit import append_audit_log
 from app.services.menu_resolver import permission_allows_user
 from app.services.customer_features import resolve_customer_features
 from app.services.owner_statements import (
@@ -45,6 +48,9 @@ router = APIRouter(
 
 WRITE_ROLES = {"ADMIN", "OWNER", "MANAGER"}
 CASH_SUMMARY_FEATURE = "release.accounting.owner_statements.cash_summary"
+PACKET_CUSTOMIZER_FEATURE = "release.owner_portal.packet_customizer"
+PACKET_WRITE_ROLES = {"ADMIN", "MANAGER"}
+DEFAULT_PACKET_REPORTS = ["OWNER_STATEMENT", "PROPERTY_CASH_SUMMARY"]
 
 
 def _require_org(current_user: User) -> int:
@@ -91,6 +97,51 @@ def _require_cash_summary_feature(db: Session, current_user: User) -> int:
             detail="Property Cash Summary is not enabled.",
         )
     return org_id
+
+
+def _require_packet_customizer_feature(db: Session, current_user: User) -> int:
+    org_id = _require_owner_statements_access(db, current_user)
+    decision = next(
+        (
+            item
+            for item in resolve_customer_features(db, user=current_user)
+            if item.key == PACKET_CUSTOMIZER_FEATURE
+        ),
+        None,
+    )
+    if decision is None or not decision.allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Owner Packet customizer is not enabled.",
+        )
+    return org_id
+
+
+def _require_packet_settings_write(current_user: User) -> None:
+    if _norm_role(current_user.role) not in PACKET_WRITE_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators and managers may change owner packet settings.",
+        )
+
+
+def _packet_settings_out(
+    organization_id: int, row: Optional[OwnerPacketSettings]
+) -> OwnerPacketSettingsOut:
+    reports = DEFAULT_PACKET_REPORTS
+    if row is not None:
+        try:
+            parsed = json.loads(row.included_reports or "[]")
+            if isinstance(parsed, list) and parsed:
+                reports = [str(item) for item in parsed]
+        except Exception:
+            reports = DEFAULT_PACKET_REPORTS
+    return OwnerPacketSettingsOut(
+        organization_id=organization_id,
+        included_reports=reports,
+        email_owner=bool(row.email_owner) if row is not None else False,
+        cover_message=row.cover_message if row is not None else None,
+    )
 
 
 def _require_write(current_user: User) -> None:
@@ -152,6 +203,70 @@ def _stmt_to_detail(s: OwnerStatement) -> OwnerStatementDetailOut:
         total_prepaid_rent=total_prepaid_rent,
         total_available_cash=total_available_cash,
     )
+
+
+# ============================================================
+# GET/PUT /packet-settings
+# ============================================================
+
+@router.get("/packet-settings", response_model=OwnerPacketSettingsOut)
+def get_packet_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_packet_customizer_feature(db, current_user)
+    row = db.get(OwnerPacketSettings, org_id)
+    return _packet_settings_out(org_id, row)
+
+
+@router.put("/packet-settings", response_model=OwnerPacketSettingsOut)
+def update_packet_settings(
+    payload: OwnerPacketSettingsUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_packet_settings_write(current_user)
+    org_id = _require_packet_customizer_feature(db, current_user)
+    row = db.get(OwnerPacketSettings, org_id)
+    old_value = None
+    if row is None:
+        row = OwnerPacketSettings(organization_id=org_id)
+        db.add(row)
+    else:
+        old_value = json.dumps(
+            {
+                "included_reports": _packet_settings_out(org_id, row).included_reports,
+                "email_owner": bool(row.email_owner),
+                "cover_message": row.cover_message,
+            },
+            sort_keys=True,
+        )
+
+    row.included_reports = json.dumps(payload.included_reports, separators=(",", ":"))
+    row.email_owner = payload.email_owner
+    row.cover_message = payload.cover_message.strip() if payload.cover_message else None
+    db.flush()
+    new_value = json.dumps(
+        {
+            "included_reports": payload.included_reports,
+            "email_owner": payload.email_owner,
+            "cover_message": row.cover_message,
+        },
+        sort_keys=True,
+    )
+    append_audit_log(
+        db,
+        user_id=current_user.id,
+        organization_id=org_id,
+        entity_type="owner_packet_settings",
+        entity_id=org_id,
+        action="owner_packet_settings_updated",
+        old_value=old_value,
+        new_value=new_value,
+    )
+    db.commit()
+    db.refresh(row)
+    return _packet_settings_out(org_id, row)
 
 
 # ============================================================

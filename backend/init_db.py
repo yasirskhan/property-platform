@@ -86,7 +86,7 @@ from app.models.management_fee_run import ManagementFeeRun  # noqa: F401
 from app.models.owner_payout import OwnerPayout  # noqa: F401
 
 # ---- Owner Statements (Phase 2 Step 10) ----
-from app.models.owner_statement import OwnerStatement  # noqa: F401
+from app.models.owner_statement import OwnerPacketSettings, OwnerStatement  # noqa: F401
 
 # ---- Bank Accounts (Phase 2 Step 4) ----
 from app.models.bank_account import BankAccount  # noqa: F401

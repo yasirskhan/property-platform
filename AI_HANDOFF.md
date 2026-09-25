@@ -24,7 +24,8 @@ IMPORTANT:
 - Diagnostics — Bank Reconciliation Lapses 60-day check is COMPLETE/VERIFIED.
 - Diagnostics — Real Positive Fee check (must_clear) is COMPLETE/VERIFIED.
 - Diagnostics — Additional checks to reach 9 total is COMPLETE/VERIFIED.
-- Current batch: Owner Statements — Required Reserves + Prepaid Rent + Property Cash Summary.
+- Owner Statements — Required Reserves + Prepaid Rent + Property Cash Summary is COMPLETE/VERIFIED.
+- Current batch: Owner Packets — Customizer fields.
 
 # Latest Verified Green Checkpoint
 
@@ -368,6 +369,21 @@ Implementation prepared in this batch:
 - Property edit exposes Required Owner Reserve; statement preview/detail show real reserve/prepaid/available values.
 - Migration head advances to f5a7c9e1b3d6; model-table count remains 93.
 - Regression coverage added for frozen reserve/prepaid/cash behavior and feature authorization.
+- TESTS NOT RUN locally in this connector-only session.
+- Hosted CI run 36197438770: SUCCESS.
+- Backend, frontend, E2E, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
+
+# Owner Packets — Current Batch
+
+Implementation prepared:
+- Durable organization-level owner packet settings store report selections, email-owner preference, and optional cover message.
+- Current selectable reports are Owner Statement and Property Cash Summary; at least one is required.
+- GET/PUT configuration is protected by release.owner_portal.packet_customizer plus ACCOUNTING.OWNER_STATEMENTS.
+- Only ADMIN/MANAGER may change organization-wide packet settings; OWNER cannot change global configuration.
+- Customer workflow replaces the compatibility placeholder with /dashboard/accounting/owner-statements/packet-settings.
+- This batch stores customization only; packet generation/sending remains Phase 3.7.
+- Migration head advances to a6c8e0f2b4d7; expected model-table count 94.
+- Regression coverage added in backend/tests/test_owner_packet_settings.py.
 - TESTS NOT RUN locally in this connector-only session.
 - Hosted CI verification pending.
 

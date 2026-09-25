@@ -145,3 +145,31 @@ class OwnerStatementCashSummaryOut(BaseModel):
 class OwnerStatementListOut(BaseModel):
     items: List[OwnerStatementOut]
     total: int
+
+OWNER_PACKET_REPORTS = {"OWNER_STATEMENT", "PROPERTY_CASH_SUMMARY"}
+
+
+class OwnerPacketSettingsUpdate(BaseModel):
+    included_reports: List[str] = Field(
+        default_factory=lambda: ["OWNER_STATEMENT", "PROPERTY_CASH_SUMMARY"]
+    )
+    email_owner: bool = False
+    cover_message: Optional[str] = Field(default=None, max_length=2000)
+
+    @field_validator("included_reports")
+    @classmethod
+    def _validate_reports(cls, value: List[str]) -> List[str]:
+        normalized = []
+        for item in value:
+            key = str(item).strip().upper()
+            if key not in OWNER_PACKET_REPORTS:
+                raise ValueError(f"Unsupported owner packet report: {item}")
+            if key not in normalized:
+                normalized.append(key)
+        if not normalized:
+            raise ValueError("Select at least one owner packet report")
+        return normalized
+
+
+class OwnerPacketSettingsOut(OwnerPacketSettingsUpdate):
+    organization_id: int

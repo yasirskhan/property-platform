@@ -4,7 +4,7 @@
 // Typed API client for Owner Statements (Phase 2 Step 10).
 // ============================================================
 
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, apiPut } from "@/lib/api";
 
 // ------------------------------------------------------------
 // Shapes
@@ -170,4 +170,26 @@ export function getOwnerStatementCashSummary(
   id: number
 ): Promise<OwnerStatementCashSummary> {
   return apiGet(`/api/accounting/owner-statements/${id}/cash-summary`);
+}
+
+
+export type OwnerPacketReport = "OWNER_STATEMENT" | "PROPERTY_CASH_SUMMARY";
+
+export type OwnerPacketSettings = {
+  organization_id: number;
+  included_reports: OwnerPacketReport[];
+  email_owner: boolean;
+  cover_message: string | null;
+};
+
+export type OwnerPacketSettingsUpdate = Omit<OwnerPacketSettings, "organization_id">;
+
+export function getOwnerPacketSettings(): Promise<OwnerPacketSettings> {
+  return apiGet("/api/accounting/owner-statements/packet-settings");
+}
+
+export function updateOwnerPacketSettings(
+  payload: OwnerPacketSettingsUpdate
+): Promise<OwnerPacketSettings> {
+  return apiPut("/api/accounting/owner-statements/packet-settings", payload);
 }

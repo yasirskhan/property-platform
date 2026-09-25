@@ -82,7 +82,7 @@ export default function OwnerStatementsPage() {
             <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Property Cash Summary</button>
           </Flag>
           <Flag name="release.owner_portal.packet_customizer">
-            <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Owner Packet</button>
+            <Link href="/dashboard/accounting/owner-statements/packet-settings" className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Owner Packet</Link>
           </Flag>
           <Flag name="release.owner_statements.email">
             <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Email Statement</button>
