@@ -35,6 +35,9 @@ class AccountingSettings(Base):
     fiscal_year_start_month = Column(
         Integer, nullable=False, default=1, server_default="1"
     )
+    accounting_basis = Column(
+        String(10), nullable=False, default="ACCRUAL", server_default="ACCRUAL"
+    )
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow

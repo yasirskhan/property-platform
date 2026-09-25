@@ -34,6 +34,7 @@ class AccountingSettingsUpdate(BaseModel):
     receipt_cash_gl_account_id: Optional[int] = None
     report_export_format: str = Field(default="CSV")
     fiscal_year_start_month: int = Field(default=1, ge=1, le=12)
+    accounting_basis: str = Field(default="ACCRUAL")
 
     @field_validator("report_export_format")
     @classmethod
@@ -41,6 +42,14 @@ class AccountingSettingsUpdate(BaseModel):
         normalized = (value or "").strip().upper()
         if normalized not in {"CSV", "EXCEL"}:
             raise ValueError("report_export_format must be CSV or EXCEL")
+        return normalized
+
+    @field_validator("accounting_basis")
+    @classmethod
+    def validate_accounting_basis(cls, value: str) -> str:
+        normalized = (value or "").strip().upper()
+        if normalized not in {"ACCRUAL", "CASH"}:
+            raise ValueError("accounting_basis must be ACCRUAL or CASH")
         return normalized
 
 

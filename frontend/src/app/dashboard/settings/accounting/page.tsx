@@ -34,6 +34,7 @@ export default function AccountingSettingsPage() {
           receipt_cash_gl_account_id: data.receipt_cash_gl_account_id,
           report_export_format: data.report_export_format,
           fiscal_year_start_month: data.fiscal_year_start_month,
+          accounting_basis: data.accounting_basis,
         });
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Could not load Accounting Settings."))
@@ -194,7 +195,21 @@ export default function AccountingSettingsPage() {
         <p className="text-sm text-slate-500 mt-1 mb-4">
           These defaults are stored now and consumed by the reporting layer as Phase 3.7 reports are built.
         </p>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
+          <label>
+            <span className="block text-sm font-medium text-slate-800 mb-1">Accounting basis</span>
+            <select
+              value={form.accounting_basis}
+              onChange={(e) => setForm({ ...form, accounting_basis: e.target.value as "ACCRUAL" | "CASH" })}
+              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white"
+            >
+              <option value="ACCRUAL">Accrual</option>
+              <option value="CASH">Cash</option>
+            </select>
+            <span className="block text-xs text-slate-500 mt-1">
+              Reports only. GL posting stays accrual and is never rewritten by this setting.
+            </span>
+          </label>
           <label>
             <span className="block text-sm font-medium text-slate-800 mb-1">Fiscal year starts</span>
             <select

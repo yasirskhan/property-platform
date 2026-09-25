@@ -30,6 +30,7 @@ export type AccountingSettings = {
   receipt_cash_gl_account_id: number | null;
   report_export_format: "CSV" | "EXCEL";
   fiscal_year_start_month: number;
+  accounting_basis: "ACCRUAL" | "CASH";
   gpr_rent_gl_account: AccountingGLAccountChoice | null;
   gpr_market_gl_account: AccountingGLAccountChoice | null;
   gpr_loss_gain_gl_account: AccountingGLAccountChoice | null;
@@ -47,6 +48,7 @@ export type AccountingSettingsUpdate = {
   receipt_cash_gl_account_id: number | null;
   report_export_format: "CSV" | "EXCEL";
   fiscal_year_start_month: number;
+  accounting_basis: "ACCRUAL" | "CASH";
 };
 
 export function getAccountingSettings(): Promise<AccountingSettings> {

@@ -16,6 +16,7 @@ from app.models.user import Organization, User, UserRole
 from app.schemas.accounting_settings import AccountingSettingsUpdate
 from app.services.gpr_posting import GPR_GL, LOSS_GAIN_GL, RENT_GL, _required_accounts
 from app.services.receipt_posting import resolve_cash_gl_account_id
+from app.services.reporting_basis import get_accounting_basis
 
 
 def _session():
@@ -116,6 +117,8 @@ def test_accounting_settings_defaults_and_update(monkeypatch):
         assert initial.receipt_cash_gl_account_id is None
         assert initial.report_export_format == "CSV"
         assert initial.fiscal_year_start_month == 1
+        assert initial.accounting_basis == "ACCRUAL"
+        assert get_accounting_basis(db, organization_id=org.id) == "ACCRUAL"
         assert db.get(AccountingSettings, org.id) is None
 
         updated = accounting_settings_router.update_accounting_settings(
@@ -126,6 +129,7 @@ def test_accounting_settings_defaults_and_update(monkeypatch):
                 receipt_cash_gl_account_id=accounts["1160"].id,
                 report_export_format="EXCEL",
                 fiscal_year_start_month=7,
+                accounting_basis="CASH",
             ),
             db=db,
             current_user=admin,
@@ -134,6 +138,8 @@ def test_accounting_settings_defaults_and_update(monkeypatch):
         assert updated.receipt_cash_gl_account_id == accounts["1160"].id
         assert updated.report_export_format == "EXCEL"
         assert updated.fiscal_year_start_month == 7
+        assert updated.accounting_basis == "CASH"
+        assert get_accounting_basis(db, organization_id=org.id) == "CASH"
     finally:
         db.close()
         engine.dispose()

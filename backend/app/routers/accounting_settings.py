@@ -154,6 +154,7 @@ def _out(db: Session, organization_id: int, row: AccountingSettings | None) -> A
         receipt_cash_gl_account_id=row.receipt_cash_gl_account_id if row else None,
         report_export_format=row.report_export_format if row else "CSV",
         fiscal_year_start_month=row.fiscal_year_start_month if row else 1,
+        accounting_basis=row.accounting_basis if row else "ACCRUAL",
         gpr_rent_gl_account=_choice(row.gpr_rent_gl_account) if row else None,
         gpr_market_gl_account=_choice(row.gpr_market_gl_account) if row else None,
         gpr_loss_gain_gl_account=_choice(row.gpr_loss_gain_gl_account) if row else None,
@@ -246,6 +247,7 @@ def update_accounting_settings(
             "receipt_cash_gl_account_id": row.receipt_cash_gl_account_id,
             "report_export_format": row.report_export_format,
             "fiscal_year_start_month": row.fiscal_year_start_month,
+            "accounting_basis": row.accounting_basis,
         }
 
     for field, value in payload.model_dump().items():
