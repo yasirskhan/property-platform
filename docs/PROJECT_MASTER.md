@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.6 — Accounting Polish** is IN PROGRESS. Chart of Accounts, Journal Entries, Receipts, Charges, Bills lifecycle, Recurring Bills/Credits, Post Codes, Manually Post Bills, Vendor Credits, Write Checks / Checks, Bank Deposits polish, Bank Reconciliation/QIF, Check Setup, ACH File Generation, Bank Adjustments, Bank Feed import, Owner ACH Setup, the $0 ACH Test File, and Owner Held Security Deposits are verified. Management Fees — Pay Owners, Overcollection Strategy, and Management Fees Post GPR are VERIFIED. Post GPR passed hosted CI run 36186643771. Current work: Management Fee Exclusions list.
+**Current activity:** Phase **3.6 — Accounting Polish** is IN PROGRESS. Chart of Accounts, Journal Entries, Receipts, Charges, Bills lifecycle, Recurring Bills/Credits, Post Codes, Manually Post Bills, Vendor Credits, Write Checks / Checks, Bank Deposits polish, Bank Reconciliation/QIF, Check Setup, ACH File Generation, Bank Adjustments, Bank Feed import, Owner ACH Setup, the $0 ACH Test File, and Owner Held Security Deposits are verified. Management Fees — Pay Owners, Overcollection Strategy, Post GPR, and Management Fee Exclusions are VERIFIED. Exclusions passed hosted CI run 36187449354. Current work: Diagnostics — Auto-fix Refund Negative Diagnostic.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -146,7 +146,7 @@ Deployment target (Phase 11):
 **Continue Phase 3.6 — Accounting Polish: Management Fees.**
 
 1. Owner Held Security Deposits is VERIFIED in CI run 36103471013: backend 310 passed, 3 deselected; E2E 3 passed; frontend, platform-admin, security, PostgreSQL backup/restore, staging, parity/registry consistency, and secret scan passed.
-2. Pay Owners, Overcollection Strategy, and Management Fees Post GPR are VERIFIED. Continue with Management Fee Exclusions list, then the remaining Phase 3.6 items in Section 38 order.
+2. Pay Owners, Overcollection Strategy, Management Fees Post GPR, and Management Fee Exclusions are VERIFIED. Continue with Diagnostics — Auto-fix Refund Negative Diagnostic, then the remaining Phase 3.6 items in Section 38 order.
 3. Preserve organization isolation, the existing owner-as-customer-user model, owner ACH destination rules, and central accounting/posting services.
 4. Verify each coherent batch in hosted CI, fix reds autonomously, update checkpoint/planning state, then continue without waiting.
 

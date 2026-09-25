@@ -19,7 +19,8 @@ IMPORTANT:
 - Management Fees — Pay Owners is COMPLETE/VERIFIED.
 - Management Fees — Overcollection Strategy is COMPLETE/VERIFIED.
 - Management Fees — Post GPR is COMPLETE/VERIFIED.
-- Current batch: Management Fee Exclusions list is implemented and pending hosted CI verification.
+- Management Fee Exclusions is COMPLETE/VERIFIED.
+- Current batch: Diagnostics — Auto-fix Refund Negative Diagnostic.
 
 # Latest Verified Green Checkpoint
 
@@ -264,7 +265,7 @@ Implementation:
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 - TESTS NOT RUN locally in this connector-only session.
 
-# Management Fee Exclusions — Current Batch
+# Management Fee Exclusions — COMPLETE / VERIFIED
 
 Implementation:
 - Read-only audit list over the existing Receipt.exclude_from_mgmt_fee flag.
@@ -277,13 +278,19 @@ Implementation:
 - No schema migration; head remains e4f6a8c0d2b5 / 93 model tables.
 - Regression coverage: backend/tests/test_management_fee_exclusions.py.
 - TESTS NOT RUN locally in this connector-only session.
-- Hosted CI verification pending.
+- Hosted CI run 36187449354: SUCCESS.
+- Backend: 325 passed, 3 deselected, 2539 warnings in 53.64s.
+- E2E: 3 passed in 9.38s.
+- Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Verify Management Fee Exclusions and fix CI reds
-2. Continue remaining Phase 3.6 items in Section 38 order
+1. Diagnostics — Auto-fix Refund Negative Diagnostic
+2. Bank Reconciliation Lapses 60 days
+3. Real Positive Fee check (must_clear flag)
+4. Additional checks to reach 9 total
+5. Continue remaining Phase 3.6 items in Section 38 order
 
 # Working Rules
 

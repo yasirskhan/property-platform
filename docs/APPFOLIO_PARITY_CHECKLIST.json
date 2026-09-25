@@ -612,8 +612,9 @@
       "id": "accounting.mgmt_fees.exclusions_list",
       "area": "Accounting / Management Fees",
       "feature": "Management Fee Exclusions list",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Verified in hosted CI run 36187449354: release-gated org-scoped exclusions audit list over existing Receipt.exclude_from_mgmt_fee with date/property filtering and reversed-source history."
     },
     {
       "id": "accounting.mgmt_fees.post_gpr",

@@ -457,7 +457,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Creates Bill as second step | behavior | — | core | no | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Existing accounting spine |
 | Pay Owners | capability | release.accounting.pay_owners | owner_payouts | yes | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Verified in CI run 36181749221. Staff preview owner balances and masked ACH readiness, create durable drafts, then record externally completed payouts through central GL posting; app does not initiate payment |
 | Overcollection strategy | capability | release.accounting.management_fees.overcollection | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Verified in CI run 36184596917: org-scoped Credits then Receipts / Receipts then Credits policy with audited API and customer workflow |
-| Management Fee Exclusions | capability | release.accounting.management_fees.exclusions | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ⬜ hidden implementation present | Release-gated compatibility slot; central exclusions workflow remains planned |
+| Management Fee Exclusions | capability | release.accounting.management_fees.exclusions | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Verified in CI run 36187449354: org-scoped read-only audit list over the existing exclusion flag with date/property filters and reversed-source history |
 | Post GPR | capability | release.accounting.management_fees.post_gpr | gpr_posting | yes | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Verified in CI run 36186643771: Management Fees entry point reuses the central GPR candidate/posting engine and shared duplicate unit/month protection |
 
 ---
