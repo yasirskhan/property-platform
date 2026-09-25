@@ -38,7 +38,7 @@ export type Receipt = {
   receipt_date: string;          // YYYY-MM-DD
   amount: string;
 
-  cash_gl_account_id?: number | null;
+  cash_gl_account_id: number;
   cash_gl_account_number: string | null;
   cash_gl_account_name: string | null;
 
@@ -95,7 +95,7 @@ export type ReceiptCreateIn = {
   type: "TENANT" | "OWNER" | "OTHER" | "APPLICATION_FEE";
   receipt_date: string;
   amount: number | string;
-  cash_gl_account_id: number;
+  cash_gl_account_id?: number | null;
 
   // TENANT
   tenant_user_id?: number | null;

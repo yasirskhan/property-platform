@@ -58,7 +58,13 @@ Current phase:
 - Active subsection: Receipts.
 - Post GPR checkpoint commit 538f04ac9d8e6f2bb60e71036765da045d4824ad is green in hosted CI run 36077315410.
 
-Current Receipts batch (implementation prepared; hosted CI verification required after commit):
+Current Receipts batch:
+- Implementation commit: 1859e35bf914b2d0d612500f497c844a8e312005.
+- Initial CI run 36077939445: backend GREEN at 272 passed, 3 deselected, 1574 warnings in 43.59s; security + platform-admin GREEN; frontend TypeScript failed only because the typed ReceiptCreateIn contract still required numeric cash_gl_account_id while Automatic legitimately sends null and Receipt output had been made optional.
+- Repair is type-contract only: Receipt output cash_gl_account_id stays required numeric; ReceiptCreateIn cash_gl_account_id becomes optional/null. Product behavior is unchanged.
+- Hosted CI verification of the repair is the immediate next action.
+
+Implemented Receipts capabilities:
 - Dedicated APPLICATION_FEE receipt mode posts to standard 4420 and is server-gated by release.accounting.receipts.application_fee.
 - Cash Account Automatic resolves the org's active OPERATING bank mapping, falling back to active 1150 Rental Trust when no bank mapping exists.
 - Process NSF is a server-gated bounced-payment action that reuses the verified reversal spine and preserves original deposit history; any NSF fee remains a separate tenant Charge.
@@ -68,7 +74,7 @@ Current Receipts batch (implementation prepared; hosted CI verification required
 - No migration is planned for this batch; Alembic head should remain 6a1d9e3f4b72 and expected model-table count 79.
 
 Next exact action:
-1. Push/verify the coherent Receipts implementation in hosted CI and fix all reds autonomously.
+1. Commit the frontend type-contract repair and verify it in hosted CI; fix any remaining reds autonomously.
 2. On green, update PROJECT_MASTER/FEATURE_REGISTRY/APPFOLIO_PARITY_CHECKLIST/FILE_CATALOG plus this handoff with exact evidence.
 3. Continue directly to the next ordered Phase 3.6 accounting subsection without waiting.
 
