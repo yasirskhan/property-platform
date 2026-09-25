@@ -9,12 +9,12 @@
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
     "last_updated": "2026-09-25",
-    "migration_head": "a4b6c8d0e2f1",
+    "migration_head": "b6d8f0a2c4e7",
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 237,
-    "scheduled_count": 391,
+    "built_count": 238,
+    "scheduled_count": 390,
     "in_progress_count": 0
   },
   "items": [
@@ -1216,8 +1216,9 @@
       "id": "people.owners.ach_setup",
       "area": "People / Owners",
       "feature": "Owner ACH setup",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Verified in CI run 36100394485: one durable ACH destination per organization/owner, masked read API, ABA validation, owner-self/admin scope, hybrid feature gating, and no payment or GL mutation."
     },
     {
       "id": "people.owners.reserve_funds",
