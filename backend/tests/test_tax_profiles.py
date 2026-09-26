@@ -212,3 +212,36 @@ def test_permission_revocation_and_ciphertext_tampering(key, monkeypatch):
     finally:
         db.close()
         engine.dispose()
+
+
+
+def test_tax_profile_http_routes_never_cache_sensitive_status(key):
+    from fastapi import Response
+    from app.routers import tax_profiles as routes
+
+    db, engine = _session()
+    try:
+        admin, owner, *_ = _users(db)
+        result = Response()
+        saved = routes.save_profile(_input("OWNER", owner.id), result,
+                                    db=db, current_user=admin)
+        assert result.headers.get("cache-control") == "no-store"
+        assert saved.tin_last4 == "6789"
+        read_response = Response()
+        listed = routes.list_profiles(read_response, db=db, current_user=admin)
+        assert read_response.headers.get("cache-control") == "no-store"
+        assert listed[0].id == saved.id
+        assert "tin" not in listed[0].model_dump()
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_1099_preparation_link_does_not_advertise_irs_submission():
+    from app.services.report_catalog import REPORT_CATALOG
+    from app.services.report_delivery import REPORT_PERMISSIONS
+
+    item = next(item for item in REPORT_CATALOG if item.key == "tax.1099_preparation")
+    assert item.href == "/dashboard/reporting/1099"
+    assert "filing not enabled" in (item.description or "")
+    assert "tax.1099_preparation" not in REPORT_PERMISSIONS
