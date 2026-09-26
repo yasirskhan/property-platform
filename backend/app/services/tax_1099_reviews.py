@@ -131,8 +131,7 @@ def _payload_from_row(row: Tax1099Review) -> Tax1099UpdateIn:
         payer_profile_id=row.payer_profile_id,
         recipient_profile_id=row.recipient_profile_id,
         amount=row.amount, source_type=row.source_type,
-        source_reference=_redact_source(row.source_reference),
-        source_note=_redact_source(row.source_note),
+        source_reference=row.source_reference, source_note=row.source_note,
     )
 
 
@@ -162,7 +161,8 @@ def _out(db: Session, row: Tax1099Review) -> Tax1099ReviewOut:
         recipient_subject_id=recipient.subject_id,
         recipient_tin_last4=recipient_last4,
         amount=row.amount, source_type=row.source_type,
-        source_reference=row.source_reference, source_note=row.source_note,
+        source_reference=_redact_source(row.source_reference),
+        source_note=_redact_source(row.source_note),
         status=row.status, w9_evidence_present=evidence,
         profile_changed_since_review=bool(_stale(row, payer, recipient)),
         source_review_confirmed=bool(row.source_review_confirmed),
