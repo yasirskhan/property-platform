@@ -31,6 +31,7 @@ import GLAccountDrawer from "@/components/accounting/GLAccountDrawer";
 import Flag from "@/components/features/Flag";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import { useDisplay } from "@/contexts/DisplayContext";
+import ReportActions from "@/components/reporting/ReportActions";
 
 type Me = { role: string };
 
@@ -177,6 +178,10 @@ export default function GLAccountsPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <ReportActions
+            reportKey="accounting.chart_of_accounts"
+            parameters={{ include_inactive: includeInactive }}
+          />
           <Flag name="release.accounting.owner_held_security_deposits">
             <Link
               href="/dashboard/accounting/owner-held-security-deposits"

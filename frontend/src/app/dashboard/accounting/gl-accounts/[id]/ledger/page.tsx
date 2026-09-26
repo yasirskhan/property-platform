@@ -26,6 +26,7 @@ import { ArrowLeft } from "lucide-react";
 import { getAccountLedger, Ledger } from "@/lib/glTransactions";
 import { formatMoney } from "@/lib/money";
 import { apiGet } from "@/lib/api";
+import ReportActions from "@/components/reporting/ReportActions";
 
 // Balance column: show "$0.00" for null/zero, not an em-dash.
 function formatBalance(value: string | number | null | undefined): string {
@@ -118,8 +119,9 @@ export default function LedgerPage({ params }: Props) {
       </Link>
 
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-baseline gap-3">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-baseline gap-3">
           <span className="text-sm font-mono text-slate-500">
             {ledger.gl_number}
           </span>
@@ -127,9 +129,19 @@ export default function LedgerPage({ params }: Props) {
             {ledger.name}
           </h1>
         </div>
-        <p className="text-sm text-slate-500 mt-1">
-          {ledger.account_type} · Ledger
-        </p>
+          <p className="text-sm text-slate-500 mt-1">
+            {ledger.account_type} · Ledger
+          </p>
+        </div>
+        <ReportActions
+          reportKey="accounting.general_ledger"
+          parameters={{
+            account_id: accountId,
+            date_from: dateFrom || undefined,
+            date_to: dateTo || undefined,
+            property_id: propertyId === "" ? undefined : propertyId,
+          }}
+        />
       </div>
 
       {/* Summary card */}

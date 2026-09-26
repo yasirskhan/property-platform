@@ -38,7 +38,8 @@ IMPORTANT:
 - Universal — Audit Log expansion is COMPLETE/VERIFIED.
 - Universal Attachments is COMPLETE/VERIFIED.
 - Phase 3.7 Report framework (standard vs enhanced) is COMPLETE/VERIFIED.
-- Current batch: Phase 3.7 — Print / Email / CSV Export on every report. NEXT.
+- Phase 3.7 Print / Email / CSV report delivery is IMPLEMENTED; hosted CI verification pending.
+- Current batch: Phase 3.7 — Custom Report Builder (saved configurations) is NEXT after delivery verification.
 
 # Latest Verified Green Checkpoint
 
@@ -485,10 +486,25 @@ Implementation prepared:
 - E2E: 3 passed in 8.15s.
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 
+# Report Print / Email / CSV — CURRENT BATCH
+
+Implementation prepared:
+- Shared ReportActions UI provides print, CSV download, and email delivery for each currently available framework report.
+- Backend delivery supports Chart of Accounts, Trial Balance, per-account General Ledger, and frozen Owner Statement.
+- CSV/email data is regenerated server-side; the client supplies only validated filter/identity parameters.
+- Delivery requires REPORTING.ALL plus the underlying report permission; CSV/email additionally require release.reporting.export.
+- Report data remains organization-scoped and unavailable report keys fail closed.
+- CSV cells that could trigger spreadsheet formulas are escaped.
+- Email delivery reuses the organization-aware SMTP resolver and attaches generated CSV; existing email callers remain backward compatible.
+- No schema migration; migration head remains a3d5f7b9c1e4 / 99 model tables.
+- Regression coverage: backend/tests/test_report_delivery.py.
+- Parity inventory after implementation: 264 built / 364 scheduled / 0 in-progress.
+- TESTS NOT RUN locally in this connector-only session; hosted CI verification is required.
+
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Print / Email / CSV Export on every report — current next.
+1. Verify Print / Email / CSV delivery in hosted CI and fix reds autonomously.
 2. Custom Report Builder (saved configurations).
 3. Continue Phase 3.7 in roadmap order without stopping.
 

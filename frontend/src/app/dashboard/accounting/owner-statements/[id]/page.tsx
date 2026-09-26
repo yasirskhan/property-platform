@@ -14,6 +14,7 @@ import { useParams } from "next/navigation";
 import { formatMoney, formatDate } from "@/lib/money";
 import Flag from "@/components/features/Flag";
 import { useDisplay } from "@/contexts/DisplayContext";
+import ReportActions from "@/components/reporting/ReportActions";
 import {
   getOwnerStatement,
   getOwnerStatementCashSummary,
@@ -97,20 +98,14 @@ export default function OwnerStatementDetailPage() {
           <Flag name="release.owner_portal.packet_customizer">
             <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Owner Packet</button>
           </Flag>
-          <Flag name="release.owner_statements.email">
-            <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Email Statement</button>
-          </Flag>
+          <ReportActions
+            reportKey="owner.statement"
+            parameters={{ statement_id: statementId }}
+          />
           <span className="text-xs text-slate-500">
             Generated{" "}
             {stmt.generated_at ? formatDate(stmt.generated_at) : "—"}
           </span>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
-          >
-            Print / Save PDF
-          </button>
         </div>
       </div>
 

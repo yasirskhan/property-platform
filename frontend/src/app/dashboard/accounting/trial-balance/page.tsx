@@ -27,6 +27,7 @@ import {
 } from "@/lib/glTransactions";
 import { formatMoney } from "@/lib/money";
 import { ACCOUNT_TYPE_LABELS, ACCOUNT_TYPE_ORDER } from "@/lib/glAccounts";
+import ReportActions from "@/components/reporting/ReportActions";
 
 // Totals column: show "$0.00" for null/zero, not an em-dash.
 function formatBalance(value: string | number | null | undefined): string {
@@ -104,7 +105,12 @@ export default function TrialBalancePage() {
             {data.rows.length === 1 ? "" : "s"}
           </p>
         </div>
-        <div className="flex items-end gap-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <ReportActions
+            reportKey="accounting.trial_balance"
+            parameters={{ as_of: asOf || undefined, include_zero: includeZero }}
+            className="pb-1"
+          />
           <div>
             <label className="block text-xs text-slate-500 mb-1">As of</label>
             <input

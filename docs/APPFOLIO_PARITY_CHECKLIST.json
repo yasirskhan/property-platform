@@ -13,8 +13,8 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 263,
-    "scheduled_count": 365,
+    "built_count": 264,
+    "scheduled_count": 364,
     "in_progress_count": 0
   },
   "items": [
@@ -2297,8 +2297,9 @@
       "id": "reporting.print_email_export",
       "area": "Reporting",
       "feature": "Print / Email / CSV Export on every report",
-      "status": "scheduled",
-      "phase": "3.7"
+      "status": "built",
+      "phase": "3.7",
+      "notes": "Shared ReportActions provides print, authorized server-generated CSV, and emailed CSV delivery for every currently available report in the Phase 3.7 catalog. Delivery regenerates data on the backend, enforces REPORTING.ALL plus underlying report permission, scopes records to the caller organization, and rejects unavailable report keys."
     },
     {
       "id": "reporting.labels_reports",
