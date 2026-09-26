@@ -7,10 +7,10 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `26cc939f0ca39eb7219b3dad6c3ce4b527ff9a9b`
-- Source GitHub Actions run **36277862050: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `1f901348d89fd173794edf651b0a143b63f5dc05`
+- Source GitHub Actions run **36278186270: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **471 passed, 3 deselected, 6212 warnings in 71.33s**.
+  Backend: **474 passed, 3 deselected, 6350 warnings in 91.87s**.
   E2E: **3 passed in 9.20s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
@@ -20,14 +20,14 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   with the tax-profile revision migration; no new model table. All three
   PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Tenant Unpaid Charges (standalone current Charge balances). VERIFIED.**
+  **Latest completed batch: Tenant Unpaid Charges Summary from authorized charge detail. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT executable original-plan task: Tenant Unpaid Charges Summary (catalog tenant.summary).**
-  Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Owner Packets VERIFIED. Do not repeat verified preflight,
+- **Exact NEXT executable original-plan task: Property & Unit Budget Comparison; inspect missing budget baseline before implementing.**
+  Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
 ## Verification chronology — don't reimplement
@@ -58,6 +58,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Letters UI + preview/email digest binding | a896605e16a37d5c5d778043545997b828ab8c7a, 5d9b4142275cdb759ca2701cd1f567f776616100 | 36273560029 | 440 backend passed / 3 E2E |
 | Tenant Tickler | f97b2c9c4078076ebd3c1d19d7107068bf49bb42 | 36277065122 | 467 backend passed / 3 E2E |
 | Tenant Unpaid Charges | 26cc939f0ca39eb7219b3dad6c3ce4b527ff9a9b | 36277862050 | 471 backend passed / 3 E2E |
+| Tenant Unpaid Charges Summary | 1f901348d89fd173794edf651b0a143b63f5dc05 | 36278186270 | 474 backend passed / 3 E2E |
 | Tenant Ledger current balances and Charges authorization | a12e0f1af94b7e74e03e9e81988bba98d98cb016, 33902846eab82304299f383001de682081091eec | 36276682654 | 463 backend passed / 3 E2E |
 | Tenant Directory | 873219e0be9e41a7c68ec52e4da604a882dc90c2 | 36275843531 | 458 backend passed / 3 E2E |
 | Security Deposit Funds Detail GL liability report | 60ee5a986d670b4e3af18d01060e971c163c522f | 36275464600 | 454 backend passed / 3 E2E |
@@ -731,40 +732,83 @@ scope and CSV/email, never mix in rent invoices or assume
 GL-reconciled collections. Follow with Property & Unit reports.
 Do not skip and do not reimplement verified tenant reports.
 
+## Phase 3.7 Tenant Unpaid Charges Summary — VERIFIED 2026-09-26
+
+Source 1f901348d89fd173794edf651b0a143b63f5dc05.
+GitHub CI 36278186270 SUCCESS all six jobs: backend
+474 passed, 3 deselected, 6350 warnings in 91.87s;
+authenticated E2E 3 passed in 9.20s; frontend lint/typecheck/
+production build, security, platform-admin, staging-config GREEN.
+No migration, Alembic a9c1e3f5b7d0 / 104 tables unchanged.
+Frozen docs/ unchanged. Previous handoff-only CI 36278139301
+was CANCELLED by the new product push, not a test failure.
+
+Standard catalog key tenant.summary now visibly titled
+"Tenant Unpaid Charges Summary" and links to
+/dashboard/reporting/unpaid-charges-summary. GET
+/api/reporting/unpaid-charges-summary/preview returns no-store.
+Service app/services/tenant_unpaid_summary.py reuses only
+already-authorized positive Charge detail report rows,
+aggregates by tenant and property (propertyless ADMIN-only
+charges separate), computes count/billed/paid/outstanding.
+No RentInvoice/GL addition or double counting; current
+recorded Charge.amount_paid snapshots, not historical cash.
+Admin/manager organization and assigned-property scope,
+tenant_id and property_id validation, REPORTING.ALL,
+ACCOUNTING.CHARGES, LEASING and release.reporting.export
+preserved through shared detailed service/routers.
+Server CSV/email canonical formula-safe ReportActions reused.
+Three focused tests cover reconciled-to-detail grouping, org and
+manager scope, filters, permissions and export gate. Existing three
+E2E browser tests generic, not dedicated summary UI tests.
+
+NEXT original Section 38: Property & Unit > Budget Comparison,
+then Budget Detail, Gross Potential Rent, Lease Expiration
+Detail/Summary, directories and other listed property reports.
+REQUIRED RESEARCH: the current backend models inventory has NO
+PropertyBudget or other persisted budget baseline; do NOT invent
+budget numbers from estimated rent or assume current GL is a
+budget. First add an explicitly editable, authorized budget data
+source or identify an existing verified one before comparing
+actuals, with migration/tests and reporting basis disclosure.
+Preserve read-only GL and assignment boundaries.
+
 ## Exact next work: continue, don't stop at phase boundary
 
-1. Read this root handoff; verify branch HEAD and latest full CI.
-   Do not repeat verified reporting/1099/letters/owner packets
-   or any tenant detail report through Unpaid Charges.
-2. Implement Tenant Unpaid Charges Summary next, reusing
-   existing scoped tenant_unpaid_charges service as the
-   authoritative data source, grouping current positive Charge
-   balances per tenant. Preserve org/assignment/security
-   checks, LEASING + ACCOUNTING.CHARGES, REPORTING.ALL and
-   release.reporting.export for preview, CSV and email.
-   Add focused tests; no historical or reconciled-GL claim.
-3. Then original Property & Unit, Owner/Vendor, Accounting,
-   Transaction reports per Section 38, with prerequisite checks.
-4. Bounded product commits + tests then GitHub Actions;
-   VERIFIED only after all six jobs succeed. If CI fails, fix
-   autonomously before next feature. Record exact source SHA,
-   CI run/test counts, migrations and next task in this ROOT
-   handoff. Do not modify frozen docs/, main or create branches.
-5. External Avalara/IRS acceptance needs operator credentials;
-   preserve 1099 internal no-submission boundary. No Work request.
+1. Read entire root handoff; verify current HEAD/CI. Tenant reports
+   through Unpaid Charges Summary are verified; do not rebuild.
+2. Original Phase 3.7 Property & Unit first: Budget Comparison, then
+   Budget Detail. Inspect verified property/GL/reporting-basis and
+   any existing budget data first. Current model inventory lacks
+   an explicit persisted budget baseline: add an org/property/
+   GL-account/year/month-scoped editable budget input with tests
+   if no existing source; never manufacture budget figures or
+   present posted GL movements as verified CASH-basis actuals.
+   Reuse report catalog/delivery/permission and export patterns.
+3. Continue original Section 38 order without skipping phase
+   boundaries. Verify each bounded product batch with all six
+   GitHub Actions jobs. Do not start another feature with red CI.
+   Record exact commit, counts, migration head, status and next task.
+4. Keep frozen docs/ untouched except earlier authorized narrow
+   1099 edits. No main/new branch/force push/Work mode.
+   External Avalara/IRS acceptance still needs operator credentials;
+   do not imply actual filing.
+5. Update this root handoff before losing context and after
+   each meaningful verified product batch.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform branch
-chatgpt/checkpoint-005-safety. Read complete root handoff and
-verify actual branch HEAD/CI. Last VERIFIED product source
-26cc939f0ca39eb7219b3dad6c3ce4b527ff9a9b, GitHub CI
-36277862050 SUCCESS (471 backend passed, 3 deselected,
-6212 warnings; 3 E2E passed in 9.20s; all six jobs green).
-Alembic a9c1e3f5b7d0 / 104 model tables.
-Tenant Tickler and standalone Tenant Unpaid Charges detail VERIFIED;
-do not repeat. Exact next original task is Tenant Unpaid Charges
-Summary (catalog tenant.summary) using only scoped positive Charge
-snapshots and verified delivery/gates. Then Property & Unit reports.
-Commit+CI, update root handoff per batch, frozen docs unchanged;
-no main/new branch/force-push/Work request.
+Continue yasirskhan/property-platform on
+chatgpt/checkpoint-005-safety. Read full repo-root AI_HANDOFF.md
+and verify branch HEAD and GitHub Actions. Last VERIFIED
+product source 1f901348d89fd173794edf651b0a143b63f5dc05,
+CI 36278186270 SUCCESS all six jobs (474 backend passed,
+3 deselected, 6350 warnings; 3 E2E passed in 9.20s).
+Alembic a9c1e3f5b7d0 / 104 tables. ALL tenant reports through
+Unpaid Charges Summary VERIFIED; do not repeat. EXACT next
+original Phase 3.7 task: Property & Unit Budget Comparison;
+no existing persisted budget baseline found in model inventory.
+Inspect actual source and add explicit budget inputs before
+reporting comparisons; no invented financial data or GL writes.
+Commit with tests then CI and root handoff refresh; no main,
+new branch, force push or unapproved frozen docs changes.
