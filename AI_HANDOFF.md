@@ -33,7 +33,7 @@ IMPORTANT:
 - Two-step verification is COMPLETE/VERIFIED.
 - Settings — Login history is COMPLETE/VERIFIED.
 - Universal — delete_reason UI is COMPLETE/VERIFIED.
-- Current batch: Universal — Notes expansion. NEXT.
+- Current batch: Universal — Notes expansion. IMPLEMENTATION COMMITTED; hosted CI verification pending.
 
 # Latest Verified Green Checkpoint
 
@@ -410,6 +410,19 @@ Implementation:
 - E2E: 3 passed in 9.59s.
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 - TESTS NOT RUN locally in this connector-only session.
+
+# Universal — Notes expansion — IMPLEMENTATION PENDING VERIFICATION
+
+Implementation prepared:
+- Adds one reusable, timestamped entity_notes stream rather than duplicating a notes column/table pattern across every business model.
+- Generic GET/POST /api/notes/{entity_type}/{entity_id} targets organization-scoped entities and rejects internal platform/audit/billing infrastructure targets.
+- Backend authorization is authoritative: organization scope, existing menu permission, and property assignment scope are resolved before a note can be read or added.
+- Notes are append-only in this batch; creation writes an immutable note_added audit event in the same transaction.
+- Property Detail now exposes the planned Notes tab using the reusable EntityNotes component; future entity detail pages can adopt the same component without schema work.
+- Migration head advances to f2c4e6a8b0d3; expected model-table count 98.
+- Regression coverage: backend/tests/test_entity_notes.py.
+- TESTS NOT RUN locally in this connector-only session.
+- Hosted CI verification pending.
 
 # Next Work
 

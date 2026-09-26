@@ -11,6 +11,7 @@ import AmenitiesTab from "@/components/property/AmenitiesTab";
 import AppliancesTab from "@/components/property/AppliancesTab";
 import ImprovementsTab from "@/components/property/ImprovementsTab";
 import PhotosTab from "@/components/property/PhotosTab";
+import EntityNotes from "@/components/EntityNotes";
 import { formatMoney, formatDate } from "@/lib/money";
 import Flag from "@/components/features/Flag";
 import { useDisplay } from "@/contexts/DisplayContext";
@@ -84,6 +85,7 @@ const TABS = [
   { id: "appliances", label: "Appliances" },
   { id: "improvements", label: "Improvements" },
   { id: "expenses", label: "Expenses" },
+  { id: "notes", label: "Notes" },
   { id: "history", label: "History" },
 ];
 
@@ -222,6 +224,9 @@ export default function PropertyDetailPage() {
       {tab === "units" && (
         <UnitsTab units={units} propertyId={propertyId} canEdit={canManage} />
       )}
+      {tab === "notes" && (
+        <EntityNotes entityType="properties" entityId={propertyId} canAdd={canManage} />
+      )}
       {tab === "history" && <HistoryTab propertyId={propertyId} />}
       {tab === "financials" && (
         <FinancialsTab
@@ -263,6 +268,7 @@ export default function PropertyDetailPage() {
       )}
       {tab !== "overview" &&
         tab !== "units" &&
+        tab !== "notes" &&
         tab !== "history" &&
         tab !== "financials" &&
         tab !== "taxes" &&
