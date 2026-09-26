@@ -89,7 +89,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/tenants",
         description="Current tenant lease associations; administrators also see unassigned tenant users.",
     ),
-    _enhanced("tenant.ledger", "Tenant Ledger", "Tenant"),
+    _enhanced(
+        "tenant.ledger", "Tenant Ledger", "Tenant",
+        href="/dashboard/reporting/tenant-ledger",
+        description="Current invoice and standalone charge balances, not a reconstructed payment history.",
+    ),
     _standard("tenant.tickler", "Tenant Tickler", "Tenant"),
     _standard("tenant.unpaid_charges", "Tenant Unpaid Charges", "Tenant"),
     _standard("tenant.summary", "Tenant Summary", "Tenant"),
