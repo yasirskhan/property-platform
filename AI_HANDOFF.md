@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `4a54c602966a795a8b399893f3d5fc46a6324ab3`
-- Source GitHub Actions run **36270979448: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `49dd9e5129df94e3721f3a97caa0415738bc24bb`
+- Source GitHub Actions run **36271476212: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **432 passed, 3 deselected, 4531 warnings in 82.97s**.
-  E2E: **3 passed in 8.59s**. Lint, typecheck, production build, security
+  Backend: **432 passed, 3 deselected, 4532 warnings in 87.23s**.
+  E2E: **3 passed in 9.99s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -20,11 +20,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   with the tax-profile revision migration; no new model table. All three
   PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: redacted provider status + explicit admin sandbox dry-run UI. VERIFIED.**
+  **Latest completed batch: verified Avalara 1099-MISC rents sandbox mapping. VERIFIED.**
 - **Exact NEXT original-plan task: Generate 1099 Forms & Reports,
-  verify and implement 1099-MISC rents sandbox mapping, then provider result/receipt
-  persistence without enabling production filing. Full filing/recipient copies remain
-  NOT IMPLEMENTED.** Do not repeat verified preflight,
+  expose persisted redacted sandbox-validation attempt history from immutable audit,
+  then define the remaining real-provider/recipient-copy boundary. Production filing,
+  IRS acceptance and recipient copies remain NOT IMPLEMENTED.** Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
 ## Verification chronology — don't reimplement
@@ -49,6 +49,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Source-text redaction + competing approval guard | 53c26c97c8a6f7f1a4ed16014eb9c80e68ca04f8, 6aa0a0414341d1a7cfc90fa3fcb119beb470f4e7 | 36269106237 | 428 backend passed / 3 E2E |
 | Avalara sandbox dry-run adapter | 85a6180a9fce3258d2bda90e878cfb30d4a891ec | 36270582328 | 431 backend passed / 3 E2E |
 | Provider status + explicit sandbox UI | 4a54c602966a795a8b399893f3d5fc46a6324ab3 | 36270979448 | 432 backend passed / 3 E2E |
+| Avalara 1099-MISC rents sandbox mapping | 49dd9e5129df94e3721f3a97caa0415738bc24bb | 36271476212 | 432 backend passed / 3 E2E |
 
 
 All listed full CI runs were successful. Older superseded CI runs may be
@@ -302,6 +303,25 @@ must NOT be modified without separate authorization.
 - Regression test proves status is no-store, permission-scoped and excludes
   all provider secrets. Frontend lint/typecheck/build and full CI green.
 
+
+**Avalara 1099-MISC rents sandbox mapping — VERIFIED 2026-09-26**:
+- Product commit `49dd9e5129df94e3721f3a97caa0415738bc24bb`;
+  CI 36271476212 SUCCESS all six jobs. Backend 432 passed,
+  3 deselected, 4532 warnings in 87.23s; E2E 3 passed in 9.99s.
+  No migration; Alembic f8c0d2e4a6b9 and 103 model tables.
+- Avalara's official v2 SDK model documents 1099-MISC `rents` and the
+  same bulk-upsert form envelope used by 1099-NEC. The sandbox dry-run
+  adapter now supports MISC/RENTS with `rents=<manually reviewed amount>`.
+- Provider payload now keeps federalEfileDate, stateEfileDate and
+  recipientEdeliveryDate null, postalMail=false, tinMatch=false and
+  addressVerification=false. `dryRun=true` remains mandatory.
+- Both NEC and MISC are shown as supported by the redacted sandbox status.
+  Tests prove MISC uses `rents`, never NEC compensation, never schedules
+  delivery/filing, and does not echo provider body/TIN/secret to output/audit.
+- Existing deprecated-but-supported Avalara `recipientName` is retained
+  because the current verified tax profile stores one legal tax name, not
+  structured individual first/last tax-name fields. Do not invent a split.
+
 **CURRENTLY NOT IMPLEMENTED**: provider-hosted e-W9 consent/signature,
 backend PDF malware scanning/retention purge, completed 1099-NEC/MISC
 reportable-payment identification, review and approval, official IRS
@@ -314,13 +334,13 @@ claim any of these verified or enable "file" from a prototype.
 1. Read entire root handoff, fetch actual HEAD/latest CI. Do not
    repeat verified preflight, manual 1099 review, encrypted tax
    profiles/W-9, revision checks, redacted internal register.
-2. NEXT bounded batch: verify 1099-MISC rents field mapping against current
-   official Avalara API documentation/specification. Enable it only when exact
-   provider fields are confirmed; tests must keep dryRun=true and all filing/
-   delivery flags false. If official mapping remains ambiguous, fail closed.
-3. Then add redacted persistence of provider dry-run attempt/result metadata
-   (provider, validation status, provider-side opaque ID only if safe, timestamps)
-   without raw response/TIN/name/address or any claim of IRS acceptance. A real
+2. NEXT bounded batch: reuse immutable audit rows already written by each
+   provider_sandbox_dry_run to expose redacted validation-attempt history on the
+   review record. Do NOT create a second history table unless audit cannot meet
+   requirements. Expose provider, dry-run, HTTP status, validated, NOT_SUBMITTED,
+   timestamp and safe client correlation ID only; never provider body or tax data.
+3. Then reassess what remains for Phase 3.7 1099 report/form preparation versus
+   the original Phase 4.5 provider transmission/recipient-delivery scope. A real
    Avalara subscription, sandbox credentials and issuer ID remain external
    prerequisites for an actual sandbox call; never put secrets in source/chat. Avalara 1099/W-9 publishes
    OAuth client-credentials API, sandbox environment, and 1099
@@ -353,13 +373,13 @@ claim any of these verified or enable "file" from a prototype.
 
 Continue yasirskhan/property-platform on `chatgpt/checkpoint-005-safety`.
 Read complete repo-root AI_HANDOFF.md; verify current HEAD and CI.
-Last VERIFIED product source `4a54c602966a795a8b399893f3d5fc46a6324ab3`,
-CI 36270979448 SUCCESS (432 backend passed, 3 deselected,
-4531 warnings; E2E 3 passed; all six jobs success).
+Last VERIFIED product source `49dd9e5129df94e3721f3a97caa0415738bc24bb`,
+CI 36271476212 SUCCESS (432 backend passed, 3 deselected,
+4532 warnings; E2E 3 passed; all six jobs success).
 Alembic `f8c0d2e4a6b9`, 103 tables. Manually sourced NEC/MISC
 review/approval, redacted internal CSV, encrypted W-9/tax profiles,
 revision lock, redacted no-submission provider preflight are
 VERIFIED. Full IRS/approved-provider 1099 filing and recipient
-copies are NOT IMPLEMENTED. Immediate batch: verify and implement 1099-MISC rents mapping only from
-current official Avalara docs/spec; remain sandbox dry-run only. Preserve original Phase 3.7/4.5 dependency order and
+copies are NOT IMPLEMENTED. Immediate batch: redacted immutable audit-backed provider dry-run history;
+then reassess Phase 3.7 completion boundary versus Phase 4.5 live delivery. Preserve original Phase 3.7/4.5 dependency order and
 frozen docs. Bounded code+CI, no Work/main/new branch.
