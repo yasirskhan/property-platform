@@ -12,27 +12,27 @@ Yasir to reconstruct project context.
 
 Repository: yasirskhan/property-platform (private)
 Only working branch: chatgpt/checkpoint-005-safety
-Last VERIFIED source HEAD: cf6f9aa1a54d276200c310f3b3d8f870cad64e97
+Last VERIFIED source HEAD: 5a2ee8acc5ea9dc81b4a48ec6d043879b6a7b5df
 Always fetch current branch HEAD again; this handoff-only commit will
 change the HEAD. Do not edit main, create/switch branches, force-push,
 or merge draft PR #2 without approval.
 
 CURRENT PHASE: 3.7 — Reports + Universal Attachments, IN PROGRESS.
-LATEST COMPLETED BATCH: Custom Report Builder (saved configurations).
-EXACT NEXT BATCH: Create Labels Report (mail merge via CSV).
+LATEST COMPLETED BATCH: Create Labels Report (CSV mail merge).
+EXACT NEXT BATCH: Generate 1099 Forms & Reports (see tax prerequisites).
 The verified universal attachments, standard/enhanced report framework,
-shared Print / Email / CSV report delivery, and saved configuration builder
+shared Print / Email / CSV delivery, saved configurations, and labels report
 must NOT be repeated. Phases 3.4.S and 3.4.3–3.4.26, compatibility pass
 3.5.5, and Accounting Polish 3.6 are previously completed/verified.
 
 # LAST VERIFIED CI AND SCHEMA
 
-Verified source commit: cf6f9aa1a54d276200c310f3b3d8f870cad64e97
-GitHub Actions run 36246789775 — SUCCESS; all six jobs:
+Verified source commit: 5a2ee8acc5ea9dc81b4a48ec6d043879b6a7b5df
+GitHub Actions run 36248197021 — SUCCESS; all six jobs:
   backend, frontend, platform-admin, security, e2e, staging-config.
 Backend exact summary:
-  383 passed, 3 deselected, 3149 warnings in 72.54s
-E2E exact summary: 3 passed in 7.30s
+  389 passed, 3 deselected, 3334 warnings in 70.34s
+E2E exact summary: 3 passed in 8.23s
 Frontend lint, TypeScript and production build: SUCCESS.
 Platform admin, security, staging-config: SUCCESS.
 Backend CI includes PostgreSQL bootstrap and schema/registry/parity
@@ -108,6 +108,79 @@ Changed source files include:
   frontend/src/app/dashboard/reporting/page.tsx
   frontend/src/lib/reporting.ts
 
+
+# CREATE LABELS REPORT — VERIFIED 2026-09-26
+
+Source implementation: 02641ebab30e24880b5ab61194f20ad8f0aea2cc.
+Follow-up lint correction: 5a2ee8acc5ea9dc81b4a48ec6d043879b6a7b5df.
+First source CI 36248146232 exposed one new JSX apostrophe lint error;
+that was fixed in the follow-up source commit.
+Final CI 36248197021: SUCCESS (six jobs), backend 389 passed,
+3 deselected, 3334 warnings in 70.34s; E2E 3 passed in 8.23s;
+frontend, platform-admin, security and staging-config SUCCESS.
+Six new focused label-report backend tests were added.
+No migration; Alembic b4e6a8c0d2f5 / 100 model tables unchanged.
+Frozen docs/ files were not modified, and planning parity metadata
+was not advanced. Earlier docs-only run 36247104460 passed on
+attempt 2 after a transient platform-admin E2E login timeout.
+
+Source changed (labels batch):
+- backend/app/services/label_report.py
+- backend/app/services/report_delivery.py (opt-in actor-scoped label dispatch)
+- backend/app/services/report_catalog.py (canonical standard report link)
+- backend/app/routers/reporting.py (authorized live labels preview)
+- backend/tests/test_label_report.py
+- frontend/src/app/dashboard/reporting/labels/page.tsx
+
+Behavior:
+- Standard Reports > Mailings > Create Labels Report.
+- Print preview; server-generated mail-merge CSV; shared ReportActions
+  and email delivery; property and active-tenant recipient modes.
+- Tenant labels use the recorded property address plus unit identifier,
+  not a fictitious independent tenant mailing address. Owner/vendor
+  contact address labels are NOT fabricated; user records do not
+  currently store mailing addresses.
+- REPORTING.ALL, PROPERTIES.ALL, release.reporting.export enforced
+  on preview, CSV and email. Tenant recipient mode additionally
+  requires LEASING. Only ADMIN/OWNER/MANAGER staff are allowed;
+  managers see only their active property assignments.
+- Cross-org and unassigned property ID probes fail closed. Only active
+  properties, units, tenants and active leases contribute records.
+- CSV uses the verified formula-escaping report_csv_bytes path.
+- No new settings/entitlements, GL change, table, or parallel report
+  delivery service. Saved Report Builder is unchanged.
+
+# NEXT BATCH REQUIRES TAX-SPECIFICATION RESOLUTION
+
+The ORIGINAL Section 38 next item is Generate 1099 Forms & Reports
+(FIRE file + print). Do not silently skip this item or mark it complete.
+
+Critical dated IRS change: IRS Publication 1099 (2026) states that
+for tax year 2026 / filing season 2027, IRIS is the only information-
+return intake, and FIRE shuts down at the end of 2026. Current IRS
+reference: https://www.irs.gov/publications/p1099
+IRIS reference: https://www.irs.gov/filing/e-file-information-returns-with-iris
+
+Project docs/PLAN_GAPS.md §C9 already plans provider-based Track1099
+or equivalent and W-9 collection in Phase 4.5, whereas original
+docs/PROJECT_MASTER.md Section 38 says FIRE-file output in Phase 3.7.
+This dependency/regulatory mismatch has NOT been resolved. Frozen
+docs/ MUST NOT be changed without Yasir's explicit authorization.
+
+Current customer User/Organization models do not have complete
+payer/recipient TINs, W-9 records or independent mailing-address data.
+Vendor and owner filing classifications must be validated, not inferred
+from ordinary GL or owner-payout totals. Do NOT generate or transmit
+purportedly IRS-valid 1099/FIRE files, store tax IDs in plaintext,
+invent addresses, or alter posted accounting to fill missing data.
+A secure tax-profile/W-9 collection and supported IRIS/provider
+filing route is a prerequisite for completed real forms.
+
+Decision needed before full filing implementation: authorize a safe
+IRS-current IRIS/provider route and secure W-9 / tax-profile dependency
+in place of the obsolete FIRE output, without editing frozen docs/.
+This is a real tax/security dependency, not a completed 1099 batch.
+
 # VERIFIED CONTRACTS TO PRESERVE
 
 1. Hybrid Capability Gating keeps release, plan entitlement,
@@ -134,41 +207,42 @@ Changed source files include:
 
 # EXACT NEXT WORK
 
-1. Read this entire root handoff; verify actual branch HEAD and latest CI.
-   Read docs/PROJECT_MASTER.md Section 38 Phase 3.7 order and Section 82.
-   Consult docs/FEATURE_REGISTRY.md, docs/PLAN_GAPS.md, parity JSON and
-   docs/FILE_CATALOG.md READ-ONLY. Older master Part A/B1 has historic
-   phase instructions; do not regress to older Phase 3.4/3.6 batches.
-2. Implement Create Labels Report (mail merge via CSV) next, reusing
-   canonical report infrastructure, org/record authorization, shared
-   delivery and verified export gate. Inspect real tenant/owner/property
-   models and routes before designing. Do not fabricate address records,
-   expose other organizations, or duplicate existing delivery functions.
-3. Add focused tests, then verify via hosted GitHub Actions. Yasir
-   expressly authorized commit-then-GitHub-CI verification in this
-   normal Chat session, replacing the former precommit-local-test
-   requirement. Source commits are NOT verified until CI reports success.
-   Fix CI reds autonomously; stop on the same assertion failing three
-   consecutive times. Record exact counts, commit SHA, run ID,
-   Alembic/table guards, and affected parity metadata.
-4. After Create Labels, follow Section 38 in order: Generate 1099
-   Forms & Reports; Letters; Send Owner Packets; tenant/property/
-   owner/accounting/transaction reports. Inspect existing verified
-   work before any batch. Continue phase boundaries unless true blocker.
-5. Do not edit frozen docs/ source-of-truth files without explicit
-   authorization. Update THIS root handoff after each meaningful
-   batch, including honest partial status and test results. No Work
-   mode request, no user code-writing tasks, no duplicate audits,
-   no forced branch updates, no speculative success claims.
+1. Read this root handoff fully; verify current branch HEAD and CI.
+   Read-only consult docs/PROJECT_MASTER.md Section 38 and Section 82,
+   docs/PLAN_GAPS.md C9, FEATURE_REGISTRY, parity and FILE_CATALOG.
+   Do not regress to completed phases or modify frozen docs/.
+2. Next original roadmap batch: Generate 1099 Forms & Reports.
+   Resolve the recorded FIRE-to-IRIS 2026 change and the absent secure
+   payer/recipient tax profiles / W-9 dependency FIRST. Do not silently
+   output an obsolete FIRE file, invent TINs, or infer taxable
+   compensation from unrelated property/accounting transactions.
+   If the security/tax specification cannot be resolved under the
+   frozen roadmap, report the concrete decision needed. Keep 1099
+   IN PROGRESS / NOT VERIFIED rather than misrepresenting delivery.
+3. User explicitly authorized bounded commit-then-GitHub-CI verification
+   in normal Chat. Include focused tests in every product-code batch,
+   and mark VERIFIED only after relevant CI jobs pass. Fix CI failures,
+   stop if same assertion fails three consecutive times, and record
+   exact commit SHA, run IDs, counts and migration inventory.
+4. After a correctly implemented and verified 1099 batch, Section 38
+   orders Letters, then Send Owner Packets, then tenant/property/
+   owner/accounting/transaction reports. Do not skip original tasks.
+5. Update THIS repo-root handoff after each meaningful batch. Do not
+   edit frozen docs/ source-of-truth without explicit authorization;
+   no main edits/branch creation/force pushes, no Work mode request.
 
 # NEXT SESSION START PROMPT
 
-Continue yasirskhan/property-platform on
-chatgpt/checkpoint-005-safety. Read root AI_HANDOFF.md fully and verify
-current HEAD and GitHub CI. Last VERIFIED source is
-cf6f9aa1a54d276200c310f3b3d8f870cad64e97; CI 36246789775
-SUCCESS (383 passed, 3 deselected backend; 3 E2E passed).
-Custom Report Builder saved configurations are VERIFIED; do not repeat.
-Exact next Phase 3.7 task is Create Labels Report (mail merge via CSV).
-Preserve verified contracts, do not touch main or frozen docs/, and
-keep root AI_HANDOFF.md current after each meaningful batch.
+Continue yasirskhan/property-platform on branch
+chatgpt/checkpoint-005-safety. Read entire repo-root AI_HANDOFF.md
+before coding, then verify actual HEAD and GitHub Actions.
+Last VERIFIED source: 5a2ee8acc5ea9dc81b4a48ec6d043879b6a7b5df;
+CI 36248197021 SUCCESS (389 backend passed, 3 deselected;
+3 E2E passed; all six jobs success). Labels Report and CSV mail
+merge are VERIFIED. Alembic b4e6a8c0d2f5; 100 model tables.
+Exact next original task: Generate 1099 Forms & Reports. IMPORTANT
+read the IRIS/FIRE tax-year-2026 change and missing tax-profile/W-9
+dependency above; do not fabricate tax identifiers or tax returns,
+and do not edit frozen docs/ without explicit authorization.
+Preserve verified architecture, no main changes, update root handoff
+after every meaningful, CI-verified product batch.
