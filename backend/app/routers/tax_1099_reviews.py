@@ -13,12 +13,13 @@ from app.routers.auth import get_current_user
 from app.schemas.tax_1099_review import (
     Tax1099ApprovalIn, Tax1099PrepareIn, Tax1099ReviewOut, Tax1099UpdateIn,
     Tax1099PreflightOut, Tax1099ProviderDryRunIn, Tax1099ProviderDryRunOut,
+    Tax1099ProviderStatusOut,
 )
 from app.services.tax_1099_reviews import (
     approve_review, internal_register, list_reviews, mark_reviewed, prepare_review, update_prepared,
     preflight_review,
 )
-from app.services.tax_1099_provider import validate_avalara_sandbox_dry_run
+from app.services.tax_1099_provider import provider_status, validate_avalara_sandbox_dry_run
 
 router = APIRouter(prefix="/api/reporting/tax-1099-reviews", tags=["1099 preparation review"])
 NO_STORE = {"Cache-Control": "no-store", "Pragma": "no-cache"}
@@ -100,6 +101,15 @@ def export_internal_register(
         },
     )
 
+
+
+@router.get("/provider/status", response_model=Tax1099ProviderStatusOut)
+def read_provider_status(
+    response: Response, db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    response.headers.update(NO_STORE)
+    return provider_status(db, current_user=current_user)
 
 
 @router.get("/{record_id}/preflight", response_model=Tax1099PreflightOut)

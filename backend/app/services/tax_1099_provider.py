@@ -183,3 +183,22 @@ def validate_avalara_sandbox_dry_run(
         validated=validated, provider_http_status=response.status_code,
         message=message,
     )
+
+
+
+def provider_status(db: Session, *, current_user: User):
+    """Redacted operator status; never serialize credentials or issuer identifiers."""
+    require_tax_admin(db, current_user)
+    mode = settings.TAX_1099_PROVIDER.strip().lower()
+    configured = mode == "avalara_sandbox" and all((
+        settings.AVALARA_1099_CLIENT_ID.strip(),
+        settings.AVALARA_1099_CLIENT_SECRET.strip(),
+        settings.AVALARA_1099_ISSUER_ID.strip(),
+        settings.AVALARA_1099_API_VERSION.strip(),
+    ))
+    from app.schemas.tax_1099_review import Tax1099ProviderStatusOut
+    return Tax1099ProviderStatusOut(
+        provider="AVALARA_SANDBOX" if mode == "avalara_sandbox" else "DISABLED",
+        configured=bool(configured),
+        supported_forms=["1099-NEC"] if configured else [],
+    )

@@ -789,3 +789,36 @@ def test_avalara_sandbox_rejects_misc_until_mapping_is_verified(ctx, monkeypatch
     assert exc.value.status_code == 422
     assert "1099-NEC" in exc.value.detail
     assert called == []
+
+
+
+def test_provider_status_is_redacted_scoped_and_no_store(ctx, monkeypatch):
+    from fastapi import Response
+    from app.routers import tax_1099_reviews as review_routes
+    from app.services import tax_1099_provider as provider
+
+    db, admin = ctx["db"], ctx["admin"]
+    response = Response()
+    disabled = review_routes.read_provider_status(response, db=db, current_user=admin)
+    assert response.headers["cache-control"] == "no-store"
+    assert disabled.provider == "DISABLED"
+    assert disabled.configured is False
+    assert disabled.filing_enabled is False
+    assert disabled.supported_forms == []
+
+    monkeypatch.setattr(settings, "TAX_1099_PROVIDER", "avalara_sandbox")
+    monkeypatch.setattr(settings, "AVALARA_1099_CLIENT_ID", "private-client")
+    monkeypatch.setattr(settings, "AVALARA_1099_CLIENT_SECRET", "private-secret")
+    monkeypatch.setattr(settings, "AVALARA_1099_ISSUER_ID", "private-issuer")
+    monkeypatch.setattr(settings, "AVALARA_1099_API_VERSION", "2.0.0")
+    enabled = provider.provider_status(db, current_user=admin)
+    assert enabled.provider == "AVALARA_SANDBOX"
+    assert enabled.configured is True
+    assert enabled.supported_forms == ["1099-NEC"]
+    raw = enabled.model_dump_json()
+    for secret in ("private-client", "private-secret", "private-issuer"):
+        assert secret not in raw
+
+    with pytest.raises(HTTPException) as exc:
+        provider.provider_status(db, current_user=ctx["vendor"])
+    assert exc.value.status_code == 403

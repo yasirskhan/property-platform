@@ -137,3 +137,11 @@ class Tax1099ProviderDryRunOut(BaseModel):
     submission_status: Literal["NOT_SUBMITTED"] = "NOT_SUBMITTED"
     filing_enabled: Literal[False] = False
     message: str
+
+
+class Tax1099ProviderStatusOut(BaseModel):
+    provider: Literal["DISABLED", "AVALARA_SANDBOX"]
+    configured: bool
+    sandbox_only: Literal[True] = True
+    filing_enabled: Literal[False] = False
+    supported_forms: list[str]

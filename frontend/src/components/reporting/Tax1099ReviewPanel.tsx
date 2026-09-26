@@ -52,6 +52,23 @@ type Preflight = {
   submission_status: "NOT_SUBMITTED";
   blockers: string[];
 };
+type ProviderStatus = {
+  provider: "DISABLED" | "AVALARA_SANDBOX";
+  configured: boolean;
+  sandbox_only: true;
+  filing_enabled: false;
+  supported_forms: string[];
+};
+type ProviderDryRun = {
+  record_id: number;
+  provider: "AVALARA_SANDBOX";
+  dry_run: true;
+  validated: boolean;
+  provider_http_status: number;
+  submission_status: "NOT_SUBMITTED";
+  filing_enabled: false;
+  message: string;
+};
 type Classification = "NEC" | "MISC";
 type ApprovalChecks = { source: boolean; threshold: boolean; recipient: boolean };
 
@@ -86,11 +103,21 @@ export default function Tax1099ReviewPanel({
   const [sourceNote, setSourceNote] = useState("");
   const [approvalChecks, setApprovalChecks] = useState<Record<number, ApprovalChecks>>({});
   const [preflights, setPreflights] = useState<Record<number, Preflight>>({});
+  const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null);
+  const [providerConsents, setProviderConsents] = useState<Record<number, boolean>>({});
+  const [providerResults, setProviderResults] = useState<Record<number, ProviderDryRun>>({});
 
   useEffect(() => {
     let active = true;
-    apiGet("/api/reporting/tax-1099-reviews")
-      .then((rows) => { if (active) setItems(rows as Review[]); })
+    Promise.all([
+      apiGet("/api/reporting/tax-1099-reviews") as Promise<Review[]>,
+      apiGet("/api/reporting/tax-1099-reviews/provider/status") as Promise<ProviderStatus>,
+    ])
+      .then(([rows, status]) => {
+        if (!active) return;
+        setItems(rows);
+        setProviderStatus(status);
+      })
       .catch((cause) => {
         if (active) setError(cause instanceof Error ? cause.message : "1099 review records unavailable.");
       })
@@ -290,6 +317,28 @@ export default function Tax1099ReviewPanel({
     }
   }
 
+  async function validateInProviderSandbox(item: Review) {
+    if (!providerConsents[item.id]) {
+      setError("Confirm the sandbox taxpayer-data disclosure before validation.");
+      return;
+    }
+    setBusyId(item.id);
+    setError("");
+    setMessage("");
+    try {
+      const result = await apiPost(
+        "/api/reporting/tax-1099-reviews/" + item.id + "/provider/avalara-sandbox/validate",
+        { confirm_external_tax_data_sandbox: true }
+      ) as ProviderDryRun;
+      setProviderResults((current) => ({ ...current, [item.id]: result }));
+      setMessage(result.message);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Provider sandbox validation failed.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5">
       <h2 className="text-lg font-semibold text-slate-900">Manual 1099 data review</h2>
@@ -472,6 +521,45 @@ export default function Tax1099ReviewPanel({
                           <li key={index}>{blocker}</li>
                         ))}
                       </ul>
+                    )}
+                  </div>
+                )}
+                {preflights[item.id]?.ready_for_provider_handoff && (
+                  <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
+                    {providerStatus?.configured && providerStatus.provider === "AVALARA_SANDBOX"
+                      && providerStatus.supported_forms.includes(item.form_type) ? (
+                      <>
+                        <p className="font-semibold">Optional Avalara sandbox dry-run validation</p>
+                        <p className="mt-1">
+                          This sends the encrypted taxpayer profile values needed for this record to
+                          Avalara&apos;s sandbox. It does not schedule federal/state filing, postal mail,
+                          electronic delivery, or create an IRS acceptance.
+                        </p>
+                        <label className="mt-2 flex items-start gap-2">
+                          <input type="checkbox" className="mt-1"
+                            checked={providerConsents[item.id] || false}
+                            onChange={(event) => setProviderConsents((current) => ({
+                              ...current, [item.id]: event.target.checked,
+                            }))} />
+                          <span>I authorize sending this record&apos;s taxpayer data to the configured Avalara sandbox for dry-run validation only.</span>
+                        </label>
+                        <button type="button"
+                          disabled={busyId !== null || !providerConsents[item.id]}
+                          onClick={() => { void validateInProviderSandbox(item); }}
+                          className="mt-2 rounded-md bg-blue-900 px-3 py-1.5 text-white disabled:opacity-50">
+                          {busyId === item.id ? "Validating…" : "Validate in Avalara sandbox"}
+                        </button>
+                        {providerResults[item.id] && (
+                          <p className="mt-2 font-medium">
+                            Dry-run result: {providerResults[item.id].validated ? "accepted for sandbox validation" : "rejected by sandbox"}.
+                            Nothing submitted.
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p>
+                        Provider sandbox is not configured for {item.form_type}. No taxpayer data can leave the application.
+                      </p>
                     )}
                   </div>
                 )}
