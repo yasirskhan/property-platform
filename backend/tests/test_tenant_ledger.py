@@ -154,6 +154,25 @@ def test_manager_only_assigned_property_invoices_charges_no_unallocated():
         db.close(); engine.dispose()
 
 
+def test_revoked_charge_permission_blocks_ledger_even_with_leasing(monkeypatch):
+    from app.services import tenant_ledger
+    db, engine = _session()
+    try:
+        admin, manager, tenant, *_ = _seed(db)
+        # Both reporting/LEASING gates might remain granted, but the
+        # standalone charge API's own ACCOUNTING.CHARGES access was revoked.
+        monkeypatch.setattr(
+            tenant_ledger, "permission_allows_user",
+            lambda db, *, user, menu_key: menu_key != "ACCOUNTING.CHARGES",
+        )
+        for actor in (admin, manager):
+            with pytest.raises(ReportDeliveryError, match="permission required"):
+                _report(db, actor, tenant_id=tenant.id)
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_bad_params_foreign_tenant_and_no_actor_fail_closed():
     db, engine = _session()
     try:

@@ -19,6 +19,7 @@ from app.models.charge import Charge
 from app.models.lease import InvoiceStatus, Lease, RentInvoice
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import User, UserRole
+from app.services.menu_resolver import permission_allows_user
 from app.services.report_delivery import ReportDeliveryError, ReportPayload, _int_param
 
 HEADERS = (
@@ -42,6 +43,10 @@ def build_tenant_ledger(
             or not current_user.is_active or current_user.deleted_at is not None
             or role not in {"ADMIN", "MANAGER"}):
         raise ReportDeliveryError("Tenant ledger is not available to this user")
+    # The directory exposes standalone accounting Charge rows: do not
+    # bypass the same CHARGES permission enforced by its own API.
+    if not permission_allows_user(db, user=current_user, menu_key="ACCOUNTING.CHARGES"):
+        raise ReportDeliveryError("Tenant ledger permission required")
     if set(parameters) - {"tenant_id", "property_id"}:
         raise ReportDeliveryError("Unsupported tenant ledger parameter")
     tenant_id = _int_param(parameters, "tenant_id")
