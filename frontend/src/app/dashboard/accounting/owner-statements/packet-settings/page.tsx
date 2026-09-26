@@ -79,9 +79,10 @@ export default function OwnerPacketSettingsPage() {
       <Link href="/dashboard/accounting/owner-statements" className="text-sm text-slate-500 hover:text-slate-900">
         ← Back to Owner Statements
       </Link>
+      <Link href="/dashboard/accounting/owner-statements/packets" className="ml-4 text-sm text-blue-600 hover:underline">Prepare an owner packet</Link>
       <h1 className="text-xl font-semibold text-slate-900 mt-4">Owner Packet Customizer</h1>
       <p className="text-sm text-slate-500 mt-1 mb-6">
-        Choose what future owner packets contain. Packet generation and delivery are completed in the reporting phase.
+        Choose the frozen CSV reports and cover message included when you preview and send an owner packet.
       </p>
 
       {loading ? (
@@ -117,9 +118,9 @@ export default function OwnerPacketSettingsPage() {
                 className="mt-1"
               />
               <span>
-                <span className="block text-sm font-medium text-slate-800">Email owner when packet delivery is available</span>
+                <span className="block text-sm font-medium text-slate-800">Allow reviewed owner-packet email delivery</span>
                 <span className="block text-xs text-slate-500">
-                  This stores the delivery preference only; it does not send email yet.
+                  Delivery still requires a separate owner-specific preview and explicit recipient and content confirmations.
                 </span>
               </span>
             </label>

@@ -193,3 +193,36 @@ export function updateOwnerPacketSettings(
 ): Promise<OwnerPacketSettings> {
   return apiPut("/api/accounting/owner-statements/packet-settings", payload);
 }
+
+
+// Owner packet delivery reuses the existing frozen statement and server-rendered CSV files.
+export type OwnerPacketPreview = {
+  statement_id: number;
+  owner_id: number;
+  recipient_email: string;
+  period_start: string;
+  period_end: string;
+  attachment_filenames: string[];
+  attachment_format: "CSV";
+  cover_message: string | null;
+  email_enabled: boolean;
+  review_token: string;
+};
+
+export type OwnerPacketSendResult = {
+  sent: boolean;
+  recipient_email: string;
+  filenames: string[];
+};
+
+export function previewOwnerPacket(id: number): Promise<OwnerPacketPreview> {
+  return apiGet(`/api/accounting/owner-packets/${id}/preview`);
+}
+
+export function emailOwnerPacket(id: number, reviewToken: string): Promise<OwnerPacketSendResult> {
+  return apiPost(`/api/accounting/owner-packets/${id}/email`, {
+    review_token: reviewToken,
+    confirm_recipient: true,
+    confirm_snapshot_reviewed: true,
+  });
+}

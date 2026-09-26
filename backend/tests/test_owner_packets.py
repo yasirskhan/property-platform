@@ -217,3 +217,27 @@ def test_configuration_change_or_corruption_fail_closed():
         assert exc.value.status_code == 422
     finally:
         db.close(); engine.dispose()
+
+
+
+def test_packet_review_endpoint_no_store_and_inactive_owner_rejected():
+    db, engine = _session()
+    try:
+        admin, manager, owner, other_admin, other_owner, prop, second, private, first, foreign = _seed(db)
+        response = Response()
+        preview = router.preview_owner_packet(first.id, response, db=db, current_user=admin)
+        assert response.headers["cache-control"] == "no-store"
+        assert preview.owner_id == owner.id
+        owner.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            router.preview_owner_packet(first.id, Response(), db=db, current_user=admin)
+        assert exc.value.status_code == 404
+        with pytest.raises(HTTPException) as exc:
+            router.email_owner_packet(first.id, OwnerPacketSendIn(
+                confirm_recipient=True, confirm_snapshot_reviewed=True,
+                review_token=preview.review_token,
+            ), Response(), db=db, current_user=admin)
+        assert exc.value.status_code == 404
+    finally:
+        db.close(); engine.dispose()

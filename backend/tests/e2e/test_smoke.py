@@ -209,6 +209,13 @@ def test_login_and_core_authenticated_pages() -> None:
             ).not_to_be_checked()
 
             page.goto(
+                f"{BASE_URL}/dashboard/accounting/owner-statements/packets",
+                wait_until="domcontentloaded",
+            )
+            expect(page.get_by_role("heading", name="Send Owner Packets", exact=True)).to_be_visible()
+            expect(page.get_by_role("button", name="Send packet email", exact=True)).to_have_count(0)
+
+            page.goto(
                 f"{BASE_URL}/dashboard/reporting/1099",
                 wait_until="domcontentloaded",
             )

@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { formatMoney, formatDate } from "@/lib/money";
 import Flag from "@/components/features/Flag";
 import { useDisplay } from "@/contexts/DisplayContext";
@@ -96,7 +97,7 @@ export default function OwnerStatementDetailPage() {
             </button>
           </Flag>
           <Flag name="release.owner_portal.packet_customizer">
-            <button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Owner Packet</button>
+            <Link href={`/dashboard/accounting/owner-statements/packets?statement_id=${statementId}`} className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Owner Packet</Link>
           </Flag>
           <ReportActions
             reportKey="owner.statement"
