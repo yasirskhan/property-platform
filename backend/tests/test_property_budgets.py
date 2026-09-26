@@ -265,3 +265,135 @@ def test_catalog_report_preview_export_email_and_permission_revocations(monkeypa
             _payload(db, admin, first.id)
     finally:
         db.close(); engine.dispose()
+
+
+
+def test_budget_detail_blank_missing_months_explicit_zero_and_cash_basis(monkeypatch):
+    db, engine = _session()
+    try:
+        admin, manager, tenant, other, first, second, foreign, income, expense, bank = _seed(db)
+        monkeypatch.setattr(property_budgets, "permission_allows_user", lambda *a, **kw: True)
+        def add(account, month, amount):
+            return property_budgets.upsert_property_budget(
+                db, current_user=admin,
+                payload=PropertyBudgetUpsertIn(
+                    property_id=first.id, gl_account_id=account.id,
+                    calendar_year=2026, month=month, amount=Decimal(amount),
+                ),
+            )
+        journal_count = db.query(GLEntry).count()
+        add(income, 1, "0"); add(income, 3, "100"); add(expense, 2, "50")
+        assert db.query(GLEntry).count() == journal_count
+        detail = build_report_payload(
+            db, organization_id=admin.organization_id,
+            report_key="property.budget_detail", current_user=admin,
+            parameters={"property_id": first.id, "calendar_year": 2026},
+        )
+        assert len(detail.rows) == 2
+        rent = next(row for row in detail.rows if row[1] == "4001")
+        assert rent[4] == Decimal(0) and rent[5] == "" and rent[6] == Decimal("100")
+        assert rent[16] == Decimal("100") and rent[17] == 2
+        assert "'=First" in report_csv_bytes(detail).decode("utf-8-sig")
+        assert "'=Rent" in report_csv_bytes(detail).decode("utf-8-sig")
+        db.add(AccountingSettings(organization_id=admin.organization_id, accounting_basis="CASH"))
+        db.commit()
+        still_budget_only = build_report_payload(
+            db, organization_id=admin.organization_id,
+            report_key="property.budget_detail", current_user=admin,
+            parameters={"property_id": first.id, "calendar_year": 2026},
+        )
+        assert still_budget_only.rows == detail.rows
+        with pytest.raises(ReportDeliveryError, match="ACCRUAL"):
+            _payload(db, admin, first.id)
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_budget_detail_manager_scope_invalid_filters_and_permissions(monkeypatch):
+    db, engine = _session()
+    try:
+        admin, manager, tenant, other, first, second, foreign, income, expense, bank = _seed(db)
+        monkeypatch.setattr(property_budgets, "permission_allows_user", lambda *a, **kw: True)
+        property_budgets.upsert_property_budget(
+            db, current_user=admin,
+            payload=PropertyBudgetUpsertIn(
+                property_id=first.id, gl_account_id=income.id,
+                calendar_year=2026, month=1, amount=Decimal("150"),
+            ),
+        )
+        def report(actor, prop, **extras):
+            return build_report_payload(
+                db, organization_id=actor.organization_id,
+                report_key="property.budget_detail", current_user=actor,
+                parameters={"property_id": prop, "calendar_year": 2026, **extras},
+            )
+        assert len(report(manager, first.id).rows) == 1
+        for prop in (second, foreign):
+            with pytest.raises(ReportDeliveryError, match="Property not found"):
+                report(manager, prop.id)
+        for actor in (tenant, other):
+            with pytest.raises(ReportDeliveryError):
+                report(actor, first.id)
+        for extras in ({"sql": "SELECT 1"}, {"calendar_year": 2101}):
+            with pytest.raises(ReportDeliveryError):
+                report(admin, first.id, **extras)
+        monkeypatch.setattr(property_budgets, "permission_allows_user",
+                            lambda db, *, user, menu_key: menu_key != "ACCOUNTING.GL_ACCOUNTS")
+        with pytest.raises(ReportDeliveryError, match="permission"):
+            report(admin, first.id)
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_budget_detail_preview_csv_email_gate_and_no_store(monkeypatch):
+    db, engine = _session()
+    try:
+        admin, manager, tenant, other, first, second, foreign, income, expense, bank = _seed(db)
+        monkeypatch.setattr(property_budgets, "permission_allows_user", lambda *a, **kw: True)
+        property_budgets.upsert_property_budget(
+            db, current_user=admin,
+            payload=PropertyBudgetUpsertIn(
+                property_id=first.id, gl_account_id=income.id,
+                calendar_year=2026, month=1, amount=Decimal("100"),
+            ),
+        )
+        item = next(x for x in REPORT_CATALOG if x.key == "property.budget_detail")
+        assert item.tier == "STANDARD" and item.href == "/dashboard/reporting/budget-detail"
+        assert report_router.REPORT_PERMISSIONS["property.budget_detail"] == "ACCOUNTING.GL_ACCOUNTS"
+        monkeypatch.setattr(report_router, "permission_allows_user", lambda *a, **kw: True)
+        monkeypatch.setattr(report_router, "resolve_customer_features",
+                            lambda *a, **kw: [SimpleNamespace(
+                                key=report_router.EXPORT_FEATURE_KEY, allowed=True,
+                            )])
+        req = SimpleNamespace(query_params={"property_id": str(first.id), "calendar_year": "2026"})
+        response = Response()
+        preview = report_router.preview_property_budget_detail(
+            req, response, db=db, current_user=admin,
+        )
+        assert preview["total"] == 1 and response.headers["cache-control"] == "no-store"
+        exported = report_router.export_report_csv("property.budget_detail", req, db=db, current_user=admin)
+        assert b"Months Configured" in exported.body
+        sent = {}
+        monkeypatch.setattr(report_router, "send_email", lambda **kw: sent.update(kw))
+        result = report_router.email_report(
+            "property.budget_detail",
+            report_router.ReportEmailIn(
+                recipient="admin@example.com",
+                parameters={"property_id": first.id, "calendar_year": 2026},
+            ), db=db, current_user=admin,
+        )
+        assert result.sent and b"January" in sent["attachments"][0][1]
+        monkeypatch.setattr(report_router, "resolve_customer_features",
+                            lambda *a, **kw: [SimpleNamespace(
+                                key=report_router.EXPORT_FEATURE_KEY, allowed=False,
+                            )])
+        with pytest.raises(HTTPException) as exc:
+            report_router.preview_property_budget_detail(req, Response(), db=db, current_user=admin)
+        assert exc.value.status_code == 404
+        monkeypatch.setattr(report_router, "permission_allows_user",
+                            lambda db, *, user, menu_key: menu_key == "REPORTING.ALL")
+        with pytest.raises(HTTPException) as exc:
+            report_router.export_report_csv("property.budget_detail", req, db=db, current_user=admin)
+        assert exc.value.status_code == 403
+    finally:
+        db.close(); engine.dispose()
