@@ -262,7 +262,7 @@ def update_user(
 
     # Users can edit their own basic info
     if target.id == current_user.id:
-        allowed_fields = {"first_name", "last_name", "phone"}
+        allowed_fields = {"first_name", "last_name", "phone", "profile_photo_url"}
         updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if k in allowed_fields}
         for field, value in updates.items():
             setattr(target, field, value)

@@ -73,6 +73,7 @@ from app.routers import owner_ach as owner_ach_router
 from app.routers import owner_held_deposits as owner_held_deposits_router
 from app.routers import owner_payouts as owner_payouts_router
 from app.routers import accounting_settings as accounting_settings_router
+from app.routers import my_settings as my_settings_router
 
 # ------------------------------------------------------------
 # Create the FastAPI app
@@ -161,6 +162,7 @@ app.include_router(owner_ach_router.router)
 app.include_router(owner_held_deposits_router.router)
 app.include_router(owner_payouts_router.router)
 app.include_router(accounting_settings_router.router)
+app.include_router(my_settings_router.router)
 
 
 # ------------------------------------------------------------
