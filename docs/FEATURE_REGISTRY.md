@@ -129,7 +129,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Print one receipt | capability | release.accounting.receipts.print | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Gated print-data endpoint + dedicated printable customer page |
 | Repeat prior receipt | capability | release.accounting.receipts.repeat | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Gated repeat-data endpoint hydrates the existing New Receipt form |
 | Edit-lock-after-deposit indicator | behavior | — | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Deposit linkage is exposed; posted receipt fields remain immutable and corrections use reversal/NSF |
-| Export CSV / Excel | capability | release.reporting.export | core | yes | REPORTING.ALL | no | ⬜ hidden implementation present | Flagged compatibility slot; export endpoint remains planned |
+| Export CSV / Excel | capability | release.reporting.export | core | yes | REPORTING.ALL | no | ✅ present | Shared report delivery now generates authorized organization-scoped CSV server-side and supports email attachment delivery. |
 | Print receipts list | capability | release.accounting.receipts.list_print | core | no | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; print view remains planned |
 | Process NSF | capability | release.accounting.receipts.process_nsf | nsf_processing | yes | ACCOUNTING.RECEIVABLES | no | ✅ present | Gated NSF action reuses verified reversal spine and preserves original deposit history |
 | Bulk actions | capability | release.accounting.receipts.bulk | core | no | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; batch workflow remains planned |
