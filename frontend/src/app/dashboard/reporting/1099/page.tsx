@@ -154,7 +154,7 @@ export default function TaxPreparationPage() {
       {loading && <p className="text-sm text-slate-500">Loading tax preparation…</p>}
       {error && <p role="alert" className="rounded-lg border border-red-200 p-3 text-sm text-red-700">{error}</p>}
       {message && <p role="status" className="rounded-lg border border-green-200 p-3 text-sm text-green-700">{message}</p>}
-      {viewer?.role === "ADMIN" && !loading && !error && (
+      {viewer?.role === "ADMIN" && !loading && (
         <>
           <section className="rounded-xl border border-slate-200 bg-white p-5">
             <h2 className="text-lg font-semibold text-slate-900">Taxpayer profile intake</h2>
