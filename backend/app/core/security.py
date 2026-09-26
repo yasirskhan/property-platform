@@ -19,6 +19,7 @@ from app.core.config import settings
 
 CUSTOMER_TOKEN_AUDIENCE = "customer"
 PLATFORM_TOKEN_AUDIENCE = "platform"
+CUSTOMER_TWO_FACTOR_AUDIENCE = "customer-2fa"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -81,6 +82,19 @@ def create_access_token(
 def decode_access_token(token: str) -> Optional[dict]:
     """Decode only customer-side tokens."""
     return _decode_token(token, CUSTOMER_TOKEN_AUDIENCE)
+
+
+def create_two_factor_challenge_token(subject: str | Any) -> str:
+    """Create a short-lived pre-authentication customer MFA challenge."""
+    return _create_token(
+        subject,
+        CUSTOMER_TWO_FACTOR_AUDIENCE,
+        expires_delta=timedelta(minutes=5),
+    )
+
+
+def decode_two_factor_challenge_token(token: str) -> Optional[dict]:
+    return _decode_token(token, CUSTOMER_TWO_FACTOR_AUDIENCE)
 
 
 def create_platform_access_token(

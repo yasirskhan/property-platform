@@ -30,7 +30,7 @@ IMPORTANT:
 - Accounting Basis is COMPLETE/VERIFIED.
 - My Settings is COMPLETE/VERIFIED.
 - Auditing Center is COMPLETE/VERIFIED.
-- Current batch: Settings — Two-step verification. NEXT.
+- Current batch: Settings — Two-step verification. IMPLEMENTATION COMMITTED; CI pending.
 
 # Latest Verified Green Checkpoint
 
@@ -397,7 +397,7 @@ Implementation prepared:
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Settings — Two-step verification (current next)
+1. Settings — Two-step verification (current, CI pending)
 2. Settings — Login history
 3. Universal — delete_reason UI
 4. Universal — Notes expansion
@@ -496,3 +496,22 @@ Implementation:
 - E2E: 3 passed in 8.62s.
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 - Attempt 1 had one unrelated platform-admin navigation timeout; rerun passed without product changes.
+
+
+# Two-step verification — Current Batch
+
+Implementation:
+- Customer users can enroll TOTP authenticator-based two-step verification from My Settings.
+- TOTP secrets are encrypted at rest with the application Fernet ENCRYPTION_KEY.
+- Ten one-time recovery codes are generated at setup; only keyed SHA-256 hashes are stored.
+- Setup and disable require the current password; enable requires a valid current TOTP code.
+- Once enabled, password login does NOT issue a normal customer JWT. It returns a five-minute customer-2fa challenge token with a separate JWT audience.
+- POST /auth/two-factor/verify accepts a TOTP or one-time recovery code and only then issues the normal customer access token.
+- MFA enforcement is intentionally independent of commercial/release gating: disabling an org feature can never bypass an already-enabled second factor.
+- Platform-user authentication remains a separate identity boundary and is unchanged.
+- New customer endpoints: GET/POST /api/settings/my/two-factor, /setup, /enable, /disable plus POST /auth/two-factor/verify.
+- Migration head advances to e1b3d5f7a9c2; expected model-table count 97.
+- Parity inventory: 256 built / 372 scheduled / 0 in-progress.
+- Regression coverage: backend/tests/test_two_factor.py plus migration/bootstrap guards.
+- TESTS NOT RUN locally in this connector-only session.
+- Hosted CI verification pending.

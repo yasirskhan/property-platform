@@ -15,6 +15,9 @@ import {
   type MySettingsUpdate,
 } from "@/lib/mySettings";
 
+type TwoFactorStatus = { enabled: boolean; recovery_codes_remaining: number; verified_at: string | null };
+type TwoFactorSetup = { secret: string; otpauth_uri: string; recovery_codes: string[] };
+
 type CurrentUser = {
   id: number;
   email: string;
@@ -38,16 +41,21 @@ export default function MySettingsPage() {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [twoFactorStatus, setTwoFactorStatus] = useState<TwoFactorStatus | null>(null);
+  const [twoFactorPassword, setTwoFactorPassword] = useState("");
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [twoFactorSetup, setTwoFactorSetup] = useState<TwoFactorSetup | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    Promise.all([apiGet("/auth/me"), getMySettings()])
-      .then(([me, settings]) => {
+    Promise.all([apiGet("/auth/me"), getMySettings(), apiGet("/api/settings/my/two-factor")])
+      .then(([me, settings, security]) => {
         const current = me as CurrentUser;
         setUser(current);
         setFirstName(current.first_name);
         setLastName(current.last_name);
         setPhone(current.phone || "");
+        setTwoFactorStatus(security as TwoFactorStatus);
         setPrefs({
           email_notifications_enabled: settings.email_notifications_enabled,
           email_signature: settings.email_signature,
@@ -154,6 +162,58 @@ export default function MySettingsPage() {
       setMessage("Password updated.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update password.");
+    } finally {
+      finish();
+    }
+  }
+
+  async function startTwoFactorSetup() {
+    begin("two-factor-setup");
+    try {
+      const setup = (await apiPost("/api/settings/my/two-factor/setup", {
+        current_password: twoFactorPassword,
+      })) as TwoFactorSetup;
+      setTwoFactorSetup(setup);
+      setTwoFactorCode("");
+      setMessage("Scan the authenticator secret, then enter a current code to finish enabling two-step verification.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start two-step verification.");
+    } finally {
+      finish();
+    }
+  }
+
+  async function enableTwoFactor() {
+    begin("two-factor-enable");
+    try {
+      const status = (await apiPost("/api/settings/my/two-factor/enable", {
+        code: twoFactorCode,
+      })) as TwoFactorStatus;
+      setTwoFactorStatus(status);
+      setTwoFactorPassword("");
+      setTwoFactorCode("");
+      setMessage("Two-step verification enabled. Save the recovery codes somewhere secure.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not enable two-step verification.");
+    } finally {
+      finish();
+    }
+  }
+
+  async function disableTwoFactor() {
+    begin("two-factor-disable");
+    try {
+      const status = (await apiPost("/api/settings/my/two-factor/disable", {
+        current_password: twoFactorPassword,
+        code: twoFactorCode,
+      })) as TwoFactorStatus;
+      setTwoFactorStatus(status);
+      setTwoFactorSetup(null);
+      setTwoFactorPassword("");
+      setTwoFactorCode("");
+      setMessage("Two-step verification disabled.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not disable two-step verification.");
     } finally {
       finish();
     }
@@ -416,11 +476,62 @@ export default function MySettingsPage() {
         </button>
       </form>
 
-      <section className="rounded-lg border border-slate-200 bg-slate-50 p-5">
-        <h2 className="font-semibold text-slate-900">Security activity</h2>
-        <p className="text-sm text-slate-500 mt-1">
-          Two-step verification and Login History are the next separate Phase 3.6 batches and are not combined into this settings page prematurely.
-        </p>
+      <section className="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
+        <div>
+          <h2 className="font-semibold text-slate-900">Two-step verification</h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Protect your login with any authenticator app using time-based verification codes.
+          </p>
+        </div>
+        <div className="text-sm">
+          Status: <strong>{twoFactorStatus?.enabled ? "Enabled" : "Not enabled"}</strong>
+          {twoFactorStatus?.enabled ? ` · ${twoFactorStatus.recovery_codes_remaining} recovery codes remaining` : ""}
+        </div>
+
+        {twoFactorSetup && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-4 space-y-3">
+            <div>
+              <div className="text-sm font-medium text-amber-900">Authenticator secret</div>
+              <code className="block mt-1 text-sm break-all">{twoFactorSetup.secret}</code>
+            </div>
+            <div>
+              <div className="text-sm font-medium text-amber-900">Recovery codes — each works once</div>
+              <div className="grid grid-cols-2 gap-1 mt-2 font-mono text-sm">
+                {twoFactorSetup.recovery_codes.map((code) => <span key={code}>{code}</span>)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <label>
+            <span className="block text-sm font-medium text-slate-800 mb-1">Current password</span>
+            <input type="password" value={twoFactorPassword} onChange={(e) => setTwoFactorPassword(e.target.value)} className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+          </label>
+          <label>
+            <span className="block text-sm font-medium text-slate-800 mb-1">Authenticator / recovery code</span>
+            <input value={twoFactorCode} onChange={(e) => setTwoFactorCode(e.target.value)} className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm font-mono" placeholder="123456" />
+          </label>
+        </div>
+
+        {!twoFactorStatus?.enabled ? (
+          <div className="flex gap-3">
+            {!twoFactorSetup ? (
+              <button type="button" onClick={startTwoFactorSetup} disabled={!twoFactorPassword || busy === "two-factor-setup"} className="px-4 py-2 rounded-md bg-slate-900 text-white text-sm disabled:opacity-50">
+                {busy === "two-factor-setup" ? "Starting…" : "Set up two-step verification"}
+              </button>
+            ) : (
+              <button type="button" onClick={enableTwoFactor} disabled={!twoFactorCode || busy === "two-factor-enable"} className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm disabled:opacity-50">
+                {busy === "two-factor-enable" ? "Verifying…" : "Verify and enable"}
+              </button>
+            )}
+          </div>
+        ) : (
+          <button type="button" onClick={disableTwoFactor} disabled={!twoFactorPassword || !twoFactorCode || busy === "two-factor-disable"} className="px-4 py-2 rounded-md border border-red-300 text-red-700 text-sm disabled:opacity-50">
+            {busy === "two-factor-disable" ? "Disabling…" : "Disable two-step verification"}
+          </button>
+        )}
+        <p className="text-xs text-slate-500">Login history remains the next separate Phase 3.6 security batch.</p>
       </section>
     </div>
   );

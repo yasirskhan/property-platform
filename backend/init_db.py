@@ -109,6 +109,7 @@ from app.models.menu_permission import MenuPermission  # noqa: F401
 from app.models.user_permission import UserPermission  # noqa: F401
 from app.models.user_display_preference import UserDisplayPreference  # noqa: F401
 from app.models.user_personal_settings import UserPersonalSettings  # noqa: F401
+from app.models.user_two_factor import UserTwoFactorSettings  # noqa: F401
 from app.models.currency import Currency  # noqa: F401
 from app.models.charge import Charge  # noqa: F401
 

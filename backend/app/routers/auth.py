@@ -16,11 +16,18 @@ from sqlalchemy.orm import Session
 
 from app.core import auth as auth_logic
 from app.core.database import get_db
-from app.core.security import create_access_token, decode_access_token
+from app.core.security import (
+    create_access_token,
+    create_two_factor_challenge_token,
+    decode_access_token,
+    decode_two_factor_challenge_token,
+)
 from app.models.user import User
 from app.schemas.auth import LoginRequest
-from app.schemas.token import Token
+from app.schemas.two_factor import TwoFactorLoginVerifyRequest
+from app.schemas.token import LoginResponse
 from app.schemas.user import UserCreate, UserOut
+from app.services.two_factor import get_settings as get_two_factor_settings, verify_login_code
 
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -83,7 +90,7 @@ def signup(payload: UserCreate, db: Session = Depends(get_db)):
 # ------------------------------------------------------------
 # POST /auth/login
 # ------------------------------------------------------------
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=LoginResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
     """
     Verify email + password. Returns a JWT token.
@@ -95,8 +102,37 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             detail="Incorrect email or password",
         )
 
+    two_factor = get_two_factor_settings(db, user.id)
+    if two_factor is not None and two_factor.is_enabled:
+        return LoginResponse(
+            two_factor_required=True,
+            challenge_token=create_two_factor_challenge_token(user.id),
+        )
+
     token = create_access_token(subject=user.id)
-    return Token(access_token=token, token_type="bearer")
+    return LoginResponse(access_token=token, token_type="bearer")
+
+
+@router.post("/two-factor/verify", response_model=LoginResponse)
+def verify_two_factor_login(
+    payload: TwoFactorLoginVerifyRequest,
+    db: Session = Depends(get_db),
+):
+    challenge = decode_two_factor_challenge_token(payload.challenge_token)
+    if not challenge or challenge.get("sub") is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired two-step challenge.")
+
+    user = auth_logic.get_user_by_id(db, int(challenge["sub"]))
+    row = get_two_factor_settings(db, user.id) if user is not None else None
+    if user is None or row is None or not row.is_enabled:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired two-step challenge.")
+
+    if not verify_login_code(db, row=row, code=payload.code):
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid verification or recovery code.")
+
+    db.commit()
+    return LoginResponse(access_token=create_access_token(subject=user.id), token_type="bearer")
 
 
 # ------------------------------------------------------------

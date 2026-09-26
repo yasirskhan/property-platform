@@ -2813,3 +2813,10 @@ Re-run `python generate_file_catalog.py` after adding or renaming files.
 - `backend/app/routers/my_settings.py` — current-user personal settings API.
 - `backend/app/models/user_personal_settings.py` — durable per-user personal preferences.
 - `frontend/src/app/dashboard/settings/my/page.tsx` — My Settings customer page.
+
+- `backend/app/models/user_two_factor.py` — encrypted per-user TOTP/recovery-code state.
+- `backend/app/services/two_factor.py` — RFC 6238 TOTP, recovery-code, encryption, and verification service.
+- `backend/app/routers/two_factor.py` — authenticated My Settings two-step enrollment/disable endpoints.
+- `backend/app/schemas/two_factor.py` — two-step API contracts.
+- `backend/tests/test_two_factor.py` — MFA login/encryption/recovery-code regression coverage.
+- `backend/alembic/versions/e1b3d5f7a9c2_add_user_two_factor_settings.py` — two-step settings migration.

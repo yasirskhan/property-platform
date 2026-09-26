@@ -791,7 +791,8 @@ access boundary.
 |---|---|---|---|---|---|---|---|---|
 | Company / Branding | settings family | release.settings.company | core | yes | SETTINGS | no | ❌ missing | Company identity, logo, address, time zone, packet cover |
 | Accounting Settings | settings family | release.settings.accounting | core | yes | SETTINGS.ACCOUNTING | no | ✅ present | Key Accounts hub, configurable GPR/receipt defaults, per-bank Check Setup links, fiscal year/report export defaults, plus ACCRUAL/CASH report-basis metadata |
-| Security | settings family | release.settings.security | security_controls | yes | SETTINGS | no | ❌ missing | MFA, sessions, IP allowlist, password policy |
+| Security | settings family | release.settings.security | security_controls | yes | SETTINGS | no | ❌ missing | Org-wide sessions, IP allowlist, and password-policy controls remain planned |
+| Personal Two-step verification | user security control | — | core | no | — | no | ✅ built | TOTP authenticator enrollment, one-time recovery codes, and pre-JWT login challenge; personal security control is not commercially gated |
 | Data / Backup / Retention | settings family | release.settings.data | core | yes | SETTINGS | no | ❌ missing | Backup schedule/restore/export preferences |
 | Features | settings family | release.settings.features | core | yes | SETTINGS | no | ✅ built | Org-level capability configuration; release, entitlement, org config, permission, and user preference remain independent |
 | Documents | settings family | release.settings.documents | documents | yes | SETTINGS | no | ❌ missing | Templates/export/document defaults |

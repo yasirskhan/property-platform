@@ -75,6 +75,7 @@ from app.routers import owner_payouts as owner_payouts_router
 from app.routers import accounting_settings as accounting_settings_router
 from app.routers import my_settings as my_settings_router
 from app.routers import audit_center as audit_center_router
+from app.routers import two_factor as two_factor_router
 
 # ------------------------------------------------------------
 # Create the FastAPI app
@@ -165,6 +166,7 @@ app.include_router(owner_payouts_router.router)
 app.include_router(accounting_settings_router.router)
 app.include_router(my_settings_router.router)
 app.include_router(audit_center_router.router)
+app.include_router(two_factor_router.router)
 
 
 # ------------------------------------------------------------

@@ -9,12 +9,12 @@
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
     "last_updated": "2026-09-25",
-    "migration_head": "d9f1b3c5e7a0",
+    "migration_head": "e1b3d5f7a9c2",
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 255,
-    "scheduled_count": 373,
+    "built_count": 256,
+    "scheduled_count": 372,
     "in_progress_count": 0
   },
   "items": [
@@ -1733,7 +1733,7 @@
       "id": "settings.two_step",
       "area": "Settings / My Settings",
       "feature": "Two-step verification",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.6"
     },
     {
