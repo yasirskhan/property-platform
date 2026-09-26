@@ -12,6 +12,7 @@ from app.core.security import create_platform_access_token, decode_platform_acce
 from app.models.platform_user import PlatformUser
 from app.schemas.platform_control import PlatformLoginRequest, PlatformUserOut
 from app.schemas.token import Token
+from app.services.auto_audit import bind_platform_audit_actor
 
 
 router = APIRouter(prefix="/api/platform/auth", tags=["Platform Authentication"])
@@ -39,6 +40,7 @@ def get_current_platform_user(
     user = get_platform_user_by_id(db, user_id)
     if user is None or not user.is_active:
         raise credentials_error
+    bind_platform_audit_actor(db, user)
     return user
 
 

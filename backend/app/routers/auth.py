@@ -28,6 +28,7 @@ from app.schemas.two_factor import TwoFactorLoginVerifyRequest
 from app.schemas.token import LoginResponse
 from app.schemas.user import UserCreate, UserOut
 from app.services.login_history import record_login_event
+from app.services.auto_audit import bind_customer_audit_actor
 from app.services.two_factor import get_settings as get_two_factor_settings, verify_login_code
 
 
@@ -68,6 +69,7 @@ def get_current_user(
     if user is None:
         raise credentials_error
 
+    bind_customer_audit_actor(db, user)
     return user
 
 

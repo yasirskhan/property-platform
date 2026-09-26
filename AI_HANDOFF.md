@@ -34,7 +34,7 @@ IMPORTANT:
 - Settings — Login history is COMPLETE/VERIFIED.
 - Universal — delete_reason UI is COMPLETE/VERIFIED.
 - Universal — Notes expansion is COMPLETE/VERIFIED.
-- Current batch: Universal — Audit Log expansion. NEXT.
+- Current batch: Universal — Audit Log expansion. IMPLEMENTATION COMMITTED; hosted CI verification pending.
 
 # Latest Verified Green Checkpoint
 
@@ -427,6 +427,20 @@ Implementation:
 - E2E: 3 passed in 10.34s.
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 - TESTS NOT RUN locally in this connector-only session.
+
+# Universal — Audit Log expansion — IMPLEMENTATION PENDING VERIFICATION
+
+Implementation prepared:
+- Reuses the existing append-only AuditLog as the only audit store; no duplicate audit table or migration.
+- Adds an authenticated SQLAlchemy transaction-level fallback that captures customer/platform ORM creates, updates, hard deletes, soft deletes, deactivations, reactivations, and restores when no explicit semantic audit already covers the same target in the flush.
+- Automatic fallback rows store actor, organization, entity, action, and changed field names only; they deliberately do not copy business-field values, credentials, bank data, MFA secrets, or other sensitive values.
+- Customer and internal platform authentication dependencies bind the correct separate actor identity to the request session; unauthenticated/background sessions are not auto-audited.
+- Existing explicit append_audit_log/log_action events remain authoritative and preserve richer safe semantic history.
+- AuditLog and EntityNote are excluded from the fallback to avoid recursion and duplicate note_added events.
+- Regression coverage: backend/tests/test_auto_audit.py.
+- No schema migration; head remains f2c4e6a8b0d3 / 98 model tables.
+- TESTS NOT RUN locally in this connector-only session.
+- Hosted CI verification pending.
 
 # Next Work
 
