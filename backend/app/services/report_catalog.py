@@ -84,7 +84,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/security-deposits",
         description="Posted deposit-liability GL entries; not bank-held cash or lease deposit contracts.",
     ),
-    _standard("tenant.directory", "Tenant Directory", "Tenant"),
+    _standard(
+        "tenant.directory", "Tenant Directory", "Tenant",
+        href="/dashboard/reporting/tenants",
+        description="Current tenant lease associations; administrators also see unassigned tenant users.",
+    ),
     _enhanced("tenant.ledger", "Tenant Ledger", "Tenant"),
     _standard("tenant.tickler", "Tenant Tickler", "Tenant"),
     _standard("tenant.unpaid_charges", "Tenant Unpaid Charges", "Tenant"),

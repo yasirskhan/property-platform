@@ -38,6 +38,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "mailing.labels": "PROPERTIES.ALL",
     "tenant.delinquency": "LEASING",
     "tenant.security_deposit_funds_detail": "ACCOUNTING.GL_ACCOUNTS",
+    "tenant.directory": "LEASING",
 }
 
 
@@ -309,6 +310,14 @@ def build_report_payload(
             raise ReportDeliveryError("Authenticated deposit liability report access required")
         from app.services.security_deposit_funds import build_security_deposit_funds_report
         return build_security_deposit_funds_report(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "tenant.directory":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated tenant directory access required")
+        from app.services.tenant_directory import build_tenant_directory
+        return build_tenant_directory(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
         )
