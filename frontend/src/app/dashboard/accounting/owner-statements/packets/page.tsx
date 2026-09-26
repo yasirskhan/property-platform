@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { apiGet } from "@/lib/api";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
@@ -32,17 +33,21 @@ function PacketsContent() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      import("@/lib/api").then(({ apiGet }) => apiGet("/auth/me") as Promise<Me>),
-      listOwnerStatements({ limit: 200 }),
-    ]).then(([me, list]) => {
+    (async () => {
+      const me = await apiGet("/auth/me") as Me;
       if (!active) return;
       setUser(me);
-      // Managers use an explicitly selected statement ID. The packet
-      // preview endpoint independently enforces ALL property assignments.
-      if (me.role === "ADMIN") setStatements(list.items);
-      if (!STAFF.has(me.role)) setError("Only authorized staff can send owner packets.");
-    }).catch((cause) => {
+      if (!STAFF.has(me.role)) {
+        setError("Only authorized staff can send owner packets.");
+        return;
+      }
+      // Never fetch the organization-wide statement directory for managers.
+      // Their explicit selection is authorized by each backend preview.
+      if (me.role === "ADMIN") {
+        const list = await listOwnerStatements({ limit: 200 });
+        if (active) setStatements(list.items);
+      }
+    })().catch((cause) => {
       if (active) setError(cause instanceof Error ? cause.message : "Owner statements unavailable.");
     }).finally(() => { if (active) setBusy(null); });
     return () => { active = false; generation.current += 1; };
