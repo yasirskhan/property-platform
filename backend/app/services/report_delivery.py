@@ -46,6 +46,8 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "property.budget_comparison": "ACCOUNTING.GL_ACCOUNTS",
     "property.budget_detail": "ACCOUNTING.GL_ACCOUNTS",
     "property.gross_potential_rent": "ACCOUNTING.GL_ACCOUNTS",
+    "property.lease_expiration_detail": "LEASING",
+    "property.lease_expiration_summary": "LEASING",
 }
 
 
@@ -383,6 +385,14 @@ def build_report_payload(
         return build_gpr_report(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
+        )
+    if report_key in ("property.lease_expiration_detail", "property.lease_expiration_summary"):
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated lease expiration report required")
+        from app.services.lease_expiration_report import build_lease_expiration_report
+        return build_lease_expiration_report(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters, report_key=report_key,
         )
     builder = _BUILDERS.get(report_key)
     if builder is None:

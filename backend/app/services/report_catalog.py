@@ -126,8 +126,16 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/gross-potential-rent",
         description="Current market/lease rent projection with separate journal posting markers; not a historical snapshot.",
     ),
-    _standard("property.lease_expiration_detail", "Lease Expiration Detail", "Property & Unit"),
-    _standard("property.lease_expiration_summary", "Lease Expiration Summary by Month", "Property & Unit"),
+    _standard(
+        "property.lease_expiration_detail", "Lease Expiration Detail", "Property & Unit",
+        href="/dashboard/reporting/lease-expirations",
+        description="Recorded active/expired lease contract end dates; not confirmed move-outs.",
+    ),
+    _standard(
+        "property.lease_expiration_summary", "Lease Expiration Summary by Month", "Property & Unit",
+        href="/dashboard/reporting/lease-expirations?view=summary",
+        description="Count recorded lease contract end dates by property and month.",
+    ),
     _standard("property.directory", "Property Directory", "Property & Unit"),
     _standard("property.group_directory", "Property Group Directory", "Property & Unit"),
     _enhanced("property.performance", "Property Performance", "Property & Unit"),

@@ -437,6 +437,31 @@ def preview_property_budget_comparison(
     }
 
 
+@router.get("/lease-expirations/preview")
+def preview_lease_expirations(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Only recorded contract end dates, not confirmed tenant departures."""
+    report_key = request.query_params.get("report_key", "property.lease_expiration_detail")
+    if report_key not in {"property.lease_expiration_detail", "property.lease_expiration_summary"}:
+        raise HTTPException(status_code=404, detail="Report not found.")
+    org_id = _require_report_access(db, current_user=current_user, report_key=report_key)
+    _require_export_feature(db, current_user)
+    parameters = {key: value for key, value in request.query_params.items() if key != "report_key"}
+    data = _build_or_422(
+        db, organization_id=org_id, report_key=report_key,
+        parameters=parameters, current_user=current_user,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "title": data.title, "headers": data.headers,
+        "rows": data.rows, "total": len(data.rows),
+    }
+
+
 @router.get("/gross-potential-rent/preview")
 def preview_gross_potential_rent(
     request: Request,
