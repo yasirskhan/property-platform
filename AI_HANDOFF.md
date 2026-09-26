@@ -33,17 +33,18 @@ IMPORTANT:
 - Two-step verification is COMPLETE/VERIFIED.
 - Settings — Login history is COMPLETE/VERIFIED.
 - Universal — delete_reason UI is COMPLETE/VERIFIED.
-- Current batch: Universal — Notes expansion. IMPLEMENTATION COMMITTED; hosted CI verification pending.
+- Universal — Notes expansion is COMPLETE/VERIFIED.
+- Current batch: Universal — Audit Log expansion. NEXT.
 
 # Latest Verified Green Checkpoint
 
-Delete-reason UI checkpoint:
-- 0ea30320bf74bdd3a11515a2a6aa20548ba5b313 — "Phase 3.6: capture property detail delete reasons"
+Universal Notes checkpoint:
+- 4bacacdf95e41afe4613d582fe02799ec76c664c — "Phase 3.6: add universal timestamped notes"
 
 Hosted CI:
-- Run 36211079954: SUCCESS
-- Backend: 362 passed, 3 deselected, 2985 warnings in 50.79s
-- E2E: 3 passed in 9.59s
+- Run 36213331364: SUCCESS
+- Backend: 365 passed, 3 deselected, 3010 warnings in 57.40s
+- E2E: 3 passed in 10.34s
 - Frontend: SUCCESS
 - Platform admin: SUCCESS
 - Security: SUCCESS
@@ -52,13 +53,13 @@ Hosted CI:
 - Parity/registry consistency: CLEAN
 - Secret-pattern scan: CLEAN
 
-Current parity source-of-truth after delete-reason UI verification:
+Current parity source-of-truth after Universal Notes verification:
 - total_items: 628
-- built_count: 258
-- scheduled_count: 370
+- built_count: 259
+- scheduled_count: 369
 - in_progress_count: 0
-- migration_head: e1b3d5f7a9c2
-- expected model-table count: 97
+- migration_head: f2c4e6a8b0d3
+- expected model-table count: 98
 
 # Bank Adjustments
 
@@ -411,25 +412,27 @@ Implementation:
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 - TESTS NOT RUN locally in this connector-only session.
 
-# Universal — Notes expansion — IMPLEMENTATION PENDING VERIFICATION
+# Universal — Notes expansion — COMPLETE / VERIFIED
 
-Implementation prepared:
+Implementation:
 - Adds one reusable, timestamped entity_notes stream rather than duplicating a notes column/table pattern across every business model.
 - Generic GET/POST /api/notes/{entity_type}/{entity_id} targets organization-scoped entities and rejects internal platform/audit/billing infrastructure targets.
 - Backend authorization is authoritative: organization scope, existing menu permission, and property assignment scope are resolved before a note can be read or added.
-- Notes are append-only in this batch; creation writes an immutable note_added audit event in the same transaction.
-- Property Detail now exposes the planned Notes tab using the reusable EntityNotes component; future entity detail pages can adopt the same component without schema work.
-- Migration head advances to f2c4e6a8b0d3; expected model-table count 98.
+- Notes are append-only; creation writes an immutable note_added audit event in the same transaction.
+- Property Detail exposes the planned Notes tab through the reusable EntityNotes component; the same universal component/API can attach to existing organization-scoped entity detail surfaces without schema changes.
+- Migration head f2c4e6a8b0d3; expected model-table count 98.
 - Regression coverage: backend/tests/test_entity_notes.py.
+- Hosted CI run 36213331364: SUCCESS.
+- Backend: 365 passed, 3 deselected, 3010 warnings in 57.40s.
+- E2E: 3 passed in 10.34s.
+- Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 - TESTS NOT RUN locally in this connector-only session.
-- Hosted CI verification pending.
 
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Universal — Notes expansion (current next)
-2. Universal — Audit Log expansion
-3. Continue into Phase 3.7 without stopping at the phase boundary
+1. Universal — Audit Log expansion (current next)
+2. Continue into Phase 3.7 without stopping at the phase boundary
 
 # Working Rules
 
@@ -569,6 +572,5 @@ Implementation:
 - Parity inventory: 257 built / 371 scheduled / 0 in-progress.
 
 # Next Work
-1. Universal — Notes expansion.
-2. Universal — Audit Log expansion.
-3. Continue into Phase 3.7 without stopping.
+1. Universal — Audit Log expansion.
+2. Continue into Phase 3.7 without stopping.

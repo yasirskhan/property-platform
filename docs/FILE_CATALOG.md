@@ -2835,3 +2835,16 @@ Re-run `python generate_file_catalog.py` after adding or renaming files.
 - `backend/app/routers/property_amenities.py`, `property_appliances.py`, `property_improvements.py` — accept and persist soft-delete reasons.
 - `frontend/src/lib/propertyAmenities.ts`, `propertyAppliances.ts`, `propertyImprovements.ts` — send removal reasons on delete.
 - `frontend/src/components/property/AmenitiesTab.tsx`, `AppliancesTab.tsx`, `ImprovementsTab.tsx` — require a reason in the removal confirmation modal.
+
+
+## 2026-09-25 Phase 3.6 Universal Notes checkpoint additions
+
+- `backend/app/models/entity_note.py` — organization-scoped timestamped note stream keyed by entity type/id.
+- `backend/app/schemas/entity_note.py` — note create/list/output contracts.
+- `backend/app/services/entity_notes.py` — target resolution, organization isolation, permission and property-assignment authorization.
+- `backend/app/routers/entity_notes.py` — generic GET/POST note API under `/api/notes`.
+- `backend/alembic/versions/f2c4e6a8b0d3_add_entity_notes.py` — creates `entity_notes`.
+- `backend/tests/test_entity_notes.py` — timestamping, cross-organization isolation, property assignment and forbidden-internal-target coverage.
+- `frontend/src/lib/entityNotes.ts` — typed universal notes API client.
+- `frontend/src/components/EntityNotes.tsx` — reusable internal-notes detail component.
+- `frontend/src/app/dashboard/properties/[id]/page.tsx` — live Notes tab using the universal component.

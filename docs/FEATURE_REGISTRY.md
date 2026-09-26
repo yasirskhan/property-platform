@@ -675,6 +675,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Appliances tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Condition/warranty fields |
 | Improvements tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Cost/category/contractor/warranty |
 | Expenses tab | tab | — | core | no | PROPERTIES.ALL | no | ✅ present | Existing expense tracking |
+| Notes tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Universal timestamped entity-note stream |
 | History tab | tab | — | core | no | PROPERTIES.ALL | no | ✅ present | Audit/history view |
 | Default bank account | field | — | — | — | — | — | ❌ missing | Drives Receipt Cash Account “Automatic” |
 
@@ -823,3 +824,13 @@ access boundary.
    the Core Launch milestone.
 
 # END OF FEATURE_REGISTRY.md
+
+
+## Phase 3.6 — Universal Entity Notes
+
+| Surface | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| GET /api/notes/{entity_type}/{entity_id} | API | — | core | no | target permission | no | ✅ built | Organization-scoped timestamped note list; property assignment scope enforced where applicable |
+| POST /api/notes/{entity_type}/{entity_id} | API | — | core | no | target permission | no | ✅ built | Append-only internal note creation plus immutable note_added audit event |
+| EntityNotes shared component | component | — | core | no | backend authoritative | no | ✅ built | Reusable customer detail-surface notes UI |
+| Property Notes tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ built | First customer surface using the universal component |

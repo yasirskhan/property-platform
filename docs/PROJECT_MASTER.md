@@ -2201,6 +2201,7 @@ the summary:
 - ✅ Financials tab
 - ✅ Taxes tab
 - ✅ Expenses tab
+- ✅ Notes tab (universal timestamped notes)
 - ✅ History tab (audit)
 - ⬜ Property Groups — Phase 3.5
 - ⬜ Budget tab — Phase 3.5
@@ -2383,7 +2384,7 @@ the summary:
 - ✅ Soft delete (all entities)
 - ✅ Created by / at
 - ✅ Updated by / at
-- ⚠️  Notes (present on some — properties, leases) — expand to all — Phase 3.6
+- ✅ Notes universal timestamped entity stream — Phase 3.6
 - ⬜ Attachments (every entity) — Phase 3.7
 - ⚠️  Audit Log (partial coverage) — expand everywhere — Phase 3.6
 - ✅ Soft-delete reason universal — Phase 3.6
@@ -4848,4 +4849,4 @@ Phase **3.6 — Accounting Polish** begins with Chart of Accounts. The 3.5.5 com
 
 ## Next
 
-Phase 3.6 Accounting Settings, Accounting Basis, My Settings, Auditing Center, Two-step verification, Login history, and Universal delete_reason UI are complete/verified. Continue with **Universal — Notes expansion**, then Audit Log expansion and Phase 3.7.
+Phase 3.6 Accounting Settings, Accounting Basis, My Settings, Auditing Center, Two-step verification, Login history, Universal delete_reason UI, and Universal Notes are complete/verified. Continue with **Universal — Audit Log expansion**, then Phase 3.7.

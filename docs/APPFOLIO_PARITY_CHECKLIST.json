@@ -9,12 +9,12 @@
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
     "last_updated": "2026-09-25",
-    "migration_head": "e1b3d5f7a9c2",
+    "migration_head": "f2c4e6a8b0d3",
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 258,
-    "scheduled_count": 370,
+    "built_count": 259,
+    "scheduled_count": 369,
     "in_progress_count": 0
   },
   "items": [
@@ -1956,9 +1956,9 @@
       "id": "universal.notes",
       "area": "Universal Patterns",
       "feature": "Notes on all entities",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.6",
-      "notes": "Present on some (properties, leases); expand to all"
+      "notes": "Verified universal timestamped entity-note stream with organization/permission/property-assignment scope and reusable customer Notes component; CI run 36213331364."
     },
     {
       "id": "universal.attachments",
