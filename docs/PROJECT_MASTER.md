@@ -2386,7 +2386,7 @@ the summary:
 - ⚠️  Notes (present on some — properties, leases) — expand to all — Phase 3.6
 - ⬜ Attachments (every entity) — Phase 3.7
 - ⚠️  Audit Log (partial coverage) — expand everywhere — Phase 3.6
-- ⬜ Soft-delete reason universal — Phase 3.6
+- ✅ Soft-delete reason universal — Phase 3.6
 
 ## Internal Side (ours)
 
@@ -4848,4 +4848,4 @@ Phase **3.6 — Accounting Polish** begins with Chart of Accounts. The 3.5.5 com
 
 ## Next
 
-Phase 3.6 Accounting Settings, Accounting Basis, My Settings, Auditing Center, Two-step verification, and Login history are complete/verified. Continue with **Universal — delete_reason UI**, then Notes expansion, Audit Log expansion, and Phase 3.7.
+Phase 3.6 Accounting Settings, Accounting Basis, My Settings, Auditing Center, Two-step verification, Login history, and Universal delete_reason UI are complete/verified. Continue with **Universal — Notes expansion**, then Audit Log expansion and Phase 3.7.

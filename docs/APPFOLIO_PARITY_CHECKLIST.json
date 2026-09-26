@@ -13,8 +13,8 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 257,
-    "scheduled_count": 371,
+    "built_count": 258,
+    "scheduled_count": 370,
     "in_progress_count": 0
   },
   "items": [
@@ -1934,9 +1934,9 @@
       "id": "universal.delete_reason",
       "area": "Universal Patterns",
       "feature": "Delete-reason field on all entities",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.6",
-      "notes": "Columns added in 59a25b856f18; UI comes later"
+      "notes": "Verified Phase 3.6 UI + persistence for property amenities, appliances, and improvements; CI run 36211079954."
     },
     {
       "id": "universal.created_by_at",

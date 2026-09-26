@@ -2824,3 +2824,14 @@ Re-run `python generate_file_catalog.py` after adding or renaming files.
 - `backend/app/services/login_history.py` — immutable audit-backed customer login activity recording and self-only history projection.
 - `backend/app/schemas/login_history.py` — login history response contract.
 - `backend/tests/test_login_history.py` — login success/failure capture and self-isolation regression coverage.
+
+
+## 2026-09-25 Phase 3.6 Universal delete-reason checkpoint additions
+
+#### `backend/tests/test_delete_reason.py`
+- Regression coverage proving property amenity, appliance, and improvement soft deletes persist their supplied removal reason.
+
+#### Existing property-detail files extended
+- `backend/app/routers/property_amenities.py`, `property_appliances.py`, `property_improvements.py` — accept and persist soft-delete reasons.
+- `frontend/src/lib/propertyAmenities.ts`, `propertyAppliances.ts`, `propertyImprovements.ts` — send removal reasons on delete.
+- `frontend/src/components/property/AmenitiesTab.tsx`, `AppliancesTab.tsx`, `ImprovementsTab.tsx` — require a reason in the removal confirmation modal.

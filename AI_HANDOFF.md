@@ -32,17 +32,18 @@ IMPORTANT:
 - Auditing Center is COMPLETE/VERIFIED.
 - Two-step verification is COMPLETE/VERIFIED.
 - Settings — Login history is COMPLETE/VERIFIED.
-- Current batch: Universal — delete_reason UI. NEXT.
+- Universal — delete_reason UI is COMPLETE/VERIFIED.
+- Current batch: Universal — Notes expansion. NEXT.
 
 # Latest Verified Green Checkpoint
 
-My Settings checkpoint:
-- ef6f9bc7566043463eac8cf11ec3992049a77cfb — "Phase 3.6: add My Settings self-service"
+Delete-reason UI checkpoint:
+- 0ea30320bf74bdd3a11515a2a6aa20548ba5b313 — "Phase 3.6: capture property detail delete reasons"
 
 Hosted CI:
-- Run 36203296248: SUCCESS
-- Backend: 352 passed, 3 deselected, 2886 warnings in 48.21s
-- E2E: 3 passed in 9.31s
+- Run 36211079954: SUCCESS
+- Backend: 362 passed, 3 deselected, 2985 warnings in 50.79s
+- E2E: 3 passed in 9.59s
 - Frontend: SUCCESS
 - Platform admin: SUCCESS
 - Security: SUCCESS
@@ -51,10 +52,10 @@ Hosted CI:
 - Parity/registry consistency: CLEAN
 - Secret-pattern scan: CLEAN
 
-Current parity source-of-truth after Login history verification:
+Current parity source-of-truth after delete-reason UI verification:
 - total_items: 628
-- built_count: 257
-- scheduled_count: 371
+- built_count: 258
+- scheduled_count: 370
 - in_progress_count: 0
 - migration_head: e1b3d5f7a9c2
 - expected model-table count: 97
@@ -396,13 +397,26 @@ Implementation prepared:
 - E2E: 3 passed in 8.50s.
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 
+# Universal — delete_reason UI — COMPLETE / VERIFIED
+
+Implementation:
+- Property Amenities, Appliances, and Improvements now require a removal reason in their existing soft-delete confirmation UI.
+- The reason is URL-encoded by the typed frontend clients and persisted into each entity's existing delete_reason field by the backend soft-delete route.
+- Existing soft-delete semantics remain intact; records become inactive rather than being physically deleted.
+- Regression coverage: backend/tests/test_delete_reason.py verifies persistence across all three property-detail entity types.
+- No schema migration; head remains e1b3d5f7a9c2 / 97 model tables.
+- Hosted CI run 36211079954: SUCCESS.
+- Backend: 362 passed, 3 deselected, 2985 warnings in 50.79s.
+- E2E: 3 passed in 9.59s.
+- Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
+- TESTS NOT RUN locally in this connector-only session.
+
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Universal — delete_reason UI (current next)
-2. Universal — Notes expansion
-3. Universal — Audit Log expansion
-5. Continue into Phase 3.7 without stopping at the phase boundary
+1. Universal — Notes expansion (current next)
+2. Universal — Audit Log expansion
+3. Continue into Phase 3.7 without stopping at the phase boundary
 
 # Working Rules
 
@@ -542,7 +556,6 @@ Implementation:
 - Parity inventory: 257 built / 371 scheduled / 0 in-progress.
 
 # Next Work
-1. Universal — delete_reason UI.
-2. Universal — Notes expansion.
-3. Universal — Audit Log expansion.
-4. Continue into Phase 3.7 without stopping.
+1. Universal — Notes expansion.
+2. Universal — Audit Log expansion.
+3. Continue into Phase 3.7 without stopping.
