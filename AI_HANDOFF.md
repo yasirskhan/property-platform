@@ -1,363 +1,191 @@
-─────────────────────────────────────────────────────────
-AI_HANDOFF.md LOCATION RULE (READ FIRST)
-─────────────────────────────────────────────────────────
-This file lives at the REPO ROOT, not under docs/.
-It is the single source of truth for resuming AI development.
-Refresh it after every meaningful batch with exact verification
-evidence, Git/migration state, and the next task. Do not ask
-Yasir to reconstruct project context.
-─────────────────────────────────────────────────────────
+# AI_HANDOFF.md — Property Platform, 2026-09-26
 
-# RESUME HERE — 2026-09-26
+**READ THIS WHOLE FILE FIRST.** This is the repo-ROOT authoritative session handoff;
+it does NOT belong under docs/. Refresh after every meaningful CI-verified batch.
+Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 
-Repository: yasirskhan/property-platform (private)
-Only working branch: chatgpt/checkpoint-005-safety
-Last VERIFIED source HEAD: 788010f4b1c3609fb74a98b6bf48b0f037bc4bad
-Always fetch current branch HEAD again; this handoff-only commit will
-change the HEAD. Do not edit main, create/switch branches, force-push,
-or merge draft PR #2 without approval.
+- Private repository: `yasirskhan/property-platform`
+- ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
+  create a branch, force-push, or merge the draft PR without permission.
+- Last VERIFIED **product source**: `10eff9806ce1890afadb04afb62ad7849d45258b`
+- Source GitHub Actions run **36251944098: SUCCESS, all six jobs** (backend,
+  frontend, platform-admin, security, authenticated E2E, staging-config).
+  Backend: **409 passed, 3 deselected, 3715 warnings in 76.20s**.
+  E2E: **3 passed in 7.55s**. Lint, typecheck, production build, security
+  and staging: SUCCESS. These counts apply to this exact source commit only.
+  This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
+  current branch HEAD and latest CI before continuing.
+- Alembic head: **d6a8b0c2e4f7**. SQLAlchemy expected model tables: **102**.
+  Previous head c5f7a9b1d3e6 / 101 tables. Schema/test guards changed
+  together. All three PostgreSQL/bootstrap/legacy migration CI paths passed.
+- Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
+  **Latest completed batch: encrypted signed-paper W-9 archival, admin
+  UI, remote telemetry redaction, and bounded key rotation. VERIFIED.**
+- **Exact NEXT original-plan task: Generate 1099 Forms & Reports,
+  continuing with documented tax-year-specific form data selection,
+  classification and approval workflow, then IRIS/approved-provider
+  handoff. Full filing/recipient copies remain NOT IMPLEMENTED.**
+  Secure payer/recipient tax profiles and the paper-W-9 archive have
+  now been built and verified; do not repeat them.
 
-CURRENT PHASE: 3.7 — Reports + Universal Attachments, IN PROGRESS.
-LATEST COMPLETED BATCH: 1099 readiness UI and sensitive-profile access restrictions.
-EXACT NEXT BATCH: secure signed paper W-9 archive / vetted provider e-W-9 intake,
-then tax-year-specific IRS/provider 1099 filing validation and review.
-Original Generate 1099 Forms & Reports remains IN PROGRESS, not VERIFIED.
-The verified universal attachments, standard/enhanced report framework,
-shared Print / Email / CSV delivery, saved configurations, labels report,
-and encrypted tax-profile foundation/readiness UI must NOT be repeated. Phases 3.4.S and 3.4.3–3.4.26, compatibility pass
-3.5.5, and Accounting Polish 3.6 are previously completed/verified.
+## Verification chronology — don't reimplement
 
-# LAST VERIFIED CI AND SCHEMA
+| Batch | Source commits | Last full SUCCESS CI | Evidence |
+| --- | --- | --- | --- |
+| Universal Attachments | 90e54eb834047038f01959c5a2a20c9e4155e999 | 36219990832 | VERFIED |
+| Standard/enhanced reports framework | 3afb0d3d2b41a222225e5ca20fb9c976fee77742 | 36221727596 | VERIFIED |
+| Shared Print / Email / CSV delivery | f5c8a5177db003c5d6d1b2eb2fbf8510791d31d6, fad5066aa2bc4498156179fad6bb5c8ad1cfcf65 | 36222494517 | VERIFIED |
+| Custom Report Builder saved configurations | 5f235e3bdc098885965c227a68956b69ea5f5307, b70be63af5195fe88f7bcadf2d6599732d24ce59, cf6f9aa1a54d276200c310f3b3d8f870cad64e97 | 36246789775 | 383 backend passed / 3 E2E |
+| Labels Report CSV mail merge | 02641ebab30e24880b5ab61194f20ad8f0aea2cc, 5a2ee8acc5ea9dc81b4a48ec6d043879b6a7b5df | 36248197021 | 389 backend passed / 3 E2E |
+| 1099 IRIS modernization + encrypted tax profiles | 3aca0f64b1f58e8bb7afef32ae6ceda368dbc9ca | 36249130022 | 395 backend passed / 3 E2E |
+| Admin 1099 readiness + notes/attachments protection | 5a22b59ed0f3d0c8b877c8b038c5ac2fe67bbeea, caaca02d519cc3c3b47edfc734ec2c705e0cadb2, 488b6b93a00df9788eaaf90d7c9f07b2eb5f1b41, 788010f4b1c3609fb74a98b6bf48b0f037bc4bad | 36249841377 | 400 backend passed / 3 E2E |
+| Encrypted signed-paper W-9 archive backend | 18f024a0a1d932f6c2b327c38b2954c6930cd356 | 36250903803 | 406 backend passed / 3 E2E |
+| Admin W-9 upload/list/download UI | fe0a7cd39a22a60f4378db50ad85583c8bc45bfc | 36251266775 | 406 backend passed / 3 E2E |
+| Sentry request-body and stack-local exclusion | e8552318fcbd85663c678acb0d8f2948f6ebdecb | 36251597787 | 407 backend passed / 3 E2E |
+| Bounded ciphertext key rotation | 10eff9806ce1890afadb04afb62ad7849d45258b | 36251944098 | 409 backend passed / 3 E2E |
 
-Verified source commit: 788010f4b1c3609fb74a98b6bf48b0f037bc4bad
-GitHub Actions run 36249841377 — SUCCESS; all six jobs:
-  backend, frontend, platform-admin, security, e2e, staging-config.
-Backend exact summary:
-  400 passed, 3 deselected, 3507 warnings in 46.80s
-E2E exact summary: 3 passed in 9.58s
-Frontend lint, TypeScript and production build: SUCCESS.
-Platform admin, security, staging-config: SUCCESS.
-Backend CI includes PostgreSQL bootstrap and schema/registry/parity
-checks. E2E includes the existing authenticated browser flow.
-These counts describe THIS source HEAD only; never transfer them to
-a subsequent code change. Handoff-only edit: TESTS NOT RUN.
+All listed full CI runs were successful. Older superseded CI runs may be
+CANCELLED, not necessarily failed. Do not transfer test totals to later code.
 
-Alembic head: c5f7a9b1d3e6
-Expected SQLAlchemy model tables: 101.
-Previous head: b4e6a8c0d2f5; previous model tables: 100.
-Planning checklist status/counts were NOT advanced; the last reported
-metadata remains 628 total / 264 built / 364 scheduled / 0 in progress.
-User explicitly approved the 1099 modernization on 2026-09-26; only
-the 1099 requirement wording in PROJECT_MASTER, PLAN_GAPS, and the
-reporting.1099 parity feature/notes was revised. No other frozen docs edits.
+## Existing verified design contracts
 
-# PHASE 3.7 VERIFIED WORK
+1. Hybrid Capability Gating separates release gate, plan entitlement, org
+   configuration, role/menu permission and user preference; backend decides.
+   Do not add unrelated per-field flags.
+2. Keep all accounting changes on the central immutable GL and respect locked
+   periods, idempotency, org/owner/property scope and immutable audit.
+   Reporting basis ACCRUAL (default) vs CASH changes reports, not GL.
+3. Customer JWT/identity and platform-admin JWT/identity stay separate.
+4. Universal notes/attachments are the shared services for ordinary business
+   entities; do not create parallel generic storage. Their resolver expressly
+   FORBIDS `tax_profiles` and `tax_w9_documents`. They are not safe for
+   W-9 content uploaded under another entity name either.
+5. Canonical report catalog under REPORTING.ALL, standard BUTTON and enhanced
+   TAB, shared ReportActions, server rerendered CSV/email, report-level
+   permissions + release.reporting.export gate, CSV formula escaping and
+   org scope remain intact. Saved configurations belong to creator and
+   organization, with permission rechecks. No arbitrary SQL/report builder.
+6. Do not represent planning parity/status as behavioral test evidence.
+   Last reported parity metadata before 1099 modernization was
+   628 total / 264 built / 364 scheduled / 0 in progress; counts and
+   status NOT updated since. `reporting.1099` remains SCHEDULED.
 
-- Universal Attachments: 90e54eb834047038f01959c5a2a20c9e4155e999;
-  CI 36219990832 SUCCESS.
-- Report framework: 3afb0d3d2b41a222225e5ca20fb9c976fee77742;
-  CI 36221727596 SUCCESS.
-- Shared Print / Email / CSV: f5c8a5177db003c5d6d1b2eb2fbf8510791d31d6;
-  CI 36222255513 SUCCESS.
-- Delivery docs closeout: fad5066aa2bc4498156179fad6bb5c8ad1cfcf65;
-  CI 36222494517 SUCCESS.
-- Prior handoff-only commit: 0d34982036e38bf6c9f5804da098da277a1ce5de;
-  CI 36245454580 SUCCESS.
-- Custom Report Builder backend / migration / focused regression tests:
-  5f235e3bdc098885965c227a68956b69ea5f5307.
-- Custom Report Builder customer UI:
-  b70be63af5195fe88f7bcadf2d6599732d24ce59.
-- Schema-guard test fixes:
-  cf6f9aa1a54d276200c310f3b3d8f870cad64e97.
-  Earlier CI 36246620511 FAILED only on two stale 99-table guards
-  (381 passed / 2 failed / 3 deselected); both guards were corrected
-  to head b4e6a8c0d2f5 / 100 tables and next CI 36246789775 passed.
-  Original earlier run 36246560776 was cancelled after a newer push.
+## 1099 modernization and exactly what is implemented
 
-Custom builder shipped behavior:
-  * organization + current-user-private persisted saved configurations;
-    CRUD at /api/reporting/saved and /api/reporting/saved/{id}.
-  * Only implemented canonical report keys can be saved: Chart of
-    Accounts, Trial Balance, per-account General Ledger, Owner Statement.
-  * Parameters validated against report-specific allowlists, date,
-    integer and boolean rules; arbitrary SQL/report execution forbidden.
-  * REPORTING.ALL and underlying report menu permission rechecked on
-    save, read, update, delete; list filters inaccessible report keys.
-  * Existing server-side CSV and email report delivery rechecks
-    report permissions and release.reporting.export; no client-side
-    data execution or change to GL.
-  * Immutable audit logging for create/update/delete.
-  * Saved configuration form plus edit/delete, existing ReportActions
-    reuse on the customer Reporting page.
-  * Focused tests cover scope, per-user privacy, invalid parameters,
-    permissions, audit-compatible CRUD, and existing export access.
-  * No generic report-field query language, shared presets, or arbitrary
-    SQL builder was introduced. Only four already-implemented reports
-    have executable saved presets; other reports stay on their roadmap.
+User expressly authorized 2026-09-26 IRIS / approved-provider route instead
+of obsolete FIRE and bringing secure W-9/tax profiles into Phase 3.7.
+ONLY the 1099 requirement wording in frozen docs/PROJECT_MASTER.md,
+docs/PLAN_GAPS.md and docs/APPFOLIO_PARITY_CHECKLIST.json was updated
+at 3aca0f64. ALL other docs/ source-of-truth content remains frozen and
+must NOT be modified without separate authorization.
 
-Changed source files include:
-  backend/app/models/saved_report.py
-  backend/alembic/versions/b4e6a8c0d2f5_add_saved_reports.py
-  backend/app/services/saved_reports.py
-  backend/app/routers/reporting.py
-  backend/app/schemas/reporting.py
-  backend/init_db.py
-  backend/tests/test_saved_reports.py
-  backend/tests/test_migrations.py
-  backend/tests/test_postgres_smoke.py
-  backend/tests/test_prepare_database.py
-  frontend/src/components/reporting/SavedReportBuilder.tsx
-  frontend/src/app/dashboard/reporting/page.tsx
-  frontend/src/lib/reporting.ts
+**Taxpayer profiles**:
+- `backend/app/models/tax_profile.py`, `services/tax_profiles.py`,
+  `schemas/tax_profile.py`, `routers/tax_profiles.py`.
+- `GET/PUT /api/reporting/tax-profiles`: org-specific ADMIN plus
+  REPORTING.ALL, active/not-deleted, actual role/same-org recipient.
+- Typed payer ORGANIZATION and OWNER/VENDOR recipient, validated tax ID,
+  classification, legal name, business name, mailing address encrypted
+  as one Fernet payload. Only masked TIN last four and W-9 status/date
+  in output. Audit excludes taxpayer identifiers and mailing contents.
+  No data in generic reporting actions or raw field exports.
+- No default tax key. `TAX_PROFILE_ENCRYPTION_KEY` must be externally
+  provisioned, independent of ordinary `ENCRYPTION_KEY`; fail closed
+  with 503 when absent. A live operator must configure it in their
+  secret manager, not in source or chat.
 
+**Signed-paper W-9 archive**:
+- `backend/app/models/tax_w9_document.py`, migration
+  `d6a8b0c2e4f7_add_tax_w9_archive.py`,
+  `services/tax_w9.py`, `routers/tax_w9.py`, `schemas/tax_w9.py`,
+  `backend/tests/test_tax_w9.py`.
+- `GET/POST /api/reporting/tax-w9/{profile_id}` and
+  `GET /api/reporting/tax-w9/{profile_id}/{document_id}/download`.
+- Raw `application/pdf` streaming, max 5MB, PDF marker/EOF checks,
+  no multipart temp-file spool. Encrypted PDF ciphertext in the
+  `tax_w9_documents` database table, never unencrypted general
+  attachment storage. No-store, forced download, `nosniff`, sandbox CSP,
+  org/user/role/REPORTING.ALL scope and audit (archive, metadata list,
+  download). Staff attests paper signature review; NOT e-signature,
+  signature OCR, PDF antivirus screening or a filing system.
+- Page `frontend/src/app/dashboard/reporting/1099/page.tsx` embeds
+  `TaxW9Archive.tsx`: secure upload/list/download and paper-W-9
+  status, masked taxpayer profile intake, clearly says filing disabled.
+  Backend code does not generate IRS filing or recipient copies.
+- `TAX_PROFILE_PREVIOUS_KEYS_JSON` (secret manager JSON list, default [])
+  permits decrypting older profiles/documents while current key encrypts
+  new data. Bounded `POST /api/reporting/tax-profiles/rotate-encryption`
+  rewraps up to ten profiles + ten PDFs per call, uses cursors, is org
+  and admin scoped, audited without decrypted content, rolls back on
+  corruption/missing historical key. See `services/tax_key_rotation.py`,
+  `schemas/tax_rotation.py`, tests.
+- `app/core/observability.py`: Sentry does not collect HTTP bodies
+  (`max_request_body_size="never"`) or exception frame locals,
+  `send_default_pii=False`, with regression test. This is not a
+  substitute for W-9 PDF malware scanning or complete DLP.
 
-# CREATE LABELS REPORT — VERIFIED 2026-09-26
+**CURRENTLY NOT IMPLEMENTED**: provider-hosted e-W9 consent/signature,
+backend PDF malware scanning/retention purge, completed 1099-NEC/MISC
+reportable-payment identification, review and approval, official IRS
+tax-year template mapping, TCC / provider credentials, transmission,
+filing receipts, corrections, recipient copies or e-delivery. Do not
+claim any of these verified or enable "file" from a prototype.
 
-Source implementation: 02641ebab30e24880b5ab61194f20ad8f0aea2cc.
-Follow-up lint correction: 5a2ee8acc5ea9dc81b4a48ec6d043879b6a7b5df.
-First source CI 36248146232 exposed one new JSX apostrophe lint error;
-that was fixed in the follow-up source commit.
-Final CI 36248197021: SUCCESS (six jobs), backend 389 passed,
-3 deselected, 3334 warnings in 70.34s; E2E 3 passed in 8.23s;
-frontend, platform-admin, security and staging-config SUCCESS.
-Six new focused label-report backend tests were added.
-No migration; Alembic b4e6a8c0d2f5 / 100 model tables unchanged.
-Frozen docs/ files were not modified, and planning parity metadata
-was not advanced. Earlier docs-only run 36247104460 passed on
-attempt 2 after a transient platform-admin E2E login timeout.
+## Exact next work: continue, don't stop at phase boundary
 
-Source changed (labels batch):
-- backend/app/services/label_report.py
-- backend/app/services/report_delivery.py (opt-in actor-scoped label dispatch)
-- backend/app/services/report_catalog.py (canonical standard report link)
-- backend/app/routers/reporting.py (authorized live labels preview)
-- backend/tests/test_label_report.py
-- frontend/src/app/dashboard/reporting/labels/page.tsx
+1. Re-read root handoff and current branch HEAD; check latest source
+   CI. Inspect real payer/owner/vendor/bill/payment/owner-payout models,
+   accounting journal and reporting permission patterns before changes.
+2. Next bounded Phase 3.7 batch: *1099 tax-year-specific data review
+   foundation*. For explicit 1099-NEC/MISC recipient type and payer/
+   recipient combination, take only validated manually entered
+   tax-year amounts with documented supporting source/reference and
+   clear classification. No guessed totals from GL, bill payee names
+   or owner distributions, no implicit filing eligibility from a
+   checkbox. Validate year/amount/type, tax-profile existence and
+   signed W-9 evidence, scope + permissions, append-only audit,
+   prepare/review/approve transition, idempotency and locked approval.
+   Review output MUST redact TIN; leave submission disabled. Keep
+   report preview separate from actually filing.
+3. Then IRS-current tax-year-specific IRIS CSV mapping or approved
+   Avalara/Track1099 provider handoff. IRS IRIS Taxpayer Portal needs
+   IRIS TCC and published exact CSV template per tax year; official
+   page https://www.irs.gov/filing/e-file-information-returns-with-iris
+   listed portal templates only through tax year 2025 as of 2026-09-26.
+   Do NOT invent tax-year-2026 CSV columns or label a speculative CSV
+   IRS-compatible. IRIS A2A needs distinct IRS API credentials, schema
+   and testing. Avalara 1099 & W-9 publishes a provider API
+   https://developer.avalara.com/products/avalara-1099-and-w9/api/
+   but requires an actual subscription and securely stored credentials;
+   web-app review/scheduling/corrections may still be needed. No
+   mocked "sent" result may be represented as production filing.
+4. Form selection, tax-year thresholds, backup-withholding exceptions,
+   tax classification, state filings and reportable-payment source
+   must be explicitly reviewed. IRS rules for 2026 changed for
+   specified 1099-NEC/MISC payments; do NOT apply a universal threshold.
+   See https://www.irs.gov/publications/p1099 and official form
+   instructions. No actual transmission without provider/TCC approval,
+   no fabricated addresses/TINs or unverified tax amounts.
+5. Tests with each bounded source batch, commit only this branch,
+   verify all six GitHub CI jobs before marking VERIFIED. If red,
+   fix before next feature batch; stop if the same assertion fails
+   three consecutive times. Report true test counts, commits, schema,
+   failure context and update this root handoff each meaningful batch.
+6. After full 1099 feature verified, Section 38 next tasks **Letters**,
+   then **Send Owner Packets**, then original tenant/property/
+   owner/accounting/transaction reports. Do not skip original order.
 
-Behavior:
-- Standard Reports > Mailings > Create Labels Report.
-- Print preview; server-generated mail-merge CSV; shared ReportActions
-  and email delivery; property and active-tenant recipient modes.
-- Tenant labels use the recorded property address plus unit identifier,
-  not a fictitious independent tenant mailing address. Owner/vendor
-  contact address labels are NOT fabricated; user records do not
-  currently store mailing addresses.
-- REPORTING.ALL, PROPERTIES.ALL, release.reporting.export enforced
-  on preview, CSV and email. Tenant recipient mode additionally
-  requires LEASING. Only ADMIN/OWNER/MANAGER staff are allowed;
-  managers see only their active property assignments.
-- Cross-org and unassigned property ID probes fail closed. Only active
-  properties, units, tenants and active leases contribute records.
-- CSV uses the verified formula-escaping report_csv_bytes path.
-- No new settings/entitlements, GL change, table, or parallel report
-  delivery service. Saved Report Builder is unchanged.
-
-# NEXT BATCH REQUIRES TAX-SPECIFICATION RESOLUTION
-
-The ORIGINAL Section 38 next item is Generate 1099 Forms & Reports
-(FIRE file + print). Do not silently skip this item or mark it complete.
-
-Critical dated IRS change: IRS Publication 1099 (2026) states that
-for tax year 2026 / filing season 2027, IRIS is the only information-
-return intake, and FIRE shuts down at the end of 2026. Current IRS
-reference: https://www.irs.gov/publications/p1099
-IRIS reference: https://www.irs.gov/filing/e-file-information-returns-with-iris
-
-Project docs/PLAN_GAPS.md §C9 already plans provider-based Track1099
-or equivalent and W-9 collection in Phase 4.5, whereas original
-docs/PROJECT_MASTER.md Section 38 says FIRE-file output in Phase 3.7.
-This dependency/regulatory mismatch has NOT been resolved. Frozen
-docs/ MUST NOT be changed without Yasir's explicit authorization.
-
-Current customer User/Organization models do not have complete
-payer/recipient TINs, W-9 records or independent mailing-address data.
-Vendor and owner filing classifications must be validated, not inferred
-from ordinary GL or owner-payout totals. Do NOT generate or transmit
-purportedly IRS-valid 1099/FIRE files, store tax IDs in plaintext,
-invent addresses, or alter posted accounting to fill missing data.
-A secure tax-profile/W-9 collection and supported IRIS/provider
-filing route is a prerequisite for completed real forms.
-
-USER AUTHORIZATION 2026-09-26: IRIS/approved provider instead of FIRE,
-plus bring secure W-9/tax profiles forward. Narrow 1099 wording updates
-under docs/ were expressly authorized and committed. Provider credentials,
-IRS-current tax-year schema, signed W-9 provenance, and filing review are
-still prerequisites. Do not mark actual filing complete.
-
-# 1099 MODERNIZATION — PREREQUISITE VERIFIED 2026-09-26
-
-Implementation + scoped docs update:
-  3aca0f64b1f58e8bb7afef32ae6ceda368dbc9ca
-Hosted CI 36249130022 SUCCESS, all six jobs; backend
-395 passed / 3 deselected / 3448 warnings in 73.27s;
-E2E 3 passed in 10.04s. No local tests represented as run.
-Migration c5f7a9b1d3e6 adds tax_profiles; model tables 101.
-Existing accounting and reporting behavior unchanged.
-
-Added dedicated encrypted taxpayer profiles for ORGANIZATION payer,
-OWNER and VENDOR user recipients. Full TIN, tax classification,
-legal name and address are encrypted together with Fernet.
-Dedicated TAX_PROFILE_ENCRYPTION_KEY must be externally provisioned,
-valid, and different from ENCRYPTION_KEY. No development fallback:
-requests reject with 503 if key is missing. Never commit a real key.
-Only the ADMIN customer role with REPORTING.ALL can write/read
-within their organization. User recipients must be active, correct
-role and same org. API output contains only subject identifier,
-masked TIN last-four and staff-recorded paper W-9 status/date.
-Pydantic input uses SecretStr, no raw TIN in API output or explicit
-append-only audit; list/revocation and ciphertext tamper fail closed.
-Backend endpoints GET/PUT /api/reporting/tax-profiles; no-store
-responses. Signed W-9 PDFs are NOT stored yet: staff can record
-paper W-9 receipt but cannot claim this is IRS-compliant electronic
-W-9 capture. Do not put W-9 in general unencrypted attachments.
-No automatic 1099 amounts, e-filing, or unverified IRIS CSV schemas.
-Regression tests: six new secure-profile tests plus existing
-database bootstrap/migration/schema/tenant isolation suite.
-
-Original frozen documents: narrow user-authorized 1099 edits only:
-docs/PROJECT_MASTER.md Section 38 FIRE changed to IRIS/provider,
-docs/PLAN_GAPS.md C9 records pulled-forward prerequisites,
-docs/APPFOLIO_PARITY_CHECKLIST.json reporting.1099 wording updated,
-status still SCHEDULED. No unrelated documents changed.
-
-# 1099 PREPARATION UI + SECURITY BATCH — VERIFIED 2026-09-26
-
-UI/report catalog commit 5a22b59ed0f3d0c8b877c8b038c5ac2fe67bbeea;
-follow-up form-error usability caaca02d519cc3c3b47edfc734ec2c705e0cadb2;
-generic-notes-and-attachments denylist + regression tests
-488b6b93a00df9788eaaf90d7c9f07b2eb5f1b41;
-inactive-admin authorization guard + regression test
-788010f4b1c3609fb74a98b6bf48b0f037bc4bad.
-Current source CI 36249841377 SUCCESS all six jobs; backend 400 passed,
-3 deselected, 3507 warnings in 46.80s; E2E 3 passed in 9.58s;
-frontend, security, platform-admin, staging-config SUCCESS.
-Earlier superseded runs 36249424436, 36249502551,
-36249516416, 36249764959 were CANCELLED by newer pushes; do not
-represent them as failing test regressions or passed full CI.
-No migration or new model in this batch. Still c5f7a9b1d3e6 and 101 tables.
-
-New customer page: Reports > Tax > 1099 Preparation,
-frontend/src/app/dashboard/reporting/1099/page.tsx.
-Catalog entry tax.1099_preparation is a navigation-only "preparation"
-slot, not an IRS-filing report key; it is NOT registered for CSV/email
-in REPORT_PERMISSIONS. Only organization ADMIN may use the live
-encrypted-profile intake; client displays only last-four TIN digits,
-paper W-9 status and received date. It links to official IRS W-9,
-explains signed paper W-9 must be retained separately and warns that
-no IRS file, 1099 recipient copy, e-signature or tax return is created.
-The UI does not upload documents or send any tax ID to generic report
-delivery. Recoverable validation errors leave the form visible.
-GET/PUT tax-profile routes set Cache-Control: no-store.
-
-Security enforcement:
-- app/services/entity_notes.py denies tax_profiles target altogether;
-  generic notes and generic unencrypted attachment routes cannot use
-  tax_profiles targets, verified with actual-record regression tests.
-  This is a route scope exclusion, NOT a content scanner capable of
-  detecting mislabeled W-9s uploaded to unrelated entities. UI warns
-  admins not to use generic attachments for W-9s.
-- app/services/tax_profiles.py denies inactive/deleted admins, even
-  if a direct session were passed; targeted regression test included.
-- Existing organization-scoped ADMIN + REPORTING.ALL authorization,
-  fail-closed dedicated TAX_PROFILE_ENCRYPTION_KEY and ciphertext
-  fields remain mandatory. A live environment must provision a unique
-  tax key through secret management before using tax-profile routes;
-  requests return 503 until configured. No real key is stored in repo.
-
-Current IRS regulatory planning checks (verify again before filing):
-- IRS reports FIRE last filing Nov. 19, 2026, with IRIS exclusively
-  receiving tax-year-2026 information returns for filing season 2027.
-  https://www.irs.gov/e-file-providers/filing-information-returns-electronically-fire
-- The IRS identifies $2,000 as the tax-year-2026 threshold for
-  specified 1099-NEC services and 1099-MISC rent and other covered
-  payments, with exceptions (for example backup withholding and some
-  payment types). Do not apply a universal $2,000 rule.
-  https://www.irs.gov/businesses/small-businesses-self-employed/am-i-required-to-file-a-form-1099-or-other-information-return
-  https://www.irs.gov/publications/p1099
-- IRIS Taxpayer Portal requires IRIS TCC, currently supports manual
-  entry and IRS-specific CSV templates; A2A requires a separate IRIS
-  TCC, API client ID, schema package and ATS clearance. As checked
-  Sept. 26, 2026, public taxpayer-portal CSV template list shows
-  through tax year 2025, not tax year 2026; do NOT invent 2026 CSV
-  columns or mark IRIS export production-ready before availability.
-  https://www.irs.gov/filing/e-file-information-returns-with-iris
-- An IRS-compliant electronic W-9 requires recipient authentication,
-  original certification language, perjury statement and final
-  verified electronic signature, plus submission records and hard-copy
-  retrieval. Present paper W-9 receipt is NOT e-W9 certification.
-  https://www.irs.gov/instructions/iw9
-
-# VERIFIED CONTRACTS TO PRESERVE
-
-1. Hybrid Capability Gating keeps release, plan entitlement,
-   organization config, role/menu permission and preference distinct;
-   backend authoritative. No per-field feature flags for routine UI.
-2. All accounting posts through central immutable GL; preserve org,
-   owner, property isolation, locked periods, atomicity, immutable audit,
-   and idempotency where required.
-3. Customer and internal platform identity/JWT audiences remain separate.
-4. Universal Notes and Attachments are shared org-scoped services;
-   no duplicate parallel stores.
-5. Reporting basis ACCRUAL default or CASH is a report-layer setting;
-   do not alter GL postings.
-6. Canonical report catalog: GET /api/reporting/catalog under REPORTING.ALL;
-   existing Chart of Accounts, Trial Balance, per-account GL, frozen Owner
-   Statement are the current deliverable keys. CSV/email server rerender,
-   authorize each report plus release.reporting.export, escape CSV formulas,
-   enforce org scope, and fail closed for unsupported keys.
-7. Existing customer reporting page retains standard BUTTON vs enhanced
-   TAB and catalog search/grouping; shared ReportActions stay intact.
-8. Saved configurations are private to the creating user and organization;
-   serving any saved preset rechecks current underlying permissions.
-9. Never mistake planning parity check for behavioral test evidence.
-
-# EXACT NEXT WORK
-
-1. Read full root handoff, verify branch and CI. Do not repeat previous
-   labels, saved reports, encrypted tax profiles or 1099 readiness UI.
-   Keep original Phase 3.7 1099 forms/filing IN PROGRESS.
-2. Safe next bounded batch: secure signed paper W-9 archival OR vetted
-   provider-hosted e-W9 intake, using dedicated encrypted storage
-   and restrictive access, audited access, retention/key rotation,
-   no generic attachments. Verify real signed W9 evidence; do not
-   label admin paper W9 checkbox as electronic signature. Include tests.
-3. Next approved IRS IRIS/provider filing work requires current
-   tax-year-specific official schema/template and payer/recipient
-   verification, valid payer and recipient TINs, explicit classification
-   of reportable payments, statutory thresholds and exceptions,
-   explicit review/approval, valid IRIS TCC or provider account,
-   electronic submission receipts, recipient copies and corrections.
-   No generic GL/owner payout inference, no fabricated tax filings,
-   no filing metadata marked sent before actual provider confirmation.
-   Current IRS tax-year-2026 portal template was NOT publicly listed
-   at last review; check for updates rather than guessing. Never paste
-   provider API secrets or TINs in this chat; use secret management.
-4. User authorized narrow 1099 modernization in frozen docs/ only;
-   otherwise frozen docs unchanged. CI after bounded commits,
-   applicable regression tests and counts; mark VERIFIED only
-   after every relevant CI job succeeds. Fix failures, stop after
-   three repeated failures of same assertion. Refresh this handoff
-   after each meaningful verified batch.
-5. Only after full 1099 feature is verified, resume Section 38
-   roadmap: Letters, Send Owner Packets, tenant/property/owner/
-   accounting/transaction reports. Do not skip original tasks,
-   create branches, force-push or modify main.
-
-# NEXT SESSION START PROMPT
+## Session start for successor
 
 Continue yasirskhan/property-platform on
-chatgpt/checkpoint-005-safety. Read entire root AI_HANDOFF.md and
-verify current HEAD and CI. Last VERIFIED source:
-788010f4b1c3609fb74a98b6bf48b0f037bc4bad,
-CI 36249841377 SUCCESS (400 backend passed, 3 deselected;
-3 E2E passed; all six jobs green).
-Alembic c5f7a9b1d3e6; 101 tables. 1099 IRS-IRIS modernization,
-encrypted tax profiles, paper W-9 metadata, admin readiness UI
-and generic-attachment/notes denylist are VERIFIED.
-Full 1099 filing/recipient copies are NOT yet implemented.
-Next batch: secure signed W-9 paper archive or vetted e-W9 provider,
-then verified tax-year-specific IRIS/provider filing workflows.
-Preserve all verified architecture, no main/new branch or unapproved
-docs edits. User approved commit-then-GitHub-CI verification.
-Do not request Work mode, create fictitious tax filings, or
-expose tax identifiers. Refresh handoff after every meaningful batch.
+`chatgpt/checkpoint-005-safety`. Read this entire root AI_HANDOFF.md;
+fetch actual HEAD and full CI. Last VERIFIED product source
+`10eff9806ce1890afadb04afb62ad7849d45258b`;
+run 36251944098 SUCCESS (409 backend passed, 3 deselected;
+3 E2E passed). Alembic `d6a8b0c2e4f7`, 102 model tables.
+Encrypted paper W-9 archival, UI, Sentry privacy and scoped key
+rotation are VERIFIED; DO NOT repeat. 1099 forms/filing NOT DONE.
+Immediate batch is documented manually sourced 1099-NEC/MISC
+review/approval foundation; then official template/provider.
+No Work mode, no main/new branches, no invented test results or
+fake filing. Keep root handoff current.
