@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `60ee5a986d670b4e3af18d01060e971c163c522f`
-- Source GitHub Actions run **36275464600: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `873219e0be9e41a7c68ec52e4da604a882dc90c2`
+- Source GitHub Actions run **36275843531: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **454 passed, 3 deselected, 5451 warnings in 79.84s**.
-  E2E: **3 passed in 9.45s**. Lint, typecheck, production build, security
+  Backend: **458 passed, 3 deselected, 5652 warnings in 90.10s**.
+  E2E: **3 passed in 9.28s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -20,14 +20,14 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   with the tax-profile revision migration; no new model table. All three
   PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Security Deposit Funds Detail (posted GL liability). VERIFIED.**
+  **Latest completed batch: Tenant Directory (current scoped leases and admin-only unassigned). VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT executable original-plan task: Tenant Directory.**
-  Tenant Delinquency, Security Deposit Funds Detail and Owner Packets VERIFIED. Do not repeat verified preflight,
+- **Exact NEXT executable original-plan task: Tenant Ledger.**
+  Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory and Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
 ## Verification chronology — don't reimplement
@@ -56,6 +56,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Immutable redacted provider dry-run history | 1560b0ec2c436ad363bf6c742036aaf94fd6892e | 36271931432 | 433 backend passed / 3 E2E |
 | Letters backend: scoped templates, text merge, reviewed notice send | 0afaec13accb9594d782cd088feca2ef5f92c927 | 36273058209 | 438 backend passed / 3 E2E |
 | Letters UI + preview/email digest binding | a896605e16a37d5c5d778043545997b828ab8c7a, 5d9b4142275cdb759ca2701cd1f567f776616100 | 36273560029 | 440 backend passed / 3 E2E |
+| Tenant Directory | 873219e0be9e41a7c68ec52e4da604a882dc90c2 | 36275843531 | 458 backend passed / 3 E2E |
 | Security Deposit Funds Detail GL liability report | 60ee5a986d670b4e3af18d01060e971c163c522f | 36275464600 | 454 backend passed / 3 E2E |
 | Owner Packet frozen CSV backend + customer UI | 563596a7baf15ef3e8d5e46c8b8f71f2de29e47a, e170aeba1aa725d8d3c3c2a5c536351dcdc3386b, 2ff688a0c9b20a31cc2cf0ca39b886a8b565cc0f | 36274518298 | 446 backend passed / 3 E2E |
 | Tenant delinquency live overdue rent invoices | 8a6a27ef3c248e394546bdb4e8a65c8ffa43e6b7, a644bd803787d3ffc9be36de4318a67915248364 | 36274961962 | 450 backend passed / 3 E2E |
@@ -593,47 +594,84 @@ reusing existing report permissions, catalog, CSV/email. Add focused
 security and CSV tests; commit then CI; update this handoff after
 verification.
 
+## Phase 3.7 Tenant Directory — VERIFIED 2026-09-26
+
+Source 873219e0be9e41a7c68ec52e4da604a882dc90c2.
+CI 36275843531 SUCCESS six jobs. Backend 458 passed,
+3 deselected, 5652 warnings in 90.10s; E2E 3 passed in
+9.28s. Frontend lint/typecheck/build, security, platform-admin,
+staging-config passed. No migration, head a9c1e3f5b7d0,
+104 tables. No frozen docs/ edits.
+
+Standard catalog entry tenant.directory links to
+/dashboard/reporting/tenants; read-only preview endpoint
+GET /api/reporting/tenants/preview returns no-store. Shared
+ReportPayload/CSV/email and ReportActions reused. Report requires
+REPORTING.ALL, LEASING, release.reporting.export; active ADMIN
+or MANAGER, same org. Managers see only eligible current leases
+on their actively assigned properties, not unassigned tenant
+contact details. Admin sees all active tenant users, including
+those lacking an eligible current lease (clearly labeled) and
+current associations, excluding terminated/future and noncurrent
+leases, deleted/inactive users/units/properties and foreign orgs.
+A tenant with more than one current lease has one association row
+per eligible lease. Optional property_id is validated against
+live visible properties; other-org/unassigned property probes
+fail closed. CSV formula escaping stays server-side.
+Four focused backend tests cover isolation, two-property scope,
+inactive/future/terminated exclusions, unassigned contacts,
+invalid filters, preview no-store, email/CSV and entitlement/
+permission revocation. Existing browser E2E smoke remains three
+general tests, not dedicated directory tests.
+
+NEXT Tenant Ledger. IMPORTANT: tenant rent invoice payments in
+Lease.Payment records and accounting Receipt/ReceiptLine entries
+are independent data paths; do not blindly sum both. Charge
+amount_paid is a current snapshot, not a dated transaction log.
+Investigate real payment/receipt/reversal semantics first and
+avoid inventing a historically reconciled running balance or
+claiming all payments posted through GL. Securely scope all
+tenant/property selection; preserve existing reports/GL.
+
 ## Exact next work: continue, don't stop at phase boundary
 
-1. Read complete root handoff and verify branch HEAD and latest
-   CI. Do not repeat verified Letters, Owner Packets, Delinquency,
-   Security Deposit Funds Detail or earlier report architecture.
-2. Next original Phase 3.7 tenant report: Tenant Directory.
-   Inspect actual tenant User, Lease, Unit, Property assignment
-   and auth data; distinguish current lease association from
-   historical or unassigned tenant records. Enforce live org/
-   property scope, active staff role and REPORTING.ALL plus
-   LEASING, release.reporting.export, CSV formula escape.
-   Reuse catalog, ReportPayload, shared CSV/email/ReportActions.
-   Include focused isolation, privacy, filter, preview,
-   CSV and revocation tests. Do not introduce a new GL formula.
-3. Next Tenant Ledger, Tickler, Unpaid Charges, Summary, then
-   original Property/Unit, Owner/Vendor, Accounting and
-   Transaction report order. Continue without stopping at
-   batch boundaries.
-4. Commit bounded source+tests then verify hosted GitHub Actions.
-   Mark VERIFIED only after all relevant CI jobs succeed;
-   fix failures and record exact counts/source/run/schema.
-   Refresh this root handoff every meaningful verified batch.
-   Frozen docs/ unchanged except historical authorized 1099 edits.
-5. External Avalara/IRS acceptance still requires operator
-   credentials and issuer; never claim actual acceptance.
-   No main/new branch/force push or Work mode request.
+1. Read complete root handoff; verify current HEAD, CI. Do not
+   rebuild completed reports or 1099/Letters/Owner Packets.
+2. Next exact original Phase 3.7 Tenant Ledger. Inspect real
+   RentInvoice, Payment, Lease, Charge, Receipt, ReceiptLine and
+   posted GL identity, posting/reversal and linkage semantics.
+   RentInvoice Payment and accounting Receipt are independent;
+   prevent accidental double-counting or falsely reconciled
+   running balances. Make data sources and known exclusions
+   explicit. Add focused org/manager/tenant scope and CSV tests,
+   REPORTING.ALL + LEASING + release.reporting.export gates.
+   Reuse report catalog, ReportPayload and shared actions.
+3. Then Tenant Tickler, Tenant Unpaid Charges, Summary, followed
+   by Property/Unit, Owner/Vendor, Accounting and Transaction
+   report order. Continue across boundaries without asking.
+4. User authorized bounded source+regression tests then hosted
+   CI. Mark VERIFIED only after all six relevant jobs succeed.
+   Investigate/redress CI reds, record exact SHA/run/counts and
+   migration, then refresh root handoff every verified batch.
+   Frozen docs/ unchanged except earlier approved 1099 wording.
+5. Actual external IRS/Avalara acceptance requires operator
+   credentials; don't claim unverified filing, but it does not
+   block reports. No main/new branch/force push/Work.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on branch
-chatgpt/checkpoint-005-safety. Read entire repo-root
-AI_HANDOFF.md, verify actual HEAD and GitHub CI. Last
-VERIFIED product 60ee5a986d670b4e3af18d01060e971c163c522f;
-CI 36275464600 SUCCESS six jobs (454 backend passed,
-3 deselected, 5451 warnings; E2E 3 passed in 9.45s).
-Alembic a9c1e3f5b7d0, 104 tables. Owner Packets,
-Tenant Delinquency, and Security Deposit Funds Detail
-are VERIFIED. Next exact original plan task Tenant Directory,
-then Tenant Ledger, Tickler, Unpaid Charges and Summary.
-Preserve org/manager scope, reporting and export gates,
-immutable GL and prior verified reporting components.
-User authorized commit-then-hosted-CI verification.
-Update handoff after each verified batch. No unapproved
-docs/ edits, main/new branch/force push or Work mode request.
+Continue yasirskhan/property-platform branch
+chatgpt/checkpoint-005-safety. Read the complete root handoff
+and verify HEAD + CI. Last VERIFIED source
+873219e0be9e41a7c68ec52e4da604a882dc90c2,
+CI 36275843531 SUCCESS all six jobs: backend 458 passed,
+3 deselected, 5652 warnings in 90.10s; E2E 3 passed
+in 9.28s. Alembic a9c1e3f5b7d0, 104 tables.
+Verified Security Deposit Funds Detail and Tenant Directory;
+do NOT repeat. NEXT exact original report Tenant Ledger.
+Inspect Payment vs Receipt linkage, avoid double counting,
+use org/manager scope and standard report delivery; follow
+with Tickler, Unpaid Charges, Summary. CI after product
+commits and handoff after verified batches. Frozen docs/ only
+previous authorized 1099 text; no main/new branch/force
+push/Work.
