@@ -94,7 +94,7 @@ export default function PropertyGroupsPage() {
 
   async function loadReport() {
     setBusy(true); setError(""); setPreview(null); setApplied({});
-    const params = groupFilter ? { group_id: groupFilter } : {};
+    const params: Record<string, string> = groupFilter ? { group_id: groupFilter } : {};
     const q = new URLSearchParams(params).toString();
     try {
       const data = await apiGet("/api/reporting/property-groups/preview" + (q ? "?" + q : "")) as Preview;
