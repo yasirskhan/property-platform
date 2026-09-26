@@ -14,6 +14,7 @@ from app.services.menu_resolver import permission_allows_user
 _FORBIDDEN_TABLES = {
     "audit_log",
     "entity_notes",
+    "entity_attachments",
     "platform_users",
     "release_gates",
     "release_gate_organizations",

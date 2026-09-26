@@ -12,6 +12,7 @@ import AppliancesTab from "@/components/property/AppliancesTab";
 import ImprovementsTab from "@/components/property/ImprovementsTab";
 import PhotosTab from "@/components/property/PhotosTab";
 import EntityNotes from "@/components/EntityNotes";
+import EntityAttachments from "@/components/EntityAttachments";
 import { formatMoney, formatDate } from "@/lib/money";
 import Flag from "@/components/features/Flag";
 import { useDisplay } from "@/contexts/DisplayContext";
@@ -175,7 +176,6 @@ export default function PropertyDetailPage() {
           <Flag name="release.properties.photo_editor"><button type="button" disabled>Photo Editor</button></Flag>
           <Flag name="release.properties.keys"><button type="button" disabled>Keys</button></Flag>
           <Flag name="release.properties.statement_settings"><button type="button" disabled>Statement Settings</button></Flag>
-          <Flag name="release.documents.attachments"><button type="button" disabled>Attachments</button></Flag>
           {canEditProperty && (
             <Link
               href={`/dashboard/properties/${propertyId}/edit`}
@@ -217,6 +217,19 @@ export default function PropertyDetailPage() {
           <Flag name="release.properties.fixed_assets"><button type="button" disabled>Fixed Assets</button></Flag>
           <Flag name="release.properties.rubs"><button type="button" disabled>RUBs</button></Flag>
           <Flag name="release.properties.compliance"><button type="button" disabled>Compliance</button></Flag>
+          <Flag name="release.documents.attachments">
+            <button
+              type="button"
+              onClick={() => setTab("attachments")}
+              className={`whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 transition ${
+                tab === "attachments"
+                  ? "border-slate-900 text-slate-900"
+                  : "border-transparent text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              Attachments
+            </button>
+          </Flag>
         </nav>
       </div>
 
@@ -226,6 +239,11 @@ export default function PropertyDetailPage() {
       )}
       {tab === "notes" && (
         <EntityNotes entityType="properties" entityId={propertyId} canAdd={canManage} />
+      )}
+      {tab === "attachments" && (
+        <Flag name="release.documents.attachments">
+          <EntityAttachments entityType="properties" entityId={propertyId} canManage={canManage} />
+        </Flag>
       )}
       {tab === "history" && <HistoryTab propertyId={propertyId} />}
       {tab === "financials" && (
@@ -279,7 +297,8 @@ export default function PropertyDetailPage() {
         tab !== "amenities" &&
         tab !== "appliances" &&
         tab !== "improvements" &&
-        tab !== "photos" && (
+        tab !== "photos" &&
+        tab !== "attachments" && (
           <ComingSoonTab name={TABS.find((t) => t.id === tab)?.label || ""} />
         )}
     </div>

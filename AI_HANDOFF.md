@@ -35,7 +35,7 @@ IMPORTANT:
 - Universal — delete_reason UI is COMPLETE/VERIFIED.
 - Universal — Notes expansion is COMPLETE/VERIFIED.
 - Universal — Audit Log expansion is COMPLETE/VERIFIED.
-- Current batch: Phase 3.7 — Universal Attachments. NEXT.
+- Current batch: Phase 3.7 — Universal Attachments. IMPLEMENTATION COMMITTED; hosted CI verification pending.
 
 # Latest Verified Green Checkpoint
 
@@ -446,12 +446,27 @@ Implementation prepared:
 - E2E: 3 passed in 9.36s.
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 
+# Phase 3.7 — Universal Attachments — IMPLEMENTATION PENDING VERIFICATION
+
+Implementation prepared:
+- Durable entity_attachments metadata links files to authorized organization-scoped entities.
+- Reuses the existing target resolver for org isolation, menu permission, and property-assignment scope.
+- Capability remains behind release.documents.attachments and the existing feature-resolution stack.
+- Bytes use opaque storage keys under a private entity_attachments directory, separate from the legacy public upload path.
+- Authenticated downloads, soft removal, tenant/owner sharing metadata, and semantic target audit events are included.
+- Reusable EntityAttachments UI is wired into Property Detail behind the existing Flag.
+- Migration head advances to a3d5f7b9c1e4; expected model-table count 99.
+- Regression coverage: backend/tests/test_entity_attachments.py plus migration/bootstrap guards.
+- TESTS NOT RUN locally in this connector-only session.
+- Hosted CI verification pending.
+
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Phase 3.7 — Universal Attachments (current next)
-2. Report framework (standard vs enhanced)
-3. Continue Phase 3.7 in roadmap order without stopping
+1. Verify Universal Attachments CI and fix reds autonomously.
+2. Close Universal Attachments metadata/docs.
+3. Report framework (standard vs enhanced).
+4. Continue Phase 3.7 in roadmap order without stopping
 
 # Working Rules
 

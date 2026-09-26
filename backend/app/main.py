@@ -77,6 +77,7 @@ from app.routers import my_settings as my_settings_router
 from app.routers import audit_center as audit_center_router
 from app.routers import two_factor as two_factor_router
 from app.routers import entity_notes as entity_notes_router
+from app.routers import entity_attachments as entity_attachments_router
 
 # ------------------------------------------------------------
 # Create the FastAPI app
@@ -169,6 +170,7 @@ app.include_router(my_settings_router.router)
 app.include_router(audit_center_router.router)
 app.include_router(two_factor_router.router)
 app.include_router(entity_notes_router.router)
+app.include_router(entity_attachments_router.router)
 
 
 # ------------------------------------------------------------
