@@ -75,6 +75,14 @@ class Settings(BaseSettings):
     # Previous keys remain in secret management for decrypting archived records.
     TAX_PROFILE_PREVIOUS_KEYS_JSON: str = "[]"
 
+    # --- 1099 approved-provider sandbox validation ---
+    # Disabled by default. Production filing is intentionally unsupported here.
+    TAX_1099_PROVIDER: str = "disabled"  # disabled | avalara_sandbox
+    AVALARA_1099_CLIENT_ID: str = ""
+    AVALARA_1099_CLIENT_SECRET: str = ""
+    AVALARA_1099_ISSUER_ID: str = ""
+    AVALARA_1099_API_VERSION: str = "2.0.0"
+
     @model_validator(mode="after")
     def reject_development_secrets_outside_development(self) -> "Settings":
         env = self.ENVIRONMENT.strip().lower()
@@ -96,6 +104,19 @@ class Settings(BaseSettings):
                 Fernet(old_key.encode("utf-8"))
         except (ValueError, TypeError) as exc:
             raise ValueError("Invalid TAX_PROFILE_PREVIOUS_KEYS_JSON") from exc
+
+        provider = self.TAX_1099_PROVIDER.strip().lower()
+        if provider not in {"disabled", "avalara_sandbox"}:
+            raise ValueError("TAX_1099_PROVIDER must be disabled or avalara_sandbox")
+        if provider == "avalara_sandbox":
+            if not all((
+                self.AVALARA_1099_CLIENT_ID.strip(),
+                self.AVALARA_1099_CLIENT_SECRET.strip(),
+                self.AVALARA_1099_ISSUER_ID.strip(),
+            )):
+                raise ValueError("Avalara sandbox requires client id, client secret, and issuer id")
+            if not self.AVALARA_1099_API_VERSION.strip():
+                raise ValueError("Avalara API version is required")
 
         if not 0.0 <= self.SENTRY_TRACES_SAMPLE_RATE <= 1.0:
             raise ValueError("SENTRY_TRACES_SAMPLE_RATE must be between 0 and 1")

@@ -121,3 +121,19 @@ class Tax1099PreflightOut(BaseModel):
     filing_enabled: bool = False
     submission_status: Literal["NOT_SUBMITTED"] = "NOT_SUBMITTED"
     blockers: list[str]
+
+
+class Tax1099ProviderDryRunIn(BaseModel):
+    """Explicit consent before encrypted taxpayer data leaves for provider sandbox validation."""
+    confirm_external_tax_data_sandbox: Literal[True]
+
+
+class Tax1099ProviderDryRunOut(BaseModel):
+    record_id: int
+    provider: Literal["AVALARA_SANDBOX"]
+    dry_run: Literal[True] = True
+    validated: bool
+    provider_http_status: int
+    submission_status: Literal["NOT_SUBMITTED"] = "NOT_SUBMITTED"
+    filing_enabled: Literal[False] = False
+    message: str

@@ -649,3 +649,143 @@ def test_competing_current_approved_returns_are_blocked_before_handoff(ctx):
     assert result.ready_for_provider_handoff
     assert result.blockers == []
     assert not result.filing_enabled
+
+
+
+def test_avalara_sandbox_dry_run_is_disabled_by_default(ctx, monkeypatch):
+    from app.schemas.tax_1099_review import Tax1099ProviderDryRunIn
+    from app.services import tax_1099_provider as provider
+
+    db, admin = ctx["db"], ctx["admin"]
+    called = []
+    monkeypatch.setattr(provider.requests, "post", lambda *a, **k: called.append((a, k)))
+    with pytest.raises(HTTPException) as exc:
+        provider.validate_avalara_sandbox_dry_run(
+            db, current_user=admin, record_id=999,
+            payload=Tax1099ProviderDryRunIn(confirm_external_tax_data_sandbox=True),
+        )
+    assert exc.value.status_code == 503
+    assert called == []
+
+
+def _ready_nec_for_provider(ctx):
+    db, admin = ctx["db"], ctx["admin"]
+    tax_profiles.upsert_tax_profile(
+        db, current_user=admin,
+        payload=_full_tax_profile(ctx, ctx["payer"], "111223333"),
+    )
+    tax_profiles.upsert_tax_profile(
+        db, current_user=admin,
+        payload=_full_tax_profile(ctx, ctx["vendor_profile"], "222334444", w9=True),
+    )
+    item = service.prepare_review(
+        db, current_user=admin,
+        payload=nec(ctx, idempotency_key="provider-sandbox-nec-2026"),
+    )
+    service.mark_reviewed(db, current_user=admin, record_id=item.id)
+    service.approve_review(db, current_user=admin, record_id=item.id, payload=approval())
+    return item
+
+
+def test_avalara_sandbox_dry_run_never_schedules_or_returns_provider_body(ctx, monkeypatch):
+    from types import SimpleNamespace
+    from app.schemas.tax_1099_review import Tax1099ProviderDryRunIn
+    from app.services import tax_1099_provider as provider
+
+    db, admin = ctx["db"], ctx["admin"]
+    item = _ready_nec_for_provider(ctx)
+    monkeypatch.setattr(settings, "TAX_1099_PROVIDER", "avalara_sandbox")
+    monkeypatch.setattr(settings, "AVALARA_1099_CLIENT_ID", "sandbox-client")
+    monkeypatch.setattr(settings, "AVALARA_1099_CLIENT_SECRET", "sandbox-secret")
+    monkeypatch.setattr(settings, "AVALARA_1099_ISSUER_ID", "sandbox-issuer")
+    monkeypatch.setattr(settings, "AVALARA_1099_API_VERSION", "2.0.0")
+
+    calls = []
+    class Fake:
+        def __init__(self, status, body):
+            self.status_code = status
+            self.text = body
+            self._body = body
+        def json(self):
+            return json.loads(self._body)
+
+    def fake_post(url, **kwargs):
+        calls.append((url, kwargs))
+        if url == provider.TOKEN_URL:
+            return Fake(200, json.dumps({"access_token": "redacted-token"}))
+        return Fake(200, json.dumps({
+            "tin": "222334444", "recipientName": "DO NOT RETURN",
+            "validation": "accepted",
+        }))
+
+    monkeypatch.setattr(provider.requests, "post", fake_post)
+    result = provider.validate_avalara_sandbox_dry_run(
+        db, current_user=admin, record_id=item.id,
+        payload=Tax1099ProviderDryRunIn(confirm_external_tax_data_sandbox=True),
+    )
+    assert result.validated is True
+    assert result.submission_status == "NOT_SUBMITTED"
+    assert result.filing_enabled is False and result.dry_run is True
+    serialized = result.model_dump_json()
+    assert "222334444" not in serialized and "DO NOT RETURN" not in serialized
+    assert len(calls) == 2
+    token_url, token_args = calls[0]
+    assert token_url == provider.TOKEN_URL
+    assert token_args["data"]["client_secret"] == "sandbox-secret"
+    form_url, form_args = calls[1]
+    assert form_url.endswith("/1099/forms/$bulk-upsert")
+    assert form_args["params"] == {"dryRun": "true"}
+    form = form_args["json"]["forms"][0]
+    assert form["type"] == "1099-NEC"
+    assert form["issuerId"] == "sandbox-issuer"
+    assert form["tin"] == "222334444"
+    assert form["nonemployeeCompensation"] == 2500.0
+    assert form["federalEFile"] is False
+    assert form["stateEFile"] is False
+    assert form["postalMail"] is False
+    audit = db.query(AuditLog).filter(
+        AuditLog.entity_type == "tax_1099_review",
+        AuditLog.action == "provider_sandbox_dry_run",
+    ).one()
+    assert "222334444" not in (audit.new_value or "")
+    assert "sandbox-secret" not in (audit.new_value or "")
+
+
+def test_avalara_sandbox_rejects_misc_until_mapping_is_verified(ctx, monkeypatch):
+    from app.schemas.tax_1099_review import Tax1099ProviderDryRunIn, Tax1099PrepareIn
+    from app.services import tax_1099_provider as provider
+
+    db, admin = ctx["db"], ctx["admin"]
+    tax_profiles.upsert_tax_profile(
+        db, current_user=admin,
+        payload=_full_tax_profile(ctx, ctx["payer"], "111223333"),
+    )
+    tax_profiles.upsert_tax_profile(
+        db, current_user=admin,
+        payload=_full_tax_profile(ctx, ctx["owner_profile"], "333445555", w9=True),
+    )
+    item = service.prepare_review(
+        db, current_user=admin,
+        payload=nec(
+            ctx, idempotency_key="provider-sandbox-misc-2026",
+            form_type="1099-MISC", income_category="RENTS",
+            recipient_profile_id=ctx["owner_profile"].id,
+        ),
+    )
+    service.mark_reviewed(db, current_user=admin, record_id=item.id)
+    service.approve_review(db, current_user=admin, record_id=item.id, payload=approval())
+    monkeypatch.setattr(settings, "TAX_1099_PROVIDER", "avalara_sandbox")
+    monkeypatch.setattr(settings, "AVALARA_1099_CLIENT_ID", "sandbox-client")
+    monkeypatch.setattr(settings, "AVALARA_1099_CLIENT_SECRET", "sandbox-secret")
+    monkeypatch.setattr(settings, "AVALARA_1099_ISSUER_ID", "sandbox-issuer")
+    monkeypatch.setattr(settings, "AVALARA_1099_API_VERSION", "2.0.0")
+    called = []
+    monkeypatch.setattr(provider.requests, "post", lambda *a, **k: called.append((a, k)))
+    with pytest.raises(HTTPException) as exc:
+        provider.validate_avalara_sandbox_dry_run(
+            db, current_user=admin, record_id=item.id,
+            payload=Tax1099ProviderDryRunIn(confirm_external_tax_data_sandbox=True),
+        )
+    assert exc.value.status_code == 422
+    assert "1099-NEC" in exc.value.detail
+    assert called == []
