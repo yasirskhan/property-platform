@@ -134,7 +134,7 @@ def test_budget_target_actual_favorable_variance_and_immutable_gl(monkeypatch):
         assert amounts[(1, "4001")] == (Decimal("1000"), Decimal("900"), Decimal("-100"))
         assert amounts[(1, "6001")] == (Decimal("400"), Decimal("350"), Decimal("50"))
         assert amounts[(2, "4001")] == (Decimal("1000"), Decimal("1200"), Decimal("200"))
-        assert "=First" not in report_csv_bytes(report).decode("utf-8-sig").splitlines()[1].split(",")[0]
+        assert report_csv_bytes(report).decode("utf-8-sig").splitlines()[1].startswith("\'=First")
         assert "'=First" in report_csv_bytes(report).decode("utf-8-sig")
         assert "'=Rent" in report_csv_bytes(report).decode("utf-8-sig")
         old = save(income, 1, "1100")
