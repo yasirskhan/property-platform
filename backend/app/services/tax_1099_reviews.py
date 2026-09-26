@@ -23,6 +23,7 @@ from app.schemas.tax_1099_review import (
     Tax1099ReviewOut, Tax1099UpdateIn,
 )
 from app.services.audit import append_audit_log
+from app.services.report_delivery import ReportPayload
 from app.services.tax_profiles import _crypto, _decode, _subject, require_tax_admin
 
 
@@ -260,3 +261,40 @@ def approve_review(
     db.commit()
     db.refresh(row)
     return _out(db, row)
+
+
+def internal_register(
+    db: Session, *, current_user: User, tax_year: int,
+) -> ReportPayload:
+    """A redacted internal review report, never an IRS or provider import file.
+
+    Live organization permissions and the dedicated tax decryption key are
+    rechecked through list_reviews. Source notes, names, addresses and complete
+    TINs must never appear here.
+    """
+    reviews = list_reviews(db, current_user=current_user, tax_year=tax_year)
+    return ReportPayload(
+        title=f"INTERNAL 1099 REVIEW REGISTER {tax_year} - NOT FOR IRS SUBMISSION",
+        filename=f"1099-internal-review-not-for-irs-{tax_year}.csv",
+        headers=(
+            "InternalUseOnly", "TaxYear", "ReviewId", "Form", "IncomeCategory",
+            "PayerProfileId", "PayerTINLast4", "RecipientProfileId",
+            "RecipientType", "RecipientId", "RecipientTINLast4", "Amount",
+            "SourceType", "SourceReference", "ReviewStatus", "W9Archived",
+            "ReviewedAt", "ApprovedAt",
+        ),
+        rows=tuple(
+            (
+                "NOT FOR IRS SUBMISSION", row.tax_year, row.id,
+                row.form_type, row.income_category, row.payer_profile_id,
+                "****" + row.payer_tin_last4,
+                row.recipient_profile_id, row.recipient_subject_type,
+                row.recipient_subject_id, "****" + row.recipient_tin_last4,
+                format(row.amount, ".2f"), row.source_type, row.source_reference,
+                row.status, "Yes" if row.w9_evidence_present else "No",
+                row.reviewed_at.isoformat() if row.reviewed_at else "",
+                row.approved_at.isoformat() if row.approved_at else "",
+            )
+            for row in reviews
+        ),
+    )

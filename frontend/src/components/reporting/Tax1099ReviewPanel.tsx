@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { apiGet, apiPost, apiPut } from "@/lib/api";
+import { apiFetch, apiGet, apiPost, apiPut } from "@/lib/api";
 
 type SubjectType = "ORGANIZATION" | "OWNER" | "VENDOR";
 type TaxProfile = {
@@ -66,6 +66,8 @@ export default function Tax1099ReviewPanel({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [classification, setClassification] = useState<Classification>("NEC");
   const [taxYear, setTaxYear] = useState(String(new Date().getFullYear()));
+  const [registerYear, setRegisterYear] = useState(String(new Date().getFullYear()));
+  const [exporting, setExporting] = useState(false);
   const [recipientProfileId, setRecipientProfileId] = useState("");
   const [amount, setAmount] = useState("");
   const [sourceType, setSourceType] = useState<Review["source_type"]>("CHECK");
@@ -229,6 +231,36 @@ export default function Tax1099ReviewPanel({
     }
   }
 
+  async function downloadInternalRegister() {
+    const year = Number(registerYear);
+    if (!Number.isSafeInteger(year) || year < 2020 || year > 2100) {
+      setError("Enter a valid report tax year.");
+      return;
+    }
+    setExporting(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await apiFetch(
+        "/api/reporting/tax-1099-reviews/register.csv?tax_year=" + year,
+        { method: "GET", headers: { Accept: "text/csv" } }
+      );
+      if (!response.ok) throw new Error("Internal register not available (" + response.status + ").");
+      const blob = await response.blob();
+      const fileUrl = URL.createObjectURL(blob);
+      const element = document.createElement("a");
+      element.href = fileUrl;
+      element.download = "1099-internal-review-not-for-irs-" + year + ".csv";
+      element.click();
+      URL.revokeObjectURL(fileUrl);
+      setMessage("Internal review register downloaded. This CSV is NOT an IRS or provider submission.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Register download failed.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5">
       <h2 className="text-lg font-semibold text-slate-900">Manual 1099 data review</h2>
@@ -242,6 +274,21 @@ export default function Tax1099ReviewPanel({
         Approval locks this preparation record but does not file it.
       </div>
 
+      <div className="mt-3 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 print:hidden">
+        <label className="text-sm font-medium text-slate-700">
+          Internal register tax year
+          <input type="number" min={2020} max={2100} value={registerYear}
+            onChange={(event) => setRegisterYear(event.target.value)}
+            className="mt-1 block w-28 rounded-lg border border-slate-300 p-2" />
+        </label>
+        <button type="button" disabled={exporting || loading} onClick={() => { void downloadInternalRegister(); }}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 disabled:opacity-50">
+          {exporting ? "Exporting…" : "Download internal review CSV"}
+        </button>
+        <span className="text-xs font-medium text-amber-900">
+          Masked IDs and preparation statuses only. Not for IRIS upload or tax filing.
+        </span>
+      </div>
       {error && <p role="alert" className="mt-3 rounded-lg border border-red-200 p-3 text-sm text-red-700">{error}</p>}
       {message && <p role="status" className="mt-3 rounded-lg border border-green-200 p-3 text-sm text-green-700">{message}</p>}
 

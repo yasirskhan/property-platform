@@ -238,3 +238,62 @@ def test_tax_review_table_is_not_generic_note_or_attachment_target(ctx):
     with pytest.raises(HTTPException) as exc:
         _model_for_table("tax_1099_reviews")
     assert exc.value.status_code == 404
+
+
+
+def test_internal_register_masked_csv_org_scope_audit_and_formula_escape(ctx, monkeypatch):
+    from app.services.report_delivery import report_csv_bytes
+    db, admin = ctx["db"], ctx["admin"]
+    monkeypatch.setattr(routes, "_require_export_feature", lambda *args: None)
+    prepared = service.prepare_review(
+        db, current_user=admin,
+        payload=nec(ctx, source_reference="=HYPERLINK(\"https://example.com\")"),
+    )
+    service.mark_reviewed(db, current_user=admin, record_id=prepared.id)
+    service.approve_review(db, current_user=admin, record_id=prepared.id,
+                           payload=approval())
+    # A separate organization's record is never exported to this admin.
+    other = service.prepare_review(
+        db, current_user=ctx["other_admin"],
+        payload=nec(
+            ctx, idempotency_key="foreign-1099-register", payer_profile_id=ctx["other_payer"].id,
+            recipient_profile_id=ctx["other_vendor_profile"].id,
+            source_reference="FOREIGN ORG PRIVATE",
+        ),
+    )
+    assert other.id != prepared.id
+    reply = routes.export_internal_register(tax_year=2026, db=db, current_user=admin)
+    content = reply.body.decode("utf-8-sig")
+    assert reply.headers["cache-control"] == "no-store"
+    assert reply.headers["x-content-type-options"] == "nosniff"
+    assert "not-for-irs" in reply.headers["content-disposition"]
+    assert "NOT FOR IRS SUBMISSION" in content
+    assert "APPROVED" in content
+    assert "****3333" in content and "****4444" in content
+    assert "'=HYPERLINK" in content
+    assert "FOREIGN ORG PRIVATE" not in content
+    for secret in ("111223333", "222334444", "444556666", "555667777"):
+        assert secret not in content
+    assert "Manual tax-year review" not in content  # Source note deliberately excluded.
+    row = db.query(AuditLog).filter(AuditLog.entity_type == "tax_1099_register").one()
+    assert row.organization_id == admin.organization_id
+    assert '"irs_submission": false' in (row.new_value or "").lower()
+    assert "4444" not in (row.new_value or "")
+    empty = routes.export_internal_register(tax_year=2025, db=db, current_user=admin)
+    assert b"NOT FOR IRS SUBMISSION" not in empty.body  # Header-only, no fabricated record.
+
+
+def test_internal_register_fails_closed_without_export_feature_or_permission(ctx, monkeypatch):
+    db, admin = ctx["db"], ctx["admin"]
+    service.prepare_review(db, current_user=admin, payload=nec(ctx))
+    with pytest.raises(HTTPException) as exc:
+        routes.export_internal_register(tax_year=2026, db=db, current_user=admin)
+    assert exc.value.status_code == 404  # Release feature is absent in fixture.
+    monkeypatch.setattr(routes, "_require_export_feature", lambda *args: None)
+    with pytest.raises(HTTPException) as exc:
+        routes.export_internal_register(tax_year=2026, db=db, current_user=ctx["vendor"])
+    assert exc.value.status_code == 403
+    with pytest.raises(HTTPException) as exc:
+        service.internal_register(db, current_user=admin, tax_year=2019)
+    assert exc.value.status_code == 422
+    assert db.query(AuditLog).filter(AuditLog.entity_type == "tax_1099_register").count() == 0

@@ -6,12 +6,15 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.user import User
+from app.routers.reporting import _require_export_feature
+from app.services.report_delivery import report_csv_bytes
+from app.services.audit import append_audit_log
 from app.routers.auth import get_current_user
 from app.schemas.tax_1099_review import (
     Tax1099ApprovalIn, Tax1099PrepareIn, Tax1099ReviewOut, Tax1099UpdateIn,
 )
 from app.services.tax_1099_reviews import (
-    approve_review, list_reviews, mark_reviewed, prepare_review, update_prepared,
+    approve_review, internal_register, list_reviews, mark_reviewed, prepare_review, update_prepared,
 )
 
 router = APIRouter(prefix="/api/reporting/tax-1099-reviews", tags=["1099 preparation review"])
@@ -61,3 +64,35 @@ def approve_record(
 ):
     response.headers.update(NO_STORE)
     return approve_review(db, current_user=current_user, record_id=record_id, payload=payload)
+
+
+@router.get("/register.csv")
+def export_internal_register(
+    tax_year: int = Query(..., ge=2020, le=2100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin-only INTERNAL redacted register. Never an IRIS/provider format."""
+    from app.services.tax_profiles import require_tax_admin
+
+    organization_id = require_tax_admin(db, current_user)
+    _require_export_feature(db, current_user)
+    payload = internal_register(db, current_user=current_user, tax_year=tax_year)
+    csv_bytes = report_csv_bytes(payload)
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=organization_id,
+        entity_type="tax_1099_register", entity_id=organization_id,
+        action="exported_internal",
+        new_value={"tax_year": tax_year, "records": len(payload.rows),
+                   "irs_submission": False},
+    )
+    db.commit()
+    return Response(
+        content=csv_bytes,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            **NO_STORE,
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": f'attachment; filename="{payload.filename}"',
+        },
+    )
