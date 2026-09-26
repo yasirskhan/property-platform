@@ -14,6 +14,7 @@ from app.core.config import settings
 from app.core.database import Base
 from app.core.security import hash_password
 from app.models.entity_attachment import EntityAttachment
+from app.models.tax_profile import TaxProfile
 from app.models.property import Property, PropertyType
 from app.models.release_gate import ReleaseGate, ReleaseStage
 from app.models.user import Organization, User, UserRole
@@ -163,6 +164,37 @@ def test_attachment_feature_fails_closed_when_release_gate_hidden(tmp_path):
         with pytest.raises(HTTPException) as exc:
             list_entity_attachments(entity_type="properties", entity_id=prop.id, db=db, current_user=admin)
         assert exc.value.status_code == 404
+    finally:
+        settings.UPLOAD_DIR = old_upload_dir
+        db.close()
+        engine.dispose()
+
+
+
+def test_tax_profiles_refuse_generic_unencrypted_attachments(tmp_path):
+    db, engine = _session()
+    old_upload_dir = settings.UPLOAD_DIR
+    settings.UPLOAD_DIR = str(tmp_path)
+    try:
+        org, _other, admin, _other_admin, _property = _seed(db)
+        tax = TaxProfile(
+            organization_id=org.id, subject_type="ORGANIZATION",
+            subject_id=org.id, encrypted_payload="ciphertext-only",
+        )
+        db.add(tax)
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            list_entity_attachments(entity_type="tax_profiles", entity_id=tax.id,
+                                    db=db, current_user=admin)
+        assert exc.value.status_code == 404
+        with pytest.raises(HTTPException) as exc:
+            asyncio.run(upload_entity_attachment(
+                entity_type="tax_profiles", entity_id=tax.id,
+                file=_pdf("sensitive-w9.pdf"), share_with_tenants=False,
+                share_with_owners=False, db=db, current_user=admin,
+            ))
+        assert exc.value.status_code == 404
+        assert db.query(EntityAttachment).count() == 0
     finally:
         settings.UPLOAD_DIR = old_upload_dir
         db.close()

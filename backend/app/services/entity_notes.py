@@ -15,6 +15,7 @@ _FORBIDDEN_TABLES = {
     "audit_log",
     "entity_notes",
     "entity_attachments",
+    "tax_profiles",  # Tax identifiers must never use generic notes/unencrypted attachments.
     "platform_users",
     "release_gates",
     "release_gate_organizations",

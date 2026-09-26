@@ -9,6 +9,7 @@ import init_db  # noqa: F401
 from app.core.database import Base
 from app.core.security import hash_password
 from app.models.entity_note import EntityNote
+from app.models.tax_profile import TaxProfile
 from app.models.property import Property, PropertyAssignment, PropertyType
 from app.models.user import Organization, User, UserRole
 from app.routers.entity_notes import add_entity_note, list_entity_notes
@@ -158,6 +159,29 @@ def test_internal_platform_tables_are_not_note_targets():
                 db=db,
                 current_user=admin,
             )
+        assert exc.value.status_code == 404
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+def test_tax_profiles_are_not_generic_note_targets():
+    db, engine = _session()
+    try:
+        org = Organization(name="Protected Tax Org", slug="protected-tax-notes")
+        db.add(org)
+        db.flush()
+        admin = _user(db, org=org, email="tax-notes-admin@example.com", role=UserRole.ADMIN)
+        tax = TaxProfile(
+            organization_id=org.id, subject_type="ORGANIZATION",
+            subject_id=org.id, encrypted_payload="ciphertext-only",
+        )
+        db.add(tax)
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            list_entity_notes(entity_type="tax_profiles", entity_id=tax.id,
+                              db=db, current_user=admin)
         assert exc.value.status_code == 404
     finally:
         db.close()
