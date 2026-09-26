@@ -140,13 +140,16 @@ def test_3_day_notice_draft_requires_explicit_legal_approval_and_no_cross_org_de
     try:
         admin, manager, tenant, other, other_tenant, p1, p2, po, l1, l2, lo = _seed(db)
         created = router.create_letter(_payload("THREE_DAY_NOTICE"), Response(), db=db, current_user=admin)
+        reviewed = router.preview_letter(created.id, l1.id, Response(), db=db, current_user=admin)
         seen = []
         monkeypatch.setattr(router, "send_email", lambda **kw: seen.append(kw))
         for payload in (
             LetterSendIn(lease_id=l1.id, confirm_recipient=False,
-                         confirm_content_reviewed=True, confirm_legal_review=True),
+                         confirm_content_reviewed=True, confirm_legal_review=True,
+                         review_token=reviewed.review_token),
             LetterSendIn(lease_id=l1.id, confirm_recipient=True,
-                         confirm_content_reviewed=True, confirm_legal_review=False),
+                         confirm_content_reviewed=True, confirm_legal_review=False,
+                         review_token=reviewed.review_token),
         ):
             with pytest.raises(HTTPException) as exc:
                 router.send_letter(created.id, payload, Response(), db=db, current_user=admin)
@@ -155,13 +158,15 @@ def test_3_day_notice_draft_requires_explicit_legal_approval_and_no_cross_org_de
         with pytest.raises(HTTPException) as exc:
             router.send_letter(created.id, LetterSendIn(
                 lease_id=lo.id, confirm_recipient=True,
-                confirm_content_reviewed=True, confirm_legal_review=True),
+                confirm_content_reviewed=True, confirm_legal_review=True,
+                review_token=reviewed.review_token),
                 Response(), db=db, current_user=admin)
         assert exc.value.status_code == 404
         assert not seen
         result = router.send_letter(created.id, LetterSendIn(
             lease_id=l1.id, confirm_recipient=True,
-            confirm_content_reviewed=True, confirm_legal_review=True),
+            confirm_content_reviewed=True, confirm_legal_review=True,
+            review_token=reviewed.review_token),
             Response(), db=db, current_user=admin)
         assert result.sent and result.recipient_email == tenant.email
         assert len(seen) == 1 and seen[0]["to"] == tenant.email
@@ -209,6 +214,64 @@ def test_template_rejects_cross_org_and_unscoped_lease():
         assert exc.value.status_code == 404
         assert "Private" not in router.preview_letter(
             created.id, l1.id, Response(), db=db, current_user=admin).body
+    finally:
+        db.close()
+        e.dispose()
+
+
+
+def test_email_requires_exact_current_preview_content_and_recipient(monkeypatch):
+    db, e = _session()
+    try:
+        admin, manager, tenant, other, other_tenant, p1, p2, po, l1, l2, lo = _seed(db)
+        created = router.create_letter(_payload(), Response(), db=db, current_user=admin)
+        first = router.preview_letter(created.id, l1.id, Response(), db=db, current_user=admin)
+        assert len(first.review_token) == 64
+        sent = []
+        monkeypatch.setattr(router, "send_email", lambda **kw: sent.append(kw))
+        def send(token):
+            return router.send_letter(created.id, LetterSendIn(
+                lease_id=l1.id, confirm_recipient=True, confirm_content_reviewed=True,
+                review_token=token), Response(), db=db, current_user=admin)
+        router.update_letter(created.id, LetterTemplateIn(
+            title="Welcome", category="CUSTOM", subject="Changed {{tenant_name}}",
+            body="Hello {{tenant_name}}"), Response(), db=db, current_user=admin)
+        with pytest.raises(HTTPException) as exc:
+            send(first.review_token)
+        assert exc.value.status_code == 409
+        assert not sent
+        new = router.preview_letter(created.id, l1.id, Response(), db=db, current_user=admin)
+        assert first.review_token != new.review_token
+        tenant.email = "letters-tenant-renamed@example.com"
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            send(new.review_token)
+        assert exc.value.status_code == 409
+        assert not sent
+        current = router.preview_letter(created.id, l1.id, Response(), db=db, current_user=admin)
+        assert send(current.review_token).recipient_email == tenant.email
+        assert len(sent) == 1
+        with pytest.raises(HTTPException) as exc:
+            router.send_letter(created.id, LetterSendIn(
+                lease_id=l2.id, confirm_recipient=True,
+                confirm_content_reviewed=True, review_token=current.review_token),
+                Response(), db=db, current_user=admin)
+        assert exc.value.status_code == 409
+    finally:
+        db.close()
+        e.dispose()
+
+
+def test_preview_token_is_bound_to_reviewing_staff_user():
+    db, e = _session()
+    try:
+        admin, manager, tenant, other, other_tenant, p1, p2, po, l1, l2, lo = _seed(db)
+        created = router.create_letter(_payload(), Response(), db=db, current_user=admin)
+        admin_token = router.preview_letter(
+            created.id, l1.id, Response(), db=db, current_user=admin).review_token
+        manager_token = router.preview_letter(
+            created.id, l1.id, Response(), db=db, current_user=manager).review_token
+        assert admin_token != manager_token
     finally:
         db.close()
         e.dispose()

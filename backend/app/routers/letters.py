@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Response
+import hmac
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -145,6 +146,11 @@ def send_letter(letter_id: int, payload: LetterSendIn, response: Response,
     if row.category == "THREE_DAY_NOTICE" and not payload.confirm_legal_review:
         raise HTTPException(status_code=422, detail="Legal notice review required.")
     result = render_for_lease(db, user=current_user, row=row, lease_id=payload.lease_id)
+    if not hmac.compare_digest(payload.review_token, result.review_token):
+        raise HTTPException(
+            status_code=409,
+            detail="Reviewed letter changed. Preview and confirm the current content again.",
+        )
     # Destination is obtained exclusively from the current scoped lease; never
     # accept arbitrary supplied email, external recipient or unreviewed tokens.
     send_email(to=result.recipient_email, subject=result.subject, body=result.body,

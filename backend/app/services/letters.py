@@ -2,6 +2,11 @@
 from __future__ import annotations
 
 import re
+import hashlib
+import hmac
+import json
+
+from app.core.config import settings
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -109,15 +114,32 @@ def render_plain(text: str, values: dict[str, str]) -> str:
     return TOKEN.sub(lambda match: values[match.group(1)], text)
 
 
+def _review_token(*, user: User, row: LetterTemplate, lease_id: int,
+                  subject: str, body: str, recipient_email: str) -> str:
+    """HMAC binds reviewed content, recipient and requesting employee."""
+    material = json.dumps({
+        "user_id": user.id, "organization_id": row.organization_id,
+        "letter_id": row.id, "lease_id": lease_id,
+        "category": row.category, "subject": subject, "body": body,
+        "recipient_email": recipient_email,
+    }, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    return hmac.new(settings.SECRET_KEY.encode("utf-8"), material, hashlib.sha256).hexdigest()
+
+
 def render_for_lease(db: Session, *, user: User, row: LetterTemplate, lease_id: int):
     values, tenant, property_id = tenant_context(db, user=user, lease_id=lease_id)
     validate_letter(row.subject, row.body)
     from app.schemas.letter import LetterPreviewOut
+    subject = render_plain(row.subject, values)
+    body = render_plain(row.body, values)
     return LetterPreviewOut(
         title=row.title, category=row.category,
-        subject=render_plain(row.subject, values),
-        body=render_plain(row.body, values),
+        subject=subject, body=body,
         recipient_email=tenant.email, tenant_id=tenant.id,
         lease_id=lease_id, property_id=property_id,
         legal_notice_review_required=row.category == "THREE_DAY_NOTICE",
+        review_token=_review_token(
+            user=user, row=row, lease_id=lease_id, subject=subject,
+            body=body, recipient_email=tenant.email,
+        ),
     )

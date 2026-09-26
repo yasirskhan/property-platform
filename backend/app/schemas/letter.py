@@ -39,6 +39,7 @@ class LetterPreviewOut(BaseModel):
     lease_id: int
     property_id: int
     legal_notice_review_required: bool
+    review_token: str
 
 
 class LetterSendIn(BaseModel):
@@ -46,6 +47,7 @@ class LetterSendIn(BaseModel):
     confirm_recipient: bool
     confirm_content_reviewed: bool
     confirm_legal_review: bool = False
+    review_token: str = Field(min_length=64, max_length=64)
 
 
 class LetterSendOut(BaseModel):
