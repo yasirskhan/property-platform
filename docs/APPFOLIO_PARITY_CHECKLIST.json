@@ -9,12 +9,12 @@
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
     "last_updated": "2026-09-25",
-    "migration_head": "c8e0a2b4d6f9",
+    "migration_head": "d9f1b3c5e7a0",
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 253,
-    "scheduled_count": 375,
+    "built_count": 255,
+    "scheduled_count": 373,
     "in_progress_count": 0
   },
   "items": [
@@ -1726,7 +1726,7 @@
       "id": "settings.auditing_center",
       "area": "Settings / Auditing",
       "feature": "Auditing Center",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.6"
     },
     {
@@ -1747,7 +1747,7 @@
       "id": "settings.my_profile",
       "area": "Settings / My Settings",
       "feature": "Profile, notifications, email signature, reply-to",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.6"
     },
     {

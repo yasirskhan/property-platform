@@ -99,6 +99,7 @@ export const MENU_ENTRIES: Record<string, MenuEntry> = {
   "SETTINGS.SIDEBAR":     { key: "SETTINGS.SIDEBAR",     label: "Sidebar",             href: "/dashboard/settings/sidebar",     icon: "" },
   "SETTINGS.FEATURES":    { key: "SETTINGS.FEATURES",    label: "Features",            href: "/dashboard/settings/features",    icon: "" },
   "SETTINGS.ACCOUNTING":  { key: "SETTINGS.ACCOUNTING",  label: "Accounting",          href: "/dashboard/settings/accounting",  icon: "" },
+  "SETTINGS.AUDIT":       { key: "SETTINGS.AUDIT",       label: "Auditing Center",     href: "/dashboard/settings/audit",       icon: "" },
 };
 
 // ------------------------------------------------------------

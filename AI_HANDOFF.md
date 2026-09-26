@@ -27,18 +27,19 @@ IMPORTANT:
 - Owner Statements — Required Reserves + Prepaid Rent + Property Cash Summary is COMPLETE/VERIFIED.
 - Owner Packets — Customizer fields is COMPLETE/VERIFIED.
 - Settings — Accounting Settings (Key Accounts, GPR, Receipts, Checks, Reports) is COMPLETE/VERIFIED.
-- Current batch: Settings — Accounting Basis toggle (Accrual default | Cash), report layer only. IMPLEMENTATION PREPARED; CI pending.
+- Accounting Basis is COMPLETE/VERIFIED.
+- My Settings is COMPLETE/VERIFIED.
+- Current batch: Settings — Auditing Center. IMPLEMENTATION COMMITTED; CI pending.
 
 # Latest Verified Green Checkpoint
 
-Owner Packet customizer checkpoint:
-- 825a3eaef5834a8c3dcc08550cc7d409445add62
-- "Phase 3.6: add owner packet customizer settings"
+My Settings checkpoint:
+- ef6f9bc7566043463eac8cf11ec3992049a77cfb — "Phase 3.6: add My Settings self-service"
 
 Hosted CI:
-- Run 36200032326: SUCCESS
-- Backend: 344 passed, 3 deselected, 2799 warnings in 55.94s
-- E2E: 3 passed in 8.50s
+- Run 36203296248: SUCCESS
+- Backend: 352 passed, 3 deselected, 2886 warnings in 48.21s
+- E2E: 3 passed in 9.31s
 - Frontend: SUCCESS
 - Platform admin: SUCCESS
 - Security: SUCCESS
@@ -47,13 +48,13 @@ Hosted CI:
 - Parity/registry consistency: CLEAN
 - Secret-pattern scan: CLEAN
 
-Current parity source-of-truth:
+Current parity source-of-truth after Auditing Center implementation:
 - total_items: 628
-- built_count: 252
-- scheduled_count: 376
+- built_count: 255
+- scheduled_count: 373
 - in_progress_count: 0
-- migration_head: a6c8e0f2b4d7
-- expected model-table count: 94
+- migration_head: d9f1b3c5e7a0
+- expected model-table count: 96
 
 # Bank Adjustments
 
@@ -395,16 +396,13 @@ Implementation prepared:
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Settings — Accounting Settings (Key Accounts, GPR, Receipts, Checks, Reports)
-2. Settings — Accounting Basis toggle (Accrual default | Cash), report layer only
-3. Settings — My Settings
-4. Settings — Auditing Center
-5. Settings — Two-step verification
-6. Settings — Login history
-7. Universal — delete_reason UI
-8. Universal — Notes expansion
-9. Universal — Audit Log expansion
-10. Continue into Phase 3.7 without stopping at the phase boundary
+1. Settings — Auditing Center (current, CI pending)
+2. Settings — Two-step verification
+3. Settings — Login history
+4. Universal — delete_reason UI
+5. Universal — Notes expansion
+6. Universal — Audit Log expansion
+7. Continue into Phase 3.7 without stopping at the phase boundary
 
 # Working Rules
 
@@ -466,3 +464,31 @@ Plan:
 - TESTS NOT RUN locally in this connector-only session.
 - CI run 36202362237 found one frontend TypeScript red: the post-save Accounting Settings form rehydration omitted the new required accounting_basis field. Backend verification was still running when the corrected head superseded the run.
 - Corrected the post-save form rehydration; hosted CI verification pending.
+
+
+# My Settings — COMPLETE / VERIFIED
+
+Implementation:
+- Per-user self-service profile, profile photo, notification/email preferences, reply-to, language/export overrides, and password change.
+- Personal settings never grant organization capabilities or permissions.
+- Migration head d9f1b3c5e7a0; expected model-table count 96.
+- Hosted CI run 36203296248: SUCCESS.
+- Backend: 352 passed, 3 deselected, 2886 warnings in 48.21s.
+- E2E: 3 passed in 9.31s.
+- Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
+
+
+# Auditing Center — Current Batch
+
+Implementation:
+- Reuses the existing append-only AuditLog; no duplicate audit store and no mutation endpoint.
+- GET /api/settings/audit supports org-scoped filters for entity, action, actor, date range, and free-text change search.
+- GET /api/settings/audit/export.csv exports the same authorized/filterable data, capped at 10,000 rows.
+- Backend authorization requires SETTINGS.AUDIT plus release.settings.audit; UI hiding is not security.
+- SETTINGS.AUDIT is release-gated and defaults to ADMIN/OWNER through the existing menu matrix.
+- Customer route: /dashboard/settings/audit.
+- No schema migration; head remains d9f1b3c5e7a0 / 96 model tables.
+- Parity inventory: 255 built / 373 scheduled / 0 in-progress.
+- Regression coverage: backend/tests/test_audit_center.py.
+- TESTS NOT RUN locally in this connector-only session.
+- Hosted CI verification pending.

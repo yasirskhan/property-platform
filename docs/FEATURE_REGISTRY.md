@@ -800,7 +800,7 @@ access boundary.
 | Owners | settings family | release.settings.owners | owner_portal | yes | SETTINGS | no | ❌ missing | Owner configuration |
 | Communication | settings family | release.settings.communication | messaging | yes | SETTINGS | no | ❌ missing | Channel/template/quiet-hours configuration |
 | Approvals | settings family | release.settings.approvals | approvals | yes | SETTINGS | no | ❌ missing | Approval workflow settings |
-| Auditing Center | settings family | release.settings.audit | audit_center | yes | SETTINGS | no | ❌ missing | Queryable audit access/retention |
+| Auditing Center | settings family | release.settings.audit | audit_center | yes | SETTINGS | no | ✅ built | Read-only org-scoped immutable audit activity with filters and CSV export |
 | Property Groups | settings family | release.settings.property_groups | property_groups | yes | SETTINGS | no | ❌ missing | Property group management |
 | Risk / Tags / Affordable | settings family | release.settings.risk_tags_affordable | compliance | yes | SETTINGS | no | ❌ missing | Expansion/compliance settings |
 | Developer / API Keys | settings family | release.settings.developer | api_access | yes | SETTINGS | no | ❌ missing | External API keys/integration controls |
