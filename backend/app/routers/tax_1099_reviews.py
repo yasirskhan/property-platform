@@ -12,9 +12,11 @@ from app.services.audit import append_audit_log
 from app.routers.auth import get_current_user
 from app.schemas.tax_1099_review import (
     Tax1099ApprovalIn, Tax1099PrepareIn, Tax1099ReviewOut, Tax1099UpdateIn,
+    Tax1099PreflightOut,
 )
 from app.services.tax_1099_reviews import (
     approve_review, internal_register, list_reviews, mark_reviewed, prepare_review, update_prepared,
+    preflight_review,
 )
 
 router = APIRouter(prefix="/api/reporting/tax-1099-reviews", tags=["1099 preparation review"])
@@ -96,3 +98,13 @@ def export_internal_register(
             "Content-Disposition": f'attachment; filename="{payload.filename}"',
         },
     )
+
+
+
+@router.get("/{record_id}/preflight", response_model=Tax1099PreflightOut)
+def check_provider_preflight(
+    record_id: int, response: Response,
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    response.headers.update(NO_STORE)
+    return preflight_review(db, current_user=current_user, record_id=record_id)

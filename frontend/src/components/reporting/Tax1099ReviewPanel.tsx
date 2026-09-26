@@ -42,6 +42,16 @@ type Review = {
   threshold_review_confirmed: boolean;
   recipient_review_confirmed: boolean;
 };
+type Preflight = {
+  record_id: number;
+  tax_year: number;
+  form_type: string;
+  review_status: string;
+  ready_for_provider_handoff: boolean;
+  filing_enabled: boolean;
+  submission_status: "NOT_SUBMITTED";
+  blockers: string[];
+};
 type Classification = "NEC" | "MISC";
 type ApprovalChecks = { source: boolean; threshold: boolean; recipient: boolean };
 
@@ -75,6 +85,7 @@ export default function Tax1099ReviewPanel({
   const [sourceReference, setSourceReference] = useState("");
   const [sourceNote, setSourceNote] = useState("");
   const [approvalChecks, setApprovalChecks] = useState<Record<number, ApprovalChecks>>({});
+  const [preflights, setPreflights] = useState<Record<number, Preflight>>({});
 
   useEffect(() => {
     let active = true;
@@ -262,6 +273,23 @@ export default function Tax1099ReviewPanel({
     }
   }
 
+  async function checkPreflight(item: Review) {
+    setBusyId(item.id);
+    setError("");
+    setMessage("");
+    try {
+      const result = await apiGet(
+        "/api/reporting/tax-1099-reviews/" + item.id + "/preflight"
+      ) as Preflight;
+      setPreflights((current) => ({ ...current, [item.id]: result }));
+      setMessage("Local prerequisite check complete. No tax return has been submitted.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to check local prerequisites.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5">
       <h2 className="text-lg font-semibold text-slate-900">Manual 1099 data review</h2>
@@ -412,6 +440,11 @@ export default function Tax1099ReviewPanel({
                         Re-review changed taxpayer profile
                       </button>
                     )}
+                    <button type="button" disabled={busyId !== null}
+                      onClick={() => { void checkPreflight(item); }}
+                      className="rounded-md border px-3 py-1.5 text-sm disabled:opacity-50">
+                      {busyId === item.id ? "Checking…" : "Check provider prerequisites"}
+                    </button>
                     {item.status === "APPROVED" && (
                       <span className={item.profile_changed_since_review
                         ? "rounded-md bg-red-50 px-3 py-1.5 text-sm font-medium text-red-800"
@@ -423,6 +456,25 @@ export default function Tax1099ReviewPanel({
                     )}
                   </div>
                 </div>
+                {preflights[item.id] && (
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                    <p className="font-semibold text-slate-800">
+                      {preflights[item.id].ready_for_provider_handoff
+                        ? "Local prerequisites recorded · filing not enabled"
+                        : "Prerequisites still missing"}
+                    </p>
+                    <p className="mt-1 text-slate-600">
+                      No IRS/provider transmission, recipient delivery or form generation has occurred.
+                    </p>
+                    {preflights[item.id].blockers.length > 0 && (
+                      <ul className="mt-2 list-disc pl-5 text-amber-900">
+                        {preflights[item.id].blockers.map((blocker, index) => (
+                          <li key={index}>{blocker}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
                 {item.status === "REVIEWED" && !item.profile_changed_since_review && (
                   <fieldset className="mt-3 rounded-lg bg-slate-50 p-3">
                     <legend className="text-sm font-semibold text-slate-800">Approval checklist</legend>

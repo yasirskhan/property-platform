@@ -20,7 +20,7 @@ from app.models.tax_w9_document import TaxW9Document
 from app.models.user import User
 from app.schemas.tax_1099_review import (
     Tax1099ApprovalIn, Tax1099DataIn, Tax1099PrepareIn,
-    Tax1099ReviewOut, Tax1099UpdateIn,
+    Tax1099ReviewOut, Tax1099UpdateIn, Tax1099PreflightOut,
 )
 from app.services.audit import append_audit_log
 from app.services.report_delivery import ReportPayload
@@ -330,3 +330,69 @@ def internal_register(
             for row in reviews
         ),
     )
+
+
+
+def _complete_tax_profile(data: dict[str, object]) -> bool:
+    """Check shape only; do not return/log actual taxpayer data."""
+    for name in (
+        "legal_name", "address_line1", "city", "state",
+        "postal_code", "country", "tin_type", "tax_classification",
+    ):
+        value = data.get(name)
+        if not isinstance(value, str) or not value.strip():
+            return False
+    tin = data.get("tin")
+    return isinstance(tin, str) and len(tin) == 9 and tin.isdigit()
+
+
+def preflight_review(
+    db: Session, *, current_user: User, record_id: int,
+) -> Tax1099PreflightOut:
+    """Recheck only local prerequisites. Never claim IRS/provider filing.
+
+    Full decrypted tax data exists only inside this service for validation,
+    and must never be serialized into HTTP responses or audit records.
+    """
+    organization_id = require_tax_admin(db, current_user)
+    row = _row(db, organization_id=organization_id, record_id=record_id)
+    payload = _payload_from_row(row)
+    payer, recipient, _, _, w9_evidence = _profiles(
+        db, organization_id=organization_id, payload=payload,
+        require_current_subject=True, require_w9=False,
+    )
+    blockers: list[str] = []
+    if row.status != "APPROVED":
+        blockers.append("Manual tax-year approval is required.")
+    if _stale(row, payer, recipient):
+        blockers.append("Taxpayer profile changed since review; new approval is required.")
+    if not all((row.source_review_confirmed, row.threshold_review_confirmed,
+                row.recipient_review_confirmed)):
+        blockers.append("All source, threshold and recipient attestations are required.")
+    if not recipient.w9_on_file or not w9_evidence:
+        blockers.append("An archived, signed paper W-9 is required.")
+    cipher = _crypto()
+    if not _complete_tax_profile(_decode(payer, cipher)):
+        blockers.append("Payer tax profile must have complete verified identifiers and address.")
+    if not _complete_tax_profile(_decode(recipient, cipher)):
+        blockers.append("Recipient tax profile must have complete verified identifiers and address.")
+    if not row.source_reference.strip() or row.amount <= Decimal("0"):
+        blockers.append("A positive manually verified amount and supporting source are required.")
+
+    # An internal preflight is NOT an IRS filing eligibility determination:
+    # tax-year exceptions, state filing and the actual provider/TCC path
+    # still need separate current-rule validation and authorization.
+    outcome = Tax1099PreflightOut(
+        record_id=row.id, tax_year=row.tax_year, form_type=row.form_type,
+        review_status=row.status,
+        ready_for_provider_handoff=not blockers,
+        blockers=blockers,
+    )
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=organization_id,
+        entity_type="tax_1099_review", entity_id=row.id, action="preflight_checked",
+        new_value={"tax_year": row.tax_year, "blocker_count": len(blockers),
+                   "submitted": False},
+    )
+    db.commit()
+    return outcome

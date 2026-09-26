@@ -108,3 +108,16 @@ class Tax1099ReviewOut(BaseModel):
     approved_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+
+class Tax1099PreflightOut(BaseModel):
+    """No name, address, full tax ID, or IRS-transmission artifact."""
+    record_id: int
+    tax_year: int
+    form_type: str
+    review_status: str
+    ready_for_provider_handoff: bool
+    filing_enabled: bool = False
+    submission_status: Literal["NOT_SUBMITTED"] = "NOT_SUBMITTED"
+    blockers: list[str]

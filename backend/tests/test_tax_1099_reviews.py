@@ -434,3 +434,109 @@ def test_legacy_approved_records_without_revision_snapshot_fail_closed(ctx):
     historical = service.list_reviews(db, current_user=admin)[0]
     assert historical.status == "APPROVED"
     assert historical.profile_changed_since_review
+
+
+
+def _full_tax_profile(ctx, subject, tin, w9=False):
+    from app.schemas.tax_profile import TaxProfileUpsertIn
+    return TaxProfileUpsertIn(
+        subject_type=subject.subject_type, subject_id=subject.subject_id,
+        legal_name="Taxpayer Legal Name", tax_classification="INDIVIDUAL",
+        tin_type="SSN" if subject.subject_type != "ORGANIZATION" else "EIN",
+        tin=tin, address_line1="123 Private Street", city="Cleveland",
+        state="OH", postal_code="44113", country="USA",
+        w9_on_file=w9, w9_received_on=date(2026, 9, 25) if w9 else None,
+    )
+
+
+def test_preflight_never_fabricates_filing_or_exposes_taxpayer_data(ctx):
+    db, admin = ctx["db"], ctx["admin"]
+    item = service.prepare_review(db, current_user=admin, payload=nec(ctx))
+    service.mark_reviewed(db, current_user=admin, record_id=item.id)
+    service.approve_review(db, current_user=admin, record_id=item.id,
+                           payload=approval())
+
+    # Older paper profiles with only TIN/classification cannot pass
+    # payer/recipient identity and address completeness validation.
+    reply = Response()
+    incomplete = routes.check_provider_preflight(
+        item.id, reply, db=db, current_user=admin,
+    )
+    assert reply.headers["cache-control"] == "no-store"
+    assert incomplete.ready_for_provider_handoff is False
+    assert incomplete.filing_enabled is False
+    assert incomplete.submission_status == "NOT_SUBMITTED"
+    assert len(incomplete.blockers) == 2
+    assert "Payer" in incomplete.blockers[0]
+    assert "Recipient" in incomplete.blockers[1]
+    for secret in ("111223333", "222334444", "123 Private Street"):
+        assert secret not in incomplete.model_dump_json()
+
+    # Update both profiles, then create a new explicitly reviewed record.
+    tax_profiles.upsert_tax_profile(
+        db, current_user=admin,
+        payload=_full_tax_profile(ctx, ctx["payer"], "111223333"),
+    )
+    tax_profiles.upsert_tax_profile(
+        db, current_user=admin,
+        payload=_full_tax_profile(ctx, ctx["vendor_profile"], "222334444", w9=True),
+    )
+    assert service.preflight_review(
+        db, current_user=admin, record_id=item.id,
+    ).ready_for_provider_handoff is False  # stale immutable approval
+    corrected = service.prepare_review(
+        db, current_user=admin,
+        payload=nec(ctx, idempotency_key="preflight-updated-2026"),
+    )
+    service.mark_reviewed(db, current_user=admin, record_id=corrected.id)
+    service.approve_review(db, current_user=admin, record_id=corrected.id,
+                           payload=approval())
+    ready = service.preflight_review(
+        db, current_user=admin, record_id=corrected.id,
+    )
+    assert ready.ready_for_provider_handoff
+    assert ready.blockers == []
+    assert not ready.filing_enabled
+    assert ready.submission_status == "NOT_SUBMITTED"
+    for secret in ("111223333", "222334444", "123 Private Street"):
+        assert secret not in ready.model_dump_json()
+    events = db.query(AuditLog).filter(
+        AuditLog.entity_type == "tax_1099_review",
+        AuditLog.action == "preflight_checked",
+    ).all()
+    assert len(events) == 3
+    for event in events:
+        assert "111223333" not in (event.new_value or "")
+        assert "222334444" not in (event.new_value or "")
+        assert "Taxpayer Legal Name" not in (event.new_value or "")
+
+
+def test_provider_preflight_scope_and_revocation(ctx, monkeypatch):
+    db, admin = ctx["db"], ctx["admin"]
+    item = service.prepare_review(db, current_user=admin, payload=nec(ctx))
+    for actor, wanted in ((ctx["other_admin"], 404), (ctx["vendor"], 403)):
+        with pytest.raises(HTTPException) as exc:
+            service.preflight_review(db, current_user=actor, record_id=item.id)
+        assert exc.value.status_code == wanted
+    monkeypatch.setattr(tax_profiles, "permission_allows_user", lambda *a, **kw: False)
+    with pytest.raises(HTTPException) as exc:
+        service.preflight_review(db, current_user=admin, record_id=item.id)
+    assert exc.value.status_code == 403
+    assert db.query(AuditLog).filter(AuditLog.action == "preflight_checked").count() == 0
+
+
+def test_provider_preflight_requires_signed_w9_even_after_manual_approval(ctx):
+    db, admin = ctx["db"], ctx["admin"]
+    item = service.prepare_review(db, current_user=admin, payload=nec(ctx))
+    service.mark_reviewed(db, current_user=admin, record_id=item.id)
+    service.approve_review(db, current_user=admin, record_id=item.id,
+                           payload=approval())
+    db.query(TaxW9Document).filter(
+        TaxW9Document.tax_profile_id == ctx["vendor_profile"].id,
+    ).delete()
+    db.commit()
+    preflight = service.preflight_review(
+        db, current_user=admin, record_id=item.id,
+    )
+    assert not preflight.ready_for_provider_handoff
+    assert any("signed paper W-9" in text for text in preflight.blockers)
