@@ -68,10 +68,19 @@ class Settings(BaseSettings):
 
     # --- Encryption key for sensitive data ---
     ENCRYPTION_KEY: str = DEV_ENCRYPTION_KEY
+    # Independent operator-provisioned key; no insecure development fallback.
+    TAX_PROFILE_ENCRYPTION_KEY: str = ""
 
     @model_validator(mode="after")
     def reject_development_secrets_outside_development(self) -> "Settings":
         env = self.ENVIRONMENT.strip().lower()
+        if self.TAX_PROFILE_ENCRYPTION_KEY:
+            if self.TAX_PROFILE_ENCRYPTION_KEY == self.ENCRYPTION_KEY:
+                raise ValueError("Tax profile encryption requires a dedicated key")
+            try:
+                Fernet(self.TAX_PROFILE_ENCRYPTION_KEY.encode("utf-8"))
+            except Exception as exc:
+                raise ValueError("Invalid TAX_PROFILE_ENCRYPTION_KEY") from exc
 
         if not 0.0 <= self.SENTRY_TRACES_SAMPLE_RATE <= 1.0:
             raise ValueError("SENTRY_TRACES_SAMPLE_RATE must be between 0 and 1")

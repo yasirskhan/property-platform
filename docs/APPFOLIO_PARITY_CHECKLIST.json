@@ -2311,9 +2311,10 @@
     {
       "id": "reporting.1099",
       "area": "Reporting",
-      "feature": "Generate 1099 Forms & Reports (FIRE file + Print)",
+      "feature": "Generate 1099 Forms & Reports (IRIS / approved provider + recipient copies)",
       "status": "scheduled",
-      "phase": "3.7"
+      "phase": "3.7",
+      "notes": "2026-09-26 user-authorized modernization: retire FIRE file target for tax year 2026; encrypted W-9/tax-profile prerequisites moved forward. Filing, corrections and e-delivery remain scheduled until verified against IRS-current IRIS/provider specifications."
     },
     {
       "id": "maintenance.work_orders.delete_rules",

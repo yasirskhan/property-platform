@@ -297,13 +297,19 @@ the bank rejects any check not on the list.
 
 ## C9. 1099 e-filing
 
-**Decision:** Provider-based. **Track1099** or equivalent. Handles
-IRS FIRE system, e-delivery, corrections.
+**Decision (2026-09-26):** Use IRS IRIS (Taxpayer Portal / approved A2A) or
+Track1099 or an equivalent supported provider. FIRE retires for the 2027 filing
+season; do not generate legacy FIRE submissions for tax year 2026. Bring secure
+payer/recipient tax profiles and W-9 intake ahead of Phase 3.7 filing; keep
+actual transmission, recipient delivery, corrections and provider workflows
+in the Phase 4.5 integration scope until verified. Follow the applicable tax-
+year IRS instructions and do not infer reportable payments from raw GL totals.
 
 - Vendor 1099-NEC (non-employee compensation)
 - Owner 1099-MISC (rent paid directly to individual owners, when
   applicable)
-- W-9 collection + tracking + expiration alerts
+- Secure W-9/tax-profile intake and tracking: prerequisite pulled into Phase 3.7;
+  provider e-delivery/corrections/retention/expiration alerts remain Phase 4.5
 
 **Phase:** **Phase 4.5.**
 

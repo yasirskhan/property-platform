@@ -1192,7 +1192,7 @@ Phase 3.7 — Reports + Universal Attachments (57 items — see JSON for full li
   - Print / Email / CSV Export on every report
   - Custom Report Builder (saved configurations)
   - Create Labels Report (mail merge via CSV)
-  - Generate 1099 Forms & Reports (FIRE file)
+  - Generate 1099 Forms & Reports (IRIS or approved provider; secure W-9/tax profiles first)
   Letters:
   - Letters Overview + View/Edit + Custom + Print/Email + 3-Day Notice
   - Send Owner Packets
@@ -2033,7 +2033,7 @@ the summary:
 - ⬜ Report framework (standard vs enhanced) — Phase 3.7 [PDF p.81]
 - ⬜ Print / Email / CSV Export on every report — Phase 3.7 [PDF pp.83–86]
 - ⬜ Create Labels Report — Phase 3.7 [PDF p.87]
-- ⬜ Generate 1099 Forms & Reports (FIRE file + print) — Phase 3.7 [PDF p.89]
+- ⬜ Generate 1099 Forms & Reports (IRIS or approved provider + recipient copies; secure W-9/tax profiles first) — Phase 3.7 [PDF p.89]
 - ⬜ Letters module (Overview, View/Edit, Custom, Print/Email, 3-Day Notice) — Phase 3.7 [PDF pp.90–95]
 - ⬜ Send Owner Packets — Phase 3.7 [PDF pp.30, 95]
 - ⬜ Security Deposit Funds Detail report — Phase 3.7 [PDF p.81]
