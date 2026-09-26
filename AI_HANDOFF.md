@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `0afaec13accb9594d782cd088feca2ef5f92c927`
-- Source GitHub Actions run **36273058209: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `5d9b4142275cdb759ca2701cd1f567f776616100`
+- Source GitHub Actions run **36273560029: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **438 passed, 3 deselected, 4712 warnings in 87.86s**.
-  E2E: **3 passed in 9.08s**. Lint, typecheck, production build, security
+  Backend: **440 passed, 3 deselected, 4788 warnings in 48.62s**.
+  E2E: **3 passed in 6.63s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -20,14 +20,14 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   with the tax-profile revision migration; no new model table. All three
   PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Letters backend templates and guarded tenant mail merge. VERIFIED.**
+  **Latest completed batch: Letters full customer UI and signed preview/email integrity. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT executable original-plan task: Letters customer UI — Overview, View/Edit,
-  Custom, Print/Email, and reviewed 3-Day Notice. Backend batch VERIFIED.** Do not repeat verified preflight,
+- **Exact NEXT executable original-plan task: Send Owner Packets.
+  Letters Overview, View/Edit, Custom, Print/Email and reviewed 3-Day Notice VERIFIED.** Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
 ## Verification chronology — don't reimplement
@@ -55,6 +55,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Avalara 1099-MISC rents sandbox mapping | 49dd9e5129df94e3721f3a97caa0415738bc24bb | 36271476212 | 432 backend passed / 3 E2E |
 | Immutable redacted provider dry-run history | 1560b0ec2c436ad363bf6c742036aaf94fd6892e | 36271931432 | 433 backend passed / 3 E2E |
 | Letters backend: scoped templates, text merge, reviewed notice send | 0afaec13accb9594d782cd088feca2ef5f92c927 | 36273058209 | 438 backend passed / 3 E2E |
+| Letters UI + preview/email digest binding | a896605e16a37d5c5d778043545997b828ab8c7a, 5d9b4142275cdb759ca2701cd1f567f776616100 | 36273560029 | 440 backend passed / 3 E2E |
 
 
 All listed full CI runs were successful. Older superseded CI runs may be
@@ -394,42 +395,89 @@ notice workflow as production-safe; current confirmations are
 boolean-only and a template might change between preview and send.
 No changes to main or frozen docs/.
 
+## Phase 3.7 Letters customer UI — VERIFIED 2026-09-26
+
+Signed preview / send review integrity:
+a896605e16a37d5c5d778043545997b828ab8c7a.
+Overview/editor/print/email customer page:
+5d9b4142275cdb759ca2701cd1f567f776616100.
+Final source CI **36273560029 SUCCESS** all six jobs.
+Backend **440 passed, 3 deselected, 4788 warnings in 48.62s**;
+browser E2E **3 passed in 6.63s**; frontend lint/typecheck/build,
+platform-admin, security, staging-config SUCCESS.
+Two focused backend tests added to the previous five-letter suite.
+No migration in this batch: Alembic a9c1e3f5b7d0, 104 tables.
+Handoff-only update TESTS NOT RUN locally. No docs/ changed.
+
+Customer Reports > Mailings > Letters page now:
+- Lists org templates; ADMIN can create, view/edit and deactivate
+  CUSTOM and THREE_DAY_NOTICE text-only templates.
+- User picks an active lease, server checks live org/tenant/property
+  assignment and authorization and returns rendered text.
+- A preview HMAC tied to requesting staff user, org, template ID,
+  lease ID, category, exact rendered subject/body and live recipient
+  email is required on email send. Changed content/recipient/lease
+  produces HTTP 409 and requires fresh preview/review. Not a legal
+  service signature; only review-integrity control.
+- Browser offers printable plain-text preview; recipient/content
+  confirmations and extra legal-review checkbox for 3-day draft.
+  No jurisdiction-specific statutory language/dates or assumption
+  that emailing equals valid notice service.
+- Email reuses existing core SMTP/console service and writes
+  metadata-only immutable audit. Existing REPORTING.ALL + LEASING
+  and release.reporting.export gates apply. MANAGER scope uses active
+  assigned properties. No arbitrary recipient email accepted.
+- Current E2E CI smoke remains 3 existing browser tests; new
+  feature-specific coverage is in focused backend regression tests.
+  Do not misrepresent those three as dedicated Letters browser tests.
+
+FULL LETTERS ORIGINAL PHASE 3.7 BATCH VERIFIED.
+NEXT original-plan task: Send Owner Packets. Preserve verified
+owner statement snapshot, owner packet settings, export and email.
+External Avalara sandbox/IRS acceptance remains unverified,
+not a reason to block owner packet/reporting work.
+
 ## Exact next work: continue, don't stop at phase boundary
 
-1. Verify actual HEAD/CI, retain 1099 external provider limitations,
-   preserve immutable receipt/history and tax privacy. Do not
-   repeat any 1099 or Letters backend VERIFIED work.
-2. Finish original Phase 3.7 Letters customer overview/editor, custom
-   templates, scoped lease preview/Print/Email and reviewed 3-Day
-   Notice. Reuse backend at source 0afaec13. Add template-version
-   confirmation for email if needed to prevent stale reviewed content.
-   Add targeted tests; commit bounded changes then require green CI.
-3. After Letters UI verified continue Send Owner Packets, followed by
-   Section 38 tenant/property/owner/accounting/transaction reports.
-   Respect existing packet customizer, frozen statement snapshots,
-   email delivery and tenant/owner authorization contracts.
-4. External Avalara sandbox needs operator subscription, credentials
-   and issuer ID; production filing, IRS acceptance and recipient
-   copies are external-provider work in Phase 4.5, not reasons
-   to block executable Phase 3.7 Letters/owner packets.
-5. Update THIS root handoff after meaningful verified batches,
-   record exact commit/run/count/Alembic, fix CI failures before next
-   feature; no main/new branch/force push. Frozen docs unchanged
-   except narrowly user-authorized 1099 modernization.
+1. Read full root handoff; verify HEAD and CI. Preserve verified
+   Letters, labels, report delivery, tax/W9 and 1099 internal work.
+2. Next original Phase 3.7: SEND OWNER PACKETS. Inspect existing
+   OwnerPacketSettings, frozen OwnerStatement, per-property cash
+   summary, customer feature gates, owner scope, ReportPayload/
+   report_csv_bytes, core email and existing owner statement UI.
+   Build organization/owner/manager-scoped preview, explicit
+   approved recipient confirmation and audited delivery; no
+   fresh GL recalculation, wrong-owner statement, arbitrary
+   destinations or bypass of report feature gates. If no actual
+   PDF renderer is available, disclose exact attachment formats.
+   Include focused tests for cross-org, assignment scope,
+   frozen figures, revocation and recipient changes.
+3. Commit bounded code + applicable regression tests, require full
+   green GitHub CI before marking VERIFIED. Fix failures yourself,
+   update this handoff after meaningful verified batches.
+4. Then original Section 38 tenant/property/owner/accounting/
+   transaction reports in documented order. Do not repeat work.
+5. External Avalara/IRS filing needs operator subscription,
+   credentials and issuer ID; production acceptance/recipient tax
+   copies/corrections remain unimplemented Phase 4.5 integration.
+   Frozen docs unchanged except past user-approved 1099 text.
+   No main/new branch/force push, no Work mode request.
 
 ## Session start for successor
 
 Continue yasirskhan/property-platform on chatgpt/checkpoint-005-safety.
-Read full root AI_HANDOFF.md, verify current branch HEAD/latest CI.
-Last VERIFIED product source 0afaec13accb9594d782cd088feca2ef5f92c927;
-CI 36273058209 SUCCESS (438 backend passed, 3 deselected;
-3 E2E passed, all six jobs).
-Alembic a9c1e3f5b7d0, 104 model tables.
-1099 internal tax/W9/review/provider dry-run work is VERIFIED;
-real provider sandbox acceptance and filing need external credentials.
-Letters BACKEND is VERIFIED with scoped templates, no-execution text
-merge, active-lease scope, admin template CRUD and reviewed 3-Day draft.
-NEXT original phase 3.7: Letters frontend Overview, View/Edit,
-Custom, Print/Email and 3-Day Notice. Then Send Owner Packets.
-Preserve verified work, frozen docs, branch boundaries, and
-commit-then-GitHub-CI workflow. Refresh this handoff after each batch.
+Read entire root AI_HANDOFF.md, verify current branch HEAD and CI.
+Last VERIFIED source 5d9b4142275cdb759ca2701cd1f567f776616100,
+CI 36273560029 SUCCESS all six jobs (440 backend passed,
+3 deselected, 4788 warnings; 3 E2E passed).
+Alembic a9c1e3f5b7d0, 104 tables. Letters full Phase 3.7
+Overview, View/Edit, Custom, Print/Email and reviewed 3-Day
+Notice VERIFIED. No statutory notice sufficiency/service claim.
+Exact next original Phase 3.7 task: SEND OWNER PACKETS.
+Reuse frozen owner-statement/packet settings, feature/menu gates
+and shared CSV/email infrastructure, with scoped recipient
+and audit. External Avalara sandbox/IRS acceptance is an
+external-credential Phase 4.5 boundary, not a reason to stop.
+No repeat of verified work, main/new branch/force push or
+unapproved frozen docs edits. Commit/test via GitHub Actions
+and update root handoff after verified batches.
