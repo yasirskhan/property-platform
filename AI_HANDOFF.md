@@ -7,26 +7,26 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `f68e06169b4b8c33f335e97d84dfa00034493c33`
-- Source GitHub Actions run **36267589323: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `48dc20d6d52d163954cc00956714090d3d2dcae9`
+- Source GitHub Actions run **36268034674: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **418 passed, 3 deselected, 3993 warnings in 79.47s**.
-  E2E: **3 passed in 7.09s**. Lint, typecheck, production build, security
+  Backend: **423 passed, 3 deselected, 4189 warnings in 66.98s**.
+  E2E: **3 passed in 10.43s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **e7b9c1d3f5a8**. SQLAlchemy expected model tables: **103**.
-  Previous head d6a8b0c2e4f7 / 102 tables. Schema/test guards changed
-  together in the manually sourced review foundation, not in the later
-  internal-register batch. All three PostgreSQL/bootstrap/legacy CI paths passed.
+- Alembic head: **f8c0d2e4a6b9**. SQLAlchemy expected model tables: **103**.
+  Previous head e7b9c1d3f5a8 / 103 tables. Schema/test guards changed
+  with the tax-profile revision migration; no new model table. All three
+  PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: manually sourced 1099 review/approval workspace
-  and redacted internal CSV register. VERIFIED.**
+  **Latest completed batch: tax-profile revision and stale-approval
+  integrity safeguard. VERIFIED.**
 - **Exact NEXT original-plan task: Generate 1099 Forms & Reports,
-  continuing with profile-revision approval integrity safeguards,
-  then IRS-current IRIS/approved-provider handoff. Full filing/recipient
+  continuing with internal no-TIN-leak provider preflight and then
+  IRS-current IRIS/approved-provider handoff. Full filing/recipient
   copies remain NOT IMPLEMENTED.** Do not repeat manual review, the
-  register, tax profiles, the W-9 archive or completed reports.
+  register, revision guards, tax profiles or the W-9 archive.
 
 ## Verification chronology — don't reimplement
 
@@ -45,6 +45,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Bounded ciphertext key rotation | 10eff9806ce1890afadb04afb62ad7849d45258b | 36251944098 | 409 backend passed / 3 E2E |
 | Manual NEC/MISC preparation, review and approval | 1ac7a5a6ef2949e0a905f4b354cbb3a80eb63551, 935d24002ee0d9568dd6434948d4a42360302a88, 8fbb07afc1d95ab22eea7a5bb8d7d05e141acb82 | 36266540061 | 416 backend passed / 3 E2E |
 | Internal redacted 1099 register | 4a96cd00d098dd82b646dc0e7bc00dc2c4cd3a87, f68e06169b4b8c33f335e97d84dfa00034493c33 | 36267589323 | 418 backend passed / 3 E2E |
+| Substantive tax-profile revision and approval staleness guard | 48dc20d6d52d163954cc00956714090d3d2dcae9 | 36268034674 | 423 backend passed / 3 E2E |
 
 
 All listed full CI runs were successful. Older superseded CI runs may be
@@ -171,6 +172,30 @@ must NOT be modified without separate authorization.
 - NO filing submission, IRS/IRIS/provider schema, recipient copy or
   state filing is generated. Docs/ other than ROOT HANDOFF unmodified.
 
+**1099 approval integrity safeguard (VERIFIED)**:
+- Source `48dc20d6d52d163954cc00956714090d3d2dcae9`,
+  CI 36268034674 SUCCESS six jobs, 423 backend passed, 3 deselected,
+  4189 warnings in 66.98s; E2E 3 passed in 10.43s.
+  Migration `f8c0d2e4a6b9_tax_profile_review_revisions.py` adds
+  `tax_profiles.profile_revision` and per-review payer/recipient revision
+  snapshots, head f8c0d2e4a6b9, same 103 model tables.
+- Tax-profile substantive changes increment revision; normalized
+  identical upserts and ciphertext-only key rotation do NOT. New
+  signed-paper W-9 archive evidence increments revision.
+- Marking REVIEWED captures current payer/recipient revision. Later
+  corrections stale existing REVIEWED/APPROVED records; approval
+  refuses stale review with 409 until explicitly re-reviewed.
+  Historical APPROVED stays immutable but is visibly stale and
+  not eligible for downstream submission. Legacy approved rows with
+  missing revision snapshot fail closed rather than inheriting
+  approval. Live UI and internal CSV explicitly flag re-review need.
+- Tests cover correction before approval, immutable stale approval,
+  repeat identical upsert, newer signed W-9, key rotation unchanged,
+  and legacy rows; no full TINs stored in approval records or export.
+- This remains internal review; no IRS tax return or recipient
+  copy was generated. Docs/ unchanged. Product code VERIFIED.
+  Source CI is more relevant than handoff-only CI.
+
 **CURRENTLY NOT IMPLEMENTED**: provider-hosted e-W9 consent/signature,
 backend PDF malware scanning/retention purge, completed 1099-NEC/MISC
 reportable-payment identification, review and approval, official IRS
@@ -180,51 +205,52 @@ claim any of these verified or enable "file" from a prototype.
 
 ## Exact next work: continue, don't stop at phase boundary
 
-1. Re-read this handoff, verify branch HEAD and actual current CI.
-   Do not repeat verified tax-profile crypto, encrypted W-9 archive,
-   manually sourced reviews/approval, or redacted internal CSV.
-2. NEXT bounded batch: 1099 taxpayer-profile revision/approval integrity.
-   Persist a semantic profile revision separate from encrypted ciphertext
-   changes. A tax profile correction or replacement signed W-9 must
-   invalidate existing REVIEWED/APPROVED *filing readiness* without
-   deleting immutable historical approval; rotation/re-encryption must
-   not do so. Prevent approval of stale reviewed data; allow explicit
-   re-review before approval, and expose redacted stale status in
-   the current admin UI/internal register. For migrated legacy
-   approved rows without a revision snapshot, fail closed for filing
-   rather than treating approval as current. Include regression tests.
-3. Then work on IRS-current tax-year-specific IRIS or vetted provider
-   handoff; public IRS IRIS 2026 CSV schema not yet listed as of
-   2026-09-26. Provider Avalara 1099/W-9 has an official API but
-   requires active subscription and server-only OAuth credentials.
-   No production filing, recipient copies or "sent" status until
-   a real connected provider/IRS test/acknowledgment path passes.
-   IRS source: https://www.irs.gov/filing/e-file-information-returns-with-iris
-   Provider: https://developer.avalara.com/products/avalara-1099-and-w9/api/
-4. Review tax year, form/classification, source, threshold exceptions,
-   state filings and recipient copies explicitly. Do not infer amounts
-   from the GL or other financial records; no user-visible raw TIN.
-5. Bounded source commit + regression tests followed by GitHub Actions
-   verification; do not call COMPLETE/VERIFIED until all six jobs pass,
-   fix reds autonomously, stop if same assertion fails three times.
-   Record exact source SHA, CI, test counts/migration head in ROOT handoff;
-   keep frozen docs untouched unless user explicitly approves.
-6. Only after full 1099 filing/copies are verified, resume Section 38
-   original next task Letters, Send Owner Packets, remaining reports.
-   Stay on existing branch; never touch main or force-push.
+1. Read complete root handoff and verify current branch HEAD and CI.
+   Do not repeat verified review/approval, encrypted W-9, internal
+   register or substantive-profile revision locking.
+2. NEXT bounded Phase 3.7 batch: provider-handoff PRECHECK,
+   read-only/admin-only, with no raw TIN in HTTP, audit, log or CSV.
+   Recheck approved current revision, signed archived W-9, required
+   legal-name/address fields, explicit classification/amount/source
+   and manual threshold/exception attestations. Return redacted
+   readiness/blocking reasons; distinguish "internally reviewed"
+   from "IRS filing enabled". Keep filing disabled absent a real
+   IRS-current verified adapter. Include focused tests and CI.
+3. Then IRS IRIS or an approved provider integration. Official IRIS
+   public 2026 Taxpayer Portal CSV template has NOT appeared as of
+   2026-09-26; never guess a 2026 IRS CSV or output a FIRE file.
+   IRS A2A requires IRS TCC, developer API Client ID, secure XML schema
+   and successful Assurance Testing System transmissions. Avalara
+   1099/W-9 provides an API requiring active subscription/credentials.
+   No live client secrets in git or chat. Real authenticated sandbox
+   testing and acknowledgment handling are prerequisites to marking
+   production submission/recipient copies verified.
+   https://www.irs.gov/filing/e-file-information-returns-with-iris
+   https://developer.avalara.com/products/avalara-1099-and-w9/api/
+4. Continue tax-year thresholds/exceptions, state filing and recipient
+   delivery only with verified current rules; never infer amounts
+   from the GL, bill payee text or owner distributions.
+5. Commit bounded code + regression tests to this branch only;
+   all six hosted CI jobs must pass before VERIFIED. Fix CI reds,
+   stop after three repeats of same assertion, report exact counts,
+   migration and commit; refresh root handoff after each meaningful
+   verified batch. Frozen docs remain unchanged without authorization.
+6. After actual 1099 forms/filing are completed and verified, follow
+   Section 38 Letters, Owner Packets, and remaining reports; do not
+   create/switch branches, touch main or force-push.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on
-`chatgpt/checkpoint-005-safety`. First read complete root AI_HANDOFF.md,
-then verify current GitHub HEAD and all-six-job CI. Last VERIFIED source:
-`f68e06169b4b8c33f335e97d84dfa00034493c33`,
-CI 36267589323 SUCCESS: 418 backend passed, 3 deselected,
-3993 warnings; E2E 3 passed; remaining four jobs green.
-Alembic `e7b9c1d3f5a8`, 103 model tables. Manually sourced
-1099 prep/review/approval and redacted internal register VERIFIED;
-NO IRS filing/recipient copies. Next: guard mutable tax-profile
-revisions and re-review; then connect an authorized IRS-current
-IRIS/approved provider. No raw TINs, guessed IRS CSV formats,
-main edits, new branches or unapproved frozen docs updates.
-Continue with bounded commit+GitHub-CI and refresh root handoff.
+Continue yasirskhan/property-platform on `chatgpt/checkpoint-005-safety`.
+Read the entire repo-root AI_HANDOFF.md, verify current HEAD and CI.
+Last VERIFIED product source `48dc20d6d52d163954cc00956714090d3d2dcae9`,
+CI 36268034674 SUCCESS (423 backend passed, 3 deselected,
+4189 warnings; 3 E2E passed; all six jobs green).
+Alembic `f8c0d2e4a6b9`, 103 tables. Manual NEC/MISC review
+and approval, redacted internal CSV, W-9/tax encryption, and tax-profile
+revision stale-approval checks VERIFIED. Real IRS/provider filing and
+recipient copies NOT IMPLEMENTED. Next: redacted provider-handoff
+preflight, then IRS-current IRIS/provider integration requiring official
+2026 format/TCC or provider sandbox account. No invented IRS CSV,
+raw tax IDs in UI/logs, main/new branch, or unapproved frozen docs edits.
+Continue bounded commit+CI, update root handoff on verified work.
