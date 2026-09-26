@@ -3,17 +3,24 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import Response
+import json
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.email import send_email
 from app.models.user import User
+from app.models.saved_report import SavedReport
+from app.services.audit import append_audit_log
+from app.services.saved_reports import validate_saved_parameters
 from app.routers.auth import get_current_user
 from app.schemas.reporting import (
     ReportCatalogOut,
     ReportDefinitionOut,
     ReportEmailIn,
     ReportEmailOut,
+    SavedReportIn,
+    SavedReportOut,
+    SavedReportListOut,
 )
 from app.services.customer_features import resolve_customer_features
 from app.services.menu_resolver import permission_allows_user
@@ -88,6 +95,142 @@ def get_report_catalog(
         standard=[ReportDefinitionOut(**item.__dict__) for item in standard],
         enhanced=[ReportDefinitionOut(**item.__dict__) for item in enhanced],
     )
+
+
+
+
+def _saved_row(db: Session, *, organization_id: int, user_id: int, report_id: int) -> SavedReport:
+    row = (
+        db.query(SavedReport)
+        .filter(
+            SavedReport.id == report_id,
+            SavedReport.organization_id == organization_id,
+            SavedReport.user_id == user_id,
+        )
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Saved report not found.")
+    return row
+
+
+def _saved_out(row: SavedReport) -> SavedReportOut:
+    return SavedReportOut(
+        id=row.id, organization_id=row.organization_id, name=row.name,
+        report_key=row.report_key, parameters=json.loads(row.parameters_json),
+        created_at=row.created_at, updated_at=row.updated_at,
+    )
+
+
+def _validated_saved(db: Session, *, current_user: User, payload: SavedReportIn):
+    organization_id = _require_report_access(db, current_user=current_user, report_key=payload.report_key)
+    try:
+        parameters = validate_saved_parameters(payload.report_key, payload.parameters)
+    except ReportDeliveryError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return organization_id, parameters
+
+
+@router.get("/saved", response_model=SavedReportListOut)
+def list_saved_reports(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    organization_id = _require_reporting_access(db, current_user)
+    rows = (
+        db.query(SavedReport)
+        .filter(SavedReport.organization_id == organization_id, SavedReport.user_id == current_user.id)
+        .order_by(SavedReport.updated_at.desc(), SavedReport.id.desc())
+        .all()
+    )
+    # A saved preset must not disclose a report the user can no longer access.
+    permitted = [
+        row for row in rows
+        if REPORT_PERMISSIONS.get(row.report_key) is not None
+        and permission_allows_user(db, user=current_user, menu_key=REPORT_PERMISSIONS[row.report_key])
+    ]
+    return SavedReportListOut(items=[_saved_out(row) for row in permitted], total=len(permitted))
+
+
+@router.post("/saved", response_model=SavedReportOut, status_code=201)
+def create_saved_report(
+    payload: SavedReportIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    organization_id, parameters = _validated_saved(db, current_user=current_user, payload=payload)
+    row = SavedReport(
+        organization_id=organization_id, user_id=current_user.id,
+        name=payload.name, report_key=payload.report_key,
+        parameters_json=json.dumps(parameters, sort_keys=True),
+    )
+    db.add(row)
+    db.flush()
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=organization_id,
+        entity_type="saved_report", entity_id=row.id, action="created",
+        new_value={"name": row.name, "report_key": row.report_key, "parameters": parameters},
+    )
+    db.commit()
+    db.refresh(row)
+    return _saved_out(row)
+
+
+@router.get("/saved/{report_id}", response_model=SavedReportOut)
+def get_saved_report(
+    report_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    organization_id = _require_reporting_access(db, current_user)
+    row = _saved_row(db, organization_id=organization_id, user_id=current_user.id, report_id=report_id)
+    _require_report_access(db, current_user=current_user, report_key=row.report_key)
+    return _saved_out(row)
+
+
+@router.put("/saved/{report_id}", response_model=SavedReportOut)
+def update_saved_report(
+    report_id: int,
+    payload: SavedReportIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    organization_id = _require_reporting_access(db, current_user)
+    row = _saved_row(db, organization_id=organization_id, user_id=current_user.id, report_id=report_id)
+    _require_report_access(db, current_user=current_user, report_key=row.report_key)
+    _, parameters = _validated_saved(db, current_user=current_user, payload=payload)
+    old = {"name": row.name, "report_key": row.report_key, "parameters": json.loads(row.parameters_json)}
+    row.name, row.report_key = payload.name, payload.report_key
+    row.parameters_json = json.dumps(parameters, sort_keys=True)
+    db.flush()
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=organization_id,
+        entity_type="saved_report", entity_id=row.id, action="updated",
+        old_value=old,
+        new_value={"name": row.name, "report_key": row.report_key, "parameters": parameters},
+    )
+    db.commit()
+    db.refresh(row)
+    return _saved_out(row)
+
+
+@router.delete("/saved/{report_id}", status_code=204)
+def delete_saved_report(
+    report_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    organization_id = _require_reporting_access(db, current_user)
+    row = _saved_row(db, organization_id=organization_id, user_id=current_user.id, report_id=report_id)
+    _require_report_access(db, current_user=current_user, report_key=row.report_key)
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=organization_id,
+        entity_type="saved_report", entity_id=row.id, action="deleted",
+        old_value={"name": row.name, "report_key": row.report_key},
+    )
+    db.delete(row)
+    db.commit()
+    return Response(status_code=204)
 
 
 @router.get("/{report_key}/export.csv")
