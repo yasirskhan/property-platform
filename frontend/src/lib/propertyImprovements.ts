@@ -82,9 +82,10 @@ export function updateImprovement(
 
 export function deleteImprovement(
   propertyId: number,
-  improvementId: number
+  improvementId: number,
+  reason: string
 ): Promise<null> {
   return apiDelete(
-    `/api/properties/${propertyId}/improvements/${improvementId}`
+    `/api/properties/${propertyId}/improvements/${improvementId}?reason=${encodeURIComponent(reason.trim())}`
   );
 }
