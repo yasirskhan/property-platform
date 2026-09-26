@@ -245,3 +245,25 @@ def test_1099_preparation_link_does_not_advertise_irs_submission():
     assert item.href == "/dashboard/reporting/1099"
     assert "filing not enabled" in (item.description or "")
     assert "tax.1099_preparation" not in REPORT_PERMISSIONS
+
+
+
+def test_deactivated_admin_cannot_access_tax_profiles(key):
+    db, engine = _session()
+    try:
+        admin, owner, *_ = _users(db)
+        service.upsert_tax_profile(db, current_user=admin,
+                                   payload=_input("OWNER", owner.id))
+        admin.is_active = False
+        db.commit()
+        for action in (
+            lambda: service.list_tax_profiles(db, current_user=admin),
+            lambda: service.upsert_tax_profile(
+                db, current_user=admin, payload=_input("OWNER", owner.id)),
+        ):
+            with pytest.raises(HTTPException) as exc:
+                action()
+            assert exc.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()

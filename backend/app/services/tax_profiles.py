@@ -31,7 +31,8 @@ def _crypto() -> Fernet:
 
 
 def require_tax_admin(db: Session, current_user: User) -> int:
-    if current_user.organization_id is None:
+    if (current_user.organization_id is None or not current_user.is_active
+            or current_user.deleted_at is not None):
         raise HTTPException(status_code=403, detail="Tax reporting permission required.")
     role = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role or "")
     if role.upper() != "ADMIN" or not permission_allows_user(db, user=current_user, menu_key="REPORTING.ALL"):
