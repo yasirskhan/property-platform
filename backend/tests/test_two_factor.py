@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from starlette.requests import Request
 
 import init_db  # noqa: F401
 import app.routers.auth as auth_router
@@ -24,6 +25,10 @@ def _session():
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(bind=engine)
     return sessionmaker(bind=engine, expire_on_commit=False)(), engine
+
+
+def _request() -> Request:
+    return Request({"type": "http", "http_version": "1.1", "method": "POST", "scheme": "https", "path": "/auth/login", "raw_path": b"/auth/login", "query_string": b"", "headers": [(b"user-agent", b"pytest-mfa")], "client": ("203.0.113.20", 41000), "server": ("testserver", 443)})
 
 
 def _user(db):
@@ -69,7 +74,7 @@ def test_enabled_two_factor_blocks_normal_token_until_challenge_is_verified():
         enable(db, user=user, code=totp_code(secret))
         db.commit()
 
-        login = auth_router.login(LoginRequest(email=user.email, password="test1234"), db=db)
+        login = auth_router.login(LoginRequest(email=user.email, password="test1234"), request=_request(), db=db)
         assert login.two_factor_required is True
         assert login.access_token is None
         assert login.challenge_token
@@ -83,6 +88,7 @@ def test_enabled_two_factor_blocks_normal_token_until_challenge_is_verified():
                 challenge_token=login.challenge_token,
                 code=totp_code(secret),
             ),
+            request=_request(),
             db=db,
         )
         assert verified.two_factor_required is False
@@ -117,7 +123,7 @@ def test_user_without_two_factor_keeps_existing_login_contract():
     db, engine = _session()
     try:
         user = _user(db)
-        login = auth_router.login(LoginRequest(email=user.email, password="test1234"), db=db)
+        login = auth_router.login(LoginRequest(email=user.email, password="test1234"), request=_request(), db=db)
         assert login.two_factor_required is False
         assert login.challenge_token is None
         assert login.access_token

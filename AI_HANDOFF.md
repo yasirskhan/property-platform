@@ -31,7 +31,7 @@ IMPORTANT:
 - My Settings is COMPLETE/VERIFIED.
 - Auditing Center is COMPLETE/VERIFIED.
 - Two-step verification is COMPLETE/VERIFIED.
-- Current batch: Settings — Login history. NEXT.
+- Current batch: Settings — Login history. IMPLEMENTATION COMMITTED; CI pending.
 
 # Latest Verified Green Checkpoint
 
@@ -398,7 +398,7 @@ Implementation prepared:
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Settings — Login history (current next)
+1. Settings — Login history (current, CI pending)
 2. Universal — delete_reason UI
 3. Universal — Notes expansion
 4. Universal — Audit Log expansion
@@ -518,3 +518,20 @@ Implementation:
 - Backend: 359 passed, 3 deselected, 2951 warnings in 61.58s.
 - E2E: 3 passed in 8.50s.
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
+
+
+# Login history — Current Batch
+
+Implementation:
+- Reuses the existing append-only AuditLog; no duplicate login-history table and no schema migration.
+- Known-user password failures and completed password/MFA logins are recorded immutably.
+- The password stage of an MFA login is not counted as a completed login; final MFA success/failure is recorded.
+- Direct request client IP is stored in AuditLog.ip_address; bounded user-agent/auth-method metadata is stored in the immutable event payload.
+- Unknown-email failures are not attached to another customer.
+- GET /api/settings/my/login-history is authenticated and self-scoped by organization plus user identity.
+- My Settings shows the latest 20 successful/failed sign-ins.
+- Login history is a personal security control and is not commercial/release gated.
+- No schema migration; head remains e1b3d5f7a9c2 / 97 model tables.
+- Regression coverage: backend/tests/test_login_history.py plus updated MFA direct-router tests.
+- TESTS NOT RUN locally in this connector-only session.
+- Hosted CI verification pending.

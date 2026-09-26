@@ -17,6 +17,7 @@ import {
 
 type TwoFactorStatus = { enabled: boolean; recovery_codes_remaining: number; verified_at: string | null };
 type TwoFactorSetup = { secret: string; otpauth_uri: string; recovery_codes: string[] };
+type LoginHistoryItem = { id: number; status: "SUCCESS" | "FAILED"; auth_method: string; reason: string | null; ip_address: string | null; user_agent: string | null; created_at: string };
 
 type CurrentUser = {
   id: number;
@@ -45,17 +46,19 @@ export default function MySettingsPage() {
   const [twoFactorPassword, setTwoFactorPassword] = useState("");
   const [twoFactorCode, setTwoFactorCode] = useState("");
   const [twoFactorSetup, setTwoFactorSetup] = useState<TwoFactorSetup | null>(null);
+  const [loginHistory, setLoginHistory] = useState<LoginHistoryItem[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    Promise.all([apiGet("/auth/me"), getMySettings(), apiGet("/api/settings/my/two-factor")])
-      .then(([me, settings, security]) => {
+    Promise.all([apiGet("/auth/me"), getMySettings(), apiGet("/api/settings/my/two-factor"), apiGet("/api/settings/my/login-history?limit=20")])
+      .then(([me, settings, security, history]) => {
         const current = me as CurrentUser;
         setUser(current);
         setFirstName(current.first_name);
         setLastName(current.last_name);
         setPhone(current.phone || "");
         setTwoFactorStatus(security as TwoFactorStatus);
+        setLoginHistory(history as LoginHistoryItem[]);
         setPrefs({
           email_notifications_enabled: settings.email_notifications_enabled,
           email_signature: settings.email_signature,
@@ -531,7 +534,32 @@ export default function MySettingsPage() {
             {busy === "two-factor-disable" ? "Disabling…" : "Disable two-step verification"}
           </button>
         )}
-        <p className="text-xs text-slate-500">Login history remains the next separate Phase 3.6 security batch.</p>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
+        <div>
+          <h2 className="font-semibold text-slate-900">Login history</h2>
+          <p className="text-sm text-slate-500 mt-1">Recent successful and failed sign-ins for your account. This history is append-only.</p>
+        </div>
+        {loginHistory.length === 0 ? (
+          <p className="text-sm text-slate-500">No login activity has been recorded yet.</p>
+        ) : (
+          <div className="divide-y divide-slate-100 border border-slate-200 rounded-md">
+            {loginHistory.map((entry) => (
+              <div key={entry.id} className="p-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className={entry.status === "SUCCESS" ? "text-green-700 font-medium" : "text-red-700 font-medium"}>{entry.status === "SUCCESS" ? "Successful login" : "Failed login"}</span>
+                    <span className="text-xs text-slate-500">{entry.auth_method.replace("_", " ")}</span>
+                  </div>
+                  <span className="text-xs text-slate-500">{entry.created_at.replace("T", " ").slice(0, 19)} UTC</span>
+                </div>
+                <div className="mt-1 text-xs text-slate-500">IP: {entry.ip_address || "Unavailable"}{entry.user_agent ? " · " + entry.user_agent : ""}</div>
+                {entry.reason && entry.status === "FAILED" && <div className="mt-1 text-xs text-slate-500">{entry.reason === "invalid_credentials" ? "Incorrect email or password." : entry.reason === "invalid_two_factor_code" ? "Incorrect two-step verification code." : "Two-step verification could not be completed."}</div>}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

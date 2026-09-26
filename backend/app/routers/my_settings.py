@@ -6,15 +6,17 @@ business data or features.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.user import User
 from app.models.user_personal_settings import UserPersonalSettings
 from app.routers.auth import get_current_user
+from app.schemas.login_history import LoginHistoryItem
 from app.schemas.user_personal_settings import MySettingsOut, MySettingsUpdate
 from app.services.audit import append_audit_log
+from app.services.login_history import list_login_history
 
 
 router = APIRouter(prefix="/api/settings/my", tags=["My Settings"])
@@ -105,3 +107,9 @@ def update_my_settings(
     db.commit()
     db.refresh(row)
     return _out(current_user, row)
+
+
+@router.get("/login-history", response_model=list[LoginHistoryItem])
+def get_login_history(limit: int = Query(default=20, ge=1, le=100), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    _org_id(current_user)
+    return list_login_history(db, user=current_user, limit=limit)

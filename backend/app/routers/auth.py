@@ -10,7 +10,7 @@
 # These routes use the logic from app/core/auth.py.
 # ============================================================
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -27,6 +27,7 @@ from app.schemas.auth import LoginRequest
 from app.schemas.two_factor import TwoFactorLoginVerifyRequest
 from app.schemas.token import LoginResponse
 from app.schemas.user import UserCreate, UserOut
+from app.services.login_history import record_login_event
 from app.services.two_factor import get_settings as get_two_factor_settings, verify_login_code
 
 
@@ -91,24 +92,22 @@ def signup(payload: UserCreate, db: Session = Depends(get_db)):
 # POST /auth/login
 # ------------------------------------------------------------
 @router.post("/login", response_model=LoginResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    """
-    Verify email + password. Returns a JWT token.
-    """
+def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
+    """Verify email + password. Returns a JWT token."""
+    candidate = auth_logic.get_user_by_email(db, payload.email)
     user = auth_logic.authenticate_user(db, payload.email, payload.password)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-        )
+        if candidate is not None:
+            record_login_event(db, user=candidate, request=request, success=False, auth_method="PASSWORD", reason="invalid_credentials")
+            db.commit()
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
 
     two_factor = get_two_factor_settings(db, user.id)
     if two_factor is not None and two_factor.is_enabled:
-        return LoginResponse(
-            two_factor_required=True,
-            challenge_token=create_two_factor_challenge_token(user.id),
-        )
+        return LoginResponse(two_factor_required=True, challenge_token=create_two_factor_challenge_token(user.id))
 
+    record_login_event(db, user=user, request=request, success=True, auth_method="PASSWORD")
+    db.commit()
     token = create_access_token(subject=user.id)
     return LoginResponse(access_token=token, token_type="bearer")
 
@@ -116,6 +115,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 @router.post("/two-factor/verify", response_model=LoginResponse)
 def verify_two_factor_login(
     payload: TwoFactorLoginVerifyRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     challenge = decode_two_factor_challenge_token(payload.challenge_token)
@@ -124,13 +124,20 @@ def verify_two_factor_login(
 
     user = auth_logic.get_user_by_id(db, int(challenge["sub"]))
     row = get_two_factor_settings(db, user.id) if user is not None else None
-    if user is None or row is None or not row.is_enabled:
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired two-step challenge.")
+    if row is None or not row.is_enabled:
+        record_login_event(db, user=user, request=request, success=False, auth_method="TWO_FACTOR", reason="invalid_or_expired_challenge")
+        db.commit()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired two-step challenge.")
 
     if not verify_login_code(db, row=row, code=payload.code):
         db.rollback()
+        record_login_event(db, user=user, request=request, success=False, auth_method="TWO_FACTOR", reason="invalid_two_factor_code")
+        db.commit()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid verification or recovery code.")
 
+    record_login_event(db, user=user, request=request, success=True, auth_method="TWO_FACTOR")
     db.commit()
     return LoginResponse(access_token=create_access_token(subject=user.id), token_type="bearer")
 
