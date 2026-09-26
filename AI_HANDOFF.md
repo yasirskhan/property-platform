@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `6b4805ee1ff99d7340026ac5322e03a58408df70`
-- Source GitHub Actions run **36279106102: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `cb85f82c55090450798b5ef3fb941dc9bd97538b`
+- Source GitHub Actions run **36279627346: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **481 passed, 3 deselected, 6715 warnings in 99.70s**.
-  E2E: **3 passed in 8.81s**. Lint, typecheck, production build, security
+  Backend: **485 passed, 3 deselected, 6841 warnings in 86.07s**.
+  E2E: **3 passed in 8.94s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -20,13 +20,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   with the tax-profile revision migration; no new model table. All three
   PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Property Budget Detail (configured monthly targets). VERIFIED.**
+  **Latest completed batch: Gross Potential Rent read-only current-config projection. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT executable original-plan task: Property & Unit Gross Potential Rent.**
+- **Exact NEXT executable original-plan tasks: Property & Unit Lease Expiration Detail and Summary by Month.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -61,6 +61,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Tenant Unpaid Charges Summary | 1f901348d89fd173794edf651b0a143b63f5dc05 | 36278186270 | 474 backend passed / 3 E2E |
 | Property Budget Comparison | 21378853fb7d7ccf31f5b62dadbccf9367e36266, c5dbc67374ebcf7d31f7b6f9ff086af47c6e50b9 | 36278686191 | 478 backend passed / 3 E2E |
 | Property Budget Detail | 6b4805ee1ff99d7340026ac5322e03a58408df70 | 36279106102 | 481 backend passed / 3 E2E |
+| Property Gross Potential Rent (read-only) | cb85f82c55090450798b5ef3fb941dc9bd97538b | 36279627346 | 485 backend passed / 3 E2E |
 | Tenant Ledger current balances and Charges authorization | a12e0f1af94b7e74e03e9e81988bba98d98cb016, 33902846eab82304299f383001de682081091eec | 36276682654 | 463 backend passed / 3 E2E |
 | Tenant Directory | 873219e0be9e41a7c68ec52e4da604a882dc90c2 | 36275843531 | 458 backend passed / 3 E2E |
 | Security Deposit Funds Detail GL liability report | 60ee5a986d670b4e3af18d01060e971c163c522f | 36275464600 | 454 backend passed / 3 E2E |
@@ -871,41 +872,94 @@ lease helper, distinguish candidate projected vs posted GPR.
 No GL writes in report. Verify what posted source transactions
 record and allow reversals, no double count.
 
+## Phase 3.7 Gross Potential Rent report — VERIFIED 2026-09-26
+
+Product commit cb85f82c55090450798b5ef3fb941dc9bd97538b;
+CI 36279627346 SUCCESS all six jobs. Backend 485 passed,
+3 deselected, 6841 warnings in 86.07s; authenticated E2E
+3 passed in 8.94s. Frontend lint/typecheck/build, security,
+platform-admin, staging-config GREEN. No migration:
+Alembic b0d2f4a6c8e1 / 105 tables. Frozen docs/ untouched.
+Previous handoff-only CI 36279482610 was superseded/cancelled,
+not evidence of a source failure.
+
+Enhanced catalog entry property.gross_potential_rent is linked at
+/dashboard/reporting/gross-potential-rent. Read-only preview
+GET /api/reporting/gross-potential-rent/preview sets no-store,
+and canonical server CSV/email delivery reuses shared
+ReportActions and formula-safe CSV renderer.
+Service app/services/gpr_report.py reuses verified
+gpr_posting.month_bounds/_active_lease_for_month logic,
+without invoking post_gpr or writing GL.
+Per active live visible unit with positive CURRENT market
+Unit.monthly_rent, the reporting-month overlap of ACTIVE lease
+determines CURRENT contract scheduled amount, vacancy, and
+loss/gain. Multiple overlapping active leases fail closed.
+An old month is NOT a frozen historical rent snapshot.
+Posted GPR JOURNAL_ENTRY source/unit/month transaction markers
+are separate from these changing current-config estimates;
+reversed original GPR markers and reversal IDs are distinguished.
+No posted accounting *amount* or reconciled GL income claimed,
+no merger of projected amounts with ledger postings.
+ADMIN/MANAGER only; visible_budget_property verifies active user,
+same-org, property ID, live manager assignment and
+REPORTING.ALL/PROPERTIES.ALL/ACCOUNTING.GL_ACCOUNTS.
+Additional LEASING and ACCOUNTING.JOURNAL_ENTRIES permission
+required before lease and journal reads. REPORTING.ALL and
+release.reporting.export rechecked on preview/export/email.
+Foreign and unassigned property ID probes fail closed.
+4 focused new regression tests: occupied/vacant amount,
+old-month/current rent correction, original/reversal marker,
+overlap and invalid input, organization/manager visibility,
+no new GL entries, CSV formula escaping, preview no-store,
+email and permission/export revocation. Existing 3 E2E browser
+smoke tests are general, not dedicated interactive GPR tests.
+
+NEXT ORIGINAL Section 38: Lease Expiration Detail,
+then Lease Expiration Summary by Month, then Property
+Directory. Current Lease.end_date and status are contract
+data and do not prove actual move-out or renewal. Build
+scoped read-only detail and aggregates from authorized
+lease/unit/property records, no invented tenant status or
+GL changes. Reuse REPORTING.ALL/LEASING, property
+visibility and shared CSV/email. Include focused tests.
+
 ## Exact next work: continue, don't stop at phase boundary
 
-1. Read entire root handoff; verify actual HEAD and CI. All
-   Tenant reports and Property Budget Comparison and Detail
-   are VERIFIED; do not repeat.
-2. Next Section 38: Gross Potential Rent report. Reuse
-   verified gpr_posting.py unit-market/active-lease rent logic
-   and existing configured GPR/GL accounts, do not call
-   post_gpr or infer historical configuration from live data.
-   Distinguish current monthly candidate estimates from
-   actually posted GL; org/assignment/role and menu/export
-   gates mandatory. Focused tests for vacancy/overlap,
-   cross-org scope, no posting, reversal/posted marker.
-3. Then lease expiration detail/summary, property directory
-   and other Section 38 property reports in original order.
-4. Commit bounded code + regression tests, verify hosted
-   GitHub Actions all six green, fix reds autonomously.
-   Update this root handoff with exact source SHA, CI run,
-   test counts/migration head, precise next task.
-5. No main/new branch/force-push/unauthorized frozen docs
-   edits, no false 1099 filing claims, no Work mode.
+1. Read entire root handoff, verify actual current HEAD/CI.
+   Gross Potential Rent is VERIFIED, do NOT reimplement its
+   posting workflow or read-only report.
+2. Next original Section 38 tasks are Lease Expiration Detail
+   and Lease Expiration Summary by Month; then Property
+   Directory and remaining property/unit reports in order.
+   Use recorded Lease.end_date and explicit eligible statuses,
+   do not mistake scheduled expiration for an actual move-out.
+   Admin/manager only, live org/property assignment/tenant
+   scope, REPORTING.ALL and LEASING menu/export gate, preview
+   no-store, shared CSV/email and formula escaping. No GL
+   mutations, no invented notices or renewed lease inference.
+3. Bounded product commits include focused regression tests;
+   verify all six hosted CI jobs GREEN before VERIFICATION,
+   fix reds autonomously, record exact SHA and counts, refresh
+   root handoff after every meaningful verified batch.
+4. Frozen docs/ unchanged without user authorization, no
+   branch creation, main edits, force push or Work handoff.
+   Actual provider 1099/IRS filing still not implemented;
+   do not imply live filing or repeat internal verified work.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform branch
-chatgpt/checkpoint-005-safety. Read complete root AI_HANDOFF.md
-and verify current HEAD and CI. Last VERIFIED product source
-6b4805ee1ff99d7340026ac5322e03a58408df70.
-CI 36279106102 SUCCESS all six jobs (481 backend passed,
-3 deselected, 6715 warnings, 3 E2E passed in 8.81s).
-Alembic b0d2f4a6c8e1 / 105 model tables. Tenant reports
-and Property Budget Comparison/Detail VERIFIED. Exact NEXT
-original task: Property & Unit Gross Potential Rent report.
-Reuse verified gpr_posting candidate semantics; report must
-not post to GL or misrepresent current unit/lease settings as
-frozen historical rent. Preserve org/manager/permission/export
-gates, tests, CI and handoff. No main/new branch/force push,
-unapproved frozen docs changes or Work handoff.
+Continue yasirskhan/property-platform existing branch
+chatgpt/checkpoint-005-safety. Read ALL repo-root
+AI_HANDOFF.md and verify branch HEAD/latest CI. Last VERIFIED
+product source cb85f82c55090450798b5ef3fb941dc9bd97538b,
+CI 36279627346 SUCCESS all six jobs: 485 backend passed,
+3 deselected, 6841 warnings; 3 E2E passed in 8.94s.
+Alembic b0d2f4a6c8e1 / 105 tables. All previous
+Tenant/Property Budget and GPR report work VERIFIED.
+NEXT Section 38 Lease Expiration Detail then Summary by Month,
+followed by Property Directory. Distinguish scheduled
+contract end from actual departure; protect manager assignment
+and tenant org scope. Reuse canonical report delivery, add tests,
+commit bounded code and verify CI before marking complete.
+No main/new branch, no unapproved docs/ edits or Work handoff.
