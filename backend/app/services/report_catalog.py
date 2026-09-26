@@ -121,7 +121,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/budget-detail",
         description="Explicit budget amounts by income/expense account and month; blanks are unconfigured.",
     ),
-    _enhanced("property.gross_potential_rent", "Gross Potential Rent", "Property & Unit"),
+    _enhanced(
+        "property.gross_potential_rent", "Gross Potential Rent", "Property & Unit",
+        href="/dashboard/reporting/gross-potential-rent",
+        description="Current market/lease rent projection with separate journal posting markers; not a historical snapshot.",
+    ),
     _standard("property.lease_expiration_detail", "Lease Expiration Detail", "Property & Unit"),
     _standard("property.lease_expiration_summary", "Lease Expiration Summary by Month", "Property & Unit"),
     _standard("property.directory", "Property Directory", "Property & Unit"),

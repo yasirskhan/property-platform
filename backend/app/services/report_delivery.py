@@ -45,6 +45,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "tenant.summary": "ACCOUNTING.CHARGES",
     "property.budget_comparison": "ACCOUNTING.GL_ACCOUNTS",
     "property.budget_detail": "ACCOUNTING.GL_ACCOUNTS",
+    "property.gross_potential_rent": "ACCOUNTING.GL_ACCOUNTS",
 }
 
 
@@ -372,6 +373,14 @@ def build_report_payload(
             raise ReportDeliveryError("Authenticated property budget detail required")
         from app.services.property_budget_detail import build_budget_detail
         return build_budget_detail(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "property.gross_potential_rent":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated GPR report required")
+        from app.services.gpr_report import build_gpr_report
+        return build_gpr_report(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
         )

@@ -437,6 +437,29 @@ def preview_property_budget_comparison(
     }
 
 
+@router.get("/gross-potential-rent/preview")
+def preview_gross_potential_rent(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Current market/lease rent projection; posted journals are distinct markers."""
+    org_id = _require_report_access(
+        db, current_user=current_user, report_key="property.gross_potential_rent",
+    )
+    _require_export_feature(db, current_user)
+    result = _build_or_422(
+        db, organization_id=org_id, report_key="property.gross_potential_rent",
+        parameters=dict(request.query_params), current_user=current_user,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "title": result.title, "headers": result.headers,
+        "rows": result.rows, "total": len(result.rows),
+    }
+
+
 @router.get("/budget-detail/preview")
 def preview_property_budget_detail(
     request: Request,
