@@ -41,6 +41,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "tenant.directory": "LEASING",
     "tenant.ledger": "LEASING",
     "tenant.tickler": "LEASING",
+    "tenant.unpaid_charges": "ACCOUNTING.CHARGES",
 }
 
 
@@ -336,6 +337,14 @@ def build_report_payload(
             raise ReportDeliveryError("Authenticated tenant tickler access required")
         from app.services.tenant_tickler import build_tenant_tickler
         return build_tenant_tickler(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "tenant.unpaid_charges":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated unpaid charge report access required")
+        from app.services.tenant_unpaid_charges import build_tenant_unpaid_charges
+        return build_tenant_unpaid_charges(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
         )

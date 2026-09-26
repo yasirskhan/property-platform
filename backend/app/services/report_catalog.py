@@ -99,7 +99,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/tickler",
         description="Tenant contacts with latest recorded lease event; no inferred notice/move-out dates.",
     ),
-    _standard("tenant.unpaid_charges", "Tenant Unpaid Charges", "Tenant"),
+    _standard(
+        "tenant.unpaid_charges", "Tenant Unpaid Charges", "Tenant",
+        href="/dashboard/reporting/unpaid-charges",
+        description="Current positive standalone Charge balances only; rent invoices are separate.",
+    ),
     _standard("tenant.summary", "Tenant Summary", "Tenant"),
 
     # Property and unit
