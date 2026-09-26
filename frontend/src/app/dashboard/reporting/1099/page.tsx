@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import TaxW9Archive from "@/components/reporting/TaxW9Archive";
+import Tax1099ReviewPanel from "@/components/reporting/Tax1099ReviewPanel";
 
 import { apiGet, apiPut } from "@/lib/api";
 
@@ -266,6 +267,7 @@ export default function TaxPreparationPage() {
               profile.id === id ? { ...profile, w9_on_file: true, w9_received_on: received } : profile
             ))
           } />
+          <Tax1099ReviewPanel profiles={profiles} people={people} />
           <section className="rounded-xl border border-slate-200 bg-white p-5">
             <h2 className="text-lg font-semibold text-slate-900">Taxpayer readiness</h2>
             {profiles.length === 0 ? (

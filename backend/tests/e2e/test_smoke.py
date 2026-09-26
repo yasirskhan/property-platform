@@ -209,6 +209,27 @@ def test_login_and_core_authenticated_pages() -> None:
             ).not_to_be_checked()
 
             page.goto(
+                f"{BASE_URL}/dashboard/reporting/1099",
+                wait_until="domcontentloaded",
+            )
+            expect(
+                page.get_by_role("heading", name="1099 preparation", exact=True)
+            ).to_be_visible()
+            expect(page.get_by_text("Tax filing is not enabled", exact=True)).to_be_visible()
+            expect(
+                page.get_by_role("heading", name="Manual 1099 data review", exact=True)
+            ).to_be_visible()
+            for prohibited_filing_action in [
+                "Submit to IRS",
+                "File 1099",
+                "Export IRIS",
+                "Transmit return",
+            ]:
+                expect(
+                    page.get_by_role("button", name=prohibited_filing_action, exact=True)
+                ).to_have_count(0)
+
+            page.goto(
                 f"{BASE_URL}/dashboard/settings/sidebar",
                 wait_until="domcontentloaded",
             )
