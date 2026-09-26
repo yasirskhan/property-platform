@@ -37,7 +37,8 @@ IMPORTANT:
 - Universal — Notes expansion is COMPLETE/VERIFIED.
 - Universal — Audit Log expansion is COMPLETE/VERIFIED.
 - Universal Attachments is COMPLETE/VERIFIED.
-- Current batch: Phase 3.7 — Report framework (standard vs enhanced). NEXT.
+- Phase 3.7 Report framework (standard vs enhanced) is IMPLEMENTED; hosted CI verification pending.
+- Current batch: Phase 3.7 — Print / Email / CSV Export on every report is NEXT after framework verification.
 
 # Latest Verified Green Checkpoint
 
@@ -56,13 +57,13 @@ Hosted CI:
 - Parity/registry consistency: CLEAN
 - Secret-pattern scan: CLEAN
 
-Current parity source-of-truth after Universal Notes verification:
+Current parity source-of-truth after Report Framework implementation:
 - total_items: 628
-- built_count: 259
-- scheduled_count: 369
+- built_count: 263
+- scheduled_count: 365
 - in_progress_count: 0
-- migration_head: f2c4e6a8b0d3
-- expected model-table count: 98
+- migration_head: a3d5f7b9c1e4
+- expected model-table count: 99
 
 # Bank Adjustments
 
@@ -466,10 +467,23 @@ Implementation prepared:
 - E2E: 3 passed in 8.81s.
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 
+# Report Framework — CURRENT BATCH
+
+Implementation prepared:
+- GET /api/reporting/catalog is protected by REPORTING.ALL and returns the org's configured ACCRUAL/CASH reporting basis.
+- One canonical catalog defines the Phase 3.7 report inventory instead of duplicating navigation metadata across report pages.
+- Standard reports use button-style controls; enhanced reports use tab/card-style controls.
+- Existing verified Trial Balance, General Ledger/Chart of Accounts, and Owner Statement destinations are wired as available; scheduled reports remain visible but disabled until their implementation lands.
+- New customer route /dashboard/reporting provides tier tabs, search, category grouping, and framework-driven report controls.
+- No schema migration; migration head remains a3d5f7b9c1e4 / 99 model tables.
+- Regression coverage: backend/tests/test_reporting_framework.py.
+- Parity inventory after implementation: 263 built / 365 scheduled / 0 in-progress.
+- TESTS NOT RUN locally in this connector-only session; hosted CI verification is required.
+
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Report framework (standard vs enhanced) — current next.
+1. Verify Report framework in hosted CI and fix reds autonomously.
 2. Print / Email / CSV Export on every report.
 3. Custom Report Builder (saved configurations).
 4. Continue Phase 3.7 in roadmap order without stopping.

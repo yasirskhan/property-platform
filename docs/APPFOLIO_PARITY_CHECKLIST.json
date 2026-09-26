@@ -13,8 +13,8 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 262,
-    "scheduled_count": 366,
+    "built_count": 263,
+    "scheduled_count": 365,
     "in_progress_count": 0
   },
   "items": [
@@ -2289,8 +2289,9 @@
       "id": "reporting.framework",
       "area": "Reporting",
       "feature": "Report framework (standard vs enhanced, tabs vs buttons)",
-      "status": "scheduled",
-      "phase": "3.7"
+      "status": "built",
+      "phase": "3.7",
+      "notes": "Shared authorized report catalog now separates standard button-style reports from enhanced tab-style reports, carries org accounting basis, exposes existing verified report destinations, and provides the customer Reporting shell for the remaining Phase 3.7 reports."
     },
     {
       "id": "reporting.print_email_export",
