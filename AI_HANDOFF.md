@@ -12,28 +12,29 @@ Yasir to reconstruct project context.
 
 Repository: yasirskhan/property-platform (private)
 Only working branch: chatgpt/checkpoint-005-safety
-Last VERIFIED source HEAD: 3aca0f64b1f58e8bb7afef32ae6ceda368dbc9ca
+Last VERIFIED source HEAD: 788010f4b1c3609fb74a98b6bf48b0f037bc4bad
 Always fetch current branch HEAD again; this handoff-only commit will
 change the HEAD. Do not edit main, create/switch branches, force-push,
 or merge draft PR #2 without approval.
 
 CURRENT PHASE: 3.7 — Reports + Universal Attachments, IN PROGRESS.
-LATEST COMPLETED BATCH: Encrypted 1099 tax-profile foundation and IRIS roadmap update.
-EXACT NEXT BATCH: 1099 preparation UI and secure signed W-9 intake/provider handoff.
+LATEST COMPLETED BATCH: 1099 readiness UI and sensitive-profile access restrictions.
+EXACT NEXT BATCH: secure signed paper W-9 archive / vetted provider e-W-9 intake,
+then tax-year-specific IRS/provider 1099 filing validation and review.
 Original Generate 1099 Forms & Reports remains IN PROGRESS, not VERIFIED.
 The verified universal attachments, standard/enhanced report framework,
-shared Print / Email / CSV delivery, saved configurations, and labels report
-must NOT be repeated. Phases 3.4.S and 3.4.3–3.4.26, compatibility pass
+shared Print / Email / CSV delivery, saved configurations, labels report,
+and encrypted tax-profile foundation/readiness UI must NOT be repeated. Phases 3.4.S and 3.4.3–3.4.26, compatibility pass
 3.5.5, and Accounting Polish 3.6 are previously completed/verified.
 
 # LAST VERIFIED CI AND SCHEMA
 
-Verified source commit: 3aca0f64b1f58e8bb7afef32ae6ceda368dbc9ca
-GitHub Actions run 36249130022 — SUCCESS; all six jobs:
+Verified source commit: 788010f4b1c3609fb74a98b6bf48b0f037bc4bad
+GitHub Actions run 36249841377 — SUCCESS; all six jobs:
   backend, frontend, platform-admin, security, e2e, staging-config.
 Backend exact summary:
-  395 passed, 3 deselected, 3448 warnings in 73.27s
-E2E exact summary: 3 passed in 10.04s
+  400 passed, 3 deselected, 3507 warnings in 46.80s
+E2E exact summary: 3 passed in 9.58s
 Frontend lint, TypeScript and production build: SUCCESS.
 Platform admin, security, staging-config: SUCCESS.
 Backend CI includes PostgreSQL bootstrap and schema/registry/parity
@@ -219,6 +220,73 @@ docs/PLAN_GAPS.md C9 records pulled-forward prerequisites,
 docs/APPFOLIO_PARITY_CHECKLIST.json reporting.1099 wording updated,
 status still SCHEDULED. No unrelated documents changed.
 
+# 1099 PREPARATION UI + SECURITY BATCH — VERIFIED 2026-09-26
+
+UI/report catalog commit 5a22b59ed0f3d0c8b877c8b038c5ac2fe67bbeea;
+follow-up form-error usability caaca02d519cc3c3b47edfc734ec2c705e0cadb2;
+generic-notes-and-attachments denylist + regression tests
+488b6b93a00df9788eaaf90d7c9f07b2eb5f1b41;
+inactive-admin authorization guard + regression test
+788010f4b1c3609fb74a98b6bf48b0f037bc4bad.
+Current source CI 36249841377 SUCCESS all six jobs; backend 400 passed,
+3 deselected, 3507 warnings in 46.80s; E2E 3 passed in 9.58s;
+frontend, security, platform-admin, staging-config SUCCESS.
+Earlier superseded runs 36249424436, 36249502551,
+36249516416, 36249764959 were CANCELLED by newer pushes; do not
+represent them as failing test regressions or passed full CI.
+No migration or new model in this batch. Still c5f7a9b1d3e6 and 101 tables.
+
+New customer page: Reports > Tax > 1099 Preparation,
+frontend/src/app/dashboard/reporting/1099/page.tsx.
+Catalog entry tax.1099_preparation is a navigation-only "preparation"
+slot, not an IRS-filing report key; it is NOT registered for CSV/email
+in REPORT_PERMISSIONS. Only organization ADMIN may use the live
+encrypted-profile intake; client displays only last-four TIN digits,
+paper W-9 status and received date. It links to official IRS W-9,
+explains signed paper W-9 must be retained separately and warns that
+no IRS file, 1099 recipient copy, e-signature or tax return is created.
+The UI does not upload documents or send any tax ID to generic report
+delivery. Recoverable validation errors leave the form visible.
+GET/PUT tax-profile routes set Cache-Control: no-store.
+
+Security enforcement:
+- app/services/entity_notes.py denies tax_profiles target altogether;
+  generic notes and generic unencrypted attachment routes cannot use
+  tax_profiles targets, verified with actual-record regression tests.
+  This is a route scope exclusion, NOT a content scanner capable of
+  detecting mislabeled W-9s uploaded to unrelated entities. UI warns
+  admins not to use generic attachments for W-9s.
+- app/services/tax_profiles.py denies inactive/deleted admins, even
+  if a direct session were passed; targeted regression test included.
+- Existing organization-scoped ADMIN + REPORTING.ALL authorization,
+  fail-closed dedicated TAX_PROFILE_ENCRYPTION_KEY and ciphertext
+  fields remain mandatory. A live environment must provision a unique
+  tax key through secret management before using tax-profile routes;
+  requests return 503 until configured. No real key is stored in repo.
+
+Current IRS regulatory planning checks (verify again before filing):
+- IRS reports FIRE last filing Nov. 19, 2026, with IRIS exclusively
+  receiving tax-year-2026 information returns for filing season 2027.
+  https://www.irs.gov/e-file-providers/filing-information-returns-electronically-fire
+- The IRS identifies $2,000 as the tax-year-2026 threshold for
+  specified 1099-NEC services and 1099-MISC rent and other covered
+  payments, with exceptions (for example backup withholding and some
+  payment types). Do not apply a universal $2,000 rule.
+  https://www.irs.gov/businesses/small-businesses-self-employed/am-i-required-to-file-a-form-1099-or-other-information-return
+  https://www.irs.gov/publications/p1099
+- IRIS Taxpayer Portal requires IRIS TCC, currently supports manual
+  entry and IRS-specific CSV templates; A2A requires a separate IRIS
+  TCC, API client ID, schema package and ATS clearance. As checked
+  Sept. 26, 2026, public taxpayer-portal CSV template list shows
+  through tax year 2025, not tax year 2026; do NOT invent 2026 CSV
+  columns or mark IRIS export production-ready before availability.
+  https://www.irs.gov/filing/e-file-information-returns-with-iris
+- An IRS-compliant electronic W-9 requires recipient authentication,
+  original certification language, perjury statement and final
+  verified electronic signature, plus submission records and hard-copy
+  retrieval. Present paper W-9 receipt is NOT e-W9 certification.
+  https://www.irs.gov/instructions/iw9
+
 # VERIFIED CONTRACTS TO PRESERVE
 
 1. Hybrid Capability Gating keeps release, plan entitlement,
@@ -245,45 +313,51 @@ status still SCHEDULED. No unrelated documents changed.
 
 # EXACT NEXT WORK
 
-1. Re-read this root handoff and verify branch HEAD/latest CI. Do not
-   repeat verified labels, Custom Report Builder or the tax-profile
-   encryption foundation. Original roadmap Phase 3.7 1099 remains
-   incomplete until safe filing and recipient copies are verified.
-2. Next bounded batch: admin-only 1099 preparation UI using existing
-   /api/reporting/tax-profiles, with clear "not submitted" status.
-   Include paper W-9 tracking, payer/recipient roster, masked TIN,
-   IRS official W-9/IRIS references, and user-friendly explanation that
-   dedicated encryption key must be configured by the operator.
-   Do not expose TIN to generic exports, browser logs or user emails.
-3. Next security/filing dependency: signed W-9 archival or vetted
-   provider e-W9 intake with proper verification and retention;
-   tax-year-specific payer and recipient classification/review.
-   IRIS portal CSV must use IRS published template for the particular
-   tax year, not a guessed schema. Automated IRIS A2A requires
-   IRS TCC, API client ID, schema package and ATS approval; do not
-   pretend live filing or produce purported IRS-ready forms before
-   integration/testing. Customer paperwork/submission should be
-   explicitly reviewed; no invented payment classifications/amounts.
-4. User explicitly approved the modernized IRIS/provider scope
-   and narrowly scoped docs changes. Do not expand other frozen docs,
-   change main, create branches, or force push. User also approved
-   commit-then-GitHub-CI product verification. Tests in every batch;
-   no VERIFIED status before complete green CI. Fix CI failures
-   autonomously, stop if same assertion fails three times, record
-   exact run/count/migration and update THIS root handoff.
-5. After the IRS-current verified 1099 batch, return to the original
-   Section 38 order: Letters, Send Owner Packets, then listed reports.
+1. Read full root handoff, verify branch and CI. Do not repeat previous
+   labels, saved reports, encrypted tax profiles or 1099 readiness UI.
+   Keep original Phase 3.7 1099 forms/filing IN PROGRESS.
+2. Safe next bounded batch: secure signed paper W-9 archival OR vetted
+   provider-hosted e-W9 intake, using dedicated encrypted storage
+   and restrictive access, audited access, retention/key rotation,
+   no generic attachments. Verify real signed W9 evidence; do not
+   label admin paper W9 checkbox as electronic signature. Include tests.
+3. Next approved IRS IRIS/provider filing work requires current
+   tax-year-specific official schema/template and payer/recipient
+   verification, valid payer and recipient TINs, explicit classification
+   of reportable payments, statutory thresholds and exceptions,
+   explicit review/approval, valid IRIS TCC or provider account,
+   electronic submission receipts, recipient copies and corrections.
+   No generic GL/owner payout inference, no fabricated tax filings,
+   no filing metadata marked sent before actual provider confirmation.
+   Current IRS tax-year-2026 portal template was NOT publicly listed
+   at last review; check for updates rather than guessing. Never paste
+   provider API secrets or TINs in this chat; use secret management.
+4. User authorized narrow 1099 modernization in frozen docs/ only;
+   otherwise frozen docs unchanged. CI after bounded commits,
+   applicable regression tests and counts; mark VERIFIED only
+   after every relevant CI job succeeds. Fix failures, stop after
+   three repeated failures of same assertion. Refresh this handoff
+   after each meaningful verified batch.
+5. Only after full 1099 feature is verified, resume Section 38
+   roadmap: Letters, Send Owner Packets, tenant/property/owner/
+   accounting/transaction reports. Do not skip original tasks,
+   create branches, force-push or modify main.
 
 # NEXT SESSION START PROMPT
 
-Continue yasirskhan/property-platform on branch
-chatgpt/checkpoint-005-safety. Read complete root AI_HANDOFF.md and
-verify branch HEAD plus CI. Last VERIFIED source:
-3aca0f64b1f58e8bb7afef32ae6ceda368dbc9ca;
-CI 36249130022 SUCCESS (395 backend passed, 3 deselected;
-3 E2E passed; all six jobs). Alembic c5f7a9b1d3e6, 101 tables.
-IRIS-provider roadmap and encrypted admin-only tax-profile prerequisite
-VERIFIED; 1099 filing NOT COMPLETE. The next Phase 3.7 batch is
-admin 1099 readiness UI and secure signed W-9 / provider dependency.
-Do not repeat existing reporting, change main or share tax IDs.
-Use commit+CI verification and update root handoff after each batch.
+Continue yasirskhan/property-platform on
+chatgpt/checkpoint-005-safety. Read entire root AI_HANDOFF.md and
+verify current HEAD and CI. Last VERIFIED source:
+788010f4b1c3609fb74a98b6bf48b0f037bc4bad,
+CI 36249841377 SUCCESS (400 backend passed, 3 deselected;
+3 E2E passed; all six jobs green).
+Alembic c5f7a9b1d3e6; 101 tables. 1099 IRS-IRIS modernization,
+encrypted tax profiles, paper W-9 metadata, admin readiness UI
+and generic-attachment/notes denylist are VERIFIED.
+Full 1099 filing/recipient copies are NOT yet implemented.
+Next batch: secure signed W-9 paper archive or vetted e-W9 provider,
+then verified tax-year-specific IRIS/provider filing workflows.
+Preserve all verified architecture, no main/new branch or unapproved
+docs edits. User approved commit-then-GitHub-CI verification.
+Do not request Work mode, create fictitious tax filings, or
+expose tax identifiers. Refresh handoff after every meaningful batch.
