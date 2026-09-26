@@ -56,7 +56,7 @@ export default function LabelsPage() {
         <h1 className="text-2xl font-bold text-slate-900">Create Labels Report</h1>
         <p className="mt-1 text-sm text-slate-500 print:hidden">
           Prepare a mail-merge CSV from recorded property addresses or current tenant leases.
-          Tenant addresses use their property's recorded location, not an independent mailing address.
+          Tenant addresses use the property&apos;s recorded location, not an independent mailing address.
         </p>
       </header>
       <form
