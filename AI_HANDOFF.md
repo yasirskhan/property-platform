@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `cb85f82c55090450798b5ef3fb941dc9bd97538b`
-- Source GitHub Actions run **36279627346: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `d818dfbb5652c3f2d0735fa1b891a59c3be38ee2`
+- Source GitHub Actions run **36280075299: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **485 passed, 3 deselected, 6841 warnings in 86.07s**.
-  E2E: **3 passed in 8.94s**. Lint, typecheck, production build, security
+  Backend: **489 passed, 3 deselected, 7024 warnings in 100.03s**.
+  E2E: **3 passed in 6.11s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -20,13 +20,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   with the tax-profile revision migration; no new model table. All three
   PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Gross Potential Rent read-only current-config projection. VERIFIED.**
+  **Latest completed batch: Lease Expiration Detail and Summary by Month. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT executable original-plan tasks: Property & Unit Lease Expiration Detail and Summary by Month.**
+- **Exact NEXT executable original-plan task: Property & Unit Property Directory.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -62,6 +62,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Property Budget Comparison | 21378853fb7d7ccf31f5b62dadbccf9367e36266, c5dbc67374ebcf7d31f7b6f9ff086af47c6e50b9 | 36278686191 | 478 backend passed / 3 E2E |
 | Property Budget Detail | 6b4805ee1ff99d7340026ac5322e03a58408df70 | 36279106102 | 481 backend passed / 3 E2E |
 | Property Gross Potential Rent (read-only) | cb85f82c55090450798b5ef3fb941dc9bd97538b | 36279627346 | 485 backend passed / 3 E2E |
+| Lease Expiration Detail / Monthly Summary | 08fb55bb470e94e1422cd6b601a28794151c1f46, d818dfbb5652c3f2d0735fa1b891a59c3be38ee2 | 36280075299 | 489 backend passed / 3 E2E |
 | Tenant Ledger current balances and Charges authorization | a12e0f1af94b7e74e03e9e81988bba98d98cb016, 33902846eab82304299f383001de682081091eec | 36276682654 | 463 backend passed / 3 E2E |
 | Tenant Directory | 873219e0be9e41a7c68ec52e4da604a882dc90c2 | 36275843531 | 458 backend passed / 3 E2E |
 | Security Deposit Funds Detail GL liability report | 60ee5a986d670b4e3af18d01060e971c163c522f | 36275464600 | 454 backend passed / 3 E2E |
@@ -924,42 +925,89 @@ lease/unit/property records, no invented tenant status or
 GL changes. Reuse REPORTING.ALL/LEASING, property
 visibility and shared CSV/email. Include focused tests.
 
+## Phase 3.7 Lease Expiration Detail and Summary — VERIFIED 2026-09-26
+
+Product source 08fb55bb470e94e1422cd6b601a28794151c1f46;
+summary-link/UI route correction d818dfbb5652c3f2d0735fa1b891a59c3be38ee2.
+Final full CI 36280075299 SUCCESS: backend 489 passed,
+3 deselected, 7024 warnings in 100.03s; browser E2E 3 passed
+in 6.11s; frontend lint/typecheck/build, platform admin,
+security, staging-config GREEN. Initial code run 36280041204
+and superseded docs CI 36279978195 cancelled by newer pushes;
+they are NOT full CI evidence. No migration, Alembic
+b0d2f4a6c8e1 and 105 model tables. Frozen docs/ unchanged.
+
+Both standard catalog keys property.lease_expiration_detail and
+property.lease_expiration_summary have working customer links.
+Detail /dashboard/reporting/lease-expirations, monthly summary
+/dashboard/reporting/lease-expirations/summary opens directly in
+summary mode. Shared selectable UI route displays date range,
+optional property filter, scheduled end dates; generic server
+CSV/email via ReportActions. Preview
+GET /api/reporting/lease-expirations/preview sets no-store,
+strictly allowlists report_key and excludes it from filters.
+Service app/services/lease_expiration_report.py reuses only
+actual Lease.end_date (ACTIVE or EXPIRED recorded statuses).
+TERMINATED/CANCELLED/DRAFT omitted; do not interpret scheduled
+end as verified notice, renewal or move-out. Summary groups exactly
+the same authorized detail rows by scheduled-end month and
+property, counts lease IDs and sums recorded monthly contract rent
+(not earned revenue or cash receipts). No GL writes/migrations.
+Only active ADMIN/MANAGER and live org-scoped, nondeleted property,
+unit, tenant records. Managers only live assigned properties;
+cross-org tenant linkage refused. REPORTING.ALL/LEASING/
+PROPERTIES.ALL plus release.reporting.export enforced before
+preview, export and email; invalid date/filter scope fails closed.
+User/customer email names and property text CSV formula-escaped.
+Four focused tests cover status inclusion/exclusion, monthly
+sums, foreign/unassigned scope, manager/tenant role, invalid
+parameters, revocation, no GL writes and CSV/email. Three
+general authenticated browser smoke tests, not dedicated report
+workflow E2E.
+
+NEXT ORIGINAL SECTION 38: Property Directory, then Property Group
+Directory, Property Performance, Rent Roll, Unit Directory,
+Unit Inspection, Unit Vacancy Detail. Models currently expose
+Property/Unit and PropertyAssignment; NO verified PropertyGroup
+model found yet. Do not invent a group classification: inspect
+existing schema before building grouping report; add explicitly
+maintained group membership if original feature requires it.
+
 ## Exact next work: continue, don't stop at phase boundary
 
-1. Read entire root handoff, verify actual current HEAD/CI.
-   Gross Potential Rent is VERIFIED, do NOT reimplement its
-   posting workflow or read-only report.
-2. Next original Section 38 tasks are Lease Expiration Detail
-   and Lease Expiration Summary by Month; then Property
-   Directory and remaining property/unit reports in order.
-   Use recorded Lease.end_date and explicit eligible statuses,
-   do not mistake scheduled expiration for an actual move-out.
-   Admin/manager only, live org/property assignment/tenant
-   scope, REPORTING.ALL and LEASING menu/export gate, preview
-   no-store, shared CSV/email and formula escaping. No GL
-   mutations, no invented notices or renewed lease inference.
-3. Bounded product commits include focused regression tests;
-   verify all six hosted CI jobs GREEN before VERIFICATION,
-   fix reds autonomously, record exact SHA and counts, refresh
-   root handoff after every meaningful verified batch.
-4. Frozen docs/ unchanged without user authorization, no
-   branch creation, main edits, force push or Work handoff.
-   Actual provider 1099/IRS filing still not implemented;
-   do not imply live filing or repeat internal verified work.
+1. Read whole root handoff, verify branch HEAD/latest CI.
+   Lease Expiration Detail/Summary and all earlier report work
+   VERIFIED; no repetition.
+2. Next Section 38 original Property & Unit report:
+   Property Directory. Reuse Property/Unit and existing
+   org/active/manager-assigned property scope; no owner/tenant
+   contact leaks, no inferred rental income, no GL writes.
+   REPORTING.ALL and PROPERTIES.ALL plus live export gate,
+   no-store preview and shared CSV/email. Add focused tests.
+3. Then Property Group Directory (check whether a real
+   persisted group/assignment source exists; do not fabricate
+   group names), then other property reports in Section 38
+   order. No batch is VERIFIED until full six-job CI success;
+   fix CI failures, record counts/source SHA/migration head.
+4. Update this root handoff after each meaningful verified
+   batch. No unapproved frozen docs/ edits, no main, no new
+   branch or Work handoff. External 1099 provider acceptance
+   and recipient filing remain unimplemented.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform existing branch
-chatgpt/checkpoint-005-safety. Read ALL repo-root
-AI_HANDOFF.md and verify branch HEAD/latest CI. Last VERIFIED
-product source cb85f82c55090450798b5ef3fb941dc9bd97538b,
-CI 36279627346 SUCCESS all six jobs: 485 backend passed,
-3 deselected, 6841 warnings; 3 E2E passed in 8.94s.
-Alembic b0d2f4a6c8e1 / 105 tables. All previous
-Tenant/Property Budget and GPR report work VERIFIED.
-NEXT Section 38 Lease Expiration Detail then Summary by Month,
-followed by Property Directory. Distinguish scheduled
-contract end from actual departure; protect manager assignment
-and tenant org scope. Reuse canonical report delivery, add tests,
-commit bounded code and verify CI before marking complete.
-No main/new branch, no unapproved docs/ edits or Work handoff.
+Continue yasirskhan/property-platform on existing branch
+chatgpt/checkpoint-005-safety. Read entire repo-root
+AI_HANDOFF.md then verify current HEAD and CI.
+Last VERIFIED source d818dfbb5652c3f2d0735fa1b891a59c3be38ee2;
+CI 36280075299 SUCCESS all six jobs, backend 489 passed,
+3 deselected, 7024 warnings; browser E2E 3 passed in 6.11s.
+Alembic b0d2f4a6c8e1 / 105 model tables.
+Gross Potential Rent and both Lease Expiration reports VERIFIED.
+NEXT Section 38: Property Directory, then Property Group
+Directory (no known persisted group source), Property
+Performance and the remaining original roadmap. Preserve
+org/manager assignment and report permissions, tests, full
+CI verification and handoff. No main/new branch/force push,
+unapproved frozen docs edits, fabricated accounting or
+1099 live filing claims, or Work mode.
