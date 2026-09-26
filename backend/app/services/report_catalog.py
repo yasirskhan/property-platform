@@ -141,7 +141,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/property-directory",
         description="Recorded active property addresses and active unit counts, scoped to your assignments.",
     ),
-    _standard("property.group_directory", "Property Group Directory", "Property & Unit"),
+    _standard(
+        "property.group_directory", "Property Group Directory", "Property & Unit",
+        href="/dashboard/reporting/property-groups",
+        description="Explicitly saved group memberships; manager view includes assigned properties only.",
+    ),
     _enhanced("property.performance", "Property Performance", "Property & Unit"),
     _enhanced("property.rent_roll", "Rent Roll", "Property & Unit"),
     _standard("property.unit_directory", "Unit Directory", "Property & Unit"),
