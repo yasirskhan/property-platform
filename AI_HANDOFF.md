@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `49dd9e5129df94e3721f3a97caa0415738bc24bb`
-- Source GitHub Actions run **36271476212: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `1560b0ec2c436ad363bf6c742036aaf94fd6892e`
+- Source GitHub Actions run **36271931432: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **432 passed, 3 deselected, 4532 warnings in 87.23s**.
-  E2E: **3 passed in 9.99s**. Lint, typecheck, production build, security
+  Backend: **433 passed, 3 deselected, 4562 warnings in 63.07s**.
+  E2E: **3 passed in 8.50s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -20,11 +20,14 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   with the tax-profile revision migration; no new model table. All three
   PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: verified Avalara 1099-MISC rents sandbox mapping. VERIFIED.**
-- **Exact NEXT original-plan task: Generate 1099 Forms & Reports,
-  expose persisted redacted sandbox-validation attempt history from immutable audit,
-  then define the remaining real-provider/recipient-copy boundary. Production filing,
-  IRS acceptance and recipient copies remain NOT IMPLEMENTED.** Do not repeat verified preflight,
+  **Latest completed batch: immutable redacted provider dry-run history. VERIFIED.**
+- **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
+  NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
+  no-submission guarantees. Actual external sandbox acceptance requires operator
+  Avalara subscription/credentials/issuer; production filing/IRS acceptance and
+  recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
+- **Exact NEXT executable original-plan task: Letters module — Overview, View/Edit,
+  Custom, Print/Email, and 3-Day Notice. Do not halt Phase 3.7 on missing provider credentials.** Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
 ## Verification chronology — don't reimplement
@@ -50,6 +53,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Avalara sandbox dry-run adapter | 85a6180a9fce3258d2bda90e878cfb30d4a891ec | 36270582328 | 431 backend passed / 3 E2E |
 | Provider status + explicit sandbox UI | 4a54c602966a795a8b399893f3d5fc46a6324ab3 | 36270979448 | 432 backend passed / 3 E2E |
 | Avalara 1099-MISC rents sandbox mapping | 49dd9e5129df94e3721f3a97caa0415738bc24bb | 36271476212 | 432 backend passed / 3 E2E |
+| Immutable redacted provider dry-run history | 1560b0ec2c436ad363bf6c742036aaf94fd6892e | 36271931432 | 433 backend passed / 3 E2E |
 
 
 All listed full CI runs were successful. Older superseded CI runs may be
@@ -273,10 +277,10 @@ must NOT be modified without separate authorization.
   no production URLs, filing/scheduling endpoint or recipient delivery.
   API/audit response is redacted and NEVER includes provider response body,
   raw TIN, name, address, token, client secret or source notes.
-- Current verified provider mapping is deliberately only 1099-NEC
-  NONEMPLOYEE_COMPENSATION. 1099-MISC rents fails closed with 422 until
-  its official provider mapping is separately verified. Tests mock all
-  external requests; CI did NOT contact Avalara or claim sandbox credentials.
+- Initial adapter commit supported only 1099-NEC. Subsequent verified
+  commit 49dd9e5129df94e3721f3a97caa0415738bc24bb added official
+  1099-MISC rents mapping. Tests mock all external requests; CI did NOT
+  contact Avalara or claim sandbox credentials.
 - Official Avalara docs checked 2026-09-26 document an active subscription,
   OAuth client credentials, sandbox token/API URLs and bulk-upsert dryRun.
   A real operator must provision sandbox credentials/issuer before any
@@ -322,64 +326,76 @@ must NOT be modified without separate authorization.
   because the current verified tax profile stores one legal tax name, not
   structured individual first/last tax-name fields. Do not invent a split.
 
+
+**Immutable redacted provider dry-run history — VERIFIED 2026-09-26**:
+- Product commit `1560b0ec2c436ad363bf6c742036aaf94fd6892e`;
+  CI 36271931432 SUCCESS all six jobs. Backend 433 passed,
+  3 deselected, 4562 warnings in 63.07s; E2E 3 passed in 8.50s.
+  No migration; Alembic f8c0d2e4a6b9 and 103 model tables.
+- Existing append-only `audit_log` is the single history store; no duplicate
+  provider-attempt table was added. Each provider dry-run audit now stores
+  only provider, dry_run=true, HTTP status, validated bool, submitted=false
+  and the app-generated correlation UUID.
+- Admin no-store endpoint
+  `GET /api/reporting/tax-1099-reviews/{id}/provider/attempts` rechecks org/
+  tax-admin access and returns only safe parsed audit metadata. Malformed,
+  non-dry-run or submitted-looking legacy audit payloads are ignored.
+- Review UI loads history after preflight/validation and labels every entry
+  NOT SUBMITTED. Provider response bodies, tax IDs, names, addresses,
+  credentials, issuer ID and tokens are never persisted/exposed by history.
+- External provider boundary: CI uses mocked requests only. A real Avalara
+  sandbox validation requires operator-provisioned active subscription,
+  sandbox client credentials and issuer ID. Missing those external credentials
+  blocks only real provider verification, not continuing Phase 3.7.
+
 **CURRENTLY NOT IMPLEMENTED**: provider-hosted e-W9 consent/signature,
-backend PDF malware scanning/retention purge, completed 1099-NEC/MISC
-reportable-payment identification, review and approval, official IRS
-tax-year template mapping, TCC / provider credentials, transmission,
-filing receipts, corrections, recipient copies or e-delivery. Do not
-claim any of these verified or enable "file" from a prototype.
+backend PDF malware scanning/retention purge, automatic reportable-payment
+identification, official IRS tax-year submission template mapping, live
+provider/TCC credentials, real transmission, IRS/provider acceptance receipts,
+corrections, recipient copies or e-delivery. Manual NEC/MISC preparation,
+review/approval and sandbox request mapping ARE implemented and verified.
+Do not claim any unimplemented external filing behavior or enable "file".
 
 ## Exact next work: continue, don't stop at phase boundary
 
-1. Read entire root handoff, fetch actual HEAD/latest CI. Do not
-   repeat verified preflight, manual 1099 review, encrypted tax
-   profiles/W-9, revision checks, redacted internal register.
-2. NEXT bounded batch: reuse immutable audit rows already written by each
-   provider_sandbox_dry_run to expose redacted validation-attempt history on the
-   review record. Do NOT create a second history table unless audit cannot meet
-   requirements. Expose provider, dry-run, HTTP status, validated, NOT_SUBMITTED,
-   timestamp and safe client correlation ID only; never provider body or tax data.
-3. Then reassess what remains for Phase 3.7 1099 report/form preparation versus
-   the original Phase 4.5 provider transmission/recipient-delivery scope. A real
-   Avalara subscription, sandbox credentials and issuer ID remain external
-   prerequisites for an actual sandbox call; never put secrets in source/chat. Avalara 1099/W-9 publishes
-   OAuth client-credentials API, sandbox environment, and 1099
-   form creation/readiness endpoints; active subscription and
-   server-only secrets are required. IRIS taxpayer-portal CSV
-   requires an IRIS TCC and exact tax-year formatting guidelines
-   from authenticated portal; A2A requires client ID, approved
-   schema and ATS testing. Do not invent 2026 IRIS CSV, output
-   FIRE, or mark simulated provider responses as filing.
-   https://www.irs.gov/filing/e-file-information-returns-with-iris
-   https://developer.avalara.com/products/avalara-1099-and-w9/api/
-4. The original docs/PLAN_GAPS.md C9 assigns actual provider
-   transmission, recipient delivery and corrections to Phase
-   4.5. Continue safe Phase 3.7 form/report preparation but do
-   not bypass the roadmap or claim 1099 filing COMPLETE while
-   external integration/recipient delivery are unverified.
-   Only after complete 1099 original-plan dependencies are
-   accounted for proceed to Section 38 Letters, Owner Packets,
-   tenant/property/owner/accounting reports in order.
-5. Include focused regression tests with each bounded source
-   commit, use GitHub Actions verification only AFTER commit
-   as user authorized; don't call VERIFIED until all six jobs
-   pass. Fix red CI autonomously; halt after three repeats
-   of the same assertion. Update root handoff after meaningful
-   verified batches with exact numbers, SHA and Alembic head.
-   Frozen docs/ unchanged without explicit authorization,
-   no main or new branches, no unverified live tax filings.
+1. Read entire root handoff, fetch actual HEAD/latest CI. Do not repeat
+   verified labels, saved reports, encrypted tax/W-9 infrastructure,
+   1099 review/preflight, source guards, sandbox adapter/status/UI,
+   NEC/MISC mapping or immutable provider-attempt history.
+2. External 1099 boundary: real Avalara sandbox/provider acceptance needs
+   operator subscription + sandbox client credentials + issuer ID.
+   Production filing, IRS acceptance, recipient copies, corrections and
+   e-delivery remain NOT IMPLEMENTED. Never fabricate success or put secrets
+   in source/chat. PLAN_GAPS C9 keeps actual provider transmission/delivery
+   in Phase 4.5; resume live integration when secrets are provisioned.
+3. Continue executable original Phase 3.7 order NOW with Letters:
+   Overview + View/Edit + Custom + Print/Email + 3-Day Notice. Inspect real
+   org/tenant/lease/property models, branding settings, email and document
+   patterns first. Templates are plain text + allowlisted merge tags only;
+   no HTML/JS/CSS/arbitrary expressions. Preserve org/property authorization.
+4. Build Letters in meaningful bounded source batches with focused tests
+   and hosted CI. After Letters continue Send Owner Packets, then tenant/
+   property/owner/accounting/transaction reports in Section 38 order.
+5. User authorized commit-then-GitHub-CI verification. Mark product work
+   VERIFIED only after all relevant jobs pass; fix CI reds autonomously.
+   Update THIS root handoff after meaningful verified batches. No main/new
+   branch/force push; frozen docs remain unchanged except prior narrow
+   user-authorized 1099 modernization.
 
 ## Session start for successor
 
 Continue yasirskhan/property-platform on `chatgpt/checkpoint-005-safety`.
 Read complete repo-root AI_HANDOFF.md; verify current HEAD and CI.
-Last VERIFIED product source `49dd9e5129df94e3721f3a97caa0415738bc24bb`,
-CI 36271476212 SUCCESS (432 backend passed, 3 deselected,
-4532 warnings; E2E 3 passed; all six jobs success).
-Alembic `f8c0d2e4a6b9`, 103 tables. Manually sourced NEC/MISC
-review/approval, redacted internal CSV, encrypted W-9/tax profiles,
-revision lock, redacted no-submission provider preflight are
-VERIFIED. Full IRS/approved-provider 1099 filing and recipient
-copies are NOT IMPLEMENTED. Immediate batch: redacted immutable audit-backed provider dry-run history;
-then reassess Phase 3.7 completion boundary versus Phase 4.5 live delivery. Preserve original Phase 3.7/4.5 dependency order and
-frozen docs. Bounded code+CI, no Work/main/new branch.
+Last VERIFIED product source `1560b0ec2c436ad363bf6c742036aaf94fd6892e`,
+CI 36271931432 SUCCESS (433 backend passed, 3 deselected,
+4562 warnings; E2E 3 passed; all six jobs success).
+Alembic `f8c0d2e4a6b9`, 103 tables. Internal Phase 3.7 1099
+preparation/security, signed W-9 archive, manual review/approval,
+preflight, NEC/MISC Avalara sandbox dry-run mappings, redacted provider
+status/UI and immutable attempt history are VERIFIED. CI never contacted
+Avalara. Real sandbox needs external subscription/client credentials/issuer;
+production filing, IRS acceptance, recipient copies/corrections/e-delivery
+remain NOT IMPLEMENTED and external-provider work aligns with Phase 4.5.
+Do not stop Phase 3.7 on those credentials. Exact next executable task:
+Letters Overview + View/Edit + Custom + Print/Email + 3-Day Notice.
+Preserve original roadmap, frozen docs, branch rules and commit+CI workflow.
