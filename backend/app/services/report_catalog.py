@@ -53,6 +53,11 @@ def _enhanced(key: str, title: str, category: str, *, href: str | None = None, d
 
 
 REPORT_CATALOG: tuple[ReportDefinition, ...] = (
+    _standard(
+        "mailing.labels", "Create Labels Report", "Mailings",
+        href="/dashboard/reporting/labels",
+        description="Mail-merge CSV for authorized property and current-tenant addresses.",
+    ),
     # Tenant
     _enhanced("tenant.delinquency", "Delinquency", "Tenant"),
     _standard("tenant.security_deposit_funds_detail", "Security Deposit Funds Detail", "Tenant"),

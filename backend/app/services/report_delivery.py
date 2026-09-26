@@ -35,6 +35,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "accounting.general_ledger": "ACCOUNTING.GL_ACCOUNTS",
     "accounting.trial_balance": "ACCOUNTING.GL_ACCOUNTS",
     "owner.statement": "ACCOUNTING.OWNER_STATEMENTS",
+    "mailing.labels": "PROPERTIES.ALL",
 }
 
 
@@ -283,7 +284,16 @@ def build_report_payload(
     organization_id: int,
     report_key: str,
     parameters: Mapping[str, object],
+    current_user: object | None = None,
 ) -> ReportPayload:
+    if report_key == "mailing.labels":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated label report access required")
+        from app.services.label_report import build_label_report
+        return build_label_report(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
     builder = _BUILDERS.get(report_key)
     if builder is None:
         raise ReportDeliveryError("Report is not available for delivery")

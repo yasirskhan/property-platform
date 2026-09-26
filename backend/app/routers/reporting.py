@@ -69,13 +69,14 @@ def _require_export_feature(db: Session, current_user: User) -> None:
         raise HTTPException(status_code=404, detail="Report delivery is not available.")
 
 
-def _build_or_422(db: Session, *, organization_id: int, report_key: str, parameters: dict[str, object]):
+def _build_or_422(db: Session, *, organization_id: int, report_key: str, parameters: dict[str, object], current_user: User | None = None):
     try:
         return build_report_payload(
             db,
             organization_id=organization_id,
             report_key=report_key,
             parameters=parameters,
+            current_user=current_user,
         )
     except ReportDeliveryError as exc:
         detail = str(exc)
@@ -233,6 +234,27 @@ def delete_saved_report(
     return Response(status_code=204)
 
 
+@router.get("/labels/preview")
+def preview_labels(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Live, authorized label rows for the printable mail-merge preview."""
+    organization_id = _require_report_access(db, current_user=current_user, report_key="mailing.labels")
+    _require_export_feature(db, current_user)
+    payload = _build_or_422(
+        db, organization_id=organization_id, report_key="mailing.labels",
+        parameters=dict(request.query_params), current_user=current_user,
+    )
+    return {
+        "title": payload.title,
+        "headers": payload.headers,
+        "rows": payload.rows,
+        "total": len(payload.rows),
+    }
+
+
 @router.get("/{report_key}/export.csv")
 def export_report_csv(
     report_key: str,
@@ -248,6 +270,7 @@ def export_report_csv(
         organization_id=organization_id,
         report_key=report_key,
         parameters=parameters,
+        current_user=current_user,
     )
     return Response(
         content=report_csv_bytes(payload),
@@ -270,6 +293,7 @@ def email_report(
         organization_id=organization_id,
         report_key=report_key,
         parameters=payload.parameters,
+        current_user=current_user,
     )
     csv_bytes = report_csv_bytes(report)
     send_email(
