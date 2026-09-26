@@ -54,6 +54,11 @@ def _enhanced(key: str, title: str, category: str, *, href: str | None = None, d
 
 REPORT_CATALOG: tuple[ReportDefinition, ...] = (
     _standard(
+        "mailing.letters", "Letters", "Mailings",
+        href="/dashboard/reporting/letters",
+        description="Custom tenant letters and reviewed 3-day notice drafts.",
+    ),
+    _standard(
         "tax.1099_preparation", "1099 Preparation", "Tax",
         href="/dashboard/reporting/1099",
         description="Encrypted taxpayer profiles and paper W-9 readiness; filing not enabled.",
