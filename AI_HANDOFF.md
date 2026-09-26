@@ -37,8 +37,8 @@ IMPORTANT:
 - Universal — Notes expansion is COMPLETE/VERIFIED.
 - Universal — Audit Log expansion is COMPLETE/VERIFIED.
 - Universal Attachments is COMPLETE/VERIFIED.
-- Phase 3.7 Report framework (standard vs enhanced) is IMPLEMENTED; hosted CI verification pending.
-- Current batch: Phase 3.7 — Print / Email / CSV Export on every report is NEXT after framework verification.
+- Phase 3.7 Report framework (standard vs enhanced) is COMPLETE/VERIFIED.
+- Current batch: Phase 3.7 — Print / Email / CSV Export on every report. NEXT.
 
 # Latest Verified Green Checkpoint
 
@@ -478,15 +478,19 @@ Implementation prepared:
 - No schema migration; migration head remains a3d5f7b9c1e4 / 99 model tables.
 - Regression coverage: backend/tests/test_reporting_framework.py.
 - Parity inventory after implementation: 263 built / 365 scheduled / 0 in-progress.
-- TESTS NOT RUN locally in this connector-only session; hosted CI verification is required.
+- TESTS NOT RUN locally in this connector-only session.
+- Implementation commit: 3afb0d3d2b41a222225e5ca20fb9c976fee77742.
+- Hosted CI run 36221727596: SUCCESS.
+- Backend: 376 passed, 3 deselected, 3090 warnings in 64.55s.
+- E2E: 3 passed in 8.15s.
+- Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Verify Report framework in hosted CI and fix reds autonomously.
-2. Print / Email / CSV Export on every report.
-3. Custom Report Builder (saved configurations).
-4. Continue Phase 3.7 in roadmap order without stopping.
+1. Print / Email / CSV Export on every report — current next.
+2. Custom Report Builder (saved configurations).
+3. Continue Phase 3.7 in roadmap order without stopping.
 
 # Working Rules
 
