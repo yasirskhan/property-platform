@@ -21,6 +21,10 @@ def init_sentry() -> bool:
         release=f"property-platform@{settings.APP_VERSION}",
         traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
         send_default_pii=False,
+        # Signed W-9 PDFs and tax IDs must not enter remote error telemetry.
+        # Also prevents Sentry from pre-reading the raw streamed PDF body.
+        max_request_body_size="never",
+        include_local_variables=False,
     )
     return True
 

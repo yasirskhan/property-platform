@@ -56,3 +56,17 @@ def test_sentry_trace_sample_rate_is_validated() -> None:
         assert "SENTRY_TRACES_SAMPLE_RATE" in str(exc)
     else:
         raise AssertionError("Expected invalid Sentry sample rate to be rejected")
+
+
+
+def test_sentry_does_not_capture_tax_bodies_or_stack_locals(monkeypatch) -> None:
+    captured = {}
+    monkeypatch.setattr(settings, "SENTRY_DSN", "https://public@example.invalid/1")
+    monkeypatch.setattr(
+        "app.core.observability.sentry_sdk.init",
+        lambda **options: captured.update(options),
+    )
+    assert init_sentry() is True
+    assert captured["send_default_pii"] is False
+    assert captured["max_request_body_size"] == "never"
+    assert captured["include_local_variables"] is False
