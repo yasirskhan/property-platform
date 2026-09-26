@@ -80,6 +80,7 @@ from app.routers import entity_notes as entity_notes_router
 from app.routers import entity_attachments as entity_attachments_router
 from app.routers import reporting as reporting_router
 from app.routers import tax_profiles as tax_profiles_router
+from app.routers import tax_w9 as tax_w9_router
 
 # ------------------------------------------------------------
 # Create the FastAPI app
@@ -175,6 +176,7 @@ app.include_router(entity_notes_router.router)
 app.include_router(entity_attachments_router.router)
 app.include_router(reporting_router.router)
 app.include_router(tax_profiles_router.router)
+app.include_router(tax_w9_router.router)
 
 
 # ------------------------------------------------------------

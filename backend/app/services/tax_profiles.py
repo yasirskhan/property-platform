@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet, InvalidToken, MultiFernet
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
@@ -20,12 +20,19 @@ from app.services.audit import append_audit_log
 from app.services.menu_resolver import permission_allows_user
 
 
-def _crypto() -> Fernet:
+def _crypto() -> MultiFernet:
+    """New data uses the current key; previous keys can decrypt old records."""
     key = settings.TAX_PROFILE_ENCRYPTION_KEY
     if not key or key == settings.ENCRYPTION_KEY:
         raise HTTPException(status_code=503, detail="Dedicated tax profile encryption is not configured.")
     try:
-        return Fernet(key.encode("utf-8"))
+        previous = json.loads(settings.TAX_PROFILE_PREVIOUS_KEYS_JSON)
+        if not isinstance(previous, list):
+            raise ValueError("Invalid previous key configuration")
+        keys = [key, *previous]
+        if any(not isinstance(item, str) or item == settings.ENCRYPTION_KEY for item in keys):
+            raise ValueError("Tax keys must be dedicated")
+        return MultiFernet([Fernet(item.encode("utf-8")) for item in keys])
     except (ValueError, TypeError) as exc:
         raise HTTPException(status_code=503, detail="Tax profile encryption is unavailable.") from exc
 
@@ -56,7 +63,7 @@ def _subject(db: Session, *, organization_id: int, subject_type: str, subject_id
         raise HTTPException(status_code=404, detail="Tax profile subject not found.")
 
 
-def _decode(row: TaxProfile, fernet: Fernet) -> dict[str, str]:
+def _decode(row: TaxProfile, fernet: MultiFernet) -> dict[str, str]:
     try:
         raw = fernet.decrypt(row.encrypted_payload.encode("utf-8"))
         data = json.loads(raw)
@@ -67,7 +74,7 @@ def _decode(row: TaxProfile, fernet: Fernet) -> dict[str, str]:
         raise HTTPException(status_code=503, detail="Tax profile could not be decrypted.") from exc
 
 
-def _out(row: TaxProfile, fernet: Fernet) -> TaxProfileOut:
+def _out(row: TaxProfile, fernet: MultiFernet) -> TaxProfileOut:
     data = _decode(row, fernet)
     return TaxProfileOut(
         id=row.id, subject_type=row.subject_type, subject_id=row.subject_id,

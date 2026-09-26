@@ -5,6 +5,8 @@
 # staging/production must provide real secrets through environment.
 # ============================================================
 
+import json
+
 from cryptography.fernet import Fernet
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -70,6 +72,8 @@ class Settings(BaseSettings):
     ENCRYPTION_KEY: str = DEV_ENCRYPTION_KEY
     # Independent operator-provisioned key; no insecure development fallback.
     TAX_PROFILE_ENCRYPTION_KEY: str = ""
+    # Previous keys remain in secret management for decrypting archived records.
+    TAX_PROFILE_PREVIOUS_KEYS_JSON: str = "[]"
 
     @model_validator(mode="after")
     def reject_development_secrets_outside_development(self) -> "Settings":
@@ -81,6 +85,17 @@ class Settings(BaseSettings):
                 Fernet(self.TAX_PROFILE_ENCRYPTION_KEY.encode("utf-8"))
             except Exception as exc:
                 raise ValueError("Invalid TAX_PROFILE_ENCRYPTION_KEY") from exc
+
+        try:
+            previous_keys = json.loads(self.TAX_PROFILE_PREVIOUS_KEYS_JSON)
+            if not isinstance(previous_keys, list):
+                raise ValueError("Previous tax keys must be a list")
+            for old_key in previous_keys:
+                if not isinstance(old_key, str) or old_key == self.ENCRYPTION_KEY:
+                    raise ValueError("Previous tax keys must be independent")
+                Fernet(old_key.encode("utf-8"))
+        except (ValueError, TypeError) as exc:
+            raise ValueError("Invalid TAX_PROFILE_PREVIOUS_KEYS_JSON") from exc
 
         if not 0.0 <= self.SENTRY_TRACES_SAMPLE_RATE <= 1.0:
             raise ValueError("SENTRY_TRACES_SAMPLE_RATE must be between 0 and 1")

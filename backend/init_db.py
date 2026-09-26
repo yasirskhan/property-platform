@@ -114,6 +114,7 @@ from app.models.entity_note import EntityNote  # noqa: F401
 from app.models.entity_attachment import EntityAttachment  # noqa: F401
 from app.models.saved_report import SavedReport  # noqa: F401
 from app.models.tax_profile import TaxProfile  # noqa: F401
+from app.models.tax_w9_document import TaxW9Document  # noqa: F401
 from app.models.currency import Currency  # noqa: F401
 from app.models.charge import Charge  # noqa: F401
 
