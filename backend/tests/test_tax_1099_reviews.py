@@ -218,10 +218,15 @@ def test_org_scope_no_store_and_no_filing_endpoint(ctx):
     rows = routes.read_reviews(read_response, db=db, current_user=admin, tax_year=2026)
     assert read_response.headers["cache-control"] == "no-store"
     assert [row.id for row in rows] == [created.id]
+    assert service.list_reviews(
+        db, current_user=ctx["other_admin"], tax_year=2026
+    ) == []
     with pytest.raises(HTTPException) as exc:
-        service.list_reviews(db, current_user=ctx["other_admin"], tax_year=2026)
-    assert exc.value.status_code in {403, 404} or service.list_reviews(
-        db, current_user=ctx["other_admin"], tax_year=2026) == []
+        service.update_prepared(
+            db, current_user=ctx["other_admin"], record_id=created.id,
+            payload=Tax1099UpdateIn(**nec(ctx).model_dump(exclude={"idempotency_key"})),
+        )
+    assert exc.value.status_code == 404
     assert not hasattr(routes, "submit")
     assert not hasattr(routes, "file_return")
     with pytest.raises(HTTPException) as exc:
