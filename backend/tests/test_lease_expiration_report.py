@@ -173,6 +173,8 @@ def test_catalog_preview_export_email_and_revocation(monkeypatch):
         for key in (DETAIL, SUMMARY):
             row = next(item for item in REPORT_CATALOG if item.key == key)
             assert row.tier == "STANDARD" and row.href is not None
+            if key == SUMMARY:
+                assert row.href == "/dashboard/reporting/lease-expirations/summary"
             assert report_router.REPORT_PERMISSIONS[key] == "LEASING"
         monkeypatch.setattr(report_router, "permission_allows_user", lambda *args, **kw: True)
         monkeypatch.setattr(report_router, "resolve_customer_features",

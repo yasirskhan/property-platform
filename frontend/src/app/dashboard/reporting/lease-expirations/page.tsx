@@ -17,8 +17,8 @@ const REPORT_KEYS = {
   summary: "property.lease_expiration_summary",
 } as const;
 
-export default function LeaseExpirationsPage() {
-  const [mode, setMode] = useState<ReportMode>("detail");
+export default function LeaseExpirationsPage({ initialMode = "detail" }: { initialMode?: ReportMode }) {
+  const [mode, setMode] = useState<ReportMode>(initialMode);
   const [from, setFrom] = useState(() => new Date().toISOString().slice(0, 10));
   const [through, setThrough] = useState(() => {
     const next = new Date();
