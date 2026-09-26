@@ -277,7 +277,7 @@ def test_internal_register_masked_csv_org_scope_audit_and_formula_escape(ctx, mo
     assert "Manual tax-year review" not in content  # Source note deliberately excluded.
     row = db.query(AuditLog).filter(AuditLog.entity_type == "tax_1099_register").one()
     assert row.organization_id == admin.organization_id
-    assert '"irs_submission": false' in (row.new_value or "").lower()
+    assert json.loads(row.new_value)["irs_submission"] is False
     assert "4444" not in (row.new_value or "")
     empty = routes.export_internal_register(tax_year=2025, db=db, current_user=admin)
     assert b"NOT FOR IRS SUBMISSION" not in empty.body  # Header-only, no fabricated record.
