@@ -36,6 +36,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "accounting.trial_balance": "ACCOUNTING.GL_ACCOUNTS",
     "owner.statement": "ACCOUNTING.OWNER_STATEMENTS",
     "mailing.labels": "PROPERTIES.ALL",
+    "tenant.delinquency": "LEASING",
 }
 
 
@@ -291,6 +292,14 @@ def build_report_payload(
             raise ReportDeliveryError("Authenticated label report access required")
         from app.services.label_report import build_label_report
         return build_label_report(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "tenant.delinquency":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated delinquency report access required")
+        from app.services.tenant_delinquency import build_delinquency_report
+        return build_delinquency_report(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
         )

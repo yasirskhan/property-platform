@@ -74,7 +74,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         description="Mail-merge CSV for authorized property and current-tenant addresses.",
     ),
     # Tenant
-    _enhanced("tenant.delinquency", "Delinquency", "Tenant"),
+    _enhanced(
+        "tenant.delinquency", "Delinquency", "Tenant",
+        href="/dashboard/reporting/delinquency",
+        description="Current overdue rent-invoice balances. Unpaid charges have a separate report.",
+    ),
     _standard("tenant.security_deposit_funds_detail", "Security Deposit Funds Detail", "Tenant"),
     _standard("tenant.directory", "Tenant Directory", "Tenant"),
     _enhanced("tenant.ledger", "Tenant Ledger", "Tenant"),

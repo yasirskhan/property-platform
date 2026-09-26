@@ -216,6 +216,12 @@ def test_login_and_core_authenticated_pages() -> None:
             expect(page.get_by_role("button", name="Send packet email", exact=True)).to_have_count(0)
 
             page.goto(
+                f"{BASE_URL}/dashboard/reporting/delinquency",
+                wait_until="domcontentloaded",
+            )
+            expect(page.get_by_role("heading", name="Tenant Delinquency", exact=True)).to_be_visible()
+
+            page.goto(
                 f"{BASE_URL}/dashboard/reporting/1099",
                 wait_until="domcontentloaded",
             )
