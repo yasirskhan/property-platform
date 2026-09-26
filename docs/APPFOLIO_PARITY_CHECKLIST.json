@@ -13,8 +13,8 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 259,
-    "scheduled_count": 369,
+    "built_count": 260,
+    "scheduled_count": 368,
     "in_progress_count": 0
   },
   "items": [
@@ -1971,9 +1971,9 @@
       "id": "universal.audit_log",
       "area": "Universal Patterns",
       "feature": "Audit Log on all entities (full coverage)",
-      "status": "scheduled",
+      "status": "built",
       "phase": "3.6",
-      "notes": "Partial today; expand everywhere"
+      "notes": "Verified in hosted CI run 36214097327: authenticated customer/platform ORM mutation fallback fills audit coverage gaps while explicit semantic events remain authoritative; no duplicate audit store."
     },
     {
       "id": "universal.styled_confirm_modal",

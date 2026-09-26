@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.6 — Accounting Polish** is IN PROGRESS. Chart of Accounts, Journal Entries, Receipts, Charges, Bills lifecycle, Recurring Bills/Credits, Post Codes, Manually Post Bills, Vendor Credits, Write Checks / Checks, Bank Deposits polish, Bank Reconciliation/QIF, Check Setup, ACH File Generation, Bank Adjustments, Bank Feed import, Owner ACH Setup, the $0 ACH Test File, and Owner Held Security Deposits are verified. Management Fees — Pay Owners, Overcollection Strategy, Post GPR, and Management Fee Exclusions are VERIFIED. Exclusions passed hosted CI run 36187449354. Current work: Diagnostics — Auto-fix Refund Negative Diagnostic.
+**Current activity:** Phase **3.6 — Accounting Polish** is COMPLETE/VERIFIED through Universal Audit Log expansion. Phase **3.7 — Reports + Universal Attachments** is IN PROGRESS. Current work: Universal Attachments foundation.
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -33,9 +33,9 @@
 
 **3.4.S closeout:** COMPLETE. Portable private-repo security checks (Bandit, pip-audit, npm audit, committed-secret scan, Dependabot) replaced the unavailable mandatory CodeQL upload gate and passed in hosted CI run 35917804417. CodeQL remains optional/manual if GitHub Code Security is enabled later.
 
-**Migration head:** `e4f6a8c0d2b5`.
+**Migration head:** `f2c4e6a8b0d3`.
 
-**Current parity inventory:** 243 built, 0 in progress, 385 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 260 built, 0 in progress, 368 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
