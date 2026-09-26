@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `329e106709457647adb8b160a13d44695c102fd3`
-- Source GitHub Actions run **36268470769: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `6aa0a0414341d1a7cfc90fa3fcb119beb470f4e7`
+- Source GitHub Actions run **36269106237: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **426 passed, 3 deselected, 4305 warnings in 65.25s**.
-  E2E: **3 passed in 9.29s**. Lint, typecheck, production build, security
+  Backend: **428 passed, 3 deselected, 4398 warnings in 84.14s**.
+  E2E: **3 passed in 9.08s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -20,12 +20,12 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   with the tax-profile revision migration; no new model table. All three
   PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: redacted provider-handoff preflight with
-  no transmission. VERIFIED.**
+  **Latest completed batch: provider-preflight source-text redaction and
+  competing-current-approval safeguards. VERIFIED.**
 - **Exact NEXT original-plan task: Generate 1099 Forms & Reports,
-  continuing with source-data redaction/duplicate-approval safeguards,
-  then the IRS-current IRIS/approved-provider handoff. Full filing/recipient
-  copies remain NOT IMPLEMENTED.** Do not repeat verified preflight,
+  continuing with disabled-by-default approved-provider sandbox integration,
+  then verified provider mapping/receipts. Full filing/recipient copies remain
+  NOT IMPLEMENTED.** Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
 ## Verification chronology — don't reimplement
@@ -47,6 +47,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Internal redacted 1099 register | 4a96cd00d098dd82b646dc0e7bc00dc2c4cd3a87, f68e06169b4b8c33f335e97d84dfa00034493c33 | 36267589323 | 418 backend passed / 3 E2E |
 | Substantive tax-profile revision and approval staleness guard | 48dc20d6d52d163954cc00956714090d3d2dcae9 | 36268034674 | 423 backend passed / 3 E2E |
 | Redacted provider-handoff preflight without submission | 329e106709457647adb8b160a13d44695c102fd3 | 36268470769 | 426 backend passed / 3 E2E |
+| Source-text redaction + competing approval guard | 53c26c97c8a6f7f1a4ed16014eb9c80e68ca04f8, 6aa0a0414341d1a7cfc90fa3fcb119beb470f4e7 | 36269106237 | 428 backend passed / 3 E2E |
 
 
 All listed full CI runs were successful. Older superseded CI runs may be
@@ -231,6 +232,25 @@ must NOT be modified without separate authorization.
   and recipient delivery for provider Phase 4.5. Do not falsely
   complete full 1099 or create a provider delivery bypass in 3.7.
 
+
+**Provider-preflight source safety — VERIFIED 2026-09-26**:
+- Product commits `53c26c97c8a6f7f1a4ed16014eb9c80e68ca04f8` and
+  `6aa0a0414341d1a7cfc90fa3fcb119beb470f4e7`; CI 36269106237
+  SUCCESS all six jobs. Backend 428 passed, 3 deselected, 4398 warnings
+  in 84.14s; E2E 3 passed in 9.08s. No migration; head remains
+  f8c0d2e4a6b9 and 103 tables.
+- New PREPARED/updated source reference/note rejects SSN/EIN-like
+  identifiers with a generic 422 message. Existing legacy source text is
+  redacted in API/CSV output instead of exposed. Private source validation
+  still sees original stored text so preflight fails closed until cleaned.
+- Provider preflight blocks a CURRENT APPROVED competing record for the
+  same organization/payer/recipient/form/income category/tax year. Stale
+  historical approvals remain immutable audit history and are not treated
+  as a current competing filing. Nothing is auto-selected or submitted.
+- Tests cover new input rejection, legacy redaction, private-source
+  validation, current duplicate approval, stale historical approval,
+  cross-org/status invariants and existing encryption/revision safeguards.
+
 **CURRENTLY NOT IMPLEMENTED**: provider-hosted e-W9 consent/signature,
 backend PDF malware scanning/retention purge, completed 1099-NEC/MISC
 reportable-payment identification, review and approval, official IRS
@@ -243,16 +263,15 @@ claim any of these verified or enable "file" from a prototype.
 1. Read entire root handoff, fetch actual HEAD/latest CI. Do not
    repeat verified preflight, manual 1099 review, encrypted tax
    profiles/W-9, revision checks, redacted internal register.
-2. NEXT bounded batch: protect provider-handoff input against
-   accidental tax-ID disclosure in free-text source reference/note.
-   Reject new SSN/EIN-like identifiers with generic messages;
-   mask legacy saved source fields in HTTP and CSV. Flag multiple
-   competing CURRENT APPROVED records for same payer/recipient,
-   tax year/form, without treating stale historic correction as
-   a current duplicate. Do not auto-pick or submit. Test old data,
-   new input, cross-org, encryption/review invariants, statuses.
-3. Then provider integration after a vetted account/sandbox and
-   official schema are available. Avalara 1099/W-9 publishes
+2. NEXT bounded batch: add an approved-provider adapter that is
+   disabled by default, server-secret-only, sandbox-first, and cannot
+   submit a live filing without explicit configuration. Prefer a provider
+   dry-run/validation path before any create/schedule call. Keep HTTP
+   responses redacted and preserve all preflight gates/duplicate guards.
+3. Provider integration requires a vetted sandbox/account and official
+   provider schema. Avalara 1099 & W-9 currently documents OAuth client
+   credentials, sandbox URLs, 1099 issuer/form endpoints and dryRun bulk
+   upsert validation. Do not assume an account/subscription exists. Avalara 1099/W-9 publishes
    OAuth client-credentials API, sandbox environment, and 1099
    form creation/readiness endpoints; active subscription and
    server-only secrets are required. IRIS taxpayer-portal CSV
@@ -283,15 +302,14 @@ claim any of these verified or enable "file" from a prototype.
 
 Continue yasirskhan/property-platform on `chatgpt/checkpoint-005-safety`.
 Read complete repo-root AI_HANDOFF.md; verify current HEAD and CI.
-Last VERIFIED product source `329e106709457647adb8b160a13d44695c102fd3`,
-CI 36268470769 SUCCESS (426 backend passed, 3 deselected,
-4305 warnings; E2E 3 passed; all six jobs success).
+Last VERIFIED product source `6aa0a0414341d1a7cfc90fa3fcb119beb470f4e7`,
+CI 36269106237 SUCCESS (428 backend passed, 3 deselected,
+4398 warnings; E2E 3 passed; all six jobs success).
 Alembic `f8c0d2e4a6b9`, 103 tables. Manually sourced NEC/MISC
 review/approval, redacted internal CSV, encrypted W-9/tax profiles,
 revision lock, redacted no-submission provider preflight are
 VERIFIED. Full IRS/approved-provider 1099 filing and recipient
-copies are NOT IMPLEMENTED. Immediate batch: reject/mask TINs
-in source text and block competing current approvals in provider
-preflight; then official provider integration once account/schema
-present. Preserve original Phase 3.7/4.5 dependency order and
+copies are NOT IMPLEMENTED. Immediate batch: disabled-by-default server-side approved-provider
+sandbox adapter with dry-run validation only; no live submission,
+then verify official provider mapping once an account/schema is present. Preserve original Phase 3.7/4.5 dependency order and
 frozen docs. Bounded code+CI, no Work/main/new branch.
