@@ -61,7 +61,7 @@ def _seed(db):
     ))
     db.flush()
     def invoice(prop, person_, balance, *, days=10, paid=0, fee=0, status=InvoiceStatus.DUE):
-        unit = Unit(property_id=prop.id, unit_number="A", is_active=True)
+        unit = Unit(property_id=prop.id, unit_number=f"U-{days}", is_active=True)
         db.add(unit)
         db.flush()
         lease = Lease(
