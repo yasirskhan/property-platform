@@ -40,6 +40,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "tenant.security_deposit_funds_detail": "ACCOUNTING.GL_ACCOUNTS",
     "tenant.directory": "LEASING",
     "tenant.ledger": "LEASING",
+    "tenant.tickler": "LEASING",
 }
 
 
@@ -327,6 +328,14 @@ def build_report_payload(
             raise ReportDeliveryError("Authenticated tenant ledger access required")
         from app.services.tenant_ledger import build_tenant_ledger
         return build_tenant_ledger(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "tenant.tickler":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated tenant tickler access required")
+        from app.services.tenant_tickler import build_tenant_tickler
+        return build_tenant_tickler(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
         )

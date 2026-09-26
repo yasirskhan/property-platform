@@ -94,7 +94,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/tenant-ledger",
         description="Current invoice and standalone charge balances, not a reconstructed payment history.",
     ),
-    _standard("tenant.tickler", "Tenant Tickler", "Tenant"),
+    _standard(
+        "tenant.tickler", "Tenant Tickler", "Tenant",
+        href="/dashboard/reporting/tickler",
+        description="Tenant contacts with latest recorded lease event; no inferred notice/move-out dates.",
+    ),
     _standard("tenant.unpaid_charges", "Tenant Unpaid Charges", "Tenant"),
     _standard("tenant.summary", "Tenant Summary", "Tenant"),
 
