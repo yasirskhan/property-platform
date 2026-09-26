@@ -123,7 +123,7 @@ def upsert_tax_profile(
         TaxProfile.organization_id == organization_id,
         TaxProfile.subject_type == payload.subject_type,
         TaxProfile.subject_id == payload.subject_id,
-    ).first()
+    ).with_for_update().first()
     created = row is None
     old_metadata = None if created else {"w9_on_file": row.w9_on_file}
     if row is None:
@@ -131,7 +131,15 @@ def upsert_tax_profile(
             organization_id=organization_id, subject_type=payload.subject_type,
             subject_id=payload.subject_id,
         )
+        row.profile_revision = 1
         db.add(row)
+    else:
+        # Only substantive tax-data / W-9 metadata updates invalidate
+        # a previous 1099 review. Re-encryption alone never does.
+        old_data = _decode(row, fernet)
+        if (old_data != safe or bool(row.w9_on_file) != payload.w9_on_file
+                or row.w9_received_on != payload.w9_received_on):
+            row.profile_revision = int(row.profile_revision or 1) + 1
     row.encrypted_payload = ciphertext
     row.w9_on_file = payload.w9_on_file
     row.w9_received_on = payload.w9_received_on

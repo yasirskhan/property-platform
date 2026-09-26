@@ -56,7 +56,7 @@ def _row(db: Session, *, organization_id: int, record_id: int) -> Tax1099Review:
     row = db.query(Tax1099Review).filter(
         Tax1099Review.id == record_id,
         Tax1099Review.organization_id == organization_id,
-    ).first()
+    ).with_for_update().first()
     if row is None:
         raise HTTPException(status_code=404, detail="1099 review record not found.")
     return row
@@ -109,9 +109,20 @@ def _payload_from_row(row: Tax1099Review) -> Tax1099UpdateIn:
     )
 
 
+def _stale(row: Tax1099Review, payer: TaxProfile, recipient: TaxProfile) -> bool:
+    # Existing APPROVED/REVIEWED rows predating the revision migration
+    # have NULL snapshots and are conservatively treated as stale.
+    return row.status in {"REVIEWED", "APPROVED"} and (
+        row.reviewed_payer_revision is None
+        or row.reviewed_recipient_revision is None
+        or row.reviewed_payer_revision != payer.profile_revision
+        or row.reviewed_recipient_revision != recipient.profile_revision
+    )
+
+
 def _out(db: Session, row: Tax1099Review) -> Tax1099ReviewOut:
     payload = _payload_from_row(row)
-    _, recipient, payer_last4, recipient_last4, evidence = _profiles(
+    payer, recipient, payer_last4, recipient_last4, evidence = _profiles(
         db, organization_id=row.organization_id, payload=payload,
         require_current_subject=False, require_w9=False,
     )
@@ -126,6 +137,7 @@ def _out(db: Session, row: Tax1099Review) -> Tax1099ReviewOut:
         amount=row.amount, source_type=row.source_type,
         source_reference=row.source_reference, source_note=row.source_note,
         status=row.status, w9_evidence_present=evidence,
+        profile_changed_since_review=bool(_stale(row, payer, recipient)),
         source_review_confirmed=bool(row.source_review_confirmed),
         threshold_review_confirmed=bool(row.threshold_review_confirmed),
         recipient_review_confirmed=bool(row.recipient_review_confirmed),
@@ -216,19 +228,28 @@ def update_prepared(
 def mark_reviewed(db: Session, *, current_user: User, record_id: int) -> Tax1099ReviewOut:
     organization_id = require_tax_admin(db, current_user)
     row = _row(db, organization_id=organization_id, record_id=record_id)
-    if row.status in {"REVIEWED", "APPROVED"}:
-        return _out(db, row)
-    if row.status != "PREPARED":
+    if row.status == "APPROVED":
+        return _out(db, row)  # Immutable historical approval, even if stale.
+    if row.status not in {"PREPARED", "REVIEWED"}:
         raise HTTPException(status_code=409, detail="1099 record is not ready for review.")
     payload = _payload_from_row(row)
-    _profiles(db, organization_id=organization_id, payload=payload, require_w9=True)
+    payer, recipient, _, _, _ = _profiles(
+        db, organization_id=organization_id, payload=payload, require_w9=True,
+    )
+    if row.status == "REVIEWED" and not _stale(row, payer, recipient):
+        return _out(db, row)
+    prior_status = row.status
     row.status = "REVIEWED"
+    row.reviewed_payer_revision = payer.profile_revision
+    row.reviewed_recipient_revision = recipient.profile_revision
     row.reviewed_by_id = current_user.id
     row.reviewed_at = datetime.utcnow()
     append_audit_log(
         db, user_id=current_user.id, organization_id=organization_id,
-        entity_type="tax_1099_review", entity_id=row.id, action="reviewed",
-        new_value={"status": "REVIEWED", "tax_year": row.tax_year, "form_type": row.form_type},
+        entity_type="tax_1099_review", entity_id=row.id,
+        action="re_reviewed" if prior_status == "REVIEWED" else "reviewed",
+        new_value={"status": "REVIEWED", "tax_year": row.tax_year, "form_type": row.form_type,
+                   "taxpayer_profiles_rechecked": True},
     )
     db.commit()
     db.refresh(row)
@@ -245,7 +266,14 @@ def approve_review(
     if row.status != "REVIEWED":
         raise HTTPException(status_code=409, detail="1099 record must be REVIEWED before approval.")
     current = _payload_from_row(row)
-    _profiles(db, organization_id=organization_id, payload=current, require_w9=True)
+    payer, recipient, _, _, _ = _profiles(
+        db, organization_id=organization_id, payload=current, require_w9=True,
+    )
+    if _stale(row, payer, recipient):
+        raise HTTPException(
+            status_code=409,
+            detail="Taxpayer details changed since review. Re-review the record before approval.",
+        )
     row.source_review_confirmed = payload.source_review_confirmed
     row.threshold_review_confirmed = payload.threshold_review_confirmed
     row.recipient_review_confirmed = payload.recipient_review_confirmed
@@ -280,7 +308,7 @@ def internal_register(
             "InternalUseOnly", "TaxYear", "ReviewId", "Form", "IncomeCategory",
             "PayerProfileId", "PayerTINLast4", "RecipientProfileId",
             "RecipientType", "RecipientId", "RecipientTINLast4", "Amount",
-            "SourceType", "SourceReference", "ReviewStatus", "W9Archived",
+            "SourceType", "SourceReference", "ReviewStatus", "ProfileReviewCurrent", "W9Archived",
             "ReviewedAt", "ApprovedAt",
         ),
         rows=tuple(
@@ -291,7 +319,11 @@ def internal_register(
                 row.recipient_profile_id, row.recipient_subject_type,
                 row.recipient_subject_id, "****" + row.recipient_tin_last4,
                 format(row.amount, ".2f"), row.source_type, row.source_reference,
-                row.status, "Yes" if row.w9_evidence_present else "No",
+                row.status,
+                ("NOT YET REVIEWED" if row.status == "PREPARED"
+                 else ("RE-REVIEW REQUIRED" if row.profile_changed_since_review
+                       else "CURRENT")),
+                "Yes" if row.w9_evidence_present else "No",
                 row.reviewed_at.isoformat() if row.reviewed_at else "",
                 row.approved_at.isoformat() if row.approved_at else "",
             )

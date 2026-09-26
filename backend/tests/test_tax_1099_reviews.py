@@ -297,3 +297,140 @@ def test_internal_register_fails_closed_without_export_feature_or_permission(ctx
         service.internal_register(db, current_user=admin, tax_year=2019)
     assert exc.value.status_code == 422
     assert db.query(AuditLog).filter(AuditLog.entity_type == "tax_1099_register").count() == 0
+
+
+
+def _changed_vendor_profile(ctx, **overrides):
+    from app.schemas.tax_profile import TaxProfileUpsertIn
+    data = dict(
+        subject_type="VENDOR", subject_id=ctx["vendor"].id,
+        legal_name="Verified Vendor", tax_classification="INDIVIDUAL",
+        tin_type="SSN", tin="222334445",
+        address_line1="10 Revised Street", city="Cleveland",
+        state="OH", postal_code="44113", country="USA",
+        w9_on_file=True, w9_received_on=date(2026, 9, 25),
+    )
+    data.update(overrides)
+    return TaxProfileUpsertIn(**data)
+
+
+def test_profile_correction_invalidates_review_and_requires_reapproval(ctx):
+    db, admin = ctx["db"], ctx["admin"]
+    item = service.prepare_review(db, current_user=admin, payload=nec(ctx))
+    reviewed = service.mark_reviewed(db, current_user=admin, record_id=item.id)
+    assert reviewed.profile_changed_since_review is False
+    recipient = ctx["vendor_profile"]
+    before = recipient.profile_revision
+    tax_profiles.upsert_tax_profile(
+        db, current_user=admin, payload=_changed_vendor_profile(ctx),
+    )
+    db.refresh(recipient)
+    assert recipient.profile_revision == before + 1
+    assert service.list_reviews(db, current_user=admin)[0].profile_changed_since_review is True
+    with pytest.raises(HTTPException) as exc:
+        service.approve_review(db, current_user=admin, record_id=item.id,
+                               payload=approval())
+    assert exc.value.status_code == 409
+
+    rereviewed = service.mark_reviewed(db, current_user=admin, record_id=item.id)
+    assert rereviewed.status == "REVIEWED"
+    assert rereviewed.profile_changed_since_review is False
+    approved = service.approve_review(
+        db, current_user=admin, record_id=item.id, payload=approval(),
+    )
+    assert approved.status == "APPROVED"
+    assert approved.profile_changed_since_review is False
+    tax_profiles.upsert_tax_profile(
+        db, current_user=admin,
+        payload=_changed_vendor_profile(ctx, tin="222334446"),
+    )
+    locked = service.list_reviews(db, current_user=admin)[0]
+    assert locked.status == "APPROVED"
+    assert locked.profile_changed_since_review is True
+    exported = service.internal_register(db, current_user=admin, tax_year=2026)
+    assert "RE-REVIEW REQUIRED" in str(exported.rows)
+    assert "222334446" not in str(exported.rows)
+    # Old approval is immutable; submit an explicitly new corrected review.
+    assert service.mark_reviewed(db, current_user=admin, record_id=item.id).profile_changed_since_review
+    logs = db.query(AuditLog).filter(
+        AuditLog.entity_type == "tax_1099_review",
+        AuditLog.action == "re_reviewed",
+    ).all()
+    assert len(logs) == 1
+
+
+def test_identical_profile_save_does_not_stale_review(ctx):
+    db, admin = ctx["db"], ctx["admin"]
+    recipient = ctx["vendor_profile"]
+    item = service.prepare_review(db, current_user=admin, payload=nec(ctx))
+    service.mark_reviewed(db, current_user=admin, record_id=item.id)
+    payload = _changed_vendor_profile(ctx)
+    tax_profiles.upsert_tax_profile(db, current_user=admin, payload=payload)
+    db.refresh(recipient)
+    revision = recipient.profile_revision
+    assert service.list_reviews(db, current_user=admin)[0].profile_changed_since_review
+    # Submitting identical normalized taxpayer data and W-9 metadata
+    # changes ciphertext but not its substantive version.
+    tax_profiles.upsert_tax_profile(db, current_user=admin, payload=payload)
+    db.refresh(recipient)
+    assert recipient.profile_revision == revision
+
+
+def test_new_signed_w9_after_approval_requires_new_review(ctx):
+    from app.services.tax_w9 import archive_signed_w9
+
+    db, admin = ctx["db"], ctx["admin"]
+    item = service.prepare_review(db, current_user=admin, payload=nec(ctx))
+    service.mark_reviewed(db, current_user=admin, record_id=item.id)
+    service.approve_review(db, current_user=admin, record_id=item.id,
+                           payload=approval())
+    original_revision = ctx["vendor_profile"].profile_revision
+    archive_signed_w9(
+        db, current_user=admin, tax_profile_id=ctx["vendor_profile"].id,
+        contents=b"%PDF-1.7\\n1 0 obj\\n<<>>\\nendobj\\n%%EOF\\n",
+        received_on=date(2026, 9, 25), signed_original_confirmed=True,
+    )
+    db.refresh(ctx["vendor_profile"])
+    assert ctx["vendor_profile"].profile_revision == original_revision + 1
+    assert service.list_reviews(db, current_user=admin)[0].profile_changed_since_review
+
+
+def test_key_rotation_does_not_invalidate_semantically_identical_approved_data(ctx, monkeypatch):
+    from app.services.tax_key_rotation import rotate_org_tax_keys
+    from app.schemas.tax_rotation import TaxRotationIn
+
+    db, admin = ctx["db"], ctx["admin"]
+    item = service.prepare_review(db, current_user=admin, payload=nec(ctx))
+    service.mark_reviewed(db, current_user=admin, record_id=item.id)
+    service.approve_review(db, current_user=admin, record_id=item.id,
+                           payload=approval())
+    before = ctx["vendor_profile"].profile_revision
+    original_key = settings.TAX_PROFILE_ENCRYPTION_KEY
+    monkeypatch.setattr(settings, "TAX_PROFILE_ENCRYPTION_KEY",
+                        Fernet.generate_key().decode())
+    monkeypatch.setattr(settings, "TAX_PROFILE_PREVIOUS_KEYS_JSON",
+                        json.dumps([original_key]))
+    result = rotate_org_tax_keys(
+        db, current_user=admin, payload=TaxRotationIn(limit=10),
+    )
+    db.refresh(ctx["vendor_profile"])
+    assert result.profiles_rewrapped >= 2
+    assert ctx["vendor_profile"].profile_revision == before
+    assert not service.list_reviews(db, current_user=admin)[0].profile_changed_since_review
+
+
+def test_legacy_approved_records_without_revision_snapshot_fail_closed(ctx):
+    from app.models.tax_1099_review import Tax1099Review
+
+    db, admin = ctx["db"], ctx["admin"]
+    item = service.prepare_review(db, current_user=admin, payload=nec(ctx))
+    service.mark_reviewed(db, current_user=admin, record_id=item.id)
+    service.approve_review(db, current_user=admin, record_id=item.id,
+                           payload=approval())
+    db.query(Tax1099Review).filter_by(id=item.id).update({
+        Tax1099Review.reviewed_payer_revision: None,
+    })
+    db.commit()
+    historical = service.list_reviews(db, current_user=admin)[0]
+    assert historical.status == "APPROVED"
+    assert historical.profile_changed_since_review

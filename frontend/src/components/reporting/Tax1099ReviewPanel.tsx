@@ -37,6 +37,7 @@ type Review = {
   source_note: string | null;
   status: "PREPARED" | "REVIEWED" | "APPROVED";
   w9_evidence_present: boolean;
+  profile_changed_since_review: boolean;
   source_review_confirmed: boolean;
   threshold_review_confirmed: boolean;
   recipient_review_confirmed: boolean;
@@ -389,6 +390,7 @@ export default function Tax1099ReviewPanel({
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
                       Signed W-9 evidence: {item.w9_evidence_present ? "archived" : "missing"} · Status: {item.status}
+                      {item.profile_changed_since_review && " · TAXPAYER PROFILE CHANGED — RE-REVIEW REQUIRED"}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -403,14 +405,25 @@ export default function Tax1099ReviewPanel({
                         </button>
                       </>
                     )}
+                    {item.status === "REVIEWED" && item.profile_changed_since_review && (
+                      <button type="button" disabled={busyId !== null || !item.w9_evidence_present}
+                        onClick={() => { void markReviewed(item); }}
+                        className="rounded-md bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-950 disabled:opacity-50">
+                        Re-review changed taxpayer profile
+                      </button>
+                    )}
                     {item.status === "APPROVED" && (
-                      <span className="rounded-md bg-green-50 px-3 py-1.5 text-sm font-medium text-green-800">
-                        Approved · locked · not filed
+                      <span className={item.profile_changed_since_review
+                        ? "rounded-md bg-red-50 px-3 py-1.5 text-sm font-medium text-red-800"
+                        : "rounded-md bg-green-50 px-3 py-1.5 text-sm font-medium text-green-800"}>
+                        {item.profile_changed_since_review
+                          ? "Previous approval STALE · create a corrected review · not filed"
+                          : "Approved · locked · not filed"}
                       </span>
                     )}
                   </div>
                 </div>
-                {item.status === "REVIEWED" && (
+                {item.status === "REVIEWED" && !item.profile_changed_since_review && (
                   <fieldset className="mt-3 rounded-lg bg-slate-50 p-3">
                     <legend className="text-sm font-semibold text-slate-800">Approval checklist</legend>
                     <div className="mt-2 grid gap-2 text-sm text-slate-700">

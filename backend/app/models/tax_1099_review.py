@@ -32,6 +32,8 @@ class Tax1099Review(Base):
     prepared_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     reviewed_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     approved_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reviewed_payer_revision = Column(Integer, nullable=True)
+    reviewed_recipient_revision = Column(Integer, nullable=True)
     reviewed_at = Column(DateTime, nullable=True)
     approved_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)

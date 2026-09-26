@@ -69,6 +69,9 @@ def archive_signed_w9(
     db.add(doc)
     profile.w9_on_file = True
     profile.w9_received_on = received_on
+    # A newer signed original is material review evidence; do not inherit
+    # a previous 1099 approval without an explicit new review.
+    profile.profile_revision = int(profile.profile_revision or 1) + 1
     db.flush()
     append_audit_log(
         db, user_id=current_user.id, organization_id=profile.organization_id,

@@ -97,6 +97,7 @@ class Tax1099ReviewOut(BaseModel):
     source_note: str | None
     status: str
     w9_evidence_present: bool
+    profile_changed_since_review: bool
     source_review_confirmed: bool
     threshold_review_confirmed: bool
     recipient_review_confirmed: bool
