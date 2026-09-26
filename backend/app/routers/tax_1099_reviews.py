@@ -13,13 +13,13 @@ from app.routers.auth import get_current_user
 from app.schemas.tax_1099_review import (
     Tax1099ApprovalIn, Tax1099PrepareIn, Tax1099ReviewOut, Tax1099UpdateIn,
     Tax1099PreflightOut, Tax1099ProviderDryRunIn, Tax1099ProviderDryRunOut,
-    Tax1099ProviderStatusOut,
+    Tax1099ProviderStatusOut, Tax1099ProviderAttemptOut,
 )
 from app.services.tax_1099_reviews import (
     approve_review, internal_register, list_reviews, mark_reviewed, prepare_review, update_prepared,
     preflight_review,
 )
-from app.services.tax_1099_provider import provider_status, validate_avalara_sandbox_dry_run
+from app.services.tax_1099_provider import provider_attempts, provider_status, validate_avalara_sandbox_dry_run
 
 router = APIRouter(prefix="/api/reporting/tax-1099-reviews", tags=["1099 preparation review"])
 NO_STORE = {"Cache-Control": "no-store", "Pragma": "no-cache"}
@@ -120,6 +120,15 @@ def check_provider_preflight(
     response.headers.update(NO_STORE)
     return preflight_review(db, current_user=current_user, record_id=record_id)
 
+
+
+@router.get("/{record_id}/provider/attempts", response_model=list[Tax1099ProviderAttemptOut])
+def read_provider_attempts(
+    record_id: int, response: Response,
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    response.headers.update(NO_STORE)
+    return provider_attempts(db, current_user=current_user, record_id=record_id)
 
 
 @router.post("/{record_id}/provider/avalara-sandbox/validate",

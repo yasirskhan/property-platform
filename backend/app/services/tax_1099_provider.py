@@ -8,16 +8,18 @@ reflect taxpayer data.
 from __future__ import annotations
 
 from decimal import Decimal
-from uuid import uuid4
+import json
+from uuid import UUID, uuid4
 
 import requests
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.models.audit_log import AuditLog
 from app.models.tax_1099_review import Tax1099Review
 from app.models.user import User
-from app.schemas.tax_1099_review import Tax1099ProviderDryRunIn, Tax1099ProviderDryRunOut
+from app.schemas.tax_1099_review import Tax1099ProviderAttemptOut, Tax1099ProviderDryRunIn, Tax1099ProviderDryRunOut
 from app.services.audit import append_audit_log
 from app.services.tax_1099_reviews import (
     _payload_from_row, _profiles, _row, preflight_review,
@@ -190,6 +192,7 @@ def validate_avalara_sandbox_dry_run(
             "http_status": response.status_code,
             "validated": validated,
             "submitted": False,
+            "correlation_id": correlation_id,
         },
     )
     db.commit()
@@ -217,3 +220,57 @@ def provider_status(db: Session, *, current_user: User):
         configured=bool(configured),
         supported_forms=["1099-NEC", "1099-MISC"] if configured else [],
     )
+
+
+
+def provider_attempts(
+    db: Session, *, current_user: User, record_id: int,
+) -> list[Tax1099ProviderAttemptOut]:
+    """Read only our own redacted immutable sandbox validation audit events."""
+    organization_id = require_tax_admin(db, current_user)
+    _row(db, organization_id=organization_id, record_id=record_id)
+    rows = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.organization_id == organization_id,
+            AuditLog.entity_type == "tax_1099_review",
+            AuditLog.entity_id == record_id,
+            AuditLog.action == "provider_sandbox_dry_run",
+        )
+        .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+        .limit(50)
+        .all()
+    )
+    result: list[Tax1099ProviderAttemptOut] = []
+    for row in rows:
+        try:
+            data = json.loads(row.new_value or "{}")
+        except (TypeError, json.JSONDecodeError):
+            continue
+        if (
+            not isinstance(data, dict)
+            or data.get("provider") != "AVALARA_SANDBOX"
+            or data.get("dry_run") is not True
+            or data.get("submitted") is not False
+            or not isinstance(data.get("http_status"), int)
+            or isinstance(data.get("http_status"), bool)
+            or not isinstance(data.get("validated"), bool)
+        ):
+            continue
+        correlation_id = data.get("correlation_id")
+        if isinstance(correlation_id, str):
+            try:
+                correlation_id = str(UUID(correlation_id))
+            except ValueError:
+                correlation_id = None
+        else:
+            correlation_id = None
+        result.append(Tax1099ProviderAttemptOut(
+            audit_id=row.id,
+            provider="AVALARA_SANDBOX",
+            provider_http_status=data["http_status"],
+            validated=data["validated"],
+            correlation_id=correlation_id,
+            created_at=row.created_at,
+        ))
+    return result

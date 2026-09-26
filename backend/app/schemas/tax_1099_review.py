@@ -145,3 +145,14 @@ class Tax1099ProviderStatusOut(BaseModel):
     sandbox_only: Literal[True] = True
     filing_enabled: Literal[False] = False
     supported_forms: list[str]
+
+
+class Tax1099ProviderAttemptOut(BaseModel):
+    audit_id: int
+    provider: Literal["AVALARA_SANDBOX"]
+    dry_run: Literal[True] = True
+    provider_http_status: int
+    validated: bool
+    submission_status: Literal["NOT_SUBMITTED"] = "NOT_SUBMITTED"
+    correlation_id: str | None = None
+    created_at: datetime

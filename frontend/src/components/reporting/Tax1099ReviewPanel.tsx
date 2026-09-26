@@ -69,6 +69,16 @@ type ProviderDryRun = {
   filing_enabled: false;
   message: string;
 };
+type ProviderAttempt = {
+  audit_id: number;
+  provider: "AVALARA_SANDBOX";
+  dry_run: true;
+  provider_http_status: number;
+  validated: boolean;
+  submission_status: "NOT_SUBMITTED";
+  correlation_id: string | null;
+  created_at: string;
+};
 type Classification = "NEC" | "MISC";
 type ApprovalChecks = { source: boolean; threshold: boolean; recipient: boolean };
 
@@ -106,6 +116,7 @@ export default function Tax1099ReviewPanel({
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null);
   const [providerConsents, setProviderConsents] = useState<Record<number, boolean>>({});
   const [providerResults, setProviderResults] = useState<Record<number, ProviderDryRun>>({});
+  const [providerAttempts, setProviderAttempts] = useState<Record<number, ProviderAttempt[]>>({});
 
   useEffect(() => {
     let active = true;
@@ -309,6 +320,10 @@ export default function Tax1099ReviewPanel({
         "/api/reporting/tax-1099-reviews/" + item.id + "/preflight"
       ) as Preflight;
       setPreflights((current) => ({ ...current, [item.id]: result }));
+      const history = await apiGet(
+        "/api/reporting/tax-1099-reviews/" + item.id + "/provider/attempts"
+      ) as ProviderAttempt[];
+      setProviderAttempts((current) => ({ ...current, [item.id]: history }));
       setMessage("Local prerequisite check complete. No tax return has been submitted.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to check local prerequisites.");
@@ -331,6 +346,10 @@ export default function Tax1099ReviewPanel({
         { confirm_external_tax_data_sandbox: true }
       ) as ProviderDryRun;
       setProviderResults((current) => ({ ...current, [item.id]: result }));
+      const history = await apiGet(
+        "/api/reporting/tax-1099-reviews/" + item.id + "/provider/attempts"
+      ) as ProviderAttempt[];
+      setProviderAttempts((current) => ({ ...current, [item.id]: history }));
       setMessage(result.message);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Provider sandbox validation failed.");
@@ -561,6 +580,21 @@ export default function Tax1099ReviewPanel({
                         Provider sandbox is not configured for {item.form_type}. No taxpayer data can leave the application.
                       </p>
                     )}
+                  </div>
+                )}
+                {providerAttempts[item.id]?.length > 0 && (
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600">
+                    <p className="font-semibold text-slate-800">Sandbox validation history</p>
+                    <div className="mt-1 space-y-1">
+                      {providerAttempts[item.id].slice(0, 5).map((attempt) => (
+                        <p key={attempt.audit_id}>
+                          {new Date(attempt.created_at).toLocaleString()} · HTTP {attempt.provider_http_status}
+                          {" · "}{attempt.validated ? "validated" : "rejected"}
+                          {" · "}NOT SUBMITTED
+                          {attempt.correlation_id ? " · correlation " + attempt.correlation_id : ""}
+                        </p>
+                      ))}
+                    </div>
                   </div>
                 )}
                 {item.status === "REVIEWED" && !item.profile_changed_since_review && (

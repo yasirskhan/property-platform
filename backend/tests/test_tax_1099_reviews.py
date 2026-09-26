@@ -752,6 +752,25 @@ def test_avalara_sandbox_dry_run_never_schedules_or_returns_provider_body(ctx, m
     ).one()
     assert "222334444" not in (audit.new_value or "")
     assert "sandbox-secret" not in (audit.new_value or "")
+    history = provider.provider_attempts(db, current_user=admin, record_id=item.id)
+    assert len(history) == 1
+    attempt = history[0]
+    assert attempt.provider == "AVALARA_SANDBOX"
+    assert attempt.dry_run is True
+    assert attempt.provider_http_status == 200
+    assert attempt.validated is True
+    assert attempt.submission_status == "NOT_SUBMITTED"
+    assert attempt.correlation_id
+    from uuid import UUID
+    assert str(UUID(attempt.correlation_id)) == attempt.correlation_id
+    history_json = attempt.model_dump_json()
+    for secret in ("222334444", "sandbox-secret", "sandbox-issuer", "DO NOT RETURN"):
+        assert secret not in history_json
+    with pytest.raises(HTTPException) as exc:
+        provider.provider_attempts(
+            db, current_user=ctx["other_admin"], record_id=item.id,
+        )
+    assert exc.value.status_code == 404
 
 
 def test_avalara_sandbox_misc_rents_dry_run_uses_verified_field_and_never_schedules(ctx, monkeypatch):
@@ -864,3 +883,24 @@ def test_provider_status_is_redacted_scoped_and_no_store(ctx, monkeypatch):
     with pytest.raises(HTTPException) as exc:
         provider.provider_status(db, current_user=ctx["vendor"])
     assert exc.value.status_code == 403
+
+
+
+def test_provider_attempt_history_ignores_untrusted_or_non_dry_run_audit_payloads(ctx):
+    from app.services.audit import append_audit_log
+    from app.services import tax_1099_provider as provider
+
+    db, admin = ctx["db"], ctx["admin"]
+    item = service.prepare_review(db, current_user=admin, payload=nec(ctx))
+    append_audit_log(
+        db, user_id=admin.id, organization_id=admin.organization_id,
+        entity_type="tax_1099_review", entity_id=item.id,
+        action="provider_sandbox_dry_run",
+        new_value={"provider": "AVALARA_SANDBOX", "dry_run": False,
+                   "http_status": 200, "validated": True, "submitted": True,
+                   "tin": "222334444"},
+    )
+    db.commit()
+    assert provider.provider_attempts(
+        db, current_user=admin, record_id=item.id,
+    ) == []
