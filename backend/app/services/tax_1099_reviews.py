@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime
 from decimal import Decimal
 
@@ -25,6 +26,31 @@ from app.schemas.tax_1099_review import (
 from app.services.audit import append_audit_log
 from app.services.report_delivery import ReportPayload
 from app.services.tax_profiles import _crypto, _decode, _subject, require_tax_admin
+
+
+# Do not persist or display common full SSN/EIN patterns in free-text
+# source references/notes. The structured TIN belongs ONLY to encrypted
+# TaxProfile records, never ordinary 1099 review text or generic CSV.
+_TAX_ID_IN_TEXT = re.compile(
+    r"(?<![0-9])(?:[0-9]{3}[ -]?[0-9]{2}[ -]?[0-9]{4}|[0-9]{2}[ -]?[0-9]{7})(?![0-9])"
+)
+
+
+def _has_tax_id_in_source(reference: str | None, note: str | None) -> bool:
+    return any(_TAX_ID_IN_TEXT.search(value or "") for value in (reference, note))
+
+
+def _redact_source(value: str | None) -> str | None:
+    return _TAX_ID_IN_TEXT.sub("[REDACTED TAX ID]", value) if value is not None else None
+
+
+def _require_safe_source(payload: Tax1099DataIn) -> None:
+    if _has_tax_id_in_source(payload.source_reference, payload.source_note):
+        # The error deliberately omits the user's input.
+        raise HTTPException(
+            status_code=422,
+            detail="Source references and notes cannot contain taxpayer identifiers.",
+        )
 
 
 EXPECTED_RECIPIENT = {
@@ -105,7 +131,8 @@ def _payload_from_row(row: Tax1099Review) -> Tax1099UpdateIn:
         payer_profile_id=row.payer_profile_id,
         recipient_profile_id=row.recipient_profile_id,
         amount=row.amount, source_type=row.source_type,
-        source_reference=row.source_reference, source_note=row.source_note,
+        source_reference=_redact_source(row.source_reference),
+        source_note=_redact_source(row.source_note),
     )
 
 
@@ -161,6 +188,7 @@ def list_reviews(db: Session, *, current_user: User, tax_year: int | None = None
 
 def prepare_review(db: Session, *, current_user: User, payload: Tax1099PrepareIn) -> Tax1099ReviewOut:
     organization_id = require_tax_admin(db, current_user)
+    _require_safe_source(payload)
     fingerprint = _fingerprint(payload)
     existing = db.query(Tax1099Review).filter(
         Tax1099Review.organization_id == organization_id,
@@ -202,6 +230,7 @@ def update_prepared(
     row = _row(db, organization_id=organization_id, record_id=record_id)
     if row.status != "PREPARED":
         raise HTTPException(status_code=409, detail="Only PREPARED 1099 records can be edited.")
+    _require_safe_source(payload)
     _profiles(db, organization_id=organization_id, payload=payload)
     row.tax_year = payload.tax_year
     row.form_type = payload.form_type
@@ -233,6 +262,7 @@ def mark_reviewed(db: Session, *, current_user: User, record_id: int) -> Tax1099
     if row.status not in {"PREPARED", "REVIEWED"}:
         raise HTTPException(status_code=409, detail="1099 record is not ready for review.")
     payload = _payload_from_row(row)
+    _require_safe_source(payload)
     payer, recipient, _, _, _ = _profiles(
         db, organization_id=organization_id, payload=payload, require_w9=True,
     )
@@ -266,6 +296,7 @@ def approve_review(
     if row.status != "REVIEWED":
         raise HTTPException(status_code=409, detail="1099 record must be REVIEWED before approval.")
     current = _payload_from_row(row)
+    _require_safe_source(current)
     payer, recipient, _, _, _ = _profiles(
         db, organization_id=organization_id, payload=current, require_w9=True,
     )
@@ -378,6 +409,24 @@ def preflight_review(
         blockers.append("Recipient tax profile must have complete verified identifiers and address.")
     if not row.source_reference.strip() or row.amount <= Decimal("0"):
         blockers.append("A positive manually verified amount and supporting source are required.")
+    if _has_tax_id_in_source(row.source_reference, row.source_note):
+        blockers.append("Remove taxpayer identifiers from unencrypted source references and notes.")
+
+    # The provider must not receive two competing CURRENT approved returns
+    # for the same payer/recipient/form/tax year. Historical stale approvals
+    # are preserved for audit, not counted as current competing forms.
+    competing = db.query(Tax1099Review).filter(
+        Tax1099Review.organization_id == organization_id,
+        Tax1099Review.id != row.id,
+        Tax1099Review.tax_year == row.tax_year,
+        Tax1099Review.form_type == row.form_type,
+        Tax1099Review.income_category == row.income_category,
+        Tax1099Review.payer_profile_id == row.payer_profile_id,
+        Tax1099Review.recipient_profile_id == row.recipient_profile_id,
+        Tax1099Review.status == "APPROVED",
+    ).all()
+    if any(not _stale(other, payer, recipient) for other in competing):
+        blockers.append("Competing current approved 1099 records require manual reconciliation.")
 
     # An internal preflight is NOT an IRS filing eligibility determination:
     # tax-year exceptions, state filing and the actual provider/TCC path

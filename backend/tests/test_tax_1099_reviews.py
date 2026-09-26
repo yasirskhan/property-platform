@@ -540,3 +540,112 @@ def test_provider_preflight_requires_signed_w9_even_after_manual_approval(ctx):
     )
     assert not preflight.ready_for_provider_handoff
     assert any("signed paper W-9" in text for text in preflight.blockers)
+
+
+
+def test_unencrypted_1099_source_rejects_new_tax_ids_and_masks_historical_text(ctx):
+    from app.models.tax_1099_review import Tax1099Review
+
+    db, admin = ctx["db"], ctx["admin"]
+    for bad in (
+        {"source_reference": "Check SSN 123-45-6789"},
+        {"source_note": "Payee EIN 12-3456789"},
+        {"source_reference": "123456789"},
+    ):
+        with pytest.raises(HTTPException) as exc:
+            service.prepare_review(db, current_user=admin,
+                                   payload=nec(ctx, **bad))
+        assert exc.value.status_code == 422
+        assert "123456789" not in str(exc.value.detail)
+        assert "12-3456789" not in str(exc.value.detail)
+    assert db.query(Tax1099Review).count() == 0
+
+    prepared = service.prepare_review(db, current_user=admin, payload=nec(ctx))
+    with pytest.raises(HTTPException) as exc:
+        service.update_prepared(
+            db, current_user=admin, record_id=prepared.id,
+            payload=Tax1099UpdateIn(**nec(
+                ctx, source_note="Private EIN 12-3456789",
+            ).model_dump(exclude={"idempotency_key"})),
+        )
+    assert exc.value.status_code == 422
+
+    # A legacy/externally restored record predates the new validation;
+    # never render its free text unredacted, even in the internal CSV.
+    row = db.query(Tax1099Review).filter_by(id=prepared.id).one()
+    row.source_reference = "Check SSN 123-45-6789"
+    row.source_note = "Private EIN 12-3456789"
+    db.commit()
+    listed = service.list_reviews(db, current_user=admin)[0]
+    assert "123-45-6789" not in listed.model_dump_json()
+    assert "12-3456789" not in listed.model_dump_json()
+    assert "[REDACTED TAX ID]" in listed.source_reference
+    report = service.internal_register(db, current_user=admin, tax_year=2026)
+    from app.services.report_delivery import report_csv_bytes
+    encoded = report_csv_bytes(report).decode("utf-8-sig")
+    assert "123-45-6789" not in encoded and "12-3456789" not in encoded
+    assert "[REDACTED TAX ID]" in encoded
+    with pytest.raises(HTTPException) as exc:
+        service.mark_reviewed(db, current_user=admin, record_id=prepared.id)
+    assert exc.value.status_code == 422
+    blockers = service.preflight_review(
+        db, current_user=admin, record_id=prepared.id,
+    ).blockers
+    assert any("unencrypted source" in reason for reason in blockers)
+
+
+def test_competing_current_approved_returns_are_blocked_before_handoff(ctx):
+    db, admin = ctx["db"], ctx["admin"]
+    # Complete payer and recipient profiles, retaining signed W-9 evidence.
+    tax_profiles.upsert_tax_profile(
+        db, current_user=admin,
+        payload=_full_tax_profile(ctx, ctx["payer"], "111223333"),
+    )
+    tax_profiles.upsert_tax_profile(
+        db, current_user=admin,
+        payload=_full_tax_profile(ctx, ctx["vendor_profile"], "222334444", w9=True),
+    )
+    ids = []
+    for key, reference in (
+        ("competing-1099-0001", "Check #1042 and reviewed annual total"),
+        ("competing-1099-0002", "Check #1043 and reviewed annual total"),
+    ):
+        prepared = service.prepare_review(
+            db, current_user=admin,
+            payload=nec(ctx, idempotency_key=key, source_reference=reference),
+        )
+        service.mark_reviewed(db, current_user=admin, record_id=prepared.id)
+        service.approve_review(db, current_user=admin, record_id=prepared.id,
+                               payload=approval())
+        ids.append(prepared.id)
+    for record_id in ids:
+        result = service.preflight_review(
+            db, current_user=admin, record_id=record_id,
+        )
+        assert result.review_status == "APPROVED"
+        assert not result.ready_for_provider_handoff
+        assert result.submission_status == "NOT_SUBMITTED"
+        assert any("Competing current" in reason for reason in result.blockers)
+
+    # A corrected profile invalidates old approvals, so a newly
+    # reviewed and approved replacement must NOT be blocked by them.
+    tax_profiles.upsert_tax_profile(
+        db, current_user=admin,
+        payload=_full_tax_profile(
+            ctx, ctx["vendor_profile"], "222334445", w9=True,
+        ),
+    )
+    replacement = service.prepare_review(
+        db, current_user=admin,
+        payload=nec(ctx, idempotency_key="competing-1099-correction",
+                    source_reference="Corrected annual statement"),
+    )
+    service.mark_reviewed(db, current_user=admin, record_id=replacement.id)
+    service.approve_review(db, current_user=admin, record_id=replacement.id,
+                           payload=approval())
+    result = service.preflight_review(
+        db, current_user=admin, record_id=replacement.id,
+    )
+    assert result.ready_for_provider_handoff
+    assert result.blockers == []
+    assert not result.filing_enabled

@@ -367,7 +367,7 @@ export default function Tax1099ReviewPanel({
             </select>
           </label>
           <label className="text-sm font-medium text-slate-700">
-            Supporting reference
+            Supporting reference (never enter a taxpayer ID)
             <input required maxLength={160} value={sourceReference}
               onChange={(event) => setSourceReference(event.target.value)}
               placeholder="Example: Check register review #1042"
