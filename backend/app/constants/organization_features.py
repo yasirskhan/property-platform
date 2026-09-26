@@ -58,7 +58,7 @@ FEATURE_DEFINITIONS: dict[str, dict[str, object]] = {
     "release.accounting.tenant_payable": {"label": "Tenant Payable", "entitlement": "core", "org_configurable": True, "permission": "ACCOUNTING.PAYABLES"},
     "release.accounting.vendor_credits": {"label": "Enter Credit", "entitlement": "vendor_credits", "org_configurable": True, "permission": "ACCOUNTING.PAYABLES"},
     "release.accounting.write_checks": {"label": "Write Checks", "entitlement": "check_writing", "org_configurable": True, "permission": "ACCOUNTING.PAYABLES"},
-    "release.documents.attachments": {"label": "Universal attachments", "entitlement": "core", "org_configurable": True, "permission": "PROPERTIES.ALL"},
+    "release.documents.attachments": {"label": "Universal attachments", "entitlement": "core", "org_configurable": True, "permission": ""},
     "release.maintenance.work_order_to_bill": {"label": "Convert Work Order to Bill", "entitlement": "maintenance", "org_configurable": True, "permission": "ACCOUNTING.PAYABLES"},
     "release.owner_portal.packet_customizer": {"label": "Owner Packet customizer", "entitlement": "owner_portal", "org_configurable": True, "permission": "ACCOUNTING.OWNER_STATEMENTS"},
     "release.owner_statements.email": {"label": "Email statement", "entitlement": "owner_portal", "org_configurable": True, "permission": "ACCOUNTING.OWNER_STATEMENTS"},

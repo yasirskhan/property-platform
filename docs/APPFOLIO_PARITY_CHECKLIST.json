@@ -9,12 +9,12 @@
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
     "last_updated": "2026-09-25",
-    "migration_head": "f2c4e6a8b0d3",
+    "migration_head": "a3d5f7b9c1e4",
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 260,
-    "scheduled_count": 368,
+    "built_count": 262,
+    "scheduled_count": 366,
     "in_progress_count": 0
   },
   "items": [
@@ -981,8 +981,9 @@
       "id": "properties.tabs.attachments",
       "area": "Properties / Tabs",
       "feature": "Attachments on all tabs",
-      "status": "scheduled",
-      "phase": "3.7"
+      "status": "built",
+      "phase": "3.7",
+      "notes": "Verified in hosted CI run 36219990832: durable entity-linked attachments, authenticated target-scoped downloads, sharing metadata, soft removal, audit events, and reusable Property Detail UI."
     },
     {
       "id": "properties.groups",
@@ -1964,8 +1965,9 @@
       "id": "universal.attachments",
       "area": "Universal Patterns",
       "feature": "Attachments on all entities",
-      "status": "scheduled",
-      "phase": "3.7"
+      "status": "built",
+      "phase": "3.7",
+      "notes": "Verified in hosted CI run 36219990832: durable entity-linked attachments, authenticated target-scoped downloads, sharing metadata, soft removal, audit events, and reusable Property Detail UI."
     },
     {
       "id": "universal.audit_log",

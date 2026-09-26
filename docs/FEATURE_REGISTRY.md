@@ -692,7 +692,7 @@ These platform surfaces do not change the customer five-layer access model. Cust
 | Fixed Assets tab | capability | release.properties.fixed_assets | fixed_assets | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility tab slot; asset workflow remains planned |
 | RUBs tab | capability | release.properties.rubs | rubs | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility tab slot; expansion workflow remains planned |
 | Compliance tab | capability | release.properties.compliance | compliance | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility tab slot; compliance workflow remains planned |
-| Universal attachments | capability | release.documents.attachments | core | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility slot; shared attachment framework remains planned |
+| Universal attachments | capability | release.documents.attachments | core | yes | — | no | ✅ present | Verified universal entity-linked attachments; target-specific backend authorization remains authoritative instead of a single property permission |
 
 ## Backend surface
 

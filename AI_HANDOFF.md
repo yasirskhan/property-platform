@@ -13,7 +13,8 @@ IMPORTANT:
 - Do NOT resume old Phase 3.4.x work.
 - Phase 3.4.S and Phases 3.4.3 through 3.4.26 are COMPLETE/VERIFIED.
 - Phase 3.5.5 compatibility pass is COMPLETE.
-- Current work is Phase 3.6 — Accounting Polish.
+- Phase 3.6 — Accounting Polish is COMPLETE/VERIFIED.
+- Current work is Phase 3.7 — Reports + Universal Attachments.
 - Bank Accounts subsection is COMPLETE through Bank Feed import.
 - Owner ACH Setup, $0 ACH Test File, and Owner Held Security Deposits are COMPLETE/VERIFIED.
 - Management Fees — Pay Owners is COMPLETE/VERIFIED.
@@ -35,7 +36,8 @@ IMPORTANT:
 - Universal — delete_reason UI is COMPLETE/VERIFIED.
 - Universal — Notes expansion is COMPLETE/VERIFIED.
 - Universal — Audit Log expansion is COMPLETE/VERIFIED.
-- Current batch: Phase 3.7 — Universal Attachments. IMPLEMENTATION COMMITTED; hosted CI verification pending.
+- Universal Attachments is COMPLETE/VERIFIED.
+- Current batch: Phase 3.7 — Report framework (standard vs enhanced). NEXT.
 
 # Latest Verified Green Checkpoint
 
@@ -446,7 +448,7 @@ Implementation prepared:
 - E2E: 3 passed in 9.36s.
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 
-# Phase 3.7 — Universal Attachments — IMPLEMENTATION PENDING VERIFICATION
+# Phase 3.7 — Universal Attachments — COMPLETE / VERIFIED
 
 Implementation prepared:
 - Durable entity_attachments metadata links files to authorized organization-scoped entities.
@@ -458,15 +460,19 @@ Implementation prepared:
 - Migration head advances to a3d5f7b9c1e4; expected model-table count 99.
 - Regression coverage: backend/tests/test_entity_attachments.py plus migration/bootstrap guards.
 - TESTS NOT RUN locally in this connector-only session.
-- Hosted CI verification pending.
+- Implementation commit: 90e54eb834047038f01959c5a2a20c9e4155e999.
+- Hosted CI run 36219990832: SUCCESS.
+- Backend: 372 passed, 3 deselected, 3090 warnings in 51.27s.
+- E2E: 3 passed in 8.81s.
+- Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Verify Universal Attachments CI and fix reds autonomously.
-2. Close Universal Attachments metadata/docs.
-3. Report framework (standard vs enhanced).
-4. Continue Phase 3.7 in roadmap order without stopping
+1. Report framework (standard vs enhanced) — current next.
+2. Print / Email / CSV Export on every report.
+3. Custom Report Builder (saved configurations).
+4. Continue Phase 3.7 in roadmap order without stopping.
 
 # Working Rules
 

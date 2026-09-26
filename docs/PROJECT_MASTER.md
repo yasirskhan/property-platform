@@ -11,7 +11,7 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Phase **3.6 — Accounting Polish** is COMPLETE/VERIFIED through Universal Audit Log expansion. Phase **3.7 — Reports + Universal Attachments** is IN PROGRESS. Current work: Universal Attachments foundation.
+**Current activity:** Phase **3.6 — Accounting Polish** is COMPLETE/VERIFIED. Phase **3.7 — Reports + Universal Attachments** is IN PROGRESS. Universal Attachments is COMPLETE/VERIFIED; current work: Report framework (standard vs enhanced).
 
 **GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
@@ -33,9 +33,9 @@
 
 **3.4.S closeout:** COMPLETE. Portable private-repo security checks (Bandit, pip-audit, npm audit, committed-secret scan, Dependabot) replaced the unavailable mandatory CodeQL upload gate and passed in hosted CI run 35917804417. CodeQL remains optional/manual if GitHub Code Security is enabled later.
 
-**Migration head:** `f2c4e6a8b0d3`.
+**Migration head:** `a3d5f7b9c1e4`.
 
-**Current parity inventory:** 260 built, 0 in progress, 368 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
+**Current parity inventory:** 262 built, 0 in progress, 366 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
 ## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
