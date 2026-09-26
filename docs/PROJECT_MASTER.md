@@ -4848,4 +4848,4 @@ Phase **3.6 — Accounting Polish** begins with Chart of Accounts. The 3.5.5 com
 
 ## Next
 
-Phase 3.6 Accounting Settings, Accounting Basis, My Settings, and Auditing Center are now complete/verified. Continue with **Settings — Two-step verification**, then Login history, universal delete-reason/notes/audit-log expansion, and Phase 3.7.
+Phase 3.6 Accounting Settings, Accounting Basis, My Settings, Auditing Center, and Two-step verification are now complete/verified. Continue with **Settings — Login history**, then universal delete-reason/notes/audit-log expansion, and Phase 3.7.

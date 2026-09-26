@@ -30,7 +30,8 @@ IMPORTANT:
 - Accounting Basis is COMPLETE/VERIFIED.
 - My Settings is COMPLETE/VERIFIED.
 - Auditing Center is COMPLETE/VERIFIED.
-- Current batch: Settings — Two-step verification. IMPLEMENTATION COMMITTED; CI pending.
+- Two-step verification is COMPLETE/VERIFIED.
+- Current batch: Settings — Login history. NEXT.
 
 # Latest Verified Green Checkpoint
 
@@ -397,12 +398,11 @@ Implementation prepared:
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Settings — Two-step verification (current, CI pending)
-2. Settings — Login history
-3. Universal — delete_reason UI
-4. Universal — Notes expansion
-5. Universal — Audit Log expansion
-6. Continue into Phase 3.7 without stopping at the phase boundary
+1. Settings — Login history (current next)
+2. Universal — delete_reason UI
+3. Universal — Notes expansion
+4. Universal — Audit Log expansion
+5. Continue into Phase 3.7 without stopping at the phase boundary
 
 # Working Rules
 
@@ -498,7 +498,7 @@ Implementation:
 - Attempt 1 had one unrelated platform-admin navigation timeout; rerun passed without product changes.
 
 
-# Two-step verification — Current Batch
+# Two-step verification — COMPLETE / VERIFIED
 
 Implementation:
 - Customer users can enroll TOTP authenticator-based two-step verification from My Settings.
@@ -514,4 +514,7 @@ Implementation:
 - Parity inventory: 256 built / 372 scheduled / 0 in-progress.
 - Regression coverage: backend/tests/test_two_factor.py plus migration/bootstrap guards.
 - TESTS NOT RUN locally in this connector-only session.
-- Hosted CI verification pending.
+- Hosted CI run 36207659866: SUCCESS.
+- Backend: 359 passed, 3 deselected, 2951 warnings in 61.58s.
+- E2E: 3 passed in 8.50s.
+- Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
