@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import TaxW9Archive from "@/components/reporting/TaxW9Archive";
 
 import { apiGet, apiPut } from "@/lib/api";
 
@@ -146,9 +147,9 @@ export default function TaxPreparationPage() {
           Use the official{" "}
           <a className="underline" href="https://www.irs.gov/forms-pubs/about-form-w-9"
              target="_blank" rel="noopener noreferrer">IRS Form W-9</a>{" "}
-          for signed paper forms. Record a receipt date only after you have verified and
-          securely retained the signed form outside this application. Do not upload W-9 documents
-          through general attachments.
+          for signed paper forms. Record a receipt date only after review. You may
+          archive a signed scan in the restricted encrypted archive below; never upload
+          W-9 documents through general attachments.
         </p>
       </section>
       {loading && <p className="text-sm text-slate-500">Loading tax preparation…</p>}
@@ -260,6 +261,11 @@ export default function TaxPreparationPage() {
               </button>
             </form>
           </section>
+          <TaxW9Archive profiles={profiles} onArchived={(id, received) =>
+            setProfiles((existing) => existing.map((profile) =>
+              profile.id === id ? { ...profile, w9_on_file: true, w9_received_on: received } : profile
+            ))
+          } />
           <section className="rounded-xl border border-slate-200 bg-white p-5">
             <h2 className="text-lg font-semibold text-slate-900">Taxpayer readiness</h2>
             {profiles.length === 0 ? (
