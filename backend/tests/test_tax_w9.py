@@ -215,3 +215,73 @@ def test_raw_upload_stream_bounds_and_authorization(setup):
         asyncio.run(invoke(FakeRequest(PDF), who=ctx.users[4]))
     assert exc.value.status_code == 403
     assert ctx.db.query(TaxW9Document).count() == 1
+
+
+
+def test_bounded_tax_key_rewrap_is_scoped_and_audited(setup, monkeypatch):
+    from app.schemas.tax_rotation import TaxRotationIn
+    from app.services.tax_key_rotation import rotate_org_tax_keys
+
+    ctx = setup
+    prior = _save(ctx)
+    old_key = ctx.key
+    new_key = Fernet.generate_key().decode()
+    monkeypatch.setattr(settings, "TAX_PROFILE_ENCRYPTION_KEY", new_key)
+    monkeypatch.setattr(settings, "TAX_PROFILE_PREVIOUS_KEYS_JSON", json.dumps([old_key]))
+
+    # Rotate one profile and W-9 at a time; other organizations' records
+    # and the full ciphertext remain inaccessible.
+    result = rotate_org_tax_keys(
+        ctx.db, current_user=ctx.users[0], payload=TaxRotationIn(limit=1),
+    )
+    assert result.profiles_rewrapped == 1
+    assert result.documents_rewrapped == 1
+    assert result.more_profiles
+    first = ctx.db.query(TaxProfile).filter_by(id=ctx.profiles[0].id).one()
+    assert json.loads(Fernet(new_key.encode()).decrypt(first.encrypted_payload.encode()))["tin"] == "123456789"
+    doc = ctx.db.query(TaxW9Document).filter_by(id=prior.id).one()
+    assert Fernet(new_key.encode()).decrypt(doc.encrypted_pdf) == PDF
+
+    # Complete this org only. A different organization's ciphertext
+    # remains under its original key until that org is explicitly rotated.
+    done = rotate_org_tax_keys(
+        ctx.db, current_user=ctx.users[0],
+        payload=TaxRotationIn(
+            limit=10,
+            after_profile_id=result.next_profile_id,
+            after_document_id=result.next_document_id,
+        ),
+    )
+    assert done.profiles_rewrapped == 1
+    assert done.documents_rewrapped == 0
+    assert not done.more_profiles and not done.more_documents
+    other = ctx.db.query(TaxProfile).filter_by(id=ctx.profiles[1].id).one()
+    Fernet(old_key.encode()).decrypt(other.encrypted_payload.encode())
+    with pytest.raises(HTTPException) as exc:
+        rotate_org_tax_keys(ctx.db, current_user=ctx.users[4],
+                            payload=TaxRotationIn(limit=5))
+    assert exc.value.status_code == 403
+    history = ctx.db.query(AuditLog).filter_by(action="encryption_key_rotated").all()
+    assert len(history) == 3
+    assert all(log.organization_id == ctx.users[0].organization_id for log in history)
+    assert all("123456789" not in str(log.new_value) for log in history)
+
+
+def test_tax_key_rotation_fails_closed_without_previous_key(setup, monkeypatch):
+    from app.schemas.tax_rotation import TaxRotationIn
+    from app.services.tax_key_rotation import rotate_org_tax_keys
+
+    ctx = setup
+    saved = _save(ctx)
+    new_key = Fernet.generate_key().decode()
+    monkeypatch.setattr(settings, "TAX_PROFILE_ENCRYPTION_KEY", new_key)
+    monkeypatch.setattr(settings, "TAX_PROFILE_PREVIOUS_KEYS_JSON", "[]")
+    with pytest.raises(HTTPException) as exc:
+        rotate_org_tax_keys(ctx.db, current_user=ctx.users[0],
+                            payload=TaxRotationIn(limit=10))
+    assert exc.value.status_code == 503
+    ctx.db.rollback()
+    # The atomic failure must not rewrite either the tax profile or W-9.
+    old = Fernet(ctx.key.encode())
+    assert old.decrypt(ctx.db.query(TaxW9Document).filter_by(id=saved.id).one().encrypted_pdf) == PDF
+    assert json.loads(old.decrypt(ctx.profiles[0].encrypted_payload.encode()))["tin"] == "123456789"
