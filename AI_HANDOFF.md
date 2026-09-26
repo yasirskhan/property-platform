@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `c5dbc67374ebcf7d31f7b6f9ff086af47c6e50b9`
-- Source GitHub Actions run **36278686191: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `6b4805ee1ff99d7340026ac5322e03a58408df70`
+- Source GitHub Actions run **36279106102: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **478 passed, 3 deselected, 6557 warnings in 80.69s**.
-  E2E: **3 passed in 7.86s**. Lint, typecheck, production build, security
+  Backend: **481 passed, 3 deselected, 6715 warnings in 99.70s**.
+  E2E: **3 passed in 8.81s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -20,13 +20,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   with the tax-profile revision migration; no new model table. All three
   PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Property Budget Comparison, explicit budget inputs vs posted GL. VERIFIED.**
+  **Latest completed batch: Property Budget Detail (configured monthly targets). VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT executable original-plan task: Property & Unit Budget Detail.**
+- **Exact NEXT executable original-plan task: Property & Unit Gross Potential Rent.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -60,6 +60,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Tenant Unpaid Charges | 26cc939f0ca39eb7219b3dad6c3ce4b527ff9a9b | 36277862050 | 471 backend passed / 3 E2E |
 | Tenant Unpaid Charges Summary | 1f901348d89fd173794edf651b0a143b63f5dc05 | 36278186270 | 474 backend passed / 3 E2E |
 | Property Budget Comparison | 21378853fb7d7ccf31f5b62dadbccf9367e36266, c5dbc67374ebcf7d31f7b6f9ff086af47c6e50b9 | 36278686191 | 478 backend passed / 3 E2E |
+| Property Budget Detail | 6b4805ee1ff99d7340026ac5322e03a58408df70 | 36279106102 | 481 backend passed / 3 E2E |
 | Tenant Ledger current balances and Charges authorization | a12e0f1af94b7e74e03e9e81988bba98d98cb016, 33902846eab82304299f383001de682081091eec | 36276682654 | 463 backend passed / 3 E2E |
 | Tenant Directory | 873219e0be9e41a7c68ec52e4da604a882dc90c2 | 36275843531 | 458 backend passed / 3 E2E |
 | Security Deposit Funds Detail GL liability report | 60ee5a986d670b4e3af18d01060e971c163c522f | 36275464600 | 454 backend passed / 3 E2E |
@@ -828,39 +829,83 @@ and annual total over recorded months. No posted actuals needed
 and no separate budget storage. Then Gross Potential Rent and
 lease-expiration reports per original Section 38 order.
 
+## Phase 3.7 Property Budget Detail — VERIFIED 2026-09-26
+
+Source 6b4805ee1ff99d7340026ac5322e03a58408df70.
+CI 36279106102 SUCCESS all six jobs: backend 481 passed,
+3 deselected, 6715 warnings in 99.70s; browser E2E 3
+passed in 8.81s; frontend lint/typecheck/build, security,
+platform-admin, staging-config SUCCESS. No new migration:
+b0d2f4a6c8e1, 105 model tables. Frozen docs/ unchanged.
+
+Standard Property & Unit report catalog property.budget_detail
+links to /dashboard/reporting/budget-detail; backend preview
+GET /api/reporting/budget-detail/preview is no-store. Reuses
+existing PropertyBudgetLine by org/property/income-or-expense GL
+account/calendar year/month; property scope, ADMIN/MANAGER
+assignment, REPORTING.ALL / PROPERTIES.ALL /
+ACCOUNTING.GL_ACCOUNTS and release.reporting.export gates
+rechecked. Each account row shows all 12 months, explicitly
+unconfigured blank (not invented zero), recorded zero as zero,
+configured annual sum and number of configured months.
+No actual GL movements, cash-basis inference, or posting;
+budget-only output works for ACCRUAL and CASH.
+Existing ReportActions server CSV/email and formula escaping;
+three focused regression tests cover blanks/zero/sums, CASH
+comparison distinction, org/manager isolation, filters,
+permission/release revocation and preview/delivery.
+Three generic authenticated browser smoke tests, NOT
+three dedicated budget UI tests.
+
+NEXT Gross Potential Rent (GPR) report. IMPORTANT already
+VERIFIED app/services/gpr_posting.py implements org-scoped
+GPR candidate calculation and posting, keyed to Unit.monthly_rent
+(market) and active Lease.monthly_rent (scheduled), plus
+loss/gain and posted unit/month marker. The historical candidate
+is derived from CURRENT editable unit/lease config, not a frozen
+historical rent snapshot; do not claim as-of historical truth.
+Post GPR workflow already verified (parity accounting.gl.post_gpr
+marked built); do not reimplement posting. Read actual source,
+scope manager to live assigned properties BEFORE calling
+lease helper, distinguish candidate projected vs posted GPR.
+No GL writes in report. Verify what posted source transactions
+record and allow reversals, no double count.
+
 ## Exact next work: continue, don't stop at phase boundary
 
-1. Read full root handoff and verify current HEAD/CI; all Tenant
-   reports and Property Budget Comparison are VERIFIED.
-2. Next Section 38 item Property Budget Detail: reuse
-   app.models.property_budget.PropertyBudgetLine,
-   services/property_budgets.visible_budget_property and current
-   audited explicit budgets. Provide monthly detail by income/expense
-   account, annual configured sum and missing-month visibility,
-   not inferred zero targets. Budget-only report may work on CASH
-   because it does not claim GL actuals. Reuse catalog, shared
-   CSV/email/report gates, org/manager scope and focused tests.
-3. After verified budget detail, Gross Potential Rent, Lease
-   Expiration Detail/Summary, directories, etc. in original order.
-4. Commit bounded product/tests then run GitHub Actions and fix reds;
-   VERIFIED only after all six jobs pass. Update exact SHA,
-   CI test count, migration head, next task in this ROOT handoff.
-5. No main/new branch/force-push/unapproved frozen docs changes;
-   preserve 1099 external filing no-submission boundary.
+1. Read entire root handoff; verify actual HEAD and CI. All
+   Tenant reports and Property Budget Comparison and Detail
+   are VERIFIED; do not repeat.
+2. Next Section 38: Gross Potential Rent report. Reuse
+   verified gpr_posting.py unit-market/active-lease rent logic
+   and existing configured GPR/GL accounts, do not call
+   post_gpr or infer historical configuration from live data.
+   Distinguish current monthly candidate estimates from
+   actually posted GL; org/assignment/role and menu/export
+   gates mandatory. Focused tests for vacancy/overlap,
+   cross-org scope, no posting, reversal/posted marker.
+3. Then lease expiration detail/summary, property directory
+   and other Section 38 property reports in original order.
+4. Commit bounded code + regression tests, verify hosted
+   GitHub Actions all six green, fix reds autonomously.
+   Update this root handoff with exact source SHA, CI run,
+   test counts/migration head, precise next task.
+5. No main/new branch/force-push/unauthorized frozen docs
+   edits, no false 1099 filing claims, no Work mode.
 
 ## Session start for successor
 
 Continue yasirskhan/property-platform branch
-chatgpt/checkpoint-005-safety. Read entire repo-root AI_HANDOFF.md;
-verify current HEAD and CI. Last VERIFIED product source
-c5dbc67374ebcf7d31f7b6f9ff086af47c6e50b9,
-CI 36278686191 SUCCESS (478 backend passed, 3 deselected;
-3 E2E passed in 7.86s; all six jobs).
-Alembic b0d2f4a6c8e1 / 105 model tables.
-Property Budget Comparison and explicit scoped monthly budget
-entry VERIFIED; don't repeat. Exact NEXT Section 38 item
-Property Budget Detail, reusing PropertyBudgetLine and scope,
-then Gross Potential Rent. Preserve CASH-basis comparison
-guard, missing target semantics, no GL writes, all verified
-organization/menu/report gates. Commit+CI; refresh handoff
-after meaningful verified batch. No main/new branches/Work.
+chatgpt/checkpoint-005-safety. Read complete root AI_HANDOFF.md
+and verify current HEAD and CI. Last VERIFIED product source
+6b4805ee1ff99d7340026ac5322e03a58408df70.
+CI 36279106102 SUCCESS all six jobs (481 backend passed,
+3 deselected, 6715 warnings, 3 E2E passed in 8.81s).
+Alembic b0d2f4a6c8e1 / 105 model tables. Tenant reports
+and Property Budget Comparison/Detail VERIFIED. Exact NEXT
+original task: Property & Unit Gross Potential Rent report.
+Reuse verified gpr_posting candidate semantics; report must
+not post to GL or misrepresent current unit/lease settings as
+frozen historical rent. Preserve org/manager/permission/export
+gates, tests, CI and handoff. No main/new branch/force push,
+unapproved frozen docs changes or Work handoff.
