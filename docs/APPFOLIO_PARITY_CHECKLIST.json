@@ -13,8 +13,8 @@
     "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 628,
-    "built_count": 256,
-    "scheduled_count": 372,
+    "built_count": 257,
+    "scheduled_count": 371,
     "in_progress_count": 0
   },
   "items": [
@@ -1740,8 +1740,9 @@
       "id": "settings.login_history",
       "area": "Settings / My Settings",
       "feature": "Login history",
-      "status": "scheduled",
-      "phase": "3.6"
+      "status": "built",
+      "phase": "3.6",
+      "notes": "Verified immutable audit-backed self-only successful/failed sign-in history with direct client IP and bounded client metadata."
     },
     {
       "id": "settings.my_profile",

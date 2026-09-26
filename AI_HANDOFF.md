@@ -31,7 +31,8 @@ IMPORTANT:
 - My Settings is COMPLETE/VERIFIED.
 - Auditing Center is COMPLETE/VERIFIED.
 - Two-step verification is COMPLETE/VERIFIED.
-- Current batch: Settings — Login history. IMPLEMENTATION COMMITTED; CI pending.
+- Settings — Login history is COMPLETE/VERIFIED.
+- Current batch: Universal — delete_reason UI. NEXT.
 
 # Latest Verified Green Checkpoint
 
@@ -50,13 +51,13 @@ Hosted CI:
 - Parity/registry consistency: CLEAN
 - Secret-pattern scan: CLEAN
 
-Current parity source-of-truth after Auditing Center implementation:
+Current parity source-of-truth after Login history verification:
 - total_items: 628
-- built_count: 255
-- scheduled_count: 373
+- built_count: 257
+- scheduled_count: 371
 - in_progress_count: 0
-- migration_head: d9f1b3c5e7a0
-- expected model-table count: 96
+- migration_head: e1b3d5f7a9c2
+- expected model-table count: 97
 
 # Bank Adjustments
 
@@ -398,10 +399,9 @@ Implementation prepared:
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Settings — Login history (current, CI pending)
-2. Universal — delete_reason UI
-3. Universal — Notes expansion
-4. Universal — Audit Log expansion
+1. Universal — delete_reason UI (current next)
+2. Universal — Notes expansion
+3. Universal — Audit Log expansion
 5. Continue into Phase 3.7 without stopping at the phase boundary
 
 # Working Rules
@@ -520,7 +520,7 @@ Implementation:
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 
 
-# Login history — Current Batch
+# Login history — COMPLETE/VERIFIED
 
 Implementation:
 - Reuses the existing append-only AuditLog; no duplicate login-history table and no schema migration.
@@ -530,8 +530,19 @@ Implementation:
 - Unknown-email failures are not attached to another customer.
 - GET /api/settings/my/login-history is authenticated and self-scoped by organization plus user identity.
 - My Settings shows the latest 20 successful/failed sign-ins.
-- Login history is a personal security control and is not commercial/release gated.
+- Personal login history is not commercial/release gated.
+- Implementation commit: 63f9982b01e675d73cc5a698416ae511ef8d707a
+- Hosted CI run 36210696868: SUCCESS.
+- Backend: 361 passed, 3 deselected, 2970 warnings in 51.88s.
+- E2E: 3 passed in 5.83s.
+- Frontend lint/TypeScript/build: SUCCESS.
+- Platform admin lint/TypeScript/build: SUCCESS.
+- Security, parity/registry consistency, committed-secret scan, PostgreSQL backup/restore, and staging build/health smoke: SUCCESS.
 - No schema migration; head remains e1b3d5f7a9c2 / 97 model tables.
-- Regression coverage: backend/tests/test_login_history.py plus updated MFA direct-router tests.
-- TESTS NOT RUN locally in this connector-only session.
-- Hosted CI verification pending.
+- Parity inventory: 257 built / 371 scheduled / 0 in-progress.
+
+# Next Work
+1. Universal — delete_reason UI.
+2. Universal — Notes expansion.
+3. Universal — Audit Log expansion.
+4. Continue into Phase 3.7 without stopping.

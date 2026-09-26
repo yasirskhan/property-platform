@@ -793,6 +793,7 @@ access boundary.
 | Accounting Settings | settings family | release.settings.accounting | core | yes | SETTINGS.ACCOUNTING | no | ✅ present | Key Accounts hub, configurable GPR/receipt defaults, per-bank Check Setup links, fiscal year/report export defaults, plus ACCRUAL/CASH report-basis metadata |
 | Security | settings family | release.settings.security | security_controls | yes | SETTINGS | no | ❌ missing | Org-wide sessions, IP allowlist, and password-policy controls remain planned |
 | Personal Two-step verification | user security control | — | core | no | — | no | ✅ built | TOTP authenticator enrollment, one-time recovery codes, and pre-JWT login challenge; personal security control is not commercially gated |
+| Personal Login history | user security activity | — | core | no | — | no | ✅ built | Self-only successful/failed sign-ins from immutable audit history with direct client IP and bounded client metadata; personal security activity is not commercially gated |
 | Data / Backup / Retention | settings family | release.settings.data | core | yes | SETTINGS | no | ❌ missing | Backup schedule/restore/export preferences |
 | Features | settings family | release.settings.features | core | yes | SETTINGS | no | ✅ built | Org-level capability configuration; release, entitlement, org config, permission, and user preference remain independent |
 | Documents | settings family | release.settings.documents | documents | yes | SETTINGS | no | ❌ missing | Templates/export/document defaults |

@@ -2820,3 +2820,7 @@ Re-run `python generate_file_catalog.py` after adding or renaming files.
 - `backend/app/schemas/two_factor.py` — two-step API contracts.
 - `backend/tests/test_two_factor.py` — MFA login/encryption/recovery-code regression coverage.
 - `backend/alembic/versions/e1b3d5f7a9c2_add_user_two_factor_settings.py` — two-step settings migration.
+
+- `backend/app/services/login_history.py` — immutable audit-backed customer login activity recording and self-only history projection.
+- `backend/app/schemas/login_history.py` — login history response contract.
+- `backend/tests/test_login_history.py` — login success/failure capture and self-isolation regression coverage.
