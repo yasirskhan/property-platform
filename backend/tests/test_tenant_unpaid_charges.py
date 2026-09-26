@@ -220,3 +220,101 @@ def test_catalog_preview_export_email_and_export_gate(monkeypatch):
         assert exc.value.status_code == 403
     finally:
         db.close(); engine.dispose()
+
+
+
+def test_unpaid_charge_summary_aggregates_only_authorized_details(monkeypatch):
+    db, engine = _session()
+    try:
+        admin, manager, tenant, other, first, second, foreign, partial, due, unallocated = _seed(db)
+        monkeypatch.setattr(tenant_unpaid_charges, "permission_allows_user", lambda *a, **kw: True)
+        summary = build_report_payload(
+            db, organization_id=admin.organization_id,
+            report_key="tenant.summary", parameters={}, current_user=admin,
+        )
+        assert len(summary.rows) == 3
+        assert sum((row[2] for row in summary.rows)) == 3
+        assert sum((row[5] for row in summary.rows), Decimal(0)) == Decimal("190")
+        assert {row[7] for row in summary.rows} == {first.id, second.id, ""}
+        assert "9999" not in report_csv_bytes(summary).decode("utf-8-sig")
+        assert "'=Danger Person" in report_csv_bytes(summary).decode("utf-8-sig")
+        mgr = build_report_payload(
+            db, organization_id=manager.organization_id,
+            report_key="tenant.summary", parameters={}, current_user=manager,
+        )
+        assert len(mgr.rows) == 1
+        assert mgr.rows[0][5] == Decimal("50") and mgr.rows[0][7] == first.id
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_summary_inherits_detail_scope_filters_and_charge_permission(monkeypatch):
+    db, engine = _session()
+    try:
+        admin, manager, tenant, other, first, second, foreign, *_ = _seed(db)
+        monkeypatch.setattr(tenant_unpaid_charges, "permission_allows_user", lambda *a, **kw: True)
+        def run(actor, **filters):
+            return build_report_payload(
+                db, organization_id=actor.organization_id,
+                report_key="tenant.summary", parameters=filters, current_user=actor,
+            )
+        assert len(run(admin, property_id=first.id, tenant_id=tenant.id).rows) == 1
+        for prop in (second, foreign):
+            with pytest.raises(ReportDeliveryError, match="Property not found"):
+                run(manager, property_id=prop.id)
+        for filters in ({"as_of": "2021-01-01"}, {"sql": "SELECT 1"}):
+            with pytest.raises(ReportDeliveryError):
+                run(admin, **filters)
+        with pytest.raises(ReportDeliveryError):
+            run(tenant)
+        monkeypatch.setattr(tenant_unpaid_charges, "permission_allows_user",
+                            lambda db, *, user, menu_key: menu_key != "ACCOUNTING.CHARGES")
+        with pytest.raises(ReportDeliveryError, match="permission required"):
+            run(admin)
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_summary_catalog_preview_csv_email_and_export_revocation(monkeypatch):
+    db, engine = _session()
+    try:
+        admin, *_ = _seed(db)
+        monkeypatch.setattr(tenant_unpaid_charges, "permission_allows_user", lambda *a, **kw: True)
+        catalog = next(x for x in REPORT_CATALOG if x.key == "tenant.summary")
+        assert catalog.href == "/dashboard/reporting/unpaid-charges-summary"
+        assert catalog.tier == "STANDARD"
+        assert router.REPORT_PERMISSIONS["tenant.summary"] == "ACCOUNTING.CHARGES"
+        monkeypatch.setattr(router, "permission_allows_user", lambda *a, **kw: True)
+        monkeypatch.setattr(
+            router, "resolve_customer_features",
+            lambda *a, **kw: [SimpleNamespace(key=router.EXPORT_FEATURE_KEY, allowed=True)],
+        )
+        req = SimpleNamespace(query_params={})
+        resp = Response()
+        result = router.preview_tenant_unpaid_charges_summary(req, resp, db=db, current_user=admin)
+        assert result["total"] == 3
+        assert resp.headers["cache-control"] == "no-store"
+        exported = router.export_report_csv("tenant.summary", req, db=db, current_user=admin)
+        assert b"Unpaid Charges" in exported.body
+        sent = {}
+        monkeypatch.setattr(router, "send_email", lambda **kw: sent.update(kw))
+        result = router.email_report(
+            "tenant.summary",
+            router.ReportEmailIn(recipient="recipient@example.com", parameters={}),
+            db=db, current_user=admin,
+        )
+        assert result.sent and b"Outstanding" in sent["attachments"][0][1]
+        monkeypatch.setattr(
+            router, "resolve_customer_features",
+            lambda *a, **kw: [SimpleNamespace(key=router.EXPORT_FEATURE_KEY, allowed=False)],
+        )
+        with pytest.raises(HTTPException) as exc:
+            router.preview_tenant_unpaid_charges_summary(req, Response(), db=db, current_user=admin)
+        assert exc.value.status_code == 404
+        monkeypatch.setattr(router, "permission_allows_user",
+                            lambda db, *, user, menu_key: menu_key == "REPORTING.ALL")
+        with pytest.raises(HTTPException) as exc:
+            router.export_report_csv("tenant.summary", req, db=db, current_user=admin)
+        assert exc.value.status_code == 403
+    finally:
+        db.close(); engine.dispose()

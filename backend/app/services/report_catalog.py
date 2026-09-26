@@ -104,7 +104,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/unpaid-charges",
         description="Current positive standalone Charge balances only; rent invoices are separate.",
     ),
-    _standard("tenant.summary", "Tenant Summary", "Tenant"),
+    _standard(
+        "tenant.summary", "Tenant Unpaid Charges Summary", "Tenant",
+        href="/dashboard/reporting/unpaid-charges-summary",
+        description="Per-tenant/property current unpaid standalone Charges; excludes rent invoices.",
+    ),
 
     # Property and unit
     _enhanced("property.budget_comparison", "Budget Comparison", "Property & Unit"),
