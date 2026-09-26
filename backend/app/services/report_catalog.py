@@ -136,7 +136,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/lease-expirations/summary",
         description="Count recorded lease contract end dates by property and month.",
     ),
-    _standard("property.directory", "Property Directory", "Property & Unit"),
+    _standard(
+        "property.directory", "Property Directory", "Property & Unit",
+        href="/dashboard/reporting/property-directory",
+        description="Recorded active property addresses and active unit counts, scoped to your assignments.",
+    ),
     _standard("property.group_directory", "Property Group Directory", "Property & Unit"),
     _enhanced("property.performance", "Property Performance", "Property & Unit"),
     _enhanced("property.rent_roll", "Rent Roll", "Property & Unit"),

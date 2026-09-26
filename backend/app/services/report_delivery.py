@@ -48,6 +48,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "property.gross_potential_rent": "ACCOUNTING.GL_ACCOUNTS",
     "property.lease_expiration_detail": "LEASING",
     "property.lease_expiration_summary": "LEASING",
+    "property.directory": "PROPERTIES.ALL",
 }
 
 
@@ -393,6 +394,14 @@ def build_report_payload(
         return build_lease_expiration_report(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters, report_key=report_key,
+        )
+    if report_key == "property.directory":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated property directory required")
+        from app.services.property_directory import build_property_directory
+        return build_property_directory(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
         )
     builder = _BUILDERS.get(report_key)
     if builder is None:
