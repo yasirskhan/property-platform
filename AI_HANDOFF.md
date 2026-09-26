@@ -29,7 +29,8 @@ IMPORTANT:
 - Settings — Accounting Settings (Key Accounts, GPR, Receipts, Checks, Reports) is COMPLETE/VERIFIED.
 - Accounting Basis is COMPLETE/VERIFIED.
 - My Settings is COMPLETE/VERIFIED.
-- Current batch: Settings — Auditing Center. IMPLEMENTATION COMMITTED; CI pending.
+- Auditing Center is COMPLETE/VERIFIED.
+- Current batch: Settings — Two-step verification. NEXT.
 
 # Latest Verified Green Checkpoint
 
@@ -396,13 +397,12 @@ Implementation prepared:
 # Next Work
 
 Locked order from PROJECT_MASTER:
-1. Settings — Auditing Center (current, CI pending)
-2. Settings — Two-step verification
-3. Settings — Login history
-4. Universal — delete_reason UI
-5. Universal — Notes expansion
-6. Universal — Audit Log expansion
-7. Continue into Phase 3.7 without stopping at the phase boundary
+1. Settings — Two-step verification (current next)
+2. Settings — Login history
+3. Universal — delete_reason UI
+4. Universal — Notes expansion
+5. Universal — Audit Log expansion
+6. Continue into Phase 3.7 without stopping at the phase boundary
 
 # Working Rules
 
@@ -478,7 +478,7 @@ Implementation:
 - Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
 
 
-# Auditing Center — Current Batch
+# Auditing Center — COMPLETE / VERIFIED
 
 Implementation:
 - Reuses the existing append-only AuditLog; no duplicate audit store and no mutation endpoint.
@@ -491,4 +491,8 @@ Implementation:
 - Parity inventory: 255 built / 373 scheduled / 0 in-progress.
 - Regression coverage: backend/tests/test_audit_center.py.
 - TESTS NOT RUN locally in this connector-only session.
-- Hosted CI verification pending.
+- Hosted CI run 36206901507 attempt 2: SUCCESS.
+- Backend: 355 passed, 3 deselected, 2924 warnings in 43.26s.
+- E2E: 3 passed in 8.62s.
+- Frontend, platform-admin, security, PostgreSQL bootstrap/backup/restore, staging, parity/registry consistency, and secret scan: SUCCESS.
+- Attempt 1 had one unrelated platform-admin navigation timeout; rerun passed without product changes.

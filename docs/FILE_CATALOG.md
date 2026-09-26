@@ -2801,3 +2801,15 @@ Re-run `python generate_file_catalog.py` after adding or renaming files.
 - `frontend/src/lib/ownerStatements.ts` — packet settings API helpers.
 - `frontend/src/app/dashboard/accounting/owner-statements/packet-settings/page.tsx` — customer customizer page.
 - Verified CI: run `36200032326`, backend 344 passed / 3 deselected, E2E 3 passed.
+
+
+## Phase 3.6 Settings additions
+
+- `backend/app/routers/audit_center.py` — org-scoped read-only Auditing Center list and CSV export.
+- `backend/app/schemas/audit_center.py` — audit list response contracts.
+- `backend/tests/test_audit_center.py` — Auditing Center isolation/authorization/export regression coverage.
+- `frontend/src/lib/auditCenter.ts` — customer Auditing Center API helper.
+- `frontend/src/app/dashboard/settings/audit/page.tsx` — filtered/exportable Auditing Center customer page.
+- `backend/app/routers/my_settings.py` — current-user personal settings API.
+- `backend/app/models/user_personal_settings.py` — durable per-user personal preferences.
+- `frontend/src/app/dashboard/settings/my/page.tsx` — My Settings customer page.
