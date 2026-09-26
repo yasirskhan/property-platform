@@ -25,7 +25,8 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, RotateCcw } from "lucide-react";
 import { getTransaction, GLTransactionDetail } from "@/lib/glTransactions";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, formatDate } from "@/lib/money";
+import { useDisplay } from "@/contexts/DisplayContext";
 
 // Totals column: show "$0.00" for null/zero, not an em-dash.
 function formatBalance(value: string | number | null | undefined): string {
@@ -42,6 +43,7 @@ type Props = {
 };
 
 export default function TransactionViewerPage({ params }: Props) {
+  const { prefs } = useDisplay();
   const { id } = use(params);
   const txnId = Number(id);
 
@@ -134,7 +136,7 @@ export default function TransactionViewerPage({ params }: Props) {
             <div className="flex justify-between">
               <dt className="text-slate-500">Date</dt>
               <dd className="text-slate-900 font-medium">
-                {txn.transaction_date}
+                {formatDate(txn.transaction_date)}
               </dd>
             </div>
             <div className="flex justify-between">

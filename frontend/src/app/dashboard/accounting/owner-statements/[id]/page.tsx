@@ -11,19 +11,29 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { formatMoney, formatDate } from "@/lib/money";
+import Flag from "@/components/features/Flag";
+import { useDisplay } from "@/contexts/DisplayContext";
+import ReportActions from "@/components/reporting/ReportActions";
 import {
   getOwnerStatement,
+  getOwnerStatementCashSummary,
   type OwnerStatementDetail,
+  type OwnerStatementCashSummary,
 } from "@/lib/ownerStatements";
 
 export default function OwnerStatementDetailPage() {
+  const { prefs } = useDisplay();
   const params = useParams<{ id: string }>();
   const statementId = Number(params.id);
 
   const [stmt, setStmt] = useState<OwnerStatementDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cashSummary, setCashSummary] = useState<OwnerStatementCashSummary | null>(null);
+  const [cashSummaryLoading, setCashSummaryLoading] = useState(false);
+  const [cashSummaryError, setCashSummaryError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!statementId) return;
@@ -34,6 +44,21 @@ export default function OwnerStatementDetailPage() {
       )
       .finally(() => setLoading(false));
   }, [statementId]);
+
+  async function loadCashSummary() {
+    if (cashSummary || cashSummaryLoading) return;
+    setCashSummaryLoading(true);
+    setCashSummaryError(null);
+    try {
+      setCashSummary(await getOwnerStatementCashSummary(statementId));
+    } catch (e) {
+      setCashSummaryError(
+        e instanceof Error ? e.message : "Could not load property cash summary."
+      );
+    } finally {
+      setCashSummaryLoading(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -50,7 +75,7 @@ export default function OwnerStatementDetailPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-4xl mx-auto p-6" data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()} data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}>
       <div className="flex items-center justify-between mb-6 print:hidden">
         <div>
           <h1 className="text-xl font-semibold text-slate-900">
@@ -60,18 +85,28 @@ export default function OwnerStatementDetailPage() {
             {stmt.owner_name || stmt.owner_email || `Owner #${stmt.owner_id}`}
           </div>
         </div>
-        <div className="flex gap-3 items-center">
+        <div className="flex flex-wrap gap-3 items-center justify-end">
+          <Flag name="release.accounting.owner_statements.cash_summary">
+            <button
+              type="button"
+              onClick={loadCashSummary}
+              disabled={cashSummaryLoading}
+              className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50 disabled:opacity-60"
+            >
+              {cashSummaryLoading ? "Loading..." : "Property Cash Summary"}
+            </button>
+          </Flag>
+          <Flag name="release.owner_portal.packet_customizer">
+            <Link href={`/dashboard/accounting/owner-statements/packets?statement_id=${statementId}`} className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Owner Packet</Link>
+          </Flag>
+          <ReportActions
+            reportKey="owner.statement"
+            parameters={{ statement_id: statementId }}
+          />
           <span className="text-xs text-slate-500">
             Generated{" "}
             {stmt.generated_at ? formatDate(stmt.generated_at) : "—"}
           </span>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
-          >
-            Print / Save PDF
-          </button>
         </div>
       </div>
 
@@ -80,7 +115,7 @@ export default function OwnerStatementDetailPage() {
           <div>
             <div className="text-xs text-slate-500">Period</div>
             <div className="font-medium">
-              {stmt.period_start} → {stmt.period_end}
+              {formatDate(stmt.period_start)} → {formatDate(stmt.period_end)}
             </div>
           </div>
           <div>
@@ -109,7 +144,58 @@ export default function OwnerStatementDetailPage() {
               {formatMoney(stmt.total_net)}
             </div>
           </div>
+          <div>
+            <div className="text-xs text-slate-500">Required reserves</div>
+            <div className="font-mono">{formatMoney(stmt.total_required_reserves)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-500">Prepaid rent</div>
+            <div className="font-mono">{formatMoney(stmt.total_prepaid_rent)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-500">Available cash</div>
+            <div className="font-mono font-semibold">{formatMoney(stmt.total_available_cash)}</div>
+          </div>
         </div>
+
+        {cashSummaryError && (
+          <div className="mb-5 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+            {cashSummaryError}
+          </div>
+        )}
+
+        {cashSummary && (
+          <div className="mb-6 border border-slate-200 rounded-lg overflow-hidden">
+            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
+              <h2 className="font-semibold text-slate-900">Property Cash Summary</h2>
+              <p className="text-xs text-slate-500">
+                Frozen statement cash less required reserves and prepaid-rent liabilities.
+              </p>
+            </div>
+            <table className="w-full text-sm">
+              <thead className="text-xs text-slate-500">
+                <tr>
+                  <th className="text-left px-3 py-2">Property</th>
+                  <th className="text-right px-3 py-2">Ending cash</th>
+                  <th className="text-right px-3 py-2">Reserve</th>
+                  <th className="text-right px-3 py-2">Prepaid rent</th>
+                  <th className="text-right px-3 py-2">Available</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cashSummary.properties.map((row) => (
+                  <tr key={row.property_id} className="border-t border-slate-100">
+                    <td className="px-3 py-2">{row.property_name}</td>
+                    <td className="px-3 py-2 text-right font-mono">{formatMoney(row.ending_cash)}</td>
+                    <td className="px-3 py-2 text-right font-mono">{formatMoney(row.required_reserves)}</td>
+                    <td className="px-3 py-2 text-right font-mono">{formatMoney(row.prepaid_rent)}</td>
+                    <td className="px-3 py-2 text-right font-mono font-semibold">{formatMoney(row.available_cash)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {stmt.properties.map((p) => (
           <div key={p.property_id} className="mt-6 pt-6 border-t border-slate-200">

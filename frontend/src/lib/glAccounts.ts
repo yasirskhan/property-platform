@@ -21,6 +21,7 @@ export type GLAccount = {
   offset_account: string | null;
   subject_to_mgmt_fees: boolean;
   include_on_cash_flow: boolean;
+  must_clear: boolean;
   is_active: boolean;
   created_at: string | null;
   updated_at: string | null;
@@ -44,6 +45,29 @@ export type GLAccountCreate = {
   offset_account?: string | null;
   subject_to_mgmt_fees?: boolean;
   include_on_cash_flow?: boolean;
+  must_clear?: boolean;
+};
+
+export type GLAccountPostingPermissionRow = {
+  gl_account_id: number;
+  gl_number: string;
+  name: string;
+  permissions: Record<string, boolean>;
+};
+export type GLAccountPostingPermissionMatrix = {
+  roles: string[];
+  rows: GLAccountPostingPermissionRow[];
+};
+
+export type GLBalanceRecalculation = {
+  source: string;
+  account_count: number;
+  entry_count: number;
+  total_debits: string;
+  total_credits: string;
+  net_balance: string;
+  is_balanced: boolean;
+  recalculated_at: string;
 };
 
 export type GLAccountUpdate = {
@@ -53,6 +77,7 @@ export type GLAccountUpdate = {
   offset_account?: string | null;
   subject_to_mgmt_fees?: boolean;
   include_on_cash_flow?: boolean;
+  must_clear?: boolean;
 };
 
 // ------------------------------------------------------------
@@ -101,4 +126,16 @@ export function updateGLAccount(
 
 export function deleteGLAccount(id: number): Promise<null> {
   return apiDelete(`/api/accounting/gl-accounts/${id}`);
+}
+export function getGLAccountPostingPermissions(): Promise<GLAccountPostingPermissionMatrix> {
+  return apiGet("/api/accounting/gl-accounts/posting-permissions");
+}
+export function updateGLAccountPostingPermissions(
+  values: Record<number, Record<string, boolean>>
+): Promise<GLAccountPostingPermissionMatrix> {
+  return apiPut("/api/accounting/gl-accounts/posting-permissions", { values });
+}
+
+export function recalculateGLBalances(): Promise<GLBalanceRecalculation> {
+  return apiPost("/api/accounting/gl-accounts/recalculate-balances", {});
 }

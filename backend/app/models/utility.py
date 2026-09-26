@@ -80,6 +80,7 @@ class PropertyUtility(Base):
     internal_notes = Column(Text, nullable=True)  # tenant hidden
 
     is_active = Column(Boolean, default=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -132,6 +133,7 @@ class TrashPickupSchedule(Base):
     notes = Column(Text, nullable=True)  # tenant visible
 
     is_active = Column(Boolean, default=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     def __repr__(self):

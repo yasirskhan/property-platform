@@ -76,6 +76,14 @@ class Lease(Base):
     end_date = Column(Date, nullable=False)
     monthly_rent = Column(Numeric(10, 2), nullable=False)
     security_deposit = Column(Numeric(10, 2), nullable=False, default=0.00)
+    # Optional deposit liability selected during move-in. Owner-held
+    # deposits point to an org-approved AccountingKeyAccount.
+    security_deposit_gl_account_id = Column(
+        Integer,
+        ForeignKey("gl_accounts.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     due_day = Column(Integer, nullable=False, default=1)
 
     status = Column(SqlEnum(LeaseStatus), nullable=False, default=LeaseStatus.DRAFT)

@@ -20,6 +20,7 @@ from app.models.tenant_insurance import (
 )
 from app.models.user import User, UserRole
 from app.routers.auth import get_current_user
+from app.routers.properties import check_property_access
 from app.schemas.tenant_insurance import (
     TenantInsuranceCreate,
     TenantInsuranceUpdate,
@@ -32,9 +33,7 @@ router = APIRouter(prefix="/tenant-insurance", tags=["Tenant Insurance"])
 
 
 def _check_lease_access(db: Session, user: User, lease: Lease):
-    """Same rules as leases — tenant sees own, manager assigned, owner in org."""
-    if user.role == UserRole.ADMIN:
-        return
+    """Tenant sees own lease; customer staff use canonical property scope."""
     if user.role == UserRole.TENANT:
         if lease.tenant_id != user.id:
             raise HTTPException(status_code=403, detail="Not your lease")
@@ -47,23 +46,8 @@ def _check_lease_access(db: Session, user: User, lease: Lease):
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
 
-    if user.role == UserRole.OWNER:
-        if prop.organization_id != user.organization_id:
-            raise HTTPException(status_code=403, detail="Not in your organization")
-        return
-
-    if user.role == UserRole.MANAGER:
-        assigned = (
-            db.query(PropertyAssignment)
-            .filter(
-                PropertyAssignment.property_id == prop.id,
-                PropertyAssignment.user_id == user.id,
-                PropertyAssignment.is_active == True,  # noqa: E712
-            )
-            .first()
-        )
-        if not assigned:
-            raise HTTPException(status_code=403, detail="Not assigned")
+    if user.role in (UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER):
+        check_property_access(db, user, prop.id)
         return
 
     raise HTTPException(status_code=403, detail="Access denied")
@@ -212,7 +196,7 @@ def compliance_view(
     # Build lease scope
     lease_q = db.query(Lease)
 
-    if current_user.role == UserRole.OWNER:
+    if current_user.role in (UserRole.ADMIN, UserRole.OWNER):
         lease_q = (
             lease_q.join(Unit, Unit.id == Lease.unit_id)
             .join(Property, Property.id == Unit.property_id)

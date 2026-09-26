@@ -178,12 +178,12 @@ export default function UserOverrides({ onSaved }: Props) {
       <div className="text-sm text-slate-600 mb-4">
         Click a user to set personal overrides. Overrides can only
         subtract visibility — they cannot grant what the role
-        doesn't already allow.
+        doesn&apos;t already allow.
       </div>
 
       {users && users.length === 0 && (
         <div className="p-4 bg-slate-50 border border-slate-200 rounded text-slate-500 text-sm">
-          You don't have permission to edit any users.
+          You don&apos;t have permission to edit any users.
         </div>
       )}
 

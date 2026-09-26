@@ -22,6 +22,7 @@ from app.routers.auth import get_current_user
 from app.models.user import User
 from app.models.bank_account import BankAccount
 from app.models.gl_account import GLAccount
+from app.services.menu_resolver import permission_allows_user
 from app.schemas.bank_account import (
     BankAccountCreateIn,
     BankAccountListOut,
@@ -35,6 +36,8 @@ router = APIRouter(
     tags=["Bank Accounts"],
 )
 
+WRITE_ROLES = {"ADMIN", "OWNER", "MANAGER"}
+
 
 # ------------------------------------------------------------
 # Helpers
@@ -47,6 +50,33 @@ def _require_org(current_user: User) -> int:
             detail="User has no organization.",
         )
     return current_user.organization_id
+
+
+def _norm_role(role) -> str:
+    if role is None:
+        return ""
+    value = role.value if hasattr(role, "value") else str(role)
+    return value.upper()
+
+
+def _require_bank_accounts_access(db: Session, current_user: User) -> int:
+    org_id = _require_org(current_user)
+    if not permission_allows_user(
+        db, user=current_user, menu_key="ACCOUNTING.BANK_ACCOUNTS"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bank Accounts permission required.",
+        )
+    return org_id
+
+
+def _require_write(current_user: User) -> None:
+    if _norm_role(current_user.role) not in WRITE_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not allowed to modify bank accounts.",
+        )
 
 
 def _to_out(b: BankAccount) -> BankAccountOut:
@@ -84,7 +114,7 @@ def list_bank_accounts(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_bank_accounts_access(db, current_user)
 
     q = (
         db.query(BankAccount)
@@ -119,7 +149,7 @@ def get_bank_account(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_bank_accounts_access(db, current_user)
 
     b = (
         db.query(BankAccount)
@@ -152,7 +182,8 @@ def create_bank_account(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    _require_write(current_user)
+    org_id = _require_bank_accounts_access(db, current_user)
 
     # Verify the GL account belongs to us
     gl = (
@@ -237,7 +268,8 @@ def update_bank_account(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    _require_write(current_user)
+    org_id = _require_bank_accounts_access(db, current_user)
 
     b = (
         db.query(BankAccount)
@@ -286,7 +318,8 @@ def delete_bank_account(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    _require_write(current_user)
+    org_id = _require_bank_accounts_access(db, current_user)
 
     b = (
         db.query(BankAccount)

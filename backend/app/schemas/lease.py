@@ -25,6 +25,7 @@ class LeaseBase(BaseModel):
     end_date: date
     monthly_rent: Decimal = Field(..., ge=0)
     security_deposit: Decimal = Field(Decimal("0.00"), ge=0)
+    security_deposit_gl_account_id: Optional[int] = None
     due_day: int = Field(1, ge=1, le=28)
     notes: Optional[str] = None
 
@@ -40,6 +41,7 @@ class LeaseUpdate(BaseModel):
     end_date: Optional[date] = None
     monthly_rent: Optional[Decimal] = None
     security_deposit: Optional[Decimal] = None
+    security_deposit_gl_account_id: Optional[int] = None
     due_day: Optional[int] = None
     status: Optional[LeaseStatus] = None
     notes: Optional[str] = None

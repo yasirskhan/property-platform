@@ -19,12 +19,15 @@ import {
   BankAccountList,
 } from "@/lib/bankAccounts";
 import { apiGet } from "@/lib/api";
+import Flag from "@/components/features/Flag";
+import { useDisplay } from "@/contexts/DisplayContext";
 
 type Me = { role: string };
 
 const WRITE_ROLES = ["ADMIN", "OWNER", "MANAGER"];
 
 export default function BankAccountsPage() {
+  const { prefs } = useDisplay();
   const [me, setMe] = useState<Me | null>(null);
   const [data, setData] = useState<BankAccountList | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,10 +58,10 @@ export default function BankAccountsPage() {
   if (error) return <div className="text-red-600">{error}</div>;
   if (!data) return null;
 
-  const canWrite = me ? WRITE_ROLES.includes(me.role) : false;
+  const canWrite = me ? WRITE_ROLES.includes(String(me.role).toUpperCase()) : false;
 
   return (
-    <div>
+    <div data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()} data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}>
       <div className="mb-4">
         <Link
           href="/dashboard"
@@ -68,12 +71,18 @@ export default function BankAccountsPage() {
         </Link>
       </div>
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-start justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Bank Accounts</h1>
           <p className="text-slate-500 mt-1">
             {data.total} {data.total === 1 ? "account" : "accounts"}
           </p>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          
+          <Flag name="release.accounting.bank_reconciliation.qif"><button type="button" disabled>QIF Import</button></Flag>
+          <Flag name="release.accounting.ach_test_file"><button type="button" disabled>$0 ACH Test File</button></Flag>
+          <Flag name="release.accounting.check_printing"><button type="button" disabled>Check Printing</button></Flag>
         </div>
       </div>
 
@@ -99,7 +108,7 @@ export default function BankAccountsPage() {
               <th className="text-left px-4 py-2 font-medium text-slate-700 w-28">
                 ACH
               </th>
-              <th className="w-16"></th>
+              <th className="w-64"></th>
             </tr>
           </thead>
           <tbody>
@@ -142,6 +151,11 @@ export default function BankAccountsPage() {
                   {b.ach_format || "—"}
                 </td>
                 <td className="px-4 py-2 text-right">
+                  <Flag name="release.accounting.bank_reconciliation"><Link href={`/dashboard/accounting/bank-accounts/${b.id}/reconcile`} className="text-blue-600 hover:text-blue-800 text-xs mr-3">Reconcile</Link></Flag>
+                  <Flag name="release.accounting.check_setup"><Link href={`/dashboard/accounting/bank-accounts/${b.id}/check-setup`} className="text-blue-600 hover:text-blue-800 text-xs mr-3">Check Setup</Link></Flag>
+                  <Flag name="release.accounting.ach_files"><Link href={`/dashboard/accounting/bank-accounts/${b.id}/ach`} className="text-blue-600 hover:text-blue-800 text-xs mr-3">ACH File</Link></Flag>
+                  <Flag name="release.accounting.bank_feed"><Link href={`/dashboard/accounting/bank-accounts/${b.id}/bank-feed`} className="text-blue-600 hover:text-blue-800 text-xs mr-3">Bank Feed</Link></Flag>
+                  <Flag name="release.accounting.bank_adjustments"><Link href={`/dashboard/accounting/bank-accounts/${b.id}/adjustments`} className="text-blue-600 hover:text-blue-800 text-xs mr-3">Adjustments</Link></Flag>
                   {canWrite && (
                     <button
                       onClick={() => setSelected(b)}

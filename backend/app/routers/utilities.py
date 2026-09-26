@@ -42,8 +42,15 @@ def _require_manage(current_user: User):
         raise HTTPException(status_code=403, detail="Not allowed")
 
 
-def _get_utility(db: Session, utility_id: int) -> PropertyUtility:
-    u = db.query(PropertyUtility).filter(PropertyUtility.id == utility_id).first()
+def _get_utility(db: Session, property_id: int, utility_id: int) -> PropertyUtility:
+    u = (
+        db.query(PropertyUtility)
+        .filter(
+            PropertyUtility.id == utility_id,
+            PropertyUtility.property_id == property_id,
+        )
+        .first()
+    )
     if not u:
         raise HTTPException(status_code=404, detail="Utility not found")
     return u
@@ -97,7 +104,7 @@ def get_utility(
 ):
     require_non_tenant(current_user)
     check_property_access(db, current_user, property_id)
-    return _get_utility(db, utility_id)
+    return _get_utility(db, property_id, utility_id)
 
 
 @router.patch(
@@ -115,7 +122,7 @@ def update_utility(
     _require_manage(current_user)
     check_property_access(db, current_user, property_id)
 
-    u = _get_utility(db, utility_id)
+    u = _get_utility(db, property_id, utility_id)
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(u, field, value)
     db.commit()
@@ -133,7 +140,7 @@ def delete_utility(
     require_non_tenant(current_user)
     _require_manage(current_user)
     check_property_access(db, current_user, property_id)
-    u = _get_utility(db, utility_id)
+    u = _get_utility(db, property_id, utility_id)
     db.delete(u)
     db.commit()
     log_action(db, current_user, entity_type="property_utility", entity_id=utility_id, action="deleted")
@@ -152,6 +159,7 @@ def list_bills(
 ):
     require_non_tenant(current_user)
     check_property_access(db, current_user, property_id)
+    _get_utility(db, property_id, utility_id)
     return (
         db.query(UtilityBill)
         .filter(UtilityBill.utility_id == utility_id)
@@ -175,6 +183,7 @@ def create_bill(
     require_non_tenant(current_user)
     _require_manage(current_user)
     check_property_access(db, current_user, property_id)
+    _get_utility(db, property_id, utility_id)
 
     b = UtilityBill(utility_id=utility_id, created_by_id=current_user.id, **payload.model_dump())
     db.add(b)

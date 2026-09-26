@@ -46,6 +46,10 @@ from app.services.bill_posting import (
     pay_bill,
     reverse_bill,
 )
+from app.services.menu_resolver import permission_allows_user
+from app.models.bill_workflow import RecurringBill, VendorCredit
+from app.schemas.bill_workflow import RecurringBillCreateIn, RecurringBillOut, RecurringBillPostIn, RecurringBillPostResult, VendorCreditCreateIn, VendorCreditOut
+from app.services.bill_workflows import create_recurring_bill, manual_bill_post_enabled_for_org, post_due_recurring_bills, post_vendor_credit, recurring_bills_enabled_for_org, vendor_credits_enabled_for_org
 
 
 router = APIRouter(
@@ -65,6 +69,13 @@ def _require_org(current_user: User) -> int:
             detail="User has no organization.",
         )
     return current_user.organization_id
+
+
+def _require_bills_access(db: Session, current_user: User) -> int:
+    org_id = _require_org(current_user)
+    if not permission_allows_user(db, user=current_user, menu_key="ACCOUNTING.PAYABLES"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Payables permission required.")
+    return org_id
 
 
 def _bill_to_out(b: Bill) -> BillOut:
@@ -89,6 +100,13 @@ def _bill_to_out(b: Bill) -> BillOut:
         ),
         payable_gl_account_name=(
             b.payable_gl_account.name if b.payable_gl_account else None
+        ),
+        cash_gl_account_id=b.cash_gl_account_id,
+        cash_gl_account_number=(
+            b.cash_gl_account.gl_number if b.cash_gl_account else None
+        ),
+        cash_gl_account_name=(
+            b.cash_gl_account.name if b.cash_gl_account else None
         ),
         remarks=b.remarks,
         notes=b.notes,
@@ -143,11 +161,14 @@ def list_bills(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_bills_access(db, current_user)
 
     q = (
         db.query(Bill)
-        .options(joinedload(Bill.payable_gl_account))
+        .options(
+            joinedload(Bill.payable_gl_account),
+            joinedload(Bill.cash_gl_account),
+        )
         .filter(Bill.organization_id == org_id)
         .filter(Bill.is_active.is_(True))
     )
@@ -188,12 +209,13 @@ def get_bill(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_bills_access(db, current_user)
 
     b = (
         db.query(Bill)
         .options(
             joinedload(Bill.payable_gl_account),
+            joinedload(Bill.cash_gl_account),
             joinedload(Bill.lines).joinedload(BillLine.gl_account),
         )
         .filter(
@@ -225,7 +247,7 @@ def create_bill(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_bills_access(db, current_user)
 
     try:
         bill = post_bill(
@@ -244,6 +266,7 @@ def create_bill(
         db.query(Bill)
         .options(
             joinedload(Bill.payable_gl_account),
+            joinedload(Bill.cash_gl_account),
             joinedload(Bill.lines).joinedload(BillLine.gl_account),
         )
         .filter(Bill.id == bill.id)
@@ -268,7 +291,7 @@ def pay_bill_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_bills_access(db, current_user)
 
     bill = (
         db.query(Bill)
@@ -302,6 +325,7 @@ def pay_bill_endpoint(
         db.query(Bill)
         .options(
             joinedload(Bill.payable_gl_account),
+            joinedload(Bill.cash_gl_account),
             joinedload(Bill.lines).joinedload(BillLine.gl_account),
         )
         .filter(Bill.id == bill.id)
@@ -326,7 +350,7 @@ def reverse_bill_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_bills_access(db, current_user)
 
     original = (
         db.query(Bill)
@@ -360,6 +384,7 @@ def reverse_bill_endpoint(
         db.query(Bill)
         .options(
             joinedload(Bill.payable_gl_account),
+            joinedload(Bill.cash_gl_account),
             joinedload(Bill.lines).joinedload(BillLine.gl_account),
         )
         .filter(Bill.id == mirror.id)
@@ -367,3 +392,83 @@ def reverse_bill_endpoint(
     )
 
     return _detail_out(b)
+
+# ============================================================
+# DELETE /api/accounting/bills/{id} -- unpaid only
+# ============================================================
+
+@router.delete("/{bill_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_bill_endpoint(
+    bill_id: int,
+    reversal_date: Optional[date] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_bills_access(db, current_user)
+    original = (
+        db.query(Bill)
+        .filter(
+            Bill.id == bill_id,
+            Bill.organization_id == org_id,
+            Bill.is_active.is_(True),
+        )
+        .first()
+    )
+    if original is None:
+        raise HTTPException(status_code=404, detail="Bill not found.")
+
+    try:
+        reverse_bill(
+            db=db,
+            original=original,
+            reversal_date=reversal_date or date.today(),
+            memo=f"Deleted unpaid bill #{original.id}",
+            created_by=current_user,
+            deactivate=True,
+        )
+    except PostingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return None
+
+
+@router.get("/recurring/schedules", response_model=list[RecurringBillOut])
+def list_recurring_bills(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    org_id = _require_bills_access(db, current_user)
+    if not recurring_bills_enabled_for_org(db, organization_id=org_id):
+        raise HTTPException(status_code=403, detail="Recurring bills are not enabled.")
+    return db.query(RecurringBill).filter(RecurringBill.organization_id == org_id).order_by(RecurringBill.is_active.desc(), RecurringBill.next_post_date.asc(), RecurringBill.id.asc()).all()
+
+@router.post("/recurring/schedules", response_model=RecurringBillOut, status_code=status.HTTP_201_CREATED)
+def create_recurring_bill_endpoint(payload: RecurringBillCreateIn, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    org_id = _require_bills_access(db, current_user)
+    if not recurring_bills_enabled_for_org(db, organization_id=org_id):
+        raise HTTPException(status_code=403, detail="Recurring bills are not enabled.")
+    try:
+        return create_recurring_bill(db, organization_id=org_id, payload=payload, created_by=current_user)
+    except PostingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+@router.post("/recurring/post", response_model=RecurringBillPostResult)
+def manually_post_recurring_bills(payload: RecurringBillPostIn, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    org_id = _require_bills_access(db, current_user)
+    if not manual_bill_post_enabled_for_org(db, organization_id=org_id):
+        raise HTTPException(status_code=403, detail="Manual bill posting is not enabled.")
+    return post_due_recurring_bills(db, as_of=payload.as_of, organization_id=org_id, schedule_ids=payload.schedule_ids, created_by=current_user, require_manual_gate=True)
+
+@router.get("/credits/list", response_model=list[VendorCreditOut])
+def list_vendor_credits(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    org_id = _require_bills_access(db, current_user)
+    if not vendor_credits_enabled_for_org(db, organization_id=org_id):
+        raise HTTPException(status_code=403, detail="Vendor credits are not enabled.")
+    return db.query(VendorCredit).filter(VendorCredit.organization_id == org_id, VendorCredit.is_active.is_(True)).order_by(VendorCredit.credit_date.desc(), VendorCredit.id.desc()).all()
+
+@router.post("/credits", response_model=VendorCreditOut, status_code=status.HTTP_201_CREATED)
+def create_vendor_credit_endpoint(payload: VendorCreditCreateIn, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    org_id = _require_bills_access(db, current_user)
+    if not vendor_credits_enabled_for_org(db, organization_id=org_id):
+        raise HTTPException(status_code=403, detail="Vendor credits are not enabled.")
+    try:
+        return post_vendor_credit(db, organization_id=org_id, payload=payload, created_by=current_user)
+    except PostingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))

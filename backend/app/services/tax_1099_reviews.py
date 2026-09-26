@@ -1,0 +1,447 @@
+"""Manual 1099 preparation, review and approval.
+
+No accounting table is queried to derive reportable amounts. An administrator
+must enter the tax-year amount and supporting reference explicitly. Approval
+does not submit a return, generate an IRS file, or create a recipient copy.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+from datetime import datetime
+from decimal import Decimal
+
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+
+from app.models.tax_1099_review import Tax1099Review
+from app.models.tax_profile import TaxProfile
+from app.models.tax_w9_document import TaxW9Document
+from app.models.user import User
+from app.schemas.tax_1099_review import (
+    Tax1099ApprovalIn, Tax1099DataIn, Tax1099PrepareIn,
+    Tax1099ReviewOut, Tax1099UpdateIn, Tax1099PreflightOut,
+)
+from app.services.audit import append_audit_log
+from app.services.report_delivery import ReportPayload
+from app.services.tax_profiles import _crypto, _decode, _subject, require_tax_admin
+
+
+# Do not persist or display common full SSN/EIN patterns in free-text
+# source references/notes. The structured TIN belongs ONLY to encrypted
+# TaxProfile records, never ordinary 1099 review text or generic CSV.
+_TAX_ID_IN_TEXT = re.compile(
+    r"(?<![0-9])(?:[0-9]{3}[ -]?[0-9]{2}[ -]?[0-9]{4}|[0-9]{2}[ -]?[0-9]{7})(?![0-9])"
+)
+
+
+def _has_tax_id_in_source(reference: str | None, note: str | None) -> bool:
+    return any(_TAX_ID_IN_TEXT.search(value or "") for value in (reference, note))
+
+
+def _redact_source(value: str | None) -> str | None:
+    return _TAX_ID_IN_TEXT.sub("[REDACTED TAX ID]", value) if value is not None else None
+
+
+def _require_safe_source(payload: Tax1099DataIn) -> None:
+    if _has_tax_id_in_source(payload.source_reference, payload.source_note):
+        # The error deliberately omits the user's input.
+        raise HTTPException(
+            status_code=422,
+            detail="Source references and notes cannot contain taxpayer identifiers.",
+        )
+
+
+EXPECTED_RECIPIENT = {
+    ("1099-NEC", "NONEMPLOYEE_COMPENSATION"): "VENDOR",
+    ("1099-MISC", "RENTS"): "OWNER",
+}
+
+
+def _canonical(payload: Tax1099DataIn) -> dict[str, object]:
+    return {
+        "tax_year": payload.tax_year,
+        "form_type": payload.form_type,
+        "income_category": payload.income_category,
+        "payer_profile_id": payload.payer_profile_id,
+        "recipient_profile_id": payload.recipient_profile_id,
+        "amount": format(payload.amount.quantize(Decimal("0.01")), "f"),
+        "source_type": payload.source_type,
+        "source_reference": payload.source_reference,
+        "source_note": payload.source_note,
+    }
+
+
+def _fingerprint(payload: Tax1099DataIn) -> str:
+    raw = json.dumps(_canonical(payload), sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _row(db: Session, *, organization_id: int, record_id: int) -> Tax1099Review:
+    row = db.query(Tax1099Review).filter(
+        Tax1099Review.id == record_id,
+        Tax1099Review.organization_id == organization_id,
+    ).with_for_update().first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="1099 review record not found.")
+    return row
+
+
+def _profiles(
+    db: Session, *, organization_id: int, payload: Tax1099DataIn,
+    require_current_subject: bool = True, require_w9: bool = False,
+) -> tuple[TaxProfile, TaxProfile, str, str, bool]:
+    payer = db.query(TaxProfile).filter(
+        TaxProfile.id == payload.payer_profile_id,
+        TaxProfile.organization_id == organization_id,
+        TaxProfile.subject_type == "ORGANIZATION",
+        TaxProfile.subject_id == organization_id,
+    ).first()
+    recipient = db.query(TaxProfile).filter(
+        TaxProfile.id == payload.recipient_profile_id,
+        TaxProfile.organization_id == organization_id,
+    ).first()
+    if payer is None or recipient is None:
+        raise HTTPException(status_code=404, detail="Required taxpayer profile not found.")
+    expected = EXPECTED_RECIPIENT.get((payload.form_type, payload.income_category))
+    if expected is None or recipient.subject_type != expected:
+        raise HTTPException(status_code=422, detail="Recipient type does not match the selected 1099 classification.")
+    if require_current_subject:
+        _subject(
+            db, organization_id=organization_id,
+            subject_type=recipient.subject_type, subject_id=recipient.subject_id,
+        )
+    crypto = _crypto()
+    payer_data = _decode(payer, crypto)
+    recipient_data = _decode(recipient, crypto)
+    evidence = db.query(TaxW9Document.id).filter(
+        TaxW9Document.organization_id == organization_id,
+        TaxW9Document.tax_profile_id == recipient.id,
+    ).first() is not None
+    if require_w9 and (not recipient.w9_on_file or not evidence):
+        raise HTTPException(status_code=422, detail="Archived signed W-9 evidence is required before review.")
+    return payer, recipient, payer_data["tin"][-4:], recipient_data["tin"][-4:], evidence
+
+
+def _payload_from_row(row: Tax1099Review) -> Tax1099UpdateIn:
+    return Tax1099UpdateIn(
+        tax_year=row.tax_year, form_type=row.form_type,
+        income_category=row.income_category,
+        payer_profile_id=row.payer_profile_id,
+        recipient_profile_id=row.recipient_profile_id,
+        amount=row.amount, source_type=row.source_type,
+        source_reference=row.source_reference, source_note=row.source_note,
+    )
+
+
+def _stale(row: Tax1099Review, payer: TaxProfile, recipient: TaxProfile) -> bool:
+    # Existing APPROVED/REVIEWED rows predating the revision migration
+    # have NULL snapshots and are conservatively treated as stale.
+    return row.status in {"REVIEWED", "APPROVED"} and (
+        row.reviewed_payer_revision is None
+        or row.reviewed_recipient_revision is None
+        or row.reviewed_payer_revision != payer.profile_revision
+        or row.reviewed_recipient_revision != recipient.profile_revision
+    )
+
+
+def _out(db: Session, row: Tax1099Review) -> Tax1099ReviewOut:
+    payload = _payload_from_row(row)
+    payer, recipient, payer_last4, recipient_last4, evidence = _profiles(
+        db, organization_id=row.organization_id, payload=payload,
+        require_current_subject=False, require_w9=False,
+    )
+    return Tax1099ReviewOut(
+        id=row.id, tax_year=row.tax_year, form_type=row.form_type,
+        income_category=row.income_category,
+        payer_profile_id=row.payer_profile_id, payer_tin_last4=payer_last4,
+        recipient_profile_id=row.recipient_profile_id,
+        recipient_subject_type=recipient.subject_type,
+        recipient_subject_id=recipient.subject_id,
+        recipient_tin_last4=recipient_last4,
+        amount=row.amount, source_type=row.source_type,
+        source_reference=_redact_source(row.source_reference),
+        source_note=_redact_source(row.source_note),
+        status=row.status, w9_evidence_present=evidence,
+        profile_changed_since_review=bool(_stale(row, payer, recipient)),
+        source_review_confirmed=bool(row.source_review_confirmed),
+        threshold_review_confirmed=bool(row.threshold_review_confirmed),
+        recipient_review_confirmed=bool(row.recipient_review_confirmed),
+        prepared_by_id=row.prepared_by_id, reviewed_by_id=row.reviewed_by_id,
+        approved_by_id=row.approved_by_id, reviewed_at=row.reviewed_at,
+        approved_at=row.approved_at, created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def list_reviews(db: Session, *, current_user: User, tax_year: int | None = None) -> list[Tax1099ReviewOut]:
+    organization_id = require_tax_admin(db, current_user)
+    query = db.query(Tax1099Review).filter(Tax1099Review.organization_id == organization_id)
+    if tax_year is not None:
+        if tax_year < 2020 or tax_year > 2100:
+            raise HTTPException(status_code=422, detail="Invalid tax year.")
+        query = query.filter(Tax1099Review.tax_year == tax_year)
+    rows = query.order_by(Tax1099Review.tax_year.desc(), Tax1099Review.id.desc()).all()
+    return [_out(db, row) for row in rows]
+
+
+def prepare_review(db: Session, *, current_user: User, payload: Tax1099PrepareIn) -> Tax1099ReviewOut:
+    organization_id = require_tax_admin(db, current_user)
+    _require_safe_source(payload)
+    fingerprint = _fingerprint(payload)
+    existing = db.query(Tax1099Review).filter(
+        Tax1099Review.organization_id == organization_id,
+        Tax1099Review.idempotency_key == payload.idempotency_key,
+    ).first()
+    if existing is not None:
+        if existing.payload_fingerprint != fingerprint:
+            raise HTTPException(status_code=409, detail="Idempotency key was already used for different 1099 data.")
+        return _out(db, existing)
+    _profiles(db, organization_id=organization_id, payload=payload)
+    row = Tax1099Review(
+        organization_id=organization_id, idempotency_key=payload.idempotency_key,
+        payload_fingerprint=fingerprint, tax_year=payload.tax_year,
+        form_type=payload.form_type, income_category=payload.income_category,
+        payer_profile_id=payload.payer_profile_id,
+        recipient_profile_id=payload.recipient_profile_id,
+        amount=payload.amount, source_type=payload.source_type,
+        source_reference=payload.source_reference, source_note=payload.source_note,
+        status="PREPARED", prepared_by_id=current_user.id,
+    )
+    db.add(row)
+    db.flush()
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=organization_id,
+        entity_type="tax_1099_review", entity_id=row.id, action="prepared",
+        new_value={"tax_year": row.tax_year, "form_type": row.form_type,
+                   "income_category": row.income_category,
+                   "recipient_profile_id": row.recipient_profile_id},
+    )
+    db.commit()
+    db.refresh(row)
+    return _out(db, row)
+
+
+def update_prepared(
+    db: Session, *, current_user: User, record_id: int, payload: Tax1099UpdateIn,
+) -> Tax1099ReviewOut:
+    organization_id = require_tax_admin(db, current_user)
+    row = _row(db, organization_id=organization_id, record_id=record_id)
+    if row.status != "PREPARED":
+        raise HTTPException(status_code=409, detail="Only PREPARED 1099 records can be edited.")
+    _require_safe_source(payload)
+    _profiles(db, organization_id=organization_id, payload=payload)
+    row.tax_year = payload.tax_year
+    row.form_type = payload.form_type
+    row.income_category = payload.income_category
+    row.payer_profile_id = payload.payer_profile_id
+    row.recipient_profile_id = payload.recipient_profile_id
+    row.amount = payload.amount
+    row.source_type = payload.source_type
+    row.source_reference = payload.source_reference
+    row.source_note = payload.source_note
+    row.payload_fingerprint = _fingerprint(payload)
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=organization_id,
+        entity_type="tax_1099_review", entity_id=row.id, action="prepared_record_updated",
+        new_value={"tax_year": row.tax_year, "form_type": row.form_type,
+                   "income_category": row.income_category,
+                   "recipient_profile_id": row.recipient_profile_id},
+    )
+    db.commit()
+    db.refresh(row)
+    return _out(db, row)
+
+
+def mark_reviewed(db: Session, *, current_user: User, record_id: int) -> Tax1099ReviewOut:
+    organization_id = require_tax_admin(db, current_user)
+    row = _row(db, organization_id=organization_id, record_id=record_id)
+    if row.status == "APPROVED":
+        return _out(db, row)  # Immutable historical approval, even if stale.
+    if row.status not in {"PREPARED", "REVIEWED"}:
+        raise HTTPException(status_code=409, detail="1099 record is not ready for review.")
+    payload = _payload_from_row(row)
+    _require_safe_source(payload)
+    payer, recipient, _, _, _ = _profiles(
+        db, organization_id=organization_id, payload=payload, require_w9=True,
+    )
+    if row.status == "REVIEWED" and not _stale(row, payer, recipient):
+        return _out(db, row)
+    prior_status = row.status
+    row.status = "REVIEWED"
+    row.reviewed_payer_revision = payer.profile_revision
+    row.reviewed_recipient_revision = recipient.profile_revision
+    row.reviewed_by_id = current_user.id
+    row.reviewed_at = datetime.utcnow()
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=organization_id,
+        entity_type="tax_1099_review", entity_id=row.id,
+        action="re_reviewed" if prior_status == "REVIEWED" else "reviewed",
+        new_value={"status": "REVIEWED", "tax_year": row.tax_year, "form_type": row.form_type,
+                   "taxpayer_profiles_rechecked": True},
+    )
+    db.commit()
+    db.refresh(row)
+    return _out(db, row)
+
+
+def approve_review(
+    db: Session, *, current_user: User, record_id: int, payload: Tax1099ApprovalIn,
+) -> Tax1099ReviewOut:
+    organization_id = require_tax_admin(db, current_user)
+    row = _row(db, organization_id=organization_id, record_id=record_id)
+    if row.status == "APPROVED":
+        return _out(db, row)
+    if row.status != "REVIEWED":
+        raise HTTPException(status_code=409, detail="1099 record must be REVIEWED before approval.")
+    current = _payload_from_row(row)
+    _require_safe_source(current)
+    payer, recipient, _, _, _ = _profiles(
+        db, organization_id=organization_id, payload=current, require_w9=True,
+    )
+    if _stale(row, payer, recipient):
+        raise HTTPException(
+            status_code=409,
+            detail="Taxpayer details changed since review. Re-review the record before approval.",
+        )
+    row.source_review_confirmed = payload.source_review_confirmed
+    row.threshold_review_confirmed = payload.threshold_review_confirmed
+    row.recipient_review_confirmed = payload.recipient_review_confirmed
+    row.status = "APPROVED"
+    row.approved_by_id = current_user.id
+    row.approved_at = datetime.utcnow()
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=organization_id,
+        entity_type="tax_1099_review", entity_id=row.id, action="approved",
+        new_value={"status": "APPROVED", "tax_year": row.tax_year, "form_type": row.form_type,
+                   "approval_checks": ["source", "threshold_exceptions", "recipient_payer"]},
+    )
+    db.commit()
+    db.refresh(row)
+    return _out(db, row)
+
+
+def internal_register(
+    db: Session, *, current_user: User, tax_year: int,
+) -> ReportPayload:
+    """A redacted internal review report, never an IRS or provider import file.
+
+    Live organization permissions and the dedicated tax decryption key are
+    rechecked through list_reviews. Source notes, names, addresses and complete
+    TINs must never appear here.
+    """
+    reviews = list_reviews(db, current_user=current_user, tax_year=tax_year)
+    return ReportPayload(
+        title=f"INTERNAL 1099 REVIEW REGISTER {tax_year} - NOT FOR IRS SUBMISSION",
+        filename=f"1099-internal-review-not-for-irs-{tax_year}.csv",
+        headers=(
+            "InternalUseOnly", "TaxYear", "ReviewId", "Form", "IncomeCategory",
+            "PayerProfileId", "PayerTINLast4", "RecipientProfileId",
+            "RecipientType", "RecipientId", "RecipientTINLast4", "Amount",
+            "SourceType", "SourceReference", "ReviewStatus", "ProfileReviewCurrent", "W9Archived",
+            "ReviewedAt", "ApprovedAt",
+        ),
+        rows=tuple(
+            (
+                "NOT FOR IRS SUBMISSION", row.tax_year, row.id,
+                row.form_type, row.income_category, row.payer_profile_id,
+                "****" + row.payer_tin_last4,
+                row.recipient_profile_id, row.recipient_subject_type,
+                row.recipient_subject_id, "****" + row.recipient_tin_last4,
+                format(row.amount, ".2f"), row.source_type, row.source_reference,
+                row.status,
+                ("NOT YET REVIEWED" if row.status == "PREPARED"
+                 else ("RE-REVIEW REQUIRED" if row.profile_changed_since_review
+                       else "CURRENT")),
+                "Yes" if row.w9_evidence_present else "No",
+                row.reviewed_at.isoformat() if row.reviewed_at else "",
+                row.approved_at.isoformat() if row.approved_at else "",
+            )
+            for row in reviews
+        ),
+    )
+
+
+
+def _complete_tax_profile(data: dict[str, object]) -> bool:
+    """Check shape only; do not return/log actual taxpayer data."""
+    for name in (
+        "legal_name", "address_line1", "city", "state",
+        "postal_code", "country", "tin_type", "tax_classification",
+    ):
+        value = data.get(name)
+        if not isinstance(value, str) or not value.strip():
+            return False
+    tin = data.get("tin")
+    return isinstance(tin, str) and len(tin) == 9 and tin.isdigit()
+
+
+def preflight_review(
+    db: Session, *, current_user: User, record_id: int,
+) -> Tax1099PreflightOut:
+    """Recheck only local prerequisites. Never claim IRS/provider filing.
+
+    Full decrypted tax data exists only inside this service for validation,
+    and must never be serialized into HTTP responses or audit records.
+    """
+    organization_id = require_tax_admin(db, current_user)
+    row = _row(db, organization_id=organization_id, record_id=record_id)
+    payload = _payload_from_row(row)
+    payer, recipient, _, _, w9_evidence = _profiles(
+        db, organization_id=organization_id, payload=payload,
+        require_current_subject=True, require_w9=False,
+    )
+    blockers: list[str] = []
+    if row.status != "APPROVED":
+        blockers.append("Manual tax-year approval is required.")
+    if _stale(row, payer, recipient):
+        blockers.append("Taxpayer profile changed since review; new approval is required.")
+    if not all((row.source_review_confirmed, row.threshold_review_confirmed,
+                row.recipient_review_confirmed)):
+        blockers.append("All source, threshold and recipient attestations are required.")
+    if not recipient.w9_on_file or not w9_evidence:
+        blockers.append("An archived, signed paper W-9 is required.")
+    cipher = _crypto()
+    if not _complete_tax_profile(_decode(payer, cipher)):
+        blockers.append("Payer tax profile must have complete verified identifiers and address.")
+    if not _complete_tax_profile(_decode(recipient, cipher)):
+        blockers.append("Recipient tax profile must have complete verified identifiers and address.")
+    if not row.source_reference.strip() or row.amount <= Decimal("0"):
+        blockers.append("A positive manually verified amount and supporting source are required.")
+    if _has_tax_id_in_source(row.source_reference, row.source_note):
+        blockers.append("Remove taxpayer identifiers from unencrypted source references and notes.")
+
+    # The provider must not receive two competing CURRENT approved returns
+    # for the same payer/recipient/form/tax year. Historical stale approvals
+    # are preserved for audit, not counted as current competing forms.
+    competing = db.query(Tax1099Review).filter(
+        Tax1099Review.organization_id == organization_id,
+        Tax1099Review.id != row.id,
+        Tax1099Review.tax_year == row.tax_year,
+        Tax1099Review.form_type == row.form_type,
+        Tax1099Review.income_category == row.income_category,
+        Tax1099Review.payer_profile_id == row.payer_profile_id,
+        Tax1099Review.recipient_profile_id == row.recipient_profile_id,
+        Tax1099Review.status == "APPROVED",
+    ).all()
+    if any(not _stale(other, payer, recipient) for other in competing):
+        blockers.append("Competing current approved 1099 records require manual reconciliation.")
+
+    # An internal preflight is NOT an IRS filing eligibility determination:
+    # tax-year exceptions, state filing and the actual provider/TCC path
+    # still need separate current-rule validation and authorization.
+    outcome = Tax1099PreflightOut(
+        record_id=row.id, tax_year=row.tax_year, form_type=row.form_type,
+        review_status=row.status,
+        ready_for_provider_handoff=not blockers,
+        blockers=blockers,
+    )
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=organization_id,
+        entity_type="tax_1099_review", entity_id=row.id, action="preflight_checked",
+        new_value={"tax_year": row.tax_year, "blocker_count": len(blockers),
+                   "submitted": False},
+    )
+    db.commit()
+    return outcome

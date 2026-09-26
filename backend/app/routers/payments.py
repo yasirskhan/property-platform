@@ -38,6 +38,7 @@ from app.models.lease import (
 from app.models.property import Property, Unit, PropertyAssignment
 from app.models.user import User, UserRole
 from app.routers.auth import get_current_user
+from app.routers.properties import check_property_access
 from app.schemas.lease import (
     PaymentCreate,
     PaymentOut,
@@ -86,29 +87,8 @@ def _check_invoice_access(db: Session, user: User, invoice: RentInvoice) -> Rent
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
 
-    if user.role == UserRole.ADMIN:
-        return invoice
-
-    if user.role == UserRole.OWNER:
-        if prop.organization_id != user.organization_id:
-            raise HTTPException(status_code=403, detail="Not in your organization")
-        return invoice
-
-    if user.role == UserRole.MANAGER:
-        assigned = (
-            db.query(PropertyAssignment)
-            .filter(
-                PropertyAssignment.property_id == prop.id,
-                PropertyAssignment.user_id == user.id,
-                PropertyAssignment.is_active == True,  # noqa: E712
-            )
-            .first()
-        )
-        if not assigned:
-            raise HTTPException(status_code=403, detail="Not assigned to this property")
-        return invoice
-
-    raise HTTPException(status_code=403, detail="Access denied")
+    check_property_access(db, user, prop.id)
+    return invoice
 
 
 def _recalculate_invoice_status(db: Session, invoice: RentInvoice):

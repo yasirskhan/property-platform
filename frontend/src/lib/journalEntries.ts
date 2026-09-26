@@ -4,7 +4,7 @@
 // Typed API client for Manual Journal Entries (Phase 2 Step 2b).
 // ============================================================
 
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPatch, apiPost } from "@/lib/api";
 
 // ------------------------------------------------------------
 // Shapes
@@ -83,4 +83,111 @@ export function createJournalEntry(
   payload: JournalEntryCreateIn
 ): Promise<JournalEntry> {
   return apiPost(`/api/accounting/journal-entries`, payload);
+}
+
+export type RecurringJournalEntryLine = {
+  id: number;
+  gl_account_id: number;
+  property_id: number | null;
+  unit_id: number | null;
+  owner_id: number | null;
+  description: string | null;
+  debit: string;
+  credit: string;
+};
+
+export type RecurringJournalEntry = {
+  id: number;
+  organization_id: number;
+  name: string;
+  start_date: string;
+  end_date: string | null;
+  day_of_month: number;
+  next_post_date: string;
+  last_posted_date: string | null;
+  reference_number: string | null;
+  memo: string | null;
+  is_active: boolean;
+  created_by_id: number | null;
+  created_at: string;
+  updated_at: string;
+  lines: RecurringJournalEntryLine[];
+};
+
+export type RecurringJournalEntryList = {
+  items: RecurringJournalEntry[];
+  total: number;
+};
+
+export type RecurringJournalEntryCreateIn = {
+  name: string;
+  start_date: string;
+  end_date?: string | null;
+  day_of_month: number;
+  reference_number?: string | null;
+  memo?: string | null;
+  lines: JournalEntryLineIn[];
+};
+
+export function listRecurringJournalEntries(): Promise<RecurringJournalEntryList> {
+  return apiGet("/api/accounting/journal-entries/recurring");
+}
+
+export function createRecurringJournalEntry(
+  payload: RecurringJournalEntryCreateIn
+): Promise<RecurringJournalEntry> {
+  return apiPost("/api/accounting/journal-entries/recurring", payload);
+}
+
+export function setRecurringJournalEntryActive(
+  id: number,
+  isActive: boolean
+): Promise<RecurringJournalEntry> {
+  return apiPatch(
+    `/api/accounting/journal-entries/recurring/${id}/status`,
+    { is_active: isActive }
+  );
+}
+
+
+export type GPRCandidate = {
+  unit_id: number;
+  property_id: number;
+  property_name: string;
+  unit_number: string;
+  lease_id: number | null;
+  market_rent: string;
+  scheduled_rent: string;
+  loss_gain: string;
+  already_posted: boolean;
+  transaction_id: number | null;
+};
+
+export type GPRCandidateList = {
+  month: string;
+  items: GPRCandidate[];
+  total: number;
+  unposted: number;
+};
+
+export type GPRPostResult = {
+  month: string;
+  posted: number;
+  transaction_ids: number[];
+};
+
+export function listGPRCandidates(month: string): Promise<GPRCandidateList> {
+  return apiGet(
+    `/api/accounting/journal-entries/gpr?month=${encodeURIComponent(month)}`
+  );
+}
+
+export function postGPR(
+  month: string,
+  unitIds: number[]
+): Promise<GPRPostResult> {
+  return apiPost("/api/accounting/journal-entries/gpr", {
+    month,
+    unit_ids: unitIds,
+  });
 }

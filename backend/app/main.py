@@ -15,6 +15,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.core.observability import init_sentry
 from app.routers import auth as auth_router
 from app.routers import properties as properties_router
 from app.routers import users as users_router
@@ -54,10 +55,41 @@ from app.models.charge import Charge  # noqa: F401
 from app.routers import settings_display as settings_display_router
 from app.routers import currencies as currencies_router
 from app.routers import charges as charges_router
+from app.routers import platform_auth as platform_auth_router
+from app.routers import platform_flags as platform_flags_router
+from app.routers import platform_jobs as platform_jobs_router
+from app.routers import platform_fraud as platform_fraud_router
+from app.routers import platform_admin as platform_admin_router
+from app.routers import observability as observability_router
+from app.routers import billing_checkout as billing_checkout_router
+from app.routers import features as features_router
+from app.routers import checks as checks_router
+from app.routers import bank_reconciliation as bank_reconciliation_router
+from app.routers import bank_adjustments as bank_adjustments_router
+from app.routers import bank_feed as bank_feed_router
+from app.routers import check_setup as check_setup_router
+from app.routers import ach_files as ach_files_router
+from app.routers import owner_ach as owner_ach_router
+from app.routers import owner_held_deposits as owner_held_deposits_router
+from app.routers import owner_payouts as owner_payouts_router
+from app.routers import accounting_settings as accounting_settings_router
+from app.routers import my_settings as my_settings_router
+from app.routers import audit_center as audit_center_router
+from app.routers import two_factor as two_factor_router
+from app.routers import entity_notes as entity_notes_router
+from app.routers import entity_attachments as entity_attachments_router
+from app.routers import reporting as reporting_router
+from app.routers import letters as letters_router
+from app.routers import owner_packets as owner_packets_router
+from app.routers import tax_profiles as tax_profiles_router
+from app.routers import tax_w9 as tax_w9_router
+from app.routers import tax_1099_reviews as tax_1099_reviews_router
 
 # ------------------------------------------------------------
 # Create the FastAPI app
 # ------------------------------------------------------------
+init_sentry()
+
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
@@ -73,6 +105,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -120,6 +154,35 @@ app.include_router(property_photos_router.router)
 app.include_router(settings_display_router.router)
 app.include_router(currencies_router.router)
 app.include_router(charges_router.router)
+app.include_router(platform_auth_router.router)
+app.include_router(platform_flags_router.router)
+app.include_router(platform_jobs_router.router)
+app.include_router(platform_fraud_router.router)
+app.include_router(platform_admin_router.router)
+app.include_router(observability_router.router)
+app.include_router(billing_checkout_router.router)
+app.include_router(features_router.router)
+app.include_router(checks_router.router)
+app.include_router(bank_reconciliation_router.router)
+app.include_router(bank_adjustments_router.router)
+app.include_router(bank_feed_router.router)
+app.include_router(check_setup_router.router)
+app.include_router(ach_files_router.router)
+app.include_router(owner_ach_router.router)
+app.include_router(owner_held_deposits_router.router)
+app.include_router(owner_payouts_router.router)
+app.include_router(accounting_settings_router.router)
+app.include_router(my_settings_router.router)
+app.include_router(audit_center_router.router)
+app.include_router(two_factor_router.router)
+app.include_router(entity_notes_router.router)
+app.include_router(entity_attachments_router.router)
+app.include_router(reporting_router.router)
+app.include_router(letters_router.router)
+app.include_router(owner_packets_router.router)
+app.include_router(tax_profiles_router.router)
+app.include_router(tax_w9_router.router)
+app.include_router(tax_1099_reviews_router.router)
 
 
 # ------------------------------------------------------------

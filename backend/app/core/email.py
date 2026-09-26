@@ -30,6 +30,7 @@ def send_email(
     html: Optional[str] = None,
     organization_id: Optional[int] = None,
     db: Optional[Session] = None,
+    attachments: Optional[list[tuple[str, bytes, str]]] = None,
 ) -> None:
     """
     Send an email.
@@ -48,7 +49,7 @@ def send_email(
     if smtp_config is None:
         raise RuntimeError("No SMTP configuration available")
 
-    _send_smtp(to, subject, body, html, smtp_config)
+    _send_smtp(to, subject, body, html, smtp_config, attachments or [])
 
 
 # ------------------------------------------------------------
@@ -131,6 +132,7 @@ def _send_smtp(
     body: str,
     html: Optional[str],
     config: dict,
+    attachments: list[tuple[str, bytes, str]],
 ) -> None:
     msg = EmailMessage()
 
@@ -150,6 +152,15 @@ def _send_smtp(
     msg.set_content(body)
     if html:
         msg.add_alternative(html, subtype="html")
+
+    for filename, content, content_type in attachments:
+        main_type, _, sub_type = content_type.partition("/")
+        msg.add_attachment(
+            content,
+            maintype=main_type or "application",
+            subtype=sub_type or "octet-stream",
+            filename=filename,
+        )
 
     if config["use_tls"]:
         with smtplib.SMTP(config["host"], config["port"], timeout=15) as server:

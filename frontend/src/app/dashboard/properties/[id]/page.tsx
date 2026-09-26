@@ -11,7 +11,11 @@ import AmenitiesTab from "@/components/property/AmenitiesTab";
 import AppliancesTab from "@/components/property/AppliancesTab";
 import ImprovementsTab from "@/components/property/ImprovementsTab";
 import PhotosTab from "@/components/property/PhotosTab";
+import EntityNotes from "@/components/EntityNotes";
+import EntityAttachments from "@/components/EntityAttachments";
 import { formatMoney, formatDate } from "@/lib/money";
+import Flag from "@/components/features/Flag";
+import { useDisplay } from "@/contexts/DisplayContext";
 
 type Property = {
   id: number;
@@ -82,10 +86,12 @@ const TABS = [
   { id: "appliances", label: "Appliances" },
   { id: "improvements", label: "Improvements" },
   { id: "expenses", label: "Expenses" },
+  { id: "notes", label: "Notes" },
   { id: "history", label: "History" },
 ];
 
 export default function PropertyDetailPage() {
+  const { prefs } = useDisplay();
   const params = useParams();
   const router = useRouter();
   const propertyId = Number(params.id);
@@ -140,11 +146,15 @@ export default function PropertyDetailPage() {
     return <div className="text-red-600">{error || "Not found"}</div>;
 
   const role = (me?.role || "").toUpperCase();
-  const canEdit = role === "ADMIN" || role === "OWNER" || role === "MANAGER";
+  const canManage = role === "ADMIN" || role === "OWNER" || role === "MANAGER";
+  const canEditProperty = role === "ADMIN" || role === "OWNER";
   const canDelete = role === "ADMIN" || role === "OWNER";
 
   return (
-    <div>
+    <div
+      data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()}
+      data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}
+    >
       <Link
         href="/dashboard/properties"
         className="text-sm text-slate-500 hover:text-slate-900 mb-4 inline-block"
@@ -162,8 +172,11 @@ export default function PropertyDetailPage() {
             {property.city}, {property.state} {property.zip_code}
           </p>
         </div>
-        <div className="flex gap-3">
-          {canEdit && (
+        <div className="flex flex-wrap justify-end gap-2">
+          <Flag name="release.properties.photo_editor"><button type="button" disabled>Photo Editor</button></Flag>
+          <Flag name="release.properties.keys"><button type="button" disabled>Keys</button></Flag>
+          <Flag name="release.properties.statement_settings"><button type="button" disabled>Statement Settings</button></Flag>
+          {canEditProperty && (
             <Link
               href={`/dashboard/properties/${propertyId}/edit`}
               className="text-sm px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700"
@@ -198,19 +211,46 @@ export default function PropertyDetailPage() {
               {t.label}
             </button>
           ))}
+          <Flag name="release.properties.non_revenue"><button type="button" disabled>Non-Revenue</button></Flag>
+          <Flag name="release.properties.staff"><button type="button" disabled>Staff</button></Flag>
+          <Flag name="release.properties.budget"><button type="button" disabled>Budget</button></Flag>
+          <Flag name="release.properties.fixed_assets"><button type="button" disabled>Fixed Assets</button></Flag>
+          <Flag name="release.properties.rubs"><button type="button" disabled>RUBs</button></Flag>
+          <Flag name="release.properties.compliance"><button type="button" disabled>Compliance</button></Flag>
+          <Flag name="release.documents.attachments">
+            <button
+              type="button"
+              onClick={() => setTab("attachments")}
+              className={`whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 transition ${
+                tab === "attachments"
+                  ? "border-slate-900 text-slate-900"
+                  : "border-transparent text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              Attachments
+            </button>
+          </Flag>
         </nav>
       </div>
 
       {tab === "overview" && <OverviewTab property={property} />}
       {tab === "units" && (
-        <UnitsTab units={units} propertyId={propertyId} canEdit={canEdit} />
+        <UnitsTab units={units} propertyId={propertyId} canEdit={canManage} />
+      )}
+      {tab === "notes" && (
+        <EntityNotes entityType="properties" entityId={propertyId} canAdd={canManage} />
+      )}
+      {tab === "attachments" && (
+        <Flag name="release.documents.attachments">
+          <EntityAttachments entityType="properties" entityId={propertyId} canManage={canManage} />
+        </Flag>
       )}
       {tab === "history" && <HistoryTab propertyId={propertyId} />}
       {tab === "financials" && (
         <FinancialsTab
           property={property}
           propertyId={propertyId}
-          canEdit={canEdit}
+          canEdit={canManage}
         />
       )}
       {tab === "taxes" && (
@@ -220,11 +260,11 @@ export default function PropertyDetailPage() {
         <PoliciesTab
           property={property}
           propertyId={propertyId}
-          canEdit={canEdit}
+          canEdit={canManage}
         />
       )}
       {tab === "utilities" && (
-        <UtilitiesTab propertyId={propertyId} canEdit={canEdit} />
+        <UtilitiesTab propertyId={propertyId} canEdit={canManage} />
       )}
       {tab === "insurance" && (
         <InsuranceTab propertyId={propertyId} canEdit={canDelete} />
@@ -233,19 +273,20 @@ export default function PropertyDetailPage() {
         <ExpensesTab propertyId={propertyId} canEdit={canDelete} />
       )}
       {tab === "amenities" && (
-        <AmenitiesTab propertyId={propertyId} canEdit={canEdit} />
+        <AmenitiesTab propertyId={propertyId} canEdit={canManage} />
       )}
       {tab === "appliances" && (
-        <AppliancesTab propertyId={propertyId} canEdit={canEdit} />
+        <AppliancesTab propertyId={propertyId} canEdit={canManage} />
       )}
       {tab === "improvements" && (
-        <ImprovementsTab propertyId={propertyId} canEdit={canEdit} />
+        <ImprovementsTab propertyId={propertyId} canEdit={canManage} />
       )}
       {tab === "photos" && (
-        <PhotosTab propertyId={propertyId} canEdit={canEdit} />
+        <PhotosTab propertyId={propertyId} canEdit={canManage} />
       )}
       {tab !== "overview" &&
         tab !== "units" &&
+        tab !== "notes" &&
         tab !== "history" &&
         tab !== "financials" &&
         tab !== "taxes" &&
@@ -256,7 +297,8 @@ export default function PropertyDetailPage() {
         tab !== "amenities" &&
         tab !== "appliances" &&
         tab !== "improvements" &&
-        tab !== "photos" && (
+        tab !== "photos" &&
+        tab !== "attachments" && (
           <ComingSoonTab name={TABS.find((t) => t.id === tab)?.label || ""} />
         )}
     </div>

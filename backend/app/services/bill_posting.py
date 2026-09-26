@@ -17,7 +17,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Optional
 
@@ -121,6 +121,11 @@ def post_bill(
     else:
         payable_acct = _default_payable_account(db, organization_id)
 
+    # Validate optional default cash account metadata. It does not post until
+    # the bill is actually paid.
+    if payload.cash_gl_account_id is not None:
+        _get_account(db, organization_id, payload.cash_gl_account_id)
+
     # ---------------------------------------------------------
     # 3. Build GL lines
     #    DR each expense line, CR the payable once for total.
@@ -193,6 +198,7 @@ def post_bill(
             unit_id=payload.unit_id,
             owner_id=payload.owner_id,
             payable_gl_account_id=payable_acct.id,
+            cash_gl_account_id=payload.cash_gl_account_id,
             remarks=payload.remarks,
             source_type=payload.source_type,
             source_id=payload.source_id,
@@ -287,9 +293,15 @@ def pay_bill(
             f"balance {outstanding}."
         )
 
-    # Validate accounts
+    # Validate accounts. A payment may override the bill-level default cash
+    # account; otherwise the default entered on the bill is used.
     _get_account(db, organization_id, bill.payable_gl_account_id)
-    _get_account(db, organization_id, payload.cash_gl_account_id)
+    cash_gl_account_id = payload.cash_gl_account_id or bill.cash_gl_account_id
+    if cash_gl_account_id is None:
+        raise PostingError(
+            "A cash account is required for payment. Set one on the bill or payment."
+        )
+    _get_account(db, organization_id, cash_gl_account_id)
 
     # GL lines: DR AP / CR Cash
     posting_lines: List[PostingLine] = [
@@ -303,7 +315,7 @@ def pay_bill(
             credit=Decimal("0"),
         ),
         PostingLine(
-            gl_account_id=payload.cash_gl_account_id,
+            gl_account_id=cash_gl_account_id,
             property_id=bill.property_id,
             unit_id=bill.unit_id,
             owner_id=bill.owner_id,
@@ -368,6 +380,49 @@ def pay_bill(
 # 3. REVERSE A BILL
 # ============================================================
 
+def _stage_transaction_reversal(
+    db: Session,
+    *,
+    original: GLTransaction,
+    reversal_date: date,
+    created_by: User,
+    memo: str,
+) -> GLTransaction:
+    """Stage one GL reversal without committing."""
+    if original.is_reversed:
+        raise PostingError(f"GL transaction #{original.id} is already reversed.")
+
+    flipped: List[PostingLine] = [
+        PostingLine(
+            gl_account_id=entry.gl_account_id,
+            property_id=entry.property_id,
+            unit_id=entry.unit_id,
+            owner_id=entry.owner_id,
+            description=f"Reversal: {entry.description or ''}".strip(),
+            debit=Decimal(entry.credit or 0),
+            credit=Decimal(entry.debit or 0),
+        )
+        for entry in original.entries
+    ]
+    reversal = post_transaction(
+        db=db,
+        organization_id=original.organization_id,
+        transaction_date=reversal_date,
+        transaction_type="REVERSAL",
+        memo=memo,
+        lines=flipped,
+        created_by=created_by,
+        reference_number=original.reference_number,
+        source_type=original.source_type,
+        source_id=original.source_id,
+        reversal_of_id=original.id,
+        commit=False,
+        write_audit=False,
+    )
+    original.is_reversed = True
+    return reversal
+
+
 def reverse_bill(
     db: Session,
     *,
@@ -375,43 +430,66 @@ def reverse_bill(
     reversal_date: date,
     memo: Optional[str],
     created_by: User,
+    deactivate: bool = False,
 ) -> Bill:
-    """Reverse an entered bill. Only allowed if not paid.
-
-    Reverses the original GL transaction (DR Expense / CR AP)
-    by flipping it. Marks original is_reversed=True. Creates a
-    mirror Bill row linked via reversal_of_id.
-    """
+    """Reverse an unpaid or partially paid bill atomically."""
     if original.is_reversed:
         raise PostingError("This bill has already been reversed.")
-    if original.status in ("PAID", "PARTIAL"):
-        raise PostingError(
-            "Cannot reverse a bill that has payments against it. "
-            "Reverse the payments first."
-        )
+    if original.status == "PAID":
+        raise PostingError("Cannot reverse a fully paid bill.")
+    if deactivate and (
+        original.status != "UNPAID" or Decimal(original.amount_paid or 0) != 0
+    ):
+        raise PostingError("Only an unpaid bill with no payments can be deleted.")
     if original.gl_transaction_id is None:
         raise PostingError("This bill has no GL transaction.")
 
-    txn = (
+    accrual_txn = (
         db.query(GLTransaction)
-        .filter(GLTransaction.id == original.gl_transaction_id)
+        .filter(
+            GLTransaction.id == original.gl_transaction_id,
+            GLTransaction.organization_id == original.organization_id,
+        )
         .first()
     )
-    if txn is None:
+    if accrual_txn is None:
         raise PostingError("Underlying GL transaction not found.")
 
-    reversed_txn = reverse_transaction(
-        db=db,
-        original=txn,
-        reversal_date=reversal_date,
-        created_by=created_by,
-        memo=memo or f"Reversal of bill #{original.id}",
+    payment_txns = (
+        db.query(GLTransaction)
+        .filter(
+            GLTransaction.organization_id == original.organization_id,
+            GLTransaction.source_type == "bill_payment",
+            GLTransaction.source_id == original.id,
+            GLTransaction.is_reversed.is_(False),
+        )
+        .order_by(GLTransaction.id.asc())
+        .all()
     )
 
-    original.is_reversed = True
-    db.flush()
-
     try:
+        for payment_txn in payment_txns:
+            _stage_transaction_reversal(
+                db,
+                original=payment_txn,
+                reversal_date=reversal_date,
+                created_by=created_by,
+                memo=memo or f"Reversal of payment for bill #{original.id}",
+            )
+
+        reversed_txn = _stage_transaction_reversal(
+            db,
+            original=accrual_txn,
+            reversal_date=reversal_date,
+            created_by=created_by,
+            memo=memo or f"Reversal of bill #{original.id}",
+        )
+
+        original.is_reversed = True
+        if deactivate:
+            original.is_active = False
+            original.deleted_at = datetime.utcnow()
+
         mirror = Bill(
             organization_id=original.organization_id,
             bill_number=f"REV-{original.bill_number or original.id}",
@@ -427,22 +505,26 @@ def reverse_bill(
             unit_id=original.unit_id,
             owner_id=original.owner_id,
             payable_gl_account_id=original.payable_gl_account_id,
+            cash_gl_account_id=original.cash_gl_account_id,
             remarks=memo or f"Reversal of bill #{original.id}",
             source_type=original.source_type,
             source_id=original.source_id,
             gl_transaction_id=reversed_txn.id,
             is_reversed=False,
             reversal_of_id=original.id,
-            is_active=True,
+            is_active=not deactivate,
+            deleted_at=datetime.utcnow() if deactivate else None,
             created_by_id=created_by.id if created_by else None,
         )
         db.add(mirror)
         db.commit()
         db.refresh(mirror)
         db.refresh(original)
-    except Exception as e:
+    except Exception as exc:
         db.rollback()
-        raise PostingError(f"Failed to save reversal bill: {e}")
+        if isinstance(exc, PostingError):
+            raise
+        raise PostingError(f"Failed to reverse bill: {exc}")
 
     try:
         log_action(
@@ -450,10 +532,13 @@ def reverse_bill(
             user=created_by,
             entity_type="bill",
             entity_id=original.id,
-            action="reverse",
+            action="delete" if deactivate else "reverse",
             field_name="is_reversed",
             old_value="False",
-            new_value=f"True (mirror bill #{mirror.id})",
+            new_value=(
+                f"True (mirror bill #{mirror.id}; "
+                f"{len(payment_txns)} payment transaction(s) reversed)"
+            ),
         )
     except Exception:
         pass

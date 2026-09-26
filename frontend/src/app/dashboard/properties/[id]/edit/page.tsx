@@ -7,10 +7,12 @@ import { apiGet, apiPatch } from "@/lib/api";
 import { PARKING_TYPES } from "@/lib/usStates";
 import StateAutocomplete from "@/components/StateAutocomplete";
 import AddressAutocomplete, { AddressSuggestion } from "@/components/AddressAutocomplete";
+import { useDisplay } from "@/contexts/DisplayContext";
 
 type Me = { role: string };
 
 export default function EditPropertyPage() {
+  const { prefs } = useDisplay();
   const params = useParams();
   const router = useRouter();
   const propertyId = Number(params.id);
@@ -36,6 +38,7 @@ export default function EditPropertyPage() {
   const [parkingType, setParkingType] = useState("");
   const [estimatedRent, setEstimatedRent] = useState("");
   const [securityDeposit, setSecurityDeposit] = useState("");
+  const [requiredReserveAmount, setRequiredReserveAmount] = useState("");
   const [ownershipStatus, setOwnershipStatus] = useState("");
   const [petsAllowed, setPetsAllowed] = useState(false);
   const [petTypesAllowed, setPetTypesAllowed] = useState("");
@@ -66,7 +69,8 @@ export default function EditPropertyPage() {
           apiGet(`/properties/${propertyId}`),
         ]);
 
-        if (meData.role !== "admin" && meData.role !== "owner" && meData.role !== "manager") {
+        const role = String(meData.role || "").toUpperCase();
+        if (role !== "ADMIN" && role !== "OWNER") {
           router.replace(`/dashboard/properties/${propertyId}`);
           return;
         }
@@ -87,6 +91,7 @@ export default function EditPropertyPage() {
         setParkingType(prop.parking_type || "");
         setEstimatedRent(prop.estimated_rent?.toString() || "");
         setSecurityDeposit(prop.security_deposit?.toString() || "");
+        setRequiredReserveAmount(prop.required_reserve_amount?.toString() || "0");
         setOwnershipStatus(prop.ownership_status || "");
         setPetsAllowed(prop.pets_allowed ?? false);
         setPetTypesAllowed(prop.pet_types_allowed || "");
@@ -137,6 +142,7 @@ export default function EditPropertyPage() {
         parking_type: parkingType || null,
         estimated_rent: estimatedRent ? Number(estimatedRent) : null,
         security_deposit: securityDeposit ? Number(securityDeposit) : null,
+        required_reserve_amount: requiredReserveAmount ? Number(requiredReserveAmount) : 0,
         ownership_status: ownershipStatus || null,
         description: description || null,
         notes: notes || null,
@@ -172,7 +178,11 @@ export default function EditPropertyPage() {
   if (!me) return <div className="text-red-600">{error || "Not found"}</div>;
 
   return (
-    <div className="max-w-3xl">
+    <div
+      className="max-w-3xl"
+      data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()}
+      data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}
+    >
       <Link
         href={`/dashboard/properties/${propertyId}`}
         className="text-sm text-slate-500 hover:text-slate-900 mb-4 inline-block"
@@ -411,6 +421,20 @@ export default function EditPropertyPage() {
               />
             </div>
           </div>
+
+          <Field label="Required Owner Reserve ($)">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={requiredReserveAmount}
+              onChange={(e) => setRequiredReserveAmount(e.target.value)}
+              className="input"
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              Minimum property cash to retain before owner distributions.
+            </p>
+          </Field>
 
           <Field label="Ownership Status">
             <select

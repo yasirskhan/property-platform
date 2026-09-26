@@ -123,9 +123,8 @@ def force_reset(
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if current_user.role in (UserRole.OWNER, UserRole.MANAGER):
-        if target.organization_id != current_user.organization_id:
-            raise HTTPException(status_code=403, detail="Not in your organization")
+    if target.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=403, detail="Not in your organization")
 
     db.query(PasswordResetToken).filter(
         PasswordResetToken.user_id == target.id,

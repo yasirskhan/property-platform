@@ -44,6 +44,10 @@ class BillCreateIn(BaseModel):
     # If not sent, the service picks 2100.
     payable_gl_account_id: Optional[int] = None
 
+    # Optional default payment cash account. The bill entry itself remains
+    # accrual-only; pay_bill() uses this when a payment does not override it.
+    cash_gl_account_id: Optional[int] = None
+
     property_id: Optional[int] = None
     unit_id: Optional[int] = None
     # Owner scoping (AppFolio parity). Optional — company-level
@@ -68,7 +72,7 @@ class BillPayIn(BaseModel):
     Can be partial (pay less than the bill amount).
     """
     payment_date: date
-    cash_gl_account_id: int
+    cash_gl_account_id: Optional[int] = None
     amount: Decimal = Field(..., gt=0)
     reference_number: Optional[str] = Field(None, max_length=60)
     remarks: Optional[str] = None
@@ -123,6 +127,10 @@ class BillOut(BaseModel):
     payable_gl_account_id: int
     payable_gl_account_number: Optional[str] = None
     payable_gl_account_name: Optional[str] = None
+
+    cash_gl_account_id: Optional[int] = None
+    cash_gl_account_number: Optional[str] = None
+    cash_gl_account_name: Optional[str] = None
 
     remarks: Optional[str] = None
     notes: Optional[str] = None

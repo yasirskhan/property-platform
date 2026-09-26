@@ -71,6 +71,10 @@ class Property(Base):
     zip_code = Column(String(20), nullable=False)
     country = Column(String(100), nullable=False, default="USA")
 
+    # Optional property-level residency override. NULL inherits the
+    # owning organization's data_region.
+    data_region = Column(String(32), nullable=True, index=True)
+
     # --- Physical details ---
     year_built = Column(Integer, nullable=True)
     year_renovated = Column(Integer, nullable=True)
@@ -82,6 +86,11 @@ class Property(Base):
     # --- Financial ---
     estimated_rent = Column(Numeric(10, 2), nullable=True)
     security_deposit = Column(Numeric(10, 2), nullable=True)
+    # Minimum property cash retained before owner distributions.
+    # Owner statements freeze this configured amount with the snapshot.
+    required_reserve_amount = Column(
+        Numeric(14, 2), nullable=False, default=0, server_default="0.00"
+    )
     ownership_status = Column(String(50), nullable=True)
 
     # --- Ownership (AppFolio parity, Step 8a) ---
@@ -253,6 +262,7 @@ class PropertyAssignment(Base):
     role = Column(SqlEnum(UserRole), nullable=False)
 
     is_active = Column(Boolean, default=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # --- Relationships ---
@@ -313,6 +323,7 @@ class PropertyOwner(Base):
     is_primary = Column(Boolean, nullable=False, default=False)
 
     is_active = Column(Boolean, nullable=False, default=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

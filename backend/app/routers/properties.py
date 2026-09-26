@@ -33,6 +33,8 @@ from app.models.audit_log import AuditLog
 from app.models.property import Property, Unit, PropertyAssignment
 from app.models.user import User, UserRole
 from app.routers.auth import get_current_user
+from app.services.plan_limits import PlanUnitLimitExceeded, require_unit_capacity
+from app.services.menu_resolver import permission_allows_user
 from app.schemas.property import (
     PropertyCreate,
     PropertyOut,
@@ -59,6 +61,29 @@ def require_non_tenant(current_user: User):
         )
 
 
+def _require_property_permission(
+    db: Session,
+    current_user: User,
+    menu_key: str,
+) -> int:
+    require_non_tenant(current_user)
+    if current_user.organization_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User has no organization.",
+        )
+    if not permission_allows_user(
+        db,
+        user=current_user,
+        menu_key=menu_key,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Property permission required.",
+        )
+    return current_user.organization_id
+
+
 def check_property_access(db: Session, user: User, property_id: int) -> Property:
     """
     Return the property if the user is allowed to see it.
@@ -68,10 +93,7 @@ def check_property_access(db: Session, user: User, property_id: int) -> Property
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
 
-    if user.role == UserRole.ADMIN:
-        return prop
-
-    if user.role == UserRole.OWNER:
+    if user.role in (UserRole.ADMIN, UserRole.OWNER):
         if prop.organization_id != user.organization_id:
             raise HTTPException(status_code=403, detail="Not your property")
         return prop
@@ -97,10 +119,7 @@ def visible_properties_query(db: Session, user: User):
     """Return a SQLAlchemy query pre-filtered by role."""
     q = db.query(Property)
 
-    if user.role == UserRole.ADMIN:
-        return q
-
-    if user.role == UserRole.OWNER:
+    if user.role in (UserRole.ADMIN, UserRole.OWNER):
         return q.filter(Property.organization_id == user.organization_id)
 
     if user.role in (UserRole.MANAGER, UserRole.CREW):
@@ -125,14 +144,16 @@ def create_property(
     current_user: User = Depends(get_current_user),
 ):
     """Create a new property. Admin and Owner only."""
-    require_non_tenant(current_user)
+    _require_property_permission(db, current_user, "PROPERTIES.ADD")
 
     if current_user.role not in (UserRole.ADMIN, UserRole.OWNER):
         raise HTTPException(status_code=403, detail="Only admins and owners can create properties")
 
-    if current_user.role == UserRole.OWNER:
-        if payload.organization_id != current_user.organization_id:
-            raise HTTPException(status_code=403, detail="Can only create properties in your organization")
+    if payload.organization_id != current_user.organization_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Can only create properties in your organization",
+        )
 
     prop = Property(**payload.model_dump())
     db.add(prop)
@@ -163,7 +184,7 @@ def list_properties(
     current_user: User = Depends(get_current_user),
 ):
     """List properties. By default excludes soft-deleted ones."""
-    require_non_tenant(current_user)
+    _require_property_permission(db, current_user, "PROPERTIES.ALL")
     q = visible_properties_query(db, current_user)
     if not include_deleted:
         q = q.filter(Property.is_active == True)  # noqa: E712
@@ -179,7 +200,7 @@ def get_property(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    require_non_tenant(current_user)
+    _require_property_permission(db, current_user, "PROPERTIES.ALL")
     return check_property_access(db, current_user, property_id)
 
 
@@ -194,7 +215,7 @@ def update_property(
     current_user: User = Depends(get_current_user),
 ):
     """Update a property. Admin and Owner only."""
-    require_non_tenant(current_user)
+    _require_property_permission(db, current_user, "PROPERTIES.ALL")
 
     if current_user.role not in (UserRole.ADMIN, UserRole.OWNER):
         raise HTTPException(status_code=403, detail="Only admins and owners can update properties")
@@ -232,7 +253,7 @@ def delete_property(
     current_user: User = Depends(get_current_user),
 ):
     """Soft-delete a property. Set is_active=False, record who/why."""
-    require_non_tenant(current_user)
+    _require_property_permission(db, current_user, "PROPERTIES.ALL")
 
     if current_user.role not in (UserRole.ADMIN, UserRole.OWNER):
         raise HTTPException(status_code=403, detail="Only admins and owners can delete properties")
@@ -269,7 +290,7 @@ def restore_property(
     current_user: User = Depends(get_current_user),
 ):
     """Restore a soft-deleted property."""
-    require_non_tenant(current_user)
+    _require_property_permission(db, current_user, "PROPERTIES.ALL")
 
     if current_user.role not in (UserRole.ADMIN, UserRole.OWNER):
         raise HTTPException(status_code=403, detail="Only admins and owners can restore")
@@ -278,7 +299,7 @@ def restore_property(
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
 
-    if current_user.role == UserRole.OWNER and prop.organization_id != current_user.organization_id:
+    if prop.organization_id != current_user.organization_id:
         raise HTTPException(status_code=403, detail="Not your property")
 
     prop.is_active = True
@@ -308,7 +329,7 @@ def get_property_history(
     current_user: User = Depends(get_current_user),
 ):
     """Get the audit log for a property."""
-    require_non_tenant(current_user)
+    _require_property_permission(db, current_user, "PROPERTIES.ALL")
     check_property_access(db, current_user, property_id)
 
     logs = (
@@ -347,7 +368,7 @@ def create_unit(
     current_user: User = Depends(get_current_user),
 ):
     """Create a unit inside a property. Admin, Owner, Manager."""
-    require_non_tenant(current_user)
+    _require_property_permission(db, current_user, "PROPERTIES.UNITS")
 
     if current_user.role not in (UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER):
         raise HTTPException(status_code=403, detail="Only admins, owners, and managers can create units")
@@ -361,6 +382,17 @@ def create_unit(
     )
     if existing:
         raise HTTPException(status_code=400, detail="Unit number already exists in this property")
+
+    try:
+        require_unit_capacity(
+            db,
+            organization_id=prop.organization_id,
+        )
+    except PlanUnitLimitExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"PLAN_UNIT_LIMIT_REACHED: {exc}",
+        ) from exc
 
     unit = Unit(property_id=prop.id, **payload.model_dump())
     db.add(unit)
@@ -386,7 +418,7 @@ def list_units(
     current_user: User = Depends(get_current_user),
 ):
     """List all units inside a property. Excludes soft-deleted by default."""
-    require_non_tenant(current_user)
+    _require_property_permission(db, current_user, "PROPERTIES.UNITS")
     prop = check_property_access(db, current_user, property_id)
     q = db.query(Unit).filter(Unit.property_id == prop.id)
     if not include_deleted:
@@ -403,7 +435,7 @@ def update_unit(
     current_user: User = Depends(get_current_user),
 ):
     """Update a unit. Admin, Owner, Manager."""
-    require_non_tenant(current_user)
+    _require_property_permission(db, current_user, "PROPERTIES.UNITS")
 
     if current_user.role not in (UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER):
         raise HTTPException(status_code=403, detail="Only admins, owners, and managers can update units")
@@ -446,7 +478,7 @@ def get_unit(
     current_user: User = Depends(get_current_user),
 ):
     """Get a single unit."""
-    require_non_tenant(current_user)
+    _require_property_permission(db, current_user, "PROPERTIES.UNITS")
     prop = check_property_access(db, current_user, property_id)
     unit = db.query(Unit).filter(Unit.id == unit_id, Unit.property_id == prop.id).first()
     if not unit:
@@ -466,7 +498,7 @@ def delete_unit(
     current_user: User = Depends(get_current_user),
 ):
     """Soft-delete a unit."""
-    require_non_tenant(current_user)
+    _require_property_permission(db, current_user, "PROPERTIES.UNITS")
 
     if current_user.role not in (UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER):
         raise HTTPException(status_code=403, detail="Not allowed")
@@ -506,7 +538,7 @@ def restore_unit(
     current_user: User = Depends(get_current_user),
 ):
     """Restore a soft-deleted unit."""
-    require_non_tenant(current_user)
+    _require_property_permission(db, current_user, "PROPERTIES.UNITS")
 
     if current_user.role not in (UserRole.ADMIN, UserRole.OWNER):
         raise HTTPException(status_code=403, detail="Only admins and owners can restore")
@@ -515,6 +547,18 @@ def restore_unit(
     unit = db.query(Unit).filter(Unit.id == unit_id, Unit.property_id == prop.id).first()
     if not unit:
         raise HTTPException(status_code=404, detail="Unit not found")
+
+    if not unit.is_active:
+        try:
+            require_unit_capacity(
+                db,
+                organization_id=prop.organization_id,
+            )
+        except PlanUnitLimitExceeded as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"PLAN_UNIT_LIMIT_REACHED: {exc}",
+            ) from exc
 
     unit.is_active = True
     unit.deleted_at = None

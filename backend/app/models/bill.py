@@ -124,6 +124,15 @@ class Bill(Base):
         index=True,
     )
 
+    # Optional default cash account used when this bill is paid.
+    # Entering the bill remains accrual-only; this is payment metadata.
+    cash_gl_account_id = Column(
+        Integer,
+        ForeignKey("gl_accounts.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+
     # Free-text remarks.
     remarks = Column(Text, nullable=True)
 
@@ -152,6 +161,7 @@ class Bill(Base):
     # ---------------- Universal patterns ----------------
     notes = Column(Text, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True, index=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
 
     created_by_id = Column(
         Integer,
@@ -171,6 +181,9 @@ class Bill(Base):
     scoped_owner = relationship("User", foreign_keys=[owner_id])
     payable_gl_account = relationship(
         "GLAccount", foreign_keys=[payable_gl_account_id]
+    )
+    cash_gl_account = relationship(
+        "GLAccount", foreign_keys=[cash_gl_account_id]
     )
     property = relationship("Property")
     unit = relationship("Unit")

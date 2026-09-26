@@ -1,51 +1,62 @@
 # ============================================================
 # config.py
 # ------------------------------------------------------------
-# This file stores all the settings for our backend.
-# Think of it as the "control panel" for the app.
+# Application settings. Local development has safe-to-share defaults;
+# staging/production must provide real secrets through environment.
 # ============================================================
 
-from pydantic_settings import BaseSettings
+import json
+
+from cryptography.fernet import Fernet
+from pydantic import model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DEV_SECRET_KEY = "dev-secret-key-change-this-later"
+DEV_ENCRYPTION_KEY = "t7RXJ_ZoNCs_EYYQ96BLQD3aLsoeGhKELpQvcfMzWH8="
 
 
 class Settings(BaseSettings):
-    """
-    Application settings.
-    These values can be changed here or overridden by a .env file later.
-    """
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # --- App Info ---
+    # --- Environment / app info ---
+    ENVIRONMENT: str = "development"
     APP_NAME: str = "Property Platform"
     APP_VERSION: str = "0.1.0"
 
     # --- Security ---
-    # This secret key is used to sign login tokens (JWT).
-    # We'll replace it with a stronger one when we deploy to a server.
-    SECRET_KEY: str = "dev-secret-key-change-this-later"
+    SECRET_KEY: str = DEV_SECRET_KEY
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24
 
     # --- Database ---
-    # SQLite file lives in the backend folder.
-    # Later, when we move to a server, this becomes a PostgreSQL URL.
     DATABASE_URL: str = "sqlite:///./property_platform.db"
 
-    # --- Stripe (leave blank until you have an account) ---
+    # Logical data-residency routing. Start single-region; secondary
+    # regions are explicit JSON mapping entries, never silent fallbacks.
+    PRIMARY_DATA_REGION: str = "us-east-1"
+    REGIONAL_DATABASE_URLS_JSON: str = "{}"
+
+    # --- Background jobs / Redis ---
+    JOBS_ENABLED: bool = False
+    REDIS_URL: str = "redis://localhost:6379/0"
+    JOB_QUEUE_NAME: str = "arq:queue"
+
+    # --- Observability ---
+    SENTRY_DSN: str = ""
+    SENTRY_ENVIRONMENT: str = ""
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.0
+
+    # --- Stripe ---
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
     STRIPE_ENABLED: bool = False
-    class Config:
-        env_file = ".env"
 
-# --- Email / SMTP ---
-    # Modes: "console" (prints to log) or "smtp" (real email)
+    # --- Email / SMTP ---
     EMAIL_MODE: str = "console"
-
     EMAIL_FROM: str = "noreply@propertyplatform.local"
     EMAIL_FROM_NAME: str = "Property Platform"
-
-    SMTP_HOST: str = ""       # e.g. smtp.gmail.com
+    SMTP_HOST: str = ""
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
@@ -53,14 +64,88 @@ class Settings(BaseSettings):
 
     FRONTEND_URL: str = "http://localhost:3000"
 
-        # --- File uploads ---
+    # --- File uploads ---
     UPLOAD_DIR: str = "uploads"
     MAX_UPLOAD_MB: int = 10
-    
-    # --- Encryption key for sensitive data (SMTP passwords) ---
-    # Generate one with:
-    #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-    ENCRYPTION_KEY: str = "t7RXJ_ZoNCs_EYYQ96BLQD3aLsoeGhKELpQvcfMzWH8="
 
-# A single instance we can import anywhere in the app
+    # --- Encryption key for sensitive data ---
+    ENCRYPTION_KEY: str = DEV_ENCRYPTION_KEY
+    # Independent operator-provisioned key; no insecure development fallback.
+    TAX_PROFILE_ENCRYPTION_KEY: str = ""
+    # Previous keys remain in secret management for decrypting archived records.
+    TAX_PROFILE_PREVIOUS_KEYS_JSON: str = "[]"
+
+    # --- 1099 approved-provider sandbox validation ---
+    # Disabled by default. Production filing is intentionally unsupported here.
+    TAX_1099_PROVIDER: str = "disabled"  # disabled | avalara_sandbox
+    AVALARA_1099_CLIENT_ID: str = ""
+    AVALARA_1099_CLIENT_SECRET: str = ""
+    AVALARA_1099_ISSUER_ID: str = ""
+    AVALARA_1099_API_VERSION: str = "2.0.0"
+
+    @model_validator(mode="after")
+    def reject_development_secrets_outside_development(self) -> "Settings":
+        env = self.ENVIRONMENT.strip().lower()
+        if self.TAX_PROFILE_ENCRYPTION_KEY:
+            if self.TAX_PROFILE_ENCRYPTION_KEY == self.ENCRYPTION_KEY:
+                raise ValueError("Tax profile encryption requires a dedicated key")
+            try:
+                Fernet(self.TAX_PROFILE_ENCRYPTION_KEY.encode("utf-8"))
+            except Exception as exc:
+                raise ValueError("Invalid TAX_PROFILE_ENCRYPTION_KEY") from exc
+
+        try:
+            previous_keys = json.loads(self.TAX_PROFILE_PREVIOUS_KEYS_JSON)
+            if not isinstance(previous_keys, list):
+                raise ValueError("Previous tax keys must be a list")
+            for old_key in previous_keys:
+                if not isinstance(old_key, str) or old_key == self.ENCRYPTION_KEY:
+                    raise ValueError("Previous tax keys must be independent")
+                Fernet(old_key.encode("utf-8"))
+        except (ValueError, TypeError) as exc:
+            raise ValueError("Invalid TAX_PROFILE_PREVIOUS_KEYS_JSON") from exc
+
+        provider = self.TAX_1099_PROVIDER.strip().lower()
+        if provider not in {"disabled", "avalara_sandbox"}:
+            raise ValueError("TAX_1099_PROVIDER must be disabled or avalara_sandbox")
+        if provider == "avalara_sandbox":
+            if not all((
+                self.AVALARA_1099_CLIENT_ID.strip(),
+                self.AVALARA_1099_CLIENT_SECRET.strip(),
+                self.AVALARA_1099_ISSUER_ID.strip(),
+            )):
+                raise ValueError("Avalara sandbox requires client id, client secret, and issuer id")
+            if not self.AVALARA_1099_API_VERSION.strip():
+                raise ValueError("Avalara API version is required")
+
+        if not 0.0 <= self.SENTRY_TRACES_SAMPLE_RATE <= 1.0:
+            raise ValueError("SENTRY_TRACES_SAMPLE_RATE must be between 0 and 1")
+
+        if env not in {"staging", "production"}:
+            return self
+
+        if self.SECRET_KEY == DEV_SECRET_KEY or len(self.SECRET_KEY) < 32:
+            raise ValueError(
+                f"{env} requires a non-default SECRET_KEY of at least 32 characters"
+            )
+
+        if self.ENCRYPTION_KEY == DEV_ENCRYPTION_KEY:
+            raise ValueError(f"{env} requires a non-default ENCRYPTION_KEY")
+
+        if self.JOBS_ENABLED:
+            redis_url = self.REDIS_URL.strip().lower()
+            if not redis_url:
+                raise ValueError(f"{env} with JOBS_ENABLED requires REDIS_URL")
+            if "localhost" in redis_url or "127.0.0.1" in redis_url:
+                raise ValueError(
+                    f"{env} with JOBS_ENABLED requires a non-localhost REDIS_URL"
+                )
+        try:
+            Fernet(self.ENCRYPTION_KEY.encode("utf-8"))
+        except Exception as exc:
+            raise ValueError(f"{env} ENCRYPTION_KEY must be a valid Fernet key") from exc
+
+        return self
+
+
 settings = Settings()

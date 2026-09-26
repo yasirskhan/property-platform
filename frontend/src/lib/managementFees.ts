@@ -7,7 +7,7 @@
 // Run: actually posts the fee to the GL.
 // ============================================================
 
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, apiPut } from "@/lib/api";
 
 // ------------------------------------------------------------
 // Shapes
@@ -110,6 +110,16 @@ export type FeeReverseIn = {
   memo?: string | null;
 };
 
+export type OvercollectionStrategy =
+  | "CREDITS_THEN_RECEIPTS"
+  | "RECEIPTS_THEN_CREDITS";
+
+export type OvercollectionStrategyState = {
+  strategy: OvercollectionStrategy;
+  label: string;
+  recommended: boolean;
+};
+
 // ------------------------------------------------------------
 // Helpers
 // ------------------------------------------------------------
@@ -160,4 +170,91 @@ export function reverseManagementFee(
   payload: FeeReverseIn
 ): Promise<ManagementFeeRun> {
   return apiPost(`/api/accounting/management-fees/${id}/reverse`, payload);
+}
+
+export function getOvercollectionStrategy(): Promise<OvercollectionStrategyState> {
+  return apiGet("/api/accounting/management-fees/overcollection-strategy");
+}
+
+export function updateOvercollectionStrategy(
+  strategy: OvercollectionStrategy
+): Promise<OvercollectionStrategyState> {
+  return apiPut("/api/accounting/management-fees/overcollection-strategy", {
+    strategy,
+  });
+}
+
+export type ManagementFeeGPRCandidate = {
+  unit_id: number;
+  property_id: number;
+  property_name: string;
+  unit_number: string;
+  lease_id: number | null;
+  market_rent: string;
+  scheduled_rent: string;
+  loss_gain: string;
+  already_posted: boolean;
+  transaction_id: number | null;
+};
+
+export type ManagementFeeGPRCandidateList = {
+  month: string;
+  items: ManagementFeeGPRCandidate[];
+  total: number;
+  unposted: number;
+};
+
+export type ManagementFeeGPRPostResult = {
+  month: string;
+  posted: number;
+  transaction_ids: number[];
+};
+
+export function listManagementFeeGPRCandidates(
+  month: string
+): Promise<ManagementFeeGPRCandidateList> {
+  return apiGet(
+    `/api/accounting/management-fees/post-gpr?month=${encodeURIComponent(month)}`
+  );
+}
+
+export function postManagementFeeGPR(
+  month: string,
+  unitIds: number[]
+): Promise<ManagementFeeGPRPostResult> {
+  return apiPost("/api/accounting/management-fees/post-gpr", {
+    month,
+    unit_ids: unitIds,
+  });
+}
+
+
+export type ManagementFeeExclusion = {
+  receipt_id: number;
+  receipt_date: string;
+  receipt_type: string;
+  amount: string;
+  property_id: number | null;
+  property_name: string | null;
+  reference_number: string | null;
+  source_name: string | null;
+  remarks: string | null;
+  is_reversed: boolean;
+};
+
+export type ManagementFeeExclusionList = {
+  items: ManagementFeeExclusion[];
+  total: number;
+};
+
+export function listManagementFeeExclusions(filters: {
+  date_from?: string;
+  date_to?: string;
+  property_id?: number;
+  include_reversed?: boolean;
+  limit?: number;
+} = {}): Promise<ManagementFeeExclusionList> {
+  return apiGet(
+    `/api/accounting/management-fees/exclusions${qs(filters)}`
+  );
 }

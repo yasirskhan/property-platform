@@ -3,8 +3,8 @@
 # ------------------------------------------------------------
 # General Ledger accounts (the Chart of Accounts).
 #
-# Every org gets the same 57 standard accounts seeded on
-# creation. Orgs can add custom accounts, but the 57 are
+# Every org gets the same 61 standard accounts seeded on
+# creation. Orgs can add custom accounts, but the 61 are
 # the baseline that every report and every transaction
 # posting expects to exist.
 #
@@ -34,6 +34,8 @@ from sqlalchemy import (
     DateTime,
     Text,
     ForeignKey,
+    UniqueConstraint,
+    Index,
 )
 from sqlalchemy.orm import relationship
 
@@ -107,3 +109,19 @@ class GLAccount(Base):
 
     def __repr__(self) -> str:
         return f"<GLAccount {self.gl_number} {self.name} ({self.account_type})>"
+
+class GLAccountPostingRestriction(Base):
+    """Subtract-only role restriction for posting to one GL account."""
+    __tablename__ = "gl_account_posting_restrictions"
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    gl_account_id = Column(Integer, ForeignKey("gl_accounts.id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(String(32), nullable=False, index=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    organization = relationship("Organization")
+    gl_account = relationship("GLAccount")
+    __table_args__ = (
+        UniqueConstraint("organization_id", "gl_account_id", "role", name="uq_gl_account_posting_restriction"),
+        Index("ix_gl_account_posting_restrictions_org_role", "organization_id", "role"),
+    )

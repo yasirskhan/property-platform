@@ -167,7 +167,7 @@ export default function RoleMatrix({ onSaved }: Props) {
                   key={parent.menu_key}
                   parent={parent}
                   parentLabel={parentEntry?.label || parent.menu_key}
-                  children={children}
+                  childRows={children}
                   roles={data.editable_roles}
                   busyKey={busyKey}
                   onToggle={toggle}
@@ -188,14 +188,14 @@ export default function RoleMatrix({ onSaved }: Props) {
 function ParentWithChildren({
   parent,
   parentLabel,
-  children,
+  childRows,
   roles,
   busyKey,
   onToggle,
 }: {
   parent: RoleMatrixRow;
   parentLabel: string;
-  children: RoleMatrixRow[];
+  childRows: RoleMatrixRow[];
   roles: string[];
   busyKey: string | null;
   onToggle: (role: string, row: RoleMatrixRow, next: boolean) => void;
@@ -221,7 +221,7 @@ function ParentWithChildren({
         })}
       </tr>
 
-      {children.map((child) => {
+      {childRows.map((child) => {
         const childEntry = getMenuEntry(child.menu_key);
         return (
           <tr key={child.menu_key} className="border-t border-slate-100">
