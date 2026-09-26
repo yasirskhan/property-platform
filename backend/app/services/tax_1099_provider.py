@@ -52,26 +52,33 @@ def _country_code(value: object) -> str:
     raise HTTPException(status_code=422, detail="Provider sandbox validation currently supports US addresses only.")
 
 
-def _nec_form(
+def _provider_form(
     *, row: Tax1099Review, issuer_id: str,
     recipient: dict[str, object],
 ) -> dict[str, object]:
-    if row.form_type != "1099-NEC" or row.income_category != "NONEMPLOYEE_COMPENSATION":
+    """Map only provider fields confirmed by the current Avalara v2 models."""
+    pair = (row.form_type, row.income_category)
+    if pair not in {
+        ("1099-NEC", "NONEMPLOYEE_COMPENSATION"),
+        ("1099-MISC", "RENTS"),
+    }:
         raise HTTPException(
             status_code=422,
-            detail="Avalara sandbox mapping is currently verified only for 1099-NEC nonemployee compensation.",
+            detail="Selected 1099 classification is not supported by the provider sandbox mapping.",
         )
     legal_name = str(recipient.get("legal_name") or "").strip()
     tin = str(recipient.get("tin") or "").strip()
     tin_type = str(recipient.get("tin_type") or "").strip().upper()
     if tin_type not in {"SSN", "EIN", "ITIN"}:
         raise HTTPException(status_code=422, detail="Recipient taxpayer ID type is not supported by provider mapping.")
-    form = {
-        "type": "1099-NEC",
+    form: dict[str, object] = {
+        "type": row.form_type,
         "issuerId": issuer_id,
         "taxYear": row.tax_year,
         "referenceId": f"property-platform-{row.organization_id}-{row.id}",
         "tin": tin,
+        # Avalara documents recipientName as deprecated but still supported.
+        # Do not invent first/last tax names from one verified legal-name field.
         "recipientName": legal_name,
         "tinType": tin_type,
         "address": str(recipient.get("address_line1") or "").strip(),
@@ -80,12 +87,20 @@ def _nec_form(
         "state": str(recipient.get("state") or "").strip(),
         "zip": str(recipient.get("postal_code") or "").strip(),
         "countryCode": _country_code(recipient.get("country")),
-        "nonemployeeCompensation": float(Decimal(row.amount).quantize(Decimal("0.01"))),
-        # Never schedule filing or delivery from the validation endpoint.
-        "federalEFile": False,
-        "stateEFile": False,
+        # Keep every scheduling/delivery operation explicitly unscheduled.
+        "federalEfileDate": None,
+        "stateEfileDate": None,
+        "recipientEdeliveryDate": None,
         "postalMail": False,
+        "tinMatch": False,
+        "addressVerification": False,
     }
+    amount = float(Decimal(row.amount).quantize(Decimal("0.01")))
+    if pair == ("1099-NEC", "NONEMPLOYEE_COMPENSATION"):
+        form["nonemployeeCompensation"] = amount
+    else:
+        # Avalara Form1099Misc v2 documents rents for 1099-MISC box 1.
+        form["rents"] = amount
     if not all((form["recipientName"], form["tin"], form["address"], form["city"], form["state"], form["zip"])):
         raise HTTPException(status_code=422, detail="Recipient provider fields are incomplete.")
     return form
@@ -135,7 +150,7 @@ def validate_avalara_sandbox_dry_run(
         require_current_subject=True, require_w9=True,
     )
     recipient = _decode(recipient_row, _crypto())
-    form = _nec_form(row=row, issuer_id=issuer_id, recipient=recipient)
+    form = _provider_form(row=row, issuer_id=issuer_id, recipient=recipient)
     correlation_id = str(uuid4())
     token = _token(client_id, client_secret)
 
@@ -150,7 +165,7 @@ def validate_avalara_sandbox_dry_run(
                 "X-Avalara-Client": CLIENT_HEADER,
                 "X-Correlation-Id": correlation_id,
             },
-            json={"type": "1099-NEC", "forms": [form]},
+            json={"type": row.form_type, "forms": [form]},
             timeout=20,
         )
     except requests.RequestException as exc:
@@ -200,5 +215,5 @@ def provider_status(db: Session, *, current_user: User):
     return Tax1099ProviderStatusOut(
         provider="AVALARA_SANDBOX" if mode == "avalara_sandbox" else "DISABLED",
         configured=bool(configured),
-        supported_forms=["1099-NEC"] if configured else [],
+        supported_forms=["1099-NEC", "1099-MISC"] if configured else [],
     )

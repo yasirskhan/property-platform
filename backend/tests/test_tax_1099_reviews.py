@@ -740,9 +740,12 @@ def test_avalara_sandbox_dry_run_never_schedules_or_returns_provider_body(ctx, m
     assert form["issuerId"] == "sandbox-issuer"
     assert form["tin"] == "222334444"
     assert form["nonemployeeCompensation"] == 2500.0
-    assert form["federalEFile"] is False
-    assert form["stateEFile"] is False
+    assert form["federalEfileDate"] is None
+    assert form["stateEfileDate"] is None
+    assert form["recipientEdeliveryDate"] is None
     assert form["postalMail"] is False
+    assert form["tinMatch"] is False
+    assert form["addressVerification"] is False
     audit = db.query(AuditLog).filter(
         AuditLog.entity_type == "tax_1099_review",
         AuditLog.action == "provider_sandbox_dry_run",
@@ -751,8 +754,8 @@ def test_avalara_sandbox_dry_run_never_schedules_or_returns_provider_body(ctx, m
     assert "sandbox-secret" not in (audit.new_value or "")
 
 
-def test_avalara_sandbox_rejects_misc_until_mapping_is_verified(ctx, monkeypatch):
-    from app.schemas.tax_1099_review import Tax1099ProviderDryRunIn, Tax1099PrepareIn
+def test_avalara_sandbox_misc_rents_dry_run_uses_verified_field_and_never_schedules(ctx, monkeypatch):
+    from app.schemas.tax_1099_review import Tax1099ProviderDryRunIn
     from app.services import tax_1099_provider as provider
 
     db, admin = ctx["db"], ctx["admin"]
@@ -779,16 +782,55 @@ def test_avalara_sandbox_rejects_misc_until_mapping_is_verified(ctx, monkeypatch
     monkeypatch.setattr(settings, "AVALARA_1099_CLIENT_SECRET", "sandbox-secret")
     monkeypatch.setattr(settings, "AVALARA_1099_ISSUER_ID", "sandbox-issuer")
     monkeypatch.setattr(settings, "AVALARA_1099_API_VERSION", "2.0.0")
-    called = []
-    monkeypatch.setattr(provider.requests, "post", lambda *a, **k: called.append((a, k)))
-    with pytest.raises(HTTPException) as exc:
-        provider.validate_avalara_sandbox_dry_run(
-            db, current_user=admin, record_id=item.id,
-            payload=Tax1099ProviderDryRunIn(confirm_external_tax_data_sandbox=True),
-        )
-    assert exc.value.status_code == 422
-    assert "1099-NEC" in exc.value.detail
-    assert called == []
+
+    calls = []
+    class Fake:
+        def __init__(self, status, body):
+            self.status_code = status
+            self._body = body
+            self.text = body
+        def json(self):
+            return json.loads(self._body)
+
+    def fake_post(url, **kwargs):
+        calls.append((url, kwargs))
+        if url == provider.TOKEN_URL:
+            return Fake(200, json.dumps({"access_token": "redacted-token"}))
+        return Fake(200, json.dumps({
+            "tin": "333445555", "recipientName": "DO NOT RETURN",
+            "validation": "accepted",
+        }))
+
+    monkeypatch.setattr(provider.requests, "post", fake_post)
+    result = provider.validate_avalara_sandbox_dry_run(
+        db, current_user=admin, record_id=item.id,
+        payload=Tax1099ProviderDryRunIn(confirm_external_tax_data_sandbox=True),
+    )
+    assert result.validated is True
+    assert result.submission_status == "NOT_SUBMITTED"
+    assert result.filing_enabled is False
+    raw = result.model_dump_json()
+    assert "333445555" not in raw and "DO NOT RETURN" not in raw
+    assert len(calls) == 2
+    form_args = calls[1][1]
+    assert form_args["params"] == {"dryRun": "true"}
+    assert form_args["json"]["type"] == "1099-MISC"
+    form = form_args["json"]["forms"][0]
+    assert form["type"] == "1099-MISC"
+    assert form["rents"] == 2500.0
+    assert "nonemployeeCompensation" not in form
+    assert form["federalEfileDate"] is None
+    assert form["stateEfileDate"] is None
+    assert form["recipientEdeliveryDate"] is None
+    assert form["postalMail"] is False
+    assert form["tinMatch"] is False
+    assert form["addressVerification"] is False
+    audit = db.query(AuditLog).filter(
+        AuditLog.entity_type == "tax_1099_review",
+        AuditLog.action == "provider_sandbox_dry_run",
+    ).one()
+    assert "333445555" not in (audit.new_value or "")
+    assert "sandbox-secret" not in (audit.new_value or "")
 
 
 
@@ -814,7 +856,7 @@ def test_provider_status_is_redacted_scoped_and_no_store(ctx, monkeypatch):
     enabled = provider.provider_status(db, current_user=admin)
     assert enabled.provider == "AVALARA_SANDBOX"
     assert enabled.configured is True
-    assert enabled.supported_forms == ["1099-NEC"]
+    assert enabled.supported_forms == ["1099-NEC", "1099-MISC"]
     raw = enabled.model_dump_json()
     for secret in ("private-client", "private-secret", "private-issuer"):
         assert secret not in raw
