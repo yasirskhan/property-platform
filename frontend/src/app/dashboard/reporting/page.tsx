@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import SavedReportBuilder from "@/components/reporting/SavedReportBuilder";
 
 import {
   getReportCatalog,
@@ -72,6 +73,8 @@ export default function ReportingPage() {
           className="w-72 max-w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
         />
       </div>
+
+      <SavedReportBuilder catalog={catalog} />
 
       <div className="border-b border-slate-200 mb-6">
         <nav className="flex gap-1" aria-label="Report tiers">
