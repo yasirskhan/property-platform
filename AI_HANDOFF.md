@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `d818dfbb5652c3f2d0735fa1b891a59c3be38ee2`
-- Source GitHub Actions run **36280075299: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `992c949d2ae079f424a8f16bbb8fa131cadf1048`
+- Source GitHub Actions run **36280429259: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **489 passed, 3 deselected, 7024 warnings in 100.03s**.
-  E2E: **3 passed in 6.11s**. Lint, typecheck, production build, security
+  Backend: **492 passed, 3 deselected, 7112 warnings in 79.68s**.
+  E2E: **3 passed in 9.11s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -20,13 +20,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   with the tax-profile revision migration; no new model table. All three
   PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Lease Expiration Detail and Summary by Month. VERIFIED.**
+  **Latest completed batch: Property Directory. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT executable original-plan task: Property & Unit Property Directory.**
+- **Exact NEXT original-plan task: Property Group Directory. Prerequisite: explicit named groups and memberships, not yet modeled.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -63,6 +63,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Property Budget Detail | 6b4805ee1ff99d7340026ac5322e03a58408df70 | 36279106102 | 481 backend passed / 3 E2E |
 | Property Gross Potential Rent (read-only) | cb85f82c55090450798b5ef3fb941dc9bd97538b | 36279627346 | 485 backend passed / 3 E2E |
 | Lease Expiration Detail / Monthly Summary | 08fb55bb470e94e1422cd6b601a28794151c1f46, d818dfbb5652c3f2d0735fa1b891a59c3be38ee2 | 36280075299 | 489 backend passed / 3 E2E |
+| Property Directory | 992c949d2ae079f424a8f16bbb8fa131cadf1048 | 36280429259 | 492 backend passed / 3 E2E |
 | Tenant Ledger current balances and Charges authorization | a12e0f1af94b7e74e03e9e81988bba98d98cb016, 33902846eab82304299f383001de682081091eec | 36276682654 | 463 backend passed / 3 E2E |
 | Tenant Directory | 873219e0be9e41a7c68ec52e4da604a882dc90c2 | 36275843531 | 458 backend passed / 3 E2E |
 | Security Deposit Funds Detail GL liability report | 60ee5a986d670b4e3af18d01060e971c163c522f | 36275464600 | 454 backend passed / 3 E2E |
@@ -973,41 +974,103 @@ model found yet. Do not invent a group classification: inspect
 existing schema before building grouping report; add explicitly
 maintained group membership if original feature requires it.
 
+## Phase 3.7 Property Directory — VERIFIED 2026-09-26
+
+Source 992c949d2ae079f424a8f16bbb8fa131cadf1048,
+full CI 36280429259 SUCCESS six jobs: 492 backend passed,
+3 deselected, 7112 warnings in 79.68s; authenticated E2E
+3 passed in 9.11s; frontend lint/typecheck/build, security,
+platform-admin and staging-config SUCCESS. No migration:
+b0d2f4a6c8e1 and 105 model tables; frozen docs/ unchanged.
+Superseded handoff-only CI 36280378419 cancelled; not
+a product failure.
+
+Catalog standard property.directory links to
+/dashboard/reporting/property-directory. New service
+app/services/property_directory.py uses only recorded
+active, undeleted property identity/type/address and count
+of active, undeleted Unit records. No inferred occupancy,
+collected rent, owner/tenant contact or GL movement.
+Admin sees own-org active property records; manager sees
+only live actively assigned properties. Role status, org,
+REPORTING.ALL/PROPERTIES.ALL and release.reporting.export
+checked for preview/export/email. Optional property ID and
+PropertyType enum filters validated; foreign/unassigned
+ID probes fail closed. GET
+/api/reporting/property-directory/preview no-store.
+Shared ReportActions uses server-rerendered CSV/email,
+CSV formula escaping; three focused backend tests for
+counts, active/inactive, org/manager scope, bad params,
+role/menu/export revocation, no ledger writes and delivery.
+Three E2E tests are existing generic smoke, not dedicated
+directory UI tests.
+
+Exact next original Phase 3.7 report Property Group
+Directory. Critical dependency: original PROJECT_MASTER
+Section 15 explicitly says "Named groups for filtering,
+access, reporting"; parity item properties.groups is
+scheduled Phase 3.5 and settings.property_groups scheduled.
+No PropertyGroup/PropertyGroupMembership model found in
+backend/app/models or property.py. Properties page still has
+a disabled release.properties.groups compatibility slot;
+feature definition specifies entitlement property_groups,
+PROPERTIES.GROUPS menu permission and org config gate.
+Do NOT invent membership based on property name/type.
+Build explicitly authorized named-group CRUD and real
+org/property membership then report from persisted groups.
+Preserve Hybrid Capability Gating and manager assignment;
+report must not leak hidden member properties and should
+mark filtered membership counts clearly. Migration + guards
+and tests required if new group tables are added.
+
 ## Exact next work: continue, don't stop at phase boundary
 
-1. Read whole root handoff, verify branch HEAD/latest CI.
-   Lease Expiration Detail/Summary and all earlier report work
-   VERIFIED; no repetition.
-2. Next Section 38 original Property & Unit report:
-   Property Directory. Reuse Property/Unit and existing
-   org/active/manager-assigned property scope; no owner/tenant
-   contact leaks, no inferred rental income, no GL writes.
-   REPORTING.ALL and PROPERTIES.ALL plus live export gate,
-   no-store preview and shared CSV/email. Add focused tests.
-3. Then Property Group Directory (check whether a real
-   persisted group/assignment source exists; do not fabricate
-   group names), then other property reports in Section 38
-   order. No batch is VERIFIED until full six-job CI success;
-   fix CI failures, record counts/source SHA/migration head.
-4. Update this root handoff after each meaningful verified
-   batch. No unapproved frozen docs/ edits, no main, no new
-   branch or Work handoff. External 1099 provider acceptance
-   and recipient filing remain unimplemented.
+1. Read ENTIRE root handoff and verify current branch HEAD/CI.
+   Property Directory and every earlier Phase 3.7 report
+   above are VERIFIED; no duplication.
+2. Exact next Section 38 Property Group Directory requires
+   named Property Groups and org-scoped explicit property
+   membership first: no verified schema or backend CRUD
+   yet, only hidden release.properties.groups compatibility
+   UI slot. This is an original Phase 3.5 prerequisite,
+   not a new roadmap feature. Investigate feature gate
+   entitlement property_groups, PROPERTIES.GROUPS and
+   SETTINGS authorization, model scope, migrations and
+   existing property/manager assignment before coding.
+   Admin manages group membership; manager sees only
+   explicitly assigned properties. Avoid cross-org
+   memberships, arbitrary property disclosure or guessed
+   group classifications. Add focused tests.
+3. Implement report via canonical catalog/ReportPayload,
+   backend preview no-store, server CSV/email and release
+   export gate; do not bypass source-group capability.
+4. Commit bounded product batches with regression tests;
+   verify all six hosted CI jobs before VERIFIED, fix red
+   autonomously, update root handoff with source SHA,
+   exact CI/counts and migration head.
+5. Then Property Performance, Rent Roll, Unit Directory
+   and next Section 38 order. No unrelated frozen docs/,
+   main, new branch, force pushes, Work mode, or false
+   external 1099 filing claim.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on existing branch
-chatgpt/checkpoint-005-safety. Read entire repo-root
-AI_HANDOFF.md then verify current HEAD and CI.
-Last VERIFIED source d818dfbb5652c3f2d0735fa1b891a59c3be38ee2;
-CI 36280075299 SUCCESS all six jobs, backend 489 passed,
-3 deselected, 7024 warnings; browser E2E 3 passed in 6.11s.
-Alembic b0d2f4a6c8e1 / 105 model tables.
-Gross Potential Rent and both Lease Expiration reports VERIFIED.
-NEXT Section 38: Property Directory, then Property Group
-Directory (no known persisted group source), Property
-Performance and the remaining original roadmap. Preserve
-org/manager assignment and report permissions, tests, full
-CI verification and handoff. No main/new branch/force push,
-unapproved frozen docs edits, fabricated accounting or
-1099 live filing claims, or Work mode.
+Continue yasirskhan/property-platform existing branch
+chatgpt/checkpoint-005-safety. Read entire root AI_HANDOFF.md
+and verify actual HEAD/CI. Last VERIFIED product source
+992c949d2ae079f424a8f16bbb8fa131cadf1048,
+CI 36280429259 all six SUCCESS, backend 492 passed,
+3 deselected, 7112 warnings, E2E 3 passed in 9.11s.
+Alembic b0d2f4a6c8e1 / 105 model tables. Lease
+Expiration and Property Directory reports VERIFIED.
+NEXT original Property Group Directory requires
+explicit named-group and membership persistence from
+the original planned Property Groups feature; no
+existing model. Honor release.properties.groups,
+entitlement property_groups, PROPERTIES.GROUPS and
+live manager property assignments. Do not invent
+grouping. Add focused tests, migrations + schema
+guards if needed, commit bounded code, verify full
+CI before VERIFIED, update root handoff. Then
+Property Performance and remaining Section 38.
+No main/new branch, Work, or unapproved docs edits.
