@@ -7,27 +7,27 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `1560b0ec2c436ad363bf6c742036aaf94fd6892e`
-- Source GitHub Actions run **36271931432: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `0afaec13accb9594d782cd088feca2ef5f92c927`
+- Source GitHub Actions run **36273058209: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **433 passed, 3 deselected, 4562 warnings in 63.07s**.
-  E2E: **3 passed in 8.50s**. Lint, typecheck, production build, security
+  Backend: **438 passed, 3 deselected, 4712 warnings in 87.86s**.
+  E2E: **3 passed in 9.08s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **f8c0d2e4a6b9**. SQLAlchemy expected model tables: **103**.
-  Previous head e7b9c1d3f5a8 / 103 tables. Schema/test guards changed
+- Alembic head: **a9c1e3f5b7d0**. SQLAlchemy expected model tables: **104**.
+  Previous head f8c0d2e4a6b9 / 103 tables. Schema/test guards changed
   with the tax-profile revision migration; no new model table. All three
   PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: immutable redacted provider dry-run history. VERIFIED.**
+  **Latest completed batch: Letters backend templates and guarded tenant mail merge. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT executable original-plan task: Letters module — Overview, View/Edit,
-  Custom, Print/Email, and 3-Day Notice. Do not halt Phase 3.7 on missing provider credentials.** Do not repeat verified preflight,
+- **Exact NEXT executable original-plan task: Letters customer UI — Overview, View/Edit,
+  Custom, Print/Email, and reviewed 3-Day Notice. Backend batch VERIFIED.** Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
 ## Verification chronology — don't reimplement
@@ -54,6 +54,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Provider status + explicit sandbox UI | 4a54c602966a795a8b399893f3d5fc46a6324ab3 | 36270979448 | 432 backend passed / 3 E2E |
 | Avalara 1099-MISC rents sandbox mapping | 49dd9e5129df94e3721f3a97caa0415738bc24bb | 36271476212 | 432 backend passed / 3 E2E |
 | Immutable redacted provider dry-run history | 1560b0ec2c436ad363bf6c742036aaf94fd6892e | 36271931432 | 433 backend passed / 3 E2E |
+| Letters backend: scoped templates, text merge, reviewed notice send | 0afaec13accb9594d782cd088feca2ef5f92c927 | 36273058209 | 438 backend passed / 3 E2E |
 
 
 All listed full CI runs were successful. Older superseded CI runs may be
@@ -356,46 +357,79 @@ corrections, recipient copies or e-delivery. Manual NEC/MISC preparation,
 review/approval and sandbox request mapping ARE implemented and verified.
 Do not claim any unimplemented external filing behavior or enable "file".
 
+## Phase 3.7 Letters backend — VERIFIED 2026-09-26
+
+Product commit 0afaec13accb9594d782cd088feca2ef5f92c927;
+CI 36273058209 SUCCESS all six jobs. Backend **438 passed,
+3 deselected, 4712 warnings in 87.86s**; E2E **3 passed in 9.08s**.
+Frontend lint/typecheck/build, security, platform admin and staging GREEN.
+Migration a9c1e3f5b7d0 adds letter_templates; expected 104 tables.
+Three schema/bootstrap guards adjusted and passed. Frozen docs/ unchanged.
+
+Backend files: models/letter_template.py, schemas/letter.py,
+services/letters.py, routers/letters.py, app/main.py, init_db.py;
+catalog now links standard "Letters" to /dashboard/reporting/letters.
+Five focused backend tests in tests/test_letters.py validate org isolation,
+manager property assignment, inactive/deleted tenant/lease scope,
+plain-text tag allowlist/no HTML/no arbitrary expressions, immutable
+metadata-only audit, explicit notice legal review, recipient sourced
+exclusively from live scoped lease, and rechecked release.reporting.export.
+Routes under /api/reporting/letters support list/create/read/update/
+deactivate, scoped tenant preview and explicit confirmed email delivery.
+Only org ADMIN may modify templates; ADMIN/MANAGER with REPORTING.ALL
+and LEASING may preview/email for scoped active leases. Emails reuse
+existing core email service. No parallel generic attachment store,
+no accounting posting, no legal jurisdiction template fabricated.
+3-DAY notice category is an editable draft only; email requires
+confirm_recipient, confirm_content_reviewed, confirm_legal_review.
+No automatic statutory deadline, proof of service, physical delivery
+or legal sufficiency claim.
+
+**NEXT**: customer Letters UI with template overview/editor,
+tenant lease picker, live server preview, printable plain text,
+explicit email review confirmations and 3-day legal-review disclosure.
+Do not mark full Letters VERIFIED until UI CI succeeds. Consider
+preview-to-send content revision binding before treating legal
+notice workflow as production-safe; current confirmations are
+boolean-only and a template might change between preview and send.
+No changes to main or frozen docs/.
+
 ## Exact next work: continue, don't stop at phase boundary
 
-1. Read entire root handoff, fetch actual HEAD/latest CI. Do not repeat
-   verified labels, saved reports, encrypted tax/W-9 infrastructure,
-   1099 review/preflight, source guards, sandbox adapter/status/UI,
-   NEC/MISC mapping or immutable provider-attempt history.
-2. External 1099 boundary: real Avalara sandbox/provider acceptance needs
-   operator subscription + sandbox client credentials + issuer ID.
-   Production filing, IRS acceptance, recipient copies, corrections and
-   e-delivery remain NOT IMPLEMENTED. Never fabricate success or put secrets
-   in source/chat. PLAN_GAPS C9 keeps actual provider transmission/delivery
-   in Phase 4.5; resume live integration when secrets are provisioned.
-3. Continue executable original Phase 3.7 order NOW with Letters:
-   Overview + View/Edit + Custom + Print/Email + 3-Day Notice. Inspect real
-   org/tenant/lease/property models, branding settings, email and document
-   patterns first. Templates are plain text + allowlisted merge tags only;
-   no HTML/JS/CSS/arbitrary expressions. Preserve org/property authorization.
-4. Build Letters in meaningful bounded source batches with focused tests
-   and hosted CI. After Letters continue Send Owner Packets, then tenant/
-   property/owner/accounting/transaction reports in Section 38 order.
-5. User authorized commit-then-GitHub-CI verification. Mark product work
-   VERIFIED only after all relevant jobs pass; fix CI reds autonomously.
-   Update THIS root handoff after meaningful verified batches. No main/new
-   branch/force push; frozen docs remain unchanged except prior narrow
-   user-authorized 1099 modernization.
+1. Verify actual HEAD/CI, retain 1099 external provider limitations,
+   preserve immutable receipt/history and tax privacy. Do not
+   repeat any 1099 or Letters backend VERIFIED work.
+2. Finish original Phase 3.7 Letters customer overview/editor, custom
+   templates, scoped lease preview/Print/Email and reviewed 3-Day
+   Notice. Reuse backend at source 0afaec13. Add template-version
+   confirmation for email if needed to prevent stale reviewed content.
+   Add targeted tests; commit bounded changes then require green CI.
+3. After Letters UI verified continue Send Owner Packets, followed by
+   Section 38 tenant/property/owner/accounting/transaction reports.
+   Respect existing packet customizer, frozen statement snapshots,
+   email delivery and tenant/owner authorization contracts.
+4. External Avalara sandbox needs operator subscription, credentials
+   and issuer ID; production filing, IRS acceptance and recipient
+   copies are external-provider work in Phase 4.5, not reasons
+   to block executable Phase 3.7 Letters/owner packets.
+5. Update THIS root handoff after meaningful verified batches,
+   record exact commit/run/count/Alembic, fix CI failures before next
+   feature; no main/new branch/force push. Frozen docs unchanged
+   except narrowly user-authorized 1099 modernization.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on `chatgpt/checkpoint-005-safety`.
-Read complete repo-root AI_HANDOFF.md; verify current HEAD and CI.
-Last VERIFIED product source `1560b0ec2c436ad363bf6c742036aaf94fd6892e`,
-CI 36271931432 SUCCESS (433 backend passed, 3 deselected,
-4562 warnings; E2E 3 passed; all six jobs success).
-Alembic `f8c0d2e4a6b9`, 103 tables. Internal Phase 3.7 1099
-preparation/security, signed W-9 archive, manual review/approval,
-preflight, NEC/MISC Avalara sandbox dry-run mappings, redacted provider
-status/UI and immutable attempt history are VERIFIED. CI never contacted
-Avalara. Real sandbox needs external subscription/client credentials/issuer;
-production filing, IRS acceptance, recipient copies/corrections/e-delivery
-remain NOT IMPLEMENTED and external-provider work aligns with Phase 4.5.
-Do not stop Phase 3.7 on those credentials. Exact next executable task:
-Letters Overview + View/Edit + Custom + Print/Email + 3-Day Notice.
-Preserve original roadmap, frozen docs, branch rules and commit+CI workflow.
+Continue yasirskhan/property-platform on chatgpt/checkpoint-005-safety.
+Read full root AI_HANDOFF.md, verify current branch HEAD/latest CI.
+Last VERIFIED product source 0afaec13accb9594d782cd088feca2ef5f92c927;
+CI 36273058209 SUCCESS (438 backend passed, 3 deselected;
+3 E2E passed, all six jobs).
+Alembic a9c1e3f5b7d0, 104 model tables.
+1099 internal tax/W9/review/provider dry-run work is VERIFIED;
+real provider sandbox acceptance and filing need external credentials.
+Letters BACKEND is VERIFIED with scoped templates, no-execution text
+merge, active-lease scope, admin template CRUD and reviewed 3-Day draft.
+NEXT original phase 3.7: Letters frontend Overview, View/Edit,
+Custom, Print/Email and 3-Day Notice. Then Send Owner Packets.
+Preserve verified work, frozen docs, branch boundaries, and
+commit-then-GitHub-CI workflow. Refresh this handoff after each batch.
