@@ -111,7 +111,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
     ),
 
     # Property and unit
-    _enhanced("property.budget_comparison", "Budget Comparison", "Property & Unit"),
+    _enhanced(
+        "property.budget_comparison", "Budget Comparison", "Property & Unit",
+        href="/dashboard/reporting/budget-comparison",
+        description="Explicit monthly budget lines compared with dated posted GL movements (accrual only).",
+    ),
     _standard("property.budget_detail", "Budget Detail", "Property & Unit"),
     _enhanced("property.gross_potential_rent", "Gross Potential Rent", "Property & Unit"),
     _standard("property.lease_expiration_detail", "Lease Expiration Detail", "Property & Unit"),

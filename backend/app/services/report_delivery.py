@@ -43,6 +43,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "tenant.tickler": "LEASING",
     "tenant.unpaid_charges": "ACCOUNTING.CHARGES",
     "tenant.summary": "ACCOUNTING.CHARGES",
+    "property.budget_comparison": "ACCOUNTING.GL_ACCOUNTS",
 }
 
 
@@ -354,6 +355,14 @@ def build_report_payload(
             raise ReportDeliveryError("Authenticated tenant unpaid charges summary required")
         from app.services.tenant_unpaid_summary import build_tenant_unpaid_summary
         return build_tenant_unpaid_summary(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "property.budget_comparison":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated property budget report required")
+        from app.services.property_budgets import build_budget_comparison
+        return build_budget_comparison(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
         )

@@ -113,6 +113,7 @@ from app.models.user_two_factor import UserTwoFactorSettings  # noqa: F401
 from app.models.entity_note import EntityNote  # noqa: F401
 from app.models.entity_attachment import EntityAttachment  # noqa: F401
 from app.models.saved_report import SavedReport  # noqa: F401
+from app.models.property_budget import PropertyBudgetLine  # noqa: F401
 from app.models.letter_template import LetterTemplate  # noqa: F401
 from app.models.tax_profile import TaxProfile  # noqa: F401
 from app.models.tax_w9_document import TaxW9Document  # noqa: F401

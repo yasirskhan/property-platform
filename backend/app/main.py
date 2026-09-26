@@ -79,6 +79,7 @@ from app.routers import two_factor as two_factor_router
 from app.routers import entity_notes as entity_notes_router
 from app.routers import entity_attachments as entity_attachments_router
 from app.routers import reporting as reporting_router
+from app.routers import property_budgets as property_budgets_router
 from app.routers import letters as letters_router
 from app.routers import owner_packets as owner_packets_router
 from app.routers import tax_profiles as tax_profiles_router
@@ -178,6 +179,7 @@ app.include_router(two_factor_router.router)
 app.include_router(entity_notes_router.router)
 app.include_router(entity_attachments_router.router)
 app.include_router(reporting_router.router)
+app.include_router(property_budgets_router.router)
 app.include_router(letters_router.router)
 app.include_router(owner_packets_router.router)
 app.include_router(tax_profiles_router.router)

@@ -414,6 +414,29 @@ def preview_tenant_unpaid_charges_summary(
     }
 
 
+@router.get("/budget-comparison/preview")
+def preview_property_budget_comparison(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Current explicit budget versus posted accrual GL, never inferred target."""
+    organization_id = _require_report_access(
+        db, current_user=current_user, report_key="property.budget_comparison",
+    )
+    _require_export_feature(db, current_user)
+    payload = _build_or_422(
+        db, organization_id=organization_id, report_key="property.budget_comparison",
+        parameters=dict(request.query_params), current_user=current_user,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "title": payload.title, "headers": payload.headers,
+        "rows": payload.rows, "total": len(payload.rows),
+    }
+
+
 @router.get("/{report_key}/export.csv")
 def export_report_csv(
     report_key: str,
