@@ -16,7 +16,8 @@ _FORBIDDEN_TABLES = {
     "entity_notes",
     "entity_attachments",
     "tax_profiles",  # Tax identifiers must never use generic notes/unencrypted attachments.
-    "tax_w9_documents",  # Signed documents require dedicated encrypted access.
+    "tax_w9_documents",
+    "tax_1099_reviews",  # Restricted tax-year review data is not a generic note/attachment target.  # Signed documents require dedicated encrypted access.
     "platform_users",
     "release_gates",
     "release_gate_organizations",
