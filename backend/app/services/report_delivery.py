@@ -37,6 +37,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "owner.statement": "ACCOUNTING.OWNER_STATEMENTS",
     "mailing.labels": "PROPERTIES.ALL",
     "tenant.delinquency": "LEASING",
+    "tenant.security_deposit_funds_detail": "ACCOUNTING.GL_ACCOUNTS",
 }
 
 
@@ -300,6 +301,14 @@ def build_report_payload(
             raise ReportDeliveryError("Authenticated delinquency report access required")
         from app.services.tenant_delinquency import build_delinquency_report
         return build_delinquency_report(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "tenant.security_deposit_funds_detail":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated deposit liability report access required")
+        from app.services.security_deposit_funds import build_security_deposit_funds_report
+        return build_security_deposit_funds_report(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
         )

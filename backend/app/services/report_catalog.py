@@ -79,7 +79,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/delinquency",
         description="Current overdue rent-invoice balances. Unpaid charges have a separate report.",
     ),
-    _standard("tenant.security_deposit_funds_detail", "Security Deposit Funds Detail", "Tenant"),
+    _standard(
+        "tenant.security_deposit_funds_detail", "Security Deposit Funds Detail", "Tenant",
+        href="/dashboard/reporting/security-deposits",
+        description="Posted deposit-liability GL entries; not bank-held cash or lease deposit contracts.",
+    ),
     _standard("tenant.directory", "Tenant Directory", "Tenant"),
     _enhanced("tenant.ledger", "Tenant Ledger", "Tenant"),
     _standard("tenant.tickler", "Tenant Tickler", "Tenant"),
