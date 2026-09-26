@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `5d9b4142275cdb759ca2701cd1f567f776616100`
-- Source GitHub Actions run **36273560029: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `2ff688a0c9b20a31cc2cf0ca39b886a8b565cc0f`
+- Source GitHub Actions run **36274518298: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **440 passed, 3 deselected, 4788 warnings in 48.62s**.
-  E2E: **3 passed in 6.63s**. Lint, typecheck, production build, security
+  Backend: **446 passed, 3 deselected, 4969 warnings in 86.94s**.
+  E2E: **3 passed in 8.51s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -20,14 +20,14 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   with the tax-profile revision migration; no new model table. All three
   PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Letters full customer UI and signed preview/email integrity. VERIFIED.**
+  **Latest completed batch: Send Owner Packets full frozen-CSV customer preview/email UI. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT executable original-plan task: Send Owner Packets.
-  Letters Overview, View/Edit, Custom, Print/Email and reviewed 3-Day Notice VERIFIED.** Do not repeat verified preflight,
+- **Exact NEXT executable original-plan task: Tenant Delinquency report, then Security Deposit Funds Detail.**
+  Owner packet backend + customer preview/email are VERIFIED; no PDF renderer, CSV only. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
 ## Verification chronology — don't reimplement
@@ -56,6 +56,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Immutable redacted provider dry-run history | 1560b0ec2c436ad363bf6c742036aaf94fd6892e | 36271931432 | 433 backend passed / 3 E2E |
 | Letters backend: scoped templates, text merge, reviewed notice send | 0afaec13accb9594d782cd088feca2ef5f92c927 | 36273058209 | 438 backend passed / 3 E2E |
 | Letters UI + preview/email digest binding | a896605e16a37d5c5d778043545997b828ab8c7a, 5d9b4142275cdb759ca2701cd1f567f776616100 | 36273560029 | 440 backend passed / 3 E2E |
+| Owner Packet frozen CSV backend + customer UI | 563596a7baf15ef3e8d5e46c8b8f71f2de29e47a, e170aeba1aa725d8d3c3c2a5c536351dcdc3386b, 2ff688a0c9b20a31cc2cf0ca39b886a8b565cc0f | 36274518298 | 446 backend passed / 3 E2E |
 
 
 All listed full CI runs were successful. Older superseded CI runs may be
@@ -437,47 +438,106 @@ owner statement snapshot, owner packet settings, export and email.
 External Avalara sandbox/IRS acceptance remains unverified,
 not a reason to block owner packet/reporting work.
 
+
+## Phase 3.7 Send Owner Packets — VERIFIED 2026-09-26
+
+Owner packet backend: commit 563596a7baf15ef3e8d5e46c8b8f71f2de29e47a,
+CI 36273951824 SUCCESS all six jobs (445 backend passed,
+3 deselected, 4939 warnings in 88.84s; 3 E2E passed in 7.18s).
+Customer page and regression tests: e170aeba1aa725d8d3c3c2a5c536351dcdc3386b;
+admin-only directory-load scope correction:
+2ff688a0c9b20a31cc2cf0ca39b886a8b565cc0f.
+Final CI 36274518298 SUCCESS all six jobs:
+446 backend passed, 3 deselected, 4969 warnings in 86.94s;
+3 E2E passed in 8.51s, frontend lint/typecheck/build,
+platform-admin/security/staging-config PASS. No migration.
+Alembic a9c1e3f5b7d0 / 104 SQLAlchemy tables unchanged.
+
+Backend /api/accounting/owner-packets/{statement_id}/preview and
+/email use frozen OwnerStatement.property_data and existing
+ReportPayload/report_csv_bytes; configured OWNER_STATEMENT and/or
+PROPERTY_CASH_SUMMARY, selected via existing OwnerPacketSettings.
+Only ADMIN or assigned MANAGER with REPORTING.ALL and
+ACCOUNTING.OWNER_STATEMENTS, packet-customizer, export and
+cash-summary gates may preview/send. Managers require ALL
+snapshot properties assigned; other-org owner, deleted/inactive
+owner/statement and unsupported settings fail closed.
+Recipient email always resolved from the live scoped OWNER user,
+not arbitrary client input. A signed HMAC preview binds actor,
+organization, statement, owner, recipient, selected CSV content,
+email-enabled preference, cover message and subject. Email requires
+two explicit confirmed checkboxes and same live preview token;
+recipient/config/snapshot changes reject 409. Metadata-only audited
+email; no fresh GL posting or recomputation. Attachment format
+is CSV, NOT a PDF. Console-mode email remains the normal development
+delivery backend, not proof of physical inbox receipt.
+
+UI: /dashboard/accounting/owner-statements/packets, linked from
+Reports catalog, Owner Statement detail and Packet Settings.
+Shows frozen statement selection, current scoped recipient,
+period, cover note, attachment names, CSV-format disclosure,
+recipient and snapshot review confirmations, gated send and
+success/failure messages. ADMIN loads org statement directory.
+MANAGER does NOT request that org-wide directory, uses explicit
+statement ID; backend still reauthorizes every preview/email.
+Any invalidated preview clears checkboxes and requires fresh review.
+Packet Settings old "not yet available" wording corrected.
+Focused new backend test covers no-store preview and inactive owner;
+existing tests cover cross-org, manager assignment, live email,
+HMAC stale changes, entitlement revocation and CSV escaping.
+Existing authenticated E2E smoke now visits packet page and
+asserts no blind send action. Existing three browser tests remain
+three (not three dedicated owner-packet tests).
+
+FULL SEND OWNER PACKETS ORIGINAL PHASE 3.7 BATCH VERIFIED.
+NEXT original roadmap Section 38: Tenant Reports, first
+Delinquency then Security Deposit Funds Detail, Tenant Directory,
+Ledger, Tickler, Unpaid Charges, Summary. Inspect report catalog
+and actual invoice/charge/deposit models; preserve balance
+accuracy, reporting basis, org/property scope and export gates.
+
 ## Exact next work: continue, don't stop at phase boundary
 
-1. Read full root handoff; verify HEAD and CI. Preserve verified
-   Letters, labels, report delivery, tax/W9 and 1099 internal work.
-2. Next original Phase 3.7: SEND OWNER PACKETS. Inspect existing
-   OwnerPacketSettings, frozen OwnerStatement, per-property cash
-   summary, customer feature gates, owner scope, ReportPayload/
-   report_csv_bytes, core email and existing owner statement UI.
-   Build organization/owner/manager-scoped preview, explicit
-   approved recipient confirmation and audited delivery; no
-   fresh GL recalculation, wrong-owner statement, arbitrary
-   destinations or bypass of report feature gates. If no actual
-   PDF renderer is available, disclose exact attachment formats.
-   Include focused tests for cross-org, assignment scope,
-   frozen figures, revocation and recipient changes.
-3. Commit bounded code + applicable regression tests, require full
-   green GitHub CI before marking VERIFIED. Fix failures yourself,
-   update this handoff after meaningful verified batches.
-4. Then original Section 38 tenant/property/owner/accounting/
-   transaction reports in documented order. Do not repeat work.
-5. External Avalara/IRS filing needs operator subscription,
-   credentials and issuer ID; production acceptance/recipient tax
-   copies/corrections remain unimplemented Phase 4.5 integration.
-   Frozen docs unchanged except past user-approved 1099 text.
-   No main/new branch/force push, no Work mode request.
+1. Verify current branch HEAD/latest GitHub CI, reread this root handoff.
+   Preserve completed Letters, label/report delivery, 1099 internal
+   work and FULL owner packet backend/UI; do not repeat them.
+2. Exact next original Phase 3.7 Tenant Reports: Delinquency.
+   Inspect RentInvoice/Lease/Unit/Property/User, payment and charge
+   posting semantics. Use live authorized org and assigned-property
+   scope, exclude future/void/fully paid invoices, distinguish
+   current outstanding from historical-as-of balances. Reuse canonical
+   catalog, REPORTING.ALL, LEASING, release.reporting.export,
+   ReportPayload/CSV/email, and shared customer ReportActions.
+   Do not introduce new GL calculations or imply late fees twice.
+   Include focused security, balance, CSV and revocation tests.
+3. Then Section 38 Security Deposit Funds Detail, Tenant Directory,
+   Ledger, Tickler, Unpaid Charges, Summary, and subsequent Property,
+   Owner/Vendor, Accounting, Transaction reports in original order.
+   Continue without waiting between verified batches. Not all 57
+   reports are currently available in the catalog.
+4. User authorized commit-then-hosted-CI verification; no batch
+   VERIFIED until all relevant CI jobs pass. Repair failures,
+   record real counts, update ROOT AI_HANDOFF after each meaningful
+   batch. Frozen docs/ remain untouched except past expressly
+   authorized 1099 text. No main/new branch/force push.
+5. External Avalara sandbox acceptance and production IRS filing
+   still require operator subscription/credentials/issuer;
+   no fake provider success. Do not block unrelated Phase 3.7 reports.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on chatgpt/checkpoint-005-safety.
-Read entire root AI_HANDOFF.md, verify current branch HEAD and CI.
-Last VERIFIED source 5d9b4142275cdb759ca2701cd1f567f776616100,
-CI 36273560029 SUCCESS all six jobs (440 backend passed,
-3 deselected, 4788 warnings; 3 E2E passed).
-Alembic a9c1e3f5b7d0, 104 tables. Letters full Phase 3.7
-Overview, View/Edit, Custom, Print/Email and reviewed 3-Day
-Notice VERIFIED. No statutory notice sufficiency/service claim.
-Exact next original Phase 3.7 task: SEND OWNER PACKETS.
-Reuse frozen owner-statement/packet settings, feature/menu gates
-and shared CSV/email infrastructure, with scoped recipient
-and audit. External Avalara sandbox/IRS acceptance is an
-external-credential Phase 4.5 boundary, not a reason to stop.
-No repeat of verified work, main/new branch/force push or
-unapproved frozen docs edits. Commit/test via GitHub Actions
-and update root handoff after verified batches.
+Continue yasirskhan/property-platform branch
+chatgpt/checkpoint-005-safety. Read entire root AI_HANDOFF.md and
+verify actual HEAD / latest full CI. Last VERIFIED source:
+2ff688a0c9b20a31cc2cf0ca39b886a8b565cc0f,
+CI 36274518298 SUCCESS all six jobs (446 backend passed,
+3 deselected, 4969 warnings in 86.94s; E2E 3 passed in 8.51s).
+Alembic a9c1e3f5b7d0, 104 tables. Owner Packets frozen CSV
+preview + explicitly reviewed email COMPLETE; no PDF renderer.
+NEXT exact original Phase 3.7 task: Tenant Delinquency report.
+Then Security Deposit Funds Detail and remaining ordered reports.
+Preserve verified security/accounting/tenant access and existing
+reports. External IRS/provider acceptance requires operator setup,
+not a reason to stop tenant reporting work. No Work mode request,
+main/new branch/force push, unapproved frozen docs changes.
+Use product commit + GitHub CI, update handoff after verified batch.
