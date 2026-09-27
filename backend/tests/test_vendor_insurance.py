@@ -186,6 +186,8 @@ def test_expiry_today_upcoming_revocation_and_scoped_attachments(monkeypatch):
             db=db, current_user=admin)
         assert insurance.list_vendor_insurance(company.id, Response(),
             as_of=asof, db=db, current_user=admin).items[0].status == "EXPIRING_30_DAYS"
+        from app.services import entity_notes
+        monkeypatch.setattr(entity_notes, "permission_allows_user", lambda *a, **kw: True)
         clean, row, scope = resolve_note_target(
             db, current_user=owner, entity_type="vendor_insurances",
             entity_id=upcoming.id,
@@ -197,7 +199,6 @@ def test_expiry_today_upcoming_revocation_and_scoped_attachments(monkeypatch):
                                             db=db, current_user=owner)
         assert exc.value.status_code == 403
         # Entity notes uses its own resolver; revoke that permission too.
-        from app.services import entity_notes
         monkeypatch.setattr(entity_notes, "permission_allows_user", lambda *a, **kw: False)
         with pytest.raises(HTTPException) as exc:
             resolve_note_target(db, current_user=owner,
