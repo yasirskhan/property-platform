@@ -85,6 +85,7 @@ def _bill_to_out(b: Bill) -> BillOut:
         bill_number=b.bill_number,
         payee_name=b.payee_name,
         payee_user_id=b.payee_user_id,
+        vendor_id=b.vendor_id,
         bill_date=b.bill_date,
         due_date=b.due_date,
         reference_number=b.reference_number,

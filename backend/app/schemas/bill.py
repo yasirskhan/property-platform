@@ -34,6 +34,7 @@ class BillCreateIn(BaseModel):
     """Request body for POST /api/accounting/bills."""
     payee_name: str = Field(..., min_length=1, max_length=200)
     payee_user_id: Optional[int] = None
+    vendor_id: Optional[int] = Field(default=None, ge=1)
 
     bill_date: date
     due_date: Optional[date] = None
@@ -111,6 +112,7 @@ class BillOut(BaseModel):
     bill_number: Optional[str] = None
     payee_name: str
     payee_user_id: Optional[int] = None
+    vendor_id: Optional[int] = None
 
     bill_date: date
     due_date: Optional[date] = None

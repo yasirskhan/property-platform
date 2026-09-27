@@ -27,6 +27,9 @@ from app.core.audit import log_action
 from app.models.gl_account import GLAccount
 from app.models.gl_transaction import GLTransaction
 from app.models.bill import Bill
+from app.models.vendor import Vendor
+from app.models.user import UserRole
+from app.services.menu_resolver import permission_allows_user
 from app.models.bill_line import BillLine
 from app.models.user import User
 from app.schemas.gl_transaction import PostingLine
@@ -99,6 +102,26 @@ def post_bill(
     # ---------------------------------------------------------
     # 1. Validate lines and total
     # ---------------------------------------------------------
+    # A company link is explicit and authorized before ANY GL posting.
+    # A manual payee remains fully supported; never match historic names.
+    if payload.vendor_id is not None:
+        role = created_by.role if created_by is not None else None
+        if (created_by is None or created_by.organization_id != organization_id
+                or not created_by.is_active or created_by.deleted_at is not None
+                or role not in {UserRole.ADMIN, UserRole.OWNER}
+                or not permission_allows_user(
+                    db, user=created_by, menu_key="PEOPLE.VENDORS")):
+            raise PostingError("Vendor company access is not available.")
+        company = db.query(Vendor).filter(
+            Vendor.id == payload.vendor_id,
+            Vendor.organization_id == organization_id,
+            Vendor.is_active.is_(True),
+            Vendor.deleted_at.is_(None),
+        ).first()
+        if company is None:
+            raise PostingError("Vendor company is not available.")
+        if payload.payee_name.strip() != company.company_name:
+            raise PostingError("Vendor payee name changed; refresh the company selector.")
     if not payload.lines:
         raise PostingError("A bill must have at least one line.")
 
@@ -188,6 +211,7 @@ def post_bill(
             bill_number=payload.bill_number,
             payee_name=payload.payee_name,
             payee_user_id=payload.payee_user_id,
+            vendor_id=payload.vendor_id,
             bill_date=payload.bill_date,
             due_date=payload.due_date,
             reference_number=payload.reference_number,
@@ -495,6 +519,7 @@ def reverse_bill(
             bill_number=f"REV-{original.bill_number or original.id}",
             payee_name=original.payee_name,
             payee_user_id=original.payee_user_id,
+            vendor_id=original.vendor_id,
             bill_date=reversal_date,
             due_date=None,
             reference_number=original.reference_number,

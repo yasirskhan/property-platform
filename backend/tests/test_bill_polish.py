@@ -11,6 +11,7 @@ from sqlalchemy.pool import StaticPool
 from app.core.database import Base
 from app.models.audit_log import AuditLog
 from app.models.bill import Bill
+from app.models.vendor import Vendor
 from app.models.bill_line import BillLine
 from app.models.gl_account import GLAccount, GLAccountPostingRestriction
 from app.models.gl_entry import GLEntry
@@ -19,6 +20,8 @@ from app.models.release_gate import ReleaseGate, ReleaseGateOrganization
 from app.models.user import Organization, User, UserRole
 from app.schemas.bill import BillCreateIn, BillLineIn, BillPayIn
 from app.services.bill_posting import pay_bill, post_bill, reverse_bill
+from app.services.gl_posting import PostingError
+from app.services import bill_posting
 
 
 TEST_TABLES = [
@@ -30,6 +33,7 @@ TEST_TABLES = [
     ReleaseGateOrganization.__table__,
     GLTransaction.__table__,
     GLEntry.__table__,
+    Vendor.__table__,
     Bill.__table__,
     BillLine.__table__,
     AuditLog.__table__,
@@ -225,3 +229,84 @@ def test_delete_mode_only_allows_unpaid_and_hides_bill_history_rows(
     assert bill.deleted_at is not None
     assert mirror.status == "VOID"
     assert mirror.is_active is False
+
+
+
+@pytest.mark.accounting
+def test_explicit_company_link_preserves_payee_snapshot_and_reversal(db: Session, monkeypatch):
+    org, admin, _ap, expense, cash = seed(db)
+    monkeypatch.setattr(bill_posting, "permission_allows_user", lambda *a, **kw: True)
+    company = Vendor(organization_id=org.id, company_name="Acme Repairs", is_active=True)
+    db.add(company)
+    db.commit()
+    bill = post_bill(
+        db=db, organization_id=org.id, created_by=admin,
+        payload=BillCreateIn(
+            vendor_id=company.id, payee_name="Acme Repairs", bill_date=date(2026, 9, 27),
+            lines=[BillLineIn(gl_account_id=expense.id, amount=Decimal("100.00"))],
+        ),
+    )
+    assert bill.vendor_id == company.id
+    assert bill.payee_name == "Acme Repairs"
+    txn_count = db.query(GLTransaction).count()
+    assert txn_count == 1
+    company.company_name = "Acme New Name"
+    company.is_active = False
+    db.commit()
+    assert bill.payee_name == "Acme Repairs"
+    mirror = reverse_bill(
+        db=db, original=bill, reversal_date=date(2026, 9, 28),
+        memo="Correct bill", created_by=admin,
+    )
+    assert mirror.vendor_id == company.id
+    assert mirror.payee_name == bill.payee_name
+    assert db.query(GLTransaction).count() == txn_count + 1
+
+
+@pytest.mark.accounting
+def test_vendor_id_cross_org_inactive_name_and_permission_fail_before_gl(db: Session, monkeypatch):
+    org, admin, _ap, expense, _cash = seed(db)
+    monkeypatch.setattr(bill_posting, "permission_allows_user", lambda *a, **kw: True)
+    foreign_org = Organization(name="Foreign Payables", slug="foreign-payables")
+    db.add(foreign_org)
+    db.flush()
+    valid = Vendor(organization_id=org.id, company_name="Local Co", is_active=True)
+    foreign = Vendor(organization_id=foreign_org.id, company_name="Foreign Co", is_active=True)
+    db.add_all([valid, foreign])
+    db.commit()
+    def attempt(vendor_id, name):
+        return post_bill(
+            db=db, organization_id=org.id, created_by=admin,
+            payload=BillCreateIn(
+                vendor_id=vendor_id, payee_name=name, bill_date=date(2026, 9, 27),
+                lines=[BillLineIn(gl_account_id=expense.id, amount=Decimal("100.00"))],
+            ),
+        )
+    with pytest.raises(PostingError):
+        attempt(foreign.id, "Foreign Co")
+    with pytest.raises(PostingError):
+        attempt(valid.id, "Different Company")
+    valid.is_active = False
+    db.commit()
+    with pytest.raises(PostingError):
+        attempt(valid.id, "Local Co")
+    valid.is_active = True
+    db.commit()
+    monkeypatch.setattr(bill_posting, "permission_allows_user", lambda *a, **kw: False)
+    with pytest.raises(PostingError):
+        attempt(valid.id, "Local Co")
+    assert db.query(GLTransaction).count() == 0
+    assert db.query(Bill).count() == 0
+
+
+@pytest.mark.accounting
+def test_manual_bill_never_links_vendor_implicitly(db: Session, monkeypatch):
+    org, admin, _ap, expense, cash = seed(db)
+    company = Vendor(organization_id=org.id, company_name="Plumber", is_active=True)
+    db.add(company)
+    db.commit()
+    monkeypatch.setattr(bill_posting, "permission_allows_user", lambda *a, **kw: False)
+    bill = create_bill(db, org, admin, expense, cash)
+    assert bill.vendor_id is None
+    assert bill.payee_name == "Plumber"
+    assert db.query(GLTransaction).count() == 1

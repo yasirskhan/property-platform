@@ -58,6 +58,8 @@ class Bill(Base):
     # The payee (vendor name, company, or person). Free text
     # for now — Vendors become a real entity in Phase 4.
     payee_name = Column(String(200), nullable=False)
+    # Explicit company relationship; historical payee_name is a posting snapshot.
+    vendor_id = Column(Integer, ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Optional link to a User if the payee happens to be one
     # (e.g. paying an owner, a manager, or a Vendor-type user).
