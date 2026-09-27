@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `0d8f40db185126be26a67db32dbaa9126d02c782`
-- Source GitHub Actions run **36301335972: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `73873fddb7fcf7aee7115d6de0d145fbb8d55ad9`
+- Source GitHub Actions run **36323294362: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **532 passed, 3 deselected, 8547 warnings in 115.51s**.
-  E2E: **3 passed in 10.33s**. Lint, typecheck, production build, security
+  Backend: **538 passed, 3 deselected, 8766 warnings in 115.20s**.
+  E2E: **3 passed in 9.95s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -19,13 +19,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   Previous head c1e3f5a7b9d2 / 107 tables. One explicit
   unit_inspection_records table added; PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Accounting Balance Sheet Report. VERIFIED.**
+  **Latest completed batch: Bank Account Association. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Bank Account Activity report. Balance Sheet, Account Totals and prior Phase 3.7 reports VERIFIED.**
+- **Exact NEXT original-plan task: Cash Flow (then Cash Flow 12-Month). Bank Account Activity, Bank Account Association, Balance Sheet, Account Totals and prior Phase 3.7 reports VERIFIED.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -79,6 +79,8 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Work Order recorded summary | ecf5d652e0ec9ca2b0428934446e1073b8d6a629 | 36300632574 | 526 backend passed / 3 E2E |
 | Accounting Account Totals | 63c9272670d7eb2b4b509fbec70da681bbfd9767 | 36300974942 | 529 backend passed / 3 E2E |
 | Accounting Balance Sheet | 0d8f40db185126be26a67db32dbaa9126d02c782 | 36301335972 | 532 backend passed / 3 E2E |
+| Bank Account Activity (posted cash-GL book activity) | d90102a7cd1baa0ae71ff0dace48d70f6357c1dc | 36301725230 attempt 2 | 535 backend passed / 3 E2E; first E2E login-navigation timeout retried successfully |
+| Bank Account Association (bank-to-GL mapping, no private bank numbers) | 369f1e3f374397ca704219aa8995b5c5a0ffc159, 73873fddb7fcf7aee7115d6de0d145fbb8d55ad9 | 36323294362 | 538 backend passed / 3 E2E |
 | Tenant delinquency live overdue rent invoices | 8a6a27ef3c248e394546bdb4e8a65c8ffa43e6b7, a644bd803787d3ffc9be36de4318a67915248364 | 36274961962 | 450 backend passed / 3 E2E |
 
 
@@ -1576,45 +1578,124 @@ be scoped to actor's organization; reject foreign IDs.
 Document ACCRUAL-only vs CASH-basis handling explicitly.
 No migration if existing GL and bank mapping suffice.
 
+## Phase 3.7 Bank Account Activity — VERIFIED 2026-09-27
+
+Product source d90102a7cd1baa0ae71ff0dace48d70f6357c1dc.
+Full source CI 36301725230 attempt 2 SUCCESS all six jobs;
+backend 535 passed, 3 deselected, 8687 warnings in 61.26s;
+E2E 3 passed in 9.16s; frontend lint/typecheck/build, platform-admin,
+security and staging-config green. First attempt failed ONLY transient
+E2E login navigation waiting for /dashboard load (2 passed, 1 failed);
+one targeted retry succeeded, no product-code edit to auth.
+No migration: d2f4a6c8e0b1, 108 model tables. Frozen docs unchanged.
+
+STANDARD accounting.bank_activity links
+/dashboard/reporting/bank-activity. No-store preview
+GET /api/reporting/bank-activity/preview; shared ReportPayload/
+CSV/email/release.reporting.export gate. ADMIN only, same-org
+active/not deleted, REPORTING.ALL + ACCOUNTING.BANK_ACCOUNTS +
+ACCOUNTING.GL_ACCOUNTS. Requires active in-scope bank_id.
+Shows actual dated GLEntry/GLTransaction posted GL movement
+on associated org ASSET GL account, opening debit-minus-credit,
+running posted cash-book balance, reversal entries, date range.
+CASH presentation refused because report is posted ACCRUAL GL.
+Never uses bank-feed inbox, clearing/statement balances,
+routing_number/account_number, foreign GL accounts or bank
+settlement claims. Three focused tests cover date/opening/reversal,
+foreign and role/menu/privacy, CSV formula escaping,
+no GL edits, preview/email and export gate.
+
+## Phase 3.7 Bank Account Association — VERIFIED 2026-09-27
+
+Product 369f1e3f374397ca704219aa8995b5c5a0ffc159;
+focused test isolation correction
+73873fddb7fcf7aee7115d6de0d145fbb8d55ad9.
+Initial source CI 36323157932 backend 537 passed /
+1 failed / 3 deselected: test accidentally left GL permission revoked
+before expecting a foreign-bank not-found error. No product
+defect: restored test permission state. Final CI 36323294362
+SUCCESS all six jobs: 538 backend passed, 3 deselected,
+8766 warnings in 115.20s; browser E2E 3 passed in 9.95s;
+frontend lint/typecheck/build, security, platform-admin,
+staging-config green. The E2E is generic authenticated smoke,
+not a dedicated association UI interaction.
+No migration: d2f4a6c8e0b1 / 108 model tables.
+Frozen docs/ source-of-truth files and parity status unchanged.
+
+STANDARD accounting.bank_association links
+/dashboard/reporting/bank-association. No-store preview
+GET /api/reporting/bank-association/preview and shared
+CSV/email ReportActions; rechecks REPORTING.ALL,
+ACCOUNTING.BANK_ACCOUNTS, ACCOUNTING.GL_ACCOUNTS,
+release.reporting.export. ADMIN-only, active same-org
+with inactive/deleted actor denial, opt bank_id and include_inactive.
+BankAccount -> GLAccount recorded mapping ONLY, not
+property-to-bank mapping (no such relation on current Property)
+and not statement/clearing/balances. Includes recorded
+bank display name, type, status, mapped GL account name/number,
+GL status and mapping review flag; not routing/account numbers,
+ACH info, bank notes, foreign GL metadata. Inconsistent foreign
+or missing GL mapping appears UNRESOLVED with no GL details;
+non-ASSET mappings flagged for review. Archived bank records
+visible only when include_inactive=true, and archived GL status
+explicit. CSV formula escaping, invalid-filter and org ID probes,
+role/menu revocation, release gate, server preview/CSV/email,
+no GL writes covered in 3 focused tests. CASH/ACCRUAL accounting
+basis is not applicable to a configuration-only mapping inventory.
+
+NEXT original Section 38 Accounting report: Cash Flow, followed by
+Cash Flow 12-Month. Use only real immutable org-scoped
+posted GLEntry/GLTransaction and verified BankAccount
+-> GLAccount cash mappings; do NOT infer historical external
+bank settlements from bank feed, owner/bill snapshots or
+routing/account fields. Read GLAccount.include_on_cash_flow
+and accounting-basis semantics. Carefully distinguish
+bank-mapped GL book cash movement from full classified
+GAAP Statement of Cash Flows (the data currently lacks
+independent operating/investing/financing classifications).
+Bank-to-bank transfers may inflate gross posted inflows
+and outflows while net book cash movement cancels.
+Preserve role/menu/export checks and explicit limitations;
+do not silently claim CASH-basis P&L, audited balances or
+bank reconciliation. No migration expected if source GL
+is enough. Include opening/ending posted book cash,
+reversals, date filters and tests; identify how any unmapped
+cash accounts affect completeness.
+
 ## Exact next work: continue, don't stop at phase boundary
 
-1. Read root handoff; verify latest HEAD/source CI.
-   Balance Sheet, Account Totals and prior reports VERIFIED.
-2. Next original Accounting report: Bank Account Activity.
-   Inspect BankAccount and bank account role/permission
-   API, GLEntry/GLTransaction, actual account mapping,
-   and reporting basis. No plaintext routing/account-number
-   leakage from BankAccount. No bank-feed statement or
-   cleared-balance inference: report actual mapped
-   posted GL book activity only, with explicit disclaimer.
-3. Add STANDARD catalog, no-store preview, shared CSV/email
-   and report export release gate. Restrict ADMIN full-org,
+1. Read entire root handoff, verify current HEAD and latest CI.
+   Bank Activity/Association and earlier reports VERIFIED.
+2. Next original Accounting report Cash Flow; inspect posted
+   org-scoped GLEntry/GLTransaction, BankAccount/GLAccount mapping
+   and include_on_cash_flow/accounting_basis; explicitly
+   distinguish book cash movements from GAAP classified statement.
+   Never expose bank account/routing numbers; no bank feed
+   settlement or cleared-balance inference. Require ADMIN,
    REPORTING.ALL, ACCOUNTING.BANK_ACCOUNTS,
-   ACCOUNTING.GL_ACCOUNTS; bank_id required and org scoped,
-   optional dated filters and running posted GL balance.
-   Include reversal and opening balance, no GL writes;
-   CASH basis must not be mislabeled.
-4. Include scoped backend tests and commit bounded code.
-   Full six-job CI before VERIFIED, fix failures yourself,
-   update root handoff with SHA/test counts/next report.
-5. Continue original roadmap Bank Account Association
-   and Cash Flow. No main/new branch, duplicate verified
-   work, Work mode request, unapproved docs edits.
+   ACCOUNTING.GL_ACCOUNTS, release.reporting.export.
+3. Add next canonical enhanced catalog entry, no-store preview,
+   server CSV/email, truthful date-range/book-balance labeling
+   and regression tests including foreign org, transfer/reversal
+   netting, user/menu/export revocation, no GL writes.
+4. Commit bounded product code with focused tests, verify all
+   six GitHub Actions jobs, fix failures autonomously, then
+   update this root handoff with exact tests/run/migration.
+5. Continue Cash Flow 12-Month next; no new branch, main edits,
+   unapproved docs edits or repeated verified work.
 
 ## Session start for successor
 
 Continue yasirskhan/property-platform branch
-chatgpt/checkpoint-005-safety. Read whole root AI_HANDOFF.md,
-verify current HEAD/latest CI. Last VERIFIED source
-0d8f40db185126be26a67db32dbaa9126d02c782,
-CI 36301335972 all six SUCCESS: backend 532 passed,
-3 deselected; E2E 3 passed in 10.33s.
-Alembic d2f4a6c8e0b1 / 108 model tables.
-Balance Sheet and prior phase 3.7 reports VERIFIED.
-Next original item Bank Account Activity, then Bank
-Account Association. BankAccount has plaintext
-account_number/routing_number; NEVER expose these
-fields in report, preview or email. Use mapped
-posted GL cash entries only; no fake bank cleared
-balance, preserve org+role gates and basis.
-Include tests, full CI, update handoff.
+chatgpt/checkpoint-005-safety. Read entire root AI_HANDOFF.md,
+verify current HEAD and CI. Last VERIFIED source
+73873fddb7fcf7aee7115d6de0d145fbb8d55ad9;
+CI 36323294362 all six SUCCESS (538 backend passed,
+3 deselected; 3 E2E passed in 9.95s).
+Alembic d2f4a6c8e0b1 / 108 tables. Bank Account
+Activity and Bank Account Association VERIFIED; not repeated.
+Next original roadmap item Cash Flow, then Cash Flow 12-Month.
+Use posted bank-mapped GL book cash entries only;
+do not claim external cleared funds or expose plaintext
+bank account/routing fields. Include tests, full CI,
+update handoff. No main/new branch, no Work mode.
