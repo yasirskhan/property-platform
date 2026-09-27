@@ -895,6 +895,27 @@ def preview_cash_flow_12_month(
             "rows": data.rows, "total": len(data.rows)}
 
 
+@router.get("/aged-receivables/preview")
+def preview_aged_receivables(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Live current rent invoice aging, not a historical/posted GL AR ledger."""
+    org_id = _require_report_access(
+        db, current_user=current_user, report_key="transaction.aged_receivables",
+    )
+    _require_export_feature(db, current_user)
+    data = _build_or_422(
+        db, organization_id=org_id, report_key="transaction.aged_receivables",
+        parameters=dict(request.query_params), current_user=current_user,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return {"title": data.title, "headers": data.headers,
+            "rows": data.rows, "total": len(data.rows)}
+
+
 @router.get("/aged-payables/preview")
 def preview_aged_payables(
     request: Request,
