@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `bed121f5796aedd3c6985f5bda972e8dded32d45`
-- Source GitHub Actions run **36330083012: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `cc0d81971de51bf6b7c0b3cb3d0963b085514e8b`
+- Source GitHub Actions run **36330600066: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **566 passed, 3 deselected, 10632 warnings in 121.02s**.
-  E2E: **3 passed in 9.06s**. Lint, typecheck, production build, security
+  Backend: **569 passed, 3 deselected, 10772 warnings in 97.78s**.
+  E2E: **3 passed in 9.19s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -19,13 +19,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   Previous head c1e3f5a7b9d2 / 107 tables. One explicit
   unit_inspection_records table added; PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Bill Detail report. VERIFIED.**
+  **Latest completed batch: Charge Detail report. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Transaction Charge Detail, then Check Register. Bill Detail, Aged Payables, Aged Receivables, Trust Account Detail, Trust Account Balance, Income Statement and earlier Phase 3.7 reports VERIFIED.**
+- **Exact NEXT original-plan task: Transaction Check Register, then Check Register Detail. Charge Detail, Bill Detail, Aged Payables, Aged Receivables and earlier reports VERIFIED.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -90,6 +90,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Aged Payables (posted bill current due aging) | 2558a0b11ab73463071de83c83e6d80aa94ecba2, 895857091f918293761e39d6cb9fad12655fb5e0 | 36328376671 | 560 backend passed / 3 E2E; test-only bucket correction |
 | Aged Receivables (current rent invoice due aging) | 7af730729cd126b61331caf0b170b7e290eee0c9, d1e2b0501602c33d61a9c901791286eef6a771cd, 545894bbe5f6acbef78a5b37ee58c707f55f5a81 | 36329631501 | 563 backend passed / 3 E2E; test-only second-property bucket correction |
 | Bill Detail (posted bill header and verified lines) | bed121f5796aedd3c6985f5bda972e8dded32d45 | 36330083012 | 566 backend passed / 3 E2E |
+| Charge Detail (standalone charges incl paid/credit) | cc0d81971de51bf6b7c0b3cb3d0963b085514e8b | 36330600066 | 569 backend passed / 3 E2E |
 | Tenant delinquency live overdue rent invoices | 8a6a27ef3c248e394546bdb4e8a65c8ffa43e6b7, a644bd803787d3ffc9be36de4318a67915248364 | 36274961962 | 450 backend passed / 3 E2E |
 
 
@@ -2114,45 +2115,91 @@ Use shared report delivery, no-store preview,
 formula escape, regression tests and six-job CI;
 do NOT rebuild existing Unpaid Charges report.
 
+## Phase 3.7 Charge Detail — VERIFIED 2026-09-27
+
+Source cc0d81971de51bf6b7c0b3cb3d0963b085514e8b.
+CI 36330600066 SUCCESS all six jobs: backend 569 passed,
+3 deselected, 10772 warnings in 97.78s; browser E2E
+3 passed in 9.19s; frontend lint/typecheck/build,
+platform-admin, security and staging-config green.
+E2E only existing generic smoke, not dedicated Charge
+Detail UI flow. Alembic d2f4a6c8e0b1/108 tables;
+no migration, frozen docs/ and parity unchanged.
+Previous Bill Detail handoff-only run 36330510399 may
+have been superseded by this source push; do not claim
+green without its own results.
+
+STANDARD transaction.charge_detail at
+/dashboard/reporting/charge-detail, authenticated no-store
+GET /api/reporting/charge-detail/preview, shared server
+ReportPayload/CSV/email with release.reporting.export gate.
+Organization ADMIN or assigned MANAGER, active/current,
+REPORTING.ALL, LEASING, ACCOUNTING.CHARGES,
+ACCOUNTING.GL_ACCOUNTS. Filters charge_id, tenant_id,
+property_id, charge_date inclusive range; max 5000
+rows and foreign/unauthorized reference fail-closed.
+Uses standalone Charge, User(TENANT), Property,
+PropertyAssignment, Unit and same-org INCOME GLAccount.
+Propertyless charges admin only; inactive/deleted and
+foreign records excluded. Full paid, unpaid and recorded
+overpay/credit included with warning when is_paid flag
+disagrees with computed current balance; no made-up
+credit settlement. RentInvoice intentionally excluded
+as may double-count late fees. No GL posted AR assertion,
+no historic balance or payment inference and no GL writes.
+Three focused tests cover full/partial/credit arithmetic,
+unallocated/assigned/foreign/invalid GL scoping, roles,
+CSV escape, preview/email, revocation and export gating.
+
+NEXT: original Transaction Check Register followed by
+Check Register Detail. Reuse existing Check/
+CheckBillAllocation, Check issue/void, BankAccount
+and GLTransaction. Only same-org original CHECK GL
+with correct void reversal state; do NOT expose
+BankAccount.account_number or routing_number,
+do not pretend issued checks have cleared bank,
+and do not repeat check total on child allocations.
+Preserve permissions and release gate; no writes.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Re-read entire root handoff, verify current HEAD and CI.
-   Bill Detail and prior reports VERIFIED; no repeats.
-2. Next original Phase 3.7 Transaction Charge Detail:
-   reuse existing Charge/tenant ledger/unpaid Charges
-   scope, not duplicate them. Admin or assigned manager,
-   REPORTING.ALL, ACCOUNTING.CHARGES, LEASING, and
-   ACCOUNTING.GL_ACCOUNTS if displaying GL metadata.
-   Show recorded standalone Charge date, tenant/property/
-   unit, same-org GL, amount, current paid/net incl
-   fully paid and overpaid status, with bounded optional
-   filters. Exclude revoked/inactive/deleted/foreign
-   references; fail closed on bad GL mapping. Propertyless
-   Charge visible only to org ADMIN. Do not concatenate
-   rent invoices and fees or claim posted GL transactions.
-   Server ReportPayload, no-store preview, gated CSV/email,
-   formula escape, regression tests, no accounting writes.
-3. Commit bounded source/tests, full six-job GitHub
-   Actions, autonomously fix reds, update root handoff
-   with exact commits/counts/migration/status when green.
-4. Continue original Check Register and Register Detail,
-   then subsequent Transaction reports in order. Frozen
-   docs unchanged, no main/new branch, no Work mode.
+1. Re-read entire root handoff, verify current branch
+   HEAD and CI. Charge Detail, Bill Detail, Aged
+   Receivables and Aged Payables VERIFIED, no repeats.
+2. Implement original Phase 3.7 Transaction Check Register:
+   current issued/void check records backed by same-org
+   bank and GLTransaction. Never expose routing/account
+   numbers; bank display name only, status ISSUE/VOID,
+   date/check number, payee/amount and valid reversal
+   markers. Do not infer cleared bank settlement.
+   Authorize ADMIN/REPORTING.ALL/
+   ACCOUNTING.BANK_ACCOUNTS/ACCOUNTING.PAYABLES,
+   gate shared CSV/email via release.reporting.export.
+   Add no-store preview, bounded optional filters,
+   cross-org and forged status/GL tests and no GL writes.
+3. After six-job CI green, update handoff with exact
+   source SHA, test counts, migration and next task.
+   Then original Check Register Detail (allocations),
+   Deposit Register, Expense Register, Income Register,
+   Journal Entry Register in original order.
+4. No main/new branch, Work mode, unapproved docs
+   edits or rebuilding verified work. Commit bounded
+   source+tests, fix CI errors autonomously.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on only
-chatgpt/checkpoint-005-safety. Read full root
-AI_HANDOFF.md and verify actual branch HEAD plus CI.
-Last verified source bed121f5796aedd3c6985f5bda972e8dded32d45,
-run 36330083012 SUCCESS all six jobs (566 backend passed,
-3 deselected; 3 E2E passed in 9.06s). Alembic
-d2f4a6c8e0b1, 108 model tables.
-Bill Detail, Aged Receivables, Aged Payables and
-earlier reports VERIFIED. Exact next Phase 3.7 task:
-Charge Detail, then Check Register. Preserve
-mutable-charge vs GL distinction, org/role/menu
-and export gates, no GL mutations. User approved
-commit-then-GitHub-CI verification, handoff after
-meaningful successful batches. No main/branches/
-frozen docs edits or Work mode.
+Continue yasirskhan/property-platform on
+chatgpt/checkpoint-005-safety. Read full
+root AI_HANDOFF.md, verify HEAD and last CI.
+Last VERIFIED source cc0d81971de51bf6b7c0b3cb3d0963b085514e8b;
+CI 36330600066 all six jobs success (569 backend passed,
+3 deselected; 3 E2E passed in 9.19s). Alembic
+d2f4a6c8e0b1 /108 model tables. Charge Detail,
+Bill Detail, Aged Receivables/Payables and previous
+batches VERIFIED. Next original Phase 3.7 Transaction
+Check Register, then Check Register Detail. Preserve
+financial integrity, org/role/menu and export gates;
+never expose bank account/routing numbers or claim
+unverified cleared checks. User approved commit+CI
+verification; update handoff after meaningful verified
+batch. No main/new branch, Work mode or frozen docs edits.
