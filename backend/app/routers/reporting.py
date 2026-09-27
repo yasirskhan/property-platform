@@ -895,6 +895,27 @@ def preview_cash_flow_12_month(
             "rows": data.rows, "total": len(data.rows)}
 
 
+@router.get("/income-statement/preview")
+def preview_income_statement(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Dated, posted accrual income and expense GL: not bank cash or audited P&L."""
+    org_id = _require_report_access(
+        db, current_user=current_user, report_key="accounting.income_statement",
+    )
+    _require_export_feature(db, current_user)
+    data = _build_or_422(
+        db, organization_id=org_id, report_key="accounting.income_statement",
+        parameters=dict(request.query_params), current_user=current_user,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return {"title": data.title, "headers": data.headers,
+            "rows": data.rows, "total": len(data.rows)}
+
+
 @router.get("/expense-distribution/preview")
 def preview_expense_distribution(
     request: Request,

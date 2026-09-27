@@ -251,7 +251,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/accounting/gl-accounts",
         description="Choose an account to open its verified ledger.",
     ),
-    _enhanced("accounting.income_statement", "Income Statement", "Accounting"),
+    _enhanced(
+        "accounting.income_statement", "Income Statement", "Accounting",
+        href="/dashboard/reporting/income-statement",
+        description="Posted accrual GL income less expense by recorded account, unaudited; not cash-basis P&L.",
+    ),
     _enhanced(
         "accounting.trial_balance",
         "Trial Balance",
