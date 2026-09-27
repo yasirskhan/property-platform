@@ -201,7 +201,14 @@ def test_login_and_core_authenticated_pages() -> None:
                 exact=True,
             )
             expect(map_toggle).to_be_checked()
-            map_toggle.uncheck()
+            # The checkbox changes optimistically; await the persisted PUT
+            # before reloading, rather than the immediate local checked state.
+            with page.expect_response(
+                lambda response: "/api/features/settings/" in response.url
+                and response.request.method == "PUT"
+                and response.ok,
+            ):
+                map_toggle.uncheck()
             expect(map_toggle).not_to_be_checked()
             page.reload(wait_until="domcontentloaded")
             expect(
