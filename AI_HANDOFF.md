@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `3875ef5af74097f93643d6925eb8b14dfd6ac147`
-- Source GitHub Actions run **36335844931: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `329a85e1683f4392568f8d746404bec689c9b788`
+- Source GitHub Actions run **36336312154: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **584 passed, 3 deselected, 11380 warnings in 95.99s**.
-  E2E: **3 passed in 9.44s**. Lint, typecheck, production build, security
+  Backend: **587 passed, 3 deselected, 11529 warnings in 126.65s**.
+  E2E: **3 passed in 10.07s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -19,13 +19,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   Previous head c1e3f5a7b9d2 / 107 tables. One explicit
   unit_inspection_records table added; PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Income Register. VERIFIED.**
+  **Latest completed batch: Journal Entry Register. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Transaction Journal Entry Register, then follow Section 38. Expense and Income Registers, Deposit Register, both Check Register reports and earlier reports VERIFIED.**
+- **Exact NEXT original-plan task: Phase 4 Vendors — full Vendor entity and organization-scoped vendor management. Journal Entry Register and other Phase 3.7 reports VERIFIED. External Avalara/IRIS 1099 acceptance and recipient copies remain awaiting operator provider credentials, not falsely marked completed.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -96,6 +96,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Deposit Register (recorded receipt grouping) | bdf317cc8e2912061b1544229303aef12a1d3d34 | 36332538763 | 578 backend passed / 3 E2E |
 | Expense Register (posted expense GL detail) | fa8ab2e287aea400e6e684205cf5c9a6308ef85a, 7882a5921be2d38601f0a989d8d46552089debe1 | 36333373605 | Verified source; see subsequent section |
 | Income Register (posted income GL detail) | 3875ef5af74097f93643d6925eb8b14dfd6ac147 | 36335844931 | 584 backend passed / 3 E2E |
+| Journal Entry Register (manual/recurring JE and linked reversal line report) | 329a85e1683f4392568f8d746404bec689c9b788 | 36336312154 | 587 backend passed / 3 E2E |
 | Tenant delinquency live overdue rent invoices | 8a6a27ef3c248e394546bdb4e8a65c8ffa43e6b7, a644bd803787d3ffc9be36de4318a67915248364 | 36274961962 | 450 backend passed / 3 E2E |
 
 
@@ -2311,41 +2312,98 @@ date/role scope and no GL mutations. No new schema expected.
 Preserve canonical report delivery, export gate, no-store
 preview, formula escaping, focused tests and full six-job CI.
 
+## Phase 3.7 Journal Entry Register — VERIFIED 2026-09-27
+
+Source commit 329a85e1683f4392568f8d746404bec689c9b788.
+GitHub Actions 36336312154 SUCCESS all six jobs:
+backend 587 passed, 3 deselected, 11529 warnings in 126.65s;
+authenticated browser E2E 3 passed in 10.07s; frontend
+lint/typecheck/build, platform-admin, security and staging-config
+passed. E2E generic smoke only, not dedicated Journal Register UI.
+No migration; Alembic d2f4a6c8e0b1, 108 model tables.
+Frozen docs and planning parity unchanged.
+
+STANDARD transaction.journal_entry_register at
+/dashboard/reporting/journal-entry-register, no-store preview
+GET /api/reporting/journal-entry-register/preview; canonical
+ReportPayload, shared CSV/email and release.reporting.export.
+Active same-org ADMIN with REPORTING.ALL,
+ACCOUNTING.JOURNAL_ENTRIES and ACCOUNTING.GL_ACCOUNTS.
+Only GLTransaction type JOURNAL_ENTRY, plus REVERSAL whose
+reversal_of_id points to same-org original JOURNAL_ENTRY.
+Original journal marked is_reversed stays visible, and linked
+REVERSAL lines show original ID and reversal status. Other GL
+source types and unrelated reversals excluded. Validates
+same-org GLEntry/GLAccount, positive single-sided debit/credit,
+per-transaction balanced total. Date interval required;
+optional transaction_id and include_reversals, 5000 txn/line
+bounds, fail-closed on invalid/foreign references.
+Posted debit/credit amounts unchanged by CASH/ACCRUAL
+presentation setting, no bank clearing/GL mutation.
+Three focused tests validate originals and linked reversals,
+nonjournal exclusion, signed line arithmetic, archived GL,
+org/role/menu, foreign account tampering, invalid filters,
+CSV formula escaping, preview/email and live export gate.
+
+Original Section 38 reports and customer-side prerequisites
+are now verified except that actual external 1099 sandbox
+acceptance, production filing, IRS receipt/corrections and
+recipient copies remain provider/credential dependent.
+Do not claim regulatory/operational 1099 filing complete;
+vendor/report preparation features are not the same as
+externally acknowledged 1099 forms.
+
+NEXT original master Phase 4 starts with Full Vendor entity.
+Current app has UserRole.VENDOR contact records but Bill.payee_name
+remains free text; no durable Vendor model. Preserve verified
+vendor directory/ledger and tax profiles; do not treat vendor
+contact users as a fully implemented vendor company.
+Inspect User, Bill, WorkOrder, access architecture and manual
+Alembic migration patterns. Start bounded org-scoped Vendor
+entity (company, contacts/address/trade, operational state)
+with focused isolation, access and migration tests, then
+continue insurance expiry and the planned real Vendor picker.
+Do not auto-link historical free-text Bill payees by name or
+migrate plaintext tax IDs. User only authorized narrow 1099
+frozen-doc amendments; all other docs/ remain frozen.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Re-read root handoff, check current branch HEAD and latest
-   CI. Income Register, Expense Register, Deposit and earlier
-   reports are VERIFIED. Do not repeat.
-2. Implement original Phase 3.7 Journal Entry Register.
-   Read existing GLTransaction/GLEntry and manual/recurring JE
-   posting source. Scope real JOURNAL_ENTRY transactions
-   and appropriate REVERSAL entries referencing manual JE;
-   avoid other transaction types. Include same-org GL
-   checks, balanced lines, origin/reversal markers, optional
-   date filter and bounded output, archived historical GL
-   but no future/not-posted invented records. No GL writes.
-   ADMIN/REPORTING.ALL/ACCOUNTING.JOURNAL_ENTRIES plus
-   ACCOUNTING.GL_ACCOUNTS, no-store preview,
-   report CSV/email export gate, focused regressions.
-3. After all six CI jobs green, update this root handoff
-   with exact commit/test/migration details. Continue
-   original roadmap beyond Journal Entry Register.
-4. No main/new branch/Work mode/unapproved frozen docs
-   or planning parity changes. Bounded commit+CI,
-   fix CI reds autonomously, never invent test counts.
+1. Read full root handoff and verify HEAD/latest CI. Journal
+   Entry Register, all other Phase 3.7 report batches
+   VERIFIED. Do not repeat.
+2. Next original Phase 4 Vendors: full Vendor entity,
+   org-scoped contact/address/trade management, active state
+   and correct role/menu gating. Inspect actual UserRole.VENDOR,
+   Bill, WorkOrder, owner/tenant scoping and existing vendor
+   directory/ledger BEFORE schema or API design. No invented
+   linking of historical payee_name strings, no plaintext tax
+   identifiers, and no duplicate verified report functionality.
+   Add manual migration/schema guards, regression tests, CI.
+3. After green six-job CI, update this root handoff and
+   continue Vendor insurance/expiration, Vendor list/filter,
+   Bill/WorkOrder real vendor links according to original
+   dependencies. Do not stop at Phase 4 boundary.
+4. External 1099 actual filing/recipient copy blocked on
+   operator Avalara/IRIS account and verified integration.
+   Keep distinct from completed internal prep; never invent
+   IRS acceptance or provide real credentials in chat.
+5. No new branch, main/force push, Work mode, unapproved
+   frozen docs/parity changes. User approved commit then CI,
+   actual test counts only; fix failing CI before next batch.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on branch
-chatgpt/checkpoint-005-safety. Read root AI_HANDOFF.md,
-verify actual HEAD and latest CI. Last VERIFIED source
-3875ef5af74097f93643d6925eb8b14dfd6ac147;
-CI 36335844931 six SUCCESS (584 backend passed,
-3 deselected, 3 authenticated browser E2E passed).
-Alembic d2f4a6c8e0b1 /108 tables. Income Register,
-Expense Register and prior Phase 3.7 work VERIFIED.
-Next Journal Entry Register, then remaining original
-Section 38 reports. Keep immutability, org/menu/export
-gates, no fake bank accounting; no main/frozen docs.
-User authorized commit-then-GitHub-CI. Refresh root
-handoff after meaningful verified batches.
+Continue yasirskhan/property-platform on existing branch
+chatgpt/checkpoint-005-safety; read repo-root AI_HANDOFF.md
+completely, verify live HEAD/latest CI. Last VERIFIED source
+329a85e1683f4392568f8d746404bec689c9b788;
+CI 36336312154 success all six, backend 587 passed,
+3 deselected, E2E 3 passed. Alembic d2f4a6c8e0b1 /
+108 model tables. Phase 3.7 Journal Entry Register and
+previous reports VERIFIED. External provider 1099/recipient
+filing NOT implemented without operator credentials.
+Original next phase: Phase 4 Vendors, starting Full Vendor
+entity. Preserve org/accounting/permission contracts,
+no main/new branch or unapproved docs, test in CI, update
+root handoff every verified batch. No Work mode.
