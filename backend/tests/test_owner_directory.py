@@ -81,6 +81,8 @@ def test_owner_directory_only_stored_contacts_and_owner_self_scope(monkeypatch):
     try:
         admin, manager, owner1, owner2, inactive, deleted, tenant, foreign = _seed(db)
         monkeypatch.setattr(owner_directory, "permission_allows_user", lambda *a, **k: True)
+        owner1.first_name = "=Visible"
+        db.commit()
         before = db.query(GLTransaction).count()
         rows = _payload(db, admin).rows
         assert {row[0] for row in rows} == {owner1.id, owner2.id}
@@ -91,7 +93,7 @@ def test_owner_directory_only_stored_contacts_and_owner_self_scope(monkeypatch):
         assert "tax" not in " ".join(_payload(db, admin).headers).lower()
         assert db.query(GLTransaction).count() == before
         csv = report_csv_bytes(_payload(db, admin)).decode("utf-8-sig")
-        assert "'=Family" in csv and "Foreign" not in csv
+        assert "'=Visible =Family" in csv and "Foreign" not in csv
         assert "123-45-6789" not in csv
     finally:
         db.close(); engine.dispose()
@@ -103,10 +105,9 @@ def test_manager_own_assigned_property_owner_scope_and_revocation(monkeypatch):
         admin, manager, owner1, owner2, inactive, deleted, tenant, foreign = _seed(db)
         monkeypatch.setattr(owner_directory, "permission_allows_user", lambda *a, **k: True)
         assert [row[0] for row in _payload(db, manager).rows] == [owner1.id]
-        for actor in (tenant, foreign):
-            if actor is tenant:
-                with pytest.raises(ReportDeliveryError, match="permission"):
-                    _payload(db, actor)
+        with pytest.raises(ReportDeliveryError, match="permission"):
+            _payload(db, tenant)
+        assert [row[0] for row in _payload(db, foreign).rows] == [foreign.id]
         with pytest.raises(ReportDeliveryError):
             _payload(db, admin, sql="SELECT * FROM tax_profiles")
         monkeypatch.setattr(owner_directory, "permission_allows_user",
