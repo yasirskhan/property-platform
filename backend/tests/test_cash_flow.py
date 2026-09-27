@@ -104,11 +104,13 @@ def test_dated_book_cash_transfer_net_reversal_and_privacy(monkeypatch):
         before = db.query(GLEntry).count()
         report = _report(db, admin, date_from="2026-09-01", date_to="2026-09-30")
         assert len(report.rows) == 3
-        assert report.rows[0][3:] == (
+        primary_row = next(row for row in report.rows if row[0] == primary.id)
+        secondary_row = next(row for row in report.rows if row[0] == secondary.id)
+        assert primary_row[3:] == (
             Decimal("100"), Decimal("25"), Decimal("50"), Decimal("-25"), Decimal("75"),
         )
-        assert report.rows[1][1] == "=Old Trust"
-        assert report.rows[1][3:] == (
+        assert secondary_row[1] == "=Old Trust"
+        assert secondary_row[3:] == (
             Decimal("0"), Decimal("40"), Decimal("8"), Decimal("32"), Decimal("32"),
         )
         assert report.rows[-1][3:] == (
