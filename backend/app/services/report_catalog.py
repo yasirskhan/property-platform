@@ -217,7 +217,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/bank-activity",
         description="Posted GL cash-book activity by linked bank account; not a bank statement or cleared balance.",
     ),
-    _standard("accounting.bank_association", "Bank Account Association", "Accounting"),
+    _standard(
+        "accounting.bank_association", "Bank Account Association", "Accounting",
+        href="/dashboard/reporting/bank-association",
+        description="Recorded bank-account to GL-account mappings only; no private bank numbers or property links.",
+    ),
     _enhanced("accounting.cash_flow", "Cash Flow", "Accounting"),
     _enhanced("accounting.cash_flow_12_month", "Cash Flow 12-Month", "Accounting"),
     _standard(
