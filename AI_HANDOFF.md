@@ -15,9 +15,9 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **e3f5a7b9c1d2**. SQLAlchemy expected model tables: **109**.
-  Previous head c1e3f5a7b9d2 / 107 tables. One explicit
-  unit_inspection_records table added; PostgreSQL/bootstrap/legacy CI paths passed.
+- Alembic head: **a9b1c3d5e7f0**. SQLAlchemy expected model tables: **110**.
+  Previous head e3f5a7b9c1d2 / 109 tables. One org-scoped
+  vendor_insurances table added. PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
   **Latest completed batch: Phase 4 Vendor trade/insurance directory filters. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
@@ -2431,7 +2431,8 @@ authenticated E2E 3 passed in 8.91s; frontend lint/typecheck/
 build, security, platform-admin, staging-config all green.
 E2E remains generic authenticated smoke, not dedicated vendor filter
 browser interactions. Earlier superseded runs were CANCELLED, not
-passed. No migrations; Alembic e3f5a7b9c1d2 /109 tables unchanged.
+passed. No migration in the FILTER batch; existing vendor-insurance migration
+head a9b1c3d5e7f0 / 110 tables unchanged.
 Frozen docs/ and parity not edited.
 
 Org-owned Vendor company list GET /api/vendors now supports exact
@@ -2503,7 +2504,7 @@ AI_HANDOFF.md and verify live HEAD and six-job CI.
 Last verified source 87ed9dd1396686065c9596622173297628b2ace2;
 CI 36338819609 SUCCESS: 596 backend passed, 3 deselected,
 3 browser E2E passed, all six jobs successful.
-Alembic e3f5a7b9c1d2 /109 model tables.
+Alembic a9b1c3d5e7f0 /110 model tables.
 Vendor company, insurance lifecycle and trade/insurance
 directory filter batches VERIFIED, no full external 1099 filing.
 Exact next Phase 4: nullable same-org Vendor company
