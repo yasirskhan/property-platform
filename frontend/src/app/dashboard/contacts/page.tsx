@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import TagPicker from "@/components/tags/TagPicker";
+import ContactTransferPanel from "@/components/contacts/ContactTransferPanel";
 
 type ContactKind = "PERSON" | "BUSINESS";
 type Contact = {
@@ -210,6 +211,7 @@ export default function ContactsPage() {
               </div>
             </form>
           )}
+          <ContactTransferPanel canWrite={canWrite} onImported={() => refresh(search, showInactive)} />
           <section aria-label="Contact directory" className="space-y-2">
             <h2 className="font-semibold">Contact directory</h2>
             {rows.length === 0 && <p className="rounded border bg-white p-5 text-sm text-slate-500">No contacts match the filters.</p>}

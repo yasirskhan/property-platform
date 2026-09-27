@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
+from pydantic import BaseModel, Field
 from sqlalchemy import or_
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -14,6 +16,10 @@ from app.routers.auth import get_current_user
 from app.schemas.contact import ContactCreate, ContactListOut, ContactOut, ContactUpdate
 from app.services.audit import append_audit_log
 from app.services.menu_resolver import permission_allows_user
+from app.services.customer_features import resolve_customer_features
+from app.services.contact_transfer import (
+    ContactTransferError, analyze_import, commit_import, export_contacts,
+)
 
 router = APIRouter(prefix="/api/contacts", tags=["Contacts"])
 
@@ -64,6 +70,81 @@ def list_contacts(
     if len(rows) > 1000:
         raise HTTPException(status_code=422, detail="Narrow contact search before listing.")
     return ContactListOut(items=rows, total=len(rows))
+
+
+
+class ContactCsvIn(BaseModel):
+    csv_text: str = Field(min_length=1, max_length=131072)
+
+
+class ContactCsvCommitIn(ContactCsvIn):
+    preview_digest: str = Field(min_length=64, max_length=64)
+    confirm: Literal[True]
+
+
+def _export_access(db: Session, user: User) -> int:
+    org_id = _require_access(db, user)
+    decision = next(
+        (item for item in resolve_customer_features(db, user=user)
+         if item.key == "release.reporting.export"), None,
+    )
+    if decision is None or not decision.allowed:
+        raise HTTPException(status_code=404, detail="Contacts export is not available.")
+    return org_id
+
+
+@router.get("/export.csv")
+def export_contacts_csv(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Explicit allowlisted, formula-safe, live-authorized contact export."""
+    org_id = _export_access(db, current_user)
+    try:
+        data = export_contacts(db, organization_id=org_id)
+    except ContactTransferError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return Response(
+        content=data, media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="contacts-export.csv"',
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.post("/import/preview")
+def preview_contacts_csv(
+    payload: ContactCsvIn, response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_access(db, current_user, write=True)
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        result = analyze_import(db, organization_id=org_id, csv_text=payload.csv_text)
+    except ContactTransferError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return result
+
+
+@router.post("/import/commit")
+def commit_contacts_csv(
+    payload: ContactCsvCommitIn, response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_access(db, current_user, write=True)
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        result = commit_import(
+            db, organization_id=org_id, actor_id=current_user.id,
+            csv_text=payload.csv_text, preview_digest=payload.preview_digest,
+        )
+    except ContactTransferError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return result
 
 
 @router.get("/{contact_id}", response_model=ContactOut)
