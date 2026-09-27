@@ -315,7 +315,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/expense-register",
         description="Actual dated posted expense GL entry lines, accrual-only; no inferred bank settlement.",
     ),
-    _standard("transaction.income_register", "Income Register", "Transaction"),
+    _standard(
+        "transaction.income_register", "Income Register", "Transaction",
+        href="/dashboard/reporting/income-register",
+        description="Dated posted accrual income GL credits less debits, including reversals; not bank receipts.",
+    ),
     _standard("transaction.journal_entry_register", "Journal Entry Register", "Transaction"),
 )
 
