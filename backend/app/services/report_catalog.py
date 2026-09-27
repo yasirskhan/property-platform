@@ -239,7 +239,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/accounting/gl-accounts",
         description="Opens the verified Chart of Accounts.",
     ),
-    _standard("accounting.expense_distribution", "Expense Distribution", "Accounting"),
+    _standard(
+        "accounting.expense_distribution", "Expense Distribution", "Accounting",
+        href="/dashboard/reporting/expense-distribution",
+        description="Posted accrual expense GL account totals and signed net expense share, not bank spend.",
+    ),
     _enhanced(
         "accounting.general_ledger",
         "General Ledger",
