@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `73873fddb7fcf7aee7115d6de0d145fbb8d55ad9`
-- Source GitHub Actions run **36323294362: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `5305d8d4cd6c80f7ecb5cf893dbbfe100c3f1b0f`
+- Source GitHub Actions run **36323986765: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **538 passed, 3 deselected, 8766 warnings in 115.20s**.
-  E2E: **3 passed in 9.95s**. Lint, typecheck, production build, security
+  Backend: **541 passed, 3 deselected, 8964 warnings in 106.58s**.
+  E2E: **3 passed in 9.24s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -19,13 +19,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   Previous head c1e3f5a7b9d2 / 107 tables. One explicit
   unit_inspection_records table added; PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Bank Account Association. VERIFIED.**
+  **Latest completed batch: Cash Flow posted book movement report. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Cash Flow (then Cash Flow 12-Month). Bank Account Activity, Bank Account Association, Balance Sheet, Account Totals and prior Phase 3.7 reports VERIFIED.**
+- **Exact NEXT original-plan task: Cash Flow 12-Month. Cash Flow, Bank Account Activity, Bank Account Association and prior Phase 3.7 reports VERIFIED.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -81,6 +81,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Accounting Balance Sheet | 0d8f40db185126be26a67db32dbaa9126d02c782 | 36301335972 | 532 backend passed / 3 E2E |
 | Bank Account Activity (posted cash-GL book activity) | d90102a7cd1baa0ae71ff0dace48d70f6357c1dc | 36301725230 attempt 2 | 535 backend passed / 3 E2E; first E2E login-navigation timeout retried successfully |
 | Bank Account Association (bank-to-GL mapping, no private bank numbers) | 369f1e3f374397ca704219aa8995b5c5a0ffc159, 73873fddb7fcf7aee7115d6de0d145fbb8d55ad9 | 36323294362 | 538 backend passed / 3 E2E |
+| Cash Flow (posted bank-mapped book movement, not GAAP-classified) | 0bce280bcd932b5ba1862689d14380ad620697fb, 5305d8d4cd6c80f7ecb5cf893dbbfe100c3f1b0f | 36323986765 | 541 backend passed / 3 E2E |
 | Tenant delinquency live overdue rent invoices | 8a6a27ef3c248e394546bdb4e8a65c8ffa43e6b7, a644bd803787d3ffc9be36de4318a67915248364 | 36274961962 | 450 backend passed / 3 E2E |
 
 
@@ -1662,40 +1663,104 @@ is enough. Include opening/ending posted book cash,
 reversals, date filters and tests; identify how any unmapped
 cash accounts affect completeness.
 
+## Phase 3.7 Cash Flow — VERIFIED 2026-09-27
+
+Source 0bce280bcd932b5ba1862689d14380ad620697fb;
+test order correction 5305d8d4cd6c80f7ecb5cf893dbbfe100c3f1b0f.
+First source CI 36323735841 FAILED only one test's
+bank-record creation-order assumption (540 passed, 1 failed,
+3 deselected). Bank rows legitimately sort by display name.
+Test-only correction selected rows by bank ID; report code
+not changed to satisfy the test. Final CI 36323986765
+SUCCESS all six jobs: backend 541 passed, 3 deselected,
+8964 warnings in 106.58s; authenticated E2E 3 passed
+in 9.24s; frontend lint/typecheck/build, platform-admin,
+security, staging-config green. E2E generic smoke; not
+dedicated Cash Flow UI interactions.
+No migration: Alembic d2f4a6c8e0b1 / 108 model tables.
+Frozen docs and planning parity unchanged.
+
+ENHANCED accounting.cash_flow at
+/dashboard/reporting/cash-flow, preview
+GET /api/reporting/cash-flow/preview no-store;
+server ReportPayload, CSV formula escaping, shared
+CSV/email ReportActions, release.reporting.export.
+Authenticated ADMIN active/not-deleted same-org with
+REPORTING.ALL, ACCOUNTING.BANK_ACCOUNTS and
+ACCOUNTING.GL_ACCOUNTS. date_from/date_to mandatory,
+validated inclusive date range; refused malformed/extra
+query keys. Reuses actual same-org BankAccount -> GLAccount
+mappings, only ASSET GL accounts marked
+include_on_cash_flow=true. Includes archived bank/GL
+records when their historical posted activity exists.
+Actual org-scoped GLEntry/GLTransaction posted debit
+and credit sums, opening before range, period movement,
+closing and TOTAL; reversal journal entries included.
+Cash-to-cash transfers inflate gross inflows/outflows
+but cancel in net. No bank-feed inbox, statement
+clearing, transaction settlement, or private bank
+account/routing fields in preview, CSV or email.
+Unmapped/excluded GL cash accounts are omitted and
+explicitly disclosed. Broken foreign/non-ASSET mapping
+fails closed. This is posted bank-mapped book-cash
+movement, NOT classified GAAP/audited Cash Flows.
+Accounting CASH vs ACCRUAL toggle does not magically
+translate the immutable posted GL; report label
+explicitly states posted book movement in both modes.
+No GL writes. Three focused tests cover opening,
+net transfer/reversal, missing/excluded mappings,
+org/role/menu scope, input validation, basis behavior,
+formula escaping, exported/email data and revocation.
+
+NEXT original Section 38: Cash Flow 12-Month.
+Reuse VERIFIED build_cash_flow for 12 full calendar
+months ending in specified YYYY-MM. Derive per-month
+period posted debit/credit, net, opening/closing
+and grand totals. Preserve legacy month-end / year
+rollover behavior, bank-mapped GL caveat, transfer
+double-count gross only, role/menu/export restrictions.
+One source implementation edge case: build_cash_flow
+currently uses start.fromordinal(start.toordinal()-1)
+for opening, which raises for date.min 0001-01-01;
+fix safely and add an edge regression test when touching
+this service. Do not alter accounting posting.
+No database migration expected.
+
 ## Exact next work: continue, don't stop at phase boundary
 
-1. Read entire root handoff, verify current HEAD and latest CI.
-   Bank Activity/Association and earlier reports VERIFIED.
-2. Next original Accounting report Cash Flow; inspect posted
-   org-scoped GLEntry/GLTransaction, BankAccount/GLAccount mapping
-   and include_on_cash_flow/accounting_basis; explicitly
-   distinguish book cash movements from GAAP classified statement.
-   Never expose bank account/routing numbers; no bank feed
-   settlement or cleared-balance inference. Require ADMIN,
-   REPORTING.ALL, ACCOUNTING.BANK_ACCOUNTS,
-   ACCOUNTING.GL_ACCOUNTS, release.reporting.export.
-3. Add next canonical enhanced catalog entry, no-store preview,
-   server CSV/email, truthful date-range/book-balance labeling
-   and regression tests including foreign org, transfer/reversal
-   netting, user/menu/export revocation, no GL writes.
-4. Commit bounded product code with focused tests, verify all
-   six GitHub Actions jobs, fix failures autonomously, then
-   update this root handoff with exact tests/run/migration.
-5. Continue Cash Flow 12-Month next; no new branch, main edits,
-   unapproved docs edits or repeated verified work.
+1. Read full handoff and verify current HEAD/latest CI.
+   Cash Flow and earlier reports VERIFIED.
+2. Next original accounting report Cash Flow 12-Month:
+   reuse the verified bank-mapped posted GL Cash Flow,
+   12 complete calendar months with clear selected
+   ending month; distinguish book cash from classified
+   statement and bank cleared balance. Only org-scoped
+   ADMIN/REPORTING.ALL/BANK_ACCOUNTS/GL_ACCOUNTS;
+   release.reporting.export required on preview/CSV/email.
+3. Add focused rollover/transfer/reversal/role/foreign/
+   formula-escape/export tests, safe earliest-date handling;
+   Enhanced catalog, no-store preview and shared report
+   delivery. No private bank numbers, new GL writes
+   or fictitious property cash allocations.
+4. Bounded commit-then-CI; if red fix before other
+   features, record exact counts/CI/source head and
+   update ROOT handoff after full six-job success.
+5. Continue original Phase 3.7 Accounting reports
+   after Cash Flow 12-Month; no main/branch/frozen
+   docs changes or redoing verified work.
 
 ## Session start for successor
 
 Continue yasirskhan/property-platform branch
-chatgpt/checkpoint-005-safety. Read entire root AI_HANDOFF.md,
-verify current HEAD and CI. Last VERIFIED source
-73873fddb7fcf7aee7115d6de0d145fbb8d55ad9;
-CI 36323294362 all six SUCCESS (538 backend passed,
-3 deselected; 3 E2E passed in 9.95s).
+chatgpt/checkpoint-005-safety. Read ROOT AI_HANDOFF.md
+fully, verify actual HEAD and latest GitHub CI.
+Last VERIFIED source 5305d8d4cd6c80f7ecb5cf893dbbfe100c3f1b0f,
+CI 36323986765 SUCCESS all six: 541 backend passed,
+3 deselected; 3 E2E passed in 9.24s.
 Alembic d2f4a6c8e0b1 / 108 tables. Bank Account
-Activity and Bank Account Association VERIFIED; not repeated.
-Next original roadmap item Cash Flow, then Cash Flow 12-Month.
-Use posted bank-mapped GL book cash entries only;
-do not claim external cleared funds or expose plaintext
-bank account/routing fields. Include tests, full CI,
-update handoff. No main/new branch, no Work mode.
+Activity, Association, Cash Flow VERIFIED. Next
+original task Cash Flow 12-Month, then Expense
+Distribution. Preserve BankAccount secret redaction,
+posted bank-mapped book-cash semantics, org/role
+gates and source docs. Tests+CI before VERIFIED.
+No main/new branch, unapproved docs edits or Work mode.
