@@ -761,6 +761,29 @@ def preview_work_order_report(
     }
 
 
+@router.get("/account-totals/preview")
+def preview_account_totals(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Posted accrual GL aggregates only, no inferred bank balance."""
+    org_id = _require_report_access(
+        db, current_user=current_user, report_key="accounting.account_totals",
+    )
+    _require_export_feature(db, current_user)
+    data = _build_or_422(
+        db, organization_id=org_id, report_key="accounting.account_totals",
+        parameters=dict(request.query_params), current_user=current_user,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "title": data.title, "headers": data.headers,
+        "rows": data.rows, "total": len(data.rows),
+    }
+
+
 @router.get("/{report_key}/export.csv")
 def export_report_csv(
     report_key: str,

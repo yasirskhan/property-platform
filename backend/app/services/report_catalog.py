@@ -202,7 +202,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
     ),
 
     # Accounting
-    _standard("accounting.account_totals", "Account Totals", "Accounting"),
+    _standard(
+        "accounting.account_totals", "Account Totals", "Accounting",
+        href="/dashboard/reporting/account-totals",
+        description="Posted GL debit, credit and signed net by account (accrual basis only).",
+    ),
     _enhanced("accounting.balance_sheet", "Balance Sheet", "Accounting"),
     _standard("accounting.bank_activity", "Bank Account Activity", "Accounting"),
     _standard("accounting.bank_association", "Bank Account Association", "Accounting"),
