@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `fe0f0d44e129cb5dd21e7b6a0ea7d0b434e8fbed`
-- Source GitHub Actions run **36300269360: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `ecf5d652e0ec9ca2b0428934446e1073b8d6a629`
+- Source GitHub Actions run **36300632574: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **522 passed, 3 deselected, 8188 warnings in 91.93s**.
-  E2E: **3 passed in 10.58s**. Lint, typecheck, production build, security
+  Backend: **526 passed, 3 deselected, 8317 warnings in 107.50s**.
+  E2E: **3 passed in 8.74s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -19,13 +19,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   Previous head c1e3f5a7b9d2 / 107 tables. One explicit
   unit_inspection_records table added; PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Vendor Ledger (explicitly linked payable-bill register). VERIFIED.**
+  **Latest completed batch: Work Order Report. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Work Order report. Vendor Directory, Vendor Ledger, Owner Statement and earlier Phase 3.7 reports are VERIFIED.**
+- **Exact NEXT original-plan task: Accounting Account Totals report. Work Order, Vendor Ledger and earlier Phase 3.7 reports VERIFIED.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -76,6 +76,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Owner Packet frozen CSV backend + customer UI | 563596a7baf15ef3e8d5e46c8b8f71f2de29e47a, e170aeba1aa725d8d3c3c2a5c536351dcdc3386b, 2ff688a0c9b20a31cc2cf0ca39b886a8b565cc0f | 36274518298 | 446 backend passed / 3 E2E |
 | Vendor Directory (registered contact users) | 840a10ef8d4ecb791b24cb2ef09952f09b2c5cc7, 74fc8455d63d6dac52374ea74e3a8668aba58e71 | 36287404716 | 518 backend passed / 3 E2E |
 | Vendor Ledger (linked bill register) | fe0f0d44e129cb5dd21e7b6a0ea7d0b434e8fbed | 36300269360 | 522 backend passed / 3 E2E |
+| Work Order recorded summary | ecf5d652e0ec9ca2b0428934446e1073b8d6a629 | 36300632574 | 526 backend passed / 3 E2E |
 | Tenant delinquency live overdue rent invoices | 8a6a27ef3c248e394546bdb4e8a65c8ffa43e6b7, a644bd803787d3ffc9be36de4318a67915248364 | 36274961962 | 450 backend passed / 3 E2E |
 
 
@@ -1427,39 +1428,86 @@ MAINTENANCE.WORK_ORDERS plus export release gate on
 preview/CSV/email; no leak via foreign property_id probe.
 No migration expected if only existing WorkOrder rows.
 
+## Phase 3.7 Work Order Report — VERIFIED 2026-09-27
+
+Product source ecf5d652e0ec9ca2b0428934446e1073b8d6a629.
+CI 36300632574 SUCCESS six jobs: backend 526 passed,
+3 deselected, 8317 warnings in 107.50s; browser E2E
+3 passed in 8.74s; frontend lint/typecheck/production
+build, platform-admin, security, staging-config all green.
+Generic E2E smoke, not dedicated work-order interactions.
+No migration: d2f4a6c8e0b1 / 108 tables;
+frozen docs and planning parity unchanged.
+
+STANDARD maintenance.work_order links
+/dashboard/reporting/work-orders. No-store preview
+GET /api/reporting/work-orders/preview and existing server
+ReportPayload/CSV/email, release.reporting.export check,
+formula-escaped CSV. Current ADMIN/OWNER/MANAGER only
+with REPORTING.ALL and MAINTENANCE.WORK_ORDERS.
+Managers have active undeleted property assignments,
+all roles org scope plus active undeleted Property/Unit.
+Foreign/unassigned property-id probes fail closed.
+Allowed filters property_id, created date range, current
+status. Report uses REAL WorkOrder title/category/priority/
+status, property/unit references and recorded timestamp/
+total_cost fields ONLY. Excludes tenant ID, description,
+entry notes, photo URLs and activity history. Recorded cost
+is NOT a posted GL expense or bank payout; no GL writes,
+no invented inspection or project activities.
+Four focused regression tests cover privacy, org/manager
+scope, invalid filters, permission/export revocation,
+CSV formula escaping, preview, server CSV/email and
+no GL mutations. No unrelated work-order workflow change.
+
+NEXT ORIGINAL Section 38 Accounting reports:
+Account Totals, then Balance Sheet, Bank Account Activity,
+Bank Account Association, Cash Flow, Cash Flow 12 Month,
+then other listed reports. Existing Chart of Accounts,
+Trial Balance and per-account General Ledger VERIFIED;
+do not rebuild. Account Totals must reflect real posted
+org-scoped GL balances/period totals, including reversal
+entries, with explicit ACCRUAL vs CASH handling. Do not
+infer cash activity or historical snapshots from current
+editable fields. Review original document and
+reporting_basis/read-only GL services first; add tests
+and preserve posted accounting integrity.
+
 ## Exact next work: continue, don't stop at phase boundary
 
-1. Read root handoff, verify branch HEAD and CI; do not repeat
-   Vendor Directory, Vendor Ledger or earlier verified reports.
-2. Next original Section 38 item: Work Order report. Read
-   WorkOrder and existing /work-orders role/visibility contracts.
-   Use recorded org-scoped work orders, maintain manager live
-   assignment, avoid tenant entry/private notes/attachments and
-   all inferred or fictional inspection/payment data.
-3. Add canonical report catalog, no-store preview, strict
-   REPORTING.ALL / MAINTENANCE.WORK_ORDERS and
-   release.reporting.export, ReportPayload/shared CSV/email,
-   formula escaping; role/permission/cross-org/manager tests.
-   No GL writes, no migration unless strictly necessary.
-4. Commit bounded changes and focused regression tests,
-   verify six GitHub Actions jobs before marking VERIFIED,
-   fix CI reds autonomously. Update this handoff with actual
-   SHA, run, test counts, next original Section 38 report.
-5. No main/new branch, unapproved docs/ edits, repeated audits,
-   or Work mode. Continue after verified batch.
+1. Read complete root handoff; verify branch HEAD and CI.
+   Vendor Directory, Vendor Ledger, Work Order and prior
+   original-plan batches VERIFIED. Do not repeat.
+2. Next original Phase 3.7 Accounting report: Account Totals.
+   Read current GLAccount, GLEntry, GLTransaction, Trial
+   Balance, reporting_basis, route/report gating and tests.
+   Use immutable posted org-scoped entries and reversal
+   records. Clearly define cumulative as-of vs period totals.
+   Do not silently reinterpret CASH basis as full GL accrual,
+   and avoid showing all-org accounting to unscoped users.
+3. Add canonical report, no-store preview and shared
+   ReportPayload/CSV/email with REPORTING.ALL,
+   ACCOUNTING.GL_ACCOUNTS and release.reporting.export
+   rechecks. CSV formula escaping, scoped regression
+   tests and no GL writes. No migration if not needed.
+4. Commit bounded changes and focused tests, verify all
+   six GitHub Actions jobs before marking VERIFIED; fix
+   reds autonomously and record actual totals. Update
+   this handoff with exact SHA, CI, schema, next report.
+5. Continue roadmap in order. No main/new branch,
+   unapproved frozen docs, duplicate audits or Work mode.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform ONLY on branch
-chatgpt/checkpoint-005-safety. Read entire root AI_HANDOFF.md
-and verify HEAD/CI. Last VERIFIED source
-fe0f0d44e129cb5dd21e7b6a0ea7d0b434e8fbed;
-CI 36300269360 SUCCESS all six: backend 522 passed,
-3 deselected; E2E 3 passed in 10.58s.
-Alembic d2f4a6c8e0b1 / 108 tables. Vendor Directory,
-Vendor Ledger and previous reports VERIFIED.
-Exact next Section 38 Work Order report. Preserve
-work-order user role/property-assignment visibility,
-private entry-note restrictions, ReportPayload, backend
-release/menu gates, no GL writes, no unapproved docs.
-Include tests, verify CI, update root handoff.
+Continue yasirskhan/property-platform on
+chatgpt/checkpoint-005-safety. Read full root AI_HANDOFF.md
+and verify branch HEAD / CI. Last VERIFIED source
+ecf5d652e0ec9ca2b0428934446e1073b8d6a629;
+CI 36300632574 SUCCESS all six: backend 526 passed,
+3 deselected; E2E 3 passed in 8.74s.
+Alembic d2f4a6c8e0b1 / 108 tables.
+Owner & Vendor reports through Work Order VERIFIED.
+Next original Phase 3.7 report: Accounting Account Totals,
+then Balance Sheet. Preserve posted GL/basis/permission
+contracts, no unapproved docs edits. Include tests and
+hosted full CI verification; update root handoff.
