@@ -99,7 +99,7 @@ def test_recorded_unit_layout_and_flags_do_not_claim_vacancy_or_cash(monkeypatch
         csv = report_csv_bytes(result).decode("utf-8-sig")
         assert "'=Visible" in csv and "'=A" in csv
         assert "Foreign" not in csv and "Hidden" in csv
-        assert "vacancy" in result.title.lower()
+        assert "not verified occupancy" in result.title.lower()
         assert "Collected" not in " ".join(result.headers)
     finally:
         db.close(); engine.dispose()
