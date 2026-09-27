@@ -117,6 +117,7 @@ from app.models.property_budget import PropertyBudgetLine  # noqa: F401
 from app.models.property_group import PropertyGroup, PropertyGroupMembership  # noqa: F401
 from app.models.unit_inspection import UnitInspectionRecord  # noqa: F401
 from app.models.vendor import Vendor  # noqa: F401
+from app.models.vendor_insurance import VendorInsurance  # noqa: F401
 from app.models.letter_template import LetterTemplate  # noqa: F401
 from app.models.tax_profile import TaxProfile  # noqa: F401
 from app.models.tax_w9_document import TaxW9Document  # noqa: F401

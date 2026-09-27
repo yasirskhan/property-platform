@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { apiDelete, apiFetch, apiGet, apiPatch, apiPost } from "@/lib/api";
+import VendorInsurancePanel from "@/components/vendors/VendorInsurancePanel";
 
 type Vendor = {
   id: number; company_name: string; trade: string | null;
@@ -32,6 +33,7 @@ export default function VendorsPage() {
   const [contacts, setContacts] = useState<VendorContact[]>([]);
   const [draft, setDraft] = useState<VendorDraft>({ ...EMPTY });
   const [editing, setEditing] = useState<number | null>(null);
+  const [selectedVendor, setSelectedVendor] = useState<number | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -222,12 +224,16 @@ export default function VendorsPage() {
                     <td className="px-3 py-2">{v.business_email || "—"}</td>
                     <td className="px-3 py-2">{v.is_active ? "Active" : "Inactive"}</td>
                     <td className="px-3 py-2">
-                      {me?.role === "ADMIN" && <span className="flex gap-2">
+                      <span className="flex gap-2">
+                        <button type="button" className="underline"
+                          onClick={() => setSelectedVendor(v.id)}>Insurance</button>
+                        {me?.role === "ADMIN" && <>
                         {v.is_active && <button type="button" disabled={busy}
                           onClick={() => edit(v)} className="underline">Edit</button>}
                         <button type="button" disabled={busy} onClick={() => { void changeActive(v); }}
                           className="underline">{v.is_active ? "Deactivate" : "Restore"}</button>
-                      </span>}
+                      </>}
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -236,6 +242,8 @@ export default function VendorsPage() {
           </div>
         )}
       </section>
+      {selectedVendor !== null && <VendorInsurancePanel
+        vendorId={selectedVendor} canEdit={me?.role === "ADMIN"} />}
     </div>
   );
 }
