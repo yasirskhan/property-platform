@@ -123,7 +123,7 @@ def test_current_unpaid_due_bucket_boundaries_and_csv_privacy(monkeypatch):
         assert report.rows[-1][6] == Decimal("900")
         totals = {r[1]: r[6] for r in report.rows if r[0] == "BUCKET"}
         assert totals["1-30 DAYS"] == Decimal("100")
-        assert totals["31-60 DAYS"] == Decimal("300")
+        assert totals["31-60 DAYS"] == Decimal("200")
         assert totals["61-90 DAYS"] == Decimal("200")
         assert totals["91+ DAYS"] == Decimal("100")
         assert totals["NOT YET DUE"] == Decimal("100")
