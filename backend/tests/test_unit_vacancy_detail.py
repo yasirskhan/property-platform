@@ -138,6 +138,9 @@ def test_manager_scope_foreign_probes_revocation_and_overlapping_lease(monkeypat
         db.commit()
         with pytest.raises(ReportDeliveryError, match="Overlapping"):
             _payload(db, admin)
+        # Restore valid leases before testing independent permission revocation.
+        db.query(Lease).filter(Lease.unit_id == active.id).order_by(Lease.id.desc()).first().status = LeaseStatus.TERMINATED
+        db.commit()
         monkeypatch.setattr(rent_roll, "permission_allows_user",
                             lambda db, *, user, menu_key: menu_key != "LEASING")
         with pytest.raises(ReportDeliveryError, match="permission"):
