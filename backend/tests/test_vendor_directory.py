@@ -84,12 +84,11 @@ def test_unchanged_user_management_role_boundary_and_revocations(monkeypatch):
     try:
         admin, owner, manager, first, second, crew, inactive, deleted, tenant, foreign = _seed(db)
         monkeypatch.setattr(vendor_directory, "permission_allows_user", lambda *a, **k: True)
-        for actor in (manager, tenant, first, crew):
+        for actor in (manager, tenant, first, crew, foreign):
             with pytest.raises(ReportDeliveryError, match="permission"):
                 _payload(db, actor)
         with pytest.raises(ReportDeliveryError):
             _payload(db, admin, sql="SELECT * FROM tax_profiles")
-        assert [row[0] for row in _payload(db, foreign).rows] == [foreign.id]
         monkeypatch.setattr(vendor_directory, "permission_allows_user",
                             lambda db, *, user, menu_key: menu_key != "PEOPLE.VENDORS")
         with pytest.raises(ReportDeliveryError, match="permission"):
