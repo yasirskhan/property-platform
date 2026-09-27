@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException, Response
 from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 import init_db  # noqa: F401
@@ -139,10 +140,12 @@ def test_scope_permissions_invalid_mapping_and_duplicate_guard(monkeypatch):
         db.flush()
         with pytest.raises(ReportDeliveryError, match="mapping"):
             _report(db, admin, as_of="2026-09-30")
+        # The database already enforces one org bank mapping per GL:
+        # invalid duplicate state cannot be created in normal operation.
         escrow.gl_account_id = operating.id
-        db.flush()
-        with pytest.raises(ReportDeliveryError, match="Duplicate"):
-            _report(db, admin, as_of="2026-09-30", bank_id=str(bank.id))
+        with pytest.raises(IntegrityError, match="UNIQUE constraint"):
+            db.flush()
+        db.rollback()
         escrow.gl_account_id = other.gl_account_id
         db.flush()
         with pytest.raises(ReportDeliveryError, match="mapping"):
