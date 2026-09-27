@@ -166,7 +166,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/unit-inspections",
         description="Explicit staff-recorded dated unit inspection entries; not Phase 5 mobile inspections.",
     ),
-    _standard("property.unit_vacancy_detail", "Unit Vacancy Detail", "Property & Unit"),
+    _standard(
+        "property.unit_vacancy_detail", "Unit Vacancy Detail", "Property & Unit",
+        href="/dashboard/reporting/unit-vacancy-detail",
+        description="Units without an eligible currently recorded lease; not verified physical vacancy.",
+    ),
 
     # Owner and vendor
     _standard("owner.directory", "Owner Directory", "Owner & Vendor"),

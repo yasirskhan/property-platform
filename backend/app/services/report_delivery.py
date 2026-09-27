@@ -54,6 +54,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "property.rent_roll": "LEASING",
     "property.unit_directory": "PROPERTIES.UNITS",
     "property.unit_inspection": "PROPERTIES.UNITS",
+    "property.unit_vacancy_detail": "PROPERTIES.UNITS",
 }
 
 
@@ -445,6 +446,14 @@ def build_report_payload(
             raise ReportDeliveryError("Authenticated unit inspection report required")
         from app.services.unit_inspections import build_inspection_report
         return build_inspection_report(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "property.unit_vacancy_detail":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated unit vacancy detail required")
+        from app.services.unit_vacancy_detail import build_unit_vacancy_detail
+        return build_unit_vacancy_detail(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
         )
