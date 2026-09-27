@@ -460,6 +460,29 @@ def preview_property_group_directory(
     }
 
 
+@router.get("/rent-roll/preview")
+def preview_rent_roll(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Current recorded lease associations; not historical occupancy or collections."""
+    org_id = _require_report_access(
+        db, current_user=current_user, report_key="property.rent_roll",
+    )
+    _require_export_feature(db, current_user)
+    data = _build_or_422(
+        db, organization_id=org_id, report_key="property.rent_roll",
+        parameters=dict(request.query_params), current_user=current_user,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "title": data.title, "headers": data.headers,
+        "rows": data.rows, "total": len(data.rows),
+    }
+
+
 @router.get("/property-performance/preview")
 def preview_property_performance(
     request: Request,

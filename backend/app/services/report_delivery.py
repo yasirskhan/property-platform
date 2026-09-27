@@ -51,6 +51,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "property.directory": "PROPERTIES.ALL",
     "property.group_directory": "PROPERTIES.GROUPS",
     "property.performance": "ACCOUNTING.GL_ACCOUNTS",
+    "property.rent_roll": "LEASING",
 }
 
 
@@ -418,6 +419,14 @@ def build_report_payload(
             raise ReportDeliveryError("Authenticated property performance report required")
         from app.services.property_performance import build_property_performance
         return build_property_performance(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "property.rent_roll":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated rent roll required")
+        from app.services.rent_roll import build_rent_roll
+        return build_rent_roll(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
         )

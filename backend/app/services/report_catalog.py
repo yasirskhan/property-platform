@@ -151,7 +151,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/property-performance",
         description="Posted property-tagged accrual GL income, expenses and net; not cash or return on investment.",
     ),
-    _enhanced("property.rent_roll", "Rent Roll", "Property & Unit"),
+    _enhanced(
+        "property.rent_roll", "Rent Roll", "Property & Unit",
+        href="/dashboard/reporting/rent-roll",
+        description="Current recorded unit/lease rent; no collection or historical occupancy inferred.",
+    ),
     _standard("property.unit_directory", "Unit Directory", "Property & Unit"),
     _standard("property.unit_inspection", "Unit Inspection", "Property & Unit"),
     _standard("property.unit_vacancy_detail", "Unit Vacancy Detail", "Property & Unit"),
