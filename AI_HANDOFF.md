@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `cc0d81971de51bf6b7c0b3cb3d0963b085514e8b`
-- Source GitHub Actions run **36330600066: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `0494f6a14bc8ee835837d87c5832995609b52c8f`
+- Source GitHub Actions run **36332054459: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **569 passed, 3 deselected, 10772 warnings in 97.78s**.
-  E2E: **3 passed in 9.19s**. Lint, typecheck, production build, security
+  Backend: **575 passed, 3 deselected, 11004 warnings in 93.50s**.
+  E2E: **3 passed in 10.62s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -19,13 +19,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   Previous head c1e3f5a7b9d2 / 107 tables. One explicit
   unit_inspection_records table added; PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Charge Detail report. VERIFIED.**
+  **Latest completed batch: Check Register Detail. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Transaction Check Register, then Check Register Detail. Charge Detail, Bill Detail, Aged Payables, Aged Receivables and earlier reports VERIFIED.**
+- **Exact NEXT original-plan task: Transaction Deposit Register, then Expense Register and Income Register. Check Register, Check Register Detail, Charge Detail, Bill Detail, Aged Payables, Aged Receivables and earlier reports VERIFIED.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -91,6 +91,8 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Aged Receivables (current rent invoice due aging) | 7af730729cd126b61331caf0b170b7e290eee0c9, d1e2b0501602c33d61a9c901791286eef6a771cd, 545894bbe5f6acbef78a5b37ee58c707f55f5a81 | 36329631501 | 563 backend passed / 3 E2E; test-only second-property bucket correction |
 | Bill Detail (posted bill header and verified lines) | bed121f5796aedd3c6985f5bda972e8dded32d45 | 36330083012 | 566 backend passed / 3 E2E |
 | Charge Detail (standalone charges incl paid/credit) | cc0d81971de51bf6b7c0b3cb3d0963b085514e8b | 36330600066 | 569 backend passed / 3 E2E |
+| Check Register (issue/void, bank-safe) | 1597120b55d45a37d17bc1baddf4c663abaec4b2 | 36331055801 | 572 backend passed / 3 E2E |
+| Check Register Detail (recorded allocations) | 9a1dd5dc941bb4a1043b7c367c072f3d4a54d61e, 0494f6a14bc8ee835837d87c5832995609b52c8f | 36332054459 | 575 backend passed / 3 E2E; first registration CI red corrected |
 | Tenant delinquency live overdue rent invoices | 8a6a27ef3c248e394546bdb4e8a65c8ffa43e6b7, a644bd803787d3ffc9be36de4318a67915248364 | 36274961962 | 450 backend passed / 3 E2E |
 
 
@@ -2161,45 +2163,103 @@ do not pretend issued checks have cleared bank,
 and do not repeat check total on child allocations.
 Preserve permissions and release gate; no writes.
 
+
+## Phase 3.7 Check Register and Check Register Detail — VERIFIED 2026-09-27
+
+Check Register source 1597120b55d45a37d17bc1baddf4c663abaec4b2,
+CI 36331055801 SUCCESS all six jobs, backend 572 passed,
+3 deselected, 10902 warnings in 122.35s; E2E 3 passed in 8.46s.
+No migration, head d2f4a6c8e0b1 /108 model tables.
+
+Check Register Detail source 9a1dd5dc941bb4a1043b7c367c072f3d4a54d61e,
+authorization/catalog/delivery registration fix
+0494f6a14bc8ee835837d87c5832995609b52c8f.
+Initial run 36331816602 FAILED three new focused tests because
+the initial tree omitted three modified existing registration files;
+backend 572 passed, 3 failed, 3 deselected, 11004 warnings.
+Corrective commit includes reporting router, catalog and dispatcher.
+Final source CI 36332054459 SUCCESS six jobs; backend 575 passed,
+3 deselected, 11004 warnings in 93.50s; E2E 3 passed in
+10.62s, frontend/platform-admin/security/staging all green.
+E2E remains the generic authenticated browser smoke, not
+dedicated interaction coverage. No schema change, Alembic
+d2f4a6c8e0b1/108 tables, frozen docs/parity unchanged.
+
+STANDARD transaction.check_register is at
+/dashboard/reporting/check-register; GET
+/api/reporting/check-register/preview; existing server CSV/email
+with export gate. Only active org ADMIN, REPORTING.ALL,
+ACCOUNTING.BANK_ACCOUNTS + ACCOUNTING.PAYABLES. Validates
+same-org BankAccount -> ASSET GL and original CHECK GLTransaction,
+verified status and VOID reversal marker, capped filters, no-store;
+exports bank display name only (never routing/account number).
+An ISSUED check is NOT a cleared check; no bank settlement inference.
+
+STANDARD transaction.check_register_detail is at
+/dashboard/reporting/check-register-detail; GET
+/api/reporting/check-register-detail/preview; existing
+ReportPayload/CSV/email, release.reporting.export and no-store.
+Reuses verified check-register filters/issue/void/authorization
+and excludes foreign bills/invalid allocations. CHECK row has one
+nominal total, ALLOCATION rows show bill ID/number and their
+recorded amounts without repeating nominal total. Checks
+allocation sum agrees with nominal check amount, refuses
+negative/overprecision and cross-org bill ID. No GL writes,
+bank secrets or historic bill payment reconstruction.
+Three focused regression tests cover sums/invalid/foreign
+allocation, role/filter protections, CSV formula escaping,
+preview/email and live gate/permission revocation. No new
+schema or parallel reporting implementation.
+
+NEXT original Transaction report Deposit Register. Inspect
+existing Deposit/DepositLine/Receipt/deposit_posting.
+Deposits group existing posted receipts; deposits DO NOT post
+new GL transactions or prove external bank settlement.
+Deposit.bank_gl_account_id points to a GL account, not directly
+to a BankAccount. Do not accidentally claim bank reconciliation,
+double count posted receipts or expose routing/account numbers.
+Validate same-org GL and included receipt/line org scope and
+recorded totals; historical reversal/archived statuses must
+be explicit. No mutation, report/admin/export gates, no-store
+preview, CSV/email, focused tests. Only after six-job CI green,
+continue Expense Register and Income Register in plan order.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Re-read entire root handoff, verify current branch
-   HEAD and CI. Charge Detail, Bill Detail, Aged
-   Receivables and Aged Payables VERIFIED, no repeats.
-2. Implement original Phase 3.7 Transaction Check Register:
-   current issued/void check records backed by same-org
-   bank and GLTransaction. Never expose routing/account
-   numbers; bank display name only, status ISSUE/VOID,
-   date/check number, payee/amount and valid reversal
-   markers. Do not infer cleared bank settlement.
-   Authorize ADMIN/REPORTING.ALL/
-   ACCOUNTING.BANK_ACCOUNTS/ACCOUNTING.PAYABLES,
-   gate shared CSV/email via release.reporting.export.
-   Add no-store preview, bounded optional filters,
-   cross-org and forged status/GL tests and no GL writes.
-3. After six-job CI green, update handoff with exact
-   source SHA, test counts, migration and next task.
-   Then original Check Register Detail (allocations),
-   Deposit Register, Expense Register, Income Register,
-   Journal Entry Register in original order.
-4. No main/new branch, Work mode, unapproved docs
-   edits or rebuilding verified work. Commit bounded
-   source+tests, fix CI errors autonomously.
+1. Re-read complete root handoff and verify HEAD/latest CI.
+   Both Check Register reports are VERIFIED. Do not repeat.
+2. Implement Phase 3.7 Transaction Deposit Register.
+   Use Deposit/DepositLine/Receipt and validated same-org
+   GL account. Deposits are receipt groupings and never
+   independent GL postings or evidence of bank clearance.
+   Capped filters, active/deleted/reversed handling, verify
+   same-org receipt records/nominal total and provide
+   no-store server preview + shared CSV/email export gate.
+   ADMIN REPORTING.ALL, ACCOUNTING.DEPOSITS and
+   ACCOUNTING.GL_ACCOUNTS, tests for crossed org, invalid
+   source/mapping, permissions, export gate and no GL write.
+3. After six-job CI green update handoff with exact source
+   SHA, test totals, E2E result, migration and next task.
+   Continue original Expense Register, Income Register,
+   Journal Entry Register in order without approval waits.
+4. Do not touch main or create branches, do not edit
+   frozen docs/ or parity, and do not rebuild verified batches.
+   Use bounded commit plus GitHub Actions verification.
 
 ## Session start for successor
 
 Continue yasirskhan/property-platform on
-chatgpt/checkpoint-005-safety. Read full
-root AI_HANDOFF.md, verify HEAD and last CI.
-Last VERIFIED source cc0d81971de51bf6b7c0b3cb3d0963b085514e8b;
-CI 36330600066 all six jobs success (569 backend passed,
-3 deselected; 3 E2E passed in 9.19s). Alembic
-d2f4a6c8e0b1 /108 model tables. Charge Detail,
-Bill Detail, Aged Receivables/Payables and previous
-batches VERIFIED. Next original Phase 3.7 Transaction
-Check Register, then Check Register Detail. Preserve
-financial integrity, org/role/menu and export gates;
-never expose bank account/routing numbers or claim
-unverified cleared checks. User approved commit+CI
-verification; update handoff after meaningful verified
-batch. No main/new branch, Work mode or frozen docs edits.
+chatgpt/checkpoint-005-safety. Read complete root
+AI_HANDOFF.md and verify current HEAD and latest CI.
+Last VERIFIED source 0494f6a14bc8ee835837d87c5832995609b52c8f,
+CI 36332054459 SUCCESS (575 backend passed, 3 deselected,
+3 browser E2E passed; six jobs green). Alembic
+d2f4a6c8e0b1 /108 tables. Check Register and
+Check Register Detail VERIFIED; do not repeat.
+NEXT original Phase 3.7 Deposit Register, then
+Expense Register, Income Register and Journal Entry Register.
+Preserve GL/org/bank security/report gating; deposits do
+not move GL or prove clearing. Commit bounded tests/code,
+verify full CI before marking COMPLETE, update root handoff,
+continue without waiting. No main/new branch/Work mode or
+unapproved docs edits.
