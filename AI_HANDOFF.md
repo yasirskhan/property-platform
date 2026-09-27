@@ -7,25 +7,25 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `b90fd3deab170009e5b577f90f085ff98e034630`
-- Source GitHub Actions run **36339917953: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `a607c8c370fa42f44e897a34a7667dd46c30ce69`
+- Source GitHub Actions run **36340860778: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **601 passed, 3 deselected, 11898 warnings in 72.39s**.
-  E2E: **3 passed in 8.96s**. Lint, typecheck, production build, security
+  Backend: **604 passed, 3 deselected, 11960 warnings in 133.93s**.
+  E2E: **3 passed in 10.77s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **c1d3e5f7a9b0**. SQLAlchemy expected model tables: **110**.
-  Previous head b0c2d4e6f8a1 / 110 tables. One nullable WorkOrder
-  vendor-company FK added; PostgreSQL/bootstrap/legacy CI passed.
+- Alembic head: **d2e4f6a8b0c1**. SQLAlchemy expected model tables: **111**.
+  Previous head c1d3e5f7a9b0 / 110 tables. One organization-owned
+  contacts table added; PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4 WorkOrder company link and staff vendor picker. VERIFIED.**
+  **Latest completed batch: Phase 4 independent Contacts directory. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Phase 4 Contacts (non-vendor/non-tenant), then Universal Tags, then People import/export. Vendor company, insurance, Bill and WorkOrder pickers VERIFIED. External Avalara/IRIS 1099 acceptance and recipient copies still await operator provider credentials.**
+- **Exact NEXT original-plan task: Phase 4 Universal Tags, then People import/export. Contacts, Vendor company/insurance, Bill and WorkOrder pickers VERIFIED. External Avalara/IRIS 1099 acceptance and recipient copies still await operator provider credentials.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -102,6 +102,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Phase 4 vendor trade/insurance filters | b40d94b3861809d4cfd5bb563a21bd6a4e524476, 0d32310911be49c9133ba002d19fdfdb9fce7e9a, 87ed9dd1396686065c9596622173297628b2ace2 | 36338819609 | 596 backend passed / 3 E2E |
 | Phase 4 explicit Bill Vendor FK and customer picker | 7a8d30733480a31fb476391a923759d92242c043, 5064b41a2f996d783fd25346a476c0a55c1b4a5a | 36339328334 | 599 backend passed / 3 E2E |
 | Phase 4 WorkOrder explicit Vendor FK and staff selector | c14e3c7d0a8a08257e9177247c56a7d1093424fd, b90fd3deab170009e5b577f90f085ff98e034630 | 36339917953 | 601 backend passed / 3 E2E |
+| Phase 4 independent Contacts directory and customer CRUD | b91ec3c38055272ae97a81a2e16630e87cd98ac7, be1d1f84cac32a136202e8e17651161a63316fd3, a607c8c370fa42f44e897a34a7667dd46c30ce69 | 36340860778 | 604 backend passed / 3 E2E; fixed existing async toggle E2E race |
 | Tenant delinquency live overdue rent invoices | 8a6a27ef3c248e394546bdb4e8a65c8ffa43e6b7, a644bd803787d3ffc9be36de4318a67915248364 | 36274961962 | 450 backend passed / 3 E2E |
 
 
@@ -2598,51 +2599,86 @@ NEXT original plan Phase 4 People — Contacts / Tags:
   data from general exports. Include tests and
   verify full six-job CI. No extra docs/ changes.
 
+
+## Phase 4 Contacts directory — VERIFIED 2026-09-27
+
+Backend/model/migration/regressions b91ec3c38055272ae97a81a2e16630e87cd98ac7;
+customer UI be1d1f84cac32a136202e8e17651161a63316fd3;
+existing browser E2E test-only race correction
+a607c8c370fa42f44e897a34a7667dd46c30ce69.
+Full source CI 36340860778 SUCCESS all six jobs:
+backend 604 passed, 3 deselected, 11960 warnings in 133.93s;
+authenticated E2E 3 passed in 10.77s; frontend
+lint/typecheck/build, platform-admin, security, staging-config green.
+Initial CI 36340447416 backend 604 passed, but browser E2E
+failed existing Features "Map view" toggle reload test because
+it reloaded before the optimistic PUT response; test-only correction
+awaits the actual successful PUT before reload. No Features
+implementation changed. Earlier superseded runs cancelled.
+E2E generic smoke, not dedicated Contacts UI interaction coverage.
+
+Alembic d2e4f6a8b0c1 creates one contacts table,
+111 expected model tables; bootstrap/legacy/PostgreSQL guards green.
+Independent organization-owned non-login Contact PERSON/BUSINESS
+with recorded name, company, email, phone, job title, mailing address.
+No automatic User, Vendor, Bill, tax-profile or W-9 links.
+Authenticated GET/POST/PATCH/DELETE/restore /api/contacts,
+admin writes, ADMIN/OWNER/MANAGER permitted read with PEOPLE.CONTACTS;
+nonstaff denied, inactive/deleted actors denied, cross-org IDs 404.
+Bounded case-insensitive search, soft deactivation/restore,
+no-store reads, append-only audit without contact PII.
+Frontend /dashboard/contacts is preexisting PEOPLE.CONTACTS
+menu destination. Form/directory supports add/edit/search/archive/
+restore; unauthorized writes blocked by backend. Three focused
+tests cover isolation, roles, revocation, audit, input validation
+and no user/vendor mutations. Frozen docs/ and planning parity unchanged.
+
+NEXT original Phase 4: Universal Tags, then People import/export.
+Reuse verified generic entity_notes.resolve_note_target for
+organization/permission/property scope and explicit safelist
+of supported target entities; do not allow arbitrary table names,
+tax data or cross-org targets. Tag definitions and scoped link
+rows must be durable, audited and duplicate-safe. Keep staff
+target permissions and user-visible picker on actual entities.
+Existing Contacts non-login records should use PEOPLE.CONTACTS
+when resolving generic notes/tags for assigned managers.
+No GL/posting mutation, no tax identifiers or unencrypted W-9s.
+Do not invent generalized bulk imports before tags verified.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Read current root handoff and verify live branch HEAD,
-   latest six-job CI. All prior Phase 4 Vendor and
-   WorkOrder link/picker batches VERIFIED. Do not repeat.
-2. Original Phase 4 People — Contacts (non-vendor,
-   non-tenant): implement bounded organization-owned
-   contacts directory (not User login/vendor company),
-   authenticated list/search/CRUD, soft deactivation,
-   audit, permission and appropriate customer UI.
-   Preserve personal-data privacy, org and role scope,
-   no tax/financial/GL data or user impersonation.
-   Inspect existing contact models/permissions and
-   reuse prior vendor patterns; include migration and
-   targeted regression tests.
-3. After full CI green update root handoff, then
-   Universal Tags, then People import/export in
-   original roadmap order. Tags must use audited
-   existing entity-authorization, no raw arbitrary
-   foreign keys or cross-org leakage.
-4. User-approved bounded code+tests commit then
-   hosted GitHub Actions; never claim VERIFIED
-   until full six-job green with exact counts.
-   Fix CI failures autonomously before next batch.
-   No main/new branch/Work/unapproved frozen docs.
-5. External 1099 sandbox/provider acceptance and
-   recipient copies remain credential-dependent and
-   NOT represented as submitted or verified.
-
+1. Read root handoff, verify live HEAD and latest full six-job CI.
+   Contacts, Vendor/insurance, Bill and WorkOrder link/pickers VERIFIED;
+   do not repeat them.
+2. Next Phase 4 Universal Tags. Implement org-scoped tag definitions
+   and audited target links, explicit supported entity safelist,
+   reuse verified notes target scope/property/menu authorization,
+   deny secret tax entities and foreign IDs. Provide reusable
+   authenticated customer picker (Contacts, Vendor where authorized).
+   Active/archived and duplicate behavior clearly defined; bounded
+   queries and regression tests, appropriate migration guards.
+3. After full CI green, refresh root handoff and continue original
+   People import/export; import must dry-run, map columns and validate
+   org-scoped nonlogin Contacts; protect vendor/tax identity and avoid
+   silent mutations. Export rechecks live permissions and escapes
+   spreadsheet formulas.
+4. No main/new branch/Work/unapproved frozen docs/parity edits.
+   Commit bounded code+tests, verify hosted GitHub Actions
+   (all six jobs), fix reds and record actual counts.
+   External 1099 provider/IRS acceptance remains unverified.
+   
 ## Session start for successor
 
-Continue yasirskhan/property-platform on
+Continue yasirskhan/property-platform,
 chatgpt/checkpoint-005-safety. Read entire repo-root
-AI_HANDOFF.md and verify actual HEAD/latest six-job CI.
-Last VERIFIED product source:
-b90fd3deab170009e5b577f90f085ff98e034630;
-CI 36339917953 SUCCESS, 601 backend passed,
-3 deselected, 3 browser E2E passed; six jobs green.
-Alembic c1d3e5f7a9b0 / 110 model tables.
-WorkOrder vendor company link/staff selector and all
-previous Vendor, Bill, Phase 3.7 reporting VERIFIED.
-NEXT original Phase 4: Contacts non-tenant/non-vendor
-(non-login directory), followed by Universal Tags
-and People import/export. Preserve org isolation,
-role/menu permissions, immutable audit, no GL
-or tax data leak. No main/frozen docs edits.
-Product code + focused tests committed to existing
-branch, CI verification then handoff; continue.
+AI_HANDOFF.md, verify live HEAD/latest CI.
+Last VERIFIED source a607c8c370fa42f44e897a34a7667dd46c30ce69;
+CI 36340860778 SUCCESS all six jobs: 604 backend passed,
+3 deselected; 3 browser E2E passed.
+Alembic d2e4f6a8b0c1 / 111 model tables.
+Independent Phase 4 Contacts directory and all preceding
+reports/Vendor/Bill/WorkOrder batches VERIFIED.
+NEXT Universal Tags, followed by People import/export.
+Reuse entity_notes target scope and permissions, protect tax
+data and foreign organizations; no unapproved frozen docs or
+main changes. Commit+GitHub-CI, keep handoff current.
