@@ -16,6 +16,10 @@ from app.models.gl_transaction import GLTransaction
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
 from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority
+from app.models.vendor import Vendor
+from app.models.audit_log import AuditLog
+from app.routers import work_orders as work_order_routes
+from app.schemas.work_order import WorkOrderVendorAssign
 from app.services import work_order_report
 from app.services.report_catalog import REPORT_CATALOG
 from app.services.report_delivery import ReportDeliveryError, build_report_payload, report_csv_bytes
@@ -193,3 +197,99 @@ def test_catalog_csv_email_preview_and_release_revocation(monkeypatch):
         assert exc.value.status_code == 403
     finally:
         db.close(); engine.dispose()
+
+
+
+def test_work_order_company_selector_is_scoped_and_preserves_crew(monkeypatch):
+    db, engine = _session()
+    try:
+        admin, owner, manager, tenant, foreign, p1, p2, p3, first, second, third = _seed(db)
+        from app.routers import vendors
+        monkeypatch.setattr(vendors, "permission_allows_user", lambda *a, **k: True)
+        monkeypatch.setattr(work_order_routes, "permission_allows_user", lambda *a, **k: True)
+        local = Vendor(organization_id=admin.organization_id, company_name="Local HVAC",
+                       is_active=True)
+        overseas = Vendor(organization_id=foreign.organization_id, company_name="Foreign",
+                          is_active=True)
+        db.add_all([local, overseas])
+        db.commit()
+        visible = work_order_routes.list_vendor_assignments(db=db, current_user=admin)
+        assert {o.id for o in visible} == {first.id, second.id}
+        assert all(not hasattr(o, "tenant_id") and not hasattr(o, "entry_notes") for o in visible)
+        before_crew = first.assigned_to_id
+        before_status = first.status
+        created = work_order_routes.set_work_order_vendor(
+            first.id, WorkOrderVendorAssign(vendor_id=local.id), db=db, current_user=admin,
+        )
+        assert created.vendor_id == local.id
+        assert first.assigned_to_id == before_crew
+        assert first.status == before_status
+        assert db.query(GLTransaction).count() == 0
+        assert [a.action for a in db.query(AuditLog).filter(
+            AuditLog.entity_type == "work_order").all()] == ["vendor_assigned"]
+        work_order_routes.set_work_order_vendor(
+            first.id, WorkOrderVendorAssign(vendor_id=None), db=db, current_user=admin,
+        )
+        assert first.vendor_id is None
+        assert db.query(WorkOrder).count() == 3
+        for actor in (manager, tenant):
+            with pytest.raises(HTTPException) as exc:
+                work_order_routes.list_vendor_assignments(db=db, current_user=actor)
+            assert exc.value.status_code == 403
+        with pytest.raises(HTTPException) as exc:
+            work_order_routes.set_work_order_vendor(
+                third.id, WorkOrderVendorAssign(vendor_id=local.id),
+                db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 404
+        with pytest.raises(HTTPException) as exc:
+            work_order_routes.set_work_order_vendor(
+                first.id, WorkOrderVendorAssign(vendor_id=overseas.id),
+                db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 404
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_work_order_company_link_denies_inactive_vendor_finished_and_revoked(monkeypatch):
+    db, engine = _session()
+    try:
+        admin, owner, manager, tenant, foreign, p1, p2, p3, first, second, third = _seed(db)
+        from app.routers import vendors
+        monkeypatch.setattr(vendors, "permission_allows_user", lambda *a, **k: True)
+        monkeypatch.setattr(work_order_routes, "permission_allows_user", lambda *a, **k: True)
+        local = Vendor(organization_id=admin.organization_id, company_name="Inactive",
+                       is_active=False)
+        db.add(local)
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            work_order_routes.set_work_order_vendor(
+                first.id, WorkOrderVendorAssign(vendor_id=local.id),
+                db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 404
+        with pytest.raises(HTTPException) as exc:
+            work_order_routes.set_work_order_vendor(
+                second.id, WorkOrderVendorAssign(vendor_id=None),
+                db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        monkeypatch.setattr(work_order_routes, "permission_allows_user", lambda *a, **k: False)
+        with pytest.raises(HTTPException) as exc:
+            work_order_routes.set_work_order_vendor(
+                first.id, WorkOrderVendorAssign(vendor_id=None),
+                db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 403
+        admin.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            work_order_routes.list_vendor_assignments(db=db, current_user=admin)
+        assert exc.value.status_code == 403
+        assert first.vendor_id is None
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()

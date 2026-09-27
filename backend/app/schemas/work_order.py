@@ -48,6 +48,19 @@ class WorkOrderUpdateFields(BaseModel):
 # ============================================================
 # WORK ORDER — ASSIGN
 # ============================================================
+class WorkOrderVendorAssign(BaseModel):
+    vendor_id: Optional[int] = Field(default=None, ge=1)
+
+
+class WorkOrderVendorOut(BaseModel):
+    id: int
+    property_id: int
+    title: str
+    status: WorkOrderStatus
+    assigned_to_id: Optional[int] = None
+    vendor_id: Optional[int] = None
+
+
 class WorkOrderAssign(BaseModel):
     """Payload to assign a work order to a crew member."""
     crew_user_id: int
