@@ -45,7 +45,7 @@ def build_expense_register(
             raise ReportDeliveryError("Expense Register permission required")
     if get_accounting_basis(db, organization_id=organization_id) != "ACCRUAL":
         raise ReportDeliveryError(
-            "Expense Register requires ACCRUAL basis; cash-basis expense classification unavailable"
+            "Expense Register requires ACCRUAL basis; CASH-basis expense classification unavailable"
         )
     start = _date_param(parameters, "date_from")
     end = _date_param(parameters, "date_to")
