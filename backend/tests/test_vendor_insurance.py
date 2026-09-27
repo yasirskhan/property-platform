@@ -51,12 +51,13 @@ def _seed(db):
 
 
 def _policy(**kw):
-    return VendorInsuranceCreate(
+    values = dict(
         carrier=" Insurer Ltd ", coverage_type="General liability",
         policy_number="GL-100", coverage_amount=Decimal("1000000.00"),
         effective_date=date(2026, 1, 1), expiration_date=date(2026, 10, 1),
-        **kw,
     )
+    values.update(kw)
+    return VendorInsuranceCreate(**values)
 
 
 def test_policy_lifecycle_expiry_status_audit_and_no_gl_postings(monkeypatch):
