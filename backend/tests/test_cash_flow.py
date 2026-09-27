@@ -211,3 +211,17 @@ def test_catalog_preview_export_email_gate_and_no_store(monkeypatch):
         assert exc.value.status_code == 403
     finally:
         db.close(); engine.dispose()
+
+
+
+def test_earliest_iso_date_has_zero_opening_and_never_underflows(monkeypatch):
+    db, engine = _session()
+    try:
+        admin, *_ = _seed(db)
+        monkeypatch.setattr(cash_service, "permission_allows_user", lambda *a, **k: True)
+        result = _report(db, admin, date_from="0001-01-01", date_to="0001-01-31")
+        assert result.rows[-1][3:] == (
+            Decimal("0"), Decimal("0"), Decimal("0"), Decimal("0"), Decimal("0"),
+        )
+    finally:
+        db.close(); engine.dispose()

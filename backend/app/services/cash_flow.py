@@ -31,7 +31,7 @@ HEADERS = (
 
 def _account_totals(
     db: Session, *, organization_id: int, gl_ids: tuple[int, ...],
-    date_from=None, date_to=None,
+    date_from=None, date_to=None, before_date=None,
 ) -> dict[int, tuple[Decimal, Decimal]]:
     if not gl_ids:
         return {}
@@ -50,6 +50,8 @@ def _account_totals(
         entries = entries.filter(GLTransaction.transaction_date >= date_from)
     if date_to is not None:
         entries = entries.filter(GLTransaction.transaction_date <= date_to)
+    if before_date is not None:
+        entries = entries.filter(GLTransaction.transaction_date < before_date)
     return {
         int(account_id): (Decimal(debit or 0), Decimal(credit or 0))
         for account_id, debit, credit in entries.group_by(GLEntry.gl_account_id).all()
@@ -99,7 +101,7 @@ def build_cash_flow(
     gl_ids = tuple(gl.id for _, gl in cash_banks)
     opening = _account_totals(
         db, organization_id=organization_id, gl_ids=gl_ids,
-        date_to=start.fromordinal(start.toordinal() - 1),
+        before_date=start,
     )
     period = _account_totals(
         db, organization_id=organization_id, gl_ids=gl_ids,

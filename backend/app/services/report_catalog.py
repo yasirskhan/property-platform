@@ -227,7 +227,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/cash-flow",
         description="Bank-mapped posted GL book cash movement, not a classified or audited cash-flow statement.",
     ),
-    _enhanced("accounting.cash_flow_12_month", "Cash Flow 12-Month", "Accounting"),
+    _enhanced(
+        "accounting.cash_flow_12_month", "Cash Flow 12-Month", "Accounting",
+        href="/dashboard/reporting/cash-flow-12-month",
+        description="Twelve monthly snapshots of bank-mapped posted GL book cash, not a classified statement.",
+    ),
     _standard(
         "accounting.chart_of_accounts",
         "Chart of Accounts",
