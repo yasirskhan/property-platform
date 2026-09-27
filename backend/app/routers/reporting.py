@@ -460,6 +460,29 @@ def preview_property_group_directory(
     }
 
 
+@router.get("/owner-directory/preview")
+def preview_owner_directory(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Visible recorded owner contact fields only; no tax or bank data."""
+    org_id = _require_report_access(
+        db, current_user=current_user, report_key="owner.directory",
+    )
+    _require_export_feature(db, current_user)
+    data = _build_or_422(
+        db, organization_id=org_id, report_key="owner.directory",
+        parameters=dict(request.query_params), current_user=current_user,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "title": data.title, "headers": data.headers,
+        "rows": data.rows, "total": len(data.rows),
+    }
+
+
 @router.get("/unit-vacancy-detail/preview")
 def preview_unit_vacancy_detail(
     request: Request,

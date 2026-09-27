@@ -173,7 +173,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
     ),
 
     # Owner and vendor
-    _standard("owner.directory", "Owner Directory", "Owner & Vendor"),
+    _standard(
+        "owner.directory", "Owner Directory", "Owner & Vendor",
+        href="/dashboard/reporting/owner-directory",
+        description="Current recorded owner contacts; no inferred mailing or tax profile data.",
+    ),
     _enhanced(
         "owner.statement",
         "Owner Statement",

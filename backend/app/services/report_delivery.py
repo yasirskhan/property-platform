@@ -35,6 +35,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "accounting.general_ledger": "ACCOUNTING.GL_ACCOUNTS",
     "accounting.trial_balance": "ACCOUNTING.GL_ACCOUNTS",
     "owner.statement": "ACCOUNTING.OWNER_STATEMENTS",
+    "owner.directory": "PEOPLE.OWNERS",
     "mailing.labels": "PROPERTIES.ALL",
     "tenant.delinquency": "LEASING",
     "tenant.security_deposit_funds_detail": "ACCOUNTING.GL_ACCOUNTS",
@@ -454,6 +455,14 @@ def build_report_payload(
             raise ReportDeliveryError("Authenticated unit vacancy detail required")
         from app.services.unit_vacancy_detail import build_unit_vacancy_detail
         return build_unit_vacancy_detail(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "owner.directory":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated owner directory required")
+        from app.services.owner_directory import build_owner_directory
+        return build_owner_directory(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
         )
