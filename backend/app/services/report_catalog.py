@@ -190,7 +190,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/vendor-directory",
         description="Recorded vendor user contacts only; no unlinked bill payees or private taxpayer data.",
     ),
-    _enhanced("vendor.ledger", "Vendor Ledger", "Owner & Vendor"),
+    _enhanced(
+        "vendor.ledger", "Vendor Ledger", "Owner & Vendor",
+        href="/dashboard/reporting/vendor-ledger",
+        description="Recorded linked vendor bills and AP status, not unlinked payees or a tax register.",
+    ),
     _standard("maintenance.work_order", "Work Order", "Owner & Vendor"),
 
     # Accounting
