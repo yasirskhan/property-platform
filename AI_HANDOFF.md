@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `c20ef1877bcde6b5c97da302e25e4767a7f07586`
-- Source GitHub Actions run **36326806250: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `9bd8e948d68dad97dd409ca11a7e0f95d3bf0443`
+- Source GitHub Actions run **36327401270: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **551 passed, 3 deselected, 9553 warnings in 118.92s**.
-  E2E: **3 passed in 5.97s**. Lint, typecheck, production build, security
+  Backend: **554 passed, 3 deselected, 9718 warnings in 115.00s**.
+  E2E: **3 passed in 9.57s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -19,13 +19,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   Previous head c1e3f5a7b9d2 / 107 tables. One explicit
   unit_inspection_records table added; PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Income Statement report. VERIFIED.**
+  **Latest completed batch: Trust Account Balance report. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Trust Account Balance, followed by Trust Account Detail. Expense Distribution, Income Statement, Cash Flow 12-Month and prior Phase 3.7 reports VERIFIED.**
+- **Exact NEXT original-plan task: Trust Account Detail, then Transaction reports. Trust Account Balance, Income Statement and earlier Phase 3.7 reports VERIFIED.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -85,6 +85,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Cash Flow 12-Month with year rollover and earliest-date boundary | c1f97d1823c14a268d7f42263b379cb1f801263c, d4b180fafd06f01b10b64c230184357f1a403881, 0718264d01661140e592ad9008117b2c87740d1b | 36324425667 | 545 backend passed / 3 E2E |
 | Expense Distribution (posted accrual expense GL) | 67d8630f871e26226e8a280913742a4ae780d4c4 | 36324862669 | 548 backend passed / 3 E2E |
 | Income Statement (posted accrual P&L) | c20ef1877bcde6b5c97da302e25e4767a7f07586 | 36326806250 | 551 backend passed / 3 E2E |
+| Trust Account Balance (mapped posted cash GL snapshot) | 6c8ced27805a63e0ad715fac8eb46621c3c58c5a, 9bd8e948d68dad97dd409ca11a7e0f95d3bf0443 | 36327401270 | 554 backend passed / 3 E2E |
 | Tenant delinquency live overdue rent invoices | 8a6a27ef3c248e394546bdb4e8a65c8ffa43e6b7, a644bd803787d3ffc9be36de4318a67915248364 | 36274961962 | 450 backend passed / 3 E2E |
 
 
@@ -1866,44 +1867,105 @@ date and zero balance choices. Tests for org and bank
 probes, permissions, historical reversal, no PII, no
 GL writes; no migration if verified source data suffices.
 
+## Phase 3.7 Trust Account Balance — VERIFIED 2026-09-27
+
+Product source 6c8ced27805a63e0ad715fac8eb46621c3c58c5a;
+test-only assertion correction 9bd8e948d68dad97dd409ca11a7e0f95d3bf0443.
+Initial CI 36327229773 FAILED one test: it tried to create
+two bank records mapping the same org GL, which the database
+rightly rejects under the pre-existing UNIQUE constraint.
+Initial backend 553 passed / 1 failed / 3 deselected;
+no report-code defect or schema change. The test now
+asserts that existing SQL uniqueness and rolls back
+before testing foreign-org mapping. Final full
+CI 36327401270 SUCCESS all six jobs: backend 554 passed,
+3 deselected, 9718 warnings in 115.00s; browser E2E
+3 passed in 9.57s; frontend lint/typecheck/production build,
+security, platform-admin and staging-config all GREEN.
+E2E generic smoke, not dedicated trust report browser interaction.
+No migration: Alembic d2f4a6c8e0b1 /108 model tables.
+Frozen docs/ and parity status/counts unchanged.
+
+ENHANCED accounting.trust_account_balance links
+/dashboard/reporting/trust-account-balance. No-store preview
+GET /api/reporting/trust-account-balance/preview;
+shared backend ReportPayload, CSV/email ReportActions,
+release.reporting.export. Requires org-active ADMIN
+REPORTING.ALL, ACCOUNTING.BANK_ACCOUNTS and
+ACCOUNTING.GL_ACCOUNTS; backend scope rechecked.
+as_of required, optional bank_id. All org bank mappings,
+including archived historical records, must point
+to unique same-org ASSET GL accounts. Unknown/foreign
+bank ID, foreign/nonasset GL or duplicate mapping
+fails closed. Reuses verified cash_flow._account_totals
+for posted GLEntry/GLTransaction through as_of.
+Rows show bank ID, display name/type, archive status,
+GL number/status and posted debit-minus-credit
+book balance plus total; negative balances possible.
+No bank account/routing, ACH, bank feed, bank
+statement, cleared reconciliation, owner/tenant
+liability, property inferred allocation or GL writes.
+Title explicitly says unaudited book balances,
+NOT a three-way reconciliation. Three new focused tests
+cover date/archived/reversal/zero, duplicate DB
+constraint, mapping errors, foreign/roles/menu, no
+PII, formula escaping, preview/email/CSV and export
+gate revocation. No change to verified Bank Activity.
+
+NEXT Section 38 Trust Account Detail. Implement
+entry-level dated book activity for selected
+bank-mapped same-org ASSET trust GL; include opening
+and running balance, real posted transaction IDs
+and recorded owner/property tags only after same-org
+verification. Unverified foreign owner/property tags
+must not disclose foreign IDs/names; mark unresolved.
+Do not infer bank settlement, reconciled statement
+balance or owner funds from a GL entry tag.
+Reuse trust balance mapping/permissions and verified
+cash-flow opening, no sensitive routing/account fields.
+Strict as-of/period validation, admin/report/export
+gate, no-store preview, existing CSV/email actions.
+Regression tests for allocation, archived historical
+activity, org isolation, date/reversal, no GL writes.
+No migration anticipated.
+
 ## Exact next work: continue, don't stop at phase boundary
 
-1. Read root handoff and verify actual branch HEAD/CI.
-   Expense Distribution, Income Statement, Cash Flow and
-   previous Phase 3.7 report batches are VERIFIED. Do not repeat.
-2. Next original accounting report: Trust Account Balance.
-   Inspect bank reconciliation and trust ledger code first.
-   Use recorded org-scoped posted GL book balance as of a date
-   for mapped bank accounts (including historical records);
-   DO NOT claim reconciled external bank balance or three-way
-   equality and DO NOT expose BankAccount account/routing numbers.
-   Broken/duplicate mappings need safe explicit handling.
-3. Preserve ADMIN/REPORTING.ALL, ACCOUNTING.BANK_ACCOUNTS,
-   ACCOUNTING.GL_ACCOUNTS, release.reporting.export gate.
-   No-store preview, shared ReportPayload CSV/email,
-   no guessed allocations/GL postings; tests for isolation,
-   historical reversals, mapping and export revocations.
-4. Bounded commit with regression tests, verify all six CI jobs.
-   Fix red CI before next batch, record exact counts and update
-   root handoff with migrated schema/next roadmap task.
-5. Continue with Trust Account Detail, then Transaction
-   Reports in original order. No main/new branch/unapproved
-   frozen docs edits; no Work mode.
+1. Read entire root handoff; verify current HEAD/CI.
+   Trust Account Balance, Income Statement and earlier
+   Phase 3.7 reports VERIFIED, do not rebuild.
+2. Next original roadmap Trust Account Detail: real dated
+   posted bank-mapped GL entries for selected trust bank,
+   opening and running book cash; owner/property tags
+   only if actual same-org references. Never expose
+   private bank routing/account values or foreign tag IDs.
+   Reuse verified Trust Balance mapping, avoid duplicate
+   accounting or three-way reconciliation claims.
+3. Scoped ADMIN/REPORTING.ALL/ACCOUNTING.BANK_ACCOUNTS/
+   ACCOUNTING.GL_ACCOUNTS, release.reporting.export.
+   No-store preview, shared CSV/email, regression
+   tests for same-org, invalid tags/dates, archival
+   history/reversals and no GL modifications.
+4. Commit bounded code/tests, verify all six CI jobs
+   before marking VERIFIED. Fix CI failures autonomously
+   and record exact test counts, CI, no migration and
+   next original-plan Transaction Reports.
+5. Continue without asking at phase boundaries.
+   No main/new branch, unrelated frozen docs changes
+   or Work mode.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on branch
-chatgpt/checkpoint-005-safety. Read entire root
-AI_HANDOFF.md; verify current HEAD and CI.
-Last VERIFIED product source c20ef1877bcde6b5c97da302e25e4767a7f07586,
-CI 36326806250 SUCCESS all six jobs (551 backend passed,
-3 deselected; 3 E2E passed in 5.97s).
-Alembic d2f4a6c8e0b1 / 108 model tables.
-Expense Distribution and Income Statement and earlier
-reports VERIFIED; do not reimplement.
-Next original Phase 3.7 Trust Account Balance, then
-Trust Account Detail. Keep posted book GL distinct from
-bank statement and three-way reconciliation; protect
-routing/account numbers. Scoped admin/report permissions,
-regression tests, full CI; update root handoff.
-No main/branches/unapproved docs, no Work mode.
+Continue yasirskhan/property-platform on
+chatgpt/checkpoint-005-safety. Read complete
+root AI_HANDOFF.md and verify HEAD/CI.
+Last VERIFIED source 9bd8e948d68dad97dd409ca11a7e0f95d3bf0443,
+CI 36327401270 all six SUCCESS (554 backend passed,
+3 deselected; E2E 3 passed in 9.57s).
+Alembic d2f4a6c8e0b1 / 108 tables.
+Trust Account Balance and prior Phase 3.7 reports VERIFIED.
+Original next Trust Account Detail, then Transaction
+Reports. Preserve bank privacy, org-scoped posted
+GL book vs actual statement/three-way distinctions.
+Commit with tests, verify full CI, update handoff.
+No main/new branch/unapproved docs or Work mode.
