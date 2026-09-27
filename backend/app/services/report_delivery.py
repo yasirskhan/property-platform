@@ -45,6 +45,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "transaction.aged_payables": "ACCOUNTING.PAYABLES",
     "transaction.aged_receivables": "LEASING",
     "transaction.bill_detail": "ACCOUNTING.PAYABLES",
+    "transaction.charge_detail": "ACCOUNTING.CHARGES",
     "accounting.general_ledger": "ACCOUNTING.GL_ACCOUNTS",
     "accounting.trial_balance": "ACCOUNTING.GL_ACCOUNTS",
     "owner.statement": "ACCOUNTING.OWNER_STATEMENTS",
@@ -479,6 +480,14 @@ def build_report_payload(
             raise ReportDeliveryError("Authenticated owner directory required")
         from app.services.owner_directory import build_owner_directory
         return build_owner_directory(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "transaction.charge_detail":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated Charge Detail required")
+        from app.services.charge_detail_report import build_charge_detail
+        return build_charge_detail(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
         )

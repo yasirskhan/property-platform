@@ -290,7 +290,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/bill-detail",
         description="Recorded posted bill headers and verified expense/asset lines; current payment metadata, not a cleared payment history.",
     ),
-    _standard("transaction.charge_detail", "Charge Detail", "Transaction"),
+    _standard(
+        "transaction.charge_detail", "Charge Detail", "Transaction",
+        href="/dashboard/reporting/charge-detail",
+        description="Current recorded standalone tenant charges, including paid and credit balances; separate from rent invoices.",
+    ),
     _standard("transaction.check_register", "Check Register", "Transaction"),
     _standard("transaction.check_register_detail", "Check Register Detail", "Transaction"),
     _standard("transaction.deposit_register", "Deposit Register", "Transaction"),
