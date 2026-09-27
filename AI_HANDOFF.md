@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `9bd8e948d68dad97dd409ca11a7e0f95d3bf0443`
-- Source GitHub Actions run **36327401270: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `28a697be8317f2754262881f0a3ce6efa4693693`
+- Source GitHub Actions run **36327838434: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **554 passed, 3 deselected, 9718 warnings in 115.00s**.
-  E2E: **3 passed in 9.57s**. Lint, typecheck, production build, security
+  Backend: **557 passed, 3 deselected, 9870 warnings in 81.80s**.
+  E2E: **3 passed in 9.03s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -19,13 +19,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   Previous head c1e3f5a7b9d2 / 107 tables. One explicit
   unit_inspection_records table added; PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Trust Account Balance report. VERIFIED.**
+  **Latest completed batch: Trust Account Detail report. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Trust Account Detail, then Transaction reports. Trust Account Balance, Income Statement and earlier Phase 3.7 reports VERIFIED.**
+- **Exact NEXT original-plan task: Transaction Aged Payables, then Aged Receivables. Trust Account Detail, Trust Account Balance, Income Statement and earlier Phase 3.7 reports VERIFIED.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -86,6 +86,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Expense Distribution (posted accrual expense GL) | 67d8630f871e26226e8a280913742a4ae780d4c4 | 36324862669 | 548 backend passed / 3 E2E |
 | Income Statement (posted accrual P&L) | c20ef1877bcde6b5c97da302e25e4767a7f07586 | 36326806250 | 551 backend passed / 3 E2E |
 | Trust Account Balance (mapped posted cash GL snapshot) | 6c8ced27805a63e0ad715fac8eb46621c3c58c5a, 9bd8e948d68dad97dd409ca11a7e0f95d3bf0443 | 36327401270 | 554 backend passed / 3 E2E |
+| Trust Account Detail (posted trust bank GL entries, validated tags) | 28a697be8317f2754262881f0a3ce6efa4693693 | 36327838434 | 557 backend passed / 3 E2E |
 | Tenant delinquency live overdue rent invoices | 8a6a27ef3c248e394546bdb4e8a65c8ffa43e6b7, a644bd803787d3ffc9be36de4318a67915248364 | 36274961962 | 450 backend passed / 3 E2E |
 
 
@@ -1929,43 +1930,96 @@ Regression tests for allocation, archived historical
 activity, org isolation, date/reversal, no GL writes.
 No migration anticipated.
 
+## Phase 3.7 Trust Account Detail — VERIFIED 2026-09-27
+
+Source 28a697be8317f2754262881f0a3ce6efa4693693;
+CI 36327838434 SUCCESS six jobs: backend 557 passed,
+3 deselected, 9870 warnings in 81.80s; authenticated
+E2E 3 passed in 9.03s; frontend lint/typecheck/build,
+platform-admin, security, staging-config all passed.
+E2E generic smoke, not dedicated trust detail UI test.
+No migration: Alembic d2f4a6c8e0b1 / 108 tables.
+Frozen docs/ and parity status/counts unchanged.
+
+ENHANCED accounting.trust_account_detail links
+/dashboard/reporting/trust-account-detail, no-store preview
+GET /api/reporting/trust-account-detail/preview, shared
+ReportPayload/CSV/email and export gate. Requires current
+org ADMIN REPORTING.ALL, ACCOUNTING.BANK_ACCOUNTS,
+ACCOUNTING.GL_ACCOUNTS; verified trust-account-balance
+builder reused for same-org bank-to-ASSET GL mapping,
+duplicate mapping guard, archived history and scope.
+bank_id, date_from, date_to required. Trust cash GL
+entries are posted GLEntry/GLTransaction only, with
+opening and running as-of book balance through dates,
+real recorded references and reversal entries.
+Property/owner tags displayed as IDs only when matched
+to same-organization existing Property and OWNER User;
+foreign/corrupt IDs withheld, flagged UNVERIFIED.
+A recorded GL tag is NOT proof of ownership/allocation,
+nor a cleared bank transaction, bank statement,
+liability statement or reconciled three-way position.
+No bank routing/account numbers or GL writes.
+Three new focused regression tests check historical/
+archive/foreign tags, period/opening/reversal, org
+isolation and roles/menu, foreign GL/bank probes, no PII,
+CSV formula escaping, email, preview/no-store, export gate.
+
+NEXT Section 38 Transaction report Aged Payables, then
+Aged Receivables. Existing Bill holds mutable
+amount_paid and status, payable gl_transaction_id,
+due_date (optional), bill_date, status/is_reversed.
+No historical as-of unpaid balances can be reconstructed
+from live Bill.amount_paid alone; do not label current
+recorded outstanding as historic. Aged Payables should
+show current recorded open bill liabilities by due date
+relative to an explicit reference date and separate
+missing/future dates, with real recorded amounts and
+safeguards against void/reversed/deleted bills or
+unposted drafts. Verify bill workflow/GL pointer and
+permissions before coding; reuse existing vendor ledger
+and canonical report delivery. Do not alter GL or
+infer paid checks/payment dates from mutable summaries.
+No migration anticipated. Include org/menu/role, age
+boundaries, CSV escape and gating tests.
+
 ## Exact next work: continue, don't stop at phase boundary
 
-1. Read entire root handoff; verify current HEAD/CI.
-   Trust Account Balance, Income Statement and earlier
-   Phase 3.7 reports VERIFIED, do not rebuild.
-2. Next original roadmap Trust Account Detail: real dated
-   posted bank-mapped GL entries for selected trust bank,
-   opening and running book cash; owner/property tags
-   only if actual same-org references. Never expose
-   private bank routing/account values or foreign tag IDs.
-   Reuse verified Trust Balance mapping, avoid duplicate
-   accounting or three-way reconciliation claims.
-3. Scoped ADMIN/REPORTING.ALL/ACCOUNTING.BANK_ACCOUNTS/
-   ACCOUNTING.GL_ACCOUNTS, release.reporting.export.
-   No-store preview, shared CSV/email, regression
-   tests for same-org, invalid tags/dates, archival
-   history/reversals and no GL modifications.
-4. Commit bounded code/tests, verify all six CI jobs
-   before marking VERIFIED. Fix CI failures autonomously
-   and record exact test counts, CI, no migration and
-   next original-plan Transaction Reports.
-5. Continue without asking at phase boundaries.
-   No main/new branch, unrelated frozen docs changes
-   or Work mode.
+1. Read root handoff, verify current source HEAD/CI.
+   Trust Account Detail, Balance and earlier reports
+   VERIFIED. Do not rebuild.
+2. Original Phase 3.7 transaction report Aged Payables.
+   Read actual Bill/pay_bill, posting and vendor ledger.
+   Use org-owned bill current recorded outstanding
+   and due-date aging as of a reference date; avoid
+   fictitious historical snapshots or payment totals.
+   Gate ADMIN/REPORTING.ALL/ACCOUNTING.PAYABLES
+   and release.reporting.export, no-store preview,
+   shared CSV/email and role/manager isolation.
+   Reject corrupt paid amounts, exclude reversed,
+   void, deleted and inappropriate draft records.
+   Date bucket boundaries tested, formula escaping,
+   no GL writes. No migration if existing data suffice.
+3. Bounded commit with tests; full six-job CI,
+   fix reds; record exact counts/status, update
+   this root handoff only after all jobs succeed.
+4. Continue Aged Receivables, then original other
+   Transaction Reports in order. No main/branch
+   changes or unapproved frozen docs edits; no Work.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on
-chatgpt/checkpoint-005-safety. Read complete
-root AI_HANDOFF.md and verify HEAD/CI.
-Last VERIFIED source 9bd8e948d68dad97dd409ca11a7e0f95d3bf0443,
-CI 36327401270 all six SUCCESS (554 backend passed,
-3 deselected; E2E 3 passed in 9.57s).
-Alembic d2f4a6c8e0b1 / 108 tables.
-Trust Account Balance and prior Phase 3.7 reports VERIFIED.
-Original next Trust Account Detail, then Transaction
-Reports. Preserve bank privacy, org-scoped posted
-GL book vs actual statement/three-way distinctions.
-Commit with tests, verify full CI, update handoff.
-No main/new branch/unapproved docs or Work mode.
+Continue yasirskhan/property-platform, branch
+chatgpt/checkpoint-005-safety. Read full repo-root
+AI_HANDOFF.md and verify HEAD/latest CI.
+Last verified source 28a697be8317f2754262881f0a3ce6efa4693693,
+CI 36327838434 six SUCCESS (557 backend passed,
+3 deselected; E2E 3 passed in 9.03s).
+Alembic d2f4a6c8e0b1 /108 tables.
+Trust Account Detail and prior Phase 3.7 reports
+VERIFIED. Next original Aged Payables, followed
+by Aged Receivables. Current bill amount_paid
+cannot reconstruct historic aging snapshots.
+Preserve org isolation, posted accounting, export
+gate, do not touch main/frozen docs. Commit tests,
+verify CI, refresh this handoff. No Work mode.
