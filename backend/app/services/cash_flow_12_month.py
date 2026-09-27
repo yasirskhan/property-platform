@@ -48,8 +48,8 @@ def build_cash_flow_12_month(
     ending_year, ending_month = _end_month(parameters)
     months = []
     for offset in range(11, -1, -1):
-        ordinal_month = (ending_year * 12 + ending_month - 1) - offset
-        year, zero_month = divmod(ordinal_month - 1, 12)
+        ordinal_month = ((ending_year - 1) * 12 + ending_month - 1) - offset
+        year, zero_month = divmod(ordinal_month, 12)
         year += 1
         month = zero_month + 1
         start = date(year, month, 1)
