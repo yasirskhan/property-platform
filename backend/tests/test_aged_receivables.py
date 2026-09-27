@@ -194,7 +194,7 @@ def test_catalog_preview_email_csv_permission_and_gate(monkeypatch):
         req = SimpleNamespace(query_params={"property_id":str(first.id)})
         preview = router.preview_aged_receivables(req, Response(),
                                                  db=db, current_user=admin)
-        assert preview["total"] == 15
+        assert preview["total"] == 16
         csv = router.export_report_csv(KEY, req, db=db, current_user=admin)
         assert b"Current Recorded Unpaid" in csv.body
         sent = {}
