@@ -19,6 +19,8 @@ from app.core.config import settings
 from app.models.application_private_details import ApplicationPrivateDetails
 from app.schemas.application_private_details import PrivateApplicationIn, PrivateApplicationOut
 from app.models.application import ApplicationStatus, LeaseApplication
+from app.models.application_fee_attempt import ApplicationFeeAttempt
+from app.schemas.application_fee import ApplicationFeePrepareIn, ApplicationFeePrepareOut
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import User, UserRole
 from app.routers.auth import get_current_user
@@ -299,6 +301,59 @@ def quote_application_fee(
         "currency": "USD", "checkout_available": False,
         "message": "Fee quote only. Payment and application status are not changed.",
     }
+
+
+
+@router.post("/{application_id}/fee-preparation", response_model=ApplicationFeePrepareOut, status_code=201)
+def prepare_application_fee(
+    application_id: int, payload: ApplicationFeePrepareIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Reserve a verified fee snapshot. No Stripe call, payment or GL write."""
+    row = _row(db, current_user, application_id)
+    if current_user.role != UserRole.APPLICANT or row.status != ApplicationStatus.PENDING_PAYMENT:
+        raise HTTPException(status_code=409, detail="Only a submitted applicant can prepare a fee.")
+    # Serialize concurrent fee preparation where supported (PostgreSQL).
+    locked = db.query(LeaseApplication).filter(LeaseApplication.id == row.id).with_for_update().one()
+    quote = quote_application_fee(row.id, Response(), db=db, current_user=current_user)
+    if quote["status"] != "configured" or quote["amount_cents"] is None:
+        raise HTTPException(status_code=422, detail="An active unit with a configured fee is required.")
+    cents = int(quote["amount_cents"])
+    if cents == 0:
+        raise HTTPException(status_code=422, detail="Zero-fee applications need an explicit staff waiver workflow.")
+    existing = db.query(ApplicationFeeAttempt).filter(
+        ApplicationFeeAttempt.application_id == locked.id,
+        ApplicationFeeAttempt.organization_id == current_user.organization_id,
+    ).first()
+    if existing is not None:
+        if (existing.idempotency_key != payload.idempotency_key
+                or existing.amount_cents != cents or existing.unit_id != locked.unit_id):
+            raise HTTPException(status_code=409, detail="An application fee attempt already exists or its price changed.")
+        return ApplicationFeePrepareOut(
+            application_id=locked.id, attempt_id=existing.id,
+            amount_cents=existing.amount_cents, currency="USD", status="PREPARED",
+            created_at=existing.created_at,
+        )
+    attempt = ApplicationFeeAttempt(
+        organization_id=current_user.organization_id,
+        application_id=locked.id, applicant_user_id=current_user.id,
+        unit_id=locked.unit_id, idempotency_key=payload.idempotency_key,
+        amount_cents=cents, currency="USD", status="PREPARED",
+    )
+    db.add(attempt); db.flush()
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=current_user.organization_id,
+        entity_type="application_fee_attempt", entity_id=attempt.id,
+        action="prepared",
+        new_value={"application_id": locked.id, "amount_cents": cents, "status": "PREPARED"},
+    )
+    db.commit(); db.refresh(attempt)
+    return ApplicationFeePrepareOut(
+        application_id=locked.id, attempt_id=attempt.id,
+        amount_cents=attempt.amount_cents, currency="USD",
+        status="PREPARED", created_at=attempt.created_at,
+    )
 
 
 def _private_fernet() -> Fernet:
