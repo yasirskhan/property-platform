@@ -7,25 +7,25 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `864bf2e02a80e1b2a4af58a0bdaa279b5f4f14a9`
-- Source GitHub Actions run **36347804741: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `8e751bed878d158501754ae3858f1047e39888ef`
+- Source GitHub Actions run **36359893698: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **617 passed, 3 deselected, 12289 warnings in 99.42s**.
-  E2E: **3 passed in 9.03s**. Lint, typecheck, production build, security
+  Backend: **626 passed, 3 deselected, 12590 warnings in 103.00s**.
+  E2E: **3 passed in 10.16s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **d2e4f6a8b0c1**. SQLAlchemy expected model tables: **111**.
-  Previous head c1d3e5f7a9b0 / 110 tables. One organization-owned
-  contacts table added; PostgreSQL/bootstrap/legacy CI passed.
+- Alembic head: **f1e3a5c7d9b0**. SQLAlchemy expected model tables: **114**.
+  Previous head e3f5a7b9c0d2 / 113 tables. One encrypted
+  application-private-details table added; PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4 non-sensitive applicant draft intake and staff queue. VERIFIED.**
+  **Latest completed batch: Phase 4 read-only application fee quote + applicant UI. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: continue Phase 4 Leasing Applications with verified applicant address/financial-info protection and application-fee provider workflow. Current safe draft/status and staff queue are VERIFIED; no fee/screening/approval has occurred. External Avalara/IRIS 1099 acceptance and recipient copies still await operator credentials.**
+- **Exact NEXT original-plan task: Phase 4 Leasing Applications — provider-backed application-fee checkout with signed webhook verification and accounting posting. Encrypted applicant address/income and read-only server fee quote are VERIFIED; no fee has yet been charged or application marked paid. External Avalara/IRIS 1099 acceptance and recipient copies still await operator credentials.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -106,6 +106,8 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Universal Tags (org-scoped definitions and authorized entity links) | 73d4cceae74c44b1fd45afe18368cd7514706039 | 36341415211 | 607 backend passed / 3 E2E |
 | Contacts CSV preview, bounded confirmed import and safe export | 0062cc22834129c1998c2320e5f78cad50b9d1c8 | 36347187712 | 612 backend passed / 3 E2E |
 | Rental Applications safe applicant drafts, pending-payment submission and scoped staff queue | 864bf2e02a80e1b2a4af58a0bdaa279b5f4f14a9 | 36347804741 | 617 backend passed / 3 E2E |
+| Encrypted applicant address and income questionnaire | cbcc52bf710791abd721b8a63dc4bceb10c9b806 | 36348392919 | 623 backend passed / 3 E2E |
+| Read-only server-authorized unit application fee quote + applicant UI | 8e751bed878d158501754ae3858f1047e39888ef | 36359893698 | 626 backend passed, 3 deselected / 3 E2E |
 | Tenant delinquency live overdue rent invoices | 8a6a27ef3c248e394546bdb4e8a65c8ffa43e6b7, a644bd803787d3ffc9be36de4318a67915248364 | 36274961962 | 450 backend passed / 3 E2E |
 
 
@@ -2774,48 +2776,105 @@ next phase after Applications in original Section
 Guest Cards. Avoid starting new unrelated Phase 3.7
 reports or rewriting previously verified contacts.
 
+## Phase 4 encrypted application questionnaire and fee quote — VERIFIED 2026-09-27
+
+Encrypted private questionnaire source
+cbcc52bf710791abd721b8a63dc4bceb10c9b806;
+CI 36348392919 SUCCESS all six jobs (623 backend passed,
+3 deselected, 12484 warnings in 143.90s; E2E 3 passed;
+frontend, platform-admin, security and staging green).
+Migration f1e3a5c7d9b0 adds one organization-owned
+application_private_details ciphertext table (114 expected tables).
+Separate APPLICATION_ENCRYPTION_KEY; never fallback to ordinary
+SMTP or tax keys. Applicant-only own DRAFT edits, applicant and
+authorized scoped staff read, no-store responses; encrypted
+address/employment/income, no plaintext SSN, date of birth, bank
+information or screening. Generic notes/attachments cannot target
+private details. No fee or GL change from this batch.
+Real provider-backed screening is Phase 8, NOT included.
+
+Fee quote source 8e751bed878d158501754ae3858f1047e39888ef;
+CI 36359893698 SUCCESS six jobs: backend 626 passed,
+3 deselected, 12590 warnings in 103.00s; E2E 3 passed
+in 10.16s; frontend, platform-admin, security and staging green.
+No migration: still f1e3a5c7d9b0 / 114 tables.
+backend/app/routers/rental_applications.py
+  GET /api/leasing/applications/{application_id}/fee-quote
+frontend/src/components/leasing/ApplicationFeeQuote.tsx
+frontend/src/app/dashboard/leasing/applications/page.tsx
+backend/tests/test_rental_applications.py
+Three new focused tests verify applicant/foreign-organization/staff
+access, disabled/foreign unit and property safety, optional unit/fee
+unconfigured behavior, negative fee rejection, zero-dollar quote,
+read-only repeat and absence of any ApplicationPayment/GL/status
+mutation. Quote displays only server-configured active unit fee
+in USD and never assumes a property-only fee or an unconfigured
+zero fee. No checkout URL or payment action. E2E is generic
+authenticated browser smoke, not a dedicated payment-browser test.
+
+The next original Phase 4 Applications batch must implement an
+explicitly configured provider-backed payment attempt and safe
+webhook/accounting lifecycle; use actual Unit.application_fee,
+never browser-supplied amounts or fake PAID status. Existing
+app/services/stripe_billing.py is for subscription billing
+and its webhook must not be reused as an application-fee
+event handler without separate event identity/verification.
+Use one-time Stripe Checkout/payment mode, unique idempotent
+attempts scoped to application/organization/applicant, signed
+webhook and exact amount/currency/intent/session validation;
+accounting must use the verified GL/receipt posting with no
+duplicate receipt on replay. Deferred payments, refunds,
+overpayment, zero fee, session expiry, provider unavailable
+and legacy paid statuses need explicit treatment. Do not
+turn on payment until provider credentials, webhook secret,
+GL cash/income mapping and reconciliation work end-to-end.
+Existing ApplicationPayment is legacy and has no org FK or
+unique provider guarantee; inspect before migration. Never
+claim a Stripe session alone means money received. Consider
+explicit applicant consent/terms before charging. Existing
+POST /api/billing/checkout-session is SUBSCRIPTION mode, not
+the application fee route. No frozen docs/parity edited.
+No IRS/Avalara external filing progress is claimed by this batch.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Read full root handoff, verify live branch HEAD and full six-job CI.
-   Applicant drafts/staff queue source 864bf2e02a80e1b2a4af58a0bdaa279b5f4f14a9
-   VERIFIED. Do not repeat Contacts, Tags, CSV transfer or earlier reports.
-2. Continue original Phase 4 Applications in bounded secure batches.
-   Inspect actual ApplicationStatus, ApplicationPayment,
-   Unit.application_fee, existing Stripe signed webhook and GL posting.
-   Add verified current/previous address and financial questionnaire
-   only with appropriate encryption/key and role scope, NOT plaintext
-   SSN/DOB or generic unencrypted notes/attachments.
-   Prepare fee quote and payment path with Stripe/provider-confirmed
-   amount/status, idempotency and audited accounting; never mark
-   PAID by browser submission alone. Add applicant authorization/
-   consent and suitable review as separate verified batches.
-3. Apply regression tests, commit only on existing branch, six-job
-   GitHub CI, fix red before next product batch; record exact
-   counts and migrations in this root handoff after each batch.
-   Do not change main, create branch, ask for Work mode,
-   or edit frozen docs/parity without express authorization.
-4. After full Applications workflow VERIFIED, move per original
-   roadmap to Lease Templates, CRM/Prospects, Guest Cards.
-   External IRS/Avalara acceptance still operator credential
-   dependency and must not be claimed verified.
+1. Read full handoff, verify latest actual HEAD and all six CI jobs.
+   Latest source 8e751bed878d158501754ae3858f1047e39888ef VERIFIED.
+   Do not repeat applicant drafts, private questionnaire, fee quote,
+   report builder, labels or 1099 and other verified batches.
+2. Continue original Phase 4 Applications. Inspect real Stripe
+   subscription signed webhook, payment/receipt/GL posting, legacy
+   ApplicationPayment and Unit.application_fee. Add provider-backed
+   fee attempt/session, genuine signed webhook verification,
+   exact server amount, idempotent one-time accounting and
+   clear applicant consent/fee disclosure in bounded CI-verified
+   batches. Never mark paid on frontend return or session creation,
+   never use tenant SSN/DOB in new intake. Do not enable live
+   payments absent operator Stripe credentials and tested GL
+   account configuration.
+3. Use focused tests, commit on existing branch, six-job hosted
+   CI; fix failures before starting next batch. Update this root
+   handoff after each meaningful verified batch with exact run/
+   test counts and migration. Do not touch frozen docs/parity,
+   main, new branches or force push.
+4. After full Applications VERIFIED, continue original Lease
+   Templates, CRM/Prospects, Guest Cards. External IRIS/Avalara
+   acceptance remains dependent on operator credentials.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform,
-chatgpt/checkpoint-005-safety. Read full root
-AI_HANDOFF.md, verify current HEAD/latest CI.
-Last VERIFIED source 864bf2e02a80e1b2a4af58a0bdaa279b5f4f14a9,
-CI 36347804741 SUCCESS all six (617 backend passed,
-3 deselected; authenticated E2E 3 passed).
-Alembic d2e4f6a8b0c1 / 111 model tables.
-Contacts, Universal Tags, Contacts CSV transfer,
-and safe Phase 4 applicant DRAFT -> PENDING_PAYMENT
-intake/scoped staff view VERIFIED. Actual application
-fee payment, addresses, financial information,
-screening, approvals and lease activation NOT DONE.
-NEXT: complete Applications securely, never use
-plaintext applicant_ssn, browser-paid status or
-unverified screening/provider data; then original
-Lease Templates/CRM/Guest Cards. Respect customer
-org/property scope, immutable GL, frozen docs,
-no main/new branch, commit+CI then handoff update.
+Continue yasirskhan/property-platform only on
+chatgpt/checkpoint-005-safety. Read entire repo-root AI_HANDOFF.md
+then verify live branch HEAD and latest CI.
+Latest VERIFIED source: 8e751bed878d158501754ae3858f1047e39888ef,
+CI 36359893698 SUCCESS, all six: 626 backend tests passed,
+3 deselected; E2E 3 passed in 10.16s. Alembic
+f1e3a5c7d9b0; 114 model tables. Phase 4 applicant
+draft/staff queue, encrypted questionnaire, read-only
+server unit application-fee quote VERIFIED.
+No Stripe application fee charged or paid status; next
+provider-backed checkout, signed webhook and GL/receipt
+idempotent accounting, then original Lease Templates.
+Keep all previously verified modules, protected privacy,
+org/property scopes, no main/new branch or unapproved
+docs edits. Commit + hosted CI + root handoff each batch.
