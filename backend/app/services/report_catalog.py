@@ -285,7 +285,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/aged-receivables",
         description="Current recorded rent-invoice balances aged by due date; standalone charges excluded.",
     ),
-    _standard("transaction.bill_detail", "Bill Detail", "Transaction"),
+    _standard(
+        "transaction.bill_detail", "Bill Detail", "Transaction",
+        href="/dashboard/reporting/bill-detail",
+        description="Recorded posted bill headers and verified expense/asset lines; current payment metadata, not a cleared payment history.",
+    ),
     _standard("transaction.charge_detail", "Charge Detail", "Transaction"),
     _standard("transaction.check_register", "Check Register", "Transaction"),
     _standard("transaction.check_register_detail", "Check Register Detail", "Transaction"),
