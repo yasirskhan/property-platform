@@ -7,26 +7,25 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `a608b1b2e86f2378df825c53d864413c2139197a`
-- Source GitHub Actions run **36284770912: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `52369dd6ae3237fa4695d1407750c18a3847959e`
+- Source GitHub Actions run **36285989151: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **505 passed, 3 deselected, 7629 warnings in 105.81s**.
-  E2E: **3 passed in 9.15s**. Lint, typecheck, production build, security
+  Backend: **509 passed, 3 deselected, 7736 warnings in 109.67s**.
+  E2E: **3 passed in 9.30s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **c1e3f5a7b9d2**. SQLAlchemy expected model tables: **107**.
-  Previous head b0d2f4a6c8e1 / 105 tables. Property Group persistence added
-  two explicitly-scoped models in the preceding source commit; Property Performance
-  introduced no new tables. All three PostgreSQL/bootstrap/legacy CI paths passed.
+- Alembic head: **d2f4a6c8e0b1**. SQLAlchemy expected model tables: **108**.
+  Previous head c1e3f5a7b9d2 / 107 tables. One explicit
+  unit_inspection_records table added; PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Unit Directory. VERIFIED.**
+  **Latest completed batch: Unit Inspection. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Unit Inspection. Unit Directory and earlier Phase 3.7 reports are VERIFIED.**
+- **Exact NEXT original-plan task: Unit Vacancy Detail. Unit Inspection, Unit Directory and earlier Phase 3.7 reports are VERIFIED.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -68,6 +67,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Property Performance | 5c3149c27398b2c321062263795149a594ff63ab | 36283808654 | 499 backend passed / 3 E2E |
 | Rent Roll | 8636280f378db4eda2679fee75e699bae139222a, 47fddcdd761fcc434c8e8b60afca87d31800e4f0 | 36284240929 | 502 backend passed / 3 E2E |
 | Unit Directory | c1f47e197a8934634b88c77d5a04f0c97609c3a7, a608b1b2e86f2378df825c53d864413c2139197a | 36284770912 | 505 backend passed / 3 E2E |
+| Unit Inspection | deb6019ab889c03e8ce5a208da271cb16e16d2a5, 52369dd6ae3237fa4695d1407750c18a3847959e | 36285989151 | 509 backend passed / 3 E2E |
 | Tenant Ledger current balances and Charges authorization | a12e0f1af94b7e74e03e9e81988bba98d98cb016, 33902846eab82304299f383001de682081091eec | 36276682654 | 463 backend passed / 3 E2E |
 | Tenant Directory | 873219e0be9e41a7c68ec52e4da604a882dc90c2 | 36275843531 | 458 backend passed / 3 E2E |
 | Security Deposit Funds Detail GL liability report | 60ee5a986d670b4e3af18d01060e971c163c522f | 36275464600 | 454 backend passed / 3 E2E |
@@ -1185,49 +1185,105 @@ and tests, and clearly differentiate it from Phase 5
 inspection workflow. Unit Vacancy Detail follows Unit
 Inspection in the original Section 38 order.
 
+## Phase 3.7 Unit Inspection — VERIFIED 2026-09-26
+
+Product implementation deb6019ab889c03e8ce5a208da271cb16e16d2a5;
+focused test-only correction
+52369dd6ae3237fa4695d1407750c18a3847959e.
+First CI 36285181154 backend 507 passed / 2 failed /
+3 deselected: direct route test omitted FastAPI Query default
+and foreign-org test expected a generic permission error
+instead of scoped "Property not found". Corrected tests
+without weakening access control. Full CI 36285989151
+SUCCESS all six jobs: backend 509 passed, 3 deselected,
+7736 warnings in 109.67s; authenticated browser E2E
+3 passed in 9.30s. Frontend lint/typecheck/build,
+platform-admin, security and staging green. Three E2E
+tests are the generic smoke flow, NOT dedicated inspection UI tests.
+
+Migration d2f4a6c8e0b1 adds one
+unit_inspection_records table; 108 model tables. New
+app/models/unit_inspection.py, service
+app/services/unit_inspections.py, router
+app/routers/unit_inspections.py and related schemas.
+The report is STANDARD property.unit_inspection at
+/dashboard/reporting/unit-inspections with no-store preview
+GET /api/reporting/unit-inspections/preview and shared
+CSV/email ReportActions. Records are explicitly staff-entered,
+append-only date/condition/findings linked to a real visible,
+active, undeleted unit/property; creation is audited.
+No record does NOT imply an inspection passed. This is
+NOT a Phase 5 mobile/offline/photo/checklist inspection.
+No work order, inventory flag or tenant note is promoted
+to a verified inspection; no GL mutations.
+Admin/manager only; manager requires live assignment.
+REPORTING.ALL, PROPERTIES.ALL, PROPERTIES.UNITS, and
+release.reporting.export rechecked for preview, CSV and
+email. Foreign/unassigned property/unit IDs fail closed.
+Four focused tests validate explicit rows, empty report,
+audit, no GL writes, org/manager isolation, role/permission
+revocation, invalid dates and recorded conditions, CSV
+formula escaping, preview/export/email and gate revocation.
+Frozen docs/ unchanged and parity metadata not advanced.
+
+NEXT Unit Vacancy Detail. Existing verified Rent Roll
+already distinguishes CURRENT eligible ACTIVE lease
+association from absence of a recorded eligible lease;
+Unit Directory separately exposes editable available/listed
+flags, which do not prove physical occupancy. Reuse
+these verified scoped services rather than implement
+another occupancy or GL model. Report must identify only
+"no eligible current recorded lease" CANDIDATES and
+explicitly say physical vacancy is not verified; do not
+label units "vacant" purely from is_available or
+past lease date. Preserve manager/property/LEASING/
+PROPERTIES.UNITS permissions and CSV/email gates.
+No migration required if reusing source records.
+
 ## Exact next work: continue, don't stop at phase boundary
 
-1. Read complete root handoff and verify HEAD/CI.
-   All previous Phase 3.7 reports through Unit Directory
-   are VERIFIED. No repeat code or duplicate audits.
-2. Exact next original Section 38 Unit Inspection report.
-   No inspection model currently exists. Bring forward
-   ONLY a minimal explicit dated, unit-scoped inspection
-   record prerequisite and administrative recorded-status
-   interface if necessary, without pretending Phase 5
-   mobile/offline/photos/checklist is done.
-   Use existing Property/Unit, org and manager assignment,
-   REPORTING.ALL, PROPERTIES.ALL, PROPERTIES.UNITS,
-   and recorded inspection data; never infer inspected
-   condition from inventory flags or ordinary work orders.
-3. Add migration/schema guards if new table is needed,
-   focused org/manager/permission and data tests.
-   Canonical standard report, no-store preview, server
-   CSV/email and release.reporting.export; note empty
-   record set means NO INSPECTIONS RECORDED, not passed
-   inspection. Include audit on new inspection entries.
-4. Commit bounded code+tests; verify all six hosted CI
-   jobs before VERIFIED. Fix red first, record exact
-   source SHA/run/count/migration, update THIS handoff.
-5. Then Section 38 Unit Vacancy Detail, followed by
-   rest of original roadmap. No main edits, new branch,
-   Work mode or unrelated frozen docs/ changes.
+1. Read complete root handoff and verify branch HEAD/latest CI.
+   Unit Inspection and all earlier listed batches VERIFIED;
+   do not repeat completed migrations or generic audits.
+2. Exact next original Section 38 task: Unit Vacancy Detail.
+   Reuse verified rent_roll and unit_directory scoped data
+   to show units with no eligible currently recorded active
+   lease, plus their explicitly recorded availability/listing
+   settings. Do not claim verified physical vacancy, rent
+   collection, historical lease/occupancy or work order.
+   Tenant linking, duplicate current lease and cross-org
+   guards must remain fail closed. ADMIN/MANAGER live
+   assignment; REPORTING.ALL, PROPERTIES.ALL,
+   PROPERTIES.UNITS, LEASING; release.reporting.export.
+3. Standard catalog link, no-store preview, canonical
+   ReportPayload / CSV formula escaping / shared email;
+   tests for active/ended lease distinctions, edited
+   flag distinction, manager/org leakage, revocations,
+   no GL writes, server delivery. No new migration unless
+   an actual data dependency is discovered.
+4. Commit bounded batch with focused tests, wait for all
+   six hosted CI jobs to succeed before VERIFIED;
+   fix failures autonomously. Record exact counts and
+   source SHA/run/migration here. Then continue Section 38
+   Owner/Vendor reports in original plan order.
+5. No main edits, new branch, Work mode or unapproved
+   frozen docs/ changes. Preserve verified contracts.
 
 ## Session start for successor
 
 Continue yasirskhan/property-platform on existing
-chatgpt/checkpoint-005-safety. Read root AI_HANDOFF.md
-FULLY; verify current branch HEAD and latest CI.
-Last VERIFIED source a608b1b2e86f2378df825c53d864413c2139197a;
-CI 36284770912 all six SUCCESS, 505 backend passed,
-3 deselected, 7629 warnings, 3 E2E passed in 9.15s.
-Alembic c1e3f5a7b9d2 /107 model tables.
-Property Groups, Property Performance, Rent Roll,
-Unit Directory VERIFIED. Exact next Section 38
-Unit Inspection (no inspection record model exists;
-minimal explicit record prerequisite only; Phase 5
-mobile/offline/checklists not yet built). Then Unit
-Vacancy Detail. Preserve scoped report/menu/export
-gates, actual data, canonical CSV/email; tests and
-green full CI before VERIFIED. Update root handoff
-after each batch. No main/new branch/unapproved docs.
+chatgpt/checkpoint-005-safety. Read entire root
+AI_HANDOFF.md, then verify HEAD and full CI.
+Last VERIFIED source 52369dd6ae3237fa4695d1407750c18a3847959e;
+CI 36285989151 all six SUCCESS, 509 backend passed,
+3 deselected, 7736 warnings, 3 E2E passed in 9.30s.
+Alembic d2f4a6c8e0b1 /108 model tables.
+Property Groups, Performance, Rent Roll, Unit Directory
+and Unit Inspection VERIFIED. NEXT original Phase 3.7
+Unit Vacancy Detail. Build from current recorded lease
+association and editable unit flags; never infer verified
+physical vacancy, cash collections or historical occupancy.
+Preserve permissions, manager scope, explicit reporting
+caveats, canonical CSV/email, tests and green full CI.
+Update root handoff after each verified batch. No
+main/new branch/unapproved docs edits.
