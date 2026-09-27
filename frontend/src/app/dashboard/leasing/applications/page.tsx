@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiGet, apiPost, apiPut } from "@/lib/api";
 import ApplicationPrivatePanel from "@/components/leasing/ApplicationPrivatePanel";
+import ApplicationFeeQuote from "@/components/leasing/ApplicationFeeQuote";
 
 type ApplicationStatus = "draft" | "pending_payment" | "paid" | "screening"
   | "screened" | "approved" | "rejected" | "withdrawn";
@@ -220,6 +221,9 @@ export default function ApplicationsPage() {
           </article>
         ))}
       </section>}
+      {!loading && applicant && rows.filter((row) => row.status === "pending_payment").map((row) => (
+        <ApplicationFeeQuote key={row.id} applicationId={row.id} />
+      ))}
       {privateOpen !== null && (
         <ApplicationPrivatePanel applicationId={privateOpen}
           canEdit={applicant && rows.some((row) => row.id === privateOpen && row.status === "draft")}

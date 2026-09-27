@@ -201,3 +201,82 @@ def test_archived_property_wrong_unit_and_nonstaff_access_refused(monkeypatch):
         assert exc.value.status_code == 403
     finally:
         db.close(); engine.dispose()
+
+
+
+def test_fee_quote_from_authorized_unit_without_payment_mutation(monkeypatch):
+    from decimal import Decimal
+    db, engine = _db()
+    try:
+        admin, manager, applicant, another, _foreign_admin, _foreign_applicant, _tenant, first, _second, other, unit, foreign_unit = _seed(db)
+        monkeypatch.setattr(api, "permission_allows_user", lambda *a, **k: True)
+        unit.application_fee = Decimal("49.95")
+        db.commit()
+        app = api.create_rental_application(_payload(first.id, unit.id), db=db, current_user=applicant)
+        resp = Response()
+        quote = api.quote_application_fee(app.id, resp, db=db, current_user=applicant)
+        assert quote["amount_cents"] == 4995 and quote["checkout_available"] is False
+        assert resp.headers["cache-control"] == "no-store"
+        assert api.quote_application_fee(app.id, Response(), db=db, current_user=applicant) == quote
+        api.submit_rental_application(app.id, db=db, current_user=applicant)
+        assert api.quote_application_fee(app.id, Response(), db=db, current_user=applicant)["amount_cents"] == 4995
+        record = db.query(LeaseApplication).one()
+        assert record.status == ApplicationStatus.PENDING_PAYMENT and record.fee_amount is None
+        assert db.query(ApplicationPayment).count() == 0
+        for actor in (another, admin, manager):
+            with pytest.raises(HTTPException) as exc:
+                api.quote_application_fee(app.id, Response(), db=db, current_user=actor)
+            assert exc.value.status_code in (403, 404)
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_fee_quote_missing_fee_unit_and_cross_org_fail_closed(monkeypatch):
+    from decimal import Decimal
+    db, engine = _db()
+    try:
+        admin, manager, applicant, another, foreign_admin, foreign_applicant, tenant, first, second, other, unit, foreign_unit = _seed(db)
+        monkeypatch.setattr(api, "permission_allows_user", lambda *a, **k: True)
+        app = api.create_rental_application(_payload(first.id, unit.id), db=db, current_user=applicant)
+        assert api.quote_application_fee(app.id, Response(), db=db, current_user=applicant)["status"] == "unconfigured"
+        unit.application_fee = Decimal("0.00"); db.commit()
+        quote = api.quote_application_fee(app.id, Response(), db=db, current_user=applicant)
+        assert quote["amount_cents"] == 0 and not quote["checkout_available"]
+        unit.application_fee = Decimal("-1"); db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.quote_application_fee(app.id, Response(), db=db, current_user=applicant)
+        assert exc.value.status_code == 422
+        unit.application_fee = Decimal("50"); unit.is_active = False; db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.quote_application_fee(app.id, Response(), db=db, current_user=applicant)
+        assert exc.value.status_code == 404
+        unit.is_active = True; db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.quote_application_fee(app.id, Response(), db=db, current_user=foreign_applicant)
+        assert exc.value.status_code == 404
+        first.is_active = False; db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.quote_application_fee(app.id, Response(), db=db, current_user=applicant)
+        assert exc.value.status_code == 404
+        first.is_active = True; db.commit()
+        app_row = db.query(LeaseApplication).one()
+        app_row.status = ApplicationStatus.PAID; db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.quote_application_fee(app.id, Response(), db=db, current_user=applicant)
+        assert exc.value.status_code == 409
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_fee_quote_property_only_requires_unit_without_default(monkeypatch):
+    db, engine = _db()
+    try:
+        admin, manager, applicant, another, foreign_admin, foreign_applicant, tenant, first, second, other, unit, foreign_unit = _seed(db)
+        monkeypatch.setattr(api, "permission_allows_user", lambda *a, **k: True)
+        app = api.create_rental_application(_payload(first.id), db=db, current_user=applicant)
+        quote = api.quote_application_fee(app.id, Response(), db=db, current_user=applicant)
+        assert quote["status"] == "unit_required"
+        assert quote["amount_cents"] is None and quote["checkout_available"] is False
+        assert db.query(ApplicationPayment).count() == 0
+    finally:
+        db.close(); engine.dispose()

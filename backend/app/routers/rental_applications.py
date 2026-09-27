@@ -6,6 +6,8 @@ are neither read nor serialized.
 """
 from __future__ import annotations
 
+from decimal import Decimal
+
 import json
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -251,6 +253,52 @@ def submit_rental_application(
     )
     db.commit(); db.refresh(row)
     return _out(row)
+
+
+
+@router.get("/{application_id}/fee-quote")
+def quote_application_fee(
+    application_id: int, response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Read-only unit fee estimate; never creates a payment or paid status."""
+    response.headers["Cache-Control"] = "no-store"
+    row = _row(db, current_user, application_id)
+    if current_user.role != UserRole.APPLICANT:
+        raise HTTPException(status_code=403, detail="Only the applicant can request a fee quote.")
+    if row.status not in {ApplicationStatus.DRAFT, ApplicationStatus.PENDING_PAYMENT}:
+        raise HTTPException(status_code=409, detail="Application is not awaiting a fee.")
+    prop = _property(db, current_user, row.property_id, for_draft=True)
+    if row.unit_id is None:
+        return {
+            "application_id": row.id, "status": "unit_required", "amount_cents": None,
+            "currency": "USD", "checkout_available": False,
+            "message": "A specific unit is required for a verified application fee.",
+        }
+    unit = db.query(Unit).filter(
+        Unit.id == row.unit_id, Unit.property_id == prop.id,
+        Unit.is_active.is_(True), Unit.deleted_at.is_(None),
+    ).first()
+    if unit is None:
+        raise HTTPException(status_code=404, detail="Unit not found.")
+    if unit.application_fee is None:
+        return {
+            "application_id": row.id, "status": "unconfigured", "amount_cents": None,
+            "currency": "USD", "checkout_available": False,
+            "message": "This unit does not have a configured application fee.",
+        }
+    amount = Decimal(str(unit.application_fee))
+    if not amount.is_finite() or amount < 0 or amount > Decimal("10000.00"):
+        raise HTTPException(status_code=422, detail="Configured application fee requires staff review.")
+    cents = amount * 100
+    if cents != cents.to_integral_value():
+        raise HTTPException(status_code=422, detail="Configured application fee has invalid precision.")
+    return {
+        "application_id": row.id, "status": "configured", "amount_cents": int(cents),
+        "currency": "USD", "checkout_available": False,
+        "message": "Fee quote only. Payment and application status are not changed.",
+    }
 
 
 def _private_fernet() -> Fernet:
