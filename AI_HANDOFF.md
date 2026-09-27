@@ -7,25 +7,25 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `5064b41a2f996d783fd25346a476c0a55c1b4a5a`
-- Source GitHub Actions run **36339328334: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `b90fd3deab170009e5b577f90f085ff98e034630`
+- Source GitHub Actions run **36339917953: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **599 passed, 3 deselected, 11821 warnings in 131.97s**.
-  E2E: **3 passed in 9.70s**. Lint, typecheck, production build, security
+  Backend: **601 passed, 3 deselected, 11898 warnings in 72.39s**.
+  E2E: **3 passed in 8.96s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **b0c2d4e6f8a1**. SQLAlchemy expected model tables: **110**.
-  Previous head a9b1c3d5e7f0 / 110 tables. One nullable Bills
-  vendor_id FK added; PostgreSQL/bootstrap/legacy CI passed.
+- Alembic head: **c1d3e5f7a9b0**. SQLAlchemy expected model tables: **110**.
+  Previous head b0c2d4e6f8a1 / 110 tables. One nullable WorkOrder
+  vendor-company FK added; PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4 explicit Vendor company link and new-Bill picker. VERIFIED.**
+  **Latest completed batch: Phase 4 WorkOrder company link and staff vendor picker. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Phase 4 WorkOrder Vendor company link/picker, independent of crew assignment. Vendor company, insurance, directory filters and Bill vendor picker VERIFIED. External Avalara/IRIS 1099 acceptance and recipient copies still await operator provider credentials.**
+- **Exact NEXT original-plan task: Phase 4 Contacts (non-vendor/non-tenant), then Universal Tags, then People import/export. Vendor company, insurance, Bill and WorkOrder pickers VERIFIED. External Avalara/IRIS 1099 acceptance and recipient copies still await operator provider credentials.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -101,6 +101,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Phase 4 vendor insurance lifecycle | 8d2cb6adffbde41282fc77e9e0365b2913410f66, 3de4c938e07fc695cf33eec3b1a7af7fd552e73b, 5dcdd6272bd1e18fe78a0ae2868ef6d110caf2c8 | 36337623891 | 593 backend passed / 3 E2E |
 | Phase 4 vendor trade/insurance filters | b40d94b3861809d4cfd5bb563a21bd6a4e524476, 0d32310911be49c9133ba002d19fdfdb9fce7e9a, 87ed9dd1396686065c9596622173297628b2ace2 | 36338819609 | 596 backend passed / 3 E2E |
 | Phase 4 explicit Bill Vendor FK and customer picker | 7a8d30733480a31fb476391a923759d92242c043, 5064b41a2f996d783fd25346a476c0a55c1b4a5a | 36339328334 | 599 backend passed / 3 E2E |
+| Phase 4 WorkOrder explicit Vendor FK and staff selector | c14e3c7d0a8a08257e9177247c56a7d1093424fd, b90fd3deab170009e5b577f90f085ff98e034630 | 36339917953 | 601 backend passed / 3 E2E |
 | Tenant delinquency live overdue rent invoices | 8a6a27ef3c248e394546bdb4e8a65c8ffa43e6b7, a644bd803787d3ffc9be36de4318a67915248364 | 36274961962 | 450 backend passed / 3 E2E |
 
 
@@ -2537,47 +2538,111 @@ tests and migration guards. No accounting/GL writes.
 Then return to original Phase 4 Contacts/Tags and
 other tasks in dependency order.
 
+## Phase 4 WorkOrder vendor company association — VERIFIED 2026-09-27
+
+Backend model, scoped staff GET/POST, migration and regression tests:
+c14e3c7d0a8a08257e9177247c56a7d1093424fd.
+Authenticated staff vendor picker and link from vendor directory:
+b90fd3deab170009e5b577f90f085ff98e034630.
+Final GitHub Actions run 36339917953 SUCCESS all six jobs;
+backend 601 passed, 3 deselected, 11898 warnings in 72.39s;
+browser E2E 3 passed in 8.96s; frontend lint/typecheck/
+production build, platform admin, security, staging all passed.
+Browser E2E is existing authenticated smoke, not a
+dedicated vendor-selector click test. Earlier superseded CI
+run 36339883696 was not represented as the final green run.
+Migration c1d3e5f7a9b0 adds nullable work_orders.vendor_id
+-> vendors.id ON DELETE SET NULL, index; 110 model tables
+unchanged. No historical auto-link, financial posting,
+crew assignment or status mutation. No frozen docs or
+parity mutations.
+
+Existing /work-orders routes and crew assigned_to_id
+lifecycle preserved exactly. Separate admin/owner-only
+GET /work-orders/vendor-assignments and
+POST /work-orders/{id}/vendor require active same-org
+actor, PEOPLE.VENDORS plus MAINTENANCE.WORK_ORDERS
+menu permission. Only active, nondeleted, same-org
+company may be linked; cross-org WorkOrder/vendor IDs
+fail closed. Finished CLOSED/CANCELLED WorkOrders
+cannot change link. All writes log WorkOrderUpdate
+and an immutable audit event in same transaction;
+idempotent repeat selection does not duplicate audit.
+Response deliberately excludes tenant name, entry
+instructions, photographs and vendor private details.
+Customer /dashboard/work-orders/vendor-assignments
+lists scoped work orders and the authorized active
+company selector, with explicit unlink; also linked
+from /dashboard/vendors. The picker does NOT dispatch
+a vendor, grant portal access, generate contracts,
+or alter crew assignments, costs or GL.
+Two regression tests prove link/unlink, audit,
+tenant/manager denial, foreign company/workorder
+denial, archived/finished/permission revocation,
+inactive actor and GL non-mutation.
+
+NEXT original plan Phase 4 People — Contacts / Tags:
+- Contacts (non-vendor, non-tenant), then Universal
+  Tags, then People import/export.
+- Current repo has User accounts with role TENANT,
+  OWNER, VENDOR, etc., and distinct Vendor COMPANY.
+  Contacts must be an org-owned non-login directory,
+  not fake User accounts or a second Vendor company
+  collection. Inspect real existing roles and universal
+  notes/attachments/permissions before implementation.
+- Tags must be scoped universally to authorized
+  entities, not raw cross-org table references or
+  user-controlled arbitrary SQL; import/export later.
+- Keep hybrid capability gating and immutable audit,
+  active actor, org scope and exclusion of W-9/tax
+  data from general exports. Include tests and
+  verify full six-job CI. No extra docs/ changes.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Read full root handoff, verify live HEAD and latest six-job CI.
-   Vendor company, insurance, directory and Bill selector are
-   VERIFIED. Do not repeat those batches.
-2. Phase 4 WorkOrder vendor company association and user-facing picker.
-   First inspect actual work-order routes/visibility plus UI and
-   Vendor access rules. Maintain existing crew assigned_to_id and
-   status lifecycle; vendor link is separate. Assignments must
-   fail closed for cross-org, deleted/inactive vendors, actor role,
-   vendor menu revocation and property access; no GL writes.
-   Include read-only visibility for authorized users, audit
-   link/unlink, nullable migration, regression tests.
-3. If WorkOrder management UI is missing, build a bounded
-   authenticated staff-accessible selector at the appropriate
-   documented location instead of claiming API-only picker
-   as complete. Do not expose foreign Vendor names/IDs
-   or replace the existing work-order workflow.
-4. Commit bounded product+tests to existing branch, use
-   GitHub Actions; mark VERIFIED only after full six-job green.
-   Repair reds autonomously, update repo-root handoff with
-   precise source SHA, test counts and migration head.
-   Do not stop merely at batch boundaries.
-5. No main/new branch/Work mode/unapproved frozen docs/parity.
-   External IRS/provider 1099 filing remains separately
-   credential-dependent and NOT falsely marked complete.
+1. Read current root handoff and verify live branch HEAD,
+   latest six-job CI. All prior Phase 4 Vendor and
+   WorkOrder link/picker batches VERIFIED. Do not repeat.
+2. Original Phase 4 People — Contacts (non-vendor,
+   non-tenant): implement bounded organization-owned
+   contacts directory (not User login/vendor company),
+   authenticated list/search/CRUD, soft deactivation,
+   audit, permission and appropriate customer UI.
+   Preserve personal-data privacy, org and role scope,
+   no tax/financial/GL data or user impersonation.
+   Inspect existing contact models/permissions and
+   reuse prior vendor patterns; include migration and
+   targeted regression tests.
+3. After full CI green update root handoff, then
+   Universal Tags, then People import/export in
+   original roadmap order. Tags must use audited
+   existing entity-authorization, no raw arbitrary
+   foreign keys or cross-org leakage.
+4. User-approved bounded code+tests commit then
+   hosted GitHub Actions; never claim VERIFIED
+   until full six-job green with exact counts.
+   Fix CI failures autonomously before next batch.
+   No main/new branch/Work/unapproved frozen docs.
+5. External 1099 sandbox/provider acceptance and
+   recipient copies remain credential-dependent and
+   NOT represented as submitted or verified.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on branch
-chatgpt/checkpoint-005-safety. Read complete root AI_HANDOFF.md,
-verify live head/latest CI. Last VERIFIED product source:
-5064b41a2f996d783fd25346a476c0a55c1b4a5a;
-CI 36339328334 SUCCESS six jobs: 599 backend passed,
-3 deselected, 3 browser E2E passed.
-Alembic b0c2d4e6f8a1, 110 model tables.
-Full Phase 4 Vendor company, insurance/expiry filters,
-new-Bill explicit company FK/picker VERIFIED.
-NEXT: WorkOrder company vendor link/picker without
-altering crew assignment/status; include secure staff
-interface and regression/migration tests.
-No main/unapproved frozen docs modifications; code
-then hosted GitHub CI, and refresh root handoff
-after each meaningful verified batch.
+Continue yasirskhan/property-platform on
+chatgpt/checkpoint-005-safety. Read entire repo-root
+AI_HANDOFF.md and verify actual HEAD/latest six-job CI.
+Last VERIFIED product source:
+b90fd3deab170009e5b577f90f085ff98e034630;
+CI 36339917953 SUCCESS, 601 backend passed,
+3 deselected, 3 browser E2E passed; six jobs green.
+Alembic c1d3e5f7a9b0 / 110 model tables.
+WorkOrder vendor company link/staff selector and all
+previous Vendor, Bill, Phase 3.7 reporting VERIFIED.
+NEXT original Phase 4: Contacts non-tenant/non-vendor
+(non-login directory), followed by Universal Tags
+and People import/export. Preserve org isolation,
+role/menu permissions, immutable audit, no GL
+or tax data leak. No main/frozen docs edits.
+Product code + focused tests committed to existing
+branch, CI verification then handoff; continue.
