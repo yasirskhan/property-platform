@@ -14,6 +14,7 @@
 
 import { useEffect, useState } from "react";
 import { apiGet } from "@/lib/api";
+import Link from "next/link";
 
 type User = {
   id: number;
@@ -38,6 +39,12 @@ export default function DashboardHome() {
       <p className="text-sm text-slate-500 mb-8">
         Pick a module from the sidebar to get started.
       </p>
+
+      {user?.role === "APPLICANT" && (
+        <Link href="/dashboard/leasing/applications" className="mb-5 inline-block rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium">
+          My rental applications
+        </Link>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="p-5 bg-white border border-slate-200 rounded-lg">

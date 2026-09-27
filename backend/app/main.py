@@ -20,6 +20,7 @@ from app.routers import auth as auth_router
 from app.routers import properties as properties_router
 from app.routers import users as users_router
 from app.routers import leases as leases_router
+from app.routers import rental_applications as rental_applications_router
 from app.routers import payments as payments_router
 from app.routers import work_orders as work_orders_router
 from app.routers import password_reset as password_reset_router
@@ -128,6 +129,7 @@ app.include_router(auth_router.router)
 app.include_router(properties_router.router)
 app.include_router(users_router.router)
 app.include_router(leases_router.router)
+app.include_router(rental_applications_router.router)
 app.include_router(payments_router.router)
 app.include_router(work_orders_router.router)
 app.include_router(password_reset_router.router)
