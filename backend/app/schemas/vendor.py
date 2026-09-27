@@ -1,7 +1,7 @@
 """Vendor company API: no taxpayer identifiers or inferred payable links."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
@@ -76,6 +76,8 @@ class VendorOut(BaseModel):
     deleted_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    insurance_status: str = 'MISSING'
+    insurance_expires_on: date | None = None
 
 
 class VendorListOut(BaseModel):

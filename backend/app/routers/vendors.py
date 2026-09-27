@@ -1,7 +1,10 @@
 """Phase 4 customer vendor companies, distinct from vendor login users."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime, timedelta
+from typing import Literal
+
+from sqlalchemy import case, func
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
@@ -9,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.user import User, UserRole
 from app.models.vendor import Vendor
+from app.models.vendor_insurance import VendorInsurance
 from app.routers.auth import get_current_user
 from app.schemas.vendor import VendorCreate, VendorFields, VendorListOut, VendorOut, VendorUpdate
 from app.services.audit import append_audit_log
@@ -54,6 +58,9 @@ def list_vendors(
     response: Response,
     search: str | None = None,
     include_inactive: bool = False,
+    trade: str | None = None,
+    insurance_status: Literal['MISSING','CURRENT','EXPIRING_30_DAYS','EXPIRED','UPCOMING'] | None = None,
+    as_of: date | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -61,7 +68,39 @@ def list_vendors(
     response.headers["Cache-Control"] = "no-store"
     if search is not None and len(search) > 100:
         raise HTTPException(status_code=422, detail="Vendor search is too long.")
+    if trade is not None and len(trade) > 100:
+        raise HTTPException(status_code=422, detail="Trade filter is too long.")
+    reference = as_of or date.today()
+    deadline = reference + timedelta(days=min(30, (date.max - reference).days))
+    common = (
+        VendorInsurance.organization_id == organization_id,
+        VendorInsurance.vendor_id == Vendor.id,
+        VendorInsurance.is_active.is_(True),
+        VendorInsurance.deleted_at.is_(None),
+    )
+    any_policy = db.query(VendorInsurance.id).filter(*common).exists()
+    expired = db.query(VendorInsurance.id).filter(
+        *common, VendorInsurance.expiration_date < reference,
+    ).exists()
+    expiring = db.query(VendorInsurance.id).filter(
+        *common, VendorInsurance.expiration_date >= reference,
+        VendorInsurance.expiration_date <= deadline,
+        (VendorInsurance.effective_date.is_(None) |
+         (VendorInsurance.effective_date <= reference)),
+    ).exists()
+    upcoming = db.query(VendorInsurance.id).filter(
+        *common, VendorInsurance.effective_date > reference,
+    ).exists()
+    status_expression = case(
+        (~any_policy, "MISSING"), (expired, "EXPIRED"),
+        (expiring, "EXPIRING_30_DAYS"), (upcoming, "UPCOMING"),
+        else_="CURRENT",
+    )
     q = db.query(Vendor).filter(Vendor.organization_id == organization_id)
+    if trade and trade.strip():
+        q = q.filter(func.lower(Vendor.trade) == trade.strip().lower())
+    if insurance_status:
+        q = q.filter(status_expression == insurance_status)
     if not include_inactive:
         q = q.filter(Vendor.is_active.is_(True), Vendor.deleted_at.is_(None))
     if search and search.strip():
@@ -69,10 +108,34 @@ def list_vendors(
     rows = q.order_by(Vendor.company_name.asc(), Vendor.id.asc()).limit(1001).all()
     if len(rows) > 1000:
         raise HTTPException(status_code=422, detail="Narrow vendor search before listing.")
-    return VendorListOut(
-        items=[VendorOut.model_validate(row) for row in rows],
-        total=len(rows),
-    )
+    # One scoped query for selected vendors; never include policy numbers,
+    # carrier details, certificates, banking or tax identifiers.
+    from app.routers.vendor_insurance import _status
+    ids = [row.id for row in rows]
+    by_vendor: dict[int, list[VendorInsurance]] = {id_: [] for id_ in ids}
+    if ids:
+        policies = db.query(VendorInsurance).filter(
+            VendorInsurance.organization_id == organization_id,
+            VendorInsurance.vendor_id.in_(ids),
+            VendorInsurance.is_active.is_(True),
+            VendorInsurance.deleted_at.is_(None),
+        ).order_by(VendorInsurance.expiration_date, VendorInsurance.id).limit(10001).all()
+        if len(policies) > 10000:
+            raise HTTPException(status_code=422, detail="Narrow vendor insurance search.")
+        for policy in policies:
+            by_vendor[policy.vendor_id].append(policy)
+    results = []
+    for row in rows:
+        statuses = [(policy, _status(policy, reference)) for policy in by_vendor[row.id]]
+        status = next((name for name in (
+            "EXPIRED", "EXPIRING_30_DAYS", "UPCOMING", "CURRENT",
+        ) if any(s == name for _, s in statuses)), "MISSING")
+        expiry = min((p.expiration_date for p, s in statuses if s == status),
+                     default=None)
+        results.append(VendorOut.model_validate(row).model_copy(update={
+            "insurance_status": status, "insurance_expires_on": expiry,
+        }))
+    return VendorListOut(items=results, total=len(results))
 
 
 @router.get("/{vendor_id}", response_model=VendorOut)

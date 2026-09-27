@@ -209,3 +209,111 @@ def test_expiry_today_upcoming_revocation_and_scoped_attachments(monkeypatch):
     finally:
         db.close()
         engine.dispose()
+
+
+
+def test_vendor_directory_filters_and_policy_priority(monkeypatch):
+    from app.routers import vendors
+    db, engine = _session()
+    try:
+        admin, owner, manager, other = _seed(db)
+        monkeypatch.setattr(vendors, "permission_allows_user", lambda *a, **kw: True)
+        plumbing = vendors.create_vendor(VendorCreate(company_name="Alpha", trade="Plumbing"),
+                                         db=db, current_user=admin)
+        hvac = vendors.create_vendor(VendorCreate(company_name="Bravo", trade="HVAC"),
+                                     db=db, current_user=admin)
+        missing = vendors.create_vendor(VendorCreate(company_name="Charlie", trade="Plumbing"),
+                                        db=db, current_user=admin)
+        foreign = vendors.create_vendor(VendorCreate(company_name="Secret", trade="Plumbing"),
+                                        db=db, current_user=other)
+        first = insurance.create_vendor_insurance(plumbing.id, _policy(
+            expiration_date=date(2026, 9, 1)), db=db, current_user=admin)
+        insurance.create_vendor_insurance(hvac.id, _policy(
+            expiration_date=date(2026, 10, 1)), db=db, current_user=admin)
+        insurance.create_vendor_insurance(foreign.id, _policy(
+            expiration_date=date(2026, 8, 1)), db=db, current_user=other)
+        asof = date(2026, 9, 1)
+        result = vendors.list_vendors(Response(), as_of=asof, db=db, current_user=owner)
+        rows = {item.id: item for item in result.items}
+        assert set(rows) == {plumbing.id, hvac.id, missing.id}
+        assert rows[plumbing.id].insurance_status == "EXPIRING_30_DAYS"
+        assert rows[plumbing.id].insurance_expires_on == asof
+        assert rows[missing.id].insurance_status == "MISSING"
+        assert rows[missing.id].insurance_expires_on is None
+        assert {x.id for x in vendors.list_vendors(
+            Response(), trade="plumbing", db=db, current_user=owner).items} == {plumbing.id, missing.id}
+        assert {x.id for x in vendors.list_vendors(
+            Response(), insurance_status="EXPIRING_30_DAYS",
+            as_of=asof, db=db, current_user=owner).items} == {plumbing.id, hvac.id}
+        assert [x.id for x in vendors.list_vendors(
+            Response(), insurance_status="EXPIRED", as_of=date(2026, 9, 2),
+            db=db, current_user=owner).items] == [plumbing.id]
+        insurance.delete_vendor_insurance(plumbing.id, first.id, db=db, current_user=admin)
+        assert {x.id for x in vendors.list_vendors(
+            Response(), insurance_status="MISSING",
+            db=db, current_user=owner).items} == {plumbing.id, missing.id}
+        assert db.query(GLTransaction).count() == 0
+        assert db.query(PropertyExpense).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_vendor_directory_status_priority_and_date_boundary(monkeypatch):
+    from app.routers import vendors
+    db, engine = _session()
+    try:
+        admin, owner, *_ = _seed(db)
+        monkeypatch.setattr(vendors, "permission_allows_user", lambda *a, **kw: True)
+        company = vendors.create_vendor(VendorCreate(company_name="Delta"),
+                                        db=db, current_user=admin)
+        insurance.create_vendor_insurance(company.id, _policy(
+            expiration_date=date(2026, 8, 31)), db=db, current_user=admin)
+        insurance.create_vendor_insurance(company.id, _policy(
+            expiration_date=date(2027, 1, 1)), db=db, current_user=admin)
+        insurance.create_vendor_insurance(company.id, _policy(
+            effective_date=date(2026, 12, 1), expiration_date=date(2027, 6, 1)),
+            db=db, current_user=admin)
+        asof = date(2026, 9, 1)
+        row = vendors.list_vendors(Response(), as_of=asof, db=db,
+                                   current_user=owner).items[0]
+        assert row.insurance_status == "EXPIRED"
+        assert row.insurance_expires_on == date(2026, 8, 31)
+        assert vendors.list_vendors(Response(), insurance_status="CURRENT",
+                                    as_of=asof, db=db, current_user=owner).total == 0
+        assert vendors.list_vendors(Response(), insurance_status="EXPIRED",
+                                    as_of=asof, db=db, current_user=owner).total == 1
+        assert vendors.list_vendors(Response(), as_of=date.max, db=db,
+                                    current_user=owner).items[0].insurance_status == "EXPIRED"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_vendor_directory_filter_access_limits_and_no_store(monkeypatch):
+    from app.routers import vendors
+    db, engine = _session()
+    try:
+        admin, owner, manager, other = _seed(db)
+        monkeypatch.setattr(vendors, "permission_allows_user", lambda *a, **kw: True)
+        company = vendors.create_vendor(VendorCreate(company_name="Local"), db=db,
+                                        current_user=admin)
+        res = Response()
+        assert vendors.list_vendors(res, insurance_status="MISSING",
+                                    db=db, current_user=owner).items[0].id == company.id
+        assert res.headers["Cache-Control"] == "no-store"
+        with pytest.raises(HTTPException) as exc:
+            vendors.list_vendors(Response(), trade="x" * 101, db=db, current_user=admin)
+        assert exc.value.status_code == 422
+        with pytest.raises(HTTPException) as exc:
+            vendors.list_vendors(Response(), insurance_status="MISSING",
+                                 db=db, current_user=manager)
+        assert exc.value.status_code == 403
+        monkeypatch.setattr(vendors, "permission_allows_user", lambda *a, **kw: False)
+        with pytest.raises(HTTPException) as exc:
+            vendors.list_vendors(Response(), insurance_status="MISSING",
+                                 db=db, current_user=admin)
+        assert exc.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()
