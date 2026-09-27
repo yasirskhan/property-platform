@@ -7,26 +7,26 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `992c949d2ae079f424a8f16bbb8fa131cadf1048`
-- Source GitHub Actions run **36280429259: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `5c3149c27398b2c321062263795149a594ff63ab`
+- Source GitHub Actions run **36283808654: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **492 passed, 3 deselected, 7112 warnings in 79.68s**.
-  E2E: **3 passed in 9.11s**. Lint, typecheck, production build, security
+  Backend: **499 passed, 3 deselected, 7403 warnings in 109.00s**.
+  E2E: **3 passed in 7.31s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **b0d2f4a6c8e1**. SQLAlchemy expected model tables: **105**.
-  Previous head a9c1e3f5b7d0 / 104 tables. Schema/test guards changed
-  with the tax-profile revision migration; no new model table. All three
-  PostgreSQL/bootstrap/legacy CI paths passed.
+- Alembic head: **c1e3f5a7b9d2**. SQLAlchemy expected model tables: **107**.
+  Previous head b0d2f4a6c8e1 / 105 tables. Property Group persistence added
+  two explicitly-scoped models in the preceding source commit; Property Performance
+  introduced no new tables. All three PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Property Directory. VERIFIED.**
+  **Latest completed batch: Property Performance. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Property Group Directory. Prerequisite: explicit named groups and memberships, not yet modeled.**
+- **Exact NEXT original-plan task: Rent Roll. Property Group Directory is now VERIFIED and its named groups/memberships are modeled.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -64,6 +64,8 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Property Gross Potential Rent (read-only) | cb85f82c55090450798b5ef3fb941dc9bd97538b | 36279627346 | 485 backend passed / 3 E2E |
 | Lease Expiration Detail / Monthly Summary | 08fb55bb470e94e1422cd6b601a28794151c1f46, d818dfbb5652c3f2d0735fa1b891a59c3be38ee2 | 36280075299 | 489 backend passed / 3 E2E |
 | Property Directory | 992c949d2ae079f424a8f16bbb8fa131cadf1048 | 36280429259 | 492 backend passed / 3 E2E |
+| Property Group Directory | b246d698b2da335796f9aca58ca4d067fb939cc0, 70900226383d4421193ca8f7c76da465369e01f9 | 36280886202 | 496 backend passed / 3 E2E |
+| Property Performance | 5c3149c27398b2c321062263795149a594ff63ab | 36283808654 | 499 backend passed / 3 E2E |
 | Tenant Ledger current balances and Charges authorization | a12e0f1af94b7e74e03e9e81988bba98d98cb016, 33902846eab82304299f383001de682081091eec | 36276682654 | 463 backend passed / 3 E2E |
 | Tenant Directory | 873219e0be9e41a7c68ec52e4da604a882dc90c2 | 36275843531 | 458 backend passed / 3 E2E |
 | Security Deposit Funds Detail GL liability report | 60ee5a986d670b4e3af18d01060e971c163c522f | 36275464600 | 454 backend passed / 3 E2E |
@@ -1023,54 +1025,112 @@ report must not leak hidden member properties and should
 mark filtered membership counts clearly. Migration + guards
 and tests required if new group tables are added.
 
+## Phase 3.7 Property Group Directory — VERIFIED 2026-09-26
+
+Source b246d698b2da335796f9aca58ca4d067fb939cc0,
+frontend type correction 70900226383d4421193ca8f7c76da465369e01f9.
+Final CI 36280886202 SUCCESS all six jobs: 496 backend
+passed, 3 deselected; E2E 3 passed in 10.46s.
+Migration c1e3f5a7b9d2 adds property_groups and
+property_group_memberships; 107 SQLAlchemy tables. Original
+property groups prerequisite now persisted as explicit org-scoped
+named groups and memberships; no invented auto-grouping.
+Only authorized ADMIN can edit, scoped MANAGER sees currently
+assigned property memberships. Hybrid release.properties.groups,
+commercial entitlement, PROPERTIES.GROUPS and SETTINGS safeguards
+apply. Canonical report preview, server CSV/email, permission/export
+checks, formula-escaped CSV and manager scope included. No frozen
+docs/ changes. Earlier source runs superseded/cancelled.
+
+## Phase 3.7 Property Performance — VERIFIED 2026-09-26
+
+Source 5c3149c27398b2c321062263795149a594ff63ab.
+GitHub CI 36283808654 SUCCESS all six jobs: backend
+499 passed, 3 deselected, 7403 warnings in 109.00s;
+E2E 3 passed in 7.31s; frontend lint/typecheck/build,
+platform-admin, security, staging-config green.
+No migration from group head c1e3f5a7b9d2, 107 tables.
+Frozen docs/ not changed; planning parity status not advanced.
+
+Enhanced Property & Unit catalog key property.performance
+links to /dashboard/reporting/property-performance. A mandatory
+property ID and calendar year scope recorded GL income and
+expense entries, including original and reversal postings.
+Totals are credit-minus-debit for income and debit-minus-credit
+for expenses; posted net is income less expense. Propertyless
+company-level GL entries, other property/organization entries,
+and asset/liability/equity lines excluded. Archived GL accounts
+remain included when actual posted activity exists.
+Role and live assigned-property checks reuse the VERIFIED
+visible_budget_property helper: only org active ADMIN/MANAGER,
+REPORTING.ALL, PROPERTIES.ALL, ACCOUNTING.GL_ACCOUNTS.
+Explicit ACCRUAL basis only, CASH refuses rather than inventing
+cash flow; no ROI, NOI, occupancy, rent roll or GL postings inferred.
+Preview GET /api/reporting/property-performance/preview no-store;
+existing ReportPayload and ReportActions provide server CSV/email
+with release.reporting.export and formula escaping.
+Three focused tests cover 2026 journal/reversal sums, org and
+manager isolation, CASH refusal and bad parameters, no GL writes,
+catalog and no-store preview/CSV/email/revoked export.
+Three existing generic E2E smoke tests, not dedicated
+Property Performance UI tests.
+
+NEXT original Section 38: Rent Roll report, then Unit Directory,
+Unit Inspection and Unit Vacancy Detail. Current Unit.monthly_rent
+represents CURRENT configured market rent and Lease.monthly_rent
+is CURRENT recorded contract rent; Lease.status and dates are
+not immutable historical occupancy. Build a clearly qualified
+current-config rent roll based on active scoped units and live
+eligible leases. Do not claim collected rent or retroactive
+historical occupancy, synthesize tenant links, ignore overlapping
+active leases or bypass LEASING/property access. Only recorded
+contract status/date, not live collection. Include focused tests,
+preview no-store, shared CSV/email and existing export gate.
+No new migrations needed if reading current tables.
+
 ## Exact next work: continue, don't stop at phase boundary
 
-1. Read ENTIRE root handoff and verify current branch HEAD/CI.
-   Property Directory and every earlier Phase 3.7 report
-   above are VERIFIED; no duplication.
-2. Exact next Section 38 Property Group Directory requires
-   named Property Groups and org-scoped explicit property
-   membership first: no verified schema or backend CRUD
-   yet, only hidden release.properties.groups compatibility
-   UI slot. This is an original Phase 3.5 prerequisite,
-   not a new roadmap feature. Investigate feature gate
-   entitlement property_groups, PROPERTIES.GROUPS and
-   SETTINGS authorization, model scope, migrations and
-   existing property/manager assignment before coding.
-   Admin manages group membership; manager sees only
-   explicitly assigned properties. Avoid cross-org
-   memberships, arbitrary property disclosure or guessed
-   group classifications. Add focused tests.
-3. Implement report via canonical catalog/ReportPayload,
-   backend preview no-store, server CSV/email and release
-   export gate; do not bypass source-group capability.
-4. Commit bounded product batches with regression tests;
-   verify all six hosted CI jobs before VERIFIED, fix red
-   autonomously, update root handoff with source SHA,
-   exact CI/counts and migration head.
-5. Then Property Performance, Rent Roll, Unit Directory
-   and next Section 38 order. No unrelated frozen docs/,
-   main, new branch, force pushes, Work mode, or false
-   external 1099 filing claim.
+1. Read complete root handoff and verify HEAD/CI. Property
+   Group Directory and Property Performance VERIFIED; DO NOT
+   reimplement their models or business logic.
+2. Exact NEXT original Phase 3.7 report: Rent Roll.
+   Inspect existing Lease, Unit, Property, GPR and tenant
+   directory source. Use a current-config snapshot only:
+   active/undeleted org-scoped property and unit, current
+   ACTIVE lease with recorded date bounds and same-org active
+   tenant; explicitly label vacancy and distinguish current
+   Unit market rent from contracted Lease rent. Overlapping
+   active leases must fail closed rather than silently select.
+   Manager restricted to live assigned properties.
+3. Preserve REPORTING.ALL, PROPERTIES.ALL, LEASING and
+   release.reporting.export, canonical enhanced TAB report,
+   no-store preview, existing server CSV/email and escaped
+   formulas. No inferred posted GL or receipt collections.
+   Tests must cover assignment/tenant org scope, duplicates,
+   dates and statuses, delivered CSV/email and revocation.
+4. Commit bounded product changes with regression tests, wait
+   for all six hosted CI jobs before marking VERIFIED. Fix CI
+   reds without skipping batches. Update this root handoff
+   after the verified batch with exact source/run/counts.
+5. Then original Section 38 Unit Directory, Unit Inspection,
+   Unit Vacancy Detail. Do not modify main, create a new
+   branch, touch unrelated frozen docs/, or falsely claim
+   live external 1099 filing.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform existing branch
-chatgpt/checkpoint-005-safety. Read entire root AI_HANDOFF.md
-and verify actual HEAD/CI. Last VERIFIED product source
-992c949d2ae079f424a8f16bbb8fa131cadf1048,
-CI 36280429259 all six SUCCESS, backend 492 passed,
-3 deselected, 7112 warnings, E2E 3 passed in 9.11s.
-Alembic b0d2f4a6c8e1 / 105 model tables. Lease
-Expiration and Property Directory reports VERIFIED.
-NEXT original Property Group Directory requires
-explicit named-group and membership persistence from
-the original planned Property Groups feature; no
-existing model. Honor release.properties.groups,
-entitlement property_groups, PROPERTIES.GROUPS and
-live manager property assignments. Do not invent
-grouping. Add focused tests, migrations + schema
-guards if needed, commit bounded code, verify full
-CI before VERIFIED, update root handoff. Then
-Property Performance and remaining Section 38.
-No main/new branch, Work, or unapproved docs edits.
+Continue yasirskhan/property-platform on branch
+chatgpt/checkpoint-005-safety. Read FULL root AI_HANDOFF.md,
+verify actual branch HEAD/latest CI. Last VERIFIED product
+source 5c3149c27398b2c321062263795149a594ff63ab,
+CI 36283808654 all six SUCCESS, 499 backend passed,
+3 deselected, 7403 warnings, 3 E2E passed in 7.31s.
+Alembic c1e3f5a7b9d2 / 107 model tables.
+Named Property Groups and Property Performance VERIFIED.
+Exact next original Section 38 Rent Roll; then Unit Directory.
+Use live scoped active leases, current recorded Unit/Lease
+rent, fail-closed duplicate leases, no collected-rent claims.
+Preserve admin/manager org/property scope, LEASING and
+report permissions, shared CSV/email, export gate, immutable GL.
+Product commits require green full GitHub Actions after
+tests; update root handoff. No main/new branch/unrelated docs.
