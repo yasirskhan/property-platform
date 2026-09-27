@@ -143,6 +143,7 @@ def test_admin_menu_and_foreign_id_probes_fail_closed(monkeypatch):
         db.commit()
         with pytest.raises(ReportDeliveryError, match="permission"):
             _payload(db, admin)
+        monkeypatch.setattr(assoc, "permission_allows_user", lambda *a, **k: True)
         with pytest.raises(ReportDeliveryError, match="not found"):
             _payload(db, foreign, bank_id=current.id)
     finally:
