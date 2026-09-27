@@ -40,6 +40,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "accounting.cash_flow_12_month": "ACCOUNTING.BANK_ACCOUNTS",
     "accounting.expense_distribution": "ACCOUNTING.GL_ACCOUNTS",
     "accounting.income_statement": "ACCOUNTING.GL_ACCOUNTS",
+    "accounting.trust_account_balance": "ACCOUNTING.BANK_ACCOUNTS",
     "accounting.general_ledger": "ACCOUNTING.GL_ACCOUNTS",
     "accounting.trial_balance": "ACCOUNTING.GL_ACCOUNTS",
     "owner.statement": "ACCOUNTING.OWNER_STATEMENTS",
@@ -474,6 +475,14 @@ def build_report_payload(
             raise ReportDeliveryError("Authenticated owner directory required")
         from app.services.owner_directory import build_owner_directory
         return build_owner_directory(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "accounting.trust_account_balance":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated trust account balance required")
+        from app.services.trust_account_balance import build_trust_account_balance
+        return build_trust_account_balance(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
         )

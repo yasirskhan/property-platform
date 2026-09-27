@@ -263,7 +263,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/accounting/trial-balance",
         description="Existing verified trial-balance report.",
     ),
-    _enhanced("accounting.trust_account_balance", "Trust Account Balance", "Accounting"),
+    _enhanced(
+        "accounting.trust_account_balance", "Trust Account Balance", "Accounting",
+        href="/dashboard/reporting/trust-account-balance",
+        description="As-of posted GL book cash in mapped trust bank accounts; not cleared balance or three-way reconciliation.",
+    ),
     _enhanced("accounting.trust_account_detail", "Trust Account Detail", "Accounting"),
 
     # Transactions

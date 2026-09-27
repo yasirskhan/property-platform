@@ -895,6 +895,27 @@ def preview_cash_flow_12_month(
             "rows": data.rows, "total": len(data.rows)}
 
 
+@router.get("/trust-account-balance/preview")
+def preview_trust_account_balance(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Scoped posted trust bank GL book balances, never bank statement cash."""
+    org_id = _require_report_access(
+        db, current_user=current_user, report_key="accounting.trust_account_balance",
+    )
+    _require_export_feature(db, current_user)
+    data = _build_or_422(
+        db, organization_id=org_id, report_key="accounting.trust_account_balance",
+        parameters=dict(request.query_params), current_user=current_user,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return {"title": data.title, "headers": data.headers,
+            "rows": data.rows, "total": len(data.rows)}
+
+
 @router.get("/income-statement/preview")
 def preview_income_statement(
     request: Request,
