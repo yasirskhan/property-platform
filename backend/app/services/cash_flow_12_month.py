@@ -67,7 +67,7 @@ def build_cash_flow_12_month(
         if summary[0] != "TOTAL":
             raise ReportDeliveryError("Cash flow summary missing")
         records.append((
-            start.strftime("%Y-%m"),
+            f"{start.year:04d}-{start.month:02d}",
             *(Decimal(value) for value in summary[3:]),
         ))
 
