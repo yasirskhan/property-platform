@@ -12,6 +12,7 @@ type Vendor = {
   address_line1: string | null; address_line2: string | null;
   city: string | null; state: string | null; postal_code: string | null;
   country: string | null; contact_user_id: number | null; is_active: boolean;
+  insurance_status: string; insurance_expires_on: string | null;
 };
 type VendorList = { items: Vendor[]; total: number };
 type Me = { role: string };
@@ -36,15 +37,22 @@ export default function VendorsPage() {
   const [selectedVendor, setSelectedVendor] = useState<number | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [search, setSearch] = useState("");
+  const [tradeFilter, setTradeFilter] = useState("");
+  const [insuranceFilter, setInsuranceFilter] = useState("");
+  const [asOf, setAsOf] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  async function refresh(query: string, includeInactive: boolean) {
+  async function refresh(query: string, includeInactive: boolean,
+    trade = tradeFilter, insurance = insuranceFilter, reference = asOf) {
     const q = new URLSearchParams({
       include_inactive: String(includeInactive),
       ...(query.trim() ? { search: query.trim() } : {}),
+      ...(trade.trim() ? { trade: trade.trim() } : {}),
+      ...(insurance ? { insurance_status: insurance } : {}),
+      ...(reference ? { as_of: reference } : {}),
     });
     const result = await apiGet(`/api/vendors?${q}`) as VendorList;
     setVendors(result.items);
@@ -206,6 +214,23 @@ export default function VendorsPage() {
               ); }} />
             Show inactive
           </label>
+          <input value={tradeFilter} maxLength={100}
+            onChange={(event) => setTradeFilter(event.target.value)}
+            placeholder="Exact trade (e.g. Plumbing)" aria-label="Filter vendor trade"
+            className="rounded border px-3 py-2 text-sm" />
+          <select value={insuranceFilter} onChange={(event) => setInsuranceFilter(event.target.value)}
+            aria-label="Filter insurance status" className="rounded border px-3 py-2 text-sm">
+            <option value="">All insurance statuses</option>
+            <option value="MISSING">No active policy</option>
+            <option value="EXPIRED">Expired</option>
+            <option value="EXPIRING_30_DAYS">Expiring within 30 days</option>
+            <option value="UPCOMING">Upcoming</option>
+            <option value="CURRENT">Current</option>
+          </select>
+          <label className="text-sm">Insurance status as of
+            <input type="date" value={asOf} onChange={(event) => setAsOf(event.target.value)}
+              className="ml-2 rounded border px-2 py-2 text-sm" />
+          </label>
           <button type="submit" className="rounded border px-3 py-2 text-sm">Search</button>
         </form>
         {vendors.length === 0 ? <p className="text-sm text-slate-500">No vendor companies match.</p> : (
@@ -213,7 +238,7 @@ export default function VendorsPage() {
             <table className="w-full text-left text-sm">
               <thead><tr className="border-b">
                 <th className="px-3 py-2">Company</th><th className="px-3 py-2">Trade</th>
-                <th className="px-3 py-2">Email</th><th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Email</th><th className="px-3 py-2">Insurance</th><th className="px-3 py-2">Status</th>
                 <th className="px-3 py-2">Actions</th>
               </tr></thead>
               <tbody>
@@ -222,6 +247,14 @@ export default function VendorsPage() {
                     <td className="px-3 py-2 font-medium">{v.company_name}</td>
                     <td className="px-3 py-2">{v.trade || "—"}</td>
                     <td className="px-3 py-2">{v.business_email || "—"}</td>
+                    <td className="px-3 py-2">
+                      {v.insurance_status === "MISSING" ? "No active policy recorded" :
+                       v.insurance_status === "EXPIRING_30_DAYS" ? "Expiring within 30 days" :
+                       v.insurance_status}
+                      {v.insurance_expires_on && <span className="block text-xs text-slate-500">
+                        {v.insurance_expires_on}
+                      </span>}
+                    </td>
                     <td className="px-3 py-2">{v.is_active ? "Active" : "Inactive"}</td>
                     <td className="px-3 py-2">
                       <span className="flex gap-2">
