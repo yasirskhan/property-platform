@@ -46,7 +46,7 @@ def _status(row: VendorInsurance, as_of: date) -> str:
         return "UPCOMING"
     if row.expiration_date < as_of:
         return "EXPIRED"
-    if row.expiration_date <= as_of + timedelta(days=30):
+    if row.expiration_date <= as_of + timedelta(days=min(30, (date.max - as_of).days)):
         return "EXPIRING_30_DAYS"
     return "CURRENT"
 
