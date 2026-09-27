@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `0567aa87b894baf41238b61838566b71bc885a9b`
-- Source GitHub Actions run **36286373738: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `05c8e4e73a9e4c93088ddf2773318179dfd0b592`
+- Source GitHub Actions run **36287053275: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **512 passed, 3 deselected, 7856 warnings in 107.31s**.
-  E2E: **3 passed in 8.86s**. Lint, typecheck, production build, security
+  Backend: **515 passed, 3 deselected, 7963 warnings in 107.66s**.
+  E2E: **3 passed in 8.99s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -19,13 +19,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   Previous head c1e3f5a7b9d2 / 107 tables. One explicit
   unit_inspection_records table added; PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Unit Vacancy Detail. VERIFIED.**
+  **Latest completed batch: Owner Directory. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Owner Directory (Owner & Vendor reports). Unit Vacancy Detail, Unit Inspection and earlier Phase 3.7 reports are VERIFIED.**
+- **Exact NEXT original-plan task: Vendor Directory (Owner Statement already VERIFIED). Owner Directory and earlier Phase 3.7 reports are VERIFIED.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -69,6 +69,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Unit Directory | c1f47e197a8934634b88c77d5a04f0c97609c3a7, a608b1b2e86f2378df825c53d864413c2139197a | 36284770912 | 505 backend passed / 3 E2E |
 | Unit Inspection | deb6019ab889c03e8ce5a208da271cb16e16d2a5, 52369dd6ae3237fa4695d1407750c18a3847959e | 36285989151 | 509 backend passed / 3 E2E |
 | Unit Vacancy Detail | e61115fd1d0a544c7cddbfd0d8e22df6054ee8da, 0567aa87b894baf41238b61838566b71bc885a9b | 36286373738 | 512 backend passed / 3 E2E |
+| Owner Directory | 22bc827577e960a1e4a66203bebe14b7638df58c, 96d731902ac3b3126ab8d93f7d4881a551795609, 05c8e4e73a9e4c93088ddf2773318179dfd0b592 | 36287053275 | 515 backend passed / 3 E2E |
 | Tenant Ledger current balances and Charges authorization | a12e0f1af94b7e74e03e9e81988bba98d98cb016, 33902846eab82304299f383001de682081091eec | 36276682654 | 463 backend passed / 3 E2E |
 | Tenant Directory | 873219e0be9e41a7c68ec52e4da604a882dc90c2 | 36275843531 | 458 backend passed / 3 E2E |
 | Security Deposit Funds Detail GL liability report | 60ee5a986d670b4e3af18d01060e971c163c522f | 36275464600 | 454 backend passed / 3 E2E |
@@ -1298,52 +1299,104 @@ Preserve PEOPLE.OWNERS role/menu permission and
 customer privacy; do not expose other owners to
 ordinary owner or tenant viewers. No GL modifications.
 
+## Phase 3.7 Owner Directory — VERIFIED 2026-09-26
+
+Implementation 22bc827577e960a1e4a66203bebe14b7638df58c;
+test-only CSV formula and foreign owner self-scope correction
+96d731902ac3b3126ab8d93f7d4881a551795609;
+security role-boundary correction
+05c8e4e73a9e4c93088ddf2773318179dfd0b592.
+Final source CI 36287053275 SUCCESS all six jobs:
+515 backend passed, 3 deselected, 7963 warnings
+in 107.66s; 3 authenticated browser E2E passed
+in 8.99s; frontend lint/typecheck/build, security,
+platform admin, staging-config green.
+Superseded earlier source runs 36286827190 and
+36286839810 CANCELLED, not fully verified.
+No migration: d2f4a6c8e0b1, 108 model tables;
+frozen docs/ unchanged, planning parity not advanced.
+
+STANDARD owner.directory links to
+/dashboard/reporting/owner-directory. Canonical preview
+GET /api/reporting/owner-directory/preview with no-store;
+existing ReportPayload/server CSV/email/ReportActions,
+formula escaping and release.reporting.export rechecks.
+Service app/services/owner_directory.py lists only
+current active undeleted same-org User.role OWNER
+contacts: recorded name, email, phone, Owner ID.
+No invented owner mailing addresses, ACH banking,
+TIN or tax profile reads. Existing users.get_user
+restricts managers to crew details; therefore THIS
+report denies MANAGER, even with a PEOPLE.OWNERS
+menu grant. Authorized ADMIN sees same-org owners;
+OWNER self sees own contact ONLY, never other owners.
+REPORTING.ALL and PEOPLE.OWNERS required; tenant,
+vendor, inactive/deleted and foreign scope denied.
+Three focused tests cover role privacy, cross-org
+owner self-only, inactive/deleted, CSV injection,
+no GL writes, export-gate/menu revocation, preview
+and server CSV/email. General E2E smoke count is
+not owner-directory-specific coverage.
+
+NEXT Vendor Directory (Owner Statement already VERIFIED).
+Vendor is currently User.role VENDOR; there is
+NO separate Vendor model, and Bill.payee_name is
+unlinked free text for some records. Do NOT invent
+vendor entities from unlinked bills or treat VENDOR_CREW
+as a vendor business. Existing User has first/last,
+email and phone, not verified vendor mailing address.
+Preserve user-management role boundaries: manager
+currently cannot list vendor users via GET /users
+(it returns crew only); do not use report permissions
+to widen that rule. ADMIN can view own-org vendor
+accounts; owner sees nonowner users on existing
+user-management GET /users (check current route),
+but do not expose unrelated vendor contacts to
+unauthorized tenant/crew/vendor roles.
+Do not expose vendor tax profiles or internal payer details.
+
 ## Exact next work: continue, don't stop at phase boundary
 
-1. Read full root handoff, verify current branch HEAD and
-   latest CI. Unit Vacancy Detail and all preceding
-   Phase 3.7 reports through Property & Unit are VERIFIED.
-   Do not repeat these batches or mutate original GL.
-2. Exact next original Section 38 Owner & Vendor report
-   is Owner Directory. Existing customer User.role OWNER
-   has real first/last name, email, phone and org status;
-   no owner mailing address in ordinary user model.
-   Use only recorded active, undeleted same-org owners,
-   avoid private taxpayer profiles and unauthorized
-   cross-owner disclosure. Require REPORTING.ALL and
-   PEOPLE.OWNERS; assess ADMIN/manager/owner role carefully.
-   PropertyOwner is an existing explicit join if needed;
-   do not infer owners from tax data or property name.
-3. Standard catalog link, no-store preview, shared
-   ReportPayload and CSV/email, release.reporting.export,
-   formula escaping, org/role/menu revocation and
-   manager/property visibility as applicable. Add
-   focused tests and no GL writes; no migration if
-   using existing User/PropertyOwner.
-4. Commit bounded source and tests; all six hosted CI
-   jobs must pass before mark VERIFIED. Fix red
-   autonomously, record actual counts/source/migration
-   in root AI_HANDOFF.md. Then skip verified Owner
-   Statement and proceed Vendor Directory.
-5. No main/new branch, Work mode, unapproved docs/
-   changes or scope expansion. Continue roadmap.
+1. Read entire root handoff and verify branch HEAD/latest CI.
+   Owner Directory, Owner Statement and all earlier
+   original-plan batches are VERIFIED. Do not repeat.
+2. Next Section 38 Owner & Vendor task: Vendor Directory.
+   Current User.role VENDOR represents a recorded vendor
+   account. VENDOR_CREW is different, and many Bill payee
+   names are free text; do not fabricate vendor registration.
+   Directory uses recorded first/last name, email and
+   optional phone only. No tax ID, W-9 or guessed
+   mailing/address/insurance status.
+3. Check existing GET /users role detail/list contracts.
+   ADMIN can see own-org vendor users. Existing OWNER
+   listing can see same-org nonowner users; handle
+   OWNER with existing role/menu permissions. MANAGER
+   user list is crew-only: do NOT create a report bypass.
+   Require REPORTING.ALL and PEOPLE.VENDORS, active/
+   not-deleted actor, org scope; avoid cross-org leak.
+4. Add STANDARD report href, no-store preview, shared
+   ReportPayload/CSV/email and release.reporting.export
+   gate, formula escaping and role/permission tests.
+   No GL writes or migration. After full green CI
+   update handoff then proceed Vendor Ledger.
+5. Commit bounded code with focused regression tests,
+   verify all six GitHub Actions jobs and exact counts
+   before VERIFIED. No main/new branch, Work mode,
+   unapproved frozen docs or repeated audits.
 
 ## Session start for successor
 
 Continue yasirskhan/property-platform ONLY on
-chatgpt/checkpoint-005-safety. Read entire root
-AI_HANDOFF.md and verify actual HEAD and CI.
-Last VERIFIED source 0567aa87b894baf41238b61838566b71bc885a9b;
-CI 36286373738 all six SUCCESS (512 backend passed,
-3 deselected, 7856 warnings; E2E 3 passed in 8.86s).
-Alembic d2f4a6c8e0b1 /108 model tables.
-Unit Directory, Unit Inspection, Unit Vacancy Detail
-and all earlier report batches VERIFIED.
-NEXT original Phase 3.7 Owner Directory;
-Owner Statement already VERIFIED, then Vendor Directory.
-Use recorded same-org owner users, no invented
-mailing addresses or private tax profiles.
-Preserve REPORTING.ALL, PEOPLE.OWNERS, role privacy,
-CSV/email/export gate, tests and full green CI.
-Refresh handoff after each verified batch; no main,
-new branch or unrelated frozen docs edits.
+chatgpt/checkpoint-005-safety. Read entire repo-root
+AI_HANDOFF.md first, verify actual HEAD/latest CI.
+Last VERIFIED source 05c8e4e73a9e4c93088ddf2773318179dfd0b592;
+CI 36287053275 all six SUCCESS: backend 515 passed,
+3 deselected, 7963 warnings; E2E 3 passed in 8.99s.
+Alembic d2f4a6c8e0b1, 108 model tables. Unit Vacancy,
+Owner Directory and prior original-plan reports VERIFIED.
+Exact next Section 38 Vendor Directory; Owner Statement
+already VERIFIED, then Vendor Ledger. Preserve current
+user-management role boundaries, no tax IDs, no made-up
+vendor/mailing entities, existing report permission and
+CSV/email export gates. Add tests, green full CI, update
+root handoff. No main/new branch/unapproved frozen docs.
