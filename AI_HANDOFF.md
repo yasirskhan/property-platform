@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `bdf317cc8e2912061b1544229303aef12a1d3d34`
-- Source GitHub Actions run **36332538763: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `3875ef5af74097f93643d6925eb8b14dfd6ac147`
+- Source GitHub Actions run **36335844931: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **578 passed, 3 deselected, 11124 warnings in 124.44s**.
-  E2E: **3 passed in 8.76s**. Lint, typecheck, production build, security
+  Backend: **584 passed, 3 deselected, 11380 warnings in 95.99s**.
+  E2E: **3 passed in 9.44s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -19,13 +19,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   Previous head c1e3f5a7b9d2 / 107 tables. One explicit
   unit_inspection_records table added; PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Deposit Register. VERIFIED.**
+  **Latest completed batch: Income Register. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Transaction Expense Register, then Income Register and Journal Entry Register. Deposit Register, both Check Register reports and earlier reports VERIFIED.**
+- **Exact NEXT original-plan task: Transaction Journal Entry Register, then follow Section 38. Expense and Income Registers, Deposit Register, both Check Register reports and earlier reports VERIFIED.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -94,6 +94,8 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Check Register (issue/void, bank-safe) | 1597120b55d45a37d17bc1baddf4c663abaec4b2 | 36331055801 | 572 backend passed / 3 E2E |
 | Check Register Detail (recorded allocations) | 9a1dd5dc941bb4a1043b7c367c072f3d4a54d61e, 0494f6a14bc8ee835837d87c5832995609b52c8f | 36332054459 | 575 backend passed / 3 E2E; first registration CI red corrected |
 | Deposit Register (recorded receipt grouping) | bdf317cc8e2912061b1544229303aef12a1d3d34 | 36332538763 | 578 backend passed / 3 E2E |
+| Expense Register (posted expense GL detail) | fa8ab2e287aea400e6e684205cf5c9a6308ef85a, 7882a5921be2d38601f0a989d8d46552089debe1 | 36333373605 | Verified source; see subsequent section |
+| Income Register (posted income GL detail) | 3875ef5af74097f93643d6925eb8b14dfd6ac147 | 36335844931 | 584 backend passed / 3 E2E |
 | Tenant delinquency live overdue rent invoices | 8a6a27ef3c248e394546bdb4e8a65c8ffa43e6b7, a644bd803787d3ffc9be36de4318a67915248364 | 36274961962 | 450 backend passed / 3 E2E |
 
 
@@ -2263,37 +2265,87 @@ cash-basis classifications. Reuse expense_distribution and
 reporting_basis, admin org and GL permissions, no-store,
 canonical ReportPayload/CSV/email, export gate and tests.
 
+## Phase 3.7 Income Register — VERIFIED 2026-09-27
+
+Source 3875ef5af74097f93643d6925eb8b14dfd6ac147.
+Full GitHub CI 36335844931 SUCCESS all six jobs:
+backend 584 passed, 3 deselected, 11380 warnings in 95.99s;
+authenticated browser E2E 3 passed in 9.44s; frontend
+lint/typecheck/build, platform admin, security and staging-config
+all passed. Browser suite is generic authenticated smoke, not
+dedicated Income Register page E2E. No migration; Alembic
+d2f4a6c8e0b1 / 108 expected tables. Frozen docs and planning
+parity unchanged.
+
+STANDARD transaction.income_register links
+/dashboard/reporting/income-register; authenticated no-store
+GET /api/reporting/income-register/preview. Existing
+ReportPayload, shared CSV/email ReportActions and
+release.reporting.export gating reused. Only active same-org
+ADMIN with REPORTING.ALL and ACCOUNTING.GL_ACCOUNTS.
+ACCRUAL basis required; CASH basis refused rather than invent
+cash-flow income. Actual dated posted GLTransaction/GLEntry
+joined to same-org INCOME GLAccount, including archived
+accounts, income credits, debit returns and reversal lines.
+Signed net income = credits less debits. Strict date range,
+optional account_id with org/type check; 5000 entry cap,
+malformed/extra filters fail closed. Rows include real
+transaction and entry IDs, recorded reference and description;
+no receipt/bank clearing, invoice status or historic cash
+claims; no GL writes. Three focused tests cover signed entries,
+returns/archived history and org isolation, permission/release
+revocation, CSV escaping, preview/email, invalid filters and
+basis refusal.
+
+NEXT original Section 38: Journal Entry Register. Inspect
+existing /api/accounting/journal-entries and gl_posting,
+GLTransaction.transaction_type JOURNAL_ENTRY and its
+REVERSAL semantics. Original manual JE records may be
+marked is_reversed=True while their reversal transaction
+has type REVERSAL and reversal_of_id. Do not silently omit
+historically posted originals or count reversals from
+unrelated source types. Show recorded manual/recurring
+journal metadata and true reversal markers, verify
+balanced posted GLEntry lines, org-owned GL accounts,
+date/role scope and no GL mutations. No new schema expected.
+Preserve canonical report delivery, export gate, no-store
+preview, formula escaping, focused tests and full six-job CI.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Read root handoff fully; verify branch HEAD/latest CI. Deposit
-   Register and preceding reports VERIFIED, do not repeat.
-2. Implement original Transaction Expense Register, sourced
-   from dated posted EXPENSE GLEntry/GLTransaction joined to
-   same-org GLAccount. Do not infer PropertyExpense or
-   bill/check bank settlement; no historic cash reconstruction.
-   Require ACCRUAL reporting basis or refuse, include genuine
-   reversal/credit lines and archived GL history. Validate
-   date interval and bounded output. ADMIN/REPORTING.ALL/
-   ACCOUNTING.GL_ACCOUNTS; no-store preview, shared
-   CSV/email and release.reporting.export, tests on signs,
-   scope, permissions, formula escaping and no GL writes.
-3. After six-job green CI, update handoff and continue
-   Income Register, Journal Entry Register in roadmap order.
-4. Never touch main/new branch, Work mode or frozen docs/parity.
-   Commit bounded source+tests and fix CI reds autonomously.
+1. Re-read root handoff, check current branch HEAD and latest
+   CI. Income Register, Expense Register, Deposit and earlier
+   reports are VERIFIED. Do not repeat.
+2. Implement original Phase 3.7 Journal Entry Register.
+   Read existing GLTransaction/GLEntry and manual/recurring JE
+   posting source. Scope real JOURNAL_ENTRY transactions
+   and appropriate REVERSAL entries referencing manual JE;
+   avoid other transaction types. Include same-org GL
+   checks, balanced lines, origin/reversal markers, optional
+   date filter and bounded output, archived historical GL
+   but no future/not-posted invented records. No GL writes.
+   ADMIN/REPORTING.ALL/ACCOUNTING.JOURNAL_ENTRIES plus
+   ACCOUNTING.GL_ACCOUNTS, no-store preview,
+   report CSV/email export gate, focused regressions.
+3. After all six CI jobs green, update this root handoff
+   with exact commit/test/migration details. Continue
+   original roadmap beyond Journal Entry Register.
+4. No main/new branch/Work mode/unapproved frozen docs
+   or planning parity changes. Bounded commit+CI,
+   fix CI reds autonomously, never invent test counts.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on
-chatgpt/checkpoint-005-safety. Read complete root
-AI_HANDOFF.md and verify branch HEAD and latest CI.
-Last VERIFIED source bdf317cc8e2912061b1544229303aef12a1d3d34;
-CI 36332538763 SUCCESS all six jobs: 578 backend passed,
-3 deselected, 3 authenticated browser E2E passed.
-Alembic d2f4a6c8e0b1 /108 model tables. Deposit Register,
-both Check Register reports and earlier work VERIFIED.
-NEXT original Phase 3.7 Expense Register, then Income Register
-and Journal Entry Register. Preserve GL/org/permissions/
-export gates and no unsupported cash-basis inference.
-User approved commit-then-CI tests. Keep root handoff
-current, no main/new branch/Work mode/frozen docs edits.
+Continue yasirskhan/property-platform on branch
+chatgpt/checkpoint-005-safety. Read root AI_HANDOFF.md,
+verify actual HEAD and latest CI. Last VERIFIED source
+3875ef5af74097f93643d6925eb8b14dfd6ac147;
+CI 36335844931 six SUCCESS (584 backend passed,
+3 deselected, 3 authenticated browser E2E passed).
+Alembic d2f4a6c8e0b1 /108 tables. Income Register,
+Expense Register and prior Phase 3.7 work VERIFIED.
+Next Journal Entry Register, then remaining original
+Section 38 reports. Keep immutability, org/menu/export
+gates, no fake bank accounting; no main/frozen docs.
+User authorized commit-then-GitHub-CI. Refresh root
+handoff after meaningful verified batches.
