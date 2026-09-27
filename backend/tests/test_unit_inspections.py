@@ -106,7 +106,7 @@ def test_inspection_only_explicit_rows_audited_no_gl_writes(monkeypatch):
         assert rows[0][-1] == first_unit.id
         assert "'=Needs repair" in report_csv_bytes(_payload(db, admin)).decode("utf-8-sig")
         assert "'=Visible" in report_csv_bytes(_payload(db, admin)).decode("utf-8-sig")
-        assert inspection_router.get_inspections(Response(), db=db, current_user=manager)[0].id == saved.id
+        assert inspection_router.get_inspections(Response(), property_id=None, unit_id=None, db=db, current_user=manager)[0].id == saved.id
     finally:
         db.close(); engine.dispose()
 
@@ -123,9 +123,10 @@ def test_scope_foreign_unit_assignment_role_revocation(monkeypatch):
                     _input(target), Response(), db=db, current_user=manager,
                 )
             assert exc.value.status_code == 404
-        for actor in (tenant, other):
-            with pytest.raises(ReportDeliveryError, match="permission"):
-                _payload(db, actor, property_id=first.id)
+        with pytest.raises(ReportDeliveryError, match="permission"):
+            _payload(db, tenant, property_id=first.id)
+        with pytest.raises(ReportDeliveryError, match="Property not found"):
+            _payload(db, other, property_id=first.id)
         with pytest.raises(ReportDeliveryError, match="Property not found"):
             _payload(db, manager, property_id=hidden.id)
         with pytest.raises(ReportDeliveryError, match="Unit not found"):
