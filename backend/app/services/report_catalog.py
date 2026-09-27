@@ -268,7 +268,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/trust-account-balance",
         description="As-of posted GL book cash in mapped trust bank accounts; not cleared balance or three-way reconciliation.",
     ),
-    _enhanced("accounting.trust_account_detail", "Trust Account Detail", "Accounting"),
+    _enhanced(
+        "accounting.trust_account_detail", "Trust Account Detail", "Accounting",
+        href="/dashboard/reporting/trust-account-detail",
+        description="Posted GL book entry detail and scoped recorded owner/property tags, not reconciled bank activity.",
+    ),
 
     # Transactions
     _standard("transaction.aged_payables", "Aged Payables", "Transaction"),
