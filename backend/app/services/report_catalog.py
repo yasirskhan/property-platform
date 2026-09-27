@@ -146,7 +146,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/property-groups",
         description="Explicitly saved group memberships; manager view includes assigned properties only.",
     ),
-    _enhanced("property.performance", "Property Performance", "Property & Unit"),
+    _enhanced(
+        "property.performance", "Property Performance", "Property & Unit",
+        href="/dashboard/reporting/property-performance",
+        description="Posted property-tagged accrual GL income, expenses and net; not cash or return on investment.",
+    ),
     _enhanced("property.rent_roll", "Rent Roll", "Property & Unit"),
     _standard("property.unit_directory", "Unit Directory", "Property & Unit"),
     _standard("property.unit_inspection", "Unit Inspection", "Property & Unit"),

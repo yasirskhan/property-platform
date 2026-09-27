@@ -460,6 +460,29 @@ def preview_property_group_directory(
     }
 
 
+@router.get("/property-performance/preview")
+def preview_property_performance(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Posted property-tagged income and expense movements, not cash receipts."""
+    org_id = _require_report_access(
+        db, current_user=current_user, report_key="property.performance",
+    )
+    _require_export_feature(db, current_user)
+    data = _build_or_422(
+        db, organization_id=org_id, report_key="property.performance",
+        parameters=dict(request.query_params), current_user=current_user,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "title": data.title, "headers": data.headers,
+        "rows": data.rows, "total": len(data.rows),
+    }
+
+
 @router.get("/property-directory/preview")
 def preview_property_directory(
     request: Request,

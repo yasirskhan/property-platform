@@ -50,6 +50,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "property.lease_expiration_summary": "LEASING",
     "property.directory": "PROPERTIES.ALL",
     "property.group_directory": "PROPERTIES.GROUPS",
+    "property.performance": "ACCOUNTING.GL_ACCOUNTS",
 }
 
 
@@ -409,6 +410,14 @@ def build_report_payload(
             raise ReportDeliveryError("Authenticated property group report required")
         from app.services.property_groups import build_property_group_directory
         return build_property_group_directory(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "property.performance":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated property performance report required")
+        from app.services.property_performance import build_property_performance
+        return build_property_performance(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
         )
