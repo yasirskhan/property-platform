@@ -53,6 +53,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "property.performance": "ACCOUNTING.GL_ACCOUNTS",
     "property.rent_roll": "LEASING",
     "property.unit_directory": "PROPERTIES.UNITS",
+    "property.unit_inspection": "PROPERTIES.UNITS",
 }
 
 
@@ -436,6 +437,14 @@ def build_report_payload(
             raise ReportDeliveryError("Authenticated unit directory required")
         from app.services.unit_directory import build_unit_directory
         return build_unit_directory(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "property.unit_inspection":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated unit inspection report required")
+        from app.services.unit_inspections import build_inspection_report
+        return build_inspection_report(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
         )

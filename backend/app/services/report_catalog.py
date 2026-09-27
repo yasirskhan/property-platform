@@ -161,7 +161,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/unit-directory",
         description="Recorded active unit configuration and editable availability/listing flags; not verified occupancy.",
     ),
-    _standard("property.unit_inspection", "Unit Inspection", "Property & Unit"),
+    _standard(
+        "property.unit_inspection", "Unit Inspection", "Property & Unit",
+        href="/dashboard/reporting/unit-inspections",
+        description="Explicit staff-recorded dated unit inspection entries; not Phase 5 mobile inspections.",
+    ),
     _standard("property.unit_vacancy_detail", "Unit Vacancy Detail", "Property & Unit"),
 
     # Owner and vendor
