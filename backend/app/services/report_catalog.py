@@ -310,7 +310,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/deposit-register",
         description="Recorded bank-deposit groupings of already posted receipts; not GL cash movement or bank clearing.",
     ),
-    _standard("transaction.expense_register", "Expense Register", "Transaction"),
+    _standard(
+        "transaction.expense_register", "Expense Register", "Transaction",
+        href="/dashboard/reporting/expense-register",
+        description="Actual dated posted expense GL entry lines, accrual-only; no inferred bank settlement.",
+    ),
     _standard("transaction.income_register", "Income Register", "Transaction"),
     _standard("transaction.journal_entry_register", "Journal Entry Register", "Transaction"),
 )
