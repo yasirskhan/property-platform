@@ -195,7 +195,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/vendor-ledger",
         description="Recorded linked vendor bills and AP status, not unlinked payees or a tax register.",
     ),
-    _standard("maintenance.work_order", "Work Order", "Owner & Vendor"),
+    _standard(
+        "maintenance.work_order", "Work Order", "Owner & Vendor",
+        href="/dashboard/reporting/work-orders",
+        description="Recorded maintenance work order summary; no private access notes or inferred costs.",
+    ),
 
     # Accounting
     _standard("accounting.account_totals", "Account Totals", "Accounting"),

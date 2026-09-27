@@ -38,6 +38,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "owner.directory": "PEOPLE.OWNERS",
     "vendor.directory": "PEOPLE.VENDORS",
     "vendor.ledger": "ACCOUNTING.PAYABLES",
+    "maintenance.work_order": "MAINTENANCE.WORK_ORDERS",
     "mailing.labels": "PROPERTIES.ALL",
     "tenant.delinquency": "LEASING",
     "tenant.security_deposit_funds_detail": "ACCOUNTING.GL_ACCOUNTS",
@@ -465,6 +466,14 @@ def build_report_payload(
             raise ReportDeliveryError("Authenticated owner directory required")
         from app.services.owner_directory import build_owner_directory
         return build_owner_directory(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "maintenance.work_order":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated work order report required")
+        from app.services.work_order_report import build_work_order_report
+        return build_work_order_report(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
         )
