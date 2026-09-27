@@ -7,25 +7,25 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `87ed9dd1396686065c9596622173297628b2ace2`
-- Source GitHub Actions run **36338819609: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `5064b41a2f996d783fd25346a476c0a55c1b4a5a`
+- Source GitHub Actions run **36339328334: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **596 passed, 3 deselected, 11742 warnings in 71.83s**.
-  E2E: **3 passed in 8.91s**. Lint, typecheck, production build, security
+  Backend: **599 passed, 3 deselected, 11821 warnings in 131.97s**.
+  E2E: **3 passed in 9.70s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **a9b1c3d5e7f0**. SQLAlchemy expected model tables: **110**.
-  Previous head e3f5a7b9c1d2 / 109 tables. One org-scoped
-  vendor_insurances table added. PostgreSQL/bootstrap/legacy CI passed.
+- Alembic head: **b0c2d4e6f8a1**. SQLAlchemy expected model tables: **110**.
+  Previous head a9b1c3d5e7f0 / 110 tables. One nullable Bills
+  vendor_id FK added; PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4 Vendor trade/insurance directory filters. VERIFIED.**
+  **Latest completed batch: Phase 4 explicit Vendor company link and new-Bill picker. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Phase 4 real Vendor picker on bills, then WorkOrder vendor link/picker. Vendor company, insurance lifecycle and directory filters VERIFIED. External Avalara/IRIS 1099 acceptance and recipient copies still await operator provider credentials.**
+- **Exact NEXT original-plan task: Phase 4 WorkOrder Vendor company link/picker, independent of crew assignment. Vendor company, insurance, directory filters and Bill vendor picker VERIFIED. External Avalara/IRIS 1099 acceptance and recipient copies still await operator provider credentials.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -100,6 +100,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Phase 4 vendor company entity + scoped customer UI | 6e1d0eb730a71d913021b590667123ee047c4858 | 36336927654 | 590 backend passed / 3 E2E |
 | Phase 4 vendor insurance lifecycle | 8d2cb6adffbde41282fc77e9e0365b2913410f66, 3de4c938e07fc695cf33eec3b1a7af7fd552e73b, 5dcdd6272bd1e18fe78a0ae2868ef6d110caf2c8 | 36337623891 | 593 backend passed / 3 E2E |
 | Phase 4 vendor trade/insurance filters | b40d94b3861809d4cfd5bb563a21bd6a4e524476, 0d32310911be49c9133ba002d19fdfdb9fce7e9a, 87ed9dd1396686065c9596622173297628b2ace2 | 36338819609 | 596 backend passed / 3 E2E |
+| Phase 4 explicit Bill Vendor FK and customer picker | 7a8d30733480a31fb476391a923759d92242c043, 5064b41a2f996d783fd25346a476c0a55c1b4a5a | 36339328334 | 599 backend passed / 3 E2E |
 | Tenant delinquency live overdue rent invoices | 8a6a27ef3c248e394546bdb4e8a65c8ffa43e6b7, a644bd803787d3ffc9be36de4318a67915248364 | 36274961962 | 450 backend passed / 3 E2E |
 
 
@@ -2471,44 +2472,112 @@ tests and full six-job CI. Then work order vendor link independently
 from assigned_to_id crew user; preserve existing crew assignment
 lifecycle and property access authorization.
 
+## Phase 4 Bill company picker and link — VERIFIED 2026-09-27
+
+Source/migration/regression tests:
+7a8d30733480a31fb476391a923759d92242c043.
+Customer New Bill picker:
+5064b41a2f996d783fd25346a476c0a55c1b4a5a.
+CI 36339328334 SUCCESS six jobs, 599 backend passed,
+3 deselected, 11821 warnings in 131.97s; authenticated
+browser E2E 3 passed in 9.70s; frontend/platform admin/
+security/staging green. Existing browser E2E generic smoke,
+not new-Bill vendor selector-specific test.
+Superseded source-only run 36339303676 was cancelled;
+no invented test result.
+Manual Alembic migration b0c2d4e6f8a1 adds nullable Bills
+vendor_id -> vendors.id ON DELETE SET NULL with index.
+Model tables remain 110. PostgreSQL/bootstrap/legacy path
+and migration head guards succeeded. No data backfill,
+old Bills.vendor_id remains NULL. No frozen docs/ or
+planning parity mutations.
+
+BillCreateIn.vendor_id optional positive integer and
+BillOut.vendor_id optional. New /dashboard/accounting/bills/new
+picker lists only authorized active vendor companies via
+GET /api/vendors. If user lacks PEOPLE.VENDORS or list
+is unavailable, existing manual-payee entry continues.
+Choosing a company sets/stops edits of payee_name
+snapshot, and sends explicit vendor_id. Backend
+post_bill validates active/not-deleted, same-org
+Vendor and active/not-deleted ADMIN/OWNER user
+with PEOPLE.VENDORS permission BEFORE original GL
+posting; payee_name must match current selected
+vendor company to avoid silently linking an unrelated
+payee. Foreign/inactive/name-mismatch or permission
+revocation fails before GL writes. No inference
+from Bill.payee_name, no auto-link on old entries,
+no UserRole.VENDOR contact substitution.
+Bill vendor_id is recorded in same original bill
+write; original paid expense/AP and amount posting
+are untouched. Original payee_name remains a
+historical snapshot if Vendor company is later
+renamed/deactivated. Reversal mirror inherits vendor_id
+without revalidating deactivated historic company.
+Three focused tests cover original and reversal,
+cross-org/inactive/name/permission fail closed before
+GL, manual payee compatibility and no implicit matching.
+No tax-profile links, bank info or special vendor
+payment calculation introduced.
+
+NEXT Phase 4: a real WorkOrder vendor company link/picker,
+separate from assigned_to_id crew user and existing
+work-order status/crew assignment. Inspect current
+WorkOrder/WorkOrderUpdate schemas, router authorization,
+UI route availability and company list permission.
+Do not introduce vendors as UserRole.CREW or alter
+existing crew assignment history. Restrict assignment
+to authorized same-org staff with PEOPLE.VENDORS;
+validate active same-org Vendor, preserve property/org
+scope. Existing app may lack a customer WorkOrder
+management screen; do not call a backend-only link a
+completed user-facing picker. Include relevant safe
+customer selection interface, focused regression
+tests and migration guards. No accounting/GL writes.
+Then return to original Phase 4 Contacts/Tags and
+other tasks in dependency order.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Read root handoff and verify current HEAD/latest CI. Vendor company,
-   insurance lifecycle, trade/insurance directory filters and prior
-   reporting are VERIFIED; do not repeat completed batches.
-2. Phase 4 real Vendor selection on Bill create: inspect existing
-   Bill/posted GL/recurring/reversal contracts. Add a nullable same-org
-   Vendor company link (not UserRole.VENDOR contact), validate current
-   active Vendor on entry, preserve payee_name historical snapshot
-   and current manual-payee compatibility. No historical auto-link,
-   no GL or payment amount rewrite; retain atomic post/reversal
-   behavior. Include migration guard updates, targeted regression
-   tests and customer bill-entry picker using authorized /api/vendors.
-3. After full six-job CI green, update root handoff and continue
-   WorkOrder vendor company link and picker as a separate bounded
-   change; do not conflate crew assigned_to_id with outside vendor
-   or leak foreign org information.
-4. External 1099 tax filing and copies remain unverified/credential
-   dependent. Do not claim IRS or provider acceptance without real
-   operator credentials and evidence.
-5. No main/new branch/Work/unapproved frozen docs or parity edits.
-   User authorized commit+GitHub-CI; fix red CI before next batch.
-   Update root handoff after meaningful verified batches with
-   real source SHA, CI test counts and migration inventory.
+1. Read full root handoff, verify live HEAD and latest six-job CI.
+   Vendor company, insurance, directory and Bill selector are
+   VERIFIED. Do not repeat those batches.
+2. Phase 4 WorkOrder vendor company association and user-facing picker.
+   First inspect actual work-order routes/visibility plus UI and
+   Vendor access rules. Maintain existing crew assigned_to_id and
+   status lifecycle; vendor link is separate. Assignments must
+   fail closed for cross-org, deleted/inactive vendors, actor role,
+   vendor menu revocation and property access; no GL writes.
+   Include read-only visibility for authorized users, audit
+   link/unlink, nullable migration, regression tests.
+3. If WorkOrder management UI is missing, build a bounded
+   authenticated staff-accessible selector at the appropriate
+   documented location instead of claiming API-only picker
+   as complete. Do not expose foreign Vendor names/IDs
+   or replace the existing work-order workflow.
+4. Commit bounded product+tests to existing branch, use
+   GitHub Actions; mark VERIFIED only after full six-job green.
+   Repair reds autonomously, update repo-root handoff with
+   precise source SHA, test counts and migration head.
+   Do not stop merely at batch boundaries.
+5. No main/new branch/Work mode/unapproved frozen docs/parity.
+   External IRS/provider 1099 filing remains separately
+   credential-dependent and NOT falsely marked complete.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on
-chatgpt/checkpoint-005-safety. Read entire repo-root
-AI_HANDOFF.md and verify live HEAD and six-job CI.
-Last verified source 87ed9dd1396686065c9596622173297628b2ace2;
-CI 36338819609 SUCCESS: 596 backend passed, 3 deselected,
-3 browser E2E passed, all six jobs successful.
-Alembic a9b1c3d5e7f0 /110 model tables.
-Vendor company, insurance lifecycle and trade/insurance
-directory filter batches VERIFIED, no full external 1099 filing.
-Exact next Phase 4: nullable same-org Vendor company
-link/picker on new Bills, then WorkOrder vendor company
-link/picker. Preserve accounting and org permissions,
-no historic vendor auto-link, no GL rewrite. Do not touch
-main/frozen docs; bounded commit+CI and handoff updates.
+Continue yasirskhan/property-platform on branch
+chatgpt/checkpoint-005-safety. Read complete root AI_HANDOFF.md,
+verify live head/latest CI. Last VERIFIED product source:
+5064b41a2f996d783fd25346a476c0a55c1b4a5a;
+CI 36339328334 SUCCESS six jobs: 599 backend passed,
+3 deselected, 3 browser E2E passed.
+Alembic b0c2d4e6f8a1, 110 model tables.
+Full Phase 4 Vendor company, insurance/expiry filters,
+new-Bill explicit company FK/picker VERIFIED.
+NEXT: WorkOrder company vendor link/picker without
+altering crew assignment/status; include secure staff
+interface and regression/migration tests.
+No main/unapproved frozen docs modifications; code
+then hosted GitHub CI, and refresh root handoff
+after each meaningful verified batch.
