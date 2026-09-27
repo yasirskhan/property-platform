@@ -320,7 +320,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/income-register",
         description="Dated posted accrual income GL credits less debits, including reversals; not bank receipts.",
     ),
-    _standard("transaction.journal_entry_register", "Journal Entry Register", "Transaction"),
+    _standard(
+        "transaction.journal_entry_register", "Journal Entry Register", "Transaction",
+        href="/dashboard/reporting/journal-entry-register",
+        description="Balanced posted JOURNAL_ENTRY lines and their linked reversals, not other GL event types.",
+    ),
 )
 
 

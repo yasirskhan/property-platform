@@ -51,6 +51,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "transaction.deposit_register": "ACCOUNTING.DEPOSITS",
     "transaction.expense_register": "ACCOUNTING.GL_ACCOUNTS",
     "transaction.income_register": "ACCOUNTING.GL_ACCOUNTS",
+    "transaction.journal_entry_register": "ACCOUNTING.JOURNAL_ENTRIES",
     "accounting.general_ledger": "ACCOUNTING.GL_ACCOUNTS",
     "accounting.trial_balance": "ACCOUNTING.GL_ACCOUNTS",
     "owner.statement": "ACCOUNTING.OWNER_STATEMENTS",
@@ -485,6 +486,14 @@ def build_report_payload(
             raise ReportDeliveryError("Authenticated owner directory required")
         from app.services.owner_directory import build_owner_directory
         return build_owner_directory(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "transaction.journal_entry_register":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated Journal Entry Register required")
+        from app.services.journal_entry_register import build_journal_entry_register
+        return build_journal_entry_register(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
         )
