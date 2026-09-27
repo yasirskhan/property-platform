@@ -143,6 +143,11 @@ export default function VendorsPage() {
   return (
     <div className="space-y-5">
       <Link className="text-sm text-slate-600 hover:underline" href="/dashboard">← Dashboard</Link>
+      <div className="flex flex-wrap gap-3">
+        <Link href="/dashboard/work-orders/vendor-assignments" className="text-sm text-blue-700 underline">
+          Link vendor companies to work orders
+        </Link>
+      </div>
       <header>
         <h1 className="text-2xl font-semibold">Vendor companies</h1>
         <p className="mt-1 text-sm text-slate-500">
