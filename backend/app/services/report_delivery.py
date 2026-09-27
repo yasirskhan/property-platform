@@ -42,6 +42,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "accounting.income_statement": "ACCOUNTING.GL_ACCOUNTS",
     "accounting.trust_account_balance": "ACCOUNTING.BANK_ACCOUNTS",
     "accounting.trust_account_detail": "ACCOUNTING.BANK_ACCOUNTS",
+    "transaction.aged_payables": "ACCOUNTING.PAYABLES",
     "accounting.general_ledger": "ACCOUNTING.GL_ACCOUNTS",
     "accounting.trial_balance": "ACCOUNTING.GL_ACCOUNTS",
     "owner.statement": "ACCOUNTING.OWNER_STATEMENTS",
@@ -476,6 +477,14 @@ def build_report_payload(
             raise ReportDeliveryError("Authenticated owner directory required")
         from app.services.owner_directory import build_owner_directory
         return build_owner_directory(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "transaction.aged_payables":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated aged payables required")
+        from app.services.aged_payables import build_aged_payables
+        return build_aged_payables(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
         )

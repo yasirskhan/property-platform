@@ -275,7 +275,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
     ),
 
     # Transactions
-    _standard("transaction.aged_payables", "Aged Payables", "Transaction"),
+    _standard(
+        "transaction.aged_payables", "Aged Payables", "Transaction",
+        href="/dashboard/reporting/aged-payables",
+        description="Current recorded open posted bills by due-date aging; not a historical payable snapshot.",
+    ),
     _standard("transaction.aged_receivables", "Aged Receivables", "Transaction"),
     _standard("transaction.bill_detail", "Bill Detail", "Transaction"),
     _standard("transaction.charge_detail", "Charge Detail", "Transaction"),
