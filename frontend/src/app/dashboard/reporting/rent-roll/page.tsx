@@ -22,7 +22,7 @@ export default function RentRollPage() {
   async function load() {
     setBusy(true); setError("");
     setPreview(null); setApplied({});
-    const parameters = propertyId.trim() ? { property_id: propertyId.trim() } : {};
+    const parameters: Record<string, string> = propertyId.trim() ? { property_id: propertyId.trim() } : {};
     const query = new URLSearchParams(parameters).toString();
     try {
       const result = await apiGet(`/api/reporting/rent-roll/preview${query ? "?" + query : ""}`) as Preview;
