@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `0062cc22834129c1998c2320e5f78cad50b9d1c8`
-- Source GitHub Actions run **36347187712: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `864bf2e02a80e1b2a4af58a0bdaa279b5f4f14a9`
+- Source GitHub Actions run **36347804741: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **612 passed, 3 deselected, 12151 warnings in 137.77s**.
-  E2E: **3 passed in 8.76s**. Lint, typecheck, production build, security
+  Backend: **617 passed, 3 deselected, 12289 warnings in 99.42s**.
+  E2E: **3 passed in 9.03s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -19,13 +19,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   Previous head c1d3e5f7a9b0 / 110 tables. One organization-owned
   contacts table added; PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4 Contacts CSV preview/import/export. VERIFIED.**
+  **Latest completed batch: Phase 4 non-sensitive applicant draft intake and staff queue. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Phase 4 Leasing Applications expansion after verified Contacts, Universal Tags, and bounded Contacts CSV transfer. Do not treat Contacts-only import as a universal Users/Vendors identity import. External Avalara/IRIS 1099 acceptance and recipient copies still await operator provider credentials.**
+- **Exact NEXT original-plan task: continue Phase 4 Leasing Applications with verified applicant address/financial-info protection and application-fee provider workflow. Current safe draft/status and staff queue are VERIFIED; no fee/screening/approval has occurred. External Avalara/IRIS 1099 acceptance and recipient copies still await operator credentials.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -105,6 +105,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Phase 4 independent Contacts directory and customer CRUD | b91ec3c38055272ae97a81a2e16630e87cd98ac7, be1d1f84cac32a136202e8e17651161a63316fd3, a607c8c370fa42f44e897a34a7667dd46c30ce69 | 36340860778 | 604 backend passed / 3 E2E; fixed existing async toggle E2E race |
 | Universal Tags (org-scoped definitions and authorized entity links) | 73d4cceae74c44b1fd45afe18368cd7514706039 | 36341415211 | 607 backend passed / 3 E2E |
 | Contacts CSV preview, bounded confirmed import and safe export | 0062cc22834129c1998c2320e5f78cad50b9d1c8 | 36347187712 | 612 backend passed / 3 E2E |
+| Rental Applications safe applicant drafts, pending-payment submission and scoped staff queue | 864bf2e02a80e1b2a4af58a0bdaa279b5f4f14a9 | 36347804741 | 617 backend passed / 3 E2E |
 | Tenant delinquency live overdue rent invoices | 8a6a27ef3c248e394546bdb4e8a65c8ffa43e6b7, a644bd803787d3ffc9be36de4318a67915248364 | 36274961962 | 450 backend passed / 3 E2E |
 
 
@@ -2709,50 +2710,112 @@ declare a full online paid/screened application workflow until
 implemented and verified. Preserve existing Lease/GL/accounting
 semantics. No frozen docs/ edits without separate authorization.
 
+
+## Phase 4 Rental Applications initial safe intake — VERIFIED 2026-09-27
+
+Source 864bf2e02a80e1b2a4af58a0bdaa279b5f4f14a9.
+Full CI 36347804741 SUCCESS all six jobs:
+617 backend passed, 3 deselected, 12289 warnings in 99.42s;
+authenticated E2E 3 passed in 9.03s; frontend
+lint/typecheck/production build, security,
+platform-admin and staging-config all green.
+Five focused backend tests; generic E2E smoke not
+dedicated applicant UI payment or screening tests.
+No migration: head d2e4f6a8b0c1 and 111 tables.
+Frozen docs/ / parity unchanged.
+
+Added /api/leasing/applications and the existing
+LEASING.APPLICATIONS menu destination
+/dashboard/leasing/applications; applicant role
+gets a direct link from dashboard home.
+Applicants with active organization accounts can
+create self-owned DRAFT applications for active
+same-org property and optional matching active
+unit, edit only own draft, and explicitly submit
+to PENDING_PAYMENT. Submission DOES NOT charge
+a fee; ApplicationPayment count remains unchanged.
+No staff approval, screening, status PAID or lease
+activation route was added. Scoped staff ADMIN/
+OWNER/MANAGER can read only current org/property
+applications with live LEASING.APPLICATIONS menu
+permission; managers need active assignment.
+Other applicants, tenants, inactive users and
+foreign property/unit probes fail closed.
+No-store read APIs, 200-row queue ceiling,
+append-only status-only audit, no GL writes.
+
+Safe serializer and schema never accept, return,
+or write existing plaintext applicant_ssn, DOB,
+screening_result, fee_amount or payment tokens.
+Existing LeaseApplication still has an old
+applicant_ssn String column in schema: no new
+intake may populate it. Form only collects
+applicant name/email/phone, optional preferences,
+bounded occupant names and pet description.
+This does NOT implement original complete online
+rental application; missing current/previous
+addresses, personal/financial data, fee payment,
+signed consent, screening and review workflows.
+Do not call it FULL Applications until verified.
+No public listings integration yet: applicant
+supplies a property/unit ID from property office.
+Do not infer applicant consent or eligibility.
+
+NEXT bounded original Phase 4 Applications work:
+complete secure applicant details and application
+fee flow with verified amounts, consent, user/org
+scope, payment webhook integrity; no plaintext SSN.
+Review existing Property/Unit application_fee,
+ApplicationPayment and Stripe checkout/webhook
+infrastructure. Keep payment status server-trusted
+and do not silently treat pending as paid. The
+next phase after Applications in original Section
+18 is Lease Templates, then CRM/Prospects and
+Guest Cards. Avoid starting new unrelated Phase 3.7
+reports or rewriting previously verified contacts.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Read full root handoff and verify latest HEAD/CI, including
-   source 0062cc22834129c1998c2320e5f78cad50b9d1c8.
-   Contacts, Universal Tags, bounded Contacts CSV transfer,
-   Vendor/Bill/WorkOrder links and completed Phase 3.7 reports
-   are VERIFIED; do not repeat. External 1099 live provider
-   IRS acceptance remains unverified and operator-dependent.
-2. Next original Phase 4 Leasing Applications expansion.
-   Inspect existing LeaseApplication/ApplicationPayment,
-   actual property/unit/tenant auth and Stripe payment code.
-   Build a safe bounded applicant intake and scoped staff
-   review/status flow before adding sensitive identity/screening.
-   The existing applicant_ssn is a plaintext legacy column:
-   NEVER populate, echo, export or log it. Applicants submit
-   their own data; staff org/property scope and applicant
-   tenancy scope must fail closed; do not fabricate payment
-   confirmation or screening results. Include regressions.
-3. After full six-job GitHub CI green, update this root
-   handoff with exact source, counts/migration, and original
-   following phase 4 tasks. No main/new branch/Work or
-   unapproved frozen docs/parity changes.
-4. Follow original roadmap and continue across batch/phase
-   boundaries autonomously. User authorizes bounded
-   commit-then-GitHub-Actions verification. Fix CI reds
-   before starting other product batches.
+1. Read full root handoff, verify live branch HEAD and full six-job CI.
+   Applicant drafts/staff queue source 864bf2e02a80e1b2a4af58a0bdaa279b5f4f14a9
+   VERIFIED. Do not repeat Contacts, Tags, CSV transfer or earlier reports.
+2. Continue original Phase 4 Applications in bounded secure batches.
+   Inspect actual ApplicationStatus, ApplicationPayment,
+   Unit.application_fee, existing Stripe signed webhook and GL posting.
+   Add verified current/previous address and financial questionnaire
+   only with appropriate encryption/key and role scope, NOT plaintext
+   SSN/DOB or generic unencrypted notes/attachments.
+   Prepare fee quote and payment path with Stripe/provider-confirmed
+   amount/status, idempotency and audited accounting; never mark
+   PAID by browser submission alone. Add applicant authorization/
+   consent and suitable review as separate verified batches.
+3. Apply regression tests, commit only on existing branch, six-job
+   GitHub CI, fix red before next product batch; record exact
+   counts and migrations in this root handoff after each batch.
+   Do not change main, create branch, ask for Work mode,
+   or edit frozen docs/parity without express authorization.
+4. After full Applications workflow VERIFIED, move per original
+   roadmap to Lease Templates, CRM/Prospects, Guest Cards.
+   External IRS/Avalara acceptance still operator credential
+   dependency and must not be claimed verified.
 
 ## Session start for successor
 
 Continue yasirskhan/property-platform,
-chatgpt/checkpoint-005-safety. Read entire repo-root
-AI_HANDOFF.md, verify live HEAD/latest CI.
-Last VERIFIED product source
-0062cc22834129c1998c2320e5f78cad50b9d1c8,
-CI 36347187712 six SUCCESS (612 backend passed,
-3 deselected; browser E2E 3 passed in 8.76s).
-Alembic d2e4f6a8b0c1 /111 tables.
-Contacts, Universal Tags, independent Contacts CSV
-preview/confirmed import/formula-safe export VERIFIED.
-NEXT original Phase 4 Leasing Applications expansion.
-Avoid plaintext applicant SSN and unverified payment/
-screening claims. Preserve org/property/user scope,
-immutable accounting, export gates and tax security.
-Never touch main, create branch or edit frozen docs
-without specific authorization. Commit bounded code/tests,
-verify six-job CI, refresh root handoff each batch;
-continue autonomously without requesting Work mode.
+chatgpt/checkpoint-005-safety. Read full root
+AI_HANDOFF.md, verify current HEAD/latest CI.
+Last VERIFIED source 864bf2e02a80e1b2a4af58a0bdaa279b5f4f14a9,
+CI 36347804741 SUCCESS all six (617 backend passed,
+3 deselected; authenticated E2E 3 passed).
+Alembic d2e4f6a8b0c1 / 111 model tables.
+Contacts, Universal Tags, Contacts CSV transfer,
+and safe Phase 4 applicant DRAFT -> PENDING_PAYMENT
+intake/scoped staff view VERIFIED. Actual application
+fee payment, addresses, financial information,
+screening, approvals and lease activation NOT DONE.
+NEXT: complete Applications securely, never use
+plaintext applicant_ssn, browser-paid status or
+unverified screening/provider data; then original
+Lease Templates/CRM/Guest Cards. Respect customer
+org/property scope, immutable GL, frozen docs,
+no main/new branch, commit+CI then handoff update.
