@@ -222,7 +222,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/bank-association",
         description="Recorded bank-account to GL-account mappings only; no private bank numbers or property links.",
     ),
-    _enhanced("accounting.cash_flow", "Cash Flow", "Accounting"),
+    _enhanced(
+        "accounting.cash_flow", "Cash Flow", "Accounting",
+        href="/dashboard/reporting/cash-flow",
+        description="Bank-mapped posted GL book cash movement, not a classified or audited cash-flow statement.",
+    ),
     _enhanced("accounting.cash_flow_12_month", "Cash Flow 12-Month", "Accounting"),
     _standard(
         "accounting.chart_of_accounts",
