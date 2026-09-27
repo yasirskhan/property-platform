@@ -295,7 +295,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/charge-detail",
         description="Current recorded standalone tenant charges, including paid and credit balances; separate from rent invoices.",
     ),
-    _standard("transaction.check_register", "Check Register", "Transaction"),
+    _standard(
+        "transaction.check_register", "Check Register", "Transaction",
+        href="/dashboard/reporting/check-register",
+        description="Verified issued and voided check records, not a cleared bank statement; bank account numbers excluded.",
+    ),
     _standard("transaction.check_register_detail", "Check Register Detail", "Transaction"),
     _standard("transaction.deposit_register", "Deposit Register", "Transaction"),
     _standard("transaction.expense_register", "Expense Register", "Transaction"),

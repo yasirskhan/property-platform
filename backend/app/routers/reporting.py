@@ -895,6 +895,27 @@ def preview_cash_flow_12_month(
             "rows": data.rows, "total": len(data.rows)}
 
 
+@router.get("/check-register/preview")
+def preview_check_register(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Recorded checks with verified GL issue/void status; no banking secrets."""
+    org_id = _require_report_access(
+        db, current_user=current_user, report_key="transaction.check_register",
+    )
+    _require_export_feature(db, current_user)
+    data = _build_or_422(
+        db, organization_id=org_id, report_key="transaction.check_register",
+        parameters=dict(request.query_params), current_user=current_user,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return {"title": data.title, "headers": data.headers,
+            "rows": data.rows, "total": len(data.rows)}
+
+
 @router.get("/charge-detail/preview")
 def preview_charge_detail(
     request: Request,
