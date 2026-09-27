@@ -118,6 +118,7 @@ from app.models.property_group import PropertyGroup, PropertyGroupMembership  # 
 from app.models.unit_inspection import UnitInspectionRecord  # noqa: F401
 from app.models.vendor import Vendor  # noqa: F401
 from app.models.contact import Contact  # noqa: F401
+from app.models.application_private_details import ApplicationPrivateDetails  # noqa: F401
 from app.models.tag import Tag, EntityTag  # noqa: F401
 from app.models.vendor_insurance import VendorInsurance  # noqa: F401
 from app.models.letter_template import LetterTemplate  # noqa: F401

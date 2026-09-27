@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiGet, apiPost, apiPut } from "@/lib/api";
+import ApplicationPrivatePanel from "@/components/leasing/ApplicationPrivatePanel";
 
 type ApplicationStatus = "draft" | "pending_payment" | "paid" | "screening"
   | "screened" | "approved" | "rejected" | "withdrawn";
@@ -24,6 +25,7 @@ export default function ApplicationsPage() {
   const [rows, setRows] = useState<Application[]>([]);
   const [form, setForm] = useState({ ...EMPTY });
   const [editing, setEditing] = useState<number | null>(null);
+  const [privateOpen, setPrivateOpen] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -203,6 +205,9 @@ export default function ApplicationsPage() {
               <p className="text-slate-600">{row.applicant_email}</p>
               {row.move_in_date && <p className="text-slate-600">Requested move in: {row.move_in_date}</p>}
             </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setPrivateOpen((id) => id === row.id ? null : row.id)}
+                className="rounded border px-3 py-2 text-sm">Private questionnaire</button>
             {applicant && row.status === "draft" && <div className="flex gap-2">
               <button type="button" disabled={busy} onClick={() => edit(row)}
                 className="rounded border px-3 py-2 text-sm disabled:opacity-50">Edit</button>
@@ -211,9 +216,15 @@ export default function ApplicationsPage() {
                 Submit, pending payment
               </button>
             </div>}
+            </div>
           </article>
         ))}
       </section>}
+      {privateOpen !== null && (
+        <ApplicationPrivatePanel applicationId={privateOpen}
+          canEdit={applicant && rows.some((row) => row.id === privateOpen && row.status === "draft")}
+          onClose={() => setPrivateOpen(null)} />
+      )}
     </div>
   );
 }

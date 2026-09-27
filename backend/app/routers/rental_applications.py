@@ -7,11 +7,15 @@ are neither read nor serialized.
 from __future__ import annotations
 
 import json
+from cryptography.fernet import Fernet, InvalidToken
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.config import settings
+from app.models.application_private_details import ApplicationPrivateDetails
+from app.schemas.application_private_details import PrivateApplicationIn, PrivateApplicationOut
 from app.models.application import ApplicationStatus, LeaseApplication
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import User, UserRole
@@ -247,3 +251,83 @@ def submit_rental_application(
     )
     db.commit(); db.refresh(row)
     return _out(row)
+
+
+def _private_fernet() -> Fernet:
+    """Fail closed; private application data needs its own provisioned key."""
+    secret = settings.APPLICATION_ENCRYPTION_KEY
+    if not secret or secret in (settings.ENCRYPTION_KEY, settings.TAX_PROFILE_ENCRYPTION_KEY):
+        raise HTTPException(status_code=503, detail="Private application encryption is not configured.")
+    try:
+        return Fernet(secret.encode("utf-8"))
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=503, detail="Private application encryption is unavailable.") from exc
+
+
+def _private_payload(row: ApplicationPrivateDetails, key: Fernet) -> PrivateApplicationOut:
+    try:
+        plaintext = key.decrypt(row.encrypted_payload.encode("utf-8"))
+        body = json.loads(plaintext)
+        data = PrivateApplicationIn.model_validate(body)
+    except (InvalidToken, TypeError, ValueError, UnicodeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=503, detail="Private application data cannot be decrypted.") from exc
+    return PrivateApplicationOut(
+        application_id=row.application_id, configured=True,
+        details=data, updated_at=row.updated_at,
+    )
+
+
+@router.get("/{application_id}/private-details", response_model=PrivateApplicationOut)
+def get_private_application_details(
+    application_id: int, response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _row(db, current_user, application_id)  # applicant self OR scoped staff
+    response.headers["Cache-Control"] = "no-store"
+    key = _private_fernet()
+    record = db.query(ApplicationPrivateDetails).filter(
+        ApplicationPrivateDetails.application_id == application_id,
+        ApplicationPrivateDetails.organization_id == current_user.organization_id,
+    ).first()
+    if record is None:
+        return PrivateApplicationOut(application_id=application_id, configured=False)
+    return _private_payload(record, key)
+
+
+@router.put("/{application_id}/private-details", response_model=PrivateApplicationOut)
+def save_private_application_details(
+    application_id: int, payload: PrivateApplicationIn, response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    app = _row(db, current_user, application_id)
+    if current_user.role != UserRole.APPLICANT or app.status != ApplicationStatus.DRAFT:
+        raise HTTPException(status_code=403, detail="Only the applicant can edit their own draft.")
+    response.headers["Cache-Control"] = "no-store"
+    key = _private_fernet()
+    ciphertext = key.encrypt(payload.model_dump_json().encode("utf-8")).decode("ascii")
+    record = db.query(ApplicationPrivateDetails).filter(
+        ApplicationPrivateDetails.application_id == app.id,
+        ApplicationPrivateDetails.organization_id == current_user.organization_id,
+    ).first()
+    created = record is None
+    if record is None:
+        record = ApplicationPrivateDetails(
+            organization_id=current_user.organization_id,
+            application_id=app.id, created_by_id=current_user.id,
+        )
+        db.add(record)
+    record.encrypted_payload = ciphertext
+    record.updated_by_id = current_user.id
+    db.flush()
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=current_user.organization_id,
+        entity_type="application_private_details", entity_id=record.id,
+        action="created" if created else "updated",
+        new_value={"application_id": app.id, "configured": True},
+    )
+    db.commit(); db.refresh(record)
+    return _private_payload(record, key)
+
+

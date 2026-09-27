@@ -72,6 +72,8 @@ class Settings(BaseSettings):
     ENCRYPTION_KEY: str = DEV_ENCRYPTION_KEY
     # Independent operator-provisioned key; no insecure development fallback.
     TAX_PROFILE_ENCRYPTION_KEY: str = ""
+    # Application address/income vault: independent managed key, never dev fallback.
+    APPLICATION_ENCRYPTION_KEY: str = ""
     # Previous keys remain in secret management for decrypting archived records.
     TAX_PROFILE_PREVIOUS_KEYS_JSON: str = "[]"
 
@@ -86,6 +88,13 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def reject_development_secrets_outside_development(self) -> "Settings":
         env = self.ENVIRONMENT.strip().lower()
+        if self.APPLICATION_ENCRYPTION_KEY:
+            if self.APPLICATION_ENCRYPTION_KEY in (self.ENCRYPTION_KEY, self.TAX_PROFILE_ENCRYPTION_KEY):
+                raise ValueError("Application data requires its own encryption key")
+            try:
+                Fernet(self.APPLICATION_ENCRYPTION_KEY.encode("utf-8"))
+            except Exception as exc:
+                raise ValueError("Invalid APPLICATION_ENCRYPTION_KEY") from exc
         if self.TAX_PROFILE_ENCRYPTION_KEY:
             if self.TAX_PROFILE_ENCRYPTION_KEY == self.ENCRYPTION_KEY:
                 raise ValueError("Tax profile encryption requires a dedicated key")

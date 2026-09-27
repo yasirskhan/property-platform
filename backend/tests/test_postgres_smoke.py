@@ -10,8 +10,8 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import DBAPIError
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_HEAD = "e3f5a7b9c0d2"
-EXPECTED_MODEL_TABLES = 113
+EXPECTED_HEAD = "f1e3a5c7d9b0"
+EXPECTED_MODEL_TABLES = 114
 
 
 @pytest.mark.integration
