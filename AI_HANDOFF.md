@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `6e1d0eb730a71d913021b590667123ee047c4858`
-- Source GitHub Actions run **36336927654: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `87ed9dd1396686065c9596622173297628b2ace2`
+- Source GitHub Actions run **36338819609: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **590 passed, 3 deselected, 11598 warnings in 114.79s**.
-  E2E: **3 passed in 9.67s**. Lint, typecheck, production build, security
+  Backend: **596 passed, 3 deselected, 11742 warnings in 71.83s**.
+  E2E: **3 passed in 8.91s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -19,13 +19,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   Previous head c1e3f5a7b9d2 / 107 tables. One explicit
   unit_inspection_records table added; PostgreSQL/bootstrap/legacy CI paths passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4 Vendor company entity and management page. VERIFIED.**
+  **Latest completed batch: Phase 4 Vendor trade/insurance directory filters. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Phase 4 Vendor insurance + expiration, then vendor company list/filter, bill/work-order vendor pickers. Full Vendor company entity and preceding Phase 3.7 reports VERIFIED. External Avalara/IRIS 1099 acceptance and recipient copies still await operator provider credentials.**
+- **Exact NEXT original-plan task: Phase 4 real Vendor picker on bills, then WorkOrder vendor link/picker. Vendor company, insurance lifecycle and directory filters VERIFIED. External Avalara/IRIS 1099 acceptance and recipient copies still await operator provider credentials.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -98,6 +98,8 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Income Register (posted income GL detail) | 3875ef5af74097f93643d6925eb8b14dfd6ac147 | 36335844931 | 584 backend passed / 3 E2E |
 | Journal Entry Register (manual/recurring JE and linked reversal line report) | 329a85e1683f4392568f8d746404bec689c9b788 | 36336312154 | 587 backend passed / 3 E2E |
 | Phase 4 vendor company entity + scoped customer UI | 6e1d0eb730a71d913021b590667123ee047c4858 | 36336927654 | 590 backend passed / 3 E2E |
+| Phase 4 vendor insurance lifecycle | 8d2cb6adffbde41282fc77e9e0365b2913410f66, 3de4c938e07fc695cf33eec3b1a7af7fd552e73b, 5dcdd6272bd1e18fe78a0ae2868ef6d110caf2c8 | 36337623891 | 593 backend passed / 3 E2E |
+| Phase 4 vendor trade/insurance filters | b40d94b3861809d4cfd5bb563a21bd6a4e524476, 0d32310911be49c9133ba002d19fdfdb9fce7e9a, 87ed9dd1396686065c9596622173297628b2ace2 | 36338819609 | 596 backend passed / 3 E2E |
 | Tenant delinquency live overdue rent invoices | 8a6a27ef3c248e394546bdb4e8a65c8ffa43e6b7, a644bd803787d3ffc9be36de4318a67915248364 | 36274961962 | 450 backend passed / 3 E2E |
 
 
@@ -2417,43 +2419,95 @@ order. Do not reuse general attachments for W-9s or
 claim tax profile automatically linked to vendor
 company; existing tax profiles still target UserRole.VENDOR.
 
+## Phase 4 Vendor directory filters — VERIFIED 2026-09-27
+
+Backend/service/tests commit b40d94b3861809d4cfd5bb563a21bd6a4e524476;
+customer vendors page UI commit 0d32310911be49c9133ba002d19fdfdb9fce7e9a;
+date.max overflow fix in existing vendor_insurance._status
+87ed9dd1396686065c9596622173297628b2ace2.
+Final six-job GitHub Actions run 36338819609 SUCCESS:
+backend 596 passed, 3 deselected, 11742 warnings in 71.83s;
+authenticated E2E 3 passed in 8.91s; frontend lint/typecheck/
+build, security, platform-admin, staging-config all green.
+E2E remains generic authenticated smoke, not dedicated vendor filter
+browser interactions. Earlier superseded runs were CANCELLED, not
+passed. No migrations; Alembic e3f5a7b9c1d2 /109 tables unchanged.
+Frozen docs/ and parity not edited.
+
+Org-owned Vendor company list GET /api/vendors now supports exact
+case-insensitive trade, insurance_status and optional as_of date,
+composable with existing company search/include_inactive. Status
+uses ACTIVE policies only and reuses verified vendor_insurance._status
+(expired, within 30 days inclusive, upcoming, current, missing).
+When multiple active policies exist, precedence EXPIRED >
+EXPIRING_30_DAYS > UPCOMING > CURRENT; this is a review/alert
+priority, not verification of coverage. No active policy is MISSING.
+No historic snapshots are persisted, as_of is only a date-relative
+interpretation of CURRENT recorded policy metadata. Archived
+insurance excluded from status. SQL EXISTS predicates are correlated
+to same-org Vendor and only after org ADMIN/OWNER + PEOPLE.VENDORS
+authorization. Insurance metadata loaded in one scoped query
+for at most 1000 vendors, guard 10000 active policies; no policy
+numbers, carrier secrets, W-9s, bank data, GL writes or bills modified.
+VendorOut directory summary includes status and nearest relevant
+expiration, single-vendor detail otherwise unchanged.
+Customer /dashboard/vendors adds trade, status and reference date
+controls plus at-a-glance status/expiration per company.
+Three regression tests validate status boundary, mixed policies,
+foreign org, role/menu revocation, no-store, no GL posting and
+invalid oversized trade filter.
+
+NEXT original Phase 4: real Vendor link on Bills, then WorkOrder
+vendor assignment/picker. Bill currently retains original free-text
+payee_name and optional payee_user_id. Do NOT auto-match historic
+payees by text, conflate Vendor company with UserRole.VENDOR, or
+change GL amounts/history. Introduce nullable vendor_id FK, validate
+active same-org Vendor on new bills, persist in same atomic posting,
+retain original immutable payee_name snapshot, render choice in bill
+creation UI, inspect existing listing and recurring/reversal behavior.
+Do not silently mutate old rows; include migration guards, scoped
+tests and full six-job CI. Then work order vendor link independently
+from assigned_to_id crew user; preserve existing crew assignment
+lifecycle and property access authorization.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Read root handoff and verify current HEAD/CI. Full
-   Vendor company entity and all prior reports VERIFIED.
-2. Next Phase 4 Vendor insurance + expiration tracking,
-   scoped to the new Vendor company. Inspect verified
-   property insurance pattern but do NOT auto-create
-   PropertyExpense or GL postings for vendor insurance.
-   Include carrier, coverage, policy/expiry dates,
-   status, permissions, cross-org probes, focused tests.
-   Consider existing universal entity attachments for
-   non-tax insurance certificates only; W-9 remains in
-   separate encrypted tax archive. No plaintext tax IDs.
-3. After six-job CI green, update root handoff and
-   continue vendor list trade/insurance filters, real
-   Bill/WorkOrder vendor links in original order.
-4. Actual external 1099 IRS/provider acceptance and
-   recipient copies remain blocked on operator-approved
-   Avalara/IRIS credentials and verified integration;
-   do not mark full filing complete or leak tax secrets.
-5. No main/new branch/Work mode/unapproved frozen docs
-   or parity edits. Commit bounded tests, verify CI,
-   fix failures before next batch, record real counts.
+1. Read root handoff and verify current HEAD/latest CI. Vendor company,
+   insurance lifecycle, trade/insurance directory filters and prior
+   reporting are VERIFIED; do not repeat completed batches.
+2. Phase 4 real Vendor selection on Bill create: inspect existing
+   Bill/posted GL/recurring/reversal contracts. Add a nullable same-org
+   Vendor company link (not UserRole.VENDOR contact), validate current
+   active Vendor on entry, preserve payee_name historical snapshot
+   and current manual-payee compatibility. No historical auto-link,
+   no GL or payment amount rewrite; retain atomic post/reversal
+   behavior. Include migration guard updates, targeted regression
+   tests and customer bill-entry picker using authorized /api/vendors.
+3. After full six-job CI green, update root handoff and continue
+   WorkOrder vendor company link and picker as a separate bounded
+   change; do not conflate crew assigned_to_id with outside vendor
+   or leak foreign org information.
+4. External 1099 tax filing and copies remain unverified/credential
+   dependent. Do not claim IRS or provider acceptance without real
+   operator credentials and evidence.
+5. No main/new branch/Work/unapproved frozen docs or parity edits.
+   User authorized commit+GitHub-CI; fix red CI before next batch.
+   Update root handoff after meaningful verified batches with
+   real source SHA, CI test counts and migration inventory.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on branch
-chatgpt/checkpoint-005-safety; read entire repo-root
-AI_HANDOFF.md then verify live HEAD and latest CI.
-Last VERIFIED product source
-6e1d0eb730a71d913021b590667123ee047c4858,
-CI 36336927654 SUCCESS six jobs: 590 backend passed,
-3 deselected; 3 authenticated browser E2E passed.
-Alembic e3f5a7b9c1d2 / 109 tables. Full Vendor
-company entity, scoped CRUD/UI, and Phase 3.7 reports
-VERIFIED; external tax filing not falsely completed.
-Next original Phase 4: Vendor insurance + expiration;
-then vendor list filters and Bill/WorkOrder vendor
-pickers. No Work mode, no main/frozen-doc edits,
-keep accounting/org/menu contracts and root handoff.
+Continue yasirskhan/property-platform on
+chatgpt/checkpoint-005-safety. Read entire repo-root
+AI_HANDOFF.md and verify live HEAD and six-job CI.
+Last verified source 87ed9dd1396686065c9596622173297628b2ace2;
+CI 36338819609 SUCCESS: 596 backend passed, 3 deselected,
+3 browser E2E passed, all six jobs successful.
+Alembic e3f5a7b9c1d2 /109 model tables.
+Vendor company, insurance lifecycle and trade/insurance
+directory filter batches VERIFIED, no full external 1099 filing.
+Exact next Phase 4: nullable same-org Vendor company
+link/picker on new Bills, then WorkOrder vendor company
+link/picker. Preserve accounting and org permissions,
+no historic vendor auto-link, no GL rewrite. Do not touch
+main/frozen docs; bounded commit+CI and handoff updates.
