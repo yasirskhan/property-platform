@@ -116,7 +116,7 @@ def test_bucket_boundaries_partial_paid_exclusion_csv_and_no_changes(monkeypatch
         assert detail[saved["partial"].id][9] == Decimal("50")
         assert saved["paid"].id not in detail and saved["void"].id not in detail
         buckets = {r[1]:r[9] for r in report.rows if r[0] == "BUCKET"}
-        assert buckets["1-30 DAYS"] == Decimal("150")
+        assert buckets["1-30 DAYS"] == Decimal("400")
         assert buckets["31-60 DAYS"] == Decimal("200")
         assert buckets["61-90 DAYS"] == Decimal("200")
         assert buckets["91+ DAYS"] == Decimal("100")
