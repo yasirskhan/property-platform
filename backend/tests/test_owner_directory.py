@@ -99,34 +99,28 @@ def test_owner_directory_only_stored_contacts_and_owner_self_scope(monkeypatch):
         db.close(); engine.dispose()
 
 
-def test_manager_own_assigned_property_owner_scope_and_revocation(monkeypatch):
+def test_owner_directory_does_not_widen_manager_user_detail_access(monkeypatch):
     db, engine = _session()
     try:
         admin, manager, owner1, owner2, inactive, deleted, tenant, foreign = _seed(db)
         monkeypatch.setattr(owner_directory, "permission_allows_user", lambda *a, **k: True)
-        assert [row[0] for row in _payload(db, manager).rows] == [owner1.id]
-        with pytest.raises(ReportDeliveryError, match="permission"):
-            _payload(db, tenant)
+        # Existing /users/{id} deliberately limits manager detail to crew;
+        # owner-directory must not widen that policy via a menu grant.
+        for actor in (manager, tenant):
+            with pytest.raises(ReportDeliveryError, match="permission"):
+                _payload(db, actor)
         assert [row[0] for row in _payload(db, foreign).rows] == [foreign.id]
         with pytest.raises(ReportDeliveryError):
             _payload(db, admin, sql="SELECT * FROM tax_profiles")
         monkeypatch.setattr(owner_directory, "permission_allows_user",
                             lambda db, *, user, menu_key: menu_key != "PEOPLE.OWNERS")
         with pytest.raises(ReportDeliveryError, match="permission"):
-            _payload(db, manager)
-        monkeypatch.setattr(owner_directory, "permission_allows_user",
-                            lambda db, *, user, menu_key: menu_key != "PROPERTIES.ALL")
-        with pytest.raises(ReportDeliveryError, match="permission"):
-            _payload(db, manager)
+            _payload(db, admin)
         monkeypatch.setattr(owner_directory, "permission_allows_user", lambda *a, **k: True)
-        assignment = db.query(PropertyAssignment).filter_by(user_id=manager.id).one()
-        assignment.is_active = False
-        db.commit()
-        assert _payload(db, manager).rows == ()
-        manager.is_active = False
+        admin.is_active = False
         db.commit()
         with pytest.raises(ReportDeliveryError, match="permission"):
-            _payload(db, manager)
+            _payload(db, admin)
     finally:
         db.close(); engine.dispose()
 

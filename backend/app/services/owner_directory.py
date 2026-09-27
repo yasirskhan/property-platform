@@ -1,7 +1,7 @@
 """Read-only organization-scoped owner contact directory.
 
-Owner users see only themselves. Managers with explicit owner-directory
-permission see only owners attached to currently assigned live properties.
+Owner users see only themselves. Managers cannot access owner contacts,
+matching the existing /users/{id} manager-to-crew identity boundary.
 No taxpayer profiles, banking or invented mailing addresses are read.
 """
 from __future__ import annotations
@@ -10,7 +10,6 @@ from typing import Mapping
 
 from sqlalchemy.orm import Session
 
-from app.models.property import Property, PropertyAssignment, PropertyOwner
 from app.models.user import User, UserRole
 from app.services.menu_resolver import permission_allows_user
 from app.services.report_delivery import ReportDeliveryError, ReportPayload
@@ -33,7 +32,7 @@ def build_owner_directory(
     role = _role(current_user)
     if (current_user.organization_id != organization_id
             or not current_user.is_active or current_user.deleted_at is not None
-            or role not in {"ADMIN", "MANAGER", "OWNER"}):
+            or role not in {"ADMIN", "OWNER"}):
         raise ReportDeliveryError("Owner directory permission required")
     for menu_key in ("REPORTING.ALL", "PEOPLE.OWNERS"):
         if not permission_allows_user(db, user=current_user, menu_key=menu_key):
@@ -47,26 +46,6 @@ def build_owner_directory(
     )
     if role == "OWNER":
         visible = visible.filter(User.id == current_user.id)
-    if role == "MANAGER":
-        if not permission_allows_user(db, user=current_user, menu_key="PROPERTIES.ALL"):
-            raise ReportDeliveryError("Owner directory permission required")
-        managed_owners = (
-            db.query(PropertyOwner.user_id)
-            .join(Property, Property.id == PropertyOwner.property_id)
-            .join(PropertyAssignment, PropertyAssignment.property_id == Property.id)
-            .filter(
-                PropertyOwner.organization_id == organization_id,
-                PropertyOwner.is_active.is_(True),
-                PropertyOwner.deleted_at.is_(None),
-                Property.organization_id == organization_id,
-                Property.is_active.is_(True),
-                Property.deleted_at.is_(None),
-                PropertyAssignment.user_id == current_user.id,
-                PropertyAssignment.is_active.is_(True),
-                PropertyAssignment.deleted_at.is_(None),
-            )
-        )
-        visible = visible.filter(User.id.in_(managed_owners))
     owners = visible.order_by(User.last_name.asc(), User.first_name.asc(), User.id.asc()).all()
     rows = tuple((
         person.id,

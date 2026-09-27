@@ -35,8 +35,8 @@ export default function OwnerDirectoryPage() {
         <p className="mt-1 text-sm text-slate-600">
           Current recorded owner names, email and phone only. This report
           does not invent mailing addresses or show bank or tax information.
-          Managers see only owner contacts linked to properties they are
-          currently assigned to; owners can see their own contact record.
+          Only authorized administrators can view the full directory;
+          owner users can see their own contact record.
         </p>
       </header>
       <button type="button" disabled={busy} onClick={() => void load()}
