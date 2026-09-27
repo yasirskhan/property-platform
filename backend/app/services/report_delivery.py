@@ -34,6 +34,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "accounting.chart_of_accounts": "ACCOUNTING.GL_ACCOUNTS",
     "accounting.account_totals": "ACCOUNTING.GL_ACCOUNTS",
     "accounting.balance_sheet": "ACCOUNTING.GL_ACCOUNTS",
+    "accounting.bank_activity": "ACCOUNTING.BANK_ACCOUNTS",
     "accounting.general_ledger": "ACCOUNTING.GL_ACCOUNTS",
     "accounting.trial_balance": "ACCOUNTING.GL_ACCOUNTS",
     "owner.statement": "ACCOUNTING.OWNER_STATEMENTS",
@@ -468,6 +469,14 @@ def build_report_payload(
             raise ReportDeliveryError("Authenticated owner directory required")
         from app.services.owner_directory import build_owner_directory
         return build_owner_directory(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "accounting.bank_activity":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated bank activity required")
+        from app.services.bank_account_activity import build_bank_account_activity
+        return build_bank_account_activity(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
         )

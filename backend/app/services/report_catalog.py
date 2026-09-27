@@ -212,7 +212,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/reporting/balance-sheet",
         description="Posted accrual GL assets, liabilities and equity including unclosed earnings; not audited.",
     ),
-    _standard("accounting.bank_activity", "Bank Account Activity", "Accounting"),
+    _standard(
+        "accounting.bank_activity", "Bank Account Activity", "Accounting",
+        href="/dashboard/reporting/bank-activity",
+        description="Posted GL cash-book activity by linked bank account; not a bank statement or cleared balance.",
+    ),
     _standard("accounting.bank_association", "Bank Account Association", "Accounting"),
     _enhanced("accounting.cash_flow", "Cash Flow", "Accounting"),
     _enhanced("accounting.cash_flow_12_month", "Cash Flow 12-Month", "Accounting"),
