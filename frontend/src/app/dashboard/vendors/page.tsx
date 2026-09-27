@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { apiDelete, apiFetch, apiGet, apiPatch, apiPost } from "@/lib/api";
 import VendorInsurancePanel from "@/components/vendors/VendorInsurancePanel";
+import TagPicker from "@/components/tags/TagPicker";
 
 type Vendor = {
   id: number; company_name: string; trade: string | null;
@@ -282,6 +283,8 @@ export default function VendorsPage() {
       </section>
       {selectedVendor !== null && <VendorInsurancePanel
         vendorId={selectedVendor} canEdit={me?.role === "ADMIN"} />}
+      {selectedVendor !== null && <TagPicker
+        entityType="vendors" entityId={selectedVendor} canCreate={me?.role === "ADMIN"} />}
     </div>
   );
 }

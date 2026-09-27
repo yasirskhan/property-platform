@@ -38,6 +38,7 @@ _FORBIDDEN_PREFIXES = (
 _ENTITY_PERMISSION_PREFIXES = (
     (("properties", "property_"), "PROPERTIES.ALL"),
     (("vendors", "vendor_insurances"), "PEOPLE.VENDORS"),
+    (("contacts",), "PEOPLE.CONTACTS"),
     (("units",), "PROPERTIES.UNITS"),
     (("leases", "rent_invoices", "payments"), "LEASING"),
     (("work_orders", "work_order_updates"), "MAINTENANCE.WORK_ORDERS"),

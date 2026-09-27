@@ -81,6 +81,7 @@ from app.routers import entity_attachments as entity_attachments_router
 from app.routers import reporting as reporting_router
 from app.routers import vendors as vendors_router
 from app.routers import contacts as contacts_router
+from app.routers import tags as tags_router
 from app.routers import vendor_insurance as vendor_insurance_router
 from app.routers import property_budgets as property_budgets_router
 from app.routers import property_groups as property_groups_router
@@ -186,6 +187,7 @@ app.include_router(entity_attachments_router.router)
 app.include_router(reporting_router.router)
 app.include_router(vendors_router.router)
 app.include_router(contacts_router.router)
+app.include_router(tags_router.router)
 app.include_router(vendor_insurance_router.router)
 app.include_router(property_budgets_router.router)
 app.include_router(property_groups_router.router)

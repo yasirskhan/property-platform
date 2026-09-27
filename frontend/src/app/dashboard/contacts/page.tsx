@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
+import TagPicker from "@/components/tags/TagPicker";
 
 type ContactKind = "PERSON" | "BUSINESS";
 type Contact = {
@@ -45,6 +46,7 @@ export default function ContactsPage() {
   const [showInactive, setShowInactive] = useState(false);
   const [draft, setDraft] = useState<ContactDraft>({ ...EMPTY });
   const [editing, setEditing] = useState<number | null>(null);
+  const [taggedContact, setTaggedContact] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -225,6 +227,8 @@ export default function ContactsPage() {
                   {contact.phone && <p className="text-sm text-slate-600">{contact.phone}</p>}
                 </div>
                 {canWrite && <div className="flex gap-2">
+                  <button type="button" onClick={() => setTaggedContact(contact.id)}
+                    className="rounded border px-3 py-1.5 text-sm">Tags</button>
                   {contact.is_active && <button type="button" disabled={busy} onClick={() => populate(contact)}
                     className="rounded border px-3 py-1.5 text-sm disabled:opacity-50">Edit</button>}
                   <button type="button" disabled={busy} onClick={() => { void changeStatus(contact); }}
@@ -235,6 +239,9 @@ export default function ContactsPage() {
               </div>
             ))}
           </section>
+          {taggedContact !== null && (
+            <TagPicker entityType="contacts" entityId={taggedContact} canCreate={canWrite} />
+          )}
         </>
       )}
     </div>
