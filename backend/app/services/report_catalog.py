@@ -185,7 +185,11 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         href="/dashboard/accounting/owner-statements",
         description="Uses the verified frozen owner-statement workflow.",
     ),
-    _standard("vendor.directory", "Vendor Directory", "Owner & Vendor"),
+    _standard(
+        "vendor.directory", "Vendor Directory", "Owner & Vendor",
+        href="/dashboard/reporting/vendor-directory",
+        description="Recorded vendor user contacts only; no unlinked bill payees or private taxpayer data.",
+    ),
     _enhanced("vendor.ledger", "Vendor Ledger", "Owner & Vendor"),
     _standard("maintenance.work_order", "Work Order", "Owner & Vendor"),
 

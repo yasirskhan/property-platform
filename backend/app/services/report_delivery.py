@@ -36,6 +36,7 @@ REPORT_PERMISSIONS: dict[str, str] = {
     "accounting.trial_balance": "ACCOUNTING.GL_ACCOUNTS",
     "owner.statement": "ACCOUNTING.OWNER_STATEMENTS",
     "owner.directory": "PEOPLE.OWNERS",
+    "vendor.directory": "PEOPLE.VENDORS",
     "mailing.labels": "PROPERTIES.ALL",
     "tenant.delinquency": "LEASING",
     "tenant.security_deposit_funds_detail": "ACCOUNTING.GL_ACCOUNTS",
@@ -463,6 +464,14 @@ def build_report_payload(
             raise ReportDeliveryError("Authenticated owner directory required")
         from app.services.owner_directory import build_owner_directory
         return build_owner_directory(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "vendor.directory":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated vendor directory required")
+        from app.services.vendor_directory import build_vendor_directory
+        return build_vendor_directory(
             db, organization_id=organization_id, current_user=current_user,
             parameters=parameters,
         )
