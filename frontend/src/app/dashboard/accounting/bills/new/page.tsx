@@ -20,6 +20,8 @@ interface Property {
   name: string;
 }
 
+interface VendorCompany { id: number; company_name: string; is_active: boolean }
+
 interface GLAccount {
   id: number;
   gl_number: string;
@@ -42,6 +44,8 @@ export default function NewBillPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [accounts, setAccounts] = useState<GLAccount[]>([]);
   const [cashAccounts, setCashAccounts] = useState<GLAccount[]>([]);
+  const [vendorCompanies, setVendorCompanies] = useState<VendorCompany[]>([]);
+  const [vendorId, setVendorId] = useState<number | "">("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,14 +78,22 @@ export default function NewBillPage() {
     let cancelled = false;
     async function load() {
       try {
-        const [props, gls] = await Promise.all([
+        const [props, gls, companyResult] = await Promise.all([
           apiGet("/properties"),
           apiGet("/api/accounting/gl-accounts"),
+          // Vendor directory may not be available to a payables-only user.
+          // Manual payees must remain usable with no company lookup rights.
+          apiGet("/api/vendors").catch(() => null),
         ]);
 
         if (cancelled) return;
 
         setProperties(props as Property[]);
+        if (companyResult && Array.isArray((companyResult as { items?: VendorCompany[] }).items)) {
+          setVendorCompanies((companyResult as { items: VendorCompany[] }).items.filter(
+            (company) => company.is_active,
+          ));
+        }
 
         const groups = (gls as {
           groups: { account_type: string; accounts: GLAccount[] }[];
@@ -148,6 +160,7 @@ export default function NewBillPage() {
     try {
       await apiPost("/api/accounting/bills", {
         payee_name: payeeName,
+        vendor_id: vendorId || null,
         bill_date: billDate,
         due_date: dueDate || null,
         reference_number: referenceNumber || null,
@@ -200,10 +213,31 @@ export default function NewBillPage() {
             <input
               type="text"
               value={payeeName}
+              disabled={vendorId !== ""}
               onChange={(e) => setPayeeName(e.target.value)}
               className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm"
             />
           </div>
+          {vendorCompanies.length > 0 && <div>
+            <label className="block text-xs text-slate-600 mb-1">
+              Vendor company (optional)
+            </label>
+            <select value={vendorId} onChange={(event) => {
+              const chosen = event.target.value ? Number(event.target.value) : "";
+              const company = vendorCompanies.find((item) => item.id === chosen);
+              setVendorId(chosen);
+              if (company) setPayeeName(company.company_name);
+            }} className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm">
+              <option value="">Manual payee — no company link</option>
+              {vendorCompanies.map((company) => <option key={company.id} value={company.id}>
+                {company.company_name}
+              </option>)}
+            </select>
+            <p className="mt-1 text-xs text-slate-500">
+              The posted bill retains this company name as an immutable payee snapshot.
+              Existing bills are never linked automatically.
+            </p>
+          </div>}
           <div>
             <label className="block text-xs text-slate-600 mb-1">
               Bill date <span className="text-red-500">*</span>
