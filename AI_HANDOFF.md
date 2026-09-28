@@ -7,20 +7,20 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `ca663f872b76c8759f93ed5a9d888adb89eb45b7`
-- Source GitHub Actions run **36458655420: SUCCESS, all six jobs**
+- Last VERIFIED **product source**: `cc1f4ea5d5040088252b82d16e3f48dd2a219c88`
+- Source GitHub Actions run **36460477349: SUCCESS, all six jobs**
   (backend, frontend, platform-admin, security, authenticated E2E,
-  staging-config). Backend: **725 passed, 4 deselected, 15981 warnings
-  in 192.16s**. E2E: **4 passed, 4 warnings in 14.50s**. Lint,
+  staging-config). Backend: **731 passed, 4 deselected, 16221 warnings
+  in 183.67s**. E2E: **4 passed, 4 warnings in 13.33s**. Lint,
   TypeScript, build, security and staging: SUCCESS. These results
-  apply to source `ca663f87`. No local tests run.
+  apply to source `cc1f4ea5`. No local tests run.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **a1c3e5f7b9d0**. SQLAlchemy expected model tables: **136**.
-  Previous head f0b2c4d6e8a1 / 135. PostgreSQL bootstrap, staging
-  preparation and legacy migration guards passed on source `bfa68575`.
+- Alembic head: **b2d4f6a8c0e1**. SQLAlchemy expected model tables: **138**.
+  Previous head a1c3e5f7b9d0 / 136. PostgreSQL bootstrap, staging
+  preparation and legacy migration guards passed on source `cc1f4ea5`.
 - CURRENT roadmap work: **Phase 4.7 C2 HOA IN PROGRESS**. Explicit user-directed priority: build generic HOA infrastructure first; independently verified Phase 4.8 C3 commercial reference/report source remains preserved, with no new commercial scope while HOA remains active. Authentic governing/legal sources are absent, so legally operative notices, assessments, fines and reserve postings remain blocked until reviewed. Previous Phase 3.7 reports and 1099 internal preparation retain verified scope.
-  **Latest verified batch: HOA recurring draft calendar preview plus private meeting-minutes document category.**
+  **Latest verified batch: versioned HOA staff procedure settings + internal violation-case state machine and property UI.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
@@ -28,6 +28,84 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
 - **Exact NEXT task: obtain/review actual HOA governing documents and the applicable property/association jurisdiction, authorized legal actors and accounting policies. Staff-only private-document evidence indexing, ARC intake, observations, meeting planning, contact references and assessment drafts are VERIFIED. A staff document link is NOT certification of governing authority. No official applications, architectural decisions, notices, penalties, board actions, dues/payer liability, reserve transfers or GL posting without reviewed legal/accounting authority. No uploaded governing source has been verified for this task. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows remain BLOCKED pending authoritative program rules and secure household policy.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED; do not label them completed screening/marketing conversions. External Stripe/IRS filing acceptance remains unimplemented.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight, 1099 preparation, tax profiles or W-9 archive.
+
+## CURRENT SESSION UPDATE — 2026-09-28 HOA PROCEDURES + CASES VERIFIED
+
+**Product source** `cc1f4ea5d5040088252b82d16e3f48dd2a219c88`.
+Full hosted GitHub Actions **36460477349 SUCCESS all six jobs**:
+backend **731 passed, 4 deselected, 16221 warnings in 183.67s**;
+browser E2E **4 passed, 4 warnings in 13.33s**;
+frontend lint/typecheck/build, platform-admin, security and staging
+all passed. **No local tests run.**
+New migration `b2d4f6a8c0e1` following `a1c3e5f7b9d0`,
+**138 model tables** from 136; PostgreSQL/bootstrap/legacy/schema
+guards passed. Frozen `docs/` and parity checklist untouched.
+
+Phase 4.7 HOA generic workflow priority is user-confirmed.
+New `hoa_procedure_policies` stores versioned STAFF-CONFIGURED,
+UNVERIFIED jurisdiction label/locality, draft notice text,
+configurable notice/cure/hearing planning-day counts,
+unassessed fine proposal cap and optional independently
+UNVERIFIED same-scope PRIVATE HOA evidence reference.
+No state-specific deadline, default penalty or legal language
+hardcoded. Scoped GET/PUT at
+`/api/hoa/associations/{id}/procedure-policy`; live organization,
+association/property membership, actor status, ADMIN/OWNER write,
+assigned MANAGER read, PROPERTIES.ALL and compliance hybrid release
+gate are reused. Document link additionally checks live attachment
+feature, same-org/property private active source. Updates increment
+policy revision and redact text/amount/location from immutable audit.
+Never claim configured rules are valid law or approved authority;
+`issuance_enabled=false`. Procedure settings UI is in existing
+property HOA Compliance panel. No charge, notice, fine or GL posting.
+
+New `hoa_violation_cases` links ONE staff case to each verified
+active same-scope HOA observation. Internal state machine:
+OPEN -> NOTICE_DRAFT -> CURE_TRACKING / HEARING_PLANNED ->
+FINE_PROPOSED -> RESOLVED -> CLOSED, with a permitted direct staff
+resolution path. Server rejects illegal transitions, duplicate
+observation linkage, unauthorized manager writes, foreign/inactive
+references, missing staff notice language/cure configuration,
+proposed fine above staff cap, unknown fields and unsafe status
+escalation. Notice and hearing dates must be entered by staff,
+and a cure *tentative planning date* is derived only from staff
+notice-preparation date plus the configured period. Policy revision
+is recorded with transition; audit stores IDs and stage only.
+Case list and stage actions live under
+`/api/hoa/associations/{id}/staff-cases` and the customer
+property Compliance panel. Unlink/archive soft-disables settings
+and cases; relink cannot resurrect them. Generic notes/attachments
+explicitly deny both new tables.
+
+These are operational STAFF DRAFTS ONLY, not an issued notice,
+served notice, legally binding cure deadline, assessed fine,
+hearing determination, official resolution, tenant/owner claim,
+reserve accounting or booked receivable. No Charge, RentInvoice,
+Lease or GL changes. New focused regressions cover positive
+transitions, zero finance, scope/permission/release revocation,
+source evidence privacy, audit redaction, invalid states,
+schema validation and unlink/archive. Existing authenticated E2E
+still only 3 general smoke + 1 dedicated HOA evidence browser
+test, NOT dedicated procedure/case UI automation.
+
+**Original requested six HOA features remain IN PROGRESS.**
+Verified staff association/contact/draft assessment, read-only
+recurrence preview, private documents incl. meeting-minutes,
+observations, policy settings, internal violation case,
+meeting plans and ARC intake do NOT constitute authorized
+dues posting, formal enforcement, verified board voting,
+official ARC decisions or reserve GL controls. Next bounded
+Phase 4.7 tasks: staff board meeting attendance/minutes/vote
+preparation, scoped ARC applicant/review tracking, read-only
+reserve GL mapping/activity, and explicit HOA dues payer/
+authoritative issuance/ledger contracts. Actual legal/finance
+activation requires authenticated governing documents,
+applicable jurisdiction and authorized actor, payer and GL
+contracts. User specified HOA offered as **$79/month add-on**;
+module commercial entitlement/pricing activation remains
+unimplemented and must not be billed or claimed active.
+Do NOT resume Phase 4.8 Commercial until remaining HOA
+generic work is completed and tested per user instruction.
 
 ## CURRENT SESSION UPDATE — 2026-09-28 HOA DUES PREVIEW + MINUTES VERIFIED
 
