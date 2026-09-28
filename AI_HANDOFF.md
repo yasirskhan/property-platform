@@ -17,8 +17,8 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   current branch HEAD and latest CI before continuing.
 - Alembic head: **f0b2c4d6e8a1**. SQLAlchemy expected model tables: **135**.
   Previous head e9a1b3c5d7f0 / 134 tables (staff document-evidence index adds one table). PostgreSQL/bootstrap/legacy CI passed.
-- Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest verified batch: Phase 4.7 C2 governing-document staff evidence index + customer UI, verified by CI.**
+- CURRENT roadmap work: **Phase 4.7 C2 HOA, IN PROGRESS**. Previous Phase 3.7 reports and 1099 internal preparation have individually verified portions; external 1099 acceptance remains unimplemented.
+  **Latest verified product batch: Phase 4.7 C2 governing-document staff evidence index + customer UI, verified by CI.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
@@ -26,6 +26,102 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
 - **Exact NEXT task: obtain/review actual HOA governing documents and the applicable property/association jurisdiction, authorized legal actors and accounting policies. Staff-only private-document evidence indexing, ARC intake, observations, meeting planning, contact references and assessment drafts are VERIFIED. A staff document link is NOT certification of governing authority. No official applications, architectural decisions, notices, penalties, board actions, dues/payer liability, reserve transfers or GL posting without reviewed legal/accounting authority. No uploaded governing source has been verified for this task. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows remain BLOCKED pending authoritative program rules and secure household policy.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED; do not label them completed screening/marketing conversions. External Stripe/IRS filing acceptance remains unimplemented.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight, 1099 preparation, tax profiles or W-9 archive.
+
+## CURRENT SESSION HANDOFF — 2026-09-28 (READ BEFORE HISTORICAL ENTRIES)
+
+This is a **documentation-only handoff update**. No product code, test or
+migration was changed in this handoff. Preserve the entire detailed
+historical record below and use current GitHub HEAD/CI to supersede stale
+"NEXT" subsections embedded in older completed-batch notes.
+
+**Repository:** private `yasirskhan/property-platform`.
+**Only branch:** `chatgpt/checkpoint-005-safety`.
+**HEAD checked before this handoff:** `ecf8b797b05b2c86234dcb63b004e9c4299d481f`;
+this is a handoff-only commit on top of the last verified product source.
+After this document commit, HEAD will change: fetch it anew on entry.
+**Latest complete GitHub Actions run on prior HEAD:** `36443917977`,
+SUCCESS across all six jobs. Backend **715 passed, 3 deselected,
+15562 warnings in 127.94s**. Generic authenticated browser E2E
+**3 passed in 8.39s**. Frontend, platform-admin, security and
+staging-config PASS. This is hosted CI on docs-only HEAD, **not new
+product testing**. Last verified **product-source** commit remains
+`97ac854cfb7653f95f4e23d173cfb0706362bf8a`, with its own
+full green run `36442794100` (715 backend passed / 3 deselected;
+3 E2E passed). No local tests run for this handoff.
+
+**Schema:** Alembic head `f0b2c4d6e8a1`, **135 model tables**.
+No new migration or parity-status/count update in this handoff.
+**Current roadmap point:** Phase 4.7 C2 HOA; earlier phases' completed
+batches are verified as detailed in the chronology, but the entirety
+of Phase 4.7 C2 is NOT completed. Do not reinterpret past verified
+staff-only records as official legal or financial HOA workflows.
+
+**Precise stopping point:** staff-only HOA association/property registry,
+contact references, draft assessments, observations, meeting planning,
+architectural-interest intake, and a **private governing-document
+evidence index + customer UI** are verified. The evidence index merely
+points to staff-supplied property attachments and does NOT validate
+authenticity, applicability or authority. It does not certify legal
+rights or make a filing. There is no verified authentic HOA declaration,
+bylaws/amendments, written rules, ARC guidelines or jurisdiction-specific
+legal/notice/dues/reserve policy for an actual association in the last
+handoff. No new product batch is awaiting CI, and no unverified
+implementation should be carried forward from this session.
+
+**Exact next original-roadmap dependency:** verify actual governing
+documents and jurisdiction for the specific HOA/property, including
+authorized legal actors, notice/cure/hearing requirements, dues payer,
+approval and reserve policies. Reconcile any supplied records with
+applicable current law *before* implementing official violations,
+architecture decisions, board voting, dues/fines, notice delivery,
+reserve movements or central-ledger postings. The required genuine
+source evidence was not present/verified in the previous source handoff.
+Do not infer any of this from unverified staff metadata. Phase 4.6
+substantive HUD/LIHTC/HAP/AMI work likewise requires authentic
+property/program rules and secure household policy. External Avalara/
+IRS filing acceptance and Stripe live acceptance also are not
+established by the internal preflight/sandbox work.
+
+**Startup instructions for the next chat — no questions about prior
+decisions:**
+
+1. Read the complete repository-root `AI_HANDOFF.md`, confirm HEAD,
+   last product commit, and GitHub Actions CI. Treat `ecf8b797` as
+   last pre-handoff HEAD, not as a permanent current HEAD. Inspect
+   `PROJECT_MASTER.md`, `FEATURE_REGISTRY.md`, `PLAN_GAPS.md`,
+   `APPFOLIO_PARITY_CHECKLIST.json`, and `FILE_CATALOG.md`
+   read-only as necessary.
+2. Check for *actual new authoritative HOA source files* made
+   available in the chat, repository, or accessible user-file sources;
+   never treat the staff evidence-index entries as verified documents.
+   If authentic documents and scope are present, analyze them and
+   implement only the legally authorized next Phase 4.7 step with
+   regression tests and the established backend authorization/GL
+   contracts. If absent, mark the dependent official HOA workflows
+   BLOCKED. Do not manufacture rules or repeatedly re-audit completed
+   safe drafts. Without asking the user to repeat context, proceed
+   only with a genuinely independent next task already authorized
+   by the original dependency roadmap, if one exists; otherwise
+   report the specific missing evidence as a genuine blocker.
+3. Preserve all VERIFIED work; never rebuild it. Existing generic
+   authenticated E2E is **not** a dedicated HOA interaction test.
+   Read actual current source before edits. Do not touch `main`,
+   create a branch, force-push, or change frozen `docs/` files without
+   explicit authorization. Do not expose PII/tax secrets or guess
+   accounting classifications. Do not use Work mode.
+4. For bounded product-code batches include focused regression tests,
+   commit to the existing branch, verify **all applicable GitHub
+   Actions CI jobs**, fix failures and do not start a new feature while
+   CI is red. Never mark an unverified batch COMPLETE. Report real
+   test totals; docs-only edits: **TESTS NOT RUN locally**. Update
+   the root handoff with new source SHA, CI run, counts, migrations,
+   scope, limitations, and the next exact dependency.
+5. Continue autonomously across *unblocked* original-roadmap batches
+   without permission prompts or hollow progress polling. Stop on a
+   genuine missing authoritative source, an unresolved security/legal
+   decision, or context limit, after leaving a faithful root handoff.
+
+---
 
 ## Verification chronology — don't reimplement
 
