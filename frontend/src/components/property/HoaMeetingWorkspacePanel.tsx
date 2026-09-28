@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
 import HoaBallotRecordsPanel from "@/components/property/HoaBallotRecordsPanel";
+import HoaMinutesDraftPanel from "@/components/property/HoaMinutesDraftPanel";
 
 type ContactLink = {
   id: number; contact_id: number; contact_name: string;
@@ -127,6 +128,8 @@ export default function HoaMeetingWorkspacePanel({
       {message && <p role="status" className="text-xs text-green-700">{message}</p>}
       {workspace && !loading && (
         <>
+          <HoaMinutesDraftPanel associationId={associationId} propertyId={propertyId}
+            meetingId={meetingId} canEdit={canEdit} />
           <h5 className="text-sm font-semibold">Staff-reported participation</h5>
           {workspace.attendance.length === 0 && (
             <p className="text-xs text-slate-600">No staff attendance recorded.</p>

@@ -4,6 +4,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.models.hoa_meeting_workspace import HOAMeetingParticipation, HOAMotionDraft
+from app.models.hoa_meeting_minutes import HOAMeetingMinutesDraft
 from app.services.audit import append_audit_log
 from app.services.hoa_ballot_cleanup import archive_ballots
 
@@ -19,6 +20,7 @@ def archive_meeting_workspace(
         actor_id=actor_id, action=action,
     )
     for model, entity in (
+        (HOAMeetingMinutesDraft, "hoa_meeting_minutes_draft"),
         (HOAMeetingParticipation, "hoa_meeting_participation"),
         (HOAMotionDraft, "hoa_motion_draft"),
     ):

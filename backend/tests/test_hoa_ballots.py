@@ -15,6 +15,9 @@ from app.models.audit_log import AuditLog
 from app.models.charge import Charge
 from app.models.gl_transaction import GLTransaction
 from app.models.hoa_ballot import HOABallotRecord
+from app.models.hoa_meeting_minutes import HOAMeetingMinutesDraft
+from app.routers import hoa_meeting_minutes as minutes_api
+from app.schemas.hoa_meeting_minutes import HOAMinutesDraftIn
 from app.models.hoa_board import HOABoardSeat
 from app.models.hoa_association import HOAContactLink
 from app.models.contact import Contact
@@ -256,5 +259,117 @@ def test_ballot_motion_archive_contact_revocation_and_schema_fail_closed():
         assert exc.value.status_code == 404
         assert db.query(GLTransaction).count() == db.query(Charge).count() == 0
         assert db.get(HOABallotRecord, saved.id).is_active is False
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_minutes_recorded_revised_archived_are_not_certified_governance():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, other, outside), assoc, link, plan, motion, seat = _seed(db)
+        payload = HOAMinutesDraftIn(property_id=prop.id, staff_minutes="  Staff noted agenda items  ")
+        first = minutes_api.save_minutes_draft(
+            assoc.id, plan.id, payload, db=db, current_user=admin,
+        )
+        assert first.staff_minutes == "Staff noted agenda items"
+        assert first.status == "STAFF_DRAFT_UNVERIFIED"
+        assert first.legal_minutes_effective is False
+        assert first.quorum_certified is False
+        assert first.board_approval_certified is False
+        assert "adopted" not in first.model_dump()
+        response = Response()
+        selected = minutes_api.get_minutes_draft(
+            assoc.id, plan.id, response, prop.id, db=db, current_user=manager,
+        )
+        assert selected.id == first.id
+        assert response.headers["cache-control"] == "no-store"
+        changed = minutes_api.save_minutes_draft(
+            assoc.id, plan.id, HOAMinutesDraftIn(
+                property_id=prop.id, staff_minutes="Second staff draft"
+            ), db=db, current_user=owner,
+        )
+        assert changed.id == first.id and changed.staff_minutes == "Second staff draft"
+        assert db.query(HOAMeetingMinutesDraft).count() == 1
+        minutes_api.archive_minutes_draft(
+            assoc.id, plan.id, prop.id, db=db, current_user=admin,
+        )
+        assert minutes_api.get_minutes_draft(
+            assoc.id, plan.id, Response(), prop.id, db=db, current_user=admin,
+        ) is None
+        with pytest.raises(HTTPException) as exc:
+            minutes_api.save_minutes_draft(
+                assoc.id, plan.id, payload, db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_meeting_minutes_draft",
+        ).count() == 3
+        assert db.query(Charge).count() == db.query(GLTransaction).count() == 0
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_minutes_scope_permissions_schema_and_meeting_archive(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, other, outside), assoc, link, plan, motion, seat = _seed(db)
+        payload = HOAMinutesDraftIn(property_id=prop.id, staff_minutes="Staff only")
+        for bad in ({'legal_minutes_effective': True}, {'approved': True},
+                    {'official_notice': True}, {'gl_account_id': 1}):
+            with pytest.raises(ValidationError):
+                HOAMinutesDraftIn(property_id=prop.id, staff_minutes="Test", **bad)
+        with pytest.raises(ValidationError):
+            HOAMinutesDraftIn(property_id=prop.id, staff_minutes=" ")
+        for actor, pid in ((manager, other.id), (foreign, prop.id),
+                           (tenant, prop.id), (manager, outside.id)):
+            with pytest.raises(HTTPException):
+                minutes_api.get_minutes_draft(
+                    assoc.id, plan.id, Response(), pid,
+                    db=db, current_user=actor,
+                )
+        for actor in (manager, tenant, foreign):
+            with pytest.raises(HTTPException):
+                minutes_api.save_minutes_draft(
+                    assoc.id, plan.id, payload, db=db, current_user=actor,
+                )
+        with pytest.raises(HTTPException):
+            minutes_api.save_minutes_draft(
+                assoc.id, plan.id, HOAMinutesDraftIn(
+                    property_id=other.id, staff_minutes="Out of scope"
+                ), db=db, current_user=admin,
+            )
+        first = minutes_api.save_minutes_draft(
+            assoc.id, plan.id, payload, db=db, current_user=admin,
+        )
+        with pytest.raises(HTTPException):
+            _model_for_table("hoa_meeting_minutes_drafts")
+        monkeypatch.setattr(hoa, "permission_allows_user", lambda *a, **k: False)
+        with pytest.raises(HTTPException) as exc:
+            minutes_api.get_minutes_draft(
+                assoc.id, plan.id, Response(), prop.id,
+                db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 403
+        monkeypatch.setattr(hoa, "permission_allows_user", lambda *a, **k: True)
+        monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **k: [])
+        with pytest.raises(HTTPException) as exc:
+            minutes_api.get_minutes_draft(
+                assoc.id, plan.id, Response(), prop.id,
+                db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 404
+        monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **k: [
+            SimpleNamespace(key=hoa.FEATURE_KEY, allowed=True)
+        ])
+        meeting.archive_meeting_draft(
+            assoc.id, plan.id, prop.id, db=db, current_user=owner,
+        )
+        assert db.get(HOAMeetingMinutesDraft, first.id).is_active is False
+        with pytest.raises(HTTPException):
+            minutes_api.get_minutes_draft(
+                assoc.id, plan.id, Response(), prop.id,
+                db=db, current_user=admin,
+            )
+        assert db.query(Charge).count() == db.query(GLTransaction).count() == 0
     finally:
         db.close(); engine.dispose()

@@ -130,6 +130,7 @@ from app.models.hoa_violation_case import HOAViolationCase  # noqa: F401
 from app.models.hoa_reserve_account import HOAReserveAccount  # noqa: F401
 from app.models.hoa_board import HOABoardSeat, HOABoardRuleDraft  # noqa: F401
 from app.models.hoa_ballot import HOABallotRecord  # noqa: F401
+from app.models.hoa_meeting_minutes import HOAMeetingMinutesDraft  # noqa: F401
 from app.models.commercial_lease_abstract import CommercialLeaseAbstract  # noqa: F401
 from app.models.affordable_interest import AffordableInterest  # noqa: F401
 from app.models.affordable_evidence import AffordableEvidence  # noqa: F401
