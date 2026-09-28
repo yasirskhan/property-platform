@@ -7,20 +7,20 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `ea2f94e431fca28056c8bf54c619265d80cd9c80`
-- Source GitHub Actions run **36491890725: SUCCESS, all six jobs**
+- Last VERIFIED **product source**: `9912398fcb67d4a37ddb31c656c47f40c525c33a`
+- Source GitHub Actions run **36493987607: SUCCESS, all six jobs**
   (backend, frontend, platform-admin, security, authenticated E2E,
-  staging-config). Backend: **756 passed, 10 deselected, 17406 warnings
-  in 125.36s**. E2E: **10 passed, 100 warnings in 28.18s**. Lint,
+  staging-config). Backend: **758 passed, 11 deselected, 17505 warnings
+  in 232.87s**. E2E: **11 passed, 116 warnings in 37.21s**. Lint,
   TypeScript, build, security and staging: SUCCESS. This applies to
-  verified product source `ea2f94e`. No local tests run.
+  verified product source `9912398f`. No local tests run.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **d1e3f5a7b9c2**. SQLAlchemy expected model tables: **150**.
-  Previous head c0d2e4f6a8b1 / 150. PostgreSQL bootstrap, staging
-  preparation and legacy migration guards passed in CI 36491890725.
+- Alembic head: **e2f4a6c8b0d3**. SQLAlchemy expected model tables: **151**.
+  Previous head d1e3f5a7b9c2 / 150. PostgreSQL bootstrap, staging
+  preparation and legacy migration guards passed in CI 36493987607.
 - CURRENT roadmap work: **Phase 4.7 C2 HOA IN PROGRESS**. Explicit user-directed priority: build generic HOA infrastructure first; independently verified Phase 4.8 C3 commercial reference/report source remains preserved, with no new commercial scope while HOA remains active. Authentic governing/legal sources are absent, so legally operative notices, assessments, fines and reserve postings remain blocked until reviewed. Previous Phase 3.7 reports and 1099 internal preparation retain verified scope.
-  **Latest verified batch: hidden, unpaid-by-default $79/month HOA catalog plus separate live commercial entitlement and release controls; no customer was billed or subscribed.**
+  **Latest verified batch: scoped, unissued HOA reserve movement drafts with idempotent cancellation, corrected counterparty GL selector and dedicated browser regression. No funds posted or transferred.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
@@ -28,6 +28,65 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
 - **Exact NEXT task: obtain/review actual HOA governing documents and the applicable property/association jurisdiction, authorized legal actors and accounting policies. Staff-only private-document evidence indexing, ARC intake, observations, meeting planning, contact references and assessment drafts are VERIFIED. A staff document link is NOT certification of governing authority. No official applications, architectural decisions, notices, penalties, board actions, dues/payer liability, reserve transfers or GL posting without reviewed legal/accounting authority. No uploaded governing source has been verified for this task. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows remain BLOCKED pending authoritative program rules and secure household policy.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED; do not label them completed screening/marketing conversions. External Stripe/IRS filing acceptance remains unimplemented.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight, 1099 preparation, tax profiles or W-9 archive.
+
+## CURRENT SESSION UPDATE — 2026-09-28 HOA RESERVE MOVEMENT DRAFTS VERIFIED
+
+**Last verified PRODUCT HEAD**: `9912398fcb67d4a37ddb31c656c47f40c525c33a`.
+Initial implementation `f781ee816f8810e1d715924eccc0660c70c7bf25`
+introduced an unissued, idempotent reserve movement draft workflow,
+migration `e2f4a6c8b0d3`, model table `hoa_reserve_movement_drafts`
+and a new dedicated browser regression. Initial CI `36493083587`
+FAILED browser: 9 passed, 2 failed; backend, frontend, security,
+platform admin and staging PASS. First browser failure was the
+intermittent login-navigation issue in an existing ballot test.
+The second, real integration defect: the movement form reused
+reserve-account options and could not select a counterparty after
+reserve mapping. Corrective source `9912398f` added a distinct
+scoped reserve-counterparty option endpoint, returning only
+same-organization active cash-like ASSET GL display fields,
+excluding all actively mapped reserve GLs, with admin/owner
+access, no-store responses, and no routing/account secrets.
+The movement UI now calls that endpoint; focused backend
+regression checks the selector and manager denial. Full CI
+**36493987607 SUCCESS ALL SIX JOBS**: backend **758 passed,
+11 deselected, 17505 warnings in 232.87s**; browser **11 passed,
+116 warnings in 37.21s** including the new reserve workflow.
+Frontend lint/typecheck/build, platform admin, security and
+staging PASS. **TESTS NOT RUN locally**. No frozen `docs/`
+or parity checklist modified. Schema head `e2f4a6c8b0d3`,
+**151 model tables**; PostgreSQL, bootstrap and legacy guards
+green.
+
+Bounded functionality: ADMIN/OWNER under existing paid HOA release,
+property membership and accounting permissions can prepare
+TO_RESERVE/FROM_RESERVE draft records referencing an active same-org
+reserve mapping and a distinct cash-like GL, with a unique
+org-scoped idempotency key, positive amount and planned date.
+A replay cannot mutate a saved or cancelled request. Explicit
+cancel and association/property unlink cancel planning with redacted
+audit and no resurrected draft. Separate browser test proves
+creation, cancellation and no Change to Charge/GL counters.
+These are NOT posted movements, bank transfers, bank reconciliation,
+legal reserve ownership or immutable GL reversal; response flags
+posting/funds/verified reserve authority FALSE. Existing central GL
+locks, ownership, original read-only reserve book remain untouched.
+
+**Phase 4.7 HOA IN PROGRESS**. All generic infrastructure is not
+legally effective. Outstanding: authenticated governing/assessment
+payer evidence and approved GL mapping for actual recurring/special
+dues, legally issued violation notices/fines, authenticated board
+membership and legally effective votes/minutes, ARC legal approvals,
+and reserve posted movements/reversals. Org-configured policies and
+synthetic E2E sources are NOT legal proof. $79/mo HOA catalog +
+hybrid entitlement are verified, but customer-authorized production
+purchase/provider checkout are not yet implemented. Phase 4.8 stays
+paused. **Exact next independently safe HOA batch**: separate,
+permissioned read-only issuance/posting/reversal readiness contract
+for current planned occurrences, checking current payer reference,
+eligible income GL candidate, accounting lock, and missing legal
+authorization without issuing tenant charges or posting GL. Do not
+repeat verified reserve planning or skip legal prerequisites.
+The next handoff-only commit is not a new product CI result.
 
 ## CURRENT SESSION UPDATE — 2026-09-28 HOA ADD-ON GATE VERIFIED
 
