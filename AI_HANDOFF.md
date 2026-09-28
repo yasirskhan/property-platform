@@ -7,25 +7,25 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `54ad71a8ab2d2bb8aaeeaad27f97614707b71369`
-- Source GitHub Actions run **36368986607: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `ed9d2d97cce994909798c6f413e2ed4b4247c116`
+- Source GitHub Actions run **36369555961: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **646 passed, 3 deselected, 13305 warnings in 151.20s**.
-  E2E: **3 passed in 9.20s**. Lint, typecheck, production build, security
+  Backend: **649 passed, 3 deselected, 13393 warnings in 104.75s**.
+  E2E: **3 passed in 9.90s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **f6e8a0c2d4e5**. SQLAlchemy expected model tables: **119**.
+- Alembic head: **a7c9e1f3b5d0**. SQLAlchemy expected model tables: **120**.
   Previous head f2e4a6c8d0b1 / 115 tables. Nullable receipt FK and
   unique receipt index added; PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4.5 read-only RUBs bill-period diagnostics, VERIFIED.**
+  **Latest completed batch: Phase 4.5 trust-interest manual policy readiness backend, VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Phase 4.5 trust-account interest policy/readiness, then positive pay and remaining compliance work.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
+- **Exact NEXT original-plan task: Phase 4.5 trust-interest customer review UI, then positive pay and remaining compliance work.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -99,6 +99,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Journal Entry Register (manual/recurring JE and linked reversal line report) | 329a85e1683f4392568f8d746404bec689c9b788 | 36336312154 | 587 backend passed / 3 E2E |
 | Phase 4.5 RUBs shared utility inventory + period completeness | ca07e0af4103b55425b26561641728f521b991ab | 36367397250 | 644 backend passed / 3 E2E; read-only |
 | Phase 4.5 RUBs duplicate/overlap review diagnostics | 54ad71a8ab2d2bb8aaeeaad27f97614707b71369 | 36368986607 | 646 backend passed / 3 E2E; no charges or allocations |
+| Phase 4.5 trust-interest manual policy readiness backend | ed9d2d97cce994909798c6f413e2ed4b4247c116 | 36369555961 | 649 backend passed / 3 E2E; no GL posting |
 | Phase 4 vendor company entity + scoped customer UI | 6e1d0eb730a71d913021b590667123ee047c4858 | 36336927654 | 590 backend passed / 3 E2E |
 | Phase 4 vendor insurance lifecycle | 8d2cb6adffbde41282fc77e9e0365b2913410f66, 3de4c938e07fc695cf33eec3b1a7af7fd552e73b, 5dcdd6272bd1e18fe78a0ae2868ef6d110caf2c8 | 36337623891 | 593 backend passed / 3 E2E |
 | Phase 4 vendor trade/insurance filters | b40d94b3861809d4cfd5bb563a21bd6a4e524476, 0d32310911be49c9133ba002d19fdfdb9fce7e9a, 87ed9dd1396686065c9596622173297628b2ace2 | 36338819609 | 596 backend passed / 3 E2E |
@@ -3098,41 +3099,84 @@ No GL posts, bank movements, tenant interest payment or tax claims
 without verified jurisdiction/lease rules and an approved posting path.
 Then proceed in the original plan dependency order.
 
+## Phase 4.5 trust-interest jurisdictional policy readiness — backend VERIFIED 2026-09-27
+
+Source ed9d2d97cce994909798c6f413e2ed4b4247c116.
+GitHub Actions run 36369555961 SUCCESS all six jobs:
+649 backend passed / 3 deselected / 13393 warnings in 104.75s;
+3 authenticated E2E passed in 9.90s. Frontend lint/typecheck/
+build, platform-admin, security and staging passed.
+Migration a7c9e1f3b5d0 after f6e8a0c2d4e5 adds
+trust_interest_readiness; 120 SQLAlchemy tables. Existing
+GL/bank posting, bank identities, checks and RUBs unchanged.
+Three focused tests: same-organization and current active bank/GL
+scope, user/menu/release gating, validation, audit redaction,
+no account number exposure and no GLTransaction writes. Generic
+browser E2E is NOT a dedicated interest settings interaction test.
+
+GET/PUT /api/accounting/bank-accounts/{bank_id}/interest-readiness
+reuse customer auth, ADMIN/OWNER and ACCOUNTING.BANK_ACCOUNTS
+permission plus existing release.accounting.bank_accounts gate.
+Valid active org-scoped bank and active org-mapped ASSET GL are
+required. A unique bank/org readiness record stores staff-entered
+jurisdiction, proposed interest recipient class (UNDETERMINED,
+TENANT, STATE, HOUSING_FUND, OTHER) and bounded basis-reference
+text. Proposed recipient other than UNDETERMINED requires BOTH
+jurisdiction and reference; neither represents verified applicable
+law or formal approval. API returns no routing/account numbers and
+only a boolean noting a supporting reference was recorded. Audits
+contain bank ID and manual-review flag, never reference contents.
+All outputs truthfully require further legal review; both
+interest_allocation_enabled and interest_posting_enabled are FALSE.
+No interest rate, daily accrual, tenant distribution, escrow transfer,
+payee tax assessment, or generated financial transaction.
+This is a preparation contract, not a completed C7 trust-interest
+accounting engine. Frozen docs/ and parity unchanged.
+
+NEXT bounded UI: reuse Bank Accounts customer listing; expose
+a restricted interest-policy review link/action for ADMIN/OWNER,
+with a modal or embedded accessible component for each current
+bank. Explain proposed handling requires independent jurisdiction/
+lease verification and nothing is calculated or posted.
+Use existing apiGet/apiPut; never show full bank numbers.
+Then return to original Phase 4.5 PLAN_GAPS C7/C8 order:
+interest accounting remains gated until jurisdiction rules and
+posting contracts verified; bank positive-pay requires a bank-
+specific verified issue/void file schema and user review.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Verify branch HEAD and latest six-job CI. Last verified source
-   54ad71a8ab2d2bb8aaeeaad27f97614707b71369;
-   CI 36368986607 SUCCESS, 646 backend passed / 3 deselected,
-   3 E2E passed. Do not repeat verified CRM or RUBs-readiness batches.
-2. Follow original Phase 4.5 compliance plan: begin bounded trust-account
-   interest policy/readiness (PLAN_GAPS C7), then positive pay (C8).
-   Read plan and inspect bank/GL/receipt models and verified services.
-   Preserve org/user/menu gating; no speculative jurisdiction rules,
-   interest allocations, new GL transactions or external bank files
-   until explicit verified policy/format and approval. RUBs full
-   allocation remains original dedicated Phase 4.9, not ready.
-3. Commit each bounded change and applicable focused tests only on
-   current branch; use authorized hosted CI for verification and
-   fix failures before next feature. Do not call VERIFIED until
-   relevant CI jobs pass. Keep this root handoff current.
-4. All frozen docs/ remain unchanged without express authorization;
-   no main edits, new branches or forced refs. Existing e-filing and
-   application Stripe provider credentials remain unconfigured;
-   do not infer successful payment or filing from redirect/client state.
+1. Verify branch HEAD and six-job CI. Last VERIFIED product source
+   ed9d2d97cce994909798c6f413e2ed4b4247c116,
+   run 36369555961 SUCCESS (649 backend passed, 3 deselected;
+   3 E2E passed). Head migration a7c9e1f3b5d0 / 120 tables.
+2. Continue original Phase 4.5 C7 with restricted customer UI for
+   existing trust-interest bank readiness. DO NOT repeat backend,
+   RUBs, CRM or completed reporting. No legal verdict or posting.
+   Show proposed jurisdiction and reference, don't expose account
+   numbers. Add tests where applicable; hosted CI verify before
+   VERIFIED. Update this root handoff.
+3. Following UI, inspect original compliance C7 substantive
+   interest accounting dependency and C8 positive-pay bank file
+   requirements; no unsupported bank file or automatic GL activity.
+   Full RUBs engine is separate Phase 4.9.
+4. Stay on existing branch; preserve verified work and frozen docs/.
+   No main edits/new branch/force pushes; no speculative test
+   results or client-driven Stripe/IRS success. Continue autonomously
+   and record exact verification/migrations in handoff.
 
 ## Session start for successor
 
 Continue yasirskhan/property-platform on
-chatgpt/checkpoint-005-safety. Read entire repo-root AI_HANDOFF.md,
-verify current HEAD and latest CI. Last verified source
-54ad71a8ab2d2bb8aaeeaad27f97614707b71369,
-CI 36368986607 SUCCESS six jobs: 646 backend passed,
-3 deselected, 3 E2E passed. Alembic f6e8a0c2d4e5,
-119 model tables. Phase 4.5 RUBs shared-utility read-only
-inventory/period diagnostics VERIFIED. No billing/allocation.
-Exact next original phase task: trust account interest policy
-and jurisdiction-aware readiness under PLAN_GAPS C7, then
-positive pay C8. Do not invent legal interest recipients,
-create GL postings or reuse frozen docs/ without authorization.
-Continue autonomously with focused regression tests and six-job
-GitHub CI, update root handoff after each verified batch.
+chatgpt/checkpoint-005-safety. Read whole root handoff,
+verify current HEAD and CI. Last verified source
+ed9d2d97cce994909798c6f413e2ed4b4247c116;
+CI 36369555961 SUCCESS all six jobs: 649 backend passed,
+3 deselected, 3 browser E2E passed. Alembic a7c9e1f3b5d0,
+120 model tables. RUBs read-only diagnostics and C7
+trust-interest bank readiness backend VERIFIED; no GL posts.
+NEXT Phase 4.5 bounded customer interest-readiness UI using
+existing bank accounts page and GET/PUT scoped API, then
+C7 interest accounting dependency/C8 positive pay.
+Preserve frozen docs, do not touch main, include tests
+and use GitHub Actions before VERIFIED.
