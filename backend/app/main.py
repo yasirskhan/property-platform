@@ -98,6 +98,7 @@ from app.routers import hoa_assessments as hoa_assessments_router
 from app.routers import hoa_observations as hoa_observations_router
 from app.routers import hoa_meeting_drafts as hoa_meeting_drafts_router
 from app.routers import hoa_arc_intake as hoa_arc_intake_router
+from app.routers import hoa_governing_evidence as hoa_governing_evidence_router
 from app.routers import affordable_interest as affordable_interest_router
 from app.routers import affordable_evidence as affordable_evidence_router
 from app.routers import affordable_buildings as affordable_buildings_router
@@ -223,6 +224,7 @@ app.include_router(hoa_assessments_router.router)
 app.include_router(hoa_observations_router.router)
 app.include_router(hoa_meeting_drafts_router.router)
 app.include_router(hoa_arc_intake_router.router)
+app.include_router(hoa_governing_evidence_router.router)
 app.include_router(affordable_interest_router.router)
 app.include_router(affordable_evidence_router.router)
 app.include_router(affordable_buildings_router.router)

@@ -70,6 +70,20 @@ def _out(db: Session, row: EntityAttachment) -> EntityAttachmentOut:
     )
 
 
+
+def _governing_evidence_scope(db: Session, row: EntityAttachment, actor: User, *, write: bool = False) -> None:
+    """An indexed governing document may not bypass live HOA permissions."""
+    from app.models.hoa_governing_evidence import HOAGoverningEvidence
+    from app.routers.hoa_assessments import _scope
+    links = db.query(HOAGoverningEvidence).filter(
+        HOAGoverningEvidence.attachment_id == row.id,
+        HOAGoverningEvidence.is_active.is_(True),
+    ).all()
+    for link in links:
+        _scope(db, actor=actor, association_id=link.association_id,
+               property_id=link.property_id, write=write)
+
+
 def _attachment_for_user(db: Session, *, attachment_id: int, current_user: User) -> EntityAttachment:
     organization_id = _require_feature(db, current_user)
     row = (
@@ -89,6 +103,7 @@ def _attachment_for_user(db: Session, *, attachment_id: int, current_user: User)
         entity_type=row.entity_type,
         entity_id=row.entity_id,
     )
+    _governing_evidence_scope(db, row, current_user)
     return row
 
 
@@ -120,6 +135,14 @@ def update_entity_attachment_sharing(
     current_user: User = Depends(get_current_user),
 ):
     row = _attachment_for_user(db, attachment_id=attachment_id, current_user=current_user)
+    _governing_evidence_scope(db, row, current_user, write=True)
+    from app.models.hoa_governing_evidence import HOAGoverningEvidence
+    linked = db.query(HOAGoverningEvidence.id).filter(
+        HOAGoverningEvidence.attachment_id == row.id,
+        HOAGoverningEvidence.is_active.is_(True),
+    ).first()
+    if linked is not None and (payload.share_with_tenants is True or payload.share_with_owners is True):
+        raise HTTPException(status_code=403, detail="Indexed HOA evidence cannot be shared.")
     if _role(current_user) not in {"ADMIN", "OWNER", "MANAGER"}:
         raise HTTPException(status_code=403, detail="Manager access required.")
     if payload.share_with_tenants is None and payload.share_with_owners is None:
@@ -161,6 +184,7 @@ def delete_entity_attachment(
     current_user: User = Depends(get_current_user),
 ):
     row = _attachment_for_user(db, attachment_id=attachment_id, current_user=current_user)
+    _governing_evidence_scope(db, row, current_user, write=True)
     role = _role(current_user)
     if role not in {"ADMIN", "OWNER", "MANAGER"} and row.uploaded_by_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not allowed to remove this attachment.")
@@ -204,7 +228,14 @@ def list_entity_attachments(
         .order_by(EntityAttachment.created_at.desc(), EntityAttachment.id.desc())
         .all()
     )
-    return EntityAttachmentListOut(items=[_out(db, row) for row in rows], total=len(rows))
+    visible = []
+    for row in rows:
+        try:
+            _governing_evidence_scope(db, row, current_user)
+        except HTTPException:
+            continue  # Do not reveal document name/id to staff without HOA access.
+        visible.append(_out(db, row))
+    return EntityAttachmentListOut(items=visible, total=len(visible))
 
 
 @router.post("/{entity_type}/{entity_id}", response_model=EntityAttachmentOut, status_code=status.HTTP_201_CREATED)

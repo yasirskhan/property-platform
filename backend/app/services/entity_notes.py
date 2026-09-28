@@ -26,7 +26,8 @@ _FORBIDDEN_TABLES = {
     "hoa_assessment_proposals",
     "hoa_observations",
     "hoa_meeting_drafts",
-    "hoa_arc_intakes",  # Staff architectural-interest intake is not an approved ARC decision.  # Staff-planned HOA meetings are not generic documents or legal minutes.  # Staff-only potential-issue notes; not public evidence or documents.  # Not a generic note or tenant liability.
+    "hoa_arc_intakes",
+    "hoa_governing_evidence",  # Evidence metadata is gated by HOA compliance/property scope.  # Staff architectural-interest intake is not an approved ARC decision.  # Staff-planned HOA meetings are not generic documents or legal minutes.  # Staff-only potential-issue notes; not public evidence or documents.  # Not a generic note or tenant liability.
     "affordable_lihtc_buildings",
     "affordable_lihtc_8609_readiness",
     "affordable_lihtc_8609_documents",

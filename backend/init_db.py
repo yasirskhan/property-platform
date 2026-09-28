@@ -122,6 +122,7 @@ from app.models.hoa_assessment import HOAAssessmentProposal  # noqa: F401
 from app.models.hoa_observation import HOAObservation  # noqa: F401
 from app.models.hoa_meeting_draft import HOAMeetingDraft  # noqa: F401
 from app.models.hoa_arc_intake import HOAARCIntake  # noqa: F401
+from app.models.hoa_governing_evidence import HOAGoverningEvidence  # noqa: F401
 from app.models.affordable_interest import AffordableInterest  # noqa: F401
 from app.models.affordable_evidence import AffordableEvidence  # noqa: F401
 from app.models.affordable_building import AffordableBuilding  # noqa: F401
