@@ -2,6 +2,14 @@
 import { useEffect, useState } from "react";
 import { apiFetch, apiGet } from "@/lib/api";
 
+type RotationPage = {
+  checked: number;
+  pending_rewrap: number;
+  current_key: number;
+  next_document_id: number;
+  has_more: boolean;
+};
+
 type Scan = {
   id: number;
   building_id: number;
@@ -22,15 +30,21 @@ export default function Affordable8609Archive({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [rotation, setRotation] = useState<RotationPage | null>(null);
+  const [rotationBusy, setRotationBusy] = useState(false);
+  const [rotationError, setRotationError] = useState("");
   const path = `/api/properties/${propertyId}/affordable-programs/${programId}/buildings/${buildingId}/8609-documents`;
 
   useEffect(() => {
     let live = true;
     setItems([]); setLoading(true); setError(""); setMessage("");
+    setRotation(null); setRotationError(""); setIsAdmin(false);
     void (async () => {
       try {
         const records = await apiGet(path) as Scan[];
-        if (live) setItems(records);
+        const viewer = await apiGet("/auth/me") as { role: string };
+        if (live) { setItems(records); setIsAdmin(viewer.role === "ADMIN"); }
       } catch {
         if (live) setError("Restricted Form 8609 scans cannot be loaded.");
       } finally { if (live) setLoading(false); }
@@ -60,6 +74,7 @@ export default function Affordable8609Archive({
       const saved = await response.json() as Scan;
       setItems((prev) => [saved, ...prev]);
       setPdf(null); setReceivedOn(""); setAttested(false);
+      setRotation(null); setRotationError("");
       if (input) input.value = "";
       setMessage("Encrypted staff scan archived. Signature authenticity and IRS filing remain unverified.");
     } catch {
@@ -82,6 +97,27 @@ export default function Affordable8609Archive({
       anchor.click(); URL.revokeObjectURL(url);
     } catch { setError("Download unavailable or access denied."); }
     finally { setBusy(false); }
+  }
+
+  async function inspectRotation(cursor = 0, append = false) {
+    if (rotationBusy || !isAdmin) return;
+    setRotationBusy(true); setRotationError("");
+    try {
+      const page = await apiGet(
+        `${path}/rotation-readiness?after_document_id=${cursor}&limit=20`
+      ) as RotationPage;
+      setRotation((previous) => append && previous ? {
+        checked: previous.checked + page.checked,
+        pending_rewrap: previous.pending_rewrap + page.pending_rewrap,
+        current_key: previous.current_key + page.current_key,
+        next_document_id: page.next_document_id,
+        has_more: page.has_more,
+      } : page);
+    } catch {
+      setRotationError(
+        "Cannot inspect encryption-key readiness. Verify administrator access and the configured current and historical keys."
+      );
+    } finally { setRotationBusy(false); }
   }
 
   return (
@@ -132,6 +168,39 @@ export default function Affordable8609Archive({
           </div>
         ))}
       </div>
+      {isAdmin && (
+        <div className="mt-4 rounded border border-slate-300 bg-white p-3">
+          <h5 className="font-semibold">Encryption-key readiness · this building only</h5>
+          <p className="mt-1 text-xs text-slate-600">
+            This check reads encrypted records without altering them. It cannot establish
+            that a historical key is safe to remove: every page, building, and organization
+            must be checked independently before retiring a shared key.
+          </p>
+          <button type="button" disabled={rotationBusy || busy}
+            onClick={() => { void inspectRotation(); }}
+            className="mt-2 rounded border px-3 py-1.5 text-sm disabled:opacity-50">
+            {rotationBusy ? "Checking…" : "Check rotation status"}
+          </button>
+          {rotationError && <p role="alert" className="mt-2 text-sm text-red-700">{rotationError}</p>}
+          {rotation && (
+            <div role="status" className="mt-2 text-sm">
+              Scans checked: {rotation.checked} · Need rewrap: {rotation.pending_rewrap} ·
+              Current key: {rotation.current_key}
+              {rotation.has_more && (
+                <button type="button" disabled={rotationBusy}
+                  onClick={() => { void inspectRotation(rotation.next_document_id, true); }}
+                  className="ml-3 rounded border px-3 py-1 text-sm disabled:opacity-50">
+                  Check next page
+                </button>
+              )}
+              {!rotation.has_more && <p className="mt-1 text-xs text-slate-600">
+                This building scan is complete for the selected key configuration;
+                it is not an organization-wide or system-wide clearance.
+              </p>}
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 }

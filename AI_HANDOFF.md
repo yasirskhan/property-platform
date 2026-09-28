@@ -7,24 +7,24 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `5b520d93aaa7a4307fb5e8533da552aea210cffd`
-- Source GitHub Actions run **36383794588: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `a8adc7dc2f47a40085c1203b38dd2254d778a907`
+- Source GitHub Actions run **36412399420: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **681 passed, 3 deselected, 14488 warnings in 126.64s**.
-  E2E: **3 passed in 9.49s**. Lint, typecheck, production build, security
+  Backend: **685 passed, 3 deselected, 14644 warnings in 167.94s**.
+  E2E: **3 passed in 9.57s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
 - Alembic head: **b4d6f8a0c2e5**. SQLAlchemy expected model tables: **127**.
   Previous head a3c5e7f9b1d4 / 126 tables. PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4.6 annual Form 8609-A staff reference tracker, VERIFIED.**
+  **Latest completed batch: Phase 4.6 encrypted Form 8609 rotation and scoped readiness preflight, VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT task: review original Phase 4.6 C1 HUD/LIHTC dependent workflows and the present compliance security boundaries. Continue with the next safe bounded prerequisite; no tax-credit, HUD eligibility, IRS filing or HAP computations from unverified staff references.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
+- **Exact NEXT task: administrator UI for the VERIFIED building-scoped read-only encryption-key readiness check; then independent Phase 4.6 C1 evidence dependencies. Do not represent one building's status as permission to retire shared historical keys, calculate credits, certify housing eligibility, file IRS returns or HAP.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -108,6 +108,8 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Phase 4.6 read-only recorded unit-inspection cross-reference | 87c2eaa9ba5a21f8cc461c92cf46aaf474cd8b46 | 36378605760 | 667 backend passed / 3 E2E; no migration |
 | Phase 4.6 BIN syntax normalization and alias collisions | 6ae01cc927264273e5fc8d067da15bd6c45f3faa | 36379842520 | all six jobs success; 2/4-digit year + five-digit sequence; no new migration |
 | Phase 4.6 per-building annual Form 8609-A staff reference tracking | 5b520d93aaa7a4307fb5e8533da552aea210cffd | 36383794588 | 681 backend passed / 3 E2E; 127 tables, no IRS filing |
+| Phase 4.6 bounded encrypted compliance document rewrap | 40317c96f7b564abce3483b088727c25c53a6b2b | 36384377433 | All six CI jobs success; previous key support, no migration |
+| Phase 4.6 scoped rotation readiness preview | 8c5e2a0973b40e414a68f2b8242621324f0e1419, a8adc7dc2f47a40085c1203b38dd2254d778a907 | 36412399420 | 685 backend passed / 3 E2E; read-only, 127 tables |
 | Phase 4.6 restricted encrypted Form 8609 staff-scan archive | fb448c7b283d1e29950fe1290c5d9c70ca25d51f | 36383165892 | 678 backend passed / 3 E2E; dedicated key, 126 tables |
 | Phase 4.6 per-building staff Form 8609 reference readiness | a28a4dd6b46757a226ce5e8ecd683341b1e9502b, 8a480d05e21a842b1376b1f4d5e595fe58d687de | 36382487436 | 674 backend passed / 3 E2E; 125 tables; test-only org-admin scope correction |
 | Phase 4.6 staff-recorded LIHTC building BIN inventory | 952261b3448400dc5c4d1742e5b4b70538c1e2af | 36379299678 | 670 backend passed / 3 E2E; 124 tables |
@@ -3617,55 +3619,79 @@ and jurisdiction requirements need reviewed agency policy.
 No HUD/LIHTC eligibility, HAP, tax calculation or IRS
 transmission has been delivered.
 
+## Phase 4.6 compliance key rewrap + read-only status — VERIFIED 2026-09-28
+
+Existing product commit 40317c96f7b564abce3483b088727c25c53a6b2b
+already implements admin-only scoped Form 8609 historical ciphertext
+key rotation. CI 36384377433 SUCCESS all six jobs. Do not repeat.
+
+This session added read-only, bounded, audited rotation readiness:
+source 8c5e2a0973b40e414a68f2b8242621324f0e1419 and test-only
+direct-route invocation correction
+a8adc7dc2f47a40085c1203b38dd2254d778a907.
+CI 36412399420 SUCCESS all six jobs: backend 685 passed,
+3 deselected, 14644 warnings in 167.94s; authenticated
+E2E 3 passed in 9.57s. Frontend, security, platform-admin,
+staging passed. Existing general browser smoke, NOT dedicated
+rotation UI E2E. No migration, Alembic b4d6f8a0c2e5; 127 tables.
+
+GET /api/properties/{property_id}/affordable-programs/{program_id}/
+buildings/{building_id}/8609-documents/rotation-readiness
+is ADMIN-only, rechecks the existing property/program/building gate,
+live org/role/permission boundary, and reads at most 25 scanned
+records per page. It validates ciphertext against the current and
+configured historical keys; counts only current-key vs needing
+rewrap, no decrypted PDF or key material leaves server/audit.
+Fails closed on missing historical key, malformed/invalid scan,
+scope probing or revoked permissions. Redacted immutable audit
+event records status access. No documents, leases, charges, GL
+or financial data are mutated. HTTP response has no-store.
+This proves ONLY per-page/per-building readiness; old shared keys
+must NOT be retired until all relevant buildings/organizations
+and encrypted stores are audited. No generic raw document access.
+
+NEXT UI BATCH: show the read-only paginated administrator status
+inside existing restricted Form 8609 archive with explicit
+cross-building/organization warning. Avoid exposing to OWNER
+or MANAGER, who may have archive/readiness access but cannot rotate
+keys. Existing backend authorization remains authoritative.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Read full root handoff, check current HEAD/latest CI. Last
-   verified source 5b520d93aaa7a4307fb5e8533da552aea210cffd,
-   CI 36383794588 SUCCESS, 681 backend passed, 3 deselected,
-   3 browser E2E passed, six green. Alembic b4d6f8a0c2e5,
-   127 tables. BIN, 8609 readiness, encrypted 8609 scan archive
-   and annual 8609-A staff metadata VERIFIED; do NOT repeat.
-2. Original Phase 4.6 C1 remaining dependencies: agency-specific
-   LIHTC/HUD tenancy selection policy, verified income and
-   eligibility sources, secure protected household workflow,
-   official agency 8609/annual tax credit substantiation,
-   actual HUD HAP contracts, AMI/rent thresholds and filings.
-   Do not improvise these from staff-recorded labels or
-   general ledger. Review current source and plan to choose
-   next genuinely independent, safe, bounded prerequisite.
-   If a secure-program-specific workflow requires a real legal
-   or agency specification, record precisely and move to
-   another independent original-plan item if appropriate.
-3. Compliance document archives are encrypted but lack
-   operator-managed historical-key rotation, malware scanning,
-   proof of agency issuance or accepted records-retention policy.
-   Do not claim otherwise; do not distribute scans publicly.
-   Investigate implementing a bounded key-rotation prerequisite
-   using already verified tax-profile key-rotation design,
-   with focused tests and no decrypted data logging.
-4. User approved commit-then-GitHub-CI verification. Do not mark
-   a new batch VERIFIED before all six jobs succeed. Fix reds
-   independently; update this root handoff after every meaningful
-   verified batch. Never main/new branch/force push, preserve
-   Hybrid Capability Gating, accounting isolation, frozen docs/.
+1. Last verified product source a8adc7dc2f47a40085c1203b38dd2254d778a907,
+   CI 36412399420 SUCCESS: 685 backend tests passed, 3 deselected,
+   3 E2E passed, all six CI jobs. Alembic b4d6f8a0c2e5 / 127
+   tables. Verify actual current HEAD and current CI before coding.
+2. Next small Phase 4.6 continuation: admin-only UI in existing
+   restricted Form 8609 archive for paginated, audited, read-only
+   rotation readiness. A status per building/page is NOT proof that
+   an old key can be removed system-wide. Never expose PDFs or keys.
+   Focused backend regression + frontend lint/typecheck/build +
+   full CI verification. This source and handoff are committed
+   alongside an UNVERIFIED UI change; do not call the UI VERIFIED
+   until its new source CI passes.
+3. Then original C1 dependencies: agency-verified LIHTC/HUD
+   documents, legal eligibility/tenant certification policies,
+   AMI/rent limits, HUD HAP and safe retention/malware controls.
+   Never infer official filings or claims from staff notes.
+4. User authorized bounded commit-then-GitHub-CI. Fix CI red
+   before any next feature; record exact counts/source/head.
+   Preserve frozen docs/ and all verified contracts; no main
+   or new branch. Update THIS root handoff after each verified
+   batch. Stop only for genuine blocker/security decision.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform only on
-chatgpt/checkpoint-005-safety. Read entire repo-root
-AI_HANDOFF.md and verify current HEAD/CI. Last VERIFIED
-source 5b520d93aaa7a4307fb5e8533da552aea210cffd;
-CI 36383794588 SUCCESS 681 backend passed, 3 deselected,
-3 authenticated E2E passed; all six jobs. Alembic
-b4d6f8a0c2e5 / 127 tables.
-LIHTC BIN inventory/formats, 8609 staff reference,
-restricted encrypted staff scan archive and annual 8609-A
-reference statuses VERIFIED; do not repeat or claim actual
-agency certification, eligibility, tax credit or IRS filing.
-Next independent safe original C1 dependency: assess
-encrypted compliance document previous-key rotation
-against existing tax-profile rotation, with tests;
-separately agency/legal prerequisites remain unverified.
-Keep frozen docs unchanged, preserve existing branch,
-commit bounded code + regressions, CI verify and update
-root handoff. Continue autonomy until genuine blocker.
+Continue yasirskhan/property-platform only on branch
+chatgpt/checkpoint-005-safety. Read root AI_HANDOFF.md fully,
+verify HEAD/current CI. Last verified source before next UI:
+a8adc7dc2f47a40085c1203b38dd2254d778a907;
+CI 36412399420 SUCCESS, 685 backend passed / 3 deselected,
+3 browser E2E passed, all six jobs green.
+Alembic b4d6f8a0c2e5, 127 tables. Verified Form 8609
+historical-key rotation and read-only per-building readiness:
+do not repeat. Next UI displays the readiness status; the UI
+is NOT VERIFIED until its own CI passes. Preserve encrypted
+document scope, no fake agency certification, no main/new
+branch, no unapproved frozen docs edits. Commit + CI verify,
+then refresh root handoff and continue original roadmap.

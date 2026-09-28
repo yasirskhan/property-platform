@@ -419,3 +419,34 @@ def test_rotation_readiness_fails_closed_for_missing_keys_and_corruption(monkeyp
         assert db.query(AuditLog).filter_by(action="encryption_rotation_reviewed").count() == 0
     finally:
         db.close();engine.dispose()
+
+
+def test_rotation_readiness_empty_archive_and_live_permission_revocation(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, *_), (prop, *_), (program, *_), (building, *_) = _seed(db)
+        response = Response()
+        empty = routes.rotation_readiness(
+            prop.id, program.id, building.id, response,
+            after_document_id=0, limit=20, db=db, current_user=admin,
+        )
+        assert empty == {"checked":0, "pending_rewrap":0, "current_key":0,
+                         "next_document_id":0, "has_more":False}
+        assert response.headers.get("cache-control") == "no-store"
+        with pytest.raises(HTTPException) as exc:
+            service.inspect_building_rotation(
+                db, current_user=admin, property_id=prop.id,
+                program_id=program.id, building_id=building.id, limit=26,
+            )
+        assert exc.value.status_code == 422
+        monkeypatch.setattr(programs, "permission_allows_user", lambda *args, **kwargs: False)
+        with pytest.raises(HTTPException) as exc:
+            service.inspect_building_rotation(
+                db, current_user=admin, property_id=prop.id,
+                program_id=program.id, building_id=building.id,
+            )
+        assert exc.value.status_code == 403
+        assert db.query(AuditLog).filter_by(action="encryption_rotation_reviewed").count() == 1
+        assert db.query(Lease).count() == db.query(GLTransaction).count() == 0
+    finally:
+        db.close();engine.dispose()
