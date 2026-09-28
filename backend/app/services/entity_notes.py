@@ -42,6 +42,7 @@ _ENTITY_PERMISSION_PREFIXES = (
     (("vendors", "vendor_insurances"), "PEOPLE.VENDORS"),
     (("contacts",), "PEOPLE.CONTACTS"),
     (("units",), "PROPERTIES.UNITS"),
+    (("lease_templates", "lease_template_addenda"), "LEASING.TEMPLATES"),
     (("leases", "rent_invoices", "payments"), "LEASING"),
     (("work_orders", "work_order_updates"), "MAINTENANCE.WORK_ORDERS"),
     (("receipts", "receipt_lines"), "ACCOUNTING.RECEIVABLES"),
@@ -194,6 +195,8 @@ def resolve_note_target(
     role = _role(current_user)
     if role not in {"ADMIN", "OWNER", "MANAGER", "CREW"}:
         raise HTTPException(status_code=403, detail="Staff access required for internal notes.")
+    if clean in {"lease_templates", "lease_template_addenda"} and role not in {"ADMIN", "OWNER", "MANAGER"}:
+        raise HTTPException(status_code=403, detail="Lease template permission required.")
 
     permission = _permission_for(clean)
     if permission is not None and not permission_allows_user(

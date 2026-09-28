@@ -88,6 +88,7 @@ from app.routers import property_budgets as property_budgets_router
 from app.routers import property_groups as property_groups_router
 from app.routers import unit_inspections as unit_inspections_router
 from app.routers import letters as letters_router
+from app.routers import lease_templates as lease_templates_router
 from app.routers import owner_packets as owner_packets_router
 from app.routers import tax_profiles as tax_profiles_router
 from app.routers import tax_w9 as tax_w9_router
@@ -195,6 +196,7 @@ app.include_router(property_budgets_router.router)
 app.include_router(property_groups_router.router)
 app.include_router(unit_inspections_router.router)
 app.include_router(letters_router.router)
+app.include_router(lease_templates_router.router)
 app.include_router(owner_packets_router.router)
 app.include_router(tax_profiles_router.router)
 app.include_router(tax_w9_router.router)
