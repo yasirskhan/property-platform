@@ -26,11 +26,11 @@ def _row(db: Session, org: int, assoc: int, prop: int, proposal: int):
     ).first()
 
 
-def _out(row: HOAPayerDraft, name: str) -> HOAPayerDraftOut:
+def _out(row: HOAPayerDraft, contact) -> HOAPayerDraftOut:
     return HOAPayerDraftOut(
         id=row.id, proposal_id=row.proposal_id,
         property_id=row.property_id, contact_link_id=row.contact_link_id,
-        contact_name=name,
+        contact_name=contact.display_name,
     )
 
 
@@ -62,10 +62,9 @@ def get_payer_draft(
     if row is None or not row.is_active:
         return None
     try:
-        _link(db, org, assoc.id, property_id, row.contact_link_id)
+        _, contact = _link(db, org, assoc.id, property_id, row.contact_link_id)
     except HTTPException:
         return None
-    _, contact = _link(db, org, assoc.id, property_id, row.contact_link_id)
     return _out(row, contact)
 
 
