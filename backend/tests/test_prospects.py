@@ -129,3 +129,66 @@ def test_crm_authorization_revocation_and_invalid_input(monkeypatch):
         assert db.query(Prospect).count()==1
     finally:
         db.close();engine.dispose()
+
+
+
+def test_source_summary_counts_only_visible_active_leads_and_preserves_org_scope():
+    db, engine = _db()
+    try:
+        (admin, manager, owner, tenant, foreign), (assigned, unassigned, other), (contact, other_contact) = _seed(db)
+        first = api.create_prospect(
+            ProspectIn(property_id=assigned.id, contact_id=contact.id,
+                       source="Website", stage="TOUR_SCHEDULED"),
+            Response(), db=db, current_user=admin,
+        )
+        api.create_prospect(
+            ProspectIn(property_id=unassigned.id, contact_id=contact.id,
+                       source="Referral", stage="APPLIED"),
+            Response(), db=db, current_user=admin,
+        )
+        api.create_prospect(
+            ProspectIn(property_id=other.id, contact_id=other_contact.id,
+                       source="Private foreign source"),
+            Response(), db=db, current_user=foreign,
+        )
+        manager_response = Response()
+        manager_summary = api.source_summary(manager_response, db=db, current_user=manager)
+        assert manager_response.headers["cache-control"] == "no-store"
+        assert manager_summary["total"] == 1
+        assert manager_summary["items"] == [{
+            "source": "Website", "total": 1, "new": 0, "contacted": 0,
+            "tour_scheduled": 1, "applied": 0, "closed": 0,
+        }]
+        owner_summary = api.source_summary(Response(), db=db, current_user=owner)
+        assert owner_summary["total"] == 2
+        assert {row["source"] for row in owner_summary["items"]} == {"Website", "Referral"}
+        assert "not verified applications" in owner_summary["meaning"].lower()
+        foreign_summary = api.source_summary(Response(), db=db, current_user=foreign)
+        assert foreign_summary["total"] == 1
+        assert foreign_summary["items"][0]["source"] == "Private foreign source"
+        api.archive_prospect(first.id, db=db, current_user=admin)
+        assert api.source_summary(Response(), db=db, current_user=manager)["total"] == 0
+        unassigned.is_active = False
+        db.commit()
+        assert api.source_summary(Response(), db=db, current_user=owner)["total"] == 0
+        assert db.query(Lease).count() == 0 and db.query(LeaseApplication).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_source_summary_enforces_live_permission(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, manager, owner, tenant, foreign), props, contacts = _seed(db)
+        for actor in (tenant,):
+            with pytest.raises(HTTPException) as exc:
+                api.source_summary(Response(), db=db, current_user=actor)
+            assert exc.value.status_code == 403
+        monkeypatch.setattr(api, "permission_allows_user", lambda *a, **kw: False)
+        with pytest.raises(HTTPException) as exc:
+            api.source_summary(Response(), db=db, current_user=admin)
+        assert exc.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 
 from app.core.database import get_db
 from app.models.prospect import Prospect
@@ -88,6 +88,52 @@ def _row(db: Session, org: int, user: User, prospect_id: int) -> Prospect:
     _property(db, user, org, row.property_id)
     _contact(db, org, row.contact_id)
     return row
+
+
+@router.get("/source-summary")
+def source_summary(
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Per-source staff-recorded pipeline counts, not ad ROI or verified applications."""
+    org = _access(db, current_user)
+    response.headers["Cache-Control"] = "no-store"
+    q = (
+        _visible(db, org, current_user)
+        .join(Property, Property.id == Prospect.property_id)
+        .join(Contact, Contact.id == Prospect.contact_id)
+        .filter(
+            Property.organization_id == org,
+            Property.is_active.is_(True), Property.deleted_at.is_(None),
+            Contact.organization_id == org,
+            Contact.is_active.is_(True), Contact.deleted_at.is_(None),
+        )
+    )
+    grouped = (
+        q.with_entities(Prospect.source, Prospect.stage, func.count(Prospect.id))
+        .group_by(Prospect.source, Prospect.stage)
+        .order_by(Prospect.source, Prospect.stage)
+        .limit(501)
+        .all()
+    )
+    if len(grouped) > 500:
+        raise HTTPException(status_code=422, detail="Narrow CRM source breakdown.")
+    totals: dict[str, dict[str, object]] = {}
+    for source, stage, count in grouped:
+        if source not in totals:
+            totals[source] = {
+                "source": source, "total": 0, "new": 0, "contacted": 0,
+                "tour_scheduled": 0, "applied": 0, "closed": 0,
+            }
+        row = totals[source]
+        row["total"] += int(count)
+        row[stage.lower()] += int(count)
+    return {
+        "items": list(totals.values()),
+        "total": sum(int(row["total"]) for row in totals.values()),
+        "meaning": "Staff-entered stages only; not verified applications, paid conversions or marketing ROI.",
+    }
 
 
 @router.get("", response_model=ProspectList)

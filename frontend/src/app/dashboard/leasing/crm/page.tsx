@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import ProspectMarketingSummary from "@/components/leasing/ProspectMarketingSummary";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 
 type Viewer = { role: string };
@@ -34,6 +35,7 @@ export default function LeasingCrmPage() {
   const [filter, setFilter] = useState<Stage | "ALL">("ALL");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [sourceVersion, setSourceVersion] = useState(0);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const canWrite = viewer?.role === "ADMIN" || viewer?.role === "MANAGER";
@@ -41,6 +43,7 @@ export default function LeasingCrmPage() {
   async function refresh() {
     const list = await apiGet("/api/leasing/prospects") as LeadList;
     setLeads(list.items);
+    setSourceVersion(v => v + 1);
   }
 
   useEffect(() => {
@@ -133,6 +136,7 @@ export default function LeasingCrmPage() {
       {loading && <p className="text-sm text-slate-500">Loading prospects…</p>}
       {error && <p role="alert" className="rounded-lg border border-red-200 p-3 text-sm text-red-700">{error}</p>}
       {message && <p role="status" className="rounded-lg border border-green-200 p-3 text-sm text-green-700">{message}</p>}
+      {!loading && <ProspectMarketingSummary version={sourceVersion} />}
       {!loading && canWrite && (
         <form onSubmit={(event) => { void create(event); }} className="space-y-3 rounded-xl border bg-white p-4">
           <h2 className="font-semibold">Add property prospect</h2>
