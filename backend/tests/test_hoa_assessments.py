@@ -29,11 +29,12 @@ from app.services.entity_notes import _model_for_table
 
 @pytest.fixture(autouse=True)
 def access(monkeypatch):
-    for module in (api, hoa):
-        monkeypatch.setattr(module, "permission_allows_user", lambda *a, **kw: True)
-        monkeypatch.setattr(module, "resolve_customer_features", lambda *a, **kw: [
-            SimpleNamespace(key=hoa.FEATURE_KEY, allowed=True)
-        ])
+    # _scope delegates authorization to hoa_associations; patch the owner of
+    # those dependency symbols, not the assessment router that imports _access.
+    monkeypatch.setattr(hoa, "permission_allows_user", lambda *a, **kw: True)
+    monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **kw: [
+        SimpleNamespace(key=hoa.FEATURE_KEY, allowed=True)
+    ])
 
 
 def _db():
