@@ -2,6 +2,7 @@
 from sqlalchemy.orm import Session
 from app.models.hoa_board import HOABoardSeat, HOABoardRuleDraft
 from app.services.audit import append_audit_log
+from app.services.hoa_ballot_cleanup import archive_ballots
 
 
 def archive_board_proposals(
@@ -24,6 +25,12 @@ def archive_board_proposals(
         if contact_link_id is not None:
             query = query.filter(model.contact_link_id == contact_link_id)
         for row in query.all():
+            if isinstance(row, HOABoardSeat):
+                archive_ballots(
+                    db, organization_id=organization_id, association_id=association_id,
+                    property_id=row.property_id, board_seat_id=row.id,
+                    actor_id=actor_id, action=action,
+                )
             row.is_active = False
             row.updated_by_id = actor_id
             db.flush()

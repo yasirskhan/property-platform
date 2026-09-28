@@ -19,6 +19,7 @@ from app.schemas.hoa_meeting_workspace import (
     HOAMeetingWorkspaceOut, HOAMotionDraftIn, HOAMotionDraftOut,
 )
 from app.services.audit import append_audit_log
+from app.services.hoa_ballot_cleanup import archive_ballots
 
 router = APIRouter(prefix="/api/hoa/associations", tags=["HOA staff meeting workspace"])
 
@@ -261,6 +262,12 @@ def archive_motion(
     )
     _meeting(db, org_id, association.id, property_id, meeting_id)
     row = _motion(db, org_id, association.id, property_id, meeting_id, motion_id)
+    archive_ballots(
+        db, organization_id=org_id, association_id=association.id,
+        property_id=property_id, meeting_draft_id=meeting_id,
+        motion_draft_id=row.id, actor_id=current_user.id,
+        action="staff_motion_archived",
+    )
     row.is_active = False
     row.updated_by_id = current_user.id
     db.flush()

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
+import HoaBallotRecordsPanel from "@/components/property/HoaBallotRecordsPanel";
 
 type ContactLink = {
   id: number; contact_id: number; contact_name: string;
@@ -36,6 +37,7 @@ export default function HoaMeetingWorkspacePanel({
   const [linkId, setLinkId] = useState("");
   const [attendance, setAttendance] = useState<Attendance["staff_attendance"]>("UNCONFIRMED");
   const [motion, setMotion] = useState("");
+  const [ballotMotionId, setBallotMotionId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -169,9 +171,16 @@ export default function HoaMeetingWorkspacePanel({
           {workspace.motions.map((row) => (
             <div key={row.id} className="flex flex-wrap items-center justify-between gap-2 rounded border bg-white p-2 text-sm">
               <span>{row.proposed_motion} · PROPOSED ONLY</span>
+              <button type="button" onClick={() => setBallotMotionId(
+                (old) => old === row.id ? null : row.id
+              )} className="text-blue-700">Staff ballot records</button>
               {canEdit && (
                 <button type="button" disabled={busy} onClick={() => { void archive("/motions", row.id); }}
                   className="text-red-700 disabled:opacity-50">Archive motion draft</button>
+              )}
+              {ballotMotionId === row.id && (
+                <HoaBallotRecordsPanel associationId={associationId} propertyId={propertyId}
+                  meetingId={meetingId} motionId={row.id} canEdit={canEdit} />
               )}
             </div>
           ))}

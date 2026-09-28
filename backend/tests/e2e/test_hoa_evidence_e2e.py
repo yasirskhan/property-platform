@@ -382,3 +382,74 @@ def test_hoa_board_role_proposals_browser_flow_never_enables_vote() -> None:
             finally:
                 browser.close()
         assert _financial_counts() == before
+
+
+def test_hoa_staff_ballot_observations_never_become_legal_votes() -> None:
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                          wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+
+                association_name = "E2E Ballot Report Association"
+                page.get_by_label("Association name").fill(association_name)
+                page.get_by_role("button", name="Record association").click()
+                association = page.get_by_text(
+                    association_name, exact=True,
+                ).locator("..").locator("..")
+                expect(association).to_be_visible()
+                _seed_arc_applicant(association_name)
+                association.get_by_role("button", name="Board role proposals").click()
+                board = association.get_by_role(
+                    "heading", name="Board role and voting rule proposals",
+                ).locator("..").locator("..")
+                board.get_by_label("Existing scoped HOA contact").select_option(
+                    label="E2E ARC Applicant",
+                )
+                board.get_by_label(re.compile("Staff-proposed voting eligibility")).check()
+                board.get_by_role("button", name="Record role proposal").click()
+                expect(board.get_by_text("Unverified. Vote disabled.")).to_be_visible()
+                board.get_by_role("button", name="Close").click()
+
+                association.get_by_role("button", name="Meeting plans").click()
+                meetings = association.get_by_role(
+                    "heading", name="HOA staff meeting plans",
+                ).locator("..").locator("..")
+                meetings.get_by_label("Staff plan title").fill("Synthetic ballot meeting")
+                meetings.get_by_label("Proposed date (not legal notice)").fill("2026-11-12")
+                meetings.get_by_role("button", name="Save staff plan").click()
+                meetings.get_by_role("button", name="Meeting workspace").click()
+                workspace = meetings.get_by_role(
+                    "heading", name="Staff meeting participation and motion preparation",
+                ).locator("..").locator("..")
+                workspace.get_by_label("Proposed staff motion").fill(
+                    "Synthetic ballot motion, not an adopted resolution"
+                )
+                workspace.get_by_role("button", name="Save motion draft").click()
+                workspace.get_by_role("button", name="Staff ballot records").click()
+                ballots = workspace.get_by_role(
+                    "heading", name="Staff-reported ballot observations",
+                ).locator("..").locator("..")
+                expect(ballots.get_by_text(re.compile("not a ballot cast", re.I))).to_be_visible()
+                ballots.get_by_label("Staff-proposed eligible contact").select_option(
+                    label="E2E ARC Applicant (DIRECTOR)"
+                )
+                ballots.get_by_label("Staff-reported choice").select_option("FOR")
+                ballots.get_by_role("button", name="Record staff observation").click()
+                expect(ballots.get_by_text("E2E ARC Applicant · FOR · UNVERIFIED")).to_be_visible()
+                expect(ballots.get_by_text(re.compile("No legally effective vote occurred"))).to_be_visible()
+                assert _financial_counts() == before
+            finally:
+                browser.close()
+        assert _financial_counts() == before

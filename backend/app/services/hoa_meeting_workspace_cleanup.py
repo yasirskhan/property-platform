@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models.hoa_meeting_workspace import HOAMeetingParticipation, HOAMotionDraft
 from app.services.audit import append_audit_log
+from app.services.hoa_ballot_cleanup import archive_ballots
 
 
 def archive_meeting_workspace(
@@ -12,6 +13,11 @@ def archive_meeting_workspace(
     property_id: int, meeting_draft_id: int, actor_id: int,
     action: str,
 ) -> None:
+    archive_ballots(
+        db, organization_id=organization_id, association_id=association_id,
+        property_id=property_id, meeting_draft_id=meeting_draft_id,
+        actor_id=actor_id, action=action,
+    )
     for model, entity in (
         (HOAMeetingParticipation, "hoa_meeting_participation"),
         (HOAMotionDraft, "hoa_motion_draft"),

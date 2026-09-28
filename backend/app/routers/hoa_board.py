@@ -20,6 +20,7 @@ from app.schemas.hoa_board import (
     HOABoardSeatIn, HOABoardSeatOut,
 )
 from app.services.audit import append_audit_log
+from app.services.hoa_ballot_cleanup import archive_ballots
 
 router = APIRouter(prefix="/api/hoa/associations", tags=["HOA board proposals"])
 
@@ -181,6 +182,11 @@ def archive_board_seat(
     )
     row = _seat(db, org_id=org, assoc_id=assoc.id,
                 prop_id=property_id, seat_id=seat_id)
+    archive_ballots(
+        db, organization_id=org, association_id=assoc.id,
+        property_id=property_id, board_seat_id=row.id,
+        actor_id=current_user.id, action="staff_seat_archived",
+    )
     row.is_active = False
     row.updated_by_id = current_user.id
     db.flush()
