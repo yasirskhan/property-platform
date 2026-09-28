@@ -7,20 +7,20 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `da557728f400a7b3b03c27ff7f33f935660d805a`
-- Source GitHub Actions run **36475977525: SUCCESS, all six jobs**
+- Last VERIFIED **product source**: `548255b12229604df44b160c4356d8a3bed3ddf0`
+- Source GitHub Actions run **36483310027: SUCCESS, all six jobs**
   (backend, frontend, platform-admin, security, authenticated E2E,
-  staging-config). Backend: **745 passed, 8 deselected, 16926 warnings
-  in 185.98s**. E2E: **8 passed, 28 warnings in 23.81s**. Lint,
+  staging-config). Backend: **750 passed, 9 deselected, 17160 warnings
+  in 221.28s**. E2E: **9 passed, 36 warnings in 29.20s**. Lint,
   TypeScript, build, security and staging: SUCCESS. This applies to
-  verified product source `da557728`. No local tests run.
+  verified product source `548255b`. No local tests run.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **e6a8c0d2f4b1**. SQLAlchemy expected model tables: **146**.
-  Previous head d5f7a9b1c3e4 / 144. PostgreSQL bootstrap, staging
-  preparation and legacy migration guards passed in CI 36473978742.
+- Alembic head: **a8c0e2f4b6d1**. SQLAlchemy expected model tables: **148**.
+  Previous head f7b9d1e3a5c2 / 147. PostgreSQL bootstrap, staging
+  preparation and legacy migration guards passed in CI 36483310027.
 - CURRENT roadmap work: **Phase 4.7 C2 HOA IN PROGRESS**. Explicit user-directed priority: build generic HOA infrastructure first; independently verified Phase 4.8 C3 commercial reference/report source remains preserved, with no new commercial scope while HOA remains active. Authentic governing/legal sources are absent, so legally operative notices, assessments, fines and reserve postings remain blocked until reviewed. Previous Phase 3.7 reports and 1099 internal preparation retain verified scope.
-  **Latest verified batch: dedicated browser exercise of staff board role/quorum proposal UI, fully green following selector correction.**
+  **Latest verified batch: scoped staff meeting-minutes draft lifecycle and workspace UI, with backend regressions; no official minute certification.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
@@ -28,6 +28,60 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
 - **Exact NEXT task: obtain/review actual HOA governing documents and the applicable property/association jurisdiction, authorized legal actors and accounting policies. Staff-only private-document evidence indexing, ARC intake, observations, meeting planning, contact references and assessment drafts are VERIFIED. A staff document link is NOT certification of governing authority. No official applications, architectural decisions, notices, penalties, board actions, dues/payer liability, reserve transfers or GL posting without reviewed legal/accounting authority. No uploaded governing source has been verified for this task. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows remain BLOCKED pending authoritative program rules and secure household policy.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED; do not label them completed screening/marketing conversions. External Stripe/IRS filing acceptance remains unimplemented.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight, 1099 preparation, tax profiles or W-9 archive.
+
+## CURRENT SESSION UPDATE — 2026-09-28 HOA MINUTES DRAFT VERIFIED
+
+**Verified source** `548255b12229604df44b160c4356d8a3bed3ddf0`.
+GitHub Actions **36483310027 SUCCESS all six jobs**: backend
+**750 passed, 9 deselected, 17160 warnings in 221.28s**;
+authenticated E2E **9 passed, 36 warnings in 29.20s**.
+Frontend lint/TypeScript/production build, security,
+platform-admin and staging configuration SUCCESS. Hosted CI only;
+**TESTS NOT RUN locally**. No additional minutes-specific browser
+test was added in this batch; the nine browser tests are the
+existing suite at the current source.
+
+Phase 4.7 HOA staff-meeting minutes now have one scoped staff
+minutes-draft record per existing active meeting, with restricted
+read/write/archive API, ADMIN/OWNER writes, assigned MANAGER reads,
+organization/property/association/release/permission gates and
+no-store reads. Existing workspace includes a customer minutes
+panel. Updating preserves the record ID; archived minutes
+cannot be resurrected through upsert. Parent meeting archive
+soft-archives the related minutes and records a redacted audit;
+private file minutes indexing remains available separately.
+Input rejects claimed official approval/notice/GL fields,
+status is STAFF_DRAFT_UNVERIFIED and all legal_effective/
+quorum_certified/board_approval_certified indicators remain false.
+Two new focused regressions cover CRUD, archive/replay blocking,
+cross-scope/permission revocation, parent cleanup, and no
+Charge or GLTransaction mutation. No official vote, minutes
+adoption or notice issuance was enabled. Existing HOA staff
+ballot records source `46f148b` and all earlier verified
+HOA/commercial work remain preserved. No frozen `docs/` or
+parity edits.
+
+Migration `a8c0e2f4b6d1` follows `f7b9d1e3a5c2`; **148
+model tables**. Fresh, legacy and PostgreSQL guards passed.
+
+**Six-feature completion remains OPEN.** Dues payer assignment,
+idempotent recurring/special charge history, authorization and
+central posting/reversal; legally gated violation enforcement;
+authenticated board-member portal, certified voting/minutes;
+legally effective ARC decisions; reserve transfer/posting;
+and the $79/month HOA add-on pricing and hybrid entitlement
+remain unfinished. Existing violations, board ballot staff
+recording, document storage, ARC application/review, reserve
+read-only book, and dues planning preview must not be
+reimplemented. Jurisdiction-specific legal actions remain
+disabled pending verified governing rules; org-entered policy
+does not establish legal authority. **Next bounded HOA batch**:
+record explicitly scoped dues payer assignments and planned
+charge generation/history without posting, then add a separate
+authorization-backed posting/reversal path through the existing
+accounting ledger. Do not resume Phase 4.8 before all six
+generic HOA workflows are verified. Handoff commit is docs-only,
+not a new product verification. Re-fetch branch HEAD and CI.
 
 ## CURRENT SESSION UPDATE — 2026-09-28 HOA BOARD BROWSER VERIFIED
 
