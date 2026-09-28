@@ -7,25 +7,24 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `8c20d48deab2ad5fdbe8c323d8409462bce77068`
-- Source GitHub Actions run **36372554518: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `67d4d5f15d10b0830a02702b453c68a98e5e9d45`
+- Source GitHub Actions run **36373217097: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **657 passed, 3 deselected, 13686 warnings in 142.67s**.
-  E2E: **3 passed in 8.93s**. Lint, typecheck, production build, security
+  Backend: **660 passed, 3 deselected, 13816 warnings in 139.87s**.
+  E2E: **3 passed in 11.28s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **a7c9e1f3b5d0**. SQLAlchemy expected model tables: **120**.
-  Previous head f2e4a6c8d0b1 / 115 tables. Nullable receipt FK and
-  unique receipt index added; PostgreSQL/bootstrap/legacy CI passed.
+- Alembic head: **c9d1e3f5a7b0**. SQLAlchemy expected model tables: **122**.
+  Previous head b8c0d2e4f6a9 / 121 tables. PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4.6 property affordable-housing program inventory + Compliance tab, VERIFIED.**
+  **Latest completed batch: Phase 4.6 staff-recorded CRM program interest register, VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Phase 4.6 recorded affordable-housing interest register linked to existing authorized CRM prospects; no eligibility/selection/rank automation.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
+- **Exact NEXT task: protect CRM program-interest records from generic notes/attachments; then Phase 4.6 bounded HUD/LIHTC compliance evidence readiness without eligibility, income or certification.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -104,6 +103,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Phase 4.5 positive-pay issue/void preflight | 82844c94fad5d4ef7fd33ac2e0366055953320e1 | 36370656288 | 653 backend passed / 3 E2E; not a bank upload file |
 | Phase 4.5 positive-pay customer bank review UI | 6fe873dfa466a33b478dc638c0196bbddb64c9e5 | 36371943676 | 654 backend passed / 3 E2E; read-only, no bank file |
 | Phase 4.6 property-level affordable program inventory | 8c20d48deab2ad5fdbe8c323d8409462bce77068 | 36372554518 | 657 backend passed / 3 E2E; no eligibility determination |
+| Phase 4.6 staff-recorded CRM program interest register | 67d4d5f15d10b0830a02702b453c68a98e5e9d45 | 36373217097 | 660 backend passed / 3 E2E; no official ranked waitlist |
 | Phase 4 vendor company entity + scoped customer UI | 6e1d0eb730a71d913021b590667123ee047c4858 | 36336927654 | 590 backend passed / 3 E2E |
 | Phase 4 vendor insurance lifecycle | 8d2cb6adffbde41282fc77e9e0365b2913410f66, 3de4c938e07fc695cf33eec3b1a7af7fd552e73b, 5dcdd6272bd1e18fe78a0ae2868ef6d110caf2c8 | 36337623891 | 593 backend passed / 3 E2E |
 | Phase 4 vendor trade/insurance filters | b40d94b3861809d4cfd5bb563a21bd6a4e524476, 0d32310911be49c9133ba002d19fdfdb9fce7e9a, 87ed9dd1396686065c9596622173297628b2ace2 | 36338819609 | 596 backend passed / 3 E2E |
@@ -3285,49 +3285,76 @@ on reviewed jurisdiction/agency tenant selection plans.
 Reference: https://www.hud.gov/hud-partners/public-housing-occupancy-guidebook
 and https://www.hud.gov/helping-americans/housing-choice-vouchers-guidebook .
 
+## Phase 4.6 recorded program CRM interest — VERIFIED 2026-09-27
+
+Implementation 67d4d5f15d10b0830a02702b453c68a98e5e9d45.
+GitHub Actions 36373217097 SUCCESS all six jobs: backend
+660 passed, 3 deselected, 13816 warnings in 139.87s;
+authenticated E2E 3 passed in 11.28s; frontend,
+platform-admin, security, staging-config all green.
+Generic authenticated E2E, not dedicated Compliance-tab interaction.
+Migration c9d1e3f5a7b0 adds affordable_program_interests:
+122 model tables, previous b8c0d2e4f6a9/121.
+No frozen docs/ or parity edit.
+
+GET/POST/DELETE
+/api/properties/{property_id}/affordable-programs/{program_id}/interest
+and customer Compliance tab "Interest" panel link
+current authorized CRM Prospect/Contact to existing active
+same-org property program. ADMIN/OWNER may record/archive;
+assigned MANAGER may read only. Each call enforces
+PROPERTIES.ALL, release.properties.compliance, LEASING.CRM,
+current active organization/property/program and Prospect/Contact.
+No archived contact name is returned. Unique org/program/prospect
+constraint, bounded list 200, no-store, append-only redacted audit,
+soft archive, date recorded is NOT admission/priority. Three
+focused tests validate lifecycle, cross-org/property scope,
+assignment, CRM/compliance revocation and absence of
+Lease/Charge/GL mutation. No income, SSN, household protected
+fields, eligibility decisions, HUD waiting-list rank, electronic
+submission, applicant status or automatic messages.
+Existing generic notes/attachment resolver is dynamically
+model-discovering; assess denying this new linked-contact entity
+to prevent disclosure via a weaker access route. Follow with
+focused regression and CI before adding further sensitive modules.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Verify HEAD/latest all-six-job GitHub CI. Verified source
-   8c20d48deab2ad5fdbe8c323d8409462bce77068;
-   CI 36372554518 SUCCESS: 657 backend passed/3 deselected,
-   browser E2E 3 passed. Alembic b8c0d2e4f6a9/121 tables.
-   Do not repeat Phase 4.5 positive-pay preflight/UI or
-   Phase 4.6 recorded property program inventory.
-2. Next original C1 waiting-list dependency: bounded
-   staff-recorded program interest linked to existing CRM
-   Prospect + Contact, active org/property/program and current
-   manager property assignment. No official waiting-list
-   priority, selection plan, eligibility, preferences, voucher
-   allocation, applicant status or automatic outbound messaging.
-   Require live compliance release, PROPERTIES.ALL and CRM menu.
-   Record only metadata; no SSN, household data or payments.
-3. Keep true HUD/LIHTC admission, income certification,
-   recertification and program-specific waiting list decisions
-   NOT IMPLEMENTED pending verified program/agency selection
-   plans and current legal requirements. Do not claim otherwise.
-4. Full bank-specific positive-pay file/export still awaits an
-   actual bank-approved schema and event-date/method specification;
-   IRS external filing awaits provider credentials. Preserve
-   those explicit external blockers while progressing independent
-   C1 features, then 4.7 HOA and onward.
-5. Bounded source+focused regression tests, commit to only
-   chatgpt/checkpoint-005-safety, verify all CI jobs green,
-   fix reds, update this root handoff after every meaningful
-   batch. Do not edit frozen docs/ or planning parity,
-   main or branches without separate authorization.
+1. Read root handoff, verify HEAD/CI. Last verified product
+   67d4d5f15d10b0830a02702b453c68a98e5e9d45;
+   CI 36373217097 green (660 backend passed, 3 deselected,
+   3 E2E passed). Alembic c9d1e3f5a7b0, 122 tables.
+2. Immediate security follow-up: generic note/attachment dynamic
+   resolver must not allow affordable_program_interests to bypass
+   LEASING.CRM/contact scope. Deny generic note/attachment target
+   for this entity, add tests, verify CI. This is a bounded
+   privacy guard, not a replacement attachment architecture.
+3. Continue original Phase 4.6 C1 via bounded staff-only
+   compliance evidence/checklist preparation tied to authorized
+   property/program and existing universal ordinary attachments
+   when safe. Do not build eligibility/income/ranking, HUD
+   certifications, HAP payments or program-specific legal
+   selection without current reviewed agency/jurisdiction policy.
+4. Positive-pay actual upload waits bank-approved template.
+   IRS filing/recipient copies await provider credentials.
+   Neither blocks independent Phase 4.6 planning functionality.
+5. Only existing branch; no main or frozen docs/ edits.
+   Commit with focused regression tests, hosted 6-job CI,
+   correct CI reds, update this root handoff after every
+   meaningful VERIFIED batch, continue without waiting.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on only
-chatgpt/checkpoint-005-safety. Read entire root AI_HANDOFF.md,
-verify current HEAD, all-six-job CI. Last verified source:
-8c20d48deab2ad5fdbe8c323d8409462bce77068;
-CI 36372554518 SUCCESS: 657 backend passed, 3 deselected,
-3 browser E2E passed. Alembic b8c0d2e4f6a9, 121 tables.
-Positive-pay review and Phase 4.6 property-level affordable
-program inventory VERIFIED; actual bank file and HUD/LIHTC
-eligibility are NOT implemented. Next C1 bounded program
-prospect-interest register (not official ranked waitlist).
-Reuse verified CRM and compliance/property gates, include
-focused tests, commit then verify hosted CI, update root
-handoff. Frozen docs, main and other branches untouched.
+Continue yasirskhan/property-platform on
+chatgpt/checkpoint-005-safety. Read complete root AI_HANDOFF.md,
+verify current HEAD/CI. Last VERIFIED source:
+67d4d5f15d10b0830a02702b453c68a98e5e9d45,
+CI 36373217097 SUCCESS (660 backend passed, 3 deselected,
+3 E2E passed). Alembic c9d1e3f5a7b0, 122 tables.
+Phase 4.6 property affordable program inventory and CRM
+interest register VERIFIED. Not ranked official waiting list
+or eligibility. Next: deny generic notes/unencrypted
+attachments on affordable_program_interests due to contact
+permission boundary; then Phase 4.6 compliance readiness.
+No frozen docs, main or branch changes; hosted CI with
+regression, handoff refresh after each verified batch.
