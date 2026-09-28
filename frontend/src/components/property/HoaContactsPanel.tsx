@@ -26,13 +26,12 @@ export default function HoaContactsPanel({ associationId, propertyId, canEdit, o
     void (async () => {
       try {
         const [links, contacts] = await Promise.all([
-          apiGet("/api/hoa/associations/" + associationId + "/contacts?property_id=" + propertyId)
-            as Promise<AssociationContact[]>,
-          canEdit ? apiGet("/api/contacts") as Promise<ContactPage> : Promise.resolve({ items: [], total: 0 }),
+          apiGet("/api/hoa/associations/" + associationId + "/contacts?property_id=" + propertyId),
+          canEdit ? apiGet("/api/contacts") : Promise.resolve({ items: [], total: 0 }),
         ]);
         if (!live) return;
-        setItems(links);
-        setAvailable(contacts.items.filter((contact) => contact.is_active));
+        setItems(links as AssociationContact[]);
+        setAvailable((contacts as ContactPage).items.filter((contact) => contact.is_active));
       } catch (cause) {
         if (live) setError(cause instanceof Error ? cause.message : "Contacts permission required.");
       } finally {
