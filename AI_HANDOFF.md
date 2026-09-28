@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `423d78f52e1f3628701099ff8eba7dbff972903b`
-- Source GitHub Actions run **36366800985: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `54ad71a8ab2d2bb8aaeeaad27f97614707b71369`
+- Source GitHub Actions run **36368986607: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **642 passed, 3 deselected, 13172 warnings in 152.71s**.
-  E2E: **3 passed in 7.64s**. Lint, typecheck, production build, security
+  Backend: **646 passed, 3 deselected, 13305 warnings in 151.20s**.
+  E2E: **3 passed in 9.20s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -19,13 +19,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   Previous head f2e4a6c8d0b1 / 115 tables. Nullable receipt FK and
   unique receipt index added; PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4 scoped CRM marketing-source summary, VERIFIED.**
+  **Latest completed batch: Phase 4.5 read-only RUBs bill-period diagnostics, VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Phase 4.5 compliance foundation, beginning with Property RUBs tab / utility allocation readiness.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
+- **Exact NEXT original-plan task: Phase 4.5 trust-account interest policy/readiness, then positive pay and remaining compliance work.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -97,6 +97,8 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Expense Register (posted expense GL detail) | fa8ab2e287aea400e6e684205cf5c9a6308ef85a, 7882a5921be2d38601f0a989d8d46552089debe1 | 36333373605 | Verified source; see subsequent section |
 | Income Register (posted income GL detail) | 3875ef5af74097f93643d6925eb8b14dfd6ac147 | 36335844931 | 584 backend passed / 3 E2E |
 | Journal Entry Register (manual/recurring JE and linked reversal line report) | 329a85e1683f4392568f8d746404bec689c9b788 | 36336312154 | 587 backend passed / 3 E2E |
+| Phase 4.5 RUBs shared utility inventory + period completeness | ca07e0af4103b55425b26561641728f521b991ab | 36367397250 | 644 backend passed / 3 E2E; read-only |
+| Phase 4.5 RUBs duplicate/overlap review diagnostics | 54ad71a8ab2d2bb8aaeeaad27f97614707b71369 | 36368986607 | 646 backend passed / 3 E2E; no charges or allocations |
 | Phase 4 vendor company entity + scoped customer UI | 6e1d0eb730a71d913021b590667123ee047c4858 | 36336927654 | 590 backend passed / 3 E2E |
 | Phase 4 vendor insurance lifecycle | 8d2cb6adffbde41282fc77e9e0365b2913410f66, 3de4c938e07fc695cf33eec3b1a7af7fd552e73b, 5dcdd6272bd1e18fe78a0ae2868ef6d110caf2c8 | 36337623891 | 593 backend passed / 3 E2E |
 | Phase 4 vendor trade/insurance filters | b40d94b3861809d4cfd5bb563a21bd6a4e524476, 0d32310911be49c9133ba002d19fdfdb9fce7e9a, 87ed9dd1396686065c9596622173297628b2ace2 | 36338819609 | 596 backend passed / 3 E2E |
@@ -3051,37 +3053,86 @@ Check frozen docs/PROJECT_MASTER.md Section 38/Compliance checklist
 and docs/PLAN_GAPS.md C1-C4 READ-ONLY; never amend without approval.
 Then proceed in original dependency order after hosted CI.
 
+## Phase 4.5 RUBs inventory and bill-period diagnostics — VERIFIED 2026-09-27
+
+Read-only readiness source ca07e0af4103b55425b26561641728f521b991ab;
+CI 36367397250 SUCCESS six jobs (644 backend passed, 3 deselected,
+13237 warnings in 152.05s; 3 E2E passed in 10.99s).
+Period diagnostics source 54ad71a8ab2d2bb8aaeeaad27f97614707b71369;
+CI 36368986607 SUCCESS six jobs (646 backend passed, 3 deselected,
+13305 warnings in 151.20s; 3 E2E passed in 9.20s).
+No migrations: f6e8a0c2d4e5; 119 model tables unchanged. Frontend lint,
+typecheck, build; platform-admin, security, staging green. No frozen
+docs or parity statuses edited.
+
+Property > RUBs gated release.properties.rubs uses live PROPERTIES.ALL
+permission, active org + property scope, manager current assignment,
+no tenant/other-organization visibility. Shows active SHARED utilities
+and counts recorded bills with complete, missing or reversed periods.
+Second bounded batch counts exact duplicate intervals and overlapping
+intervals (inclusive boundary dates), ignoring invalid/missing periods.
+An overlap count flags each subsequent sorted interval intersecting a
+previous interval; a duplicate count flags subsequent identical
+start/end pairs. Such flags need manual bill review and are NOT an
+allocation formula or assertion of billable expenses.
+Two original + two extra focused backend regression tests verify scope,
+gate/role denials, duplicate/overlap calculations, invalid periods,
+sensitive account-number/bill-amount exclusion and no Charge/GL change.
+The authenticated browser smoke is generic, not a dedicated RUBs
+browser interaction test.
+
+IMPORTANT: docs/PLAN_GAPS.md C4 schedules full ratio allocation,
+meter reading, utility provider integration, reviewed tenant/owner
+charges, true-ups and reports as NEW Phase 4.9, not completed Phase 4.5.
+Do not mark full RUBs implemented from the readiness tab. Do not assume
+any recorded bill is legally allocable without property jurisdiction,
+lease disclosures and reviewed cost/meter/occupancy rules.
+
+Original Phase 4.5 additional trust-account enhancements in
+docs/PLAN_GAPS.md C7 trust interest, C8 bank positive pay, C9 provider
+e-filing remain scheduled. Next bounded Phase 4.5 task can establish
+explicit trust-interest policy/manual legal-review readiness scoped to
+verified bank/GL mapping. Do not assume whether interest belongs to
+tenant, state or housing fund from bank account type or geography.
+No GL posts, bank movements, tenant interest payment or tax claims
+without verified jurisdiction/lease rules and an approved posting path.
+Then proceed in the original plan dependency order.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Verify branch HEAD and latest CI. CRM marketing source
-   423d78f52e1f3628701099ff8eba7dbff972903b
-   CI 36366800985 all six jobs success. No replay of verified
-   Lease Templates, CRM, Guest Cards or source analysis.
-2. Begin original Phase 4.5 compliance / Properties RUBs tab.
-   Inspect current property utilities, bills, frontend property tabs,
-   org feature and permission layers and original Phase 4.5 gaps.
-   Bound initial task to permissioned utility allocation readiness,
-   never auto-charge/GL/tenant billing or imply legal compliance.
-3. Include focused regressions, commit to existing branch and verify
-   all six GitHub Actions jobs before VERIFIED. Update root handoff.
-4. Continue Phase 4.5 in approved original order, preserve
-   additional compliance product lines 4.6 onward; no unauthorized
-   changes to frozen docs, no main edit/new branches/force pushes.
-5. External application Stripe merchant and tax filing provider
-   remain explicitly unconfigured; do not infer success URL as paid
-   or claim IRS submission without external acceptance.
+1. Verify branch HEAD and latest six-job CI. Last verified source
+   54ad71a8ab2d2bb8aaeeaad27f97614707b71369;
+   CI 36368986607 SUCCESS, 646 backend passed / 3 deselected,
+   3 E2E passed. Do not repeat verified CRM or RUBs-readiness batches.
+2. Follow original Phase 4.5 compliance plan: begin bounded trust-account
+   interest policy/readiness (PLAN_GAPS C7), then positive pay (C8).
+   Read plan and inspect bank/GL/receipt models and verified services.
+   Preserve org/user/menu gating; no speculative jurisdiction rules,
+   interest allocations, new GL transactions or external bank files
+   until explicit verified policy/format and approval. RUBs full
+   allocation remains original dedicated Phase 4.9, not ready.
+3. Commit each bounded change and applicable focused tests only on
+   current branch; use authorized hosted CI for verification and
+   fix failures before next feature. Do not call VERIFIED until
+   relevant CI jobs pass. Keep this root handoff current.
+4. All frozen docs/ remain unchanged without express authorization;
+   no main edits, new branches or forced refs. Existing e-filing and
+   application Stripe provider credentials remain unconfigured;
+   do not infer successful payment or filing from redirect/client state.
 
 ## Session start for successor
 
 Continue yasirskhan/property-platform on
 chatgpt/checkpoint-005-safety. Read entire repo-root AI_HANDOFF.md,
-verify actual HEAD and CI. Last VERIFIED source
-423d78f52e1f3628701099ff8eba7dbff972903b,
-CI 36366800985 success all six: 642 backend passed,
+verify current HEAD and latest CI. Last verified source
+54ad71a8ab2d2bb8aaeeaad27f97614707b71369,
+CI 36368986607 SUCCESS six jobs: 646 backend passed,
 3 deselected, 3 E2E passed. Alembic f6e8a0c2d4e5,
-119 SQLAlchemy tables. Lease Templates, CRM, Guest Cards
-and CRM source/stage breakdown VERIFIED. NEXT original Phase4.5
-bounded RUBs property utility allocation readiness. Read
-PROJECT_MASTER/PLAN_GAPS original Phase4.5 dependency order.
-Preserve prior work, don't touch main/frozen docs,
-commit focused tests, verify six-job CI, update handoff.
+119 model tables. Phase 4.5 RUBs shared-utility read-only
+inventory/period diagnostics VERIFIED. No billing/allocation.
+Exact next original phase task: trust account interest policy
+and jurisdiction-aware readiness under PLAN_GAPS C7, then
+positive pay C8. Do not invent legal interest recipients,
+create GL postings or reuse frozen docs/ without authorization.
+Continue autonomously with focused regression tests and six-job
+GitHub CI, update root handoff after each verified batch.
