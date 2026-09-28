@@ -146,3 +146,32 @@ def test_positive_pay_rejects_missing_or_reversed_posting_and_invalid_dates():
         assert db.query(GLTransaction).count()==5
     finally:
         db.rollback();db.close();engine.dispose()
+
+
+def test_positive_pay_route_never_exposes_bank_identifiers_and_refuses_inactive_admin():
+    db, engine = _db()
+    try:
+        (admin, _manager, _foreign), (bank, _other), rows = _seed(db)
+        before_checks = db.query(Check).count()
+        before_gl = db.query(GLTransaction).count()
+        response = Response()
+        preview = api.positive_pay_preflight(
+            bank.id, response, date_from=date(2026, 9, 27),
+            date_to=date(2026, 9, 27), db=db, current_user=admin,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert preview["submission_status"] == "NOT_SUBMITTED"
+        assert preview["bank_file_format_configured"] is False
+        assert preview["bank_file_export_available"] is False
+        assert "PRIVATE-ACCOUNT-123" not in str(preview)
+        assert "011000015" not in str(preview)
+        assert db.query(Check).count() == before_checks
+        assert db.query(GLTransaction).count() == before_gl
+        admin.is_active = False
+        with pytest.raises(HTTPException) as exc:
+            api.positive_pay_preflight(bank.id, Response(), db=db, current_user=admin)
+        assert exc.value.status_code == 403
+    finally:
+        db.rollback()
+        db.close()
+        engine.dispose()

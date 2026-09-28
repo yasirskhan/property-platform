@@ -21,6 +21,7 @@ import {
 import { apiGet } from "@/lib/api";
 import Flag from "@/components/features/Flag";
 import TrustInterestReview from "@/components/accounting/TrustInterestReview";
+import PositivePayReview from "@/components/accounting/PositivePayReview";
 import { useDisplay } from "@/contexts/DisplayContext";
 
 type Me = { role: string };
@@ -36,6 +37,7 @@ export default function BankAccountsPage() {
 
   const [selected, setSelected] = useState<BankAccount | null>(null);
   const [selectedInterest, setSelectedInterest] = useState<BankAccount | null>(null);
+  const [selectedPositivePay, setSelectedPositivePay] = useState<BankAccount | null>(null);
 
   async function load() {
     setLoading(true);
@@ -62,6 +64,7 @@ export default function BankAccountsPage() {
 
   const canWrite = me ? WRITE_ROLES.includes(String(me.role).toUpperCase()) : false;
   const canReviewInterest = me ? ["ADMIN", "OWNER"].includes(String(me.role).toUpperCase()) : false;
+  const canReviewPositivePay = me ? String(me.role).toUpperCase() === "ADMIN" : false;
 
   return (
     <div data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()} data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}>
@@ -167,6 +170,14 @@ export default function BankAccountsPage() {
                       </button>
                     </Flag>
                   )}
+                  {canReviewPositivePay && (
+                    <Flag name="release.accounting.check_printing">
+                      <button type="button" onClick={() => setSelectedPositivePay(b)}
+                        className="text-blue-600 hover:text-blue-800 text-xs mr-3">
+                        Positive-pay review
+                      </button>
+                    </Flag>
+                  )}
                   {canWrite && (
                     <button
                       onClick={() => setSelected(b)}
@@ -187,6 +198,11 @@ export default function BankAccountsPage() {
           account={selectedInterest}
           onClose={() => setSelectedInterest(null)}
         />
+      )}
+
+      {selectedPositivePay && (
+        <PositivePayReview account={{ id: selectedPositivePay.id, name: selectedPositivePay.name }}
+          onClose={() => setSelectedPositivePay(null)} />
       )}
 
       {selected && (
