@@ -371,7 +371,7 @@ def test_hoa_board_role_proposals_browser_flow_never_enables_vote() -> None:
                 board.get_by_label("Proposed role").select_option("SECRETARY")
                 board.get_by_label(re.compile("Staff-proposed voting eligibility")).check()
                 board.get_by_role("button", name="Record role proposal").click()
-                expect(board.get_by_text(re.compile("SECRETARY"))).to_be_visible()
+                expect(board.get_by_text("E2E ARC Applicant: SECRETARY", exact=False)).to_be_visible()
                 expect(board.get_by_text("Unverified. Vote disabled.")).to_be_visible()
                 board.get_by_label("Proposed minimum quorum").fill("3")
                 board.get_by_label("Proposed approval threshold").fill("2")
