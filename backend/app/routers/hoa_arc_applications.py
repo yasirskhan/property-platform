@@ -1,8 +1,4 @@
-"""Generic HOA ARC application lifecycle.
-
-This workflow is operational staff tracking only. Prepared approval/denial
-states have no legal effect until governing authority is separately verified.
-"""
+"""HOA ARC application intake and review, with recorded board decision history."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -16,6 +12,8 @@ from app.models.hoa_arc_application import (
     HOAARCApplication, HOAARCApplicationAttachment, HOAARCReviewEvent,
 )
 from app.models.hoa_arc_intake import HOAARCIntake
+from app.models.hoa_arc_decision import HOAARCDecision, HOAARCMemberCharge
+from app.models.gl_account import GLAccount
 from app.models.hoa_association import HOAContactLink
 from app.models.user import User
 from app.routers.auth import get_current_user
@@ -23,10 +21,12 @@ from app.routers.hoa_assessments import _scope
 from app.routers.hoa_governing_evidence import _attachment, _require_attachment_feature
 from app.schemas.hoa_arc_application import (
     HOAARCApplicationDetailOut, HOAARCApplicationIn, HOAARCApplicationOut,
+    HOAARCDecisionOut,
     HOAARCAttachmentIn,
     HOAARCAttachmentOut, HOAARCReviewEventIn, HOAARCReviewEventOut,
 )
 from app.services.audit import append_audit_log
+from app.services.menu_resolver import permission_allows_user
 
 router = APIRouter(prefix="/api/hoa/associations", tags=["HOA ARC application workflow"])
 
@@ -141,12 +141,34 @@ def _out(db: Session, row: HOAARCApplication) -> HOAARCApplicationOut:
         db, org_id=row.organization_id, association_id=row.association_id,
         property_id=row.property_id, link_id=row.applicant_contact_link_id,
     )
+    decision = db.query(HOAARCDecision).filter(
+        HOAARCDecision.organization_id == row.organization_id,
+        HOAARCDecision.association_id == row.association_id,
+        HOAARCDecision.property_id == row.property_id,
+        HOAARCDecision.application_id == row.id,
+    ).first()
+    fee = db.query(HOAARCMemberCharge).filter(
+        HOAARCMemberCharge.organization_id == row.organization_id,
+        HOAARCMemberCharge.application_id == row.id,
+    ).first() if decision is not None else None
+    recorded = HOAARCDecisionOut(
+        id=decision.id, decision=decision.decision,
+        decision_note=decision.decision_note,
+        board_seat_id=decision.board_seat_id,
+        decided_at=decision.decided_at,
+        member_charge_id=fee.id if fee else None,
+        member_charge_amount=fee.amount if fee else None,
+        member_charge_due_on=fee.due_on if fee else None,
+        fee_gl_transaction_id=fee.gl_transaction_id if fee else None,
+        work_order_id=decision.work_order_id,
+        notification_status=decision.notification_status,
+    ) if decision is not None else None
     return HOAARCApplicationOut(
         id=row.id, association_id=row.association_id, property_id=row.property_id,
         intake_id=row.intake_id, applicant_contact_link_id=link.id,
         applicant_contact_name=contact.display_name, submitted_on=row.submitted_on,
         status=row.status, decision_preparation=row.decision_preparation,
-        updated_at=row.updated_at,
+        board_decision=recorded, updated_at=row.updated_at,
     )
 
 
@@ -155,6 +177,33 @@ def _detail(db: Session, row: HOAARCApplication) -> HOAARCApplicationDetailOut:
         **_out(db, row).model_dump(),
         events=_events(db, row), attachments=_attachments(db, row),
     )
+
+
+@router.get("/{association_id}/arc-fee-gl-options", response_model=list[dict])
+def arc_fee_gl_options(
+    association_id: int, response: Response,
+    property_id: int = Query(ge=1),
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    """Only safe GL display data; a selected account is not a default fee."""
+    org_id, _ = _scope(
+        db, actor=current_user, association_id=association_id,
+        property_id=property_id, write=True,
+    )
+    if not permission_allows_user(db, user=current_user, menu_key="ACCOUNTING.GL_ACCOUNTS"):
+        raise HTTPException(status_code=403, detail="ARC fee GL permission required.")
+    rows = db.query(GLAccount).filter(
+        GLAccount.organization_id == org_id,
+        GLAccount.account_type.in_(("ASSET", "INCOME")),
+        GLAccount.is_active.is_(True), GLAccount.deleted_at.is_(None),
+    ).order_by(GLAccount.gl_number, GLAccount.id).limit(501).all()
+    if len(rows) > 500:
+        raise HTTPException(status_code=422, detail="Too many eligible GL accounts.")
+    response.headers["Cache-Control"] = "no-store"
+    return [
+        {"id": x.id, "number": x.gl_number, "name": x.name, "account_type": x.account_type}
+        for x in rows
+    ]
 
 
 @router.get("/{association_id}/arc-applications", response_model=list[HOAARCApplicationOut])

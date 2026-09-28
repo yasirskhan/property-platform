@@ -11,6 +11,14 @@ type ContactLink = {
   contact_id: number;
   contact_name: string;
 };
+type FeeOption = { id: number; number: string; name: string; account_type: "ASSET" | "INCOME" };
+type BoardDecision = {
+  id: number; decision: "APPROVED" | "DENIED"; decision_note: string;
+  decided_at: string; board_seat_id: number; notification_status: string;
+  member_charge_id: number | null; member_charge_amount: string | null;
+  member_charge_due_on: string | null; fee_gl_transaction_id: number | null;
+  work_order_id: number | null;
+};
 type Application = {
   id: number;
   intake_id: number;
@@ -18,13 +26,12 @@ type Application = {
   applicant_contact_name: string;
   submitted_on: string;
   status: "SUBMITTED" | "UNDER_REVIEW" | "MORE_INFO_REQUESTED" |
-    "INFO_RECEIVED" | "READY_FOR_DECISION" | "DECISION_PREPARED";
+    "INFO_RECEIVED" | "READY_FOR_DECISION" | "DECISION_PREPARED" | "APPROVED" | "DENIED";
   decision_preparation: "APPROVE" | "DENY" | null;
-  legal_decision_effective: false;
-  governing_authority_verified: false;
+  board_decision: BoardDecision | null;
 };
 type Detail = Application & {
-  events: { id: number; event_type: string; staff_note: string | null; created_at: string; legal_effect: false }[];
+  events: { id: number; event_type: string; staff_note: string | null; created_at: string }[];
   attachments: { id: number; attachment_id: number; filename: string; recorded_at: string; private_only: true }[];
 };
 
@@ -53,6 +60,8 @@ const ACTIONS: Record<Application["status"], { key: string; label: string }[]> =
     { key: "START_REVIEW", label: "Return to review" },
     { key: "REQUEST_MORE_INFO", label: "Request more information" },
   ],
+  APPROVED: [],
+  DENIED: [],
 };
 
 export default function HoaARCApplicationsPanel({
@@ -72,6 +81,12 @@ export default function HoaARCApplicationsPanel({
   const [submittedOn, setSubmittedOn] = useState("");
   const [attachmentId, setAttachmentId] = useState("");
   const [note, setNote] = useState("");
+  const [feeAmount, setFeeAmount] = useState("");
+  const [feeDueOn, setFeeDueOn] = useState("");
+  const [incomeGlId, setIncomeGlId] = useState("");
+  const [receivableGlId, setReceivableGlId] = useState("");
+  const [followupUnitId, setFollowupUnitId] = useState("");
+  const [feeOptions, setFeeOptions] = useState<FeeOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -121,6 +136,16 @@ export default function HoaARCApplicationsPanel({
     (doc) => !application?.attachments.some((link) => link.attachment_id === doc.id)
   ), [documents, application]);
 
+  useEffect(() => {
+    let alive = true;
+    if (!canEdit) return () => { alive = false; };
+    void (apiGet("/api/hoa/associations/" + associationId +
+      "/arc-fee-gl-options" + query) as Promise<FeeOption[]>)
+      .then((options) => { if (alive) setFeeOptions(options); })
+      .catch(() => { if (alive) setFeeOptions([]); });
+    return () => { alive = false; };
+  }, [associationId, canEdit, query]);
+
   async function create(event: React.FormEvent) {
     event.preventDefault();
     if (!canEdit || busy || !contactLinkId || !submittedOn) return;
@@ -133,7 +158,7 @@ export default function HoaARCApplicationsPanel({
         submitted_on: submittedOn,
       });
       await reload();
-      setMessage("ARC application recorded for staff review. No legal decision has been issued.");
+      setMessage("ARC application recorded. Awaiting board decision.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to record ARC application.");
     } finally { setBusy(false); }
@@ -155,6 +180,32 @@ export default function HoaARCApplicationsPanel({
       );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to update ARC review.");
+    } finally { setBusy(false); }
+  }
+
+  async function decide(decision: "APPROVED" | "DENIED") {
+    if (!application || !canEdit || busy || !note.trim()) return;
+    if (feeAmount && (!feeDueOn || !incomeGlId || !receivableGlId)) {
+      setError("Fee amount, due date, receivables GL, and income GL are required together.");
+      return;
+    }
+    setBusy(true); setError(""); setMessage("");
+    try {
+      await apiPost(base + "/" + application.id + "/board-decision", {
+        property_id: propertyId, decision, decision_note: note.trim(),
+        fee: feeAmount ? {
+          amount: feeAmount, due_on: feeDueOn,
+          receivable_gl_account_id: Number(receivableGlId),
+          income_gl_account_id: Number(incomeGlId),
+        } : null,
+        follow_up_unit_id: followupUnitId ? Number(followupUnitId) : null,
+      });
+      setNote(""); setFeeAmount(""); setFeeDueOn("");
+      setIncomeGlId(""); setReceivableGlId(""); setFollowupUnitId("");
+      await reload();
+      setMessage("Board decision recorded. Any requested member fee and follow-up were processed atomically.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to record board decision.");
     } finally { setBusy(false); }
   }
 
@@ -192,9 +243,10 @@ export default function HoaARCApplicationsPanel({
         <button type="button" onClick={onClose} className="text-sm text-blue-700">Close</button>
       </div>
       <p className="text-xs text-slate-700">
-        Generic application workflow only. Applicant identity is an existing scoped HOA contact.
-        Documents stay private property attachments. Approval or denial can be prepared for review,
-        but remains legally ineffective until governing authority and decision-maker prerequisites are verified.
+        Applicant identity uses the existing association contact and documents stay private.
+        A verified, logged-in board member matching an eligible association seat may record
+        an approved or denied decision. Financial fees and work-order follow-ups are optional
+        and require valid member/accounting or tenant/unit associations.
       </p>
       {loading && <p className="text-sm text-slate-500">Loading ARC workflow…</p>}
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
@@ -232,12 +284,26 @@ export default function HoaARCApplicationsPanel({
             <p>Received {application.submitted_on} · {application.status.replaceAll("_", " ")}</p>
             {application.decision_preparation && (
               <p className="font-medium text-amber-700">
-                {application.decision_preparation} PREPARED ONLY · NOT LEGALLY EFFECTIVE
+                {application.decision_preparation} PREPARED FOR BOARD REVIEW
               </p>
             )}
-            <p className="text-xs text-slate-600">
-              Governing authority verified: NO · Effective legal decision: NO
-            </p>
+            {application.board_decision && (
+              <div className="space-y-1 text-xs text-slate-700">
+                <p className="font-semibold text-green-800">
+                  Board decision: {application.board_decision.decision} · Recorded {application.board_decision.decided_at}
+                </p>
+                <p>{application.board_decision.decision_note}</p>
+                <p>Applicant notification: {application.board_decision.notification_status.replaceAll("_", " ")}</p>
+                {application.board_decision.member_charge_id && (
+                  <p>Member fee #{application.board_decision.member_charge_id}: ${application.board_decision.member_charge_amount}
+                    · Due {application.board_decision.member_charge_due_on}
+                    · GL transaction #{application.board_decision.fee_gl_transaction_id}</p>
+                )}
+                {application.board_decision.work_order_id && (
+                  <p>Work order #{application.board_decision.work_order_id} created.</p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -275,13 +341,13 @@ export default function HoaARCApplicationsPanel({
                 <li key={row.id} className="rounded border bg-white p-2">
                   {row.event_type.replaceAll("_", " ")}
                   {row.staff_note ? " · " + row.staff_note : ""}
-                  {" · "}NO LEGAL EFFECT
+                  {" · "}{row.event_type.startsWith("BOARD_") ? "BOARD DECISION" : "STAFF REVIEW"}
                 </li>
               ))}
             </ol>
             {canEdit && (
               <>
-                <label className="block text-sm">Staff review note (optional)
+                <label className="block text-sm">Review note / board decision reason
                   <textarea maxLength={1500} rows={2} value={note}
                     onChange={(event) => setNote(event.target.value)}
                     className="mt-1 block w-full rounded border bg-white p-2" />
@@ -295,6 +361,68 @@ export default function HoaARCApplicationsPanel({
                     </button>
                   ))}
                 </div>
+                {["READY_FOR_DECISION", "DECISION_PREPARED"].includes(application.status) && (
+                  <div className="mt-3 space-y-2 rounded border border-emerald-300 bg-white p-3 text-sm">
+                    <p className="font-semibold">Record board decision</p>
+                    <p className="text-xs text-slate-600">
+                      Requires a verified board login matching an active eligible association seat.
+                      A decision is final once recorded. Only an approved application may carry a fee
+                      or work order. Applicant notification requires a matching verified account.
+                    </p>
+                    <label className="block">Optional ARC fee amount
+                      <input type="number" min="0.01" step="0.01" value={feeAmount}
+                        onChange={(event) => setFeeAmount(event.target.value)}
+                        className="mt-1 block w-full rounded border p-2" />
+                    </label>
+                    {feeAmount && (
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <label>Fee due date<input type="date" required value={feeDueOn}
+                          onChange={(event) => setFeeDueOn(event.target.value)}
+                          className="mt-1 block w-full rounded border p-2" /></label>
+                        <label>Receivables asset GL
+                          <select value={receivableGlId}
+                            onChange={(event) => setReceivableGlId(event.target.value)}
+                            className="mt-1 block w-full rounded border p-2">
+                            <option value="">Choose receivable GL</option>
+                            {feeOptions.filter((item) => item.account_type === "ASSET").map((item) => (
+                              <option key={item.id} value={item.id}>{item.number} · {item.name}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>ARC fee income GL
+                          <select value={incomeGlId}
+                            onChange={(event) => setIncomeGlId(event.target.value)}
+                            className="mt-1 block w-full rounded border p-2">
+                            <option value="">Choose fee income GL</option>
+                            {feeOptions.filter((item) => item.account_type === "INCOME").map((item) => (
+                              <option key={item.id} value={item.id}>{item.number} · {item.name}</option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                    )}
+                    <label className="block">Optional follow-up work-order unit ID
+                      <input type="number" min="1" step="1" value={followupUnitId}
+                        onChange={(event) => setFollowupUnitId(event.target.value)}
+                        className="mt-1 block w-full rounded border p-2" />
+                      <span className="text-xs text-slate-500">
+                        Requires a verified tenant applicant with an active lease on this unit.
+                      </span>
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" disabled={busy || !note.trim()}
+                        onClick={() => { void decide("APPROVED"); }}
+                        className="rounded bg-emerald-700 px-3 py-2 text-white disabled:opacity-50">
+                        Record board approval
+                      </button>
+                      <button type="button" disabled={busy || !note.trim() || !!feeAmount || !!followupUnitId}
+                        onClick={() => { void decide("DENIED"); }}
+                        className="rounded border border-red-500 px-3 py-2 text-red-700 disabled:opacity-50">
+                        Record board denial
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>

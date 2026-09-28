@@ -23,6 +23,7 @@ from app.models.gl_transaction import GLTransaction
 from app.models.gl_account import GLAccount
 from app.models.contact import Contact
 from app.models.hoa_association import HOAAssociation, HOAContactLink
+from app.models.hoa_board import HOABoardSeat
 from app.models.release_gate import ReleaseGate, ReleaseStage
 from app.models.billing import Module, Plan, Subscription, SubscriptionItem, SubscriptionStatus
 from app.models.user import User
@@ -327,7 +328,7 @@ def _seed_arc_applicant(association_name: str) -> None:
         db.close()
 
 
-def test_hoa_arc_application_review_browser_flow_prepares_no_effective_decision() -> None:
+def test_hoa_arc_application_review_browser_records_board_approval() -> None:
     with _temporarily_release_hoa_ui():
         before = _financial_counts()
         with sync_playwright() as playwright:
@@ -350,6 +351,39 @@ def test_hoa_arc_application_review_browser_flow_prepares_no_effective_decision(
                 association = page.get_by_text(association_name, exact=True).locator("..").locator("..")
                 expect(association).to_be_visible()
                 _seed_arc_applicant(association_name)
+                # Disposable E2E board login: the actor must be the verified,
+                # same-org email owner of a scoped active eligible seat.
+                db = SessionLocal()
+                try:
+                    board_actor = db.query(User).filter(User.email == EMAIL).one()
+                    board_actor.is_verified = True
+                    assoc = db.query(HOAAssociation).filter(
+                        HOAAssociation.name == association_name,
+                        HOAAssociation.is_active.is_(True),
+                    ).one()
+                    contact = Contact(
+                        organization_id=assoc.organization_id,
+                        display_name="E2E Verified Board Actor",
+                        email=EMAIL, contact_type="PERSON", is_active=True,
+                    )
+                    db.add(contact)
+                    db.flush()
+                    link = HOAContactLink(
+                        organization_id=assoc.organization_id,
+                        association_id=assoc.id, property_id=PROPERTY_ID,
+                        contact_id=contact.id, is_active=True,
+                    )
+                    db.add(link)
+                    db.flush()
+                    db.add(HOABoardSeat(
+                        organization_id=assoc.organization_id,
+                        association_id=assoc.id, property_id=PROPERTY_ID,
+                        contact_link_id=link.id, proposed_role="DIRECTOR",
+                        staff_voting_eligible=True, is_active=True,
+                    ))
+                    db.commit()
+                finally:
+                    db.close()
 
                 association.get_by_role("button", name="ARC staff intake").click()
                 intake = association.get_by_role("heading", name="ARC staff project intake").locator("..").locator("..")
@@ -363,12 +397,18 @@ def test_hoa_arc_application_review_browser_flow_prepares_no_effective_decision(
                 workflow.get_by_label("Applicant contact").select_option(label="E2E ARC Applicant")
                 workflow.get_by_label("Application received date").fill("2026-09-16")
                 workflow.get_by_role("button", name="Record ARC application").click()
-                expect(workflow.get_by_text(re.compile("Effective legal decision: NO"))).to_be_visible()
+                expect(workflow.get_by_text(re.compile("Awaiting board decision"))).to_be_visible()
                 workflow.get_by_role("button", name="Start staff review").click()
                 workflow.get_by_role("button", name="Mark ready for decision").click()
                 workflow.get_by_role("button", name="Prepare approval").click()
-                expect(workflow.get_by_text(re.compile("APPROVE PREPARED ONLY"))).to_be_visible()
-                expect(workflow.get_by_text(re.compile("Effective legal decision: NO"))).to_be_visible()
+                expect(workflow.get_by_text(re.compile("APPROVE PREPARED FOR BOARD REVIEW"))).to_be_visible()
+                workflow.get_by_label("Review note / board decision reason").fill(
+                    "E2E recorded board approval"
+                )
+                workflow.get_by_role("button", name="Record board approval").click()
+                expect(workflow.get_by_text(re.compile("Board decision: APPROVED"))).to_be_visible()
+                expect(workflow.get_by_text(re.compile("Applicant notification: NO VERIFIED RECIPIENT"))).to_be_visible()
+                expect(workflow.get_by_role("button", name="Record board approval")).to_have_count(0)
                 assert _financial_counts() == before
             finally:
                 browser.close()

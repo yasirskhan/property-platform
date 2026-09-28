@@ -1,7 +1,8 @@
-"""HOA ARC application workflow remains scoped, private and non-operative."""
+"""HOA ARC review and recorded board decisions remain scoped and auditable."""
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -14,6 +15,16 @@ import init_db  # noqa: F401
 from app.core.database import Base
 from app.models.audit_log import AuditLog
 from app.models.charge import Charge
+from app.models.gl_account import GLAccount
+from app.models.hoa_arc_decision import HOAARCDecision, HOAARCMemberCharge
+from app.models.hoa_board import HOABoardSeat
+from app.models.lease import Lease, LeaseStatus
+from app.models.property import Unit
+from app.models.work_order import WorkOrder
+from app.routers import hoa_arc_board_decisions as board_api
+from app.routers import hoa_board as hoa_board_api
+from app.schemas.hoa_arc_application import HOAARCDecisionIn, HOAARCDecisionFeeIn
+from app.schemas.hoa_board import HOABoardSeatIn
 from app.models.contact import Contact
 from app.models.entity_attachment import EntityAttachment
 from app.models.gl_entry import GLEntry
@@ -46,6 +57,8 @@ def access(monkeypatch):
         SimpleNamespace(key=hoa.HOA_FEATURE_KEY, allowed=True)
     ])
     monkeypatch.setattr(api, "_require_attachment_feature", lambda *a, **kw: None)
+    monkeypatch.setattr(board_api, "permission_allows_user", lambda *a, **kw: True)
+    monkeypatch.setattr(api, "permission_allows_user", lambda *a, **kw: True)
     monkeypatch.setattr(attachments, "resolve_customer_features", lambda *a, **kw: [
         SimpleNamespace(key=attachments.ATTACHMENTS_FEATURE_KEY, allowed=True)
     ])
@@ -155,8 +168,7 @@ def test_arc_application_review_lifecycle_prepares_but_never_issues_decision():
             db=db, current_user=admin,
         )
         assert created.status == "SUBMITTED"
-        assert created.legal_decision_effective is False
-        assert created.governing_authority_verified is False
+        assert created.board_decision is None
         assert [e.event_type for e in created.events] == ["APPLICATION_SUBMITTED"]
 
         stages = [
@@ -174,7 +186,7 @@ def test_arc_application_review_lifecycle_prepares_but_never_issues_decision():
                 property_id=assigned.id, db=db, current_user=owner,
             )
             assert detail.status == status
-            assert detail.legal_decision_effective is False
+            assert detail.board_decision is None
         assert detail.decision_preparation == "APPROVE"
         assert len(detail.events) == 6
         assert _counts(db) == before
@@ -312,3 +324,274 @@ def test_arc_application_archive_history_and_no_silent_duplicate():
         assert _counts(db) == (0, 0, 0, 0)
     finally:
         db.close(); engine.dispose()
+
+
+def _board_member(db, assoc, prop, admin):
+    admin.is_verified = True
+    contact = Contact(
+        organization_id=admin.organization_id,
+        display_name="Verified Board Login",
+        email=admin.email, contact_type="PERSON", is_active=True,
+    )
+    db.add(contact)
+    db.flush()
+    link = hoa.add_contact_link(
+        assoc.id, HOAContactLinkIn(
+            property_id=prop.id, contact_id=contact.id,
+        ), db=db, current_user=admin,
+    )
+    seat = hoa_board_api.record_board_seat(
+        assoc.id, HOABoardSeatIn(
+            property_id=prop.id, contact_link_id=link.id,
+            proposed_role="DIRECTOR", staff_voting_eligible=True,
+        ), db=db, current_user=admin,
+    )
+    return seat
+
+
+def _ready_application(db, assoc, prop, intake, applicant_link, admin):
+    application = api.create_application(
+        assoc.id, _application(prop.id, intake.id, applicant_link.id),
+        db=db, current_user=admin,
+    )
+    for event in ("START_REVIEW", "MARK_READY_FOR_DECISION"):
+        api.add_review_event(
+            assoc.id, application.id,
+            HOAARCReviewEventIn(event_type=event),
+            property_id=prop.id, db=db, current_user=admin,
+        )
+    return application
+
+
+def test_board_approved_arc_is_final_without_software_legal_effect_flag(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, _, _), assoc, links, intake, _ = _seed(db)
+        application = _ready_application(db, assoc, prop, intake, links[0], admin)
+        before = _counts(db)
+        with pytest.raises(HTTPException) as denied:
+            board_api.record_board_decision(
+                assoc.id, application.id, HOAARCDecisionIn(
+                    property_id=prop.id, decision="APPROVED",
+                    decision_note="Board recorded approval",
+                ), db=db, current_user=admin,
+            )
+        assert denied.value.status_code == 403
+        seat = _board_member(db, assoc, prop, admin)
+        detail = board_api.record_board_decision(
+            assoc.id, application.id, HOAARCDecisionIn(
+                property_id=prop.id, decision="APPROVED",
+                decision_note="Board recorded approval",
+            ), db=db, current_user=admin,
+        )
+        assert detail.status == "APPROVED"
+        assert detail.decision_preparation is None
+        assert detail.board_decision.decision == "APPROVED"
+        assert detail.board_decision.board_seat_id == seat.id
+        assert detail.board_decision.notification_status == "NO_VERIFIED_RECIPIENT"
+        assert detail.board_decision.member_charge_id is None
+        assert "legal_decision_effective" not in detail.model_dump()
+        assert "governing_authority_verified" not in detail.model_dump()
+        assert [e.event_type for e in detail.events][-1] == "BOARD_APPROVED"
+        assert db.query(HOAARCDecision).count() == 1
+        assert _counts(db) == before
+        for event in ("PREPARE_DENIAL", "REQUEST_MORE_INFO", "START_REVIEW"):
+            with pytest.raises(HTTPException) as exc:
+                api.add_review_event(
+                    assoc.id, application.id, HOAARCReviewEventIn(event_type=event),
+                    property_id=prop.id, db=db, current_user=admin,
+                )
+            assert exc.value.status_code == 409
+        with pytest.raises(HTTPException) as conflict:
+            board_api.record_board_decision(
+                assoc.id, application.id,
+                HOAARCDecisionIn(property_id=prop.id, decision="DENIED",
+                                 decision_note="Different decision"),
+                db=db, current_user=admin,
+            )
+        assert conflict.value.status_code == 409
+        assert db.query(HOAARCDecision).count() == 1
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_arc_decision",
+            AuditLog.action == "board_decision_recorded",
+        ).count() == 1
+        with pytest.raises(HTTPException):
+            _model_for_table("hoa_arc_decisions")
+        with pytest.raises(HTTPException):
+            _model_for_table("hoa_arc_member_charges")
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_arc_approved_fee_uses_member_receivable_gl_and_real_work_order(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, _, _), assoc, links, intake, _ = _seed(db)
+        _board_member(db, assoc, prop, admin)
+        tenant.is_verified = True
+        applicant = db.query(Contact).filter(Contact.id == links[0].contact_id).one()
+        applicant.email = tenant.email
+        unit = Unit(property_id=prop.id, unit_number="ARC101", is_active=True)
+        db.add(unit)
+        db.flush()
+        db.add(Lease(
+            unit_id=unit.id, tenant_id=tenant.id, start_date=date(2026, 1, 1),
+            end_date=date(2027, 1, 1), monthly_rent=Decimal("1200"),
+            security_deposit=Decimal("0"), status=LeaseStatus.ACTIVE,
+        ))
+        ar = GLAccount(
+            organization_id=admin.organization_id, gl_number="E2E-AR-ARC",
+            name="ARC member receivable", account_type="ASSET", is_active=True,
+        )
+        income = GLAccount(
+            organization_id=admin.organization_id, gl_number="E2E-INC-ARC",
+            name="ARC fee income", account_type="INCOME", is_active=True,
+        )
+        db.add_all([ar, income])
+        db.commit()
+        application = _ready_application(db, assoc, prop, intake, links[0], admin)
+        sent = []
+        monkeypatch.setattr(board_api, "send_email", lambda **kw: sent.append(kw))
+        payload = HOAARCDecisionIn(
+            property_id=prop.id, decision="APPROVED",
+            decision_note="Board approved with scheduled follow-up",
+            fee=HOAARCDecisionFeeIn(
+                amount="85.25", due_on=date(2026, 12, 1),
+                receivable_gl_account_id=ar.id, income_gl_account_id=income.id,
+            ),
+            follow_up_unit_id=unit.id,
+        )
+        locked = db.get(Organization, admin.organization_id)
+        locked.locked_through_date = date.today()
+        db.flush()
+        with pytest.raises(HTTPException) as error:
+            board_api.record_board_decision(
+                assoc.id, application.id, payload, db=db, current_user=admin,
+            )
+        assert error.value.status_code == 409
+        assert db.query(HOAARCDecision).count() == 0
+        assert db.query(GLTransaction).count() == 0
+        assert db.query(WorkOrder).count() == 0
+        locked = db.get(Organization, admin.organization_id)
+        locked.locked_through_date = None
+        db.commit()
+        detail = board_api.record_board_decision(
+            assoc.id, application.id, payload, db=db, current_user=admin,
+        )
+        assert detail.status == "APPROVED"
+        assert detail.board_decision.notification_status == "SENT"
+        assert len(sent) == 1 and sent[0]["to"] == tenant.email
+        assert db.query(HOAARCMemberCharge).count() == 1
+        fee = db.query(HOAARCMemberCharge).one()
+        assert fee.member_user_id == tenant.id
+        assert fee.contact_link_id == links[0].id
+        assert fee.amount == Decimal("85.25")
+        assert fee.due_on == date(2026, 12, 1)
+        txn = db.get(GLTransaction, fee.gl_transaction_id)
+        assert txn.source_type == "hoa_arc_member_charge"
+        assert txn.source_id == application.id
+        lines = db.query(GLEntry).filter(GLEntry.transaction_id == txn.id).all()
+        assert len(lines) == 2
+        assert sum((x.debit for x in lines), Decimal(0)) == Decimal("85.25")
+        assert sum((x.credit for x in lines), Decimal(0)) == Decimal("85.25")
+        assert {x.gl_account_id for x in lines} == {ar.id, income.id}
+        assert all(x.organization_id == admin.organization_id
+                   and x.property_id == prop.id for x in lines)
+        assert db.query(Charge).count() == db.query(RentInvoice).count() == 0
+        work = db.query(WorkOrder).one()
+        assert work.unit_id == unit.id and work.tenant_id == tenant.id
+        assert detail.board_decision.work_order_id == work.id
+        assert detail.board_decision.fee_gl_transaction_id == txn.id
+        assert detail.board_decision.member_charge_amount == Decimal("85.25")
+        fees = board_api.get_member_fee(
+            assoc.id, application.id, Response(),
+            property_id=prop.id, db=db, current_user=admin,
+        )
+        assert fees["member_charge"]["gl_transaction_id"] == txn.id
+        with pytest.raises(HTTPException):
+            board_api.get_member_fee(
+                assoc.id, application.id, Response(),
+                property_id=prop.id, db=db, current_user=foreign,
+            )
+        with pytest.raises(HTTPException) as conflict:
+            board_api.record_board_decision(
+                assoc.id, application.id, payload, db=db, current_user=admin,
+            )
+        assert conflict.value.status_code == 409
+        assert db.query(GLTransaction).count() == db.query(WorkOrder).count() == 1
+        assert len(sent) == 1
+    finally:
+        db.rollback()
+        db.close()
+        engine.dispose()
+
+
+def test_arc_denial_notification_failure_and_cross_scope_guard(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, other, outside), assoc, links, intake, _ = _seed(db)
+        _board_member(db, assoc, prop, admin)
+        tenant.is_verified = True
+        applicant = db.query(Contact).filter(Contact.id == links[0].contact_id).one()
+        applicant.email = tenant.email
+        db.commit()
+        app = _ready_application(db, assoc, prop, intake, links[0], admin)
+        def decide(actor=admin, property_id=prop.id, **changes):
+            payload = dict(property_id=property_id, decision="DENIED",
+                           decision_note="Board denial recorded")
+            payload.update(changes)
+            return board_api.record_board_decision(
+                assoc.id, app.id, HOAARCDecisionIn(**payload),
+                db=db, current_user=actor,
+            )
+        for actor, prop_id in ((owner, prop.id), (manager, prop.id),
+                               (tenant, prop.id), (foreign, prop.id),
+                               (admin, other.id), (admin, outside.id)):
+            with pytest.raises(HTTPException):
+                decide(actor, prop_id)
+        admin.is_verified = False
+        db.flush()
+        with pytest.raises(HTTPException):
+            decide()
+        admin.is_verified = True
+        db.flush()
+        with pytest.raises(ValidationError):
+            HOAARCDecisionIn(
+                property_id=prop.id, decision="APPROVED",
+                decision_note="Ok", legal_decision_effective=True,
+            )
+        with pytest.raises(ValidationError):
+            HOAARCDecisionIn(
+                property_id=prop.id, decision="DENIED",
+                decision_note="Denied", fee={
+                    "amount": "25.00", "due_on": date.today(),
+                    "receivable_gl_account_id": 1,
+                    "income_gl_account_id": 2,
+                }, illegally_waive_fines=True,
+            )
+        with pytest.raises(HTTPException) as exc:
+            decide(fee=HOAARCDecisionFeeIn(
+                amount="25", due_on=date.today(),
+                receivable_gl_account_id=1, income_gl_account_id=2,
+            ))
+        assert exc.value.status_code == 422
+        monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **kw: [])
+        with pytest.raises(HTTPException) as exc:
+            decide()
+        assert exc.value.status_code == 404
+        monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **kw: [
+            SimpleNamespace(key=hoa.FEATURE_KEY, allowed=True),
+            SimpleNamespace(key=hoa.HOA_FEATURE_KEY, allowed=True),
+        ])
+        monkeypatch.setattr(board_api, "send_email", lambda **kw: (_ for _ in ()).throw(RuntimeError("smtp unavailable")))
+        result = decide()
+        assert result.status == "DENIED"
+        assert result.board_decision.notification_status == "FAILED"
+        assert db.query(HOAARCDecision).count() == 1
+        assert db.query(GLTransaction).count() == db.query(Charge).count() == 0
+        assert db.query(WorkOrder).count() == 0
+    finally:
+        db.rollback()
+        db.close()
+        engine.dispose()
