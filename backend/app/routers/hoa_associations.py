@@ -12,6 +12,8 @@ from app.models.hoa_observation import HOAObservation
 from app.models.hoa_meeting_draft import HOAMeetingDraft
 from app.models.hoa_arc_intake import HOAARCIntake
 from app.models.hoa_governing_evidence import HOAGoverningEvidence
+from app.models.hoa_procedure_policy import HOAProcedurePolicy
+from app.models.hoa_violation_case import HOAViolationCase
 from app.models.contact import Contact
 from app.models.property import Property, PropertyAssignment
 from app.models.user import User, UserRole
@@ -241,6 +243,33 @@ def _archive_governing_evidence(
         )
 
 
+def _archive_procedure_cases(
+    db: Session, *, org_id: int, association_id: int,
+    actor_id: int, action: str, property_id: int | None = None,
+) -> None:
+    """Unlink/archive invalidates old staff rules and review cases."""
+    for model, entity in (
+        (HOAProcedurePolicy, "hoa_procedure_policy"),
+        (HOAViolationCase, "hoa_violation_case"),
+    ):
+        rows = db.query(model).filter(
+            model.organization_id == org_id,
+            model.association_id == association_id,
+            model.is_active.is_(True),
+        )
+        if property_id is not None:
+            rows = rows.filter(model.property_id == property_id)
+        for row in rows.all():
+            row.is_active = False
+            row.updated_by_id = actor_id
+            db.flush()
+            append_audit_log(
+                db, organization_id=org_id, user_id=actor_id,
+                entity_type=entity, entity_id=row.id, action=action,
+                new_value={"association_id": association_id, "property_id": row.property_id},
+            )
+
+
 def _save(db: Session, *, actor: User, payload: HOAAssociationIn,
           association_id: int | None = None) -> HOAAssociationOut:
     org_id = _access(db, actor, write=True)
@@ -310,6 +339,11 @@ def _save(db: Session, *, actor: User, payload: HOAAssociationIn,
                     action="association_property_unlinked",
                 )
                 _archive_governing_evidence(
+                    db, org_id=org_id, association_id=row.id,
+                    actor_id=actor.id, property_id=m.property_id,
+                    action="association_property_unlinked",
+                )
+                _archive_procedure_cases(
                     db, org_id=org_id, association_id=row.id,
                     actor_id=actor.id, property_id=m.property_id,
                     action="association_property_unlinked",
@@ -387,6 +421,10 @@ def archive_association(
         actor_id=current_user.id, action="association_archived",
     )
     _archive_governing_evidence(
+        db, org_id=org_id, association_id=row.id,
+        actor_id=current_user.id, action="association_archived",
+    )
+    _archive_procedure_cases(
         db, org_id=org_id, association_id=row.id,
         actor_id=current_user.id, action="association_archived",
     )
