@@ -216,7 +216,6 @@ def create_application(
     existing = db.query(HOAARCApplication.id).filter(
         HOAARCApplication.organization_id == org_id,
         HOAARCApplication.intake_id == intake.id,
-        HOAARCApplication.is_active.is_(True),
     ).first()
     if existing is not None:
         raise HTTPException(status_code=409, detail="ARC intake already has an application.")
