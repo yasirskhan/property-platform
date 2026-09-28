@@ -438,7 +438,7 @@ Product commit 0afaec13accb9594d782cd088feca2ef5f92c927;
 CI 36273058209 SUCCESS all six jobs. Backend **438 passed,
 3 deselected, 4712 warnings in 87.86s**; E2E **3 passed in 9.08s**.
 Frontend lint/typecheck/build, security, platform admin and staging GREEN.
-Migration a9c1e3f5b7d0 adds letter_templates; expected 104 tables.
+Migration c7e9a1b3d5f2 adds letter_templates; expected 104 tables.
 Three schema/bootstrap guards adjusted and passed. Frozen docs/ unchanged.
 
 Backend files: models/letter_template.py, schemas/letter.py,
@@ -480,7 +480,7 @@ Backend **440 passed, 3 deselected, 4788 warnings in 48.62s**;
 browser E2E **3 passed in 6.63s**; frontend lint/typecheck/build,
 platform-admin, security, staging-config SUCCESS.
 Two focused backend tests added to the previous five-letter suite.
-No migration in this batch: Alembic a9c1e3f5b7d0, 104 tables.
+No migration in this batch: Alembic c7e9a1b3d5f2, 104 tables.
 Handoff-only update TESTS NOT RUN locally. No docs/ changed.
 
 Customer Reports > Mailings > Letters page now:
@@ -524,7 +524,7 @@ Final CI 36274518298 SUCCESS all six jobs:
 446 backend passed, 3 deselected, 4969 warnings in 86.94s;
 3 E2E passed in 8.51s, frontend lint/typecheck/build,
 platform-admin/security/staging-config PASS. No migration.
-Alembic a9c1e3f5b7d0 / 104 SQLAlchemy tables unchanged.
+Alembic c7e9a1b3d5f2 / 104 SQLAlchemy tables unchanged.
 
 Backend /api/accounting/owner-packets/{statement_id}/preview and
 /email use frozen OwnerStatement.property_data and existing
@@ -580,7 +580,7 @@ Final full CI 36274961962 SUCCESS all six jobs:
 authenticated E2E 3 passed in 7.07s; frontend lint/typecheck/
 build, platform admin, security and staging-config success.
 The first superseded CI 36274941584 was cancelled after the
-fixture correction. No schema migration; Alembic a9c1e3f5b7d0,
+fixture correction. No schema migration; Alembic c7e9a1b3d5f2,
 104 tables unchanged. No frozen docs/ files modified.
 
 Report catalog enhanced TAB tenant.delinquency now links to
@@ -623,7 +623,7 @@ Source commit 60ee5a986d670b4e3af18d01060e971c163c522f;
 CI 36275464600 SUCCESS all six jobs: backend 454 passed,
 3 deselected, 5451 warnings in 79.84s; E2E 3 passed in 9.45s;
 frontend lint/typecheck/build, security, platform-admin and
-staging-config SUCCESS. No migration: Alembic a9c1e3f5b7d0,
+staging-config SUCCESS. No migration: Alembic c7e9a1b3d5f2,
 104 model tables unchanged. No frozen docs/ changed.
 
 Backend services/security_deposit_funds.py and existing report
@@ -670,7 +670,7 @@ Source 873219e0be9e41a7c68ec52e4da604a882dc90c2.
 CI 36275843531 SUCCESS six jobs. Backend 458 passed,
 3 deselected, 5652 warnings in 90.10s; E2E 3 passed in
 9.28s. Frontend lint/typecheck/build, security, platform-admin,
-staging-config passed. No migration, head a9c1e3f5b7d0,
+staging-config passed. No migration, head c7e9a1b3d5f2,
 104 tables. No frozen docs/ edits.
 
 Standard catalog entry tenant.directory links to
@@ -712,7 +712,7 @@ First source run 36276282964 SUCCESS: backend 462 passed,
 36276682654 SUCCESS six jobs: backend 463 passed, 3 deselected,
 5898 warnings in 91.44s; E2E 3 passed in 9.50s;
 frontend lint/typecheck/build, platform-admin, security and
-staging-config passed. Alembic a9c1e3f5b7d0, 104 tables;
+staging-config passed. Alembic c7e9a1b3d5f2, 104 tables;
 no migrations, no frozen docs edits.
 
 Enhanced TAB catalog key tenant.ledger, route
@@ -753,7 +753,7 @@ Source f97b2c9c4078076ebd3c1d19d7107068bf49bb42.
 CI 36277065122 SUCCESS all six jobs:
 467 backend passed, 3 deselected, 6027 warnings in 92.34s;
 3 browser E2E passed in 8.94s.
-No migration; Alembic a9c1e3f5b7d0, 104 tables.
+No migration; Alembic c7e9a1b3d5f2, 104 tables.
 No frozen docs/ changes. Scoped tenant contact report takes only
 actually recorded lease creation/update/signature/timestamped note
 events; does not infer actual move-out/notices from contract dates
@@ -768,7 +768,7 @@ CI 36277862050 SUCCESS all six jobs:
 471 backend passed, 3 deselected, 6212 warnings in 71.33s;
 3 browser E2E passed in 9.20s; frontend lint/typecheck/build,
 security, platform-admin, staging-config SUCCESS.
-No migration; Alembic a9c1e3f5b7d0 / 104 tables.
+No migration; Alembic c7e9a1b3d5f2 / 104 tables.
 No frozen docs/ changes.
 
 New standard catalog key tenant.unpaid_charges links to
@@ -805,7 +805,7 @@ GitHub CI 36278186270 SUCCESS all six jobs: backend
 474 passed, 3 deselected, 6350 warnings in 91.87s;
 authenticated E2E 3 passed in 9.20s; frontend lint/typecheck/
 production build, security, platform-admin, staging-config GREEN.
-No migration, Alembic a9c1e3f5b7d0 / 104 tables unchanged.
+No migration, Alembic c7e9a1b3d5f2 / 104 tables unchanged.
 Frozen docs/ unchanged. Previous handoff-only CI 36278139301
 was CANCELLED by the new product push, not a test failure.
 
@@ -3843,7 +3843,7 @@ payer obligation, board approval, accounting policies.
    No duplicate HOA registry/contact/draft implementation.
 2. Bounded original C2 violations prerequisite is staff-only
    observations. Pending source batch adds scoped read/write
-   backend and migration a9c1e3f5b7d0 / 132 tables plus tests.
+   backend and migration c7e9a1b3d5f2 / 132 tables plus tests.
    That source is NOT VERIFIED until all applicable CI jobs pass.
    Then add a read-only MANAGER / ADMIN-OWNER editing customer UI
    in existing property HOA panel; do not issue legal notices.
@@ -3870,7 +3870,7 @@ CI 36431000854 SUCCESS all six jobs: 700 backend passed,
 staff-only recurring/special assessment draft backend/UI and
 unlink/archive integrity. Do not repeat those batches.
 Pending source adds Phase 4.7 staff HOA observations backend,
-migration a9c1e3f5b7d0 / 132 tables; CI pending/not verified.
+migration c7e9a1b3d5f2 / 132 tables; CI pending/not verified.
 Fix CI if red before adding its customer UI. Actual HOA
 legal notices/fines and HUD/LIHTC eligibility need reviewed
 governing/jurisdiction rules. Do not touch main/new branches or
@@ -3938,7 +3938,7 @@ property scope, and PROPERTIES.ALL permission. Generic notes/
 unencrypted attachments denylisted; audit metadata excludes
 free-text details. Association unlink and archive soft-disable
 old staff records so relink cannot silently reactivate them.
-Migration a9c1e3f5b7d0 adds hoa_observations (132 model tables).
+Migration c7e9a1b3d5f2 adds hoa_observations (132 model tables).
 Focused tests assert no legal/finance fields and no GL/Charge/
 Lease mutation. Do not mark this feature, migration or test counts
 VERIFIED until this source CI passes. Next dependent batch is

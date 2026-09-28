@@ -1,13 +1,13 @@
 """Staff HOA observations, not legal violations or financial obligations.
 
-Revision ID: a9c1e3f5b7d0
+Revision ID: c7e9a1b3d5f2
 Revises: f8b0c2d4e6a9
 Create Date: 2026-09-28
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "a9c1e3f5b7d0"
+revision = "c7e9a1b3d5f2"
 down_revision = "f8b0c2d4e6a9"
 branch_labels = None
 depends_on = None
