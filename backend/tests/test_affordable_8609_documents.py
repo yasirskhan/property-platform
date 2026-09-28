@@ -315,3 +315,107 @@ def test_compliance_rotation_role_scope_config_and_atomic_failure(monkeypatch):
         assert exc.value.status_code == 503
     finally:
         db.close(); engine.dispose()
+
+
+def test_compliance_rotation_readiness_scoped_paginated_and_redacted(monkeypatch):
+    import json
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), props, progs, buildings = _seed(db)
+        old_key = settings.COMPLIANCE_DOCUMENT_ENCRYPTION_KEY
+        original = service.archive_8609(
+            db, current_user=admin, property_id=props[0].id,
+            program_id=progs[0].id, building_id=buildings[0].id,
+            contents=PDF, received_on=date(2026,9,26), signed_copy_reviewed=True,
+        )
+        foreign_scan = service.archive_8609(
+            db, current_user=admin, property_id=props[1].id,
+            program_id=progs[1].id, building_id=buildings[1].id,
+            contents=PDF, received_on=date(2026,9,26), signed_copy_reviewed=True,
+        )
+        saved = db.query(Affordable8609Document).filter_by(id=original.id).one().encrypted_pdf
+        monkeypatch.setattr(settings, "COMPLIANCE_DOCUMENT_PREVIOUS_KEYS_JSON",
+                            json.dumps([old_key]))
+        monkeypatch.setattr(settings, "COMPLIANCE_DOCUMENT_ENCRYPTION_KEY",
+                            Fernet.generate_key().decode())
+        current_scan = service.archive_8609(
+            db, current_user=admin, property_id=props[0].id,
+            program_id=progs[0].id, building_id=buildings[0].id,
+            contents=PDF, received_on=date(2026,9,26), signed_copy_reviewed=True,
+        )
+        response = Response()
+        first = routes.rotation_readiness(
+            props[0].id, progs[0].id, buildings[0].id, response,
+            limit=1, db=db, current_user=admin,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert first == {"checked":1, "pending_rewrap":1, "current_key":0,
+                         "next_document_id":original.id, "has_more":True}
+        second = service.inspect_building_rotation(
+            db, current_user=admin, property_id=props[0].id,
+            program_id=progs[0].id, building_id=buildings[0].id,
+            after_document_id=first["next_document_id"], limit=1,
+        )
+        assert second == {"checked":1, "pending_rewrap":0, "current_key":1,
+                          "next_document_id":current_scan.id, "has_more":False}
+        assert db.query(Affordable8609Document).filter_by(id=original.id).one().encrypted_pdf == saved
+        assert db.query(Affordable8609Document).filter_by(id=foreign_scan.id).one().encrypted_pdf
+        reviews = db.query(AuditLog).filter_by(action="encryption_rotation_reviewed").all()
+        assert len(reviews) == 2
+        for event in reviews:
+            assert event.organization_id == admin.organization_id
+            for sensitive in ("123-45-6789", old_key,
+                              settings.COMPLIANCE_DOCUMENT_ENCRYPTION_KEY):
+                assert sensitive not in (event.new_value or "")
+        for actor in (owner, manager, tenant, foreign):
+            with pytest.raises(HTTPException):
+                service.inspect_building_rotation(
+                    db, current_user=actor, property_id=props[0].id,
+                    program_id=progs[0].id, building_id=buildings[0].id,
+                )
+        with pytest.raises(HTTPException) as exc:
+            service.inspect_building_rotation(
+                db, current_user=admin, property_id=props[1].id,
+                program_id=progs[1].id, building_id=buildings[0].id,
+            )
+        assert exc.value.status_code == 404
+        assert db.query(GLTransaction).count() == db.query(Lease).count() == db.query(Charge).count() == 0
+    finally:
+        db.close();engine.dispose()
+
+
+def test_rotation_readiness_fails_closed_for_missing_keys_and_corruption(monkeypatch):
+    import json
+    db, engine = _db()
+    try:
+        (admin, *_), (prop, *_), (program, *_), (building, *_) = _seed(db)
+        old = settings.COMPLIANCE_DOCUMENT_ENCRYPTION_KEY
+        saved = service.archive_8609(
+            db, current_user=admin, property_id=prop.id,
+            program_id=program.id, building_id=building.id,
+            contents=PDF, received_on=date(2026,9,26), signed_copy_reviewed=True,
+        )
+        monkeypatch.setattr(settings, "COMPLIANCE_DOCUMENT_ENCRYPTION_KEY",
+                            Fernet.generate_key().decode())
+        for history in ("[]", "not-json"):
+            monkeypatch.setattr(settings, "COMPLIANCE_DOCUMENT_PREVIOUS_KEYS_JSON", history)
+            with pytest.raises(HTTPException) as exc:
+                service.inspect_building_rotation(
+                    db, current_user=admin, property_id=prop.id,
+                    program_id=program.id, building_id=building.id,
+                )
+            assert exc.value.status_code == 503
+        monkeypatch.setattr(settings, "COMPLIANCE_DOCUMENT_PREVIOUS_KEYS_JSON",
+                            json.dumps([old]))
+        row = db.query(Affordable8609Document).filter_by(id=saved.id).one()
+        row.encrypted_pdf = b"tampered"
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            service.inspect_building_rotation(
+                db, current_user=admin, property_id=prop.id,
+                program_id=program.id, building_id=building.id,
+            )
+        assert exc.value.status_code == 503
+        assert db.query(AuditLog).filter_by(action="encryption_rotation_reviewed").count() == 0
+    finally:
+        db.close();engine.dispose()

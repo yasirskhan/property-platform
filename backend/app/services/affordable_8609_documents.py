@@ -205,3 +205,63 @@ def rotate_building_scans(
         "next_document_id": selected[-1].id if selected else after_document_id,
         "has_more": has_more,
     }
+
+
+def inspect_building_rotation(
+    db: Session, *, current_user: User, property_id: int, program_id: int,
+    building_id: int, after_document_id: int = 0, limit: int = 20,
+) -> dict[str, int | bool]:
+    """Read-only bounded key-retirement preflight, never claims global completion.
+
+    An old key is NOT safe to retire merely because one page or building
+    reports zero pending scans. Inspect every page in every building first.
+    """
+    prop, building = _scope(
+        db, property_id=property_id, program_id=program_id,
+        building_id=building_id, user=current_user, write=False,
+    )
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Compliance rotation review requires an administrator.")
+    if after_document_id < 0 or not 1 <= limit <= 25:
+        raise HTTPException(status_code=422, detail="Invalid rotation preview batch.")
+    crypto = _crypto()
+    current = Fernet(settings.COMPLIANCE_DOCUMENT_ENCRYPTION_KEY.encode("utf-8"))
+    selected = db.query(Affordable8609Document).filter(
+        Affordable8609Document.organization_id == prop.organization_id,
+        Affordable8609Document.property_id == prop.id,
+        Affordable8609Document.program_id == program_id,
+        Affordable8609Document.building_id == building.id,
+        Affordable8609Document.id > after_document_id,
+    ).order_by(Affordable8609Document.id.asc()).limit(limit + 1).all()
+    has_more = len(selected) > limit
+    selected = selected[:limit]
+    pending, already_current = 0, 0
+    for document in selected:
+        try:
+            # Decrypt only to confirm the scan remains valid; no plaintext
+            # is sent or logged, and this endpoint never rewraps records.
+            try:
+                plain = current.decrypt(document.encrypted_pdf)
+                already_current += 1
+            except InvalidToken:
+                plain = crypto.decrypt(document.encrypted_pdf)
+                pending += 1
+            _valid_pdf(plain)
+        except (InvalidToken, ValueError, TypeError) as exc:
+            db.rollback()
+            raise HTTPException(status_code=503, detail="Compliance rotation preflight cannot decrypt a scan.") from exc
+    append_audit_log(
+        db, organization_id=prop.organization_id, user_id=current_user.id,
+        entity_type="affordable_8609_document", entity_id=building.id,
+        action="encryption_rotation_reviewed",
+        new_value={"building_id": building.id, "checked": len(selected),
+                   "pending_rewrap": pending, "current_key": already_current},
+    )
+    db.commit()
+    return {
+        "checked": len(selected),
+        "pending_rewrap": pending,
+        "current_key": already_current,
+        "next_document_id": selected[-1].id if selected else after_document_id,
+        "has_more": has_more,
+    }

@@ -10,7 +10,7 @@ from app.models.user import User
 from app.routers.auth import get_current_user
 from app.schemas.affordable_8609_document import Affordable8609DocumentOut
 from app.services.affordable_8609_documents import (
-    MAX_8609_BYTES, _scope, archive_8609, download_8609, list_8609, rotate_building_scans,
+    MAX_8609_BYTES, _scope, archive_8609, download_8609, list_8609, rotate_building_scans, inspect_building_rotation,
 )
 
 router = APIRouter(prefix="/api/properties", tags=["Restricted Form 8609 scans"])
@@ -92,6 +92,22 @@ def rotate_document_encryption(
 ):
     """Administrator-only, audited and paginated encryption-key rewrap."""
     result = rotate_building_scans(
+        db, current_user=current_user, property_id=property_id,
+        program_id=program_id, building_id=building_id,
+        after_document_id=after_document_id, limit=limit,
+    )
+    response.headers.update(NO_STORE)
+    return result
+
+
+@router.get("/{property_id}/affordable-programs/{program_id}/buildings/{building_id}/8609-documents/rotation-readiness")
+def rotation_readiness(
+    property_id: int, program_id: int, building_id: int, response: Response,
+    after_document_id: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=25),
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    """Admin-only paginated status; never declares old keys safe to discard."""
+    result = inspect_building_rotation(
         db, current_user=current_user, property_id=property_id,
         program_id=program_id, building_id=building_id,
         after_document_id=after_document_id, limit=limit,
