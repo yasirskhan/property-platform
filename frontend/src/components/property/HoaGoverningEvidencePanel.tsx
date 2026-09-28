@@ -174,8 +174,10 @@ export default function HoaGoverningEvidencePanel({ associationId, propertyId, c
             <button type="button" onClick={() => setShowUpload((old) => !old)}
               className="rounded border px-3 py-2">{showUpload ? "Hide property upload" : "Upload private file"}</button>
           </div>
-          {showUpload && <EntityAttachments entityType="properties" entityId={propertyId} canManage />}
         </form>
+      )}
+      {canEdit && !loading && showUpload && (
+        <EntityAttachments entityType="properties" entityId={propertyId} canManage />
       )}
     </section>
   );
