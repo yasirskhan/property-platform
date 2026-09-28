@@ -7,25 +7,25 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `af94f8afefd853a906c9bf19fc96819eab42c7fc`
-- Source GitHub Actions run **36360330500: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `b149717b76a45be85a02584d26176bbb90048dd4`
+- Source GitHub Actions run **36361333281: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **629 passed, 3 deselected, 12662 warnings in 133.73s**.
-  E2E: **3 passed in 10.10s**. Lint, typecheck, production build, security
+  Backend: **633 passed, 3 deselected, 12872 warnings in 144.57s**.
+  E2E: **3 passed in 9.85s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **f2e4a6c8d0b1**. SQLAlchemy expected model tables: **115**.
-  Previous head f1e3a5c7d9b0 / 114 tables. One application-fee-attempt
-  table added; PostgreSQL/bootstrap/legacy CI passed.
+- Alembic head: **f3e5a7c9d1b2**. SQLAlchemy expected model tables: **115**.
+  Previous head f2e4a6c8d0b1 / 115 tables. Nullable receipt FK and
+  unique receipt index added; PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4 idempotent fee preparation; no payment charged. VERIFIED.**
+  **Latest completed batch: Phase 4 already-posted application fee receipt linkage and reversal reconciliation. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Phase 4 Leasing Applications fee settlement. Verified fee attempt and quote remain PREPARED only; implement staff-verified existing receipt settlement and reversal reconciliation as a safe interim option, then separately Stripe/merchant-account provider integration with signed webhook and accounting. No fee has been charged or application marked paid. External Avalara/IRIS acceptance and recipient copies still await operator credentials.**
+- **Exact NEXT original-plan task: Phase 4 Lease Templates (3-level template + addenda + attachments; organization-wide or scoped per-property). Already-posted offline application-fee receipt linkage is VERIFIED; external Stripe/merchant provider is deferred until independently configured and verified. No live online card charge has been implemented. External Avalara/IRIS acceptance and recipient copies still await operator credentials.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -2891,55 +2891,89 @@ Respect original Section 18 Applications;
 external Stripe payments remain Phase 8
 integration dependency until configured.
 
+
+## Phase 4 offline application fee settlement — VERIFIED 2026-09-27
+
+Source f364877dabe43757ea949d8d28e1d2682e3bebaa;
+migration/reversal fix 4781ddc4e4dccbb8e6be99f032704aaa56a685d3;
+isolated receipt fixture repair b149717b76a45be85a02584d26176bbb90048dd4.
+CI 36361333281 SUCCESS all six jobs: backend 633 passed,
+3 deselected, 12872 warnings in 144.57s; authenticated browser
+E2E 3 passed in 9.85s; frontend, platform-admin, security, staging green.
+Prior run 36361018433 FAILED; fix and new CI green; intermediate
+36360963206 CANCELLED. These counts apply to verified source only.
+Alembic f3e5a7c9d1b2 adds nullable unique
+application_payments.receipt_id FK; 115 SQLAlchemy tables unchanged.
+
+POST /api/leasing/applications/{id}/record-fee-receipt is admin-only,
+requires live LEASING.APPLICATIONS + ACCOUNTING.RECEIVABLES
+permissions and release.accounting.receipts.application_fee;
+links an EXISTING, active, non-reversed, exact-fee, verified
+APPLICATION_FEE Receipt already posted through immutable central GL.
+Original Receipt must match current organization, property, unit,
+applicant name, APP-{application_id} reference, income GL 4420
+and active original GL transaction. Prepared attempt amount/ID
+and applicant ownership are verified. Unique receipt FK prevents
+reuse; one paid payment per application. Link changes applicant
+status to PAID without duplicating GL or charging Stripe.
+
+Existing reversal and NSF receipt posting now reconcile linked
+application fee: payment status reversed, application back to
+PENDING_PAYMENT, fee_amount reset and attempt REVERSED, all
+transactional with the original accounting reversal. An
+unsuccessful locked-period GL reversal leaves paid application
+untouched. Focused tests verify scope, permission/gate revocation,
+idempotence/reuse, exact amounts/receipt references and reversal.
+No browser-supplied fee amounts, no card checkout, and no automatic
+provider fee deposit. The online Stripe/provider integration still
+requires authorized org-specific merchant of record, signed
+webhook, reliable event reconciliation and provider-confirmed funds.
+
+NEXT original plan Phase 4 Lease Templates: 3-level Template +
+Addenda + Attachments; database-wide (same organization) or
+per-property. Reuse entity attachments with lease-template target
+permission and property assignment checks; exclude tax/SSN
+content, draft versioning/immutable published copies where required,
+no automated e-signature or tenant disclosure without approval.
+Before coding inspect existing Lease/Property and template-related
+models, menu permissions, Frontend navigation and docs Section 18.
+Use bounded product code plus applicable tests and hosted CI.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Read root handoff fully; verify real branch HEAD and CI.
-   Fee preparation source af94f8afefd853a906c9bf19fc96819eab42c7fc
-   VERIFIED, CI 36360330500 all six jobs.
-   Do not repeat applicant drafts, encryption, quote or reservation.
-2. Next original Phase 4 fee batch: staff-verified offline
-   APPLICATION_FEE receipt linkage to PENDING_PAYMENT rental
-   application using immutable central GL posting that ALREADY
-   happened in the verified Receipts module. Check receipt
-   org/property/unit/applicant reference, exact amount,
-   active un-reversed GL/fee income account, staff role and
-   live receivables/leasing permissions plus feature gate;
-   ensure one receipt cannot pay two applications and
-   reversal/NSF reconciles applicant status atomically.
-   Don't post duplicate GL or accept browser-chosen amount.
-   Include focused tests, new migration guards if linking
-   receipt FK, and honest provider/offline distinctions.
-3. Provider-backed live application fee Checkout stays
-   disabled absent a verified organization merchant
-   destination, distinct webhook, server price,
-   payment_status paid, signed event, reconciliation,
-   idempotency and approved GL mapping. Subscription
-   checkout is NOT a rental-application payment gateway.
-4. Hosted CI on branch only, fix CI reds before another
-   feature batch; update root AI_HANDOFF.md after
-   every meaningful verified batch with counts and
-   migrations. No main/new branch or frozen docs edits.
-5. Then continue original Phase 4 Lease Templates,
-   CRM/Prospects and Guest Cards, keeping external
-   payment and Phase 8 screening dependencies honest.
+1. Verify branch HEAD and latest CI. Receipt linking/reversal
+   source b149717b76a45be85a02584d26176bbb90048dd4
+   VERIFIED, CI 36361333281 all six jobs. Do not repeat.
+2. Original Phase 4 Lease Templates: three levels
+   Template + Addenda + Attachments, org-wide or
+   property-specific, authorization and read/write
+   audit. Reuse existing universal attachments safely,
+   original Section 18, existing property scoping, no
+   automatic lease signatures or GL effect. Test and
+   verify hosted CI before declaring complete.
+3. Online application Stripe checkout remains deferred
+   pending distinct authorized merchant config, signed
+   webhook, money movement and GL reconciliation.
+   Do not reuse subscription checkout or infer PAID from
+   browser URL. No other completed batches repeated.
+4. Continue Lease Templates, CRM/Prospects, Guest Cards
+   in original roadmap order. Update this root handoff
+   after each verified batch. No main/new branches,
+   force push or unauthorized changes to frozen docs/.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on
+Continue yasirskhan/property-platform on branch
 chatgpt/checkpoint-005-safety. Read entire repo-root
-AI_HANDOFF.md, verify latest HEAD and CI.
-Last VERIFIED source af94f8afefd853a906c9bf19fc96819eab42c7fc;
-CI 36360330500 SUCCESS all six jobs, 629 backend passed,
-3 deselected and authenticated E2E 3 passed in 10.10s.
-Alembic f2e4a6c8d0b1; 115 model tables.
-Applicant draft, encrypted questionnaire, read-only
-verified unit fee quote, idempotent PREPARED fee
-record all VERIFIED. No money charged or PAID.
-Next safe Phase 4 fee batch: linking an already
-GL-posted staff-confirmed APPLICATION_FEE Receipt
-with reversal protection; live Stripe requires
-separate authorized merchant and webhook.
-Then original Lease Templates/CRM/Guest Cards.
-Do not modify main, create branch, alter frozen
-docs, repeat verified work or invent test results.
-Use commit+hosted CI and update root handoff.
+AI_HANDOFF.md; verify current HEAD/CI. Last verified
+source b149717b76a45be85a02584d26176bbb90048dd4;
+CI 36361333281 SUCCESS, 633 backend passed,
+3 deselected, 3 E2E passed. Alembic f3e5a7c9d1b2;
+115 model tables. Offline posted receipt link/reversal
+VERIFIED; no online Stripe application charge.
+NEXT original Phase 4 Lease Templates 3-level
+Template + Addenda + Attachments, org-wide or
+per-property; then CRM/Prospects and Guest Cards.
+Do not repeat verified work or alter frozen docs,
+main, or branch topology. Commit bounded tests/code,
+verify six-job CI, update root handoff.
