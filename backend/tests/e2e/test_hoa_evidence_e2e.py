@@ -204,3 +204,52 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
             finally:
                 browser.close()
         assert _financial_counts() == before
+
+
+def test_hoa_staff_meeting_motion_browser_flow_no_official_vote() -> None:
+    """A real browser can prepare an unapproved motion, but cannot cast an official vote."""
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                page.goto(
+                    f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                    wait_until="domcontentloaded",
+                )
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                expect(page.get_by_role("heading", name="HOA — recorded associations")).to_be_visible()
+
+                association_name = "E2E Meeting Workspace Association"
+                page.get_by_label("Association name").fill(association_name)
+                page.get_by_role("button", name="Record association").click()
+                association = page.get_by_text(association_name, exact=True).locator("..").locator("..")
+                association.get_by_role("button", name="Meeting plans").click()
+                plans = association.get_by_role("heading", name="HOA staff meeting plans").locator("..").locator("..")
+                plans.get_by_label("Staff plan title").fill("E2E proposed agenda")
+                plans.get_by_label("Proposed date (not legal notice)").fill("2026-10-14")
+                plans.get_by_role("button", name="Save staff plan").click()
+                expect(plans.get_by_text("E2E proposed agenda", exact=False)).to_be_visible()
+
+                plans.get_by_role("button", name="Meeting workspace").click()
+                workspace = plans.get_by_role(
+                    "heading", name="Staff meeting participation and motion preparation"
+                ).locator("..").locator("..")
+                expect(workspace.get_by_text(re.compile("not official votes"))).to_be_visible()
+                workspace.get_by_label("Proposed staff motion").fill("E2E draft landscaping motion")
+                workspace.get_by_role("button", name="Save motion draft").click()
+                expect(workspace.get_by_text(re.compile("E2E draft landscaping motion"))).to_be_visible()
+                expect(workspace.get_by_text(re.compile("PROPOSED ONLY"))).to_be_visible()
+                expect(workspace.get_by_text(re.compile("No vote has occurred"))).to_be_visible()
+                assert _financial_counts() == before
+            finally:
+                browser.close()
+        assert _financial_counts() == before

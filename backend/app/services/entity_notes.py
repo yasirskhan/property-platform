@@ -26,6 +26,8 @@ _FORBIDDEN_TABLES = {
     "hoa_assessment_proposals",
     "hoa_observations",
     "hoa_meeting_drafts",
+    "hoa_meeting_participation",  # Scoped staff-reported attendance, not public board membership.
+    "hoa_motion_drafts",  # Proposed motions never use generic notes or file sharing.
     "hoa_arc_intakes",
     "commercial_lease_abstracts",  # Staff-only commencement metadata needs both property and leasing scope.
     "hoa_procedure_policies",  # Restricted staff policy/notice templates.

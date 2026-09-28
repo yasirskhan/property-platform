@@ -21,6 +21,7 @@ from app.models.user import User, UserRole
 from app.routers.auth import get_current_user
 from app.schemas.hoa_association import HOAAssociationIn, HOAAssociationOut, HOAContactLinkIn, HOAContactLinkOut
 from app.services.audit import append_audit_log
+from app.services.hoa_meeting_workspace_cleanup import archive_meeting_workspace, archive_contact_participation
 from app.services.customer_features import resolve_customer_features
 from app.services.menu_resolver import permission_allows_user
 
@@ -184,6 +185,11 @@ def _archive_meeting_drafts(
     if property_id is not None:
         query = query.filter(HOAMeetingDraft.property_id == property_id)
     for meeting in query.all():
+        archive_meeting_workspace(
+            db, organization_id=org_id, association_id=association_id,
+            property_id=meeting.property_id, meeting_draft_id=meeting.id,
+            actor_id=actor_id, action=action,
+        )
         meeting.is_active = False
         meeting.updated_by_id = actor_id
         db.flush()
@@ -571,6 +577,11 @@ def remove_contact_link(
         raise HTTPException(status_code=404, detail="Contact link not found.")
     link.is_active = False
     link.updated_by_id = current_user.id
+    archive_contact_participation(
+        db, organization_id=org_id, association_id=association.id,
+        property_id=property_id, contact_link_id=link.id,
+        actor_id=current_user.id, action="contact_link_archived",
+    )
     db.flush()
     append_audit_log(
         db, organization_id=org_id, user_id=current_user.id,

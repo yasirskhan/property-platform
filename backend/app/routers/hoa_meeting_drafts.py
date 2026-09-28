@@ -12,6 +12,7 @@ from app.routers.auth import get_current_user
 from app.routers.hoa_assessments import _scope
 from app.schemas.hoa_meeting_draft import HOAMeetingDraftIn, HOAMeetingDraftOut
 from app.services.audit import append_audit_log
+from app.services.hoa_meeting_workspace_cleanup import archive_meeting_workspace
 
 router = APIRouter(prefix="/api/hoa/associations", tags=["HOA staff meeting plans"])
 
@@ -132,6 +133,11 @@ def archive_meeting_draft(
         property_id=property_id, write=True,
     )
     row = _row(db, org_id, assoc.id, property_id, draft_id)
+    archive_meeting_workspace(
+        db, organization_id=org_id, association_id=assoc.id,
+        property_id=property_id, meeting_draft_id=row.id,
+        actor_id=current_user.id, action="meeting_draft_archived",
+    )
     row.is_active = False
     row.updated_by_id = current_user.id
     db.flush()

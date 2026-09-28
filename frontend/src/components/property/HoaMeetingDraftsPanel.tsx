@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
+import HoaMeetingWorkspacePanel from "@/components/property/HoaMeetingWorkspacePanel";
 
 type MeetingDraft = {
   id: number; association_id: number; property_id: number;
@@ -18,6 +19,7 @@ export default function HoaMeetingDraftsPanel({ associationId, propertyId, canEd
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [workspaceId, setWorkspaceId] = useState<number | null>(null);
   const [title, setTitle] = useState("");
   const [proposedOn, setProposedOn] = useState("");
   const [agenda, setAgenda] = useState("");
@@ -84,6 +86,7 @@ export default function HoaMeetingDraftsPanel({ associationId, propertyId, canEd
       await apiDelete(base + "/" + row.id + "?property_id=" + propertyId);
       setItems((prior) => prior.filter((item) => item.id !== row.id));
       if (editingId === row.id) clearForm();
+      if (workspaceId === row.id) setWorkspaceId(null);
       setMessage("Staff meeting plan archived; no legal or financial effect.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to archive meeting plan.");
@@ -118,12 +121,19 @@ export default function HoaMeetingDraftsPanel({ associationId, propertyId, canEd
             <p className="text-xs text-slate-500">Proposed date: {row.proposed_on}</p>
             {row.staff_agenda && <p className="mt-1 whitespace-pre-wrap break-words text-slate-600">{row.staff_agenda}</p>}
           </div>
+          <button type="button"
+            onClick={() => setWorkspaceId((old) => old === row.id ? null : row.id)}
+            className="text-sm text-blue-700">Meeting workspace</button>
           {canEdit && <div className="flex gap-3 text-sm">
             <button type="button" disabled={busy} onClick={() => edit(row)}
               className="text-blue-700 disabled:opacity-50">Edit</button>
             <button type="button" disabled={busy} onClick={() => { void archive(row); }}
               className="text-red-700 disabled:opacity-50">Archive</button>
           </div>}
+          {workspaceId === row.id && (
+            <HoaMeetingWorkspacePanel associationId={associationId} propertyId={propertyId}
+              meetingId={row.id} canEdit={canEdit} onClose={() => setWorkspaceId(null)} />
+          )}
         </div>
       ))}
       {canEdit && !loading && (

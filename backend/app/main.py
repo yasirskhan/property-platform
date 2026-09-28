@@ -97,6 +97,7 @@ from app.routers import hoa_associations as hoa_associations_router
 from app.routers import hoa_assessments as hoa_assessments_router
 from app.routers import hoa_observations as hoa_observations_router
 from app.routers import hoa_meeting_drafts as hoa_meeting_drafts_router
+from app.routers import hoa_meeting_workspace as hoa_meeting_workspace_router
 from app.routers import hoa_arc_intake as hoa_arc_intake_router
 from app.routers import hoa_governing_evidence as hoa_governing_evidence_router
 from app.routers import hoa_procedure_policies as hoa_procedure_policies_router
@@ -227,6 +228,7 @@ app.include_router(hoa_associations_router.router)
 app.include_router(hoa_assessments_router.router)
 app.include_router(hoa_observations_router.router)
 app.include_router(hoa_meeting_drafts_router.router)
+app.include_router(hoa_meeting_workspace_router.router)
 app.include_router(hoa_arc_intake_router.router)
 app.include_router(hoa_governing_evidence_router.router)
 app.include_router(hoa_procedure_policies_router.router)
