@@ -2,15 +2,19 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Response, HTTPException
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.affordable_evidence import AffordableEvidence
+from app.models.unit_inspection import UnitInspectionRecord
 from app.models.user import User
 from app.routers.auth import get_current_user
 from app.routers.affordable_programs import _property, _item
-from app.schemas.affordable_evidence import AffordableEvidenceIn, AffordableEvidenceOut
+from app.schemas.affordable_evidence import AffordableEvidenceIn, AffordableEvidenceOut, StaffInspectionSummaryOut
+from app.services.report_delivery import ReportDeliveryError
+from app.services.unit_inspections import _scope as unit_inspection_scope
 from app.services.audit import append_audit_log
 
 router = APIRouter(prefix="/api/properties", tags=["Affordable evidence readiness"])
@@ -84,3 +88,39 @@ def save_evidence(
         raise HTTPException(status_code=409, detail="Evidence readiness was updated concurrently.") from exc
     db.refresh(row)
     return AffordableEvidenceOut.model_validate(row)
+
+
+
+@router.get("/{property_id}/affordable-programs/{program_id}/inspection-summary",
+            response_model=StaffInspectionSummaryOut)
+def recorded_inspection_summary(
+    property_id: int, program_id: int, response: Response,
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    """Read-only property-wide unit-inspection count, never HQS certification.
+
+    Independently enforce the existing inspection module's narrower
+    ADMIN/MANAGER + three-menu-key scope; a compliance OWNER alone does
+    not gain unit inspection data. No findings or unit identifiers leak.
+    """
+    prop = _property(db, property_id=property_id, actor=current_user, write=False)
+    _item(db, org_id=prop.organization_id, prop_id=prop.id, item_id=program_id)
+    try:
+        _, units = unit_inspection_scope(
+            db, organization_id=prop.organization_id, actor=current_user,
+            property_id=prop.id,
+        )
+    except ReportDeliveryError as exc:
+        raise HTTPException(status_code=403, detail="Unit inspection permission required.") from exc
+    response.headers["Cache-Control"] = "no-store"
+    if not units:
+        return StaffInspectionSummaryOut(total_recorded=0, latest_recorded_on=None)
+    total, latest = db.query(
+        func.count(UnitInspectionRecord.id),
+        func.max(UnitInspectionRecord.inspection_date),
+    ).filter(
+        UnitInspectionRecord.organization_id == prop.organization_id,
+        UnitInspectionRecord.property_id == prop.id,
+        UnitInspectionRecord.unit_id.in_(list(units)),
+    ).one()
+    return StaffInspectionSummaryOut(total_recorded=int(total), latest_recorded_on=latest)

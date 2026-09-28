@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { apiGet, apiPut } from "@/lib/api";
 
 type Category = "AGENCY_GUIDANCE" | "PROGRAM_AGREEMENT" | "PROPERTY_RECORD_INDEX" | "INSPECTION_COORDINATION";
@@ -26,6 +27,9 @@ export default function AffordableEvidenceChecklist({
   const [busy, setBusy] = useState<Category | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [inspectionSummary, setInspectionSummary] = useState<{ total_recorded: number; latest_recorded_on: string | null } | null>(null);
+  const [inspectionError, setInspectionError] = useState("");
+  const [inspectionBusy, setInspectionBusy] = useState(false);
   const path = `/api/properties/${propertyId}/affordable-programs/${programId}/evidence`;
   useEffect(() => {
     let live = true;
@@ -68,6 +72,32 @@ export default function AffordableEvidenceChecklist({
         or signed forms here. Use existing property attachments only for
         ordinary non-sensitive property documents under their own access rules.
       </p>
+      <div className="mt-3 border-t pt-3 text-sm">
+        <button type="button" disabled={inspectionBusy} onClick={() => {
+          setInspectionBusy(true); setInspectionError(""); setInspectionSummary(null);
+          void (async () => {
+            try {
+              const result = await apiGet(`${path.slice(0, -"/evidence".length)}/inspection-summary`) as {
+                total_recorded: number; latest_recorded_on: string | null;
+              };
+              setInspectionSummary(result);
+            } catch {
+              setInspectionError("A separate unit-inspection permission is required to view this summary.");
+            } finally { setInspectionBusy(false); }
+          })();
+        }} className="rounded border px-3 py-1.5 text-blue-700 disabled:opacity-50">
+          {inspectionBusy ? "Checking…" : "Cross-reference staff-recorded unit inspections"}
+        </button>
+        {inspectionError && <p role="status" className="mt-2 text-amber-800">{inspectionError}</p>}
+        {inspectionSummary && (
+          <p className="mt-2 text-slate-600">
+            Existing property-wide inspection entries: {inspectionSummary.total_recorded}.
+            Latest recorded date: {inspectionSummary.latest_recorded_on || "None"}.
+            These entries are not linked to this program and do not prove HQS or LIHTC compliance.{" "}
+            <Link className="underline" href="/dashboard/reporting/unit-inspections">Open Unit Inspection report</Link>.
+          </p>
+        )}
+      </div>
       {loading && <p className="mt-2 text-sm">Loading…</p>}
       {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
       {message && <p role="status" className="mt-2 text-sm text-green-700">{message}</p>}

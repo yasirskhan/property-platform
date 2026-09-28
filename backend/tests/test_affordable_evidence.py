@@ -16,9 +16,11 @@ from app.models.audit_log import AuditLog
 from app.models.charge import Charge
 from app.models.gl_transaction import GLTransaction
 from app.models.lease import Lease
-from app.models.property import Property, PropertyAssignment
+from app.models.property import Property, PropertyAssignment, Unit
+from app.models.unit_inspection import UnitInspectionRecord
 from app.models.user import Organization, User, UserRole
 from app.routers import affordable_programs as programs, affordable_evidence as api
+from app.services import unit_inspections
 from app.schemas.affordable_evidence import AffordableEvidenceIn
 from app.services.entity_notes import _model_for_table
 
@@ -150,6 +152,102 @@ def test_release_permission_archival_validation_and_generic_target_denial(monkey
         db.flush()
         with pytest.raises(HTTPException) as exc:
             api.list_evidence(p.id, program.id, Response(), db=db, current_user=admin)
+        assert exc.value.status_code == 404
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+
+def test_program_inspection_summary_reuses_inspection_scope_not_hqs(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, other, foreign_prop), (program, other_program, foreign_program) = _seed(db)
+        units = []
+        for property_, name in ((prop, "A"), (other, "B"), (foreign_prop, "C")):
+            unit = Unit(property_id=property_.id, unit_number=name, is_active=True)
+            db.add(unit); units.append(unit)
+        db.flush()
+        for unit, property_ in ((units[0], prop), (units[0], prop),
+                                 (units[1], other), (units[2], foreign_prop)):
+            db.add(UnitInspectionRecord(
+                organization_id=property_.organization_id, property_id=property_.id,
+                unit_id=unit.id, inspection_date=date(2026, 9, 5),
+                recorded_condition="ATTENTION_NEEDED",
+                findings="Sensitive findings must not be in summary",
+                recorded_by_id=admin.id,
+            ))
+        db.commit()
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **k: True)
+        response = Response()
+        summary = api.recorded_inspection_summary(
+            prop.id, program.id, response, db=db, current_user=admin,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert summary.total_recorded == 2
+        assert summary.latest_recorded_on == date(2026, 9, 5)
+        assert "findings" not in summary.model_dump()
+        assert "unit_id" not in summary.model_dump()
+        assert api.recorded_inspection_summary(
+            prop.id, program.id, Response(), db=db, current_user=manager,
+        ).total_recorded == 2
+        assert api.recorded_inspection_summary(
+            other.id, other_program.id, Response(), db=db, current_user=admin,
+        ).total_recorded == 1
+        for actor in (owner, tenant):
+            with pytest.raises(HTTPException) as exc:
+                api.recorded_inspection_summary(
+                    prop.id, program.id, Response(), db=db, current_user=actor,
+                )
+            assert exc.value.status_code == 403
+        for actor, p, item in (
+            (manager, other, other_program), (foreign, prop, program),
+            (admin, prop, foreign_program),
+        ):
+            with pytest.raises(HTTPException) as exc:
+                api.recorded_inspection_summary(p.id, item.id, Response(),
+                                                db=db, current_user=actor)
+            assert exc.value.status_code == 404
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **k: False)
+        with pytest.raises(HTTPException) as exc:
+            api.recorded_inspection_summary(
+                prop.id, program.id, Response(), db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 403
+        assert db.query(UnitInspectionRecord).count() == 4
+        assert db.query(AffordableEvidence).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_inspection_summary_excludes_disabled_units_and_archived_program(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, *_), (prop, _, _), (program, _, _) = _seed(db)
+        unit = Unit(property_id=prop.id, unit_number="D", is_active=False)
+        db.add(unit); db.flush()
+        db.add(UnitInspectionRecord(
+            organization_id=prop.organization_id, property_id=prop.id,
+            unit_id=unit.id, inspection_date=date(2026, 9, 10),
+            recorded_condition="ATTENTION_NEEDED", findings="private",
+        ))
+        db.commit()
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **k: True)
+        summary = api.recorded_inspection_summary(
+            prop.id, program.id, Response(), db=db, current_user=admin,
+        )
+        assert summary.total_recorded == 0 and summary.latest_recorded_on is None
+        unit.is_active = True
+        db.flush()
+        assert api.recorded_inspection_summary(
+            prop.id, program.id, Response(), db=db, current_user=admin,
+        ).total_recorded == 1
+        program.is_active = False
+        db.flush()
+        with pytest.raises(HTTPException) as exc:
+            api.recorded_inspection_summary(
+                prop.id, program.id, Response(), db=db, current_user=admin,
+            )
         assert exc.value.status_code == 404
     finally:
         db.rollback(); db.close(); engine.dispose()

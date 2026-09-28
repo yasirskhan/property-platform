@@ -21,3 +21,9 @@ class AffordableEvidenceOut(BaseModel):
     status: Readiness
     staff_follow_up_on: date | None
     updated_at: datetime | None = None
+
+
+class StaffInspectionSummaryOut(BaseModel):
+    """Existing general staff inspection records; NOT program-specific HQS."""
+    total_recorded: int
+    latest_recorded_on: date | None
