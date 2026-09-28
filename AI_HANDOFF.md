@@ -7,19 +7,21 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `8383c592b3ab606fb78147306fae4ec0c2f448de`
-- Source GitHub Actions run **36448961679: SUCCESS, all six jobs** (backend,
-  frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **715 passed, 4 deselected, 15562 warnings in 186.49s**.
-  E2E: **4 passed, 4 warnings in 8.57s**. Lint, typecheck, production
-  build, security and staging: SUCCESS. These counts apply to source
-  `8383c592` only.
+- Last VERIFIED **product source**: `bfa68575cdd027141be22abeb70affb379fff17e`
+- Source GitHub Actions run **36453893096, attempt 2: SUCCESS, all six jobs**
+  (backend, frontend, platform-admin, security, authenticated E2E,
+  staging-config). Backend: **718 passed, 4 deselected, 15701 warnings
+  in 192.41s**. E2E: **4 passed, 4 warnings in 10.24s**. Lint, TypeScript,
+  build, security and staging: SUCCESS. This applies to source `bfa68575`.
+  The first E2E attempt had an intermittent login-navigation timeout;
+  the failed job was retried once and passed. No local tests run.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **f0b2c4d6e8a1**. SQLAlchemy expected model tables: **135**.
-  Previous head e9a1b3c5d7f0 / 134 tables (staff document-evidence index adds one table). PostgreSQL/bootstrap/legacy CI passed.
-- CURRENT roadmap work: **Phase 4.7 C2 HOA, IN PROGRESS**. Previous Phase 3.7 reports and 1099 internal preparation have individually verified portions; external 1099 acceptance remains unimplemented.
-  **Latest verified batch: dedicated HOA evidence browser regression plus accessible customer evidence selectors, verified by CI.**
+- Alembic head: **a1c3e5f7b9d0**. SQLAlchemy expected model tables: **136**.
+  Previous head f0b2c4d6e8a1 / 135. PostgreSQL bootstrap, staging
+  preparation and legacy migration guards passed on source `bfa68575`.
+- CURRENT roadmap work: **Phase 4.7 C2 HOA remains BLOCKED on authentic governing/legal inputs**. Independent original-roadmap Phase 4.8 C3 commercial work is now IN PROGRESS. Previous Phase 3.7 reports and 1099 internal preparation retain their previously verified scope; external 1099 acceptance remains unimplemented.
+  **Latest verified batch: staff-only commercial lease commencement references with property UI and scope/accounting regressions.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
@@ -27,6 +29,77 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
 - **Exact NEXT task: obtain/review actual HOA governing documents and the applicable property/association jurisdiction, authorized legal actors and accounting policies. Staff-only private-document evidence indexing, ARC intake, observations, meeting planning, contact references and assessment drafts are VERIFIED. A staff document link is NOT certification of governing authority. No official applications, architectural decisions, notices, penalties, board actions, dues/payer liability, reserve transfers or GL posting without reviewed legal/accounting authority. No uploaded governing source has been verified for this task. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows remain BLOCKED pending authoritative program rules and secure household policy.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED; do not label them completed screening/marketing conversions. External Stripe/IRS filing acceptance remains unimplemented.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight, 1099 preparation, tax profiles or W-9 archive.
+
+## CURRENT SESSION UPDATE — 2026-09-28 PHASE 4.8 COMMERCIAL REFERENCE VERIFIED
+
+**Last verified product source**: `bfa68575cdd027141be22abeb70affb379fff17e`
+(test/schema-guard correction on implementation `5226f9b66da62661d523ea3c30d7ce3c3f6a1969`).
+GitHub Actions **36453893096 attempt 2 SUCCESS, all six jobs**:
+backend **718 passed, 4 deselected, 15701 warnings in 192.41s**,
+authenticated browser **4 passed, 4 warnings in 10.24s**; frontend
+lint/TypeScript/production build, platform admin, security and staging
+SUCCESS. The first product-source CI `36453309365` FAILED only two
+old schema guards expecting 135 tables; its backend ran 716 passed,
+2 failed, 4 deselected, frontend/security/platform admin passed,
+E2E and staging skipped. Source correction `bfa68575` updated
+`test_postgres_smoke.py` and `test_prepare_database.py` to
+expected 136 tables/new head. The first corrected-source E2E attempt
+timed out navigating from login; 3 other browser tests, backend and
+all four other jobs passed. Its FAILED E2E job was re-run once,
+passed 4/4, and GitHub marked all six jobs successful. No local
+tests run; no unverified results claimed.
+
+**Independent Phase 4.8 C3 first bounded batch**, now verified:
+`commercial_lease_abstracts` holds one active staff reference per
+existing same-org Lease on an active COMMERCIAL property and unit,
+plus optional *separately staff-recorded* rent commencement date.
+Schema migrates `f0b2c4d6e8a1` to **`a1c3e5f7b9d0`**;
+**136 SQLAlchemy model tables**. The existing Lease.start_date,
+Lease.end_date, Lease.status and Unit.unit_number are read in live
+scope, never copied into immutable legal certifications. CRUD and
+authorized lease selector live under
+`/api/properties/{property_id}/commercial-lease-abstracts`;
+property Compliance tab renders
+`CommercialLeaseAbstractsPanel` only for commercial property type.
+Reuses verified hybrid `release.properties.compliance` gate,
+PROPERTIES.ALL and separate LEASING permission, live ADMIN/OWNER
+write and currently assigned MANAGER read, active organization,
+property, unit and same-org active TENANT linkage. Foreign and
+unassigned lease/tenant/property probing denied, 250-row caps and
+no-store reads. Redacted immutable audit; generic notes/attachments
+denylisted. An archived reference never returns without an explicit
+staff re-record. Three focused backend regression tests cover
+dates versus actual Lease.start_date, CRUD/archive/re-record,
+organization/manager/tenant and residential denials, live feature
+and permission revocation, generic-target denial and zero
+RentInvoice/Charge/GLTransaction mutations. No finance, HOA, lease
+signature/activation, charge, CAM/NNN/percentage-rent calculation
+or automatic due date behavior added. The staff rent-date entry
+is **STAFF_RECORDED_UNVERIFIED**, not sourced/authenticated contract
+terms. The four E2E tests remain the prior general smoke + dedicated
+HOA evidence test; NO dedicated commercial browser automation yet.
+No frozen `docs/` or planning parity changes.
+
+**Precise original roadmap next:** Phase 4.8 C3 Commercial lease
+abstract data/reporting only where verified source record exists.
+Can extend a read-only, same-scope summary/report of currently
+recorded staff references WITHOUT treating dates as operative
+billing dates. Actual CAM/NNN formulas, annual reconciliations,
+percentage rent, escalations, tenant improvement and lease options
+must not become financial/legal actions until underlying executed
+commercial leases, tenant cost-sharing/exclusion rules and approved
+GL posting/notice workflow are authenticated. Do not infer contract
+terms from current Lease.monthly_rent or generic expense fields.
+
+**Original Phase 4.7 C2 HOA remains independently BLOCKED.**
+Authenticated CC&Rs/declarations, bylaws/amendments, ARC requirements,
+jurisdiction, legally authorized decision makers, assessment payer
+and board rules, notice/cure/hearing rules, reserve policy and GL
+mapping remain unavailable. No dues, fines, notices, official votes,
+ARC decisions or reserve movement may be invented from staff
+inventory. This commercial batch does not change verified HOA.
+Current handoff-only update is NOT a fresh product test. Re-fetch
+the branch HEAD and latest Actions before future edits.
 
 ## CURRENT SESSION UPDATE — 2026-09-28 HOA BROWSER REGRESSION VERIFIED
 
