@@ -23,7 +23,7 @@ from app.routers.hoa_assessments import _scope
 from app.routers.hoa_governing_evidence import _attachment, _require_attachment_feature
 from app.schemas.hoa_arc_application import (
     HOAARCApplicationDetailOut, HOAARCApplicationIn, HOAARCApplicationOut,
-    HOAAttachmentIn if False else HOAARCAttachmentIn,
+    HOAARCAttachmentIn,
     HOAARCAttachmentOut, HOAARCReviewEventIn, HOAARCReviewEventOut,
 )
 from app.services.audit import append_audit_log
