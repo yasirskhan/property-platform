@@ -1,4 +1,4 @@
-# AI_HANDOFF.md — Property Platform, 2026-09-26
+# AI_HANDOFF.md — Property Platform, 2026-09-28
 
 **READ THIS WHOLE FILE FIRST.** This is the repo-ROOT authoritative session handoff;
 it does NOT belong under docs/. Refresh after every meaningful CI-verified batch.
@@ -7,24 +7,24 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `d5b63d0310b008489cb645e9d1cc74ab16ea4245`
-- Source GitHub Actions run **36414139582: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `38dee8344851cac33b1f792e16a529211db86782`
+- Source GitHub Actions run **36425025893: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **688 passed, 3 deselected, 14709 warnings in 181.86s**.
-  E2E: **3 passed in 10.21s**. Lint, typecheck, production build, security
+  Backend: **692 passed, 3 deselected, 14820 warnings in 172.29s**.
+  E2E: **3 passed in 10.15s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **c5e7a9b1d3f6**. SQLAlchemy expected model tables: **127**.
-  Previous head b4d6f8a0c2e5 / 127 tables (two nullable columns, no table added). PostgreSQL/bootstrap/legacy CI passed.
+- Alembic head: **d6f8a0b2c4e7**. SQLAlchemy expected model tables: **129**.
+  Previous head c5e7a9b1d3f6 / 127 tables (two association/membership tables added). PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4.6 public agency-guidance provenance on the existing staff evidence index, VERIFIED.**
+  **Latest completed batch: Phase 4.7 C2 staff-recorded HOA association/membership registry and property Compliance UI, VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT task: original Phase 4.7 C2 HOA independent association/property registry prerequisite. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows are still BLOCKED on authoritative jurisdiction/program rules and secure household policy; do not mark Phase 4.6 complete or infer eligibility from staff evidence.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
+- **Exact NEXT task: original Phase 4.7 C2 HOA dues groundwork: explicit contact/member responsibility and draft assessment policy, without any GL or tenant charge. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows are still BLOCKED on authoritative jurisdiction/program rules and secure household policy; do not mark Phase 4.6 complete or infer eligibility from staff evidence.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -32,6 +32,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 
 | Batch | Source commits | Last full SUCCESS CI | Evidence |
 | --- | --- | --- | --- |
+| Phase 4.7 HOA property/association registry + customer Compliance UI | d929d71c50b40849e0f5fa6849b294ca87a4780b, 38dee8344851cac33b1f792e16a529211db86782 | 36425025893 | 692 backend passed / 3 E2E; 129 tables; no HOA financial posting |
 | Universal Attachments | 90e54eb834047038f01959c5a2a20c9e4155e999 | 36219990832 | VERFIED |
 | Standard/enhanced reports framework | 3afb0d3d2b41a222225e5ca20fb9c976fee77742 | 36221727596 | VERIFIED |
 | Shared Print / Email / CSV delivery | f5c8a5177db003c5d6d1b2eb2fbf8510791d31d6, fad5066aa2bc4498156179fad6bb5c8ad1cfcf65 | 36222494517 | VERIFIED |
@@ -3744,47 +3745,102 @@ Reuse existing property/release/org authorization and audit.
 Never post HOA fees or violate accounting locks from a
 staff-inventory entry.
 
+## Phase 4.7 C2 HOA scoped registry and property UI — VERIFIED 2026-09-28
+
+Backend source d929d71c50b40849e0f5fa6849b294ca87a4780b;
+UI + fourth regression source 38dee8344851cac33b1f792e16a529211db86782.
+Full CI 36424060872 success for backend source: 691 passed,
+3 deselected, 14790 warnings in 171.54s; 3 browser E2E
+passed in 9.65s. Final UI/source CI 36425025893 success
+all six jobs: backend 692 passed, 3 deselected,
+14820 warnings in 172.29s; browser E2E 3 passed
+in 10.15s; frontend lint/typecheck/build, platform admin,
+security, staging all green. Browser E2E remains generic
+smoke, not a dedicated HOA interaction test.
+Alembic d6f8a0b2c4e7 after c5e7a9b1d3f6, 129 model
+tables from 127. Frozen docs/ and planning parity unchanged.
+
+Staff association and many-to-many property inventory in
+hoa_associations + hoa_property_memberships. CRUD at
+/api/hoa/associations (GET list/one, POST, PUT, DELETE).
+Reuse existing hybrid release.properties.compliance and live
+PROPERTIES.ALL permission, organization-isolation and active
+property checks. ADMIN/OWNER write; MANAGER read only their
+assigned active properties, with no empty association-name
+leak. TENANT/CREW and deactivated users denied. Cross-org
+association/property probes fail closed. Case-folded
+org-unique names, soft archive, redacted append-only audit,
+no-store reads; generic notes/attachments denylist excludes
+the two new registry tables. Four focused tests cover scoped
+CRUD, many-to-many membership, name/ID validation,
+revocation, no GL/Charge/Lease mutations.
+
+Customer property detail > Compliance now includes
+HoaAssociationsPanel, within the existing compliance gate.
+Owners/admins can record multiple property links, attach
+current property to existing association, unlink, archive;
+managers read assigned memberships only. Explicit UI notices
+that the recorded association is NOT legal verification,
+member consent, assessment authorization, dues, penalties,
+board governance or a booked liability. It posts no finance.
+
+Original Phase 4.7 C2 is STILL IN PROGRESS. Exact next
+dependent subtask: an explicitly recorded HOA property
+contact/member responsibility roster (reuse the verified
+independent org-scoped Contacts directory, do not infer from
+Property.owner_id or tenant identities) and draft recurring/
+special dues assessment configuration subject to legal,
+payer identity and central GL controls. No automatic charge,
+GL posting, reserve transfer, violation, board vote or
+IRS/regulatory certification from staff inventory metadata.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Verify current HEAD/latest CI; last verified product
-   d5b63d0310b008489cb645e9d1cc74ab16ea4245 and
-   CI 36414139582 SUCCESS: 688 backend passed, 3 deselected,
-   3 E2E passed, six jobs green. Alembic c5e7a9b1d3f6 /
-   127 model tables. Do not repeat Form 8609 crypto/rotation
-   or public agency-reference metadata.
-2. Phase 4.6 HUD/LIHTC substantive legal/household/AMI/HAP
-   work remains unverified pending actual program-specific
-   authoritative eligibility, signed agreements, verified
-   protected-household sources and retention requirements.
-   Avoid invented government rules, IRS filings, credit,
-   housing eligibility, rent thresholds and HAP billing.
-3. Continue INDEPENDENT original PLAN_GAPS C2 Phase 4.7
-   with a bounded HOA association/property membership
-   foundation. Inspect real property scope/permission
-   architecture, avoid a per-field feature flag, preserve
-   multi-property HOA relationships and org isolation.
-   Do not create/pay HOA dues, violations, penalties,
-   reserves or board votes from inventory metadata.
-4. Bounded source+focused regression tests -> hosted CI
-   all six jobs SUCCESS -> update this root handoff.
-   Frozen docs/ source-of-truth stay unchanged, no new
-   branches, main edits or force pushes.
+1. Read full root handoff; verify branch HEAD/latest CI. Last
+   product 38dee8344851cac33b1f792e16a529211db86782,
+   CI 36425025893 SUCCESS, 692 backend passed, 3 deselected,
+   3 E2E passed, all six jobs. Alembic d6f8a0b2c4e7,
+   129 model tables. Do not rebuild the HOA association registry
+   or property Compliance UI.
+2. Original Phase 4.7 C2 next: HOA dues dependency groundwork.
+   Reuse existing Contacts: explicit staff-recorded
+   association/property/contact roster or responsibility
+   mapping, org-scoped, not legally verified membership.
+   Check live PROPERTIES.ALL, PEOPLE.CONTACTS, existing
+   compliance hybrid gate, manager assignment and role scope.
+   No inferred tenant/owner liability or mailing addresses.
+3. Then, if safely independent, bounded DRAFT recurring/special
+   assessment configuration. Do not auto-post Charge, create
+   GL transactions, levy fines or treat unverified
+   homeowner status/board authority as enforceable.
+   Actual HOA billing requires explicit legal/member
+   responsibility review and central immutable GL.
+4. Phase 4.6 HUD/LIHTC substantive legal, household,
+   AMI/HAP tasks still need independently verified
+   jurisdiction/program source requirements. No fabricated
+   eligibility, IRS filing or housing obligations.
+5. Include focused regression tests, commit only existing
+   branch, verify ALL applicable GitHub CI jobs and fix
+   reds before marking complete. Update THIS root handoff
+   after each meaningful batch. Do not edit frozen docs/,
+   create branches, force-push or touch main.
 
 ## Session start for successor
 
 Continue yasirskhan/property-platform ONLY on
-chatgpt/checkpoint-005-safety. Read full repo-root
-AI_HANDOFF.md and verify current HEAD/CI.
-Last verified product d5b63d0310b008489cb645e9d1cc74ab16ea4245,
-CI 36414139582 six jobs success, 688 backend tests passed,
-3 deselected, 3 E2E passed. Alembic c5e7a9b1d3f6 /
-127 tables. Phase 4.6 staff 8609 references, encrypted scans,
-key rotation + UI, and public agency-guidance provenance are
-VERIFIED, but actual HUD/LIHTC eligibility/tax-credit/AMI/HAP
-functions are NOT IMPLEMENTED and need authoritative source
-requirements. Exact next independent ORIGINAL plan item:
-Phase 4.7 C2 HOA association/property relationship inventory
-as bounded security-scoped foundation, no assessments or GL.
-Keep root handoff current after verified product batches;
-no main changes, new branch or frozen docs edits. Source +
-tests commit then GitHub CI, fix reds autonomously.
+chatgpt/checkpoint-005-safety. Read full root AI_HANDOFF.md
+and verify HEAD/CI. Last VERIFIED product:
+38dee8344851cac33b1f792e16a529211db86782;
+CI 36425025893 SUCCESS, 692 backend passed,
+3 deselected, 3 E2E passed, all six jobs. Alembic
+d6f8a0b2c4e7 / 129 tables. Phase 4.7 HOA
+association/property registry and customer Compliance
+panel VERIFIED; do not repeat. Next original HOA C2
+task: explicit contact/member-responsibility roster as
+a safe dependency for draft dues; never infer legal
+membership, tenant liability, or post GL/Charges from
+staff metadata. Phase 4.6 authoritative HUD/LIHTC
+eligibility/HAP remains BLOCKED as documented.
+Keep root handoff current after verified batches,
+no unapproved docs/ edits, no main/new branch.
+Source + tests commit then GitHub CI; fix reds autonomously.
