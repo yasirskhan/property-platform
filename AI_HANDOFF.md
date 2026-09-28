@@ -7,24 +7,24 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `87c2eaa9ba5a21f8cc461c92cf46aaf474cd8b46`
-- Source GitHub Actions run **36378605760: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `952261b3448400dc5c4d1742e5b4b70538c1e2af`
+- Source GitHub Actions run **36379299678: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **667 passed, 3 deselected, 14005 warnings in 161.47s**.
-  E2E: **3 passed in 11.00s**. Lint, typecheck, production build, security
+  Backend: **670 passed, 3 deselected, 14101 warnings in 156.13s**.
+  E2E: **3 passed in 6.16s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **d0e2f4a6b8c1**. SQLAlchemy expected model tables: **123**.
-  Previous head c9d1e3f5a7b0 / 122 tables. PostgreSQL/bootstrap/legacy CI passed.
+- Alembic head: **e1f3a5b7c9d2**. SQLAlchemy expected model tables: **124**.
+  Previous head d0e2f4a6b8c1 / 123 tables. PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4.6 scoped inspection cross-reference, VERIFIED.**
+  **Latest completed batch: Phase 4.6 recorded LIHTC building BIN inventory, VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT task: LIHTC-specific staff-recorded per-building BIN inventory, reusing program/property authorization; not Form 8609 filing or credit certification.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
+- **Exact NEXT task: tighten LIHTC BIN shape validation to the IRS 2-letter state + 2/4-digit year + 5-digit sequence; preserve legitimate dashed formats, test collisions. Then continue Phase 4.6 recorded 8609 readiness without tax/credit calculations.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -106,6 +106,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Phase 4.6 staff-recorded CRM program interest register | 67d4d5f15d10b0830a02702b453c68a98e5e9d45 | 36373217097 | 660 backend passed / 3 E2E; no official ranked waitlist |
 | Phase 4.6 scoped affordable evidence-readiness checklist | e492a46356bc19a57c55f63fe9ad85a5e0b7d5c8 | 36378052654 | 665 backend passed / 3 E2E; 123 tables |
 | Phase 4.6 read-only recorded unit-inspection cross-reference | 87c2eaa9ba5a21f8cc461c92cf46aaf474cd8b46 | 36378605760 | 667 backend passed / 3 E2E; no migration |
+| Phase 4.6 staff-recorded LIHTC building BIN inventory | 952261b3448400dc5c4d1742e5b4b70538c1e2af | 36379299678 | 670 backend passed / 3 E2E; 124 tables |
 | Phase 4 vendor company entity + scoped customer UI | 6e1d0eb730a71d913021b590667123ee047c4858 | 36336927654 | 590 backend passed / 3 E2E |
 | Phase 4 vendor insurance lifecycle | 8d2cb6adffbde41282fc77e9e0365b2913410f66, 3de4c938e07fc695cf33eec3b1a7af7fd552e73b, 5dcdd6272bd1e18fe78a0ae2868ef6d110caf2c8 | 36337623891 | 593 backend passed / 3 E2E |
 | Phase 4 vendor trade/insurance filters | b40d94b3861809d4cfd5bb563a21bd6a4e524476, 0d32310911be49c9133ba002d19fdfdb9fce7e9a, 87ed9dd1396686065c9596622173297628b2ace2 | 36338819609 | 596 backend passed / 3 E2E |
@@ -3417,48 +3418,87 @@ This is NOT a universal program deadline and no hardcoded
 inspection policy/automatic pass-fail has been added.
 https://www.hud.gov/reac/nspire-notices
 
+## Phase 4.6 LIHTC per-building agency BIN inventory — VERIFIED 2026-09-28
+
+Product source 952261b3448400dc5c4d1742e5b4b70538c1e2af.
+GitHub Actions 36379299678 SUCCESS all six jobs: backend 670 passed,
+3 deselected, 14101 warnings in 156.13s; authenticated E2E
+3 passed in 6.16s; frontend lint, typecheck, production build,
+platform-admin, security, staging-config all green. Generic browser
+smoke, not dedicated BIN form E2E. Alembic e1f3a5b7c9d2 (from
+d0e2f4a6b8c1); 124 model tables (from 123). Frozen docs/ and
+planning parity untouched.
+
+Existing customer Compliance LIHTC program offers "Recorded LIHTC
+buildings" panel. New affordable_lihtc_buildings model links org,
+property and one LIHTC program to staff-entered building label
+and agency BIN, with scoped unique constraint, archive/restore
+and immutable redacted audit. Same approved ADMIN/OWNER write,
+assigned MANAGER read and same-org active property/program plus
+live PROPERTIES.ALL/release.properties.compliance gates. Non-LIHTC
+programs cannot use endpoints; tenant/crew and cross-property/org
+probes denied. Generic notes/attachments resolver excludes
+affordable_lihtc_buildings. Three new focused backend tests cover
+lifecycle, repeated BIN rejection, cross-scope probing, release/
+permission revocation, invalid input and no Lease/Charge/GL change.
+
+This is an inventory only. The app does NOT validate against housing
+agency records, receive signed 8609s, establish qualified basis,
+calculate a low-income housing credit, certify resident eligibility,
+file IRS returns or submit anything to housing agencies.
+
+IMPORTANT FOLLOW-UP: The current generic BIN input pattern is
+deliberately conservative about TINs but overly permissive for some
+syntactically invalid agency IDs. IRS Notice 88-91 and current
+IRM 3.11.26 prescribe two-letter state prefix, 2-digit allocation
+year (IRS also accepts 4-digit year representation) and 5-digit
+agency sequence, with dashed examples CT-87-00023 or
+CT-1987-00023. Correct validation without changing existing
+tables and test malformed shapes; continue to label all BINs
+STAFF-RECORDED, never agency verified.
+https://www.irs.gov/irm/part3/irm_03-011-026r
+https://www.irs.gov/instructions/i8609
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Read entire root handoff and verify HEAD/CI. Last VERIFIED
-   source 87c2eaa9ba5a21f8cc461c92cf46aaf474cd8b46;
-   CI 36378605760 SUCCESS: 667 backend passed, 3 deselected;
-   3 E2E passed; six jobs green. Alembic d0e2f4a6b8c1 /
-   123 model tables. Do not repeat the recorded inspections API.
-2. Original PLAN_GAPS C1 LIHTC building-level Form 8609 next.
-   Build a scoped, staff-recorded LIHTC building BIN inventory
-   linked to existing active LIHTC program/property. Model
-   multiple agency-assigned BINs per property; do NOT equate
-   the project property ID with each separate building BIN.
-   No credit calculations, true IRS document verification,
-   tax returns, or certification without agency records.
-3. Current HUD HCV/PBV NSPIRE effective date is program-specific;
-   never treat ordinary unit inspections as official HQS/NSPIRE.
-   Jurisdiction/agency selection policies, protected tenant
-   income verification, full LIHTC credit/basis and HAP remain
-   NOT IMPLEMENTED and require reviewed agency specifications.
-4. User-approved commit-then-hosted-CI workflow, focused
-   regressions with every product batch. Fix reds and do not
-   call VERIFIED before all applicable jobs pass. Update root
-   handoff after each meaningful batch; do not touch main,
-   create branches or change frozen docs without approval.
-5. Separate original-plan independent C2 HOA follows when
-   the C1 safe foundation is finished or regulatory specifics
-   require external operator/agency input. Keep all earlier
-   verified reports, tax, accounting, CRM contracts unchanged.
+1. Read entire root handoff; verify latest HEAD/CI. Last VERIFIED
+   product 952261b3448400dc5c4d1742e5b4b70538c1e2af;
+   CI 36379299678 SUCCESS all six jobs: 670 backend passed,
+   3 deselected, 3 browser E2E passed. Alembic e1f3a5b7c9d2,
+   124 model tables. Do not repeat established BIN inventory.
+2. Next tightly bounded correctness change: validate recorded
+   LIHTC BIN using IRS 2-letter state + (2- or 4-digit allocation
+   year) + five numeric digits, preserving legitimate hyphens,
+   rejecting TINs/malformed letter-digit mixtures. Keep staff-
+   recorded status; do not confuse input format with agency
+   confirmation. Add regressions and full hosted CI.
+3. Original C1 still needs building-specific agency-signed Form8609
+   evidence and separate annual 8609-A, verified jurisdiction/
+   program requirements, tenant income/recertification and HAP
+   workflows. Don't claim credit eligibility, IRS filing, HQS/
+   NSPIRE or award benefits without lawful reviewed agency data.
+   Do not upload sensitive tax/household evidence to generic
+   attachments; follow existing encrypted-document contracts.
+4. Preserve verified work; only working branch, never main or
+   new branch, don't change frozen docs/ without authorization.
+   Commit bounded code + regression, fix CI reds, mark VERIFIED
+   only when all relevant jobs pass, update this handoff, continue
+   in original dependency order. Positive-pay and IRS external
+   filing still require external bank/provider specifications.
 
 ## Session start for successor
 
 Continue yasirskhan/property-platform on
-chatgpt/checkpoint-005-safety. Read entire root AI_HANDOFF.md and
-verify current HEAD/CI. Last VERIFIED product
-87c2eaa9ba5a21f8cc461c92cf46aaf474cd8b46, CI 36378605760
-SUCCESS: 667 backend passed, 3 deselected, 3 E2E passed,
-six jobs green. Alembic d0e2f4a6b8c1 / 123 tables.
-Phase 4.6 property program inventory, scoped prospect interest,
-restricted evidence checklist and permission-intersected existing
-unit inspection cross-reference VERIFIED. No official HUD/LIHTC
-eligibility, income, HQS/NSPIRE, agency certification or HAP.
-Next original C1 LIHTC prerequisite: staff-recorded building BINs
-per LIHTC program/property (not Form8609 or tax credit filing).
-Don't edit main/frozen docs, reuse verified access and CI. After
-meaningful hosted-verification success refresh this handoff.
+chatgpt/checkpoint-005-safety. Read complete repo-root AI_HANDOFF.md
+and verify HEAD/CI. Last VERIFIED product
+952261b3448400dc5c4d1742e5b4b70538c1e2af,
+CI 36379299678 SUCCESS (670 backend passed, 3 deselected,
+3 authenticated E2E passed; all six jobs). Alembic e1f3a5b7c9d2,
+124 model tables. Phase4.6 scoped program inventory, CRM interest,
+privacy guards, evidence readiness, inspection cross-reference,
+LIHTC building BIN inventory VERIFIED; no official eligibility,
+credit calculation, agency certification, 8609 or HAP.
+Next: narrow BIN-shape correctness validation (IRS Notice 88-91),
+then agency-signed Form8609 evidence prerequisites. Preserve
+original plan, authorization, frozen docs/ and existing branch;
+hosted CI and handoff after verified batches.
