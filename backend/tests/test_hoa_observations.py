@@ -192,3 +192,27 @@ def test_unlink_archive_and_relink_never_restore_observations():
         assert db.query(GLTransaction).count() == db.query(Charge).count() == db.query(Lease).count() == 0
     finally:
         db.rollback(); db.close(); engine.dispose()
+
+
+def test_staff_observation_ui_payload_keeps_manager_read_only():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, unassigned, other), assoc = _seed(db)
+        row = api.create_observation(assoc.id, _payload(assigned.id), db=db, current_user=admin)
+        visible = api.list_observations(assoc.id, Response(), assigned.id, db=db, current_user=manager)
+        assert len(visible) == 1
+        assert visible[0].id == row.id
+        assert visible[0].status == "STAFF_RECORDED"
+        assert set(visible[0].model_dump()) == {
+            "property_id", "summary", "observed_on", "details",
+            "id", "association_id", "status", "updated_at",
+        }
+        with pytest.raises(HTTPException) as exc:
+            api.archive_observation(assoc.id, row.id, assigned.id, db=db, current_user=manager)
+        assert exc.value.status_code == 403
+        assert db.query(HOAObservation).filter_by(id=row.id).one().is_active
+        assert db.query(GLTransaction).count() == db.query(Charge).count() == 0
+    finally:
+        db.rollback()
+        db.close()
+        engine.dispose()
