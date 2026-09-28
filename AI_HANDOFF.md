@@ -7,24 +7,24 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `82c8ede338b9030acfd993bbe6888eae7e07ddce`
-- Source GitHub Actions run **36413219901: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `d5b63d0310b008489cb645e9d1cc74ab16ea4245`
+- Source GitHub Actions run **36414139582: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **686 passed, 3 deselected, 14678 warnings in 146.61s**.
-  E2E: **3 passed in 8.78s**. Lint, typecheck, production build, security
+  Backend: **688 passed, 3 deselected, 14709 warnings in 181.86s**.
+  E2E: **3 passed in 10.21s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **b4d6f8a0c2e5**. SQLAlchemy expected model tables: **127**.
-  Previous head a3c5e7f9b1d4 / 126 tables. PostgreSQL/bootstrap/legacy CI passed.
+- Alembic head: **c5e7a9b1d3f6**. SQLAlchemy expected model tables: **127**.
+  Previous head b4d6f8a0c2e5 / 127 tables (two nullable columns, no table added). PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4.6 administrator UI for Form 8609 rotation readiness, VERIFIED.**
+  **Latest completed batch: Phase 4.6 public agency-guidance provenance on the existing staff evidence index, VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT task: independent Phase 4.6 C1 agency policy/evidence provenance prerequisite, reusing the verified staff evidence index. Do not represent unverified staff reference links as authoritative housing policies; no eligibility, tax-credit, HAP or IRS computations.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
+- **Exact NEXT task: original Phase 4.7 C2 HOA independent association/property registry prerequisite. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows are still BLOCKED on authoritative jurisdiction/program rules and secure household policy; do not mark Phase 4.6 complete or infer eligibility from staff evidence.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -111,6 +111,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Phase 4.6 bounded encrypted compliance document rewrap | 40317c96f7b564abce3483b088727c25c53a6b2b | 36384377433 | All six CI jobs success; previous key support, no migration |
 | Phase 4.6 scoped rotation readiness preview | 8c5e2a0973b40e414a68f2b8242621324f0e1419, a8adc7dc2f47a40085c1203b38dd2254d778a907 | 36412399420 | 685 backend passed / 3 E2E; read-only, 127 tables |
 | Phase 4.6 administrator rotation-readiness UI | 82c8ede338b9030acfd993bbe6888eae7e07ddce | 36413219901 | 686 backend passed / 3 E2E; existing archive UI; no migration |
+| Phase 4.6 staff public agency guidance provenance | 3f2d5d4b60f9eb29ced0aa68c182e41fe51df0e1, d5b63d0310b008489cb645e9d1cc74ab16ea4245 | 36414139582 | 688 backend passed / 3 E2E; 127 tables, no agency validation |
 | Phase 4.6 restricted encrypted Form 8609 staff-scan archive | fb448c7b283d1e29950fe1290c5d9c70ca25d51f | 36383165892 | 678 backend passed / 3 E2E; dedicated key, 126 tables |
 | Phase 4.6 per-building staff Form 8609 reference readiness | a28a4dd6b46757a226ce5e8ecd683341b1e9502b, 8a480d05e21a842b1376b1f4d5e595fe58d687de | 36382487436 | 674 backend passed / 3 E2E; 125 tables; test-only org-admin scope correction |
 | Phase 4.6 staff-recorded LIHTC building BIN inventory | 952261b3448400dc5c4d1742e5b4b70538c1e2af | 36379299678 | 670 backend passed / 3 E2E; 124 tables |
@@ -3694,45 +3695,96 @@ eligibility and HUD/HAP rules still require verified authoritative
 source specifications before enforcement. Do not claim the
 provenance field proves a policy is effective or authoritative.
 
+## Phase 4.6 staff public agency-guidance provenance — VERIFIED 2026-09-28
+
+Source 3f2d5d4b60f9eb29ced0aa68c182e41fe51df0e1;
+URL authority/backslash hardening d5b63d0310b008489cb645e9d1cc74ab16ea4245.
+CI 36414139582 SUCCESS six jobs: backend 688 passed,
+3 deselected, 14709 warnings in 181.86s, authenticated E2E
+3 passed in 10.21s. Frontend lint, typecheck and production build,
+platform-admin, security and staging success. Generic E2E,
+NOT a dedicated public-guidance UI browser test.
+
+Migration c5e7a9b1d3f6 from b4d6f8a0c2e5 adds nullable
+source_url and source_checked_on to the EXISTING table
+affordable_program_evidence. 127 model tables unchanged.
+All frozen docs/ and planning parity unchanged.
+
+Existing property compliance Program Evidence panel, not new
+parallel evidence/document storage, now allows ADMIN/OWNER to
+record an optional PUBLIC HTTPS agency-guidance URL and
+staff-checked date ONLY in AGENCY_GUIDANCE category when a
+staff reference is recorded. Assigned MANAGER may see its
+property-scoped staff index but cannot write. Existing live
+release/PROPERTIES.ALL/property/program/assignment scope reused.
+Link is not fetched/parsed for authoritative legal compliance,
+not an official effective policy, not an agency signature,
+not a household record, not HUD eligibility, not an AMI or
+tax-credit calculator. It may be inaccurate, outdated or fake;
+the UI visibly labels it STAFF-SUPPLIED/UNVERIFIED.
+Only HTTPS public host links accepted; reject private/intranet
+hostnames, raw IPs, embedded credentials, nonstandard ports,
+whitespace, backslash authority ambiguities, too-long URLs
+and checked dates in the future. Do not log full link URL in
+immutable audit: only boolean public_reference_present metadata.
+No GL, Lease, Charge or protected household mutation.
+Focused tests cover validation, role/org/property scope,
+null-on-unrecorded, audit redaction and nonmutation.
+No public policy legal verification has been performed.
+
+NEXT: remaining Phase 4.6 C1 substantive program-dependent tasks
+require real authoritative agency/jurisdiction eligibility,
+income-certification/privacy, HAP and AMI source requirements.
+These are NOT represented as completed or safe to automate
+without those sources/contractual permissions. The independent
+original roadmap Phase 4.7 C2 HOA foundation (association and
+property scope, no dues/penalties/board governance yet) is
+available to continue without fabricating HUD/LIHTC rules.
+Reuse existing property/release/org authorization and audit.
+Never post HOA fees or violate accounting locks from a
+staff-inventory entry.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Last verified source 82c8ede338b9030acfd993bbe6888eae7e07ddce,
-   CI 36413219901 SUCCESS: 686 backend passed, 3 deselected;
-   3 E2E passed, six jobs green. Alembic b4d6f8a0c2e5 /
-   127 tables. Re-check actual HEAD/current CI before coding.
-2. Next safe original Phase 4.6 C1 prerequisite: assess adding
-   strictly public agency-guidance provenance metadata to the
-   EXISTING affordable evidence index (not new parallel service).
-   Staff links/dates MUST NOT represent certified or current
-   agency policy, eligibility, rent limit, applicable fraction
-   or tax credit. If provenance needs real agency specifications,
-   document the exact missing sources; choose next independent
-   original-plan task rather than guessing.
-3. Remaining original C1: authoritative HUD/LIHTC agency
-   policy, secure verified household income/document workflow,
-   HAP agreement facts and IRS-tax-credit materials.
-   Never infer them from staff references/GL, and do not
-   distribute unscanned restricted 8609 PDF archives.
-4. Product changes require focused regression tests, bounded
-   commits, full six-job GitHub CI green and exact test counts.
-   Update root handoff after every verified batch. Preserve
-   frozen docs/, branch, Hybrid Capability Gating, org scope,
-   accounting/audit and signed-document encryption controls.
+1. Verify current HEAD/latest CI; last verified product
+   d5b63d0310b008489cb645e9d1cc74ab16ea4245 and
+   CI 36414139582 SUCCESS: 688 backend passed, 3 deselected,
+   3 E2E passed, six jobs green. Alembic c5e7a9b1d3f6 /
+   127 model tables. Do not repeat Form 8609 crypto/rotation
+   or public agency-reference metadata.
+2. Phase 4.6 HUD/LIHTC substantive legal/household/AMI/HAP
+   work remains unverified pending actual program-specific
+   authoritative eligibility, signed agreements, verified
+   protected-household sources and retention requirements.
+   Avoid invented government rules, IRS filings, credit,
+   housing eligibility, rent thresholds and HAP billing.
+3. Continue INDEPENDENT original PLAN_GAPS C2 Phase 4.7
+   with a bounded HOA association/property membership
+   foundation. Inspect real property scope/permission
+   architecture, avoid a per-field feature flag, preserve
+   multi-property HOA relationships and org isolation.
+   Do not create/pay HOA dues, violations, penalties,
+   reserves or board votes from inventory metadata.
+4. Bounded source+focused regression tests -> hosted CI
+   all six jobs SUCCESS -> update this root handoff.
+   Frozen docs/ source-of-truth stay unchanged, no new
+   branches, main edits or force pushes.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on the existing branch
-chatgpt/checkpoint-005-safety. Read entire repo-root
-AI_HANDOFF.md, verify HEAD/current CI. Last verified product:
-82c8ede338b9030acfd993bbe6888eae7e07ddce;
-CI 36413219901 SUCCESS (686 backend passed, 3 deselected,
-3 browser E2E passed; all six jobs). Alembic
-b4d6f8a0c2e5 / 127 model tables. Form 8609 encrypted archive
-rotation, per-building read-only status and admin UI VERIFIED;
-do not repeat. Original Phase 4.6 C1 HUD/LIHTC substantive
-compliance dependencies remain UNVERIFIED. Exact next bounded
-prerequisite: scope public agency guidance provenance onto
-existing staff evidence index without claiming official agency
-policy or making legal/credit/eligibility calculations.
-No main/new branches/force push, no frozen docs updates;
-source+tests commit then CI, refresh root handoff, continue.
+Continue yasirskhan/property-platform ONLY on
+chatgpt/checkpoint-005-safety. Read full repo-root
+AI_HANDOFF.md and verify current HEAD/CI.
+Last verified product d5b63d0310b008489cb645e9d1cc74ab16ea4245,
+CI 36414139582 six jobs success, 688 backend tests passed,
+3 deselected, 3 E2E passed. Alembic c5e7a9b1d3f6 /
+127 tables. Phase 4.6 staff 8609 references, encrypted scans,
+key rotation + UI, and public agency-guidance provenance are
+VERIFIED, but actual HUD/LIHTC eligibility/tax-credit/AMI/HAP
+functions are NOT IMPLEMENTED and need authoritative source
+requirements. Exact next independent ORIGINAL plan item:
+Phase 4.7 C2 HOA association/property relationship inventory
+as bounded security-scoped foundation, no assessments or GL.
+Keep root handoff current after verified product batches;
+no main changes, new branch or frozen docs edits. Source +
+tests commit then GitHub CI, fix reds autonomously.
