@@ -199,3 +199,24 @@ def test_association_unlink_prevents_draft_read_or_write():
         assert exc.value.status_code == 404
     finally:
         db.rollback(); db.close(); engine.dispose()
+
+
+def test_draft_list_not_cached_or_implicitly_approved():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, unassigned, other), association = _seed(db)
+        created = api.create_proposal(
+            association.id, _payload(assigned.id), db=db, current_user=admin)
+        response = Response()
+        result = api.list_proposals(
+            association.id, response, assigned.id, db=db, current_user=manager)
+        assert response.headers["cache-control"] == "no-store"
+        assert len(result) == 1
+        assert result[0].id == created.id
+        assert result[0].status == "DRAFT"
+        data = result[0].model_dump()
+        for prohibited in ("payer", "due_on", "approved", "gl_transaction_id", "tenant_id", "charge_id"):
+            assert prohibited not in data
+        assert db.query(GLTransaction).count() == db.query(Charge).count() == db.query(Lease).count() == 0
+    finally:
+        db.close(); engine.dispose()

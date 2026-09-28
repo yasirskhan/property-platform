@@ -7,24 +7,24 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `8b25ab6240c7cd69c1708d28002f583b526af71c`
-- Source GitHub Actions run **36426366891: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `b78f8fd8569a3b0a3c95699d3461123cbdcd9c4a`
+- Source GitHub Actions run **36428959926: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **694 passed, 3 deselected, 14893 warnings in 175.75s**.
-  E2E: **3 passed in 9.63s**. Lint, typecheck, production build, security
+  Backend: **698 passed, 3 deselected, 14988 warnings in 151.75s**.
+  E2E: **3 passed in 6.24s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **e7a9b1c3d5f8**. SQLAlchemy expected model tables: **130**.
-  Previous head d6f8a0b2c4e7 / 129 tables (one HOA contact-reference table added). PostgreSQL/bootstrap/legacy CI passed.
+- Alembic head: **f8b0c2d4e6a9**. SQLAlchemy expected model tables: **131**.
+  Previous head e7a9b1c3d5f8 / 130 tables (one HOA assessment draft table added). PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4.7 C2 scoped HOA-to-existing-Contact links and customer reference UI, VERIFIED.**
+  **Latest verified batch: Phase 4.7 C2 HOA assessment DRAFT backend, VERIFIED. Customer draft UI is in an unverified source batch awaiting CI.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT task: original Phase 4.7 C2 staff DRAFT recurring/special assessment policy, no payer designation, GL or tenant charge. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows are still BLOCKED on authoritative jurisdiction/program rules and secure household policy; do not mark Phase 4.6 complete or infer eligibility from staff evidence.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
+- **Exact NEXT task after UI verification: original Phase 4.7 C2 remaining legal HOA dues/payer dependencies; do not invent governing authority. The staff DRAFT recurring/special assessment policy backend is verified, customer interface awaiting CI; no payer designation, GL or tenant charge. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows are still BLOCKED on authoritative jurisdiction/program rules and secure household policy; do not mark Phase 4.6 complete or infer eligibility from staff evidence.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -3879,3 +3879,36 @@ eligibility and HAP blocked on authoritative requirements.
 Commit source+regressions and verify GitHub CI; update root
 handoff after each meaningful batch. No main/new branch
 or frozen docs edits. Do not request Work mode.
+
+
+## Phase 4.7 C2 HOA assessment draft source — VERIFIED 2026-09-28
+
+Backend source d993b1afa2905e626f8ba6af233c05f236d5313c;
+test-fixture correction b78f8fd8569a3b0a3c95699d3461123cbdcd9c4a.
+Initial CI 36427514427 FAILED four new-test fixture setup errors:
+monkeypatch targeted the assessment router rather than the existing
+HOA authorization helper. Corrected CI 36428959926 SUCCESS all six
+jobs, 698 backend passed, 3 deselected, 14988 warnings in 151.75s,
+3 browser E2E passed in 6.24s; frontend, platform-admin, security,
+staging green. This is source verification, not dedicated assessment
+browser interaction E2E. New migration f8b0c2d4e6a9, 131 tables.
+Backend staff DRAFT recurring/special proposal API is available:
+GET/POST/PUT/DELETE /api/hoa/associations/{id}/draft-assessments.
+No APPROVED status, payer, payable/receivable, Charge, GL, notice,
+assessment issuance, automatic billing, fines or reserve movement.
+Organization and association property link, active staff assignment,
+compliance gate and PROPERTIES.ALL permission rechecked live;
+ADMIN/OWNER write, assigned MANAGER read, TENANT/CREW denied;
+archived/unlinked records fail closed. Generic unencrypted notes and
+attachments cannot target proposals. Audit metadata redacted.
+No changes to frozen docs/ or planning parity.
+
+## Phase 4.7 C2 HOA assessment customer UI — UNVERIFIED SOURCE BATCH
+
+This source commit adds HoaDraftAssessmentsPanel.tsx to existing
+property Compliance HOA panel and one additional API contract test.
+Do NOT call the UI verified until its own GitHub Actions run succeeds.
+The panel offers read-only manager viewing, ADMIN/OWNER create/edit/
+archive of staff DRAFT amounts/frequency/dates, and explains clearly
+that no legal assessment, payer, approved charge or GL is created.
+No migration. If CI fails, fix before starting another feature batch.
