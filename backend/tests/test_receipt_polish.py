@@ -10,6 +10,9 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base
 from app.models.accounting_settings import AccountingSettings
+from app.models.application import ApplicationPayment, LeaseApplication
+from app.models.application_fee_attempt import ApplicationFeeAttempt
+from app.models.property import Property, Unit
 from app.models.audit_log import AuditLog
 from app.models.bank_account import BankAccount
 from app.models.gl_account import GLAccount, GLAccountPostingRestriction
@@ -40,6 +43,11 @@ TEST_TABLES = [
     GLEntry.__table__,
     Receipt.__table__,
     ReceiptLine.__table__,
+    Property.__table__,
+    Unit.__table__,
+    LeaseApplication.__table__,
+    ApplicationPayment.__table__,
+    ApplicationFeeAttempt.__table__,
     AuditLog.__table__,
 ]
 
