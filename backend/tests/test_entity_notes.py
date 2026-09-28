@@ -10,6 +10,10 @@ from app.core.database import Base
 from app.core.security import hash_password
 from app.models.entity_note import EntityNote
 from app.models.tax_profile import TaxProfile
+from app.models.affordable_interest import AffordableInterest
+from app.models.affordable_program import AffordableProgram
+from app.models.contact import Contact
+from app.models.prospect import Prospect
 from app.models.property import Property, PropertyAssignment, PropertyType
 from app.models.user import Organization, User, UserRole
 from app.routers.entity_notes import add_entity_note, list_entity_notes
@@ -183,6 +187,57 @@ def test_tax_profiles_are_not_generic_note_targets():
             list_entity_notes(entity_type="tax_profiles", entity_id=tax.id,
                               db=db, current_user=admin)
         assert exc.value.status_code == 404
+    finally:
+        db.close()
+        engine.dispose()
+
+def _interest_target(db, org, prop, admin):
+    program = AffordableProgram(
+        organization_id=org.id, property_id=prop.id,
+        program_type="LIHTC", label="Recorded program", is_active=True,
+    )
+    contact = Contact(
+        organization_id=org.id, display_name="Restricted CRM contact", is_active=True,
+    )
+    db.add_all([program, contact])
+    db.flush()
+    prospect = Prospect(
+        organization_id=org.id, property_id=prop.id,
+        contact_id=contact.id, stage="NEW", source="OTHER", is_active=True,
+    )
+    db.add(prospect)
+    db.flush()
+    target = AffordableInterest(
+        organization_id=org.id, program_id=program.id,
+        prospect_id=prospect.id, recorded_by_id=admin.id,
+        is_active=True,
+    )
+    db.add(target)
+    db.commit()
+    return target
+
+
+def test_crm_interest_is_not_a_generic_notes_target():
+    db, engine = _session()
+    try:
+        org = Organization(name="CRM Notes Org", slug="crm-notes-org")
+        db.add(org)
+        db.flush()
+        admin = _user(db, org=org, email="crm-notes-admin@example.com", role=UserRole.ADMIN)
+        prop = _property(db, org=org, name="CRM property")
+        target = _interest_target(db, org, prop, admin)
+        for call in (
+            lambda: list_entity_notes(entity_type="affordable_program_interests",
+                                      entity_id=target.id, db=db, current_user=admin),
+            lambda: add_entity_note(entity_type="affordable_program_interests",
+                                    entity_id=target.id,
+                                    payload=EntityNoteCreateIn(body="Do not expose CRM contact"),
+                                    db=db, current_user=admin),
+        ):
+            with pytest.raises(HTTPException) as exc:
+                call()
+            assert exc.value.status_code == 404
+        assert db.query(EntityNote).count() == 0
     finally:
         db.close()
         engine.dispose()

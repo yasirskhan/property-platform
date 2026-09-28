@@ -15,6 +15,10 @@ from app.core.database import Base
 from app.core.security import hash_password
 from app.models.entity_attachment import EntityAttachment
 from app.models.tax_profile import TaxProfile
+from app.models.affordable_interest import AffordableInterest
+from app.models.affordable_program import AffordableProgram
+from app.models.contact import Contact
+from app.models.prospect import Prospect
 from app.models.property import Property, PropertyType
 from app.models.release_gate import ReleaseGate, ReleaseStage
 from app.models.user import Organization, User, UserRole
@@ -192,6 +196,57 @@ def test_tax_profiles_refuse_generic_unencrypted_attachments(tmp_path):
                 entity_type="tax_profiles", entity_id=tax.id,
                 file=_pdf("sensitive-w9.pdf"), share_with_tenants=False,
                 share_with_owners=False, db=db, current_user=admin,
+            ))
+        assert exc.value.status_code == 404
+        assert db.query(EntityAttachment).count() == 0
+    finally:
+        settings.UPLOAD_DIR = old_upload_dir
+        db.close()
+        engine.dispose()
+
+def _interest_target(db, org, prop, admin):
+    program = AffordableProgram(
+        organization_id=org.id, property_id=prop.id,
+        program_type="LIHTC", label="Recorded program", is_active=True,
+    )
+    contact = Contact(
+        organization_id=org.id, display_name="Restricted CRM contact", is_active=True,
+    )
+    db.add_all([program, contact])
+    db.flush()
+    prospect = Prospect(
+        organization_id=org.id, property_id=prop.id,
+        contact_id=contact.id, stage="NEW", source="OTHER", is_active=True,
+    )
+    db.add(prospect)
+    db.flush()
+    target = AffordableInterest(
+        organization_id=org.id, program_id=program.id,
+        prospect_id=prospect.id, recorded_by_id=admin.id,
+        is_active=True,
+    )
+    db.add(target)
+    db.commit()
+    return target
+
+
+def test_crm_interest_cannot_be_a_generic_attachment_target(tmp_path):
+    db, engine = _session()
+    old_upload_dir = settings.UPLOAD_DIR
+    settings.UPLOAD_DIR = str(tmp_path)
+    try:
+        org, _other, admin, _foreign, prop = _seed(db)
+        target = _interest_target(db, org, prop, admin)
+        with pytest.raises(HTTPException) as exc:
+            list_entity_attachments(entity_type="affordable_program_interests",
+                                    entity_id=target.id, db=db, current_user=admin)
+        assert exc.value.status_code == 404
+        with pytest.raises(HTTPException) as exc:
+            asyncio.run(upload_entity_attachment(
+                entity_type="affordable_program_interests",
+                entity_id=target.id, file=_pdf("program-interest.pdf"),
+                share_with_tenants=False, share_with_owners=False,
+                db=db, current_user=admin,
             ))
         assert exc.value.status_code == 404
         assert db.query(EntityAttachment).count() == 0
