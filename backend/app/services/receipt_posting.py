@@ -38,6 +38,9 @@ from app.models.bank_account import BankAccount
 from app.models.gl_account import GLAccount
 from app.models.gl_transaction import GLTransaction
 from app.models.receipt import Receipt
+from app.models.application import ApplicationPayment, ApplicationStatus, LeaseApplication
+from app.models.application_fee_attempt import ApplicationFeeAttempt
+from app.services.audit import append_audit_log
 from app.models.receipt_line import ReceiptLine
 from app.models.user import User
 from app.schemas.gl_transaction import PostingLine
@@ -442,6 +445,40 @@ def reverse_receipt(
          linked via reversal_of_id.
     """
     from app.services.gl_posting import reverse_transaction
+
+    # Coordinate an existing fee link before reversing GL. reverse_transaction
+    # uses commit=False internally, then commits the GL reversal, payment
+    # status and application transition in one transaction.
+    original = db.query(Receipt).filter(
+        Receipt.id == original.id,
+        Receipt.organization_id == original.organization_id,
+    ).populate_existing().with_for_update().one()
+    linked = db.query(ApplicationPayment).filter(
+        ApplicationPayment.receipt_id == original.id,
+        ApplicationPayment.status == "paid",
+    ).with_for_update().first()
+    if linked is not None:
+        app = db.query(LeaseApplication).filter(
+            LeaseApplication.id == linked.application_id,
+        ).with_for_update().one()
+        if app.status != ApplicationStatus.PAID:
+            raise PostingError("Linked application requires manual payment reconciliation before reversal.")
+        attempt = db.query(ApplicationFeeAttempt).filter(
+            ApplicationFeeAttempt.application_id == app.id,
+            ApplicationFeeAttempt.organization_id == original.organization_id,
+        ).with_for_update().first()
+        if attempt is None or attempt.status != "ACCOUNTED":
+            raise PostingError("Linked application fee cannot be reconciled automatically.")
+        linked.status = "reversed"
+        app.status = ApplicationStatus.PENDING_PAYMENT
+        app.fee_amount = None
+        attempt.status = "REVERSED"
+        append_audit_log(
+            db, user_id=created_by.id, organization_id=original.organization_id,
+            entity_type="lease_application", entity_id=app.id, action="fee_receipt_reversed",
+            new_value={"payment_id": linked.id, "receipt_id": original.id,
+                       "status": "pending_payment"},
+        )
 
     if original.is_reversed:
         raise PostingError("This receipt has already been reversed.")

@@ -20,3 +20,10 @@ class ApplicationFeePrepareOut(BaseModel):
     status: Literal["PREPARED"]
     checkout_available: bool = False
     created_at: datetime
+
+
+class ApplicationFeeRecordReceiptIn(BaseModel):
+    """Requires explicit staff verification of an existing posted receipt."""
+    model_config = ConfigDict(extra="forbid")
+    receipt_id: int = Field(ge=1)
+    attested_received_and_matched: Literal[True]

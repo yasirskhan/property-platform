@@ -7,6 +7,7 @@ are neither read nor serialized.
 from __future__ import annotations
 
 from decimal import Decimal
+from datetime import datetime
 
 import json
 from cryptography.fernet import Fernet, InvalidToken
@@ -18,10 +19,14 @@ from app.core.database import get_db
 from app.core.config import settings
 from app.models.application_private_details import ApplicationPrivateDetails
 from app.schemas.application_private_details import PrivateApplicationIn, PrivateApplicationOut
-from app.models.application import ApplicationStatus, LeaseApplication
+from app.models.application import ApplicationStatus, ApplicationPayment, LeaseApplication
 from app.models.application_fee_attempt import ApplicationFeeAttempt
-from app.schemas.application_fee import ApplicationFeePrepareIn, ApplicationFeePrepareOut
+from app.schemas.application_fee import ApplicationFeePrepareIn, ApplicationFeePrepareOut, ApplicationFeeRecordReceiptIn
 from app.models.property import Property, PropertyAssignment, Unit
+from app.models.receipt import Receipt
+from app.models.gl_transaction import GLTransaction
+from app.models.gl_account import GLAccount
+from app.services.customer_features import resolve_customer_features
 from app.models.user import User, UserRole
 from app.routers.auth import get_current_user
 from app.schemas.rental_application import (
@@ -354,6 +359,116 @@ def prepare_application_fee(
         amount_cents=attempt.amount_cents, currency="USD",
         status="PREPARED", created_at=attempt.created_at,
     )
+
+
+
+@router.post("/{application_id}/record-fee-receipt", response_model=RentalApplicationOut)
+def record_application_fee_receipt(
+    application_id: int, payload: ApplicationFeeRecordReceiptIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Link a *previously posted* receipt. No new GL entry or Stripe event.
+
+    Requires explicit staff attestation; transaction and receipt are validated
+    against current org/application/price. Safe receipt reversal is coordinated
+    by receipt_posting.reverse_receipt.
+    """
+    row = _row(db, current_user, application_id)
+    org_id = _staff_access(db, current_user, property_id=row.property_id)
+    if current_user.role != UserRole.ADMIN or not permission_allows_user(
+        db, user=current_user, menu_key="ACCOUNTING.RECEIVABLES",
+    ):
+        raise HTTPException(status_code=403, detail="Application fee accounting permission required.")
+    feature = next(
+        (x for x in resolve_customer_features(db, user=current_user)
+         if x.key == "release.accounting.receipts.application_fee"), None,
+    )
+    if feature is None or not feature.allowed:
+        raise HTTPException(status_code=404, detail="Application fee capability is unavailable.")
+
+    # Lock the application before touching the receipt, in the same order
+    # as fee preparation. This serializes concurrent staff confirmations.
+    row = db.query(LeaseApplication).filter(
+        LeaseApplication.id == row.id,
+    ).populate_existing().with_for_update().one()
+    if row.status != ApplicationStatus.PENDING_PAYMENT:
+        raise HTTPException(status_code=409, detail="Application is not awaiting payment.")
+    attempt = db.query(ApplicationFeeAttempt).filter(
+        ApplicationFeeAttempt.application_id == row.id,
+        ApplicationFeeAttempt.organization_id == org_id,
+        ApplicationFeeAttempt.applicant_user_id == row.applicant_user_id,
+    ).with_for_update().first()
+    if (attempt is None or attempt.status not in {"PREPARED", "REVERSED"}
+            or attempt.unit_id != row.unit_id or attempt.amount_cents <= 0
+            or attempt.currency != "USD"):
+        raise HTTPException(status_code=409, detail="Verified fee preparation is required.")
+    if db.query(ApplicationPayment.id).filter(
+        ApplicationPayment.application_id == row.id,
+        ApplicationPayment.status == "paid",
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Application already has a paid fee.")
+
+    receipt = db.query(Receipt).filter(
+        Receipt.id == payload.receipt_id,
+        Receipt.organization_id == org_id,
+    ).populate_existing().with_for_update().first()
+    if receipt is None:
+        raise HTTPException(status_code=404, detail="Receipt not found.")
+    if (not receipt.is_active or receipt.deleted_at is not None or receipt.is_reversed
+            or receipt.reversal_of_id is not None or receipt.type != "APPLICATION_FEE"
+            or receipt.property_id != row.property_id or receipt.unit_id != row.unit_id
+            or receipt.reference_number != f"APP-{row.id}"):
+        raise HTTPException(status_code=422, detail="Receipt does not match the submitted application.")
+    applicant_name = (_read_json_names(row.applicant_names) or [""])[0]
+    if not applicant_name or (receipt.received_from or "").strip() != applicant_name:
+        raise HTTPException(status_code=422, detail="Receipt payer does not match the applicant.")
+    if receipt.tenant_user_id is not None and receipt.tenant_user_id != row.applicant_user_id:
+        raise HTTPException(status_code=422, detail="Receipt applicant mismatch.")
+    if (Decimal(str(receipt.amount)) * 100 != attempt.amount_cents
+            or Decimal(str(receipt.amount)) <= 0):
+        raise HTTPException(status_code=422, detail="Receipt amount differs from prepared fee.")
+    acct = db.query(GLAccount).filter(
+        GLAccount.id == receipt.income_gl_account_id,
+        GLAccount.organization_id == org_id,
+        GLAccount.gl_number == "4420",
+    ).first()
+    if acct is None:
+        raise HTTPException(status_code=422, detail="Receipt was not posted as application-fee income.")
+    txn = db.query(GLTransaction).filter(
+        GLTransaction.id == receipt.gl_transaction_id,
+        GLTransaction.organization_id == org_id,
+        GLTransaction.transaction_type == "RECEIPT",
+        GLTransaction.source_type == "receipt",
+        GLTransaction.source_id == receipt.id,
+        GLTransaction.is_reversed.is_(False),
+        GLTransaction.reversal_of_id.is_(None),
+    ).first()
+    if txn is None:
+        raise HTTPException(status_code=422, detail="Receipt has no active original GL posting.")
+    if db.query(ApplicationPayment.id).filter(
+        ApplicationPayment.receipt_id == receipt.id,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Receipt already linked to an application.")
+    payment = ApplicationPayment(
+        application_id=row.id, property_id=row.property_id,
+        applicant_user_id=row.applicant_user_id, applicant_name=applicant_name,
+        receipt_id=receipt.id, amount=receipt.amount,
+        status="paid", paid_at=receipt.created_at or datetime.utcnow(),
+    )
+    db.add(payment)
+    row.status = ApplicationStatus.PAID
+    row.fee_amount = receipt.amount
+    attempt.status = "ACCOUNTED"
+    db.flush()
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=org_id,
+        entity_type="lease_application", entity_id=row.id, action="fee_receipt_linked",
+        new_value={"payment_id": payment.id, "receipt_id": receipt.id,
+                   "amount_cents": attempt.amount_cents, "status": "paid"},
+    )
+    db.commit(); db.refresh(row)
+    return _out(row)
 
 
 def _private_fernet() -> Fernet:
