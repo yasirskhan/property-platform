@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `a2da32a884a16ff9a1fa8adedc3b199810d19e36`
-- Source GitHub Actions run **36370090346: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `6fe873dfa466a33b478dc638c0196bbddb64c9e5`
+- Source GitHub Actions run **36371943676: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **650 passed, 3 deselected, 13423 warnings in 115.57s**.
-  E2E: **3 passed in 9.15s**. Lint, typecheck, production build, security
+  Backend: **654 passed, 3 deselected, 13612 warnings in 149.65s**.
+  E2E: **3 passed in 9.31s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -19,13 +19,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   Previous head f2e4a6c8d0b1 / 115 tables. Nullable receipt FK and
   unique receipt index added; PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4.5 trust-interest bank readiness UI, VERIFIED.**
+  **Latest completed batch: Phase 4.5 positive-pay read-only backend + customer review UI, VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Phase 4.5 positive-pay check issue/void preflight (PLAN_GAPS C8).** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
+- **Exact NEXT independent original-plan task: Phase 4.6 Affordable Housing / Section 8 / LIHTC, beginning with a bounded property-level program inventory.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -101,6 +101,8 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Phase 4.5 RUBs duplicate/overlap review diagnostics | 54ad71a8ab2d2bb8aaeeaad27f97614707b71369 | 36368986607 | 646 backend passed / 3 E2E; no charges or allocations |
 | Phase 4.5 trust-interest manual policy readiness backend | ed9d2d97cce994909798c6f413e2ed4b4247c116 | 36369555961 | 649 backend passed / 3 E2E; no GL posting |
 | Phase 4.5 bank trust-interest review UI | a2da32a884a16ff9a1fa8adedc3b199810d19e36 | 36370090346 | 650 backend passed / 3 E2E; no interest posting |
+| Phase 4.5 positive-pay issue/void preflight | 82844c94fad5d4ef7fd33ac2e0366055953320e1 | 36370656288 | 653 backend passed / 3 E2E; not a bank upload file |
+| Phase 4.5 positive-pay customer bank review UI | 6fe873dfa466a33b478dc638c0196bbddb64c9e5 | 36371943676 | 654 backend passed / 3 E2E; read-only, no bank file |
 | Phase 4 vendor company entity + scoped customer UI | 6e1d0eb730a71d913021b590667123ee047c4858 | 36336927654 | 590 backend passed / 3 E2E |
 | Phase 4 vendor insurance lifecycle | 8d2cb6adffbde41282fc77e9e0365b2913410f66, 3de4c938e07fc695cf33eec3b1a7af7fd552e73b, 5dcdd6272bd1e18fe78a0ae2868ef6d110caf2c8 | 36337623891 | 593 backend passed / 3 E2E |
 | Phase 4 vendor trade/insurance filters | b40d94b3861809d4cfd5bb563a21bd6a4e524476, 0d32310911be49c9133ba002d19fdfdb9fce7e9a, 87ed9dd1396686065c9596622173297628b2ace2 | 36338819609 | 596 backend passed / 3 E2E |
@@ -3183,42 +3185,92 @@ Reusing an ACH or check-register CSV as a bank-approved positive-
 pay file is NOT acceptable. No GL, check issue, void or bank
 reconciliation mutation in a readiness preview.
 
+## Phase 4.5 positive-pay bank preflight + customer UI — VERIFIED 2026-09-27
+
+Preflight source 82844c94fad5d4ef7fd33ac2e0366055953320e1,
+CI 36370656288 SUCCESS six jobs: backend 653 passed,
+3 deselected, 13565 warnings in 123.50s; E2E 3 passed in 8.42s.
+Customer bank review source 6fe873dfa466a33b478dc638c0196bbddb64c9e5,
+CI 36371943676 SUCCESS six jobs: backend 654 passed,
+3 deselected, 13612 warnings in 149.65s; authenticated E2E
+3 passed in 9.31s. Frontend lint/typecheck/build, security,
+platform-admin, staging passed. No migration: Alembic
+a7c9e1f3b5d0 / 120 model tables. Tests added with both
+batches. No frozen docs/ or parity changes.
+
+Admin-only GET /api/accounting/bank-accounts/{bank_id}/positive-pay/preflight
+requires active same-org bank mapped to active ASSET GL, bank
+permission, release.accounting.check_printing and verified Check
+Register permissions. Accepts optional check-date range, max 500
+recorded checks, no-store response. Reuses the verified issue/void
+GL provenance logic, flags missing recorded number/payee, returns
+only check display attributes (never bank routing/account IDs).
+Internal issue/void status is NOT bank clearing or acceptance.
+No check, GL, bank reconciliation or other accounting mutation.
+Customer Bank Accounts page now opens a gated ADMIN-only
+Positive-pay review dialog with date filters, issued/void counts
+and review flags, explicitly NOT_SUBMITTED and no export.
+Check-date is ORIGINAL issue date, not necessarily void-action date;
+this view is not an event-dated bank file or accepted bank template.
+Generic E2E smoke passed; it is NOT a dedicated dialog browser test.
+
+Original PLAN_GAPS C8 positive-pay file/export remains UNVERIFIED:
+a bank-specific approved template/schema, event/effective-date
+semantics, transmission method, reconciliation and human review
+are required before any upload-ready file or bank integration.
+Existing ACH CSV/NACHA/check-register exports MUST NOT be
+presented as positive-pay bank files. No actual bank file, submission
+or bank acceptance implemented; needs bank-supplied specifications.
+This is an external dependency and does not block work on
+independent original-plan Phase 4.6.
+
+NEXT independent original phase: 4.6 Affordable Housing /
+Section 8 / LIHTC per PLAN_GAPS C1 (read frozen docs only).
+Start with bounded property-level program inventory linked to
+current org/property, staff-scoped and release.properties.compliance
+gated, explicitly descriptive, not HUD/LIHTC eligibility
+certification. Do not infer eligibility, HAP amounts, AMI limits,
+income, legal rates or applicant status. Add focused tests and UI,
+CI verify, then update this root handoff.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Verify current branch HEAD/latest six-job CI. Last verified
-   source a2da32a884a16ff9a1fa8adedc3b199810d19e36;
-   CI 36370090346 green, backend 650 passed/3 deselected,
-   browser E2E 3 passed; Alembic a7c9e1f3b5d0 / 120 tables.
-   Do not replay RUBs, CRM, or trust-interest readiness/UI.
-2. Original Phase 4.5 PLAN_GAPS C8: positive-pay issue/void
-   eligibility/preflight, reuse scoped verified Check and
-   GL issue/void reconciliation logic. Staff/org/menu/gate
-   enforced; no guessing bank-specific CSV or NAB format.
-   Never include private bank identifiers in read-only previews.
-   No GL/check/bank mutation from preview.
-3. Only after verified official bank-specific schema, approval,
-   and bank acceptance enable actual positive-pay file export;
-   note new schema/terms may need operator configuration.
-4. Follow subsequent original Phase 4.5/4.6 dependency order.
-   User authorized commit-then-GitHub-CI; include focused tests
-   in every bounded product batch, verify all relevant jobs and
-   fix reds. Update root handoff after each meaningful verified
-   batch. Frozen docs/ unchanged absent express authorization.
-   No main edit, new branch, force push, or false filing/payment
-   success.
+1. Verify current branch HEAD/latest CI. Last verified product
+   source 6fe873dfa466a33b478dc638c0196bbddb64c9e5;
+   CI 36371943676 all six jobs green, 654 backend passed,
+   3 deselected, 3 authenticated E2E passed; Alembic
+   a7c9e1f3b5d0 / 120 tables. Do not repeat trust interest,
+   RUBs, positive-pay preflight or positive-pay customer UI.
+2. Positive pay BANK FILE/ACCEPTANCE remains pending bank-issued
+   specifications. Do not fabricate a banking template, label
+   ordinary check CSV as positive-pay, or imply submission.
+3. Proceed autonomously with independent original Phase 4.6
+   PLAN_GAPS C1 Affordable Housing/Section 8/LIHTC, first bounded
+   property-level manually recorded program inventory; no eligibility
+   or benefit determination. Preserve org/property/manager scope,
+   live permission and release gate, no GL/payment changes.
+4. Commit bounded source with focused regression tests, verify
+   full hosted CI, fix failures, update root handoff after each
+   meaningful verified batch. Frozen docs/ unchanged absent
+   express authorization; no main/new branch/force push.
+5. Continue C1 dependency order, then 4.7 HOA and subsequent
+   subphases. External bank and IRS provider integrations remain
+   pending independently until specifications and credentials exist.
 
 ## Session start for successor
 
 Continue yasirskhan/property-platform on
 chatgpt/checkpoint-005-safety. Read whole root AI_HANDOFF.md,
 verify HEAD/CI. Last verified product source
-a2da32a884a16ff9a1fa8adedc3b199810d19e36,
-CI 36370090346 SUCCESS six jobs: 650 backend passed,
-3 deselected, 3 browser E2E passed. Alembic a7c9e1f3b5d0,
-120 model tables. C7 trust-interest bank manual-readiness backend
-and customer UI VERIFIED, but no jurisdictional interest posting.
-NEXT original Phase 4.5 C8 positive-pay read-only issue/void
-eligibility/preflight using verified Check Register and GL.
-Never present guessed CSV as accepted bank format; no fund
-movement. Include tests, hosted six-job CI, update root handoff
-and continue without waiting at phase boundaries.
+6fe873dfa466a33b478dc638c0196bbddb64c9e5;
+CI 36371943676 SUCCESS all six jobs: 654 backend passed,
+3 deselected; 3 browser E2E passed. Alembic
+a7c9e1f3b5d0, 120 tables. Phase 4.5 C8 positive-pay
+recorded issue/void preflight and customer review UI VERIFIED,
+but bank-specific file/export NOT IMPLEMENTED pending approved
+bank template. NEXT independent original Phase 4.6 C1
+Affordable Housing/Section 8/LIHTC property-level program
+inventory, descriptive only without regulated eligibility.
+Preserve verified source, no unapproved frozen docs, commit
+with tests then hosted six-job CI, update root handoff, continue
+without waiting for phase permission.
