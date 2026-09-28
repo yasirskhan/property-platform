@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from app.core.database import get_db
 from app.models.guest_card import GuestCard
+from app.models.prospect import Prospect
+from app.models.contact import Contact
 from app.models.property import Unit
 from app.models.user import User
 from app.routers.auth import get_current_user
@@ -41,25 +43,19 @@ def _card(db: Session, *, user: User, card_id: int, write: bool = False):
     return card, prospect
 
 
-def _out(card: GuestCard, prospect) -> GuestCardOut:
+def _out(card: GuestCard, prospect: Prospect, contact_name: str) -> GuestCardOut:
     # _prospect guarantees current organization/property/contact visibility.
     return GuestCardOut(
         id=card.id, organization_id=card.organization_id,
         prospect_id=card.prospect_id, property_id=prospect.property_id,
-        contact_name=prospect_contact_name_placeholder(prospect),
+        contact_name=contact_name,
         visit_on=card.visit_on, unit_id=card.unit_id, attended=card.attended,
         next_step=card.next_step, is_active=card.is_active,
         created_at=card.created_at, updated_at=card.updated_at,
     )
 
 
-def prospect_contact_name_placeholder(prospect) -> str:
-    # Replaced by scoped Contact lookup in _view; no raw user input is trusted.
-    return str(prospect.contact_id)
-
-
-def _view(db: Session, card: GuestCard, prospect) -> GuestCardOut:
-    from app.models.contact import Contact
+def _view(db: Session, card: GuestCard, prospect: Prospect) -> GuestCardOut:
     person = db.query(Contact.display_name).filter(
         Contact.id == prospect.contact_id,
         Contact.organization_id == prospect.organization_id,
@@ -67,8 +63,7 @@ def _view(db: Session, card: GuestCard, prospect) -> GuestCardOut:
     ).first()
     if person is None:
         raise HTTPException(status_code=404, detail="Contact not found.")
-    result = _out(card, prospect)
-    return result.model_copy(update={"contact_name": person[0]})
+    return _out(card, prospect, person[0])
 
 
 @router.get("", response_model=GuestCardList)
@@ -80,9 +75,7 @@ def list_guest_cards(
     response.headers["Cache-Control"] = "no-store"
     if prospect_id is not None:
         _prospect(db, org, current_user, prospect_id)
-    visible_ids = _visible_prospects(db, org, current_user).with_entities(
-        __import__("app.models.prospect", fromlist=["Prospect"]).Prospect.id
-    )
+    visible_ids = _visible_prospects(db, org, current_user).with_entities(Prospect.id)
     q = db.query(GuestCard).filter(
         GuestCard.organization_id == org, GuestCard.is_active.is_(True),
         GuestCard.prospect_id.in_(visible_ids),
