@@ -7,20 +7,20 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `867cf2158bb98a962e1fd17c8ce3d342469c8187`
-- Source GitHub Actions run **36490457829: SUCCESS, all six jobs**
+- Last VERIFIED **product source**: `ea2f94e431fca28056c8bf54c619265d80cd9c80`
+- Source GitHub Actions run **36491890725: SUCCESS, all six jobs**
   (backend, frontend, platform-admin, security, authenticated E2E,
-  staging-config). Backend: **755 passed, 10 deselected, 17376 warnings
-  in 158.34s**. E2E: **10 passed, 44 warnings in 21.48s**. Lint,
+  staging-config). Backend: **756 passed, 10 deselected, 17406 warnings
+  in 125.36s**. E2E: **10 passed, 100 warnings in 28.18s**. Lint,
   TypeScript, build, security and staging: SUCCESS. This applies to
-  verified product source `867cf21`. No local tests run.
+  verified product source `ea2f94e`. No local tests run.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **c0d2e4f6a8b1**. SQLAlchemy expected model tables: **150**.
-  Previous head b9d1f3a5c7e2 / 149. PostgreSQL bootstrap, staging
-  preparation and legacy migration guards passed in CI 36490457829.
+- Alembic head: **d1e3f5a7b9c2**. SQLAlchemy expected model tables: **150**.
+  Previous head c0d2e4f6a8b1 / 150. PostgreSQL bootstrap, staging
+  preparation and legacy migration guards passed in CI 36491890725.
 - CURRENT roadmap work: **Phase 4.7 C2 HOA IN PROGRESS**. Explicit user-directed priority: build generic HOA infrastructure first; independently verified Phase 4.8 C3 commercial reference/report source remains preserved, with no new commercial scope while HOA remains active. Authentic governing/legal sources are absent, so legally operative notices, assessments, fines and reserve postings remain blocked until reviewed. Previous Phase 3.7 reports and 1099 internal preparation retain verified scope.
-  **Latest verified batch: idempotent, unissued HOA planning-occurrence history with scoped payer-reference snapshots and a dedicated browser test. No legal payer or charge.**
+  **Latest verified batch: hidden, unpaid-by-default $79/month HOA catalog plus separate live commercial entitlement and release controls; no customer was billed or subscribed.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
@@ -28,6 +28,75 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
 - **Exact NEXT task: obtain/review actual HOA governing documents and the applicable property/association jurisdiction, authorized legal actors and accounting policies. Staff-only private-document evidence indexing, ARC intake, observations, meeting planning, contact references and assessment drafts are VERIFIED. A staff document link is NOT certification of governing authority. No official applications, architectural decisions, notices, penalties, board actions, dues/payer liability, reserve transfers or GL posting without reviewed legal/accounting authority. No uploaded governing source has been verified for this task. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows remain BLOCKED pending authoritative program rules and secure household policy.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED; do not label them completed screening/marketing conversions. External Stripe/IRS filing acceptance remains unimplemented.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight, 1099 preparation, tax profiles or W-9 archive.
+
+## CURRENT SESSION UPDATE — 2026-09-28 HOA ADD-ON GATE VERIFIED
+
+**Verified product source** `ea2f94e431fca28056c8bf54c619265d80cd9c80`.
+Hosted **GitHub Actions 36491890725 SUCCESS all six jobs**:
+backend **756 passed, 10 deselected, 17406 warnings in 125.36s**;
+E2E **10 passed, 100 warnings in 28.18s**; frontend
+lint/TypeScript/build, platform admin, security and staging all
+PASS. No local tests run. E2E exercised existing dedicated
+HOA flows using an explicitly disposable synthetic test
+subscription; no new browser test was added in this batch.
+
+This bounded HOA commercial-preparation batch adds migration
+`d1e3f5a7b9c2` after `c0d2e4f6a8b1` with a paid
+`Module(key="hoa", is_core=False)`,
+`ModuleFeature(feature_key="hoa")`, a hidden
+`release.properties.hoa` gate and an INACTIVE catalog
+`AddOn(code="hoa_monthly", unit_price_cents=7900, currency="USD")`.
+The $79/month price is a catalog record, **not a working checkout
+offer**, automatic invoice, Stripe price or active customer
+subscription. The existing `SubscriptionItem` entitlement
+resolver checks paid HOA separately from the existing compliance
+feature. HOA backend _access now demands BOTH the live
+compliance capability and live dedicated HOA release/entitlement/
+organization/permission decision. Customer property UI wraps
+HOA with the same extra Flag, leaving unrelated affordable and
+commercial property compliance presentation untouched. Existing
+HOA tests' synthetic feature fixtures were extended for the
+separate gate; focused new regression covers hidden/released,
+no-subscription, per-organization paid grant, suspension, org
+disable and restoration. Existing browser coverage provisionally
+grants the test org a synthetic module subscription only within
+disposable E2E context and tears it down afterward.
+
+Existing DB Alembic migration seeds data; fresh bootstrap
+seeds identical hidden catalog through idempotent
+`seed_unreleased_hoa_catalog` because fresh bootstrap stamps
+head and skips data-only migration. Both paths guarded in
+schema tests, 150 model tables (unchanged), new Alembic head
+**d1e3f5a7b9c2**. Frozen `docs/` and parity unchanged;
+no Phase 4.8 work or new GL/Charge/RentInvoice mutation.
+
+**Status distinction**: paid HOA entitlement/catalog and
+release gating are now VERIFIED. Production add-on checkout,
+provider price, signed subscription acquisition/cancellation,
+and authorized customer purchase remain **NOT IMPLEMENTED**;
+no consumer was billed or granted HOA access by this migration.
+The earlier recurring planning history, violation staff stages,
+private documents, meeting/ballot/minutes preparation, ARC
+application/review, reserve read-only book remain verified.
+Actual legally issued dues/reversals, operative violation
+notices/fines, board voting/official minutes, ARC decisions,
+reserve posted transfers and production add-on selling are
+NOT COMPLETE. Real legal/financial activation requires
+authenticated governing, payer and approved GL evidence.
+Org-configured policies alone cannot certify this authority.
+Continue generic Phase 4.7 only; DO NOT resume Phase 4.8.
+
+**Exact next bounded authorized HOA work**: use existing
+`hoa_planned_occurrences`, payer drafts, current GL and receipt
+architecture to implement a separately gated, no-execution
+posting/reversal validation contract and document what
+authenticated actor, payer and GL mapping must provide.
+Do not create any tenant charges or actual GL transactions
+from unverified staff contacts. Alternatively implement the
+next unblocked secure generic board/ARC/reserve integration
+without enabling legally effective status; avoid repeating
+verified drafts. Re-fetch HEAD and CI before further edits.
+Root handoff-only commit is not a fresh product verification.
 
 ## CURRENT SESSION UPDATE — 2026-09-28 HOA PLANNING HISTORY VERIFIED
 
