@@ -1,6 +1,10 @@
 """Explicit draft HOA proposals; no issuance, owner liability, Charges or ledger posting."""
 from __future__ import annotations
 
+from calendar import monthrange
+from datetime import date
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -12,7 +16,10 @@ from app.models.property import Property
 from app.models.user import User
 from app.routers.auth import get_current_user
 from app.routers.hoa_associations import _access, _association, _visible
-from app.schemas.hoa_assessment import HOAAssessmentProposalIn, HOAAssessmentProposalOut
+from app.schemas.hoa_assessment import (
+    HOAAssessmentProposalIn, HOAAssessmentProposalOut,
+    HOAAssessmentPreviewOccurrence, HOAAssessmentPreviewOut,
+)
 from app.services.audit import append_audit_log
 
 router = APIRouter(prefix="/api/hoa/associations", tags=["HOA staff assessment proposals"])
@@ -173,3 +180,84 @@ def archive_proposal(
     )
     db.commit()
     return Response(status_code=204, headers={"Cache-Control": "no-store"})
+
+
+def _proposed_calendar(
+    proposal: HOAAssessmentProposal, date_from: date, date_to: date,
+) -> list[HOAAssessmentPreviewOccurrence]:
+    """Calculate a bounded, read-only schedule anchored to the original day.
+
+    Preserve end-of-month anchors (Jan 31 -> Feb 28 -> Mar 31), and do
+    not drift a monthly schedule after shorter months. No legal due date,
+    payer, approval, Charge, RentInvoice or GL instruction is created.
+    """
+    if date_to < date_from or (date_to - date_from).days > 366 * 5:
+        raise HTTPException(status_code=422, detail="Preview range must be 0-5 years.")
+    anchor = proposal.proposed_first_on
+    months = {"MONTHLY": 1, "QUARTERLY": 3, "ANNUAL": 12}
+    if proposal.frequency == "ONE_TIME":
+        return [
+            HOAAssessmentPreviewOccurrence(
+                proposed_on=anchor, proposed_amount=proposal.proposed_amount,
+            )
+        ] if date_from <= anchor <= date_to and (
+            proposal.proposed_through is None or anchor <= proposal.proposed_through
+        ) else []
+    step = months.get(proposal.frequency)
+    if step is None:
+        raise HTTPException(status_code=422, detail="Unrecognized proposal recurrence.")
+    origin_month = anchor.year * 12 + anchor.month - 1
+    starting_month = date_from.year * 12 + date_from.month - 1
+    # Skip far-past periods without iterating unbounded historical dates.
+    first_index = max(0, (starting_month - origin_month) // step - 1)
+    anchor_at_month_end = anchor.day == monthrange(anchor.year, anchor.month)[1]
+    occurrences = []
+    for index in range(first_index, first_index + 64):
+        month_number = origin_month + index * step
+        year, zero_month = divmod(month_number, 12)
+        if year > 9999:
+            break
+        month = zero_month + 1
+        final_day = monthrange(year, month)[1]
+        occurrence = date(
+            year, month, final_day if anchor_at_month_end else min(anchor.day, final_day),
+        )
+        if occurrence > date_to or (
+            proposal.proposed_through is not None and occurrence > proposal.proposed_through
+        ):
+            break
+        if occurrence >= anchor and occurrence >= date_from:
+            occurrences.append(HOAAssessmentPreviewOccurrence(
+                proposed_on=occurrence, proposed_amount=proposal.proposed_amount,
+            ))
+            if len(occurrences) > 62:
+                raise HTTPException(status_code=422, detail="Preview has too many periods.")
+    return occurrences
+
+
+@router.get(
+    "/{association_id}/draft-assessments/{proposal_id}/preview",
+    response_model=HOAAssessmentPreviewOut,
+)
+def preview_proposal(
+    association_id: int, proposal_id: int, response: Response,
+    property_id: int = Query(ge=1),
+    date_from: date = Query(),
+    date_to: date = Query(),
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    org_id, association = _scope(
+        db, actor=current_user, association_id=association_id,
+        property_id=property_id, write=False,
+    )
+    row = _record(
+        db, org_id=org_id, association_id=association.id,
+        property_id=property_id, proposal_id=proposal_id,
+    )
+    entries = _proposed_calendar(row, date_from, date_to)
+    response.headers["Cache-Control"] = "no-store"
+    return HOAAssessmentPreviewOut(
+        proposal_id=row.id, property_id=property_id, frequency=row.frequency,
+        occurrences=entries,
+        proposed_total=sum((e.proposed_amount for e in entries), Decimal("0.00")),
+    )

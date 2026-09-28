@@ -255,3 +255,128 @@ def test_association_archive_retains_no_active_draft_or_financial_effect():
         assert db.query(GLTransaction).count() == db.query(Charge).count() == db.query(Lease).count() == 0
     finally:
         db.rollback(); db.close(); engine.dispose()
+
+
+def test_calendar_preview_keeps_month_end_anchor_without_issuing_charges():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, _, _), association = _seed(db)
+        proposal = api.create_proposal(association.id, _payload(
+            assigned.id, frequency="MONTHLY", proposed_first_on=date(2028, 1, 31),
+            proposed_amount="125.50",
+        ), db=db, current_user=admin)
+        result = api.preview_proposal(
+            association.id, proposal.id, Response(),
+            property_id=assigned.id, date_from=date(2028, 1, 1),
+            date_to=date(2028, 4, 30), db=db, current_user=manager,
+        )
+        assert [r.proposed_on for r in result.occurrences] == [
+            date(2028, 1, 31), date(2028, 2, 29),
+            date(2028, 3, 31), date(2028, 4, 30),
+        ]
+        assert result.proposed_total == Decimal("502.00")
+        assert result.status == "UNISSUED_PREVIEW"
+        assert result.issuance_enabled is False
+        assert all(x.status == "DRAFT_ONLY" for x in result.occurrences)
+        assert "due_on" not in result.model_dump()
+        assert "payer_id" not in result.model_dump()
+        assert db.query(Charge).count() == db.query(GLTransaction).count() == db.query(Lease).count() == 0
+        assert db.query(AuditLog).filter(AuditLog.entity_type == "hoa_assessment_proposal").count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_calendar_preview_quarterly_annual_special_bounds_and_far_past():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, _, _), association = _seed(db)
+        quarter = api.create_proposal(association.id, _payload(
+            assigned.id, frequency="QUARTERLY",
+            proposed_first_on=date(2026, 11, 30),
+            proposed_through=date(2031, 12, 31),
+        ), db=db, current_user=admin)
+        result = api.preview_proposal(
+            association.id, quarter.id, Response(),
+            property_id=assigned.id, date_from=date(2030, 1, 1),
+            date_to=date(2030, 12, 31), db=db, current_user=owner,
+        )
+        assert [x.proposed_on for x in result.occurrences] == [
+            date(2030, 2, 28), date(2030, 5, 31),
+            date(2030, 8, 31), date(2030, 11, 30),
+        ]
+        annual = api.create_proposal(association.id, _payload(
+            assigned.id, frequency="ANNUAL",
+            proposed_first_on=date(2028, 2, 29),
+        ), db=db, current_user=admin)
+        result = api.preview_proposal(
+            association.id, annual.id, Response(),
+            property_id=assigned.id, date_from=date(2030, 1, 1),
+            date_to=date(2032, 12, 31), db=db, current_user=admin,
+        )
+        assert [x.proposed_on for x in result.occurrences] == [
+            date(2030, 2, 28), date(2031, 2, 28), date(2032, 2, 29),
+        ]
+        special = api.create_proposal(association.id, _payload(
+            assigned.id, frequency="ONE_TIME", assessment_type="SPECIAL",
+            proposed_first_on=date(2028, 6, 12),
+        ), db=db, current_user=admin)
+        result = api.preview_proposal(
+            association.id, special.id, Response(),
+            property_id=assigned.id, date_from=date(2029, 1, 1),
+            date_to=date(2029, 12, 31), db=db, current_user=admin,
+        )
+        assert result.occurrences == [] and result.proposed_total == Decimal("0.00")
+        for start, end in ((date(2030, 1, 2), date(2030, 1, 1)),
+                           (date(2028, 1, 1), date(2035, 1, 1))):
+            with pytest.raises(HTTPException) as exc:
+                api.preview_proposal(
+                    association.id, quarter.id, Response(),
+                    property_id=assigned.id, date_from=start, date_to=end,
+                    db=db, current_user=admin,
+                )
+            assert exc.value.status_code == 422
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_calendar_preview_authorization_and_archive_fail_closed(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, unassigned, other), association = _seed(db)
+        proposal = api.create_proposal(
+            association.id, _payload(assigned.id),
+            db=db, current_user=admin,
+        )
+        def preview(actor, prop_id=assigned.id):
+            return api.preview_proposal(
+                association.id, proposal.id, Response(),
+                property_id=prop_id, date_from=date(2027, 1, 1),
+                date_to=date(2027, 12, 31), db=db, current_user=actor,
+            )
+        for actor, pid in ((tenant, assigned.id), (foreign, assigned.id),
+                           (manager, unassigned.id), (admin, other.id)):
+            with pytest.raises(HTTPException):
+                preview(actor, pid)
+        monkeypatch.setattr(hoa, "permission_allows_user", lambda *a, **kw: False)
+        with pytest.raises(HTTPException) as exc:
+            preview(admin)
+        assert exc.value.status_code == 403
+        monkeypatch.setattr(hoa, "permission_allows_user", lambda *a, **kw: True)
+        monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **kw: [])
+        with pytest.raises(HTTPException) as exc:
+            preview(admin)
+        assert exc.value.status_code == 404
+        monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **kw: [
+            SimpleNamespace(key=hoa.FEATURE_KEY, allowed=True)
+        ])
+        api.archive_proposal(association.id, proposal.id, assigned.id,
+                             db=db, current_user=admin)
+        with pytest.raises(HTTPException) as exc:
+            preview(admin)
+        assert exc.value.status_code == 404
+        assert db.query(GLTransaction).count() == db.query(Charge).count() == 0
+    finally:
+        db.close()
+        engine.dispose()

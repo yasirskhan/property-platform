@@ -43,3 +43,19 @@ class HOAAssessmentProposalOut(HOAAssessmentProposalIn):
     association_id: int
     status: Literal["DRAFT"] = "DRAFT"
     updated_at: datetime
+
+
+class HOAAssessmentPreviewOccurrence(BaseModel):
+    proposed_on: date
+    proposed_amount: Decimal
+    status: Literal["DRAFT_ONLY"] = "DRAFT_ONLY"
+
+
+class HOAAssessmentPreviewOut(BaseModel):
+    proposal_id: int
+    property_id: int
+    frequency: str
+    occurrences: list[HOAAssessmentPreviewOccurrence]
+    proposed_total: Decimal
+    issuance_enabled: Literal[False] = False
+    status: Literal["UNISSUED_PREVIEW"] = "UNISSUED_PREVIEW"

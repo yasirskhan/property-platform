@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
+import HoaDuesPreviewPanel from "@/components/property/HoaDuesPreviewPanel";
 
 type Kind = "RECURRING" | "SPECIAL";
 type Frequency = "MONTHLY" | "QUARTERLY" | "ANNUAL" | "ONE_TIME";
@@ -30,6 +31,7 @@ export default function HoaDraftAssessmentsPanel({
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [previewId, setPreviewId] = useState<number | null>(null);
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<Kind>("RECURRING");
   const [frequency, setFrequency] = useState<Frequency>("MONTHLY");
@@ -144,14 +146,18 @@ export default function HoaDraftAssessmentsPanel({
               {row.proposed_through ? " · Proposed through: " + row.proposed_through : ""}
             </p>
           </div>
-          {canEdit && (
-            <div className="flex gap-3 text-sm">
+          <div className="flex gap-3 text-sm">
+            <button type="button" onClick={() => setPreviewId((old) => old === row.id ? null : row.id)}
+              className="text-blue-700">Preview dates</button>
+            {canEdit && <>
               <button type="button" disabled={busy} onClick={() => edit(row)}
                 className="text-blue-700 disabled:opacity-50">Edit</button>
               <button type="button" disabled={busy} onClick={() => { void archive(row); }}
                 className="text-red-700 disabled:opacity-50">Archive</button>
-            </div>
-          )}
+            </>}
+          </div>
+          {previewId === row.id && <HoaDuesPreviewPanel associationId={associationId}
+            propertyId={propertyId} proposalId={row.id} />}
         </div>
       ))}
       {canEdit && !loading && (

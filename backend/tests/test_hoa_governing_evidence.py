@@ -222,3 +222,30 @@ def test_attachment_feature_and_live_role_revocation(monkeypatch):
         assert db.query(GLTransaction).count() == db.query(Charge).count() == 0
     finally:
         db.close(); engine.dispose()
+
+
+def test_meeting_minutes_are_private_staff_documents_not_board_approval():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, crew, tenant, foreign), (assigned, _, _), assoc, docs = _seed(db)
+        saved = api.link_evidence(
+            assoc.id, _payload(assigned, docs[0], evidence_type="MEETING_MINUTES"),
+            db=db, current_user=admin,
+        )
+        assert saved.evidence_type == "MEETING_MINUTES"
+        assert saved.status == "STAFF_SUPPLIED_UNVERIFIED"
+        records = api.list_evidence(
+            assoc.id, Response(), assigned.id, db=db, current_user=manager,
+        )
+        assert [x.id for x in records] == [saved.id]
+        for actor in (crew, tenant, foreign):
+            with pytest.raises(HTTPException):
+                attachments.download_entity_attachment(
+                    docs[0].id, db=db, current_user=actor,
+                )
+        with pytest.raises(ValidationError):
+            _payload(assigned, docs[0], official_minutes=True)
+        assert db.query(GLTransaction).count() == db.query(Charge).count() == 0
+    finally:
+        db.close()
+        engine.dispose()

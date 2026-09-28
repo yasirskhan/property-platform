@@ -9,7 +9,7 @@ class HOAEvidenceLinkIn(BaseModel):
     attachment_id: int = Field(ge=1)
     evidence_type: Literal[
         "DECLARATION", "BYLAWS", "COVENANTS", "RULES",
-        "ARC_GUIDELINES", "RESERVE_STUDY", "OTHER",
+        "ARC_GUIDELINES", "RESERVE_STUDY", "MEETING_MINUTES", "OTHER",
     ]
 
 class HOAEvidenceOut(BaseModel):

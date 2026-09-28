@@ -23,6 +23,7 @@ const CATEGORIES: { key: string; label: string }[] = [
   { key: "RULES", label: "Rules and regulations" },
   { key: "ARC_GUIDELINES", label: "ARC guidelines" },
   { key: "RESERVE_STUDY", label: "Reserve study" },
+  { key: "MEETING_MINUTES", label: "Meeting minutes (staff-supplied)" },
   { key: "OTHER", label: "Other document" },
 ];
 
