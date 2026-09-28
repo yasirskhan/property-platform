@@ -7,24 +7,24 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `a8adc7dc2f47a40085c1203b38dd2254d778a907`
-- Source GitHub Actions run **36412399420: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `82c8ede338b9030acfd993bbe6888eae7e07ddce`
+- Source GitHub Actions run **36413219901: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **685 passed, 3 deselected, 14644 warnings in 167.94s**.
-  E2E: **3 passed in 9.57s**. Lint, typecheck, production build, security
+  Backend: **686 passed, 3 deselected, 14678 warnings in 146.61s**.
+  E2E: **3 passed in 8.78s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
 - Alembic head: **b4d6f8a0c2e5**. SQLAlchemy expected model tables: **127**.
   Previous head a3c5e7f9b1d4 / 126 tables. PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4.6 encrypted Form 8609 rotation and scoped readiness preflight, VERIFIED.**
+  **Latest completed batch: Phase 4.6 administrator UI for Form 8609 rotation readiness, VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT task: administrator UI for the VERIFIED building-scoped read-only encryption-key readiness check; then independent Phase 4.6 C1 evidence dependencies. Do not represent one building's status as permission to retire shared historical keys, calculate credits, certify housing eligibility, file IRS returns or HAP.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
+- **Exact NEXT task: independent Phase 4.6 C1 agency policy/evidence provenance prerequisite, reusing the verified staff evidence index. Do not represent unverified staff reference links as authoritative housing policies; no eligibility, tax-credit, HAP or IRS computations.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -110,6 +110,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Phase 4.6 per-building annual Form 8609-A staff reference tracking | 5b520d93aaa7a4307fb5e8533da552aea210cffd | 36383794588 | 681 backend passed / 3 E2E; 127 tables, no IRS filing |
 | Phase 4.6 bounded encrypted compliance document rewrap | 40317c96f7b564abce3483b088727c25c53a6b2b | 36384377433 | All six CI jobs success; previous key support, no migration |
 | Phase 4.6 scoped rotation readiness preview | 8c5e2a0973b40e414a68f2b8242621324f0e1419, a8adc7dc2f47a40085c1203b38dd2254d778a907 | 36412399420 | 685 backend passed / 3 E2E; read-only, 127 tables |
+| Phase 4.6 administrator rotation-readiness UI | 82c8ede338b9030acfd993bbe6888eae7e07ddce | 36413219901 | 686 backend passed / 3 E2E; existing archive UI; no migration |
 | Phase 4.6 restricted encrypted Form 8609 staff-scan archive | fb448c7b283d1e29950fe1290c5d9c70ca25d51f | 36383165892 | 678 backend passed / 3 E2E; dedicated key, 126 tables |
 | Phase 4.6 per-building staff Form 8609 reference readiness | a28a4dd6b46757a226ce5e8ecd683341b1e9502b, 8a480d05e21a842b1376b1f4d5e595fe58d687de | 36382487436 | 674 backend passed / 3 E2E; 125 tables; test-only org-admin scope correction |
 | Phase 4.6 staff-recorded LIHTC building BIN inventory | 952261b3448400dc5c4d1742e5b4b70538c1e2af | 36379299678 | 670 backend passed / 3 E2E; 124 tables |
@@ -3656,42 +3657,82 @@ cross-building/organization warning. Avoid exposing to OWNER
 or MANAGER, who may have archive/readiness access but cannot rotate
 keys. Existing backend authorization remains authoritative.
 
+## Phase 4.6 administrator Form 8609 rotation UI — VERIFIED 2026-09-28
+
+Source 82c8ede338b9030acfd993bbe6888eae7e07ddce.
+Full CI 36413219901 SUCCESS all six jobs:
+686 backend tests passed, 3 deselected, 14678 warnings in
+146.61s; browser E2E 3 passed in 8.78s; frontend lint,
+typecheck, production build, platform-admin, security and
+staging-config SUCCESS. No migration: b4d6f8a0c2e5, 127
+SQLAlchemy tables; frozen docs/ and parity unchanged.
+Browser E2E is general smoke, NOT a dedicated rotation UI test.
+
+Existing frontend/src/components/property/Affordable8609Archive.tsx
+now exposes an administrator-only, manually requested, paginated,
+read-only inspection of the VERIFIED backend rotation-readiness
+endpoint. Admin role resolved from existing /auth/me; OWNER and
+MANAGER do not see the control and backend remains authoritative.
+Shows only per-building counts of scanned/current-key/pending;
+does not transmit PDF contents or keys, does not initiate rotation,
+and tells the user explicitly that each building/organization
+must be checked before global historical key retirement.
+After archive upload, status resets to avoid stale indication.
+Added focused backend regression for empty archive pagination,
+live permission revocation, no-store status and absence of
+GL/Lease mutations.
+
+NEXT Phase 4.6 original C1 safe prerequisite: extend existing
+staff affordable_program_evidence AGENCY_GUIDANCE category with
+bounded provenance of independently reviewed public agency guidance,
+if this can be added without leaking sensitive household data,
+turning staff links into legal certification, or duplicating
+evidence/document stores. Consider scheme/host validation,
+staff-check date, live org/program scope, permission revocation,
+and no accounting mutation. Jurisdiction/agency-specific actual
+eligibility and HUD/HAP rules still require verified authoritative
+source specifications before enforcement. Do not claim the
+provenance field proves a policy is effective or authoritative.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Last verified product source a8adc7dc2f47a40085c1203b38dd2254d778a907,
-   CI 36412399420 SUCCESS: 685 backend tests passed, 3 deselected,
-   3 E2E passed, all six CI jobs. Alembic b4d6f8a0c2e5 / 127
-   tables. Verify actual current HEAD and current CI before coding.
-2. Next small Phase 4.6 continuation: admin-only UI in existing
-   restricted Form 8609 archive for paginated, audited, read-only
-   rotation readiness. A status per building/page is NOT proof that
-   an old key can be removed system-wide. Never expose PDFs or keys.
-   Focused backend regression + frontend lint/typecheck/build +
-   full CI verification. This source and handoff are committed
-   alongside an UNVERIFIED UI change; do not call the UI VERIFIED
-   until its new source CI passes.
-3. Then original C1 dependencies: agency-verified LIHTC/HUD
-   documents, legal eligibility/tenant certification policies,
-   AMI/rent limits, HUD HAP and safe retention/malware controls.
-   Never infer official filings or claims from staff notes.
-4. User authorized bounded commit-then-GitHub-CI. Fix CI red
-   before any next feature; record exact counts/source/head.
-   Preserve frozen docs/ and all verified contracts; no main
-   or new branch. Update THIS root handoff after each verified
-   batch. Stop only for genuine blocker/security decision.
+1. Last verified source 82c8ede338b9030acfd993bbe6888eae7e07ddce,
+   CI 36413219901 SUCCESS: 686 backend passed, 3 deselected;
+   3 E2E passed, six jobs green. Alembic b4d6f8a0c2e5 /
+   127 tables. Re-check actual HEAD/current CI before coding.
+2. Next safe original Phase 4.6 C1 prerequisite: assess adding
+   strictly public agency-guidance provenance metadata to the
+   EXISTING affordable evidence index (not new parallel service).
+   Staff links/dates MUST NOT represent certified or current
+   agency policy, eligibility, rent limit, applicable fraction
+   or tax credit. If provenance needs real agency specifications,
+   document the exact missing sources; choose next independent
+   original-plan task rather than guessing.
+3. Remaining original C1: authoritative HUD/LIHTC agency
+   policy, secure verified household income/document workflow,
+   HAP agreement facts and IRS-tax-credit materials.
+   Never infer them from staff references/GL, and do not
+   distribute unscanned restricted 8609 PDF archives.
+4. Product changes require focused regression tests, bounded
+   commits, full six-job GitHub CI green and exact test counts.
+   Update root handoff after every verified batch. Preserve
+   frozen docs/, branch, Hybrid Capability Gating, org scope,
+   accounting/audit and signed-document encryption controls.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform only on branch
-chatgpt/checkpoint-005-safety. Read root AI_HANDOFF.md fully,
-verify HEAD/current CI. Last verified source before next UI:
-a8adc7dc2f47a40085c1203b38dd2254d778a907;
-CI 36412399420 SUCCESS, 685 backend passed / 3 deselected,
-3 browser E2E passed, all six jobs green.
-Alembic b4d6f8a0c2e5, 127 tables. Verified Form 8609
-historical-key rotation and read-only per-building readiness:
-do not repeat. Next UI displays the readiness status; the UI
-is NOT VERIFIED until its own CI passes. Preserve encrypted
-document scope, no fake agency certification, no main/new
-branch, no unapproved frozen docs edits. Commit + CI verify,
-then refresh root handoff and continue original roadmap.
+Continue yasirskhan/property-platform on the existing branch
+chatgpt/checkpoint-005-safety. Read entire repo-root
+AI_HANDOFF.md, verify HEAD/current CI. Last verified product:
+82c8ede338b9030acfd993bbe6888eae7e07ddce;
+CI 36413219901 SUCCESS (686 backend passed, 3 deselected,
+3 browser E2E passed; all six jobs). Alembic
+b4d6f8a0c2e5 / 127 model tables. Form 8609 encrypted archive
+rotation, per-building read-only status and admin UI VERIFIED;
+do not repeat. Original Phase 4.6 C1 HUD/LIHTC substantive
+compliance dependencies remain UNVERIFIED. Exact next bounded
+prerequisite: scope public agency guidance provenance onto
+existing staff evidence index without claiming official agency
+policy or making legal/credit/eligibility calculations.
+No main/new branches/force push, no frozen docs updates;
+source+tests commit then CI, refresh root handoff, continue.
