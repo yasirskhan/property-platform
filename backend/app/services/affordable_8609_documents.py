@@ -6,7 +6,8 @@ general attachment storage, browser logs, outgoing email, or GL.
 """
 from __future__ import annotations
 from datetime import date
-from cryptography.fernet import Fernet, InvalidToken
+import json
+from cryptography.fernet import Fernet, InvalidToken, MultiFernet
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
@@ -20,7 +21,7 @@ from app.services.audit import append_audit_log
 MAX_8609_BYTES = 5 * 1024 * 1024
 
 
-def _crypto() -> Fernet:
+def _crypto() -> MultiFernet:
     key = settings.COMPLIANCE_DOCUMENT_ENCRYPTION_KEY
     if not key or key in (
         settings.ENCRYPTION_KEY, settings.TAX_PROFILE_ENCRYPTION_KEY,
@@ -28,8 +29,17 @@ def _crypto() -> Fernet:
     ):
         raise HTTPException(status_code=503, detail="Dedicated compliance document encryption is not configured.")
     try:
-        return Fernet(key.encode("utf-8"))
-    except (ValueError, TypeError) as exc:
+        old = json.loads(settings.COMPLIANCE_DOCUMENT_PREVIOUS_KEYS_JSON)
+        if not isinstance(old, list) or len(old) > 8:
+            raise ValueError("Invalid compliance key history")
+        prohibited = {settings.ENCRYPTION_KEY, settings.TAX_PROFILE_ENCRYPTION_KEY,
+                      settings.APPLICATION_ENCRYPTION_KEY, key}
+        if len(set(old)) != len(old) or any(
+            not isinstance(item, str) or not item or item in prohibited for item in old
+        ):
+            raise ValueError("Compliance keys must remain independent")
+        return MultiFernet([Fernet(item.encode("utf-8")) for item in [key, *old]])
+    except (ValueError, TypeError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=503, detail="Compliance document encryption is unavailable.") from exc
 
 
@@ -140,3 +150,58 @@ def download_8609(
     )
     db.commit()
     return plain
+
+
+def rotate_building_scans(
+    db: Session, *, current_user: User, property_id: int, program_id: int,
+    building_id: int, after_document_id: int = 0, limit: int = 20,
+) -> dict[str, int | bool]:
+    """Bounded org/building-scoped rewrap; no key material or PDF bytes cross the API."""
+    prop, building = _scope(db, property_id=property_id, program_id=program_id,
+                            building_id=building_id, user=current_user, write=True)
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Compliance key rotation requires an administrator.")
+    if after_document_id < 0 or limit < 1 or limit > 25:
+        raise HTTPException(status_code=422, detail="Invalid rotation batch.")
+    crypto = _crypto()
+    # Unlike MultiFernet, this single Fernet confirms the CURRENT key.
+    current = Fernet(settings.COMPLIANCE_DOCUMENT_ENCRYPTION_KEY.encode("utf-8"))
+    selected = db.query(Affordable8609Document).filter(
+        Affordable8609Document.organization_id == prop.organization_id,
+        Affordable8609Document.property_id == prop.id,
+        Affordable8609Document.program_id == program_id,
+        Affordable8609Document.building_id == building.id,
+        Affordable8609Document.id > after_document_id,
+    ).order_by(Affordable8609Document.id.asc()).limit(limit + 1).all()
+    has_more = len(selected) > limit
+    selected = selected[:limit]
+    rotated = 0
+    try:
+        for row in selected:
+            try:
+                current.decrypt(row.encrypted_pdf)
+            except InvalidToken:
+                plaintext = crypto.decrypt(row.encrypted_pdf)
+                _valid_pdf(plaintext)
+                row.encrypted_pdf = current.encrypt(plaintext)
+                rotated += 1
+                append_audit_log(
+                    db, organization_id=prop.organization_id, user_id=current_user.id,
+                    entity_type="affordable_8609_document", entity_id=row.id,
+                    action="encryption_key_rotated", new_value={"building_id": building.id},
+                )
+        db.commit()
+    except (InvalidToken, ValueError, TypeError) as exc:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Compliance document rotation cannot decrypt a scan.") from exc
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        raise
+    return {
+        "rewrapped": rotated,
+        "next_document_id": selected[-1].id if selected else after_document_id,
+        "has_more": has_more,
+    }

@@ -191,3 +191,127 @@ def test_revocation_and_no_store_response(monkeypatch):
                               program_id=program.id,building_id=building.id)
         assert exc.value.status_code==404
     finally:db.close();engine.dispose()
+
+
+def test_compliance_key_rotation_bounded_and_no_payload_or_secrets(monkeypatch):
+    import json
+    from cryptography.fernet import InvalidToken
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), props, progs, buildings = _seed(db)
+        previous = settings.COMPLIANCE_DOCUMENT_ENCRYPTION_KEY
+        one = service.archive_8609(
+            db, current_user=admin, property_id=props[0].id,
+            program_id=progs[0].id, building_id=buildings[0].id,
+            contents=PDF, received_on=date(2026,9,26), signed_copy_reviewed=True)
+        two = service.archive_8609(
+            db, current_user=owner, property_id=props[0].id,
+            program_id=progs[0].id, building_id=buildings[0].id,
+            contents=PDF+b"\\n", received_on=date(2026,9,26), signed_copy_reviewed=True)
+        third = service.archive_8609(
+            db, current_user=admin, property_id=props[1].id,
+            program_id=progs[1].id, building_id=buildings[1].id,
+            contents=PDF, received_on=date(2026,9,26), signed_copy_reviewed=True)
+        monkeypatch.setattr(settings, "COMPLIANCE_DOCUMENT_PREVIOUS_KEYS_JSON",
+                            json.dumps([previous]))
+        current = Fernet.generate_key().decode()
+        monkeypatch.setattr(settings, "COMPLIANCE_DOCUMENT_ENCRYPTION_KEY", current)
+        first = service.rotate_building_scans(
+            db, current_user=admin, property_id=props[0].id,
+            program_id=progs[0].id, building_id=buildings[0].id, limit=1)
+        assert first == {"rewrapped":1, "next_document_id":one.id, "has_more":True}
+        second = service.rotate_building_scans(
+            db, current_user=admin, property_id=props[0].id,
+            program_id=progs[0].id, building_id=buildings[0].id,
+            after_document_id=first["next_document_id"], limit=1)
+        assert second == {"rewrapped":1, "next_document_id":two.id, "has_more":False}
+        again = service.rotate_building_scans(
+            db, current_user=admin, property_id=props[0].id,
+            program_id=progs[0].id, building_id=buildings[0].id)
+        assert again["rewrapped"] == 0
+        for doc_id in (one.id, two.id):
+            raw = db.query(Affordable8609Document).filter_by(id=doc_id).one()
+            assert Fernet(current.encode()).decrypt(raw.encrypted_pdf).startswith(b"%PDF-")
+            with pytest.raises(InvalidToken):
+                Fernet(previous.encode()).decrypt(raw.encrypted_pdf)
+        assert Fernet(previous.encode()).decrypt(
+            db.query(Affordable8609Document).filter_by(id=third.id).one().encrypted_pdf
+        ) == PDF
+        monkeypatch.setattr(settings, "COMPLIANCE_DOCUMENT_PREVIOUS_KEYS_JSON", "[]")
+        assert service.download_8609(
+            db, current_user=admin, property_id=props[0].id,
+            program_id=progs[0].id, building_id=buildings[0].id,
+            document_id=one.id) == PDF
+        with pytest.raises(HTTPException) as exc:
+            service.download_8609(
+                db, current_user=admin, property_id=props[1].id,
+                program_id=progs[1].id, building_id=buildings[1].id,
+                document_id=third.id)
+        assert exc.value.status_code == 503
+        audit = db.query(AuditLog).filter_by(action="encryption_key_rotated").all()
+        assert len(audit) == 2
+        for event in audit:
+            assert event.organization_id == admin.organization_id
+            assert "123-45-6789" not in (event.new_value or "")
+            assert current not in (event.new_value or "")
+            assert previous not in (event.new_value or "")
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_compliance_rotation_role_scope_config_and_atomic_failure(monkeypatch):
+    import json
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), props, progs, buildings = _seed(db)
+        original = settings.COMPLIANCE_DOCUMENT_ENCRYPTION_KEY
+        docs = [service.archive_8609(
+            db, current_user=admin, property_id=props[0].id,
+            program_id=progs[0].id, building_id=buildings[0].id,
+            contents=PDF, received_on=date(2026,9,26), signed_copy_reviewed=True
+        ) for _ in range(2)]
+        original_ciphertext = [
+            db.query(Affordable8609Document).filter_by(id=doc.id).one().encrypted_pdf
+            for doc in docs
+        ]
+        for actor in (owner, manager, tenant, foreign):
+            with pytest.raises(HTTPException):
+                service.rotate_building_scans(
+                    db, current_user=actor, property_id=props[0].id,
+                    program_id=progs[0].id, building_id=buildings[0].id)
+        with pytest.raises(HTTPException) as exc:
+            service.rotate_building_scans(
+                db, current_user=admin, property_id=props[1].id,
+                program_id=progs[1].id, building_id=buildings[0].id)
+        assert exc.value.status_code == 404
+        monkeypatch.setattr(settings, "COMPLIANCE_DOCUMENT_ENCRYPTION_KEY",
+                            Fernet.generate_key().decode())
+        monkeypatch.setattr(settings, "COMPLIANCE_DOCUMENT_PREVIOUS_KEYS_JSON", "[]")
+        with pytest.raises(HTTPException) as exc:
+            service.rotate_building_scans(
+                db, current_user=admin, property_id=props[0].id,
+                program_id=progs[0].id, building_id=buildings[0].id)
+        assert exc.value.status_code == 503
+        for ix, doc in enumerate(docs):
+            assert db.query(Affordable8609Document).filter_by(id=doc.id).one().encrypted_pdf == original_ciphertext[ix]
+        # A corrupted SECOND ciphertext must roll back the first document's rewrap.
+        monkeypatch.setattr(settings, "COMPLIANCE_DOCUMENT_PREVIOUS_KEYS_JSON",
+                            json.dumps([original]))
+        row = db.query(Affordable8609Document).filter_by(id=docs[1].id).one()
+        row.encrypted_pdf = b"corrupted"
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            service.rotate_building_scans(
+                db, current_user=admin, property_id=props[0].id,
+                program_id=progs[0].id, building_id=buildings[0].id)
+        assert exc.value.status_code == 503
+        assert db.query(Affordable8609Document).filter_by(id=docs[0].id).one().encrypted_pdf == original_ciphertext[0]
+        monkeypatch.setattr(settings, "COMPLIANCE_DOCUMENT_PREVIOUS_KEYS_JSON",
+                            json.dumps([settings.ENCRYPTION_KEY]))
+        with pytest.raises(HTTPException) as exc:
+            service.rotate_building_scans(
+                db, current_user=admin, property_id=props[0].id,
+                program_id=progs[0].id, building_id=buildings[0].id)
+        assert exc.value.status_code == 503
+    finally:
+        db.close(); engine.dispose()

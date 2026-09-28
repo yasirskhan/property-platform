@@ -74,6 +74,8 @@ class Settings(BaseSettings):
     TAX_PROFILE_ENCRYPTION_KEY: str = ""
     # Separate, operator-provisioned key for sensitive affordable-housing forms.
     COMPLIANCE_DOCUMENT_ENCRYPTION_KEY: str = ""
+    # Keep old compliance keys in secret management until all scans are rewrapped.
+    COMPLIANCE_DOCUMENT_PREVIOUS_KEYS_JSON: str = "[]"
     # Application address/income vault: independent managed key, never dev fallback.
     APPLICATION_ENCRYPTION_KEY: str = ""
     # Previous keys remain in secret management for decrypting archived records.
@@ -100,6 +102,20 @@ class Settings(BaseSettings):
                 Fernet(self.COMPLIANCE_DOCUMENT_ENCRYPTION_KEY.encode("utf-8"))
             except Exception as exc:
                 raise ValueError("Invalid COMPLIANCE_DOCUMENT_ENCRYPTION_KEY") from exc
+        try:
+            previous_compliance_keys = json.loads(self.COMPLIANCE_DOCUMENT_PREVIOUS_KEYS_JSON)
+            if not isinstance(previous_compliance_keys, list) or len(previous_compliance_keys) > 8:
+                raise ValueError("Previous compliance keys must be a bounded list")
+            prohibited = {self.ENCRYPTION_KEY, self.TAX_PROFILE_ENCRYPTION_KEY,
+                          self.APPLICATION_ENCRYPTION_KEY, self.COMPLIANCE_DOCUMENT_ENCRYPTION_KEY}
+            if len(set(previous_compliance_keys)) != len(previous_compliance_keys):
+                raise ValueError("Previous compliance keys must be unique")
+            for old_key in previous_compliance_keys:
+                if not isinstance(old_key, str) or not old_key or old_key in prohibited:
+                    raise ValueError("Compliance keys must remain independent")
+                Fernet(old_key.encode("utf-8"))
+        except (ValueError, TypeError) as exc:
+            raise ValueError("Invalid COMPLIANCE_DOCUMENT_PREVIOUS_KEYS_JSON") from exc
         if self.APPLICATION_ENCRYPTION_KEY:
             if self.APPLICATION_ENCRYPTION_KEY in (self.ENCRYPTION_KEY, self.TAX_PROFILE_ENCRYPTION_KEY):
                 raise ValueError("Application data requires its own encryption key")
