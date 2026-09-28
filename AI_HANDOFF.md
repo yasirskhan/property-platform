@@ -7,24 +7,24 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `fb448c7b283d1e29950fe1290c5d9c70ca25d51f`
-- Source GitHub Actions run **36383165892: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `5b520d93aaa7a4307fb5e8533da552aea210cffd`
+- Source GitHub Actions run **36383794588: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **678 passed, 3 deselected, 14379 warnings in 159.99s**.
-  E2E: **3 passed in 9.96s**. Lint, typecheck, production build, security
+  Backend: **681 passed, 3 deselected, 14488 warnings in 126.64s**.
+  E2E: **3 passed in 9.49s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **a3c5e7f9b1d4**. SQLAlchemy expected model tables: **126**.
-  Previous head f2a4b6c8d0e3 / 125 tables. PostgreSQL/bootstrap/legacy CI passed.
+- Alembic head: **b4d6f8a0c2e5**. SQLAlchemy expected model tables: **127**.
+  Previous head a3c5e7f9b1d4 / 126 tables. PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4.6 restricted encrypted Form 8609 staff-scan archive, VERIFIED.**
+  **Latest completed batch: Phase 4.6 annual Form 8609-A staff reference tracker, VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT task: bounded staff-recorded annual Form 8609-A document-readiness tracker per LIHTC building, tax year, and acquisition/building-versus-rehabilitation distinction. No tax amounts, credits, signature verification or filing.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
+- **Exact NEXT task: review original Phase 4.6 C1 HUD/LIHTC dependent workflows and the present compliance security boundaries. Continue with the next safe bounded prerequisite; no tax-credit, HUD eligibility, IRS filing or HAP computations from unverified staff references.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -107,6 +107,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Phase 4.6 scoped affordable evidence-readiness checklist | e492a46356bc19a57c55f63fe9ad85a5e0b7d5c8 | 36378052654 | 665 backend passed / 3 E2E; 123 tables |
 | Phase 4.6 read-only recorded unit-inspection cross-reference | 87c2eaa9ba5a21f8cc461c92cf46aaf474cd8b46 | 36378605760 | 667 backend passed / 3 E2E; no migration |
 | Phase 4.6 BIN syntax normalization and alias collisions | 6ae01cc927264273e5fc8d067da15bd6c45f3faa | 36379842520 | all six jobs success; 2/4-digit year + five-digit sequence; no new migration |
+| Phase 4.6 per-building annual Form 8609-A staff reference tracking | 5b520d93aaa7a4307fb5e8533da552aea210cffd | 36383794588 | 681 backend passed / 3 E2E; 127 tables, no IRS filing |
 | Phase 4.6 restricted encrypted Form 8609 staff-scan archive | fb448c7b283d1e29950fe1290c5d9c70ca25d51f | 36383165892 | 678 backend passed / 3 E2E; dedicated key, 126 tables |
 | Phase 4.6 per-building staff Form 8609 reference readiness | a28a4dd6b46757a226ce5e8ecd683341b1e9502b, 8a480d05e21a842b1376b1f4d5e595fe58d687de | 36382487436 | 674 backend passed / 3 E2E; 125 tables; test-only org-admin scope correction |
 | Phase 4.6 staff-recorded LIHTC building BIN inventory | 952261b3448400dc5c4d1742e5b4b70538c1e2af | 36379299678 | 670 backend passed / 3 E2E; 124 tables |
@@ -3575,46 +3576,96 @@ Explicitly not credit calculation, filing, proof of a 15-year
 compliance period, 8609 original verification or agency approval.
 https://www.irs.gov/instructions/i8609a
 
+## Phase 4.6 annual Form 8609-A staff reference tracker — VERIFIED 2026-09-28
+
+Source 5b520d93aaa7a4307fb5e8533da552aea210cffd.
+CI 36383794588 SUCCESS all six jobs: backend 681 passed,
+3 deselected, 14488 warnings in 126.64s; authenticated
+E2E 3 passed in 9.49s, frontend, security, platform-admin
+and staging green. E2E is generic browser smoke, NOT
+dedicated 8609-A interaction. New migration b4d6f8a0c2e5
+after a3c5e7f9b1d4, 127 SQLAlchemy tables from 126.
+Frozen docs/ and planning parity untouched.
+
+New affordable_lihtc_8609_annual table is only one bounded
+record for (organization, LIHTC building, staff-entered tax
+year, allocation category); categories BUILDING_OR_ACQUISITION
+and REHABILITATION, fixed statuses NOT_RECORDED,
+FOLLOW_UP_NEEDED, REFERENCE_IDENTIFIED. Year 1987–2100
+is a syntactic bound, not an IRS eligibility determination.
+GET/PUT under existing LIHTC property/program/building
+scope, manager assigned read only, ADMIN/OWNER write, live
+permissions/gates, no-store read, redacted immutable audit.
+UI links from existing Compliance LIHTC building index;
+there are NO income, eligible basis, applicable fraction,
+credit, filing, signed original or sensitive household fields.
+Annual category values are staff follow-up metadata, not
+a prepared or submitted Form 8609-A. Generic notes and
+unencrypted attachments denylist includes annual table.
+Three focused tests cover year/category isolation, audit,
+cross-organization/property/role/revocation, bounds,
+generic target denial and GL/Charge/Lease nonmutation.
+
+IMPORTANT ORIGINAL C1 DEPENDENCIES: agency-issued forms and
+staff scans are not authentic issuer verification. IRS 8609
+and annual 8609-A require actual eligible basis, owner election,
+applicable fraction, compliance history and potentially
+separate rehabilitations; do not derive credit from this
+tracker. Housing-specific HUD/LIHTC income certifications,
+tenant selection plans, utility allowance data, rent
+and jurisdiction requirements need reviewed agency policy.
+No HUD/LIHTC eligibility, HAP, tax calculation or IRS
+transmission has been delivered.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Read root handoff fully; verify current branch HEAD and CI.
-   Last VERIFIED source fb448c7b283d1e29950fe1290c5d9c70ca25d51f,
-   CI 36383165892 SUCCESS (678 backend passed, 3 deselected;
-   3 E2E passed; all six jobs). Alembic a3c5e7f9b1d4, 126 tables.
-   Do not repeat BIN formatting, Form 8609 readiness or encrypted archive.
-2. NEXT bounded Phase 4.6 C1 feature: staff-only annual Form 8609-A
-   readiness per recorded active LIHTC building + user-selected tax
-   year + acquisition/base versus rehabilitation classification.
-   Annual report metadata must not imply signed 8609 agency records,
-   8609-A filing, credit qualification, owner election, subsidy,
-   eligible/qualified basis or IRS acceptance. Respect separate
-   allocations, cross-org/property/manager scope and date/type
-   validation; no free-text TIN, income or credit fields. Reuse
-   Compliance UI and generic attachment denylist, with tests/CI.
-3. Full LIHTC credit calculations, income certifications, recurring
-   HUD inspections/recertifications, AMI/HAP and actual IRS filings
-   require reviewed agency/legal documents, verified owner identity,
-   applicable jurisdiction rules and secure household records.
-   Do not claim them complete from staff index or uploaded scans.
-4. Original Phase 4.6 continues after these safe prerequisites.
-   Preserve verified accounting/tenant scope and Hybrid Capability
-   Gating; stay on branch, main/frozen docs untouched. Commit tests
-   with bounded code, hosted CI, fix reds and update root handoff.
+1. Read full root handoff, check current HEAD/latest CI. Last
+   verified source 5b520d93aaa7a4307fb5e8533da552aea210cffd,
+   CI 36383794588 SUCCESS, 681 backend passed, 3 deselected,
+   3 browser E2E passed, six green. Alembic b4d6f8a0c2e5,
+   127 tables. BIN, 8609 readiness, encrypted 8609 scan archive
+   and annual 8609-A staff metadata VERIFIED; do NOT repeat.
+2. Original Phase 4.6 C1 remaining dependencies: agency-specific
+   LIHTC/HUD tenancy selection policy, verified income and
+   eligibility sources, secure protected household workflow,
+   official agency 8609/annual tax credit substantiation,
+   actual HUD HAP contracts, AMI/rent thresholds and filings.
+   Do not improvise these from staff-recorded labels or
+   general ledger. Review current source and plan to choose
+   next genuinely independent, safe, bounded prerequisite.
+   If a secure-program-specific workflow requires a real legal
+   or agency specification, record precisely and move to
+   another independent original-plan item if appropriate.
+3. Compliance document archives are encrypted but lack
+   operator-managed historical-key rotation, malware scanning,
+   proof of agency issuance or accepted records-retention policy.
+   Do not claim otherwise; do not distribute scans publicly.
+   Investigate implementing a bounded key-rotation prerequisite
+   using already verified tax-profile key-rotation design,
+   with focused tests and no decrypted data logging.
+4. User approved commit-then-GitHub-CI verification. Do not mark
+   a new batch VERIFIED before all six jobs succeed. Fix reds
+   independently; update this root handoff after every meaningful
+   verified batch. Never main/new branch/force push, preserve
+   Hybrid Capability Gating, accounting isolation, frozen docs/.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on
-chatgpt/checkpoint-005-safety. Read entire root AI_HANDOFF.md
-and verify latest branch HEAD/CI. Last VERIFIED source
-fb448c7b283d1e29950fe1290c5d9c70ca25d51f;
-CI 36383165892 SUCCESS: backend 678 passed,
-3 deselected; 3 authenticated E2E passed, all six jobs.
-Alembic a3c5e7f9b1d4 / 126 tables.
-Existing LIHTC BIN, Form 8609 reference, and restricted encrypted
-staff-scan archive are VERIFIED. No agency signature verification,
-credit calculation, Form 8609 filing or 8609-A implemented.
-Next original Phase4.6 C1: annual Form 8609-A readiness index
-per building + year + base/acquisition vs rehabilitation.
-Preserve scope, accounting, frozen docs/ and single working branch.
-Add tests, commit, hosted CI, fix reds, then update handoff and
-continue autonomously.
+Continue yasirskhan/property-platform only on
+chatgpt/checkpoint-005-safety. Read entire repo-root
+AI_HANDOFF.md and verify current HEAD/CI. Last VERIFIED
+source 5b520d93aaa7a4307fb5e8533da552aea210cffd;
+CI 36383794588 SUCCESS 681 backend passed, 3 deselected,
+3 authenticated E2E passed; all six jobs. Alembic
+b4d6f8a0c2e5 / 127 tables.
+LIHTC BIN inventory/formats, 8609 staff reference,
+restricted encrypted staff scan archive and annual 8609-A
+reference statuses VERIFIED; do not repeat or claim actual
+agency certification, eligibility, tax credit or IRS filing.
+Next independent safe original C1 dependency: assess
+encrypted compliance document previous-key rotation
+against existing tax-profile rotation, with tests;
+separately agency/legal prerequisites remain unverified.
+Keep frozen docs unchanged, preserve existing branch,
+commit bounded code + regressions, CI verify and update
+root handoff. Continue autonomy until genuine blocker.
