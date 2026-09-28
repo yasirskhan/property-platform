@@ -7,25 +7,28 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `b149717b76a45be85a02584d26176bbb90048dd4`
-- Source GitHub Actions run **36361333281: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `1e2713aa5c549af6c6fc00bfc8b6b879e4ae8647`
+- Source GitHub Actions run **36365456607: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **633 passed, 3 deselected, 12872 warnings in 144.57s**.
-  E2E: **3 passed in 9.85s**. Lint, typecheck, production build, security
+  Backend: **638 passed, 3 deselected, 13033 warnings in 107.99s**.
+  E2E: **3 passed in 10.74s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **f3e5a7c9d1b2**. SQLAlchemy expected model tables: **115**.
+- Alembic head: **f5e7a9c1d3e4**. SQLAlchemy expected model tables: **118**.
   Previous head f2e4a6c8d0b1 / 115 tables. Nullable receipt FK and
   unique receipt index added; PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4 already-posted application fee receipt linkage and reversal reconciliation. VERIFIED.**
+  **Latest completed batch: Phase 4 Leasing CRM/Prospects, VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Phase 4 Lease Templates (3-level template + addenda + attachments; organization-wide or scoped per-property). Already-posted offline application-fee receipt linkage is VERIFIED; external Stripe/merchant provider is deferred until independently configured and verified. No live online card charge has been implemented. External Avalara/IRIS acceptance and recipient copies still await operator credentials.**
+- **Exact NEXT original-plan task: Phase 4 Guest Cards.** Lease Templates and
+  leasing CRM/Prospects are now VERIFIED. CRM leads link to existing Contacts;
+  property-scoped stage/source/follow-up workflow. Guest Cards should extend
+  verified contacts/prospects without inventing login users or collecting SSNs.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -2939,41 +2942,70 @@ Before coding inspect existing Lease/Property and template-related
 models, menu permissions, Frontend navigation and docs Section 18.
 Use bounded product code plus applicable tests and hosted CI.
 
+
+## Phase 4 Lease Templates and CRM — VERIFIED 2026-09-27
+
+Lease Templates backend 6faba5d9e34fdc6be255006c0a50739a6bf6a4ae,
+customer UI 3e37cc8ae9238a278cf4c7fc35586c98797e865a;
+CI 36364069609 SUCCESS all six jobs: backend 636 passed,
+3 deselected, 12972 warnings in 109.56s; E2E 3 passed in 8.73s.
+Migration f4e6a8c0d2e3 adds lease_templates and lease_template_addenda,
+117 model tables. Three-level draft template/addenda/ordinary universal
+attachment UI, organization-wide or property scope, manager property
+assignment restrictions, admin writes, audit, bounded text validator.
+No signature, tenant delivery, active lease or GL mutation. Existing
+attachment service reused; no parallel store.
+
+CRM backend 0fcc72f063a13d0aeb7c420d88aa9531e314a8cc;
+customer UI 1e2713aa5c549af6c6fc00bfc8b6b879e4ae8647.
+CI 36365456607 SUCCESS all six jobs: backend 638 passed,
+3 deselected, 13033 warnings in 107.99s; E2E 3 passed in 10.74s.
+Migration f5e7a9c1d3e4 adds leasing_prospects (118 tables), linked
+to existing org Contact and active Property. Stages NEW, CONTACTED,
+TOUR_SCHEDULED, APPLIED, CLOSED; marketing source, follow-up date,
+org/assignment scope, admin/manager staff writes, scoped owner read,
+archive, permission recheck, redacted audit and duplicate rejection.
+Source marketing label is captured; a full attribution analytics engine
+is NOT implemented. Frontend /dashboard/leasing/crm uses existing
+LEASING.CRM navigation and Contact/Property pickers. No login
+identity, Application, Lease, payment or GL mutations.
+Backend CRM regression tests: 2; existing tests: 636 prior to CRM,
+638 now. Browser E2E is generic smoke, NOT dedicated CRM flow.
+Frozen docs/ not edited; parity planning statuses not advanced.
+
+NEXT original Phase 4 task: Guest Cards. Inspect existing
+Contact, Prospect, Property/Unit scoping before coding. Use a
+scoped prospective-tour/guest record linked to an existing prospect,
+not a public unauthenticated intake or automatic applicant account.
+No SSN, payment, screening, signatures or automated outbound
+messages. Include regression tests, hosted CI and handoff update.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Verify branch HEAD and latest CI. Receipt linking/reversal
-   source b149717b76a45be85a02584d26176bbb90048dd4
-   VERIFIED, CI 36361333281 all six jobs. Do not repeat.
-2. Original Phase 4 Lease Templates: three levels
-   Template + Addenda + Attachments, org-wide or
-   property-specific, authorization and read/write
-   audit. Reuse existing universal attachments safely,
-   original Section 18, existing property scoping, no
-   automatic lease signatures or GL effect. Test and
-   verify hosted CI before declaring complete.
-3. Online application Stripe checkout remains deferred
-   pending distinct authorized merchant config, signed
-   webhook, money movement and GL reconciliation.
-   Do not reuse subscription checkout or infer PAID from
-   browser URL. No other completed batches repeated.
-4. Continue Lease Templates, CRM/Prospects, Guest Cards
-   in original roadmap order. Update this root handoff
-   after each verified batch. No main/new branches,
-   force push or unauthorized changes to frozen docs/.
+1. Verify branch HEAD/latest CI; last verified CRM source
+   1e2713aa5c549af6c6fc00bfc8b6b879e4ae8647 and run
+   36365456607 SUCCESS all six jobs. No replay of Lease Templates/CRM.
+2. Next Phase 4 Guest Cards: organization/property scoped staff
+   recording tied to an existing CRM Prospect and Contact, with
+   visitor/tour metadata but no public signup or SSN. Preserve manager
+   property assignment, active Contacts, permission and audit.
+   Add focused tests and verify hosted CI before marking complete.
+3. Continue original roadmap after guest cards, without new branches,
+   main changes or unapproved frozen docs/ edits.
+4. Online application Stripe checkout and external IRS/Avalara
+   acceptance remain operator/provider dependencies; do not infer
+   payment from a success URL or manufacture tax filing results.
+5. Keep this root handoff current after every meaningful verified
+   batch. Do not ask user to repeat context or switch to Work.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on branch
-chatgpt/checkpoint-005-safety. Read entire repo-root
-AI_HANDOFF.md; verify current HEAD/CI. Last verified
-source b149717b76a45be85a02584d26176bbb90048dd4;
-CI 36361333281 SUCCESS, 633 backend passed,
-3 deselected, 3 E2E passed. Alembic f3e5a7c9d1b2;
-115 model tables. Offline posted receipt link/reversal
-VERIFIED; no online Stripe application charge.
-NEXT original Phase 4 Lease Templates 3-level
-Template + Addenda + Attachments, org-wide or
-per-property; then CRM/Prospects and Guest Cards.
-Do not repeat verified work or alter frozen docs,
-main, or branch topology. Commit bounded tests/code,
-verify six-job CI, update root handoff.
+Continue yasirskhan/property-platform on
+chatgpt/checkpoint-005-safety. Read complete root AI_HANDOFF.md,
+verify HEAD and CI. Latest VERIFIED CRM source
+1e2713aa5c549af6c6fc00bfc8b6b879e4ae8647; CI 36365456607
+SUCCESS, 638 backend passed, 3 deselected, 3 E2E passed.
+Alembic f5e7a9c1d3e4, 118 tables. Lease Templates and CRM
+VERIFIED. NEXT original Phase 4 task Guest Cards, then roadmap.
+Do not repeat verified work or edit frozen docs/main.
+Use commit-then-GitHub-CI verification and refresh root handoff.
