@@ -346,7 +346,7 @@ def test_compliance_rotation_readiness_scoped_paginated_and_redacted(monkeypatch
         response = Response()
         first = routes.rotation_readiness(
             props[0].id, progs[0].id, buildings[0].id, response,
-            limit=1, db=db, current_user=admin,
+            after_document_id=0, limit=1, db=db, current_user=admin,
         )
         assert response.headers["cache-control"] == "no-store"
         assert first == {"checked":1, "pending_rewrap":1, "current_key":0,
