@@ -300,7 +300,8 @@ def test_public_guidance_reference_validation_rejects_unsafe_and_false_certifica
     for url in ("javascript:alert(1)", "http://www.hud.gov", "https://localhost/ref",
                 "https://127.0.0.1/data", "https://user:secret@www.hud.gov/",
                 "https://intranet.local/records", "https://agency.org:8443/ref",
-                "https://agency.org/contains space", "https://example.com/" + "a"*510):
+                "https://agency.org/contains space", "https://agency.org" + chr(92) + "@evil.org/ref",
+                "https://example.com/" + "a"*510):
         with pytest.raises(ValueError):
             check(url)
     with pytest.raises(ValueError):

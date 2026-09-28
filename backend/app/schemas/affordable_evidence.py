@@ -26,7 +26,7 @@ class AffordableEvidenceIn(BaseModel):
         url = raw.strip()
         if not url:
             return None
-        if len(url) > 500 or any(char.isspace() or char == "\\\\" for char in url):
+        if len(url) > 500 or any(char.isspace() or ord(char) == 92 for char in url):
             raise ValueError("Agency reference must be a bounded public HTTPS URL")
         try:
             value = urlsplit(url)
