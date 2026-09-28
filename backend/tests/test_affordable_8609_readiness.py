@@ -108,11 +108,14 @@ def test_8609_reference_scope_and_write_guards():
     db, engine = _db()
     try:
         (admin, owner, manager, tenant, foreign), props, programs_list, buildings = _seed(db)
-        for actor, ix in ((manager, 1), (manager, 2), (foreign, 0), (admin, 2), (admin, 1)):
+        for actor, ix in ((manager, 1), (manager, 2), (foreign, 0), (admin, 2)):
             with pytest.raises(HTTPException) as exc:
                 api.get_readiness(props[ix].id, programs_list[ix].id, buildings[ix].id,
                                   Response(), db=db, current_user=actor)
             assert exc.value.status_code == 404
+        # An org administrator may access another property inside the same organization.
+        assert api.get_readiness(props[1].id, programs_list[1].id, buildings[1].id,
+                                 Response(), db=db, current_user=admin).status == "NOT_RECORDED"
         for actor in (manager, tenant):
             with pytest.raises(HTTPException) as exc:
                 api.save_readiness(props[0].id, programs_list[0].id, buildings[0].id,
