@@ -22,11 +22,15 @@ class AffordableBuildingIn(BaseModel):
     @classmethod
     def bin_reference(cls, value: str) -> str:
         clean = value.strip().upper()
-        # Reject plain nine-digit identifiers (TINs). This is a conservative
-        # shape check, NOT independent validation of an agency-assigned BIN.
-        if not re.fullmatch(r"[A-Z]{2}[A-Z0-9-]{3,38}", clean):
-            raise ValueError("Use the agency-issued alphanumeric building ID, beginning with its state prefix")
-        return clean
+        # IRS Notice 88-91: state prefix, allocation year (2 digits;
+        # IRS also accepts 4-digit year), and exactly five sequence digits.
+        # Normalize formatting aliases to one value for duplicate checks.
+        # Shape validation is NOT verification of an agency-issued Form 8609.
+        match = re.fullmatch(r"([A-Z]{2})-?((?:19|20)[0-9]{2}|[0-9]{2})-?([0-9]{5})", clean)
+        if match is None:
+            raise ValueError("BIN must have a two-letter state, 2- or 4-digit year and five digits")
+        state, year, sequence = match.groups()
+        return f"{state}-{year[-2:]}-{sequence}"
 
 
 class AffordableBuildingOut(BaseModel):

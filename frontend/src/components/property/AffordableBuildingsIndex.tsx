@@ -96,7 +96,7 @@ export default function AffordableBuildingsIndex({
             <label className="text-xs text-slate-700">Agency-assigned BIN
               <input required maxLength={40} value={bin}
                 onChange={(event) => setBin(event.target.value)}
-                placeholder="Example: OH-20-12345"
+                placeholder="Example: OH-20-12345 (or OH2012345)"
                 className="mt-1 block w-full rounded border p-2" />
             </label>
             <button type="submit" disabled={busy || !label.trim() || !bin.trim()}

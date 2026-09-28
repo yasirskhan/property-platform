@@ -129,7 +129,7 @@ def test_only_active_lihtc_permissions_bin_shape_and_generic_target(monkeypatch)
     db, engine = _db()
     try:
         (admin, _, manager, _, _), (prop, _, _), (program, _, _) = _seed(db)
-        for value in ("123456789", "A", "OH/20/12345"):
+        for value in ("123456789", "A", "OH/20/12345", "OH-20-1234", "OH-20-123456", "OH-20-12ABC", "OH-XX-12345"):
             with pytest.raises(ValueError):
                 _input(value)
         assert _input(" oh-20-12345 ").agency_bin == "OH-20-12345"
@@ -156,3 +156,24 @@ def test_only_active_lihtc_permissions_bin_shape_and_generic_target(monkeypatch)
         assert exc.value.status_code == 404
     finally:
         db.rollback(); db.close(); engine.dispose()
+
+
+
+def test_bin_year_and_dash_aliases_share_one_unique_record():
+    db, engine = _db()
+    try:
+        (admin, *_), (prop, _, _), (program, _, _) = _seed(db)
+        assert _input("oh2012345").agency_bin == "OH-20-12345"
+        assert _input("OH-2020-12345").agency_bin == "OH-20-12345"
+        assert _input("CT-1987-00023").agency_bin == "CT-87-00023"
+        first = api.record_building(prop.id, program.id, _input("OH-20-12345"),
+                                    db=db, current_user=admin)
+        for duplicate in ("OH2012345", "OH-2020-12345", "oh202012345"):
+            with pytest.raises(HTTPException) as exc:
+                api.record_building(prop.id, program.id, _input(duplicate),
+                                    db=db, current_user=admin)
+            assert exc.value.status_code == 409
+        assert db.query(AffordableBuilding).count() == 1
+        assert first.agency_bin == "OH-20-12345"
+    finally:
+        db.close(); engine.dispose()
