@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.hoa_association import HOAAssociation, HOAPropertyMembership, HOAContactLink
+from app.models.hoa_assessment import HOAAssessmentProposal
 from app.models.contact import Contact
 from app.models.property import Property, PropertyAssignment
 from app.models.user import User, UserRole
@@ -113,6 +114,30 @@ def get_association(
     return _out(row, members)
 
 
+def _archive_property_drafts(
+    db: Session, *, org_id: int, association_id: int,
+    actor_id: int, action: str, property_id: int | None = None,
+) -> None:
+    """Do not resurrect a previous staff proposal after a property is relinked."""
+    query = db.query(HOAAssessmentProposal).filter(
+        HOAAssessmentProposal.organization_id == org_id,
+        HOAAssessmentProposal.association_id == association_id,
+        HOAAssessmentProposal.is_active.is_(True),
+    )
+    if property_id is not None:
+        query = query.filter(HOAAssessmentProposal.property_id == property_id)
+    for draft in query.all():
+        draft.is_active = False
+        draft.updated_by_id = actor_id
+        db.flush()
+        append_audit_log(
+            db, organization_id=org_id, user_id=actor_id,
+            entity_type="hoa_assessment_proposal", entity_id=draft.id,
+            action=action,
+            new_value={"association_id": association_id, "property_id": draft.property_id},
+        )
+
+
 def _save(db: Session, *, actor: User, payload: HOAAssociationIn,
           association_id: int | None = None) -> HOAAssociationOut:
     org_id = _access(db, actor, write=True)
@@ -161,6 +186,11 @@ def _save(db: Session, *, actor: User, payload: HOAAssociationIn,
                         entity_type="hoa_contact_link", entity_id=link.id,
                         action="association_property_unlinked",
                     )
+                _archive_property_drafts(
+                    db, org_id=org_id, association_id=row.id,
+                    actor_id=actor.id, property_id=m.property_id,
+                    action="association_property_unlinked",
+                )
                 db.delete(m)
         for property_id in sorted(wanted - current_ids):
             db.add(HOAPropertyMembership(
@@ -217,6 +247,10 @@ def archive_association(
         append_audit_log(db, organization_id=org_id, user_id=current_user.id,
                          entity_type="hoa_contact_link", entity_id=link.id,
                          action="association_archived")
+    _archive_property_drafts(
+        db, org_id=org_id, association_id=row.id,
+        actor_id=current_user.id, action="association_archived",
+    )
     db.flush()
     append_audit_log(
         db, organization_id=org_id, user_id=current_user.id,

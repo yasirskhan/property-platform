@@ -193,6 +193,13 @@ def test_association_unlink_prevents_draft_read_or_write():
         with pytest.raises(HTTPException) as exc:
             api.archive_proposal(association.id, first.id, assigned.id, db=db, current_user=admin)
         assert exc.value.status_code == 404
+        # Relinking cannot silently resurrect old staff assumptions.
+        hoa.update_association(association.id, HOAAssociationIn(
+            name="Recorded HOA", property_ids=[assigned.id, unassigned.id]),
+            db=db, current_user=admin)
+        assert api.list_proposals(association.id, Response(), assigned.id,
+                                  db=db, current_user=admin) == []
+        assert db.query(HOAAssessmentProposal).filter_by(id=first.id).one().is_active is False
         assert db.query(GLTransaction).count() == db.query(Charge).count() == 0
         with pytest.raises(HTTPException) as exc:
             _model_for_table("hoa_assessment_proposals")
@@ -220,3 +227,31 @@ def test_draft_list_not_cached_or_implicitly_approved():
         assert db.query(GLTransaction).count() == db.query(Charge).count() == db.query(Lease).count() == 0
     finally:
         db.close(); engine.dispose()
+
+
+
+def test_association_archive_retains_no_active_draft_or_financial_effect():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, unassigned, other), association = _seed(db)
+        first = api.create_proposal(association.id, _payload(assigned.id),
+                                    db=db, current_user=admin)
+        second = api.create_proposal(association.id, _payload(unassigned.id),
+                                     db=db, current_user=owner)
+        hoa.archive_association(association.id, db=db, current_user=admin)
+        assert db.query(HOAAssessmentProposal).filter(
+            HOAAssessmentProposal.association_id == association.id,
+            HOAAssessmentProposal.is_active.is_(True),
+        ).count() == 0
+        for prop in (assigned, unassigned):
+            with pytest.raises(HTTPException) as exc:
+                api.list_proposals(association.id, Response(), prop.id,
+                                   db=db, current_user=admin)
+            assert exc.value.status_code == 404
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_assessment_proposal",
+            AuditLog.action == "association_archived",
+        ).count() == 2
+        assert db.query(GLTransaction).count() == db.query(Charge).count() == db.query(Lease).count() == 0
+    finally:
+        db.rollback(); db.close(); engine.dispose()
