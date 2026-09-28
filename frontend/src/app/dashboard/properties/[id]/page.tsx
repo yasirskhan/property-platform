@@ -8,6 +8,7 @@ import UtilitiesTab from "@/components/property/UtilitiesTab";
 import RubsReadinessTab from "@/components/property/RubsReadinessTab";
 import AffordableProgramsTab from "@/components/property/AffordableProgramsTab";
 import HoaAssociationsPanel from "@/components/property/HoaAssociationsPanel";
+import CommercialLeaseAbstractsPanel from "@/components/property/CommercialLeaseAbstractsPanel";
 import InsuranceTab from "@/components/property/InsuranceTab";
 import ExpensesTab from "@/components/property/ExpensesTab";
 import AmenitiesTab from "@/components/property/AmenitiesTab";
@@ -272,7 +273,7 @@ export default function PropertyDetailPage() {
         <UtilitiesTab propertyId={propertyId} canEdit={canManage} />
       )}
       {tab === "rubs" && <Flag name="release.properties.rubs"><RubsReadinessTab propertyId={propertyId} /></Flag>}
-      {tab === "compliance" && <Flag name="release.properties.compliance"><div className="space-y-5"><HoaAssociationsPanel propertyId={propertyId} canEdit={canEditProperty} /><AffordableProgramsTab propertyId={propertyId} canEdit={canEditProperty} /></div></Flag>}
+      {tab === "compliance" && <Flag name="release.properties.compliance"><div className="space-y-5"><HoaAssociationsPanel propertyId={propertyId} canEdit={canEditProperty} /><AffordableProgramsTab propertyId={propertyId} canEdit={canEditProperty} />{property.property_type === "commercial" && <CommercialLeaseAbstractsPanel propertyId={propertyId} canEdit={canEditProperty} />}</div></Flag>}
       {tab === "insurance" && (
         <InsuranceTab propertyId={propertyId} canEdit={canDelete} />
       )}
