@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import Affordable8609Archive from "@/components/property/Affordable8609Archive";
+import Affordable8609AnnualPanel from "@/components/property/Affordable8609AnnualPanel";
 
 type Building = { id: number; program_id: number; building_label: string; agency_bin: string };
 type FormStatus = "NOT_RECORDED" | "FOLLOW_UP_NEEDED" | "REFERENCE_IDENTIFIED";
@@ -14,6 +15,7 @@ export default function AffordableBuildingsIndex({
   const [forms, setForms] = useState<Record<number, FormReadiness>>({});
   const [formBusy, setFormBusy] = useState<number | null>(null);
   const [archiveBuildingId, setArchiveBuildingId] = useState<number | null>(null);
+  const [annualBuildingId, setAnnualBuildingId] = useState<number | null>(null);
   const [label, setLabel] = useState("");
   const [bin, setBin] = useState("");
   const [loading, setLoading] = useState(true);
@@ -76,6 +78,7 @@ export default function AffordableBuildingsIndex({
       await apiDelete(`${path}/${id}`);
       setRows((prev) => prev.filter((item) => item.id !== id));
       setArchiveBuildingId((prev) => prev === id ? null : prev);
+      setAnnualBuildingId((prev) => prev === id ? null : prev);
       setMessage("Staff record archived. No tax filing was changed.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Cannot archive this record.");
@@ -117,6 +120,8 @@ export default function AffordableBuildingsIndex({
                     <option value="REFERENCE_IDENTIFIED">Reference identified (not verified)</option>
                   </select>
                 </label>
+                <button type="button" onClick={() => setAnnualBuildingId((prior) => prior === row.id ? null : row.id)}
+                  className="rounded border px-2 py-1 text-sm">Annual 8609-A reference</button>
                 {canEdit && <button type="button" onClick={() => setArchiveBuildingId((prior) => prior === row.id ? null : row.id)}
                   className="rounded border px-2 py-1 text-sm">Restricted Form 8609 scans</button>}
                 {canEdit && <button type="button" disabled={busy} onClick={() => { void archive(row.id); }}
@@ -124,6 +129,10 @@ export default function AffordableBuildingsIndex({
               </div>
             ))}
           </div>
+          {annualBuildingId !== null && rows.some((item) => item.id === annualBuildingId) && (
+            <Affordable8609AnnualPanel propertyId={propertyId} programId={programId}
+              buildingId={annualBuildingId} canEdit={canEdit} onClose={() => setAnnualBuildingId(null)} />
+          )}
           {archiveBuildingId !== null && canEdit && rows.some((item) => item.id === archiveBuildingId) && (
             <Affordable8609Archive propertyId={propertyId} programId={programId}
               buildingId={archiveBuildingId} onClose={() => setArchiveBuildingId(null)} />

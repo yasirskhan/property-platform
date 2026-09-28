@@ -98,6 +98,7 @@ from app.routers import affordable_evidence as affordable_evidence_router
 from app.routers import affordable_buildings as affordable_buildings_router
 from app.routers import affordable_8609_readiness as affordable_8609_readiness_router
 from app.routers import affordable_8609_documents as affordable_8609_documents_router
+from app.routers import affordable_8609_annual as affordable_8609_annual_router
 from app.routers import trust_interest as trust_interest_router
 from app.routers import positive_pay as positive_pay_router
 from app.routers import owner_packets as owner_packets_router
@@ -217,6 +218,7 @@ app.include_router(affordable_evidence_router.router)
 app.include_router(affordable_buildings_router.router)
 app.include_router(affordable_8609_readiness_router.router)
 app.include_router(affordable_8609_documents_router.router)
+app.include_router(affordable_8609_annual_router.router)
 app.include_router(trust_interest_router.router)
 app.include_router(positive_pay_router.router)
 app.include_router(owner_packets_router.router)
