@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `6fe873dfa466a33b478dc638c0196bbddb64c9e5`
-- Source GitHub Actions run **36371943676: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `8c20d48deab2ad5fdbe8c323d8409462bce77068`
+- Source GitHub Actions run **36372554518: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **654 passed, 3 deselected, 13612 warnings in 149.65s**.
-  E2E: **3 passed in 9.31s**. Lint, typecheck, production build, security
+  Backend: **657 passed, 3 deselected, 13686 warnings in 142.67s**.
+  E2E: **3 passed in 8.93s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -19,13 +19,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   Previous head f2e4a6c8d0b1 / 115 tables. Nullable receipt FK and
   unique receipt index added; PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4.5 positive-pay read-only backend + customer review UI, VERIFIED.**
+  **Latest completed batch: Phase 4.6 property affordable-housing program inventory + Compliance tab, VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT independent original-plan task: Phase 4.6 Affordable Housing / Section 8 / LIHTC, beginning with a bounded property-level program inventory.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
+- **Exact NEXT original-plan task: Phase 4.6 recorded affordable-housing interest register linked to existing authorized CRM prospects; no eligibility/selection/rank automation.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -103,6 +103,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Phase 4.5 bank trust-interest review UI | a2da32a884a16ff9a1fa8adedc3b199810d19e36 | 36370090346 | 650 backend passed / 3 E2E; no interest posting |
 | Phase 4.5 positive-pay issue/void preflight | 82844c94fad5d4ef7fd33ac2e0366055953320e1 | 36370656288 | 653 backend passed / 3 E2E; not a bank upload file |
 | Phase 4.5 positive-pay customer bank review UI | 6fe873dfa466a33b478dc638c0196bbddb64c9e5 | 36371943676 | 654 backend passed / 3 E2E; read-only, no bank file |
+| Phase 4.6 property-level affordable program inventory | 8c20d48deab2ad5fdbe8c323d8409462bce77068 | 36372554518 | 657 backend passed / 3 E2E; no eligibility determination |
 | Phase 4 vendor company entity + scoped customer UI | 6e1d0eb730a71d913021b590667123ee047c4858 | 36336927654 | 590 backend passed / 3 E2E |
 | Phase 4 vendor insurance lifecycle | 8d2cb6adffbde41282fc77e9e0365b2913410f66, 3de4c938e07fc695cf33eec3b1a7af7fd552e73b, 5dcdd6272bd1e18fe78a0ae2868ef6d110caf2c8 | 36337623891 | 593 backend passed / 3 E2E |
 | Phase 4 vendor trade/insurance filters | b40d94b3861809d4cfd5bb563a21bd6a4e524476, 0d32310911be49c9133ba002d19fdfdb9fce7e9a, 87ed9dd1396686065c9596622173297628b2ace2 | 36338819609 | 596 backend passed / 3 E2E |
@@ -3233,44 +3234,100 @@ certification. Do not infer eligibility, HAP amounts, AMI limits,
 income, legal rates or applicant status. Add focused tests and UI,
 CI verify, then update this root handoff.
 
+## Phase 4.6 affordable-housing property program inventory — VERIFIED 2026-09-27
+
+Source 8c20d48deab2ad5fdbe8c323d8409462bce77068.
+Hosted CI 36372554518 SUCCESS all six jobs:
+657 backend passed, 3 deselected, 13686 warnings in 142.67s;
+3 authenticated browser E2E passed in 8.93s.
+Frontend lint/TypeScript/build, security, platform-admin and
+staging-config green. E2E is generic authenticated browser smoke,
+NOT a dedicated Compliance tab interaction test.
+Alembic b8c0d2e4f6a9 (from a7c9e1f3b5d0);
+model table count 121 (previously 120).
+New backend/app/models/affordable_program.py, schemas/affordable_program.py,
+routers/affordable_programs.py and 3 focused backend regressions;
+new frontend/src/components/property/AffordableProgramsTab.tsx and
+enabled existing release.properties.compliance-gated Compliance tab.
+Root init_db.py, app/main.py, and 3 migration guard tests updated.
+Frozen docs/ and planning parity not changed.
+
+GET/POST/PUT/DELETE /api/properties/{property_id}/affordable-programs:
+scoped active organization/property, ADMIN/OWNER writes,
+assigned MANAGER reads only, no TENANT/CREW access.
+Live PROPERTIES.ALL and release.properties.compliance required.
+Records bounded staff-entered program category (LIHTC,
+Section 8 voucher/project-based, HUD other, other), label,
+optional recorded agency and dates. Explicitly not a verified
+HUD participation, LIHTC certification, eligibility, AMI/rent
+limit, HAP payment, tenant admission or tax-credit assertion.
+Distinct recorded labels per property, immutable action audit
+(redacted to program type), soft archive, 101-result bounded read.
+No protected household, income, SSN, application/lease,
+Charge, GL or bank account changes. Tests verify org/manager scope,
+live gates/permissions, uniqueness, date validation, lifecycle,
+no-store, activity and accounting nonmutation.
+
+NEXT Phase 4.6 dependency: intake for existing authorized CRM
+prospects' recorded interest in a recorded property program.
+Build a *staff-recorded interest register*, NOT an official
+HUD/LIHTC ordered waiting list, eligibility determination,
+program-specific preference/ranking/offer or public signup.
+HUD's own occupancy guides require program/owner-specific
+tenant selection policies; do not auto-rank or infer eligibility.
+Reuse Prospect/Contact/property assignment and active program
+scope; require both PROPERTIES.ALL / compliance feature and
+LEASING.CRM permission before revealing contact names.
+Do not add race/disability/household/income fields to generic
+interest register or expose applicants across organizations.
+Next full program-specific waitlist/selection workflows depend
+on reviewed jurisdiction/agency tenant selection plans.
+Reference: https://www.hud.gov/hud-partners/public-housing-occupancy-guidebook
+and https://www.hud.gov/helping-americans/housing-choice-vouchers-guidebook .
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Verify current branch HEAD/latest CI. Last verified product
-   source 6fe873dfa466a33b478dc638c0196bbddb64c9e5;
-   CI 36371943676 all six jobs green, 654 backend passed,
-   3 deselected, 3 authenticated E2E passed; Alembic
-   a7c9e1f3b5d0 / 120 tables. Do not repeat trust interest,
-   RUBs, positive-pay preflight or positive-pay customer UI.
-2. Positive pay BANK FILE/ACCEPTANCE remains pending bank-issued
-   specifications. Do not fabricate a banking template, label
-   ordinary check CSV as positive-pay, or imply submission.
-3. Proceed autonomously with independent original Phase 4.6
-   PLAN_GAPS C1 Affordable Housing/Section 8/LIHTC, first bounded
-   property-level manually recorded program inventory; no eligibility
-   or benefit determination. Preserve org/property/manager scope,
-   live permission and release gate, no GL/payment changes.
-4. Commit bounded source with focused regression tests, verify
-   full hosted CI, fix failures, update root handoff after each
-   meaningful verified batch. Frozen docs/ unchanged absent
-   express authorization; no main/new branch/force push.
-5. Continue C1 dependency order, then 4.7 HOA and subsequent
-   subphases. External bank and IRS provider integrations remain
-   pending independently until specifications and credentials exist.
+1. Verify HEAD/latest all-six-job GitHub CI. Verified source
+   8c20d48deab2ad5fdbe8c323d8409462bce77068;
+   CI 36372554518 SUCCESS: 657 backend passed/3 deselected,
+   browser E2E 3 passed. Alembic b8c0d2e4f6a9/121 tables.
+   Do not repeat Phase 4.5 positive-pay preflight/UI or
+   Phase 4.6 recorded property program inventory.
+2. Next original C1 waiting-list dependency: bounded
+   staff-recorded program interest linked to existing CRM
+   Prospect + Contact, active org/property/program and current
+   manager property assignment. No official waiting-list
+   priority, selection plan, eligibility, preferences, voucher
+   allocation, applicant status or automatic outbound messaging.
+   Require live compliance release, PROPERTIES.ALL and CRM menu.
+   Record only metadata; no SSN, household data or payments.
+3. Keep true HUD/LIHTC admission, income certification,
+   recertification and program-specific waiting list decisions
+   NOT IMPLEMENTED pending verified program/agency selection
+   plans and current legal requirements. Do not claim otherwise.
+4. Full bank-specific positive-pay file/export still awaits an
+   actual bank-approved schema and event-date/method specification;
+   IRS external filing awaits provider credentials. Preserve
+   those explicit external blockers while progressing independent
+   C1 features, then 4.7 HOA and onward.
+5. Bounded source+focused regression tests, commit to only
+   chatgpt/checkpoint-005-safety, verify all CI jobs green,
+   fix reds, update this root handoff after every meaningful
+   batch. Do not edit frozen docs/ or planning parity,
+   main or branches without separate authorization.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on
-chatgpt/checkpoint-005-safety. Read whole root AI_HANDOFF.md,
-verify HEAD/CI. Last verified product source
-6fe873dfa466a33b478dc638c0196bbddb64c9e5;
-CI 36371943676 SUCCESS all six jobs: 654 backend passed,
-3 deselected; 3 browser E2E passed. Alembic
-a7c9e1f3b5d0, 120 tables. Phase 4.5 C8 positive-pay
-recorded issue/void preflight and customer review UI VERIFIED,
-but bank-specific file/export NOT IMPLEMENTED pending approved
-bank template. NEXT independent original Phase 4.6 C1
-Affordable Housing/Section 8/LIHTC property-level program
-inventory, descriptive only without regulated eligibility.
-Preserve verified source, no unapproved frozen docs, commit
-with tests then hosted six-job CI, update root handoff, continue
-without waiting for phase permission.
+Continue yasirskhan/property-platform on only
+chatgpt/checkpoint-005-safety. Read entire root AI_HANDOFF.md,
+verify current HEAD, all-six-job CI. Last verified source:
+8c20d48deab2ad5fdbe8c323d8409462bce77068;
+CI 36372554518 SUCCESS: 657 backend passed, 3 deselected,
+3 browser E2E passed. Alembic b8c0d2e4f6a9, 121 tables.
+Positive-pay review and Phase 4.6 property-level affordable
+program inventory VERIFIED; actual bank file and HUD/LIHTC
+eligibility are NOT implemented. Next C1 bounded program
+prospect-interest register (not official ranked waitlist).
+Reuse verified CRM and compliance/property gates, include
+focused tests, commit then verify hosted CI, update root
+handoff. Frozen docs, main and other branches untouched.
