@@ -7,18 +7,19 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `97ac854cfb7653f95f4e23d173cfb0706362bf8a`
-- Source GitHub Actions run **36442794100: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `8383c592b3ab606fb78147306fae4ec0c2f448de`
+- Source GitHub Actions run **36448961679: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **715 passed, 3 deselected, 15562 warnings in 188.05s**.
-  E2E: **3 passed in 9.30s**. Lint, typecheck, production build, security
-  and staging: SUCCESS. These counts apply to this exact source commit only.
+  Backend: **715 passed, 4 deselected, 15562 warnings in 186.49s**.
+  E2E: **4 passed, 4 warnings in 8.57s**. Lint, typecheck, production
+  build, security and staging: SUCCESS. These counts apply to source
+  `8383c592` only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
 - Alembic head: **f0b2c4d6e8a1**. SQLAlchemy expected model tables: **135**.
   Previous head e9a1b3c5d7f0 / 134 tables (staff document-evidence index adds one table). PostgreSQL/bootstrap/legacy CI passed.
 - CURRENT roadmap work: **Phase 4.7 C2 HOA, IN PROGRESS**. Previous Phase 3.7 reports and 1099 internal preparation have individually verified portions; external 1099 acceptance remains unimplemented.
-  **Latest verified product batch: Phase 4.7 C2 governing-document staff evidence index + customer UI, verified by CI.**
+  **Latest verified batch: dedicated HOA evidence browser regression plus accessible customer evidence selectors, verified by CI.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
@@ -26,6 +27,50 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
 - **Exact NEXT task: obtain/review actual HOA governing documents and the applicable property/association jurisdiction, authorized legal actors and accounting policies. Staff-only private-document evidence indexing, ARC intake, observations, meeting planning, contact references and assessment drafts are VERIFIED. A staff document link is NOT certification of governing authority. No official applications, architectural decisions, notices, penalties, board actions, dues/payer liability, reserve transfers or GL posting without reviewed legal/accounting authority. No uploaded governing source has been verified for this task. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows remain BLOCKED pending authoritative program rules and secure household policy.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED; do not label them completed screening/marketing conversions. External Stripe/IRS filing acceptance remains unimplemented.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight, 1099 preparation, tax profiles or W-9 archive.
+
+## CURRENT SESSION UPDATE — 2026-09-28 HOA BROWSER REGRESSION VERIFIED
+
+**Product/source HEAD** `8383c592b3ab606fb78147306fae4ec0c2f448de`.
+Test introduction `a683725cd4053ff27875787f96fa6414e187ca8c`;
+test import correction `60af071e1dba18f991a621f620eda51f62259d48`;
+customer dropdown accessibility correction `8383c592b3ab606fb78147306fae4ec0c2f448de`.
+**Hosted GitHub Actions 36448961679 SUCCESS, all six jobs**:
+backend **715 passed, 4 deselected, 15562 warnings in 186.49s**;
+authenticated browser **4 passed, 4 warnings in 8.57s**;
+frontend lint/typecheck/build, platform-admin, security and staging
+all passed. **No local tests run.** One browser test now specifically
+covers the HOA evidence flow; the other three are general smoke.
+
+New disposable-database E2E test records a synthetic association,
+uploads a PRIVATE synthetic PDF labelled NOT a governing instrument,
+links it as staff-supplied UNVERIFIED evidence, downloads and archives
+the reference, and checks zero new Charge/GLTransaction postings.
+Existing release gates are temporarily enabled only in the disposable
+test and restored afterward. The customer Document and Category
+selectors have explicit accessible names; no legal or financial HOA
+features were added. No migration: `f0b2c4d6e8a1`, **135 model tables**.
+Frozen `docs/` and parity files unchanged. Initial CI `36447994524`
+had **one new E2E failure** from the missing accessible select label
+(three other E2E passed, remaining five jobs passed); corrected
+source CI `36448961679` fully passed. Intermediate run
+`36447963624` was cancelled, not passed.
+
+**AUTHENTIC HOA SOURCE BLOCKER REMAINS.** Available conversation/
+Library file searches and repository project-document inspection
+found planning material, not verified association declaration/CC&Rs,
+amendments, bylaws, written rules/ARC terms, specific jurisdiction,
+authorized decision makers, assessment/payer authority,
+notice/cure/hearing rules, reserve policy or approved GL mapping.
+The synthetic E2E PDF is NOT real governing evidence. Phase 4.7
+C2 is IN PROGRESS. Do not invent official assessment/fine/notice,
+ARC decision, board vote, reserve movement, or Charge/GL posting.
+Next exact original dependency is obtaining and reviewing the
+actual association/property governing instruments and current
+jurisdiction-specific authority; only an independent permitted
+original-roadmap task may proceed until that is satisfied.
+No verified previous HOA capability was repeated or modified.
+Re-fetch branch HEAD and Actions after this docs-only handoff commit;
+the verified PRODUCT source/run are recorded above.
 
 ## CURRENT SESSION HANDOFF — 2026-09-28 (READ BEFORE HISTORICAL ENTRIES)
 
