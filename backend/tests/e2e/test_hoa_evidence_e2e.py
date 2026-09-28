@@ -135,3 +135,72 @@ def test_hoa_staff_evidence_upload_link_download_and_archive() -> None:
             finally:
                 browser.close()
         assert _financial_counts() == before
+
+
+def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
+    """Exercise the actual staff UI, not an official notice/fine delivery."""
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                page.goto(
+                    f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                    wait_until="domcontentloaded",
+                )
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                expect(page.get_by_role("heading", name="HOA — recorded associations")).to_be_visible()
+                association_name = "E2E Procedure and Case Association"
+                page.get_by_label("Association name").fill(association_name)
+                page.get_by_role("button", name="Record association").click()
+                association = (
+                    page.get_by_text(association_name, exact=True).locator("..").locator("..")
+                )
+                expect(association).to_be_visible()
+
+                association.get_by_role("button", name="Procedure settings").click()
+                policy = association.get_by_role("heading", name="HOA staff procedure configuration").locator("..").locator("..")
+                expect(policy.get_by_text("Legal issuance remains disabled")).to_be_visible()
+                policy.get_by_label("Proposed cure-tracking days").fill("5")
+                policy.get_by_label("Proposed fine cap (not assessed)").fill("45.00")
+                policy.get_by_label("Staff draft notice language (not delivered)").fill(
+                    "Internal TEST DRAFT only, do not send."
+                )
+                policy.get_by_role("button", name="Save staff procedure settings").click()
+                expect(policy.get_by_text("Staff revision 1")).to_be_visible()
+                expect(policy.get_by_text(re.compile("no legal notices, fines or dues are enabled"))).to_be_visible()
+                policy.get_by_role("button", name="Close").click()
+
+                association.get_by_role("button", name="Staff observations").click()
+                observations = association.get_by_role("heading", name="HOA staff observations").locator("..").locator("..")
+                observations.get_by_label("Observation summary").fill("E2E unverified site observation")
+                observations.get_by_label("Date observed").fill("2026-09-01")
+                observations.get_by_role("button", name="Save staff record").click()
+                expect(observations.get_by_text("E2E unverified site observation", exact=False)).to_be_visible()
+                observations.get_by_role("button", name="Close").click()
+
+                association.get_by_role("button", name="Staff cases").click()
+                cases = association.get_by_role("heading", name="HOA internal review cases").locator("..").locator("..")
+                cases.locator("select").last.select_option(index=1)
+                cases.get_by_role("button", name="Open internal case").click()
+                expect(cases.get_by_text(re.compile("Open staff review"))).to_be_visible()
+                cases.get_by_role("button", name="Advance internal case").click()
+                cases.get_by_label("Staff-planned date").fill("2026-09-02")
+                cases.get_by_role("button", name="Record staff stage").click()
+                expect(cases.get_by_text(re.compile("Notice draft prepared \\(not sent\\)"))).to_be_visible()
+                cases.get_by_role("button", name="Advance internal case").click()
+                cases.get_by_role("button", name="Record staff stage").click()
+                expect(cases.get_by_text(re.compile("Tentative cure tracking"))).to_be_visible()
+                expect(cases.get_by_text(re.compile("Tentative cure: 2026-09-07"))).to_be_visible()
+                assert _financial_counts() == before
+            finally:
+                browser.close()
+        assert _financial_counts() == before
