@@ -7,24 +7,24 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `0073e49ccf84d5e8b6bfe48c459c7b4a0bb8b025`
-- Source GitHub Actions run **36438320448: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `711800ce4d02aa5c1e52f5703b8817740832c24e`
+- Source GitHub Actions run **36439808118: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **708 passed, 3 deselected, 15297 warnings in 180.28s**.
-  E2E: **3 passed in 8.21s**. Lint, typecheck, production build, security
+  Backend: **711 passed, 3 deselected, 15400 warnings in 182.75s**.
+  E2E: **3 passed in 9.57s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **d8f0a2b4c6e9**. SQLAlchemy expected model tables: **133**.
-  Previous head c7e9a1b3d5f2 / 132 tables (staff meeting draft adds one table). PostgreSQL/bootstrap/legacy CI passed.
+- Alembic head: **e9a1b3c5d7f0**. SQLAlchemy expected model tables: **134**.
+  Previous head d8f0a2b4c6e9 / 133 tables (staff ARC intake adds one table). PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest verified batch: Phase 4.7 C2 scoped staff meeting planning backend/UI, verified by CI.**
+  **Latest verified batch: Phase 4.7 C2 scoped staff ARC project-intake backend/UI, verified by CI.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT task: original Phase 4.7 C2 staff-only ARC project-interest intake, without official applications, approvals, denials, permits or fees. Governing-authority-dependent HOA notices/votes/fines remain blocked. Staff observations and meeting planning are verified. No payer designation, GL or tenant charge. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows are still BLOCKED on authoritative jurisdiction/program rules and secure household policy; do not mark Phase 4.6 complete or infer eligibility from staff evidence.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
+- **Exact NEXT task: Phase 4.7 C2 governing-document evidence and applicable jurisdiction/rule review for formal HOA violations, ARC decisions, reserve studies and accounting. No official applications, approvals, notices, penalties, board actions or reserve postings without source authority. Staff observations, meeting planning and ARC staff intake are verified. No payer designation, GL or tenant charge. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows are still BLOCKED on authoritative jurisdiction/program rules and secure household policy; do not mark Phase 4.6 complete or infer eligibility from staff evidence.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -3863,17 +3863,21 @@ payer obligation, board approval, accounting policies.
 Continue ONLY yasirskhan/property-platform branch
 chatgpt/checkpoint-005-safety. Read entire repo-root AI_HANDOFF.md
 and verify HEAD/CI. Last VERIFIED source
-0073e49ccf84d5e8b6bfe48c459c7b4a0bb8b025;
-CI 36438320448 SUCCESS all six jobs: 708 backend passed,
-3 deselected; 3 browser E2E passed. Alembic d8f0a2b4c6e9,
-133 tables. Verified HOA association registry, contacts,
+711800ce4d02aa5c1e52f5703b8817740832c24e;
+CI 36439808118 SUCCESS all six jobs: 711 backend passed,
+3 deselected; 3 browser E2E passed. Alembic e9a1b3c5d7f0,
+134 tables. Verified HOA association registry, contacts,
 staff-only recurring/special assessment draft backend/UI and
 unlink/archive integrity. Do not repeat those batches.
 HOA staff observations and meeting planning are verified.
-Pending source adds bounded staff ARC project-interest intake,
-migration e9a1b3c5d7f0 / 134 tables; CI NOT YET VERIFIED.
-Do not repeat verified work. Formal ARC approval, board votes,
-actual violation issuance/fines remain blocked on governing rules. Actual HOA
+Staff ARC project-interest intake is VERIFIED. Do not repeat it.
+Next original HOA C2 dependency is obtaining/reviewing actual
+association governing documents, applicable property jurisdiction,
+actor authority, notice/cure/hearing and reserve accounting rules.
+Without these authoritative inputs, do NOT invent official HOA
+violation issuance/fines, ARC decisions, board votes, reserve fund
+postings or legal deadlines. Safe registries/drafts are already
+implemented; do not add duplicate placeholder stores. Actual HOA
 legal notices/fines and HUD/LIHTC eligibility need reviewed
 governing/jurisdiction rules. Do not touch main/new branches or
 unrelated frozen docs. Use GitHub CI after commit; refresh handoff
@@ -3987,14 +3991,60 @@ forbidden governance fields, no GL/Charge/Lease changes and
 unlink/archive. E2E is generic browser smoke, NOT dedicated
 meeting UI E2E. Formal board portal is NOT VERIFIED.
 
-## Phase 4.7 C2 ARC staff intake — SOURCE UNVERIFIED
+## Phase 4.7 C2 ARC staff intake — VERIFIED 2026-09-28
 
-Current bounded source adds staff-only property-linked
-architectural interest records, NOT filed ARC applications,
-approvals/denials, statutory timelines, permits or fees.
-Proposed migration e9a1b3c5d7f0 / 134 tables, backend scoped
-CRUD + regression tests and customer HOA panel.
-This source must be verified by all six CI jobs before
-marking completed or using its test counts; if CI red,
-fix before another feature batch. Frozen docs/ and original
-planning parity unchanged.
+Verified source 711800ce4d02aa5c1e52f5703b8817740832c24e;
+full CI 36439808118 SUCCESS all six jobs: backend 711 passed,
+3 deselected, 15400 warnings in 182.75s; browser E2E 3 passed
+in 9.57s; frontend lint/typecheck/build, platform-admin, security,
+staging all green. General browser smoke, NOT dedicated ARC UI E2E.
+Migration e9a1b3c5d7f0 from d8f0a2b4c6e9 / 134 model tables.
+Property/association/org scoped staff architectural-interest
+intake GET/POST/PUT/DELETE under /api/hoa/associations/{id}/arc-intakes,
+existing live PROPERTIES.ALL + compliance gate; ADMIN/OWNER write,
+assigned MANAGER read, TENANT/CREW denied. No applicant identity,
+issued application, decision/denial, permit, statutory review period,
+fee, charge, GL or legal notice. Customer HoaARCIntakePanel in
+existing property HOA Compliance section; staff-only captions.
+Association unlink/archive soft-deactivates prior intake; relinking
+does not resurrect. Redacted append-only audit, no-store reads,
+generic notes/attachments denylist. Three focused tests cover
+CRUD, cross-org/assignment/permission, input extra-field rejection,
+audit and zero GL/Charge/Lease effects, and unlink/archive.
+Frozen docs/ and planning parity unchanged.
+
+
+## Phase 4.7 C2 dependency boundary after ARC intake — 2026-09-28
+
+Three consecutive meaningful source batches in this session are VERIFIED:
+- Staff observations backend source 60671d5869191c261f06e28149995e477c1fda12
+  CI 36432576387 SUCCESS, 704 backend passed / 3 E2E.
+- Staff observation customer UI source d061925d5e29dee69833d13dcb8f6aaf785c7479
+  CI 36436896287 SUCCESS, 705 backend passed / 3 E2E.
+- Staff meeting planning backend/UI source 0073e49ccf84d5e8b6bfe48c459c7b4a0bb8b025
+  CI 36438320448 SUCCESS, 708 backend passed / 3 E2E.
+- Staff ARC intake source 711800ce4d02aa5c1e52f5703b8817740832c24e
+  CI 36439808118 SUCCESS, 711 backend passed / 3 E2E.
+
+The original Phase 4.7 C2 still requires real HOA assessments,
+violations, statutory notice/cure, fines, hearings, board portal
+governance/meeting/vote records, ARC applicant/decision workflow,
+reserve studies/fund accounting and governing document delivery.
+These are NOT complete. Property manager's staff-only records do not
+create association authority, property/owner payer liability,
+tenant charges, voting eligibility, legal decisions or accounting
+permission. Do not convert proposal/intake fields into legal action
+until authoritative governing documents and jurisdiction-specific
+rules are provided and approved, and finance is centrally posted
+through the verified GL with lock/idempotency/owner isolation.
+Project docs/ source-of-truth and parity remain unchanged. Last CI
+only verifies general browser smoke; specialized HOA interaction
+E2E is still needed before release.
+
+Exact next responsibly actionable work: obtain/review the actual
+HOA governing documents, HOA jurisdiction, service/notice rules,
+authorized decision maker, who pays dues and legal approval/
+reserve policies. If these are unavailable, record a genuine
+legal/data blocker, do not fabricate policy or relabel safe drafts
+as completed full workflows. Independent later phases should
+follow the original dependency order; no unapproved roadmap edits.
