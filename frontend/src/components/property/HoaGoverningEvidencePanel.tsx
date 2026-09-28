@@ -147,7 +147,7 @@ export default function HoaGoverningEvidencePanel({ associationId, propertyId, c
             below to add a file without enabling sharing.
           </p>
           <label className="block text-sm">Document
-            <select required value={attachmentId} onChange={(event) => setAttachmentId(event.target.value)}
+            <select aria-label="Document" required value={attachmentId} onChange={(event) => setAttachmentId(event.target.value)}
               className="mt-1 block w-full rounded border p-2">
               <option value="">Select a private property document</option>
               {attachments.map((item) => (
@@ -156,7 +156,7 @@ export default function HoaGoverningEvidencePanel({ associationId, propertyId, c
             </select>
           </label>
           <label className="block text-sm">Staff-supplied document category
-            <select value={category} onChange={(event) => setCategory(event.target.value)}
+            <select aria-label="Staff-supplied document category" value={category} onChange={(event) => setCategory(event.target.value)}
               className="mt-1 block w-full rounded border p-2">
               {CATEGORIES.map((item) => (
                 <option key={item.key} value={item.key}>{item.label}</option>
