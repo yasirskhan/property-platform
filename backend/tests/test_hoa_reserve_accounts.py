@@ -337,6 +337,19 @@ def test_reserve_movement_plans_use_dedicated_mapping_with_no_funds_moved():
         row = movement_api.create_movement_draft(
             assoc.id, _movement(assigned, other_gl.id), db=db, current_user=admin,
         )
+        candidates_response = Response()
+        candidates = movement_api.reserve_counterpart_options(
+            assoc.id, candidates_response, property_id=assigned.id,
+            db=db, current_user=owner,
+        )
+        assert candidates_response.headers["cache-control"] == "no-store"
+        assert [candidate.gl_account_id for candidate in candidates] == [other_gl.id]
+        assert "123456789" not in str([candidate.model_dump() for candidate in candidates])
+        with pytest.raises(HTTPException):
+            movement_api.reserve_counterpart_options(
+                assoc.id, Response(), property_id=assigned.id,
+                db=db, current_user=manager,
+            )
         assert row.reserve_gl_account_id == mapped.gl_account_id
         assert row.posting_enabled is False and row.funds_moved is False
         assert row.legally_restricted_funds_verified is False

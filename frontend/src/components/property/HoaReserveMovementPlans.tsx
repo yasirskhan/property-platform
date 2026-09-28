@@ -42,7 +42,7 @@ export default function HoaReserveMovementPlans({
     setError(""); setLoading(true); setRows([]);
     void Promise.all([
       apiGet(base + query) as Promise<Movement[]>,
-      canEdit ? apiGet(root + "/reserve-options" + query) as Promise<Option[]> : Promise.resolve([]),
+      canEdit ? apiGet(root + "/reserve-counterpart-options" + query) as Promise<Option[]> : Promise.resolve([]),
     ]).then(([items, available]) => {
       if (!alive) return;
       setRows(items);

@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.gl_account import GLAccount
+from app.models.hoa_reserve_account import HOAReserveAccount
+from app.schemas.hoa_reserve_account import HOAReserveOptionOut
 from app.models.hoa_reserve_movement_draft import HOAReserveMovementDraft
 from app.models.user import User, UserRole
 from app.routers.auth import get_current_user
@@ -82,6 +84,48 @@ def list_movement_drafts(
         raise HTTPException(status_code=422, detail="Too many movement drafts.")
     response.headers["Cache-Control"] = "no-store"
     return [_out(row) for row in records]
+
+
+@router.get("/{association_id}/reserve-counterpart-options",
+            response_model=list[HOAReserveOptionOut])
+def reserve_counterpart_options(
+    association_id: int, response: Response,
+    property_id: int = Query(ge=1),
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    """Cash-like counterpart display, separate from the restricted reserve selector.
+
+    Never offer this reserve GL as its own counterparty, or a cash GL
+    dedicated to some other active HOA reserve mapping. No sensitive
+    bank identifiers are returned.
+    """
+    org, assoc, reserve, reserve_gl = _scope(
+        db, current_user, association_id, property_id, write=False,
+    )
+    mapped_gl_ids = {
+        gl_id for (gl_id,) in db.query(HOAReserveAccount.gl_account_id).filter(
+            HOAReserveAccount.organization_id == org,
+            HOAReserveAccount.is_active.is_(True),
+        ).all()
+    }
+    candidates = db.query(GLAccount).filter(
+        GLAccount.organization_id == org,
+        GLAccount.account_type == "ASSET",
+        GLAccount.include_on_cash_flow.is_(True),
+        GLAccount.is_active.is_(True),
+        GLAccount.deleted_at.is_(None),
+    ).order_by(GLAccount.gl_number, GLAccount.id).limit(501).all()
+    if len(candidates) > 500:
+        raise HTTPException(status_code=422, detail="Too many cash-like accounts.")
+    response.headers["Cache-Control"] = "no-store"
+    return [
+        HOAReserveOptionOut(
+            gl_account_id=gl.id, gl_number=gl.gl_number, gl_name=gl.name,
+            bank_account_id=None, bank_display_name=None,
+        )
+        for gl in candidates if gl.id not in mapped_gl_ids
+        and gl.id != reserve_gl.id
+    ]
 
 
 @router.post("/{association_id}/reserve-movement-drafts",
