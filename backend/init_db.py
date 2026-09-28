@@ -124,6 +124,7 @@ from app.models.tag import Tag, EntityTag  # noqa: F401
 from app.models.vendor_insurance import VendorInsurance  # noqa: F401
 from app.models.letter_template import LetterTemplate  # noqa: F401
 from app.models.lease_template import LeaseTemplate, LeaseTemplateAddendum  # noqa: F401
+from app.models.prospect import Prospect  # noqa: F401
 from app.models.tax_profile import TaxProfile  # noqa: F401
 from app.models.tax_w9_document import TaxW9Document  # noqa: F401
 from app.models.tax_1099_review import Tax1099Review  # noqa: F401
