@@ -498,13 +498,19 @@ def reverse_receipt(
             "Underlying GL transaction not found; cannot reverse."
         )
 
-    reversed_txn = reverse_transaction(
-        db=db,
-        original=txn,
-        reversal_date=reversal_date,
-        created_by=created_by,
-        memo=memo or f"Reversal of receipt #{original.id}",
-    )
+    try:
+        reversed_txn = reverse_transaction(
+            db=db,
+            original=txn,
+            reversal_date=reversal_date,
+            created_by=created_by,
+            memo=memo or f"Reversal of receipt #{original.id}",
+        )
+    except Exception:
+        # The core posting service can refuse a closed period BEFORE its
+        # transactional write block. Roll back any staged application undo.
+        db.rollback()
+        raise
 
     # 2. Mark original
     original.is_reversed = True

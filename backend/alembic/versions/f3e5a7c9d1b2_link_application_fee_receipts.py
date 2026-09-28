@@ -14,15 +14,17 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column("application_payments", sa.Column("receipt_id", sa.Integer(), nullable=True))
-    op.create_foreign_key(
-        "fk_application_payments_receipt_id", "application_payments", "receipts",
-        ["receipt_id"], ["id"], ondelete="RESTRICT",
-    )
-    op.create_index("ix_application_payments_receipt_id", "application_payments", ["receipt_id"], unique=True)
+    with op.batch_alter_table("application_payments") as batch:
+        batch.add_column(sa.Column("receipt_id", sa.Integer(), nullable=True))
+        batch.create_foreign_key(
+            "fk_application_payments_receipt_id", "receipts",
+            ["receipt_id"], ["id"], ondelete="RESTRICT",
+        )
+        batch.create_index("ix_application_payments_receipt_id", ["receipt_id"], unique=True)
 
 
 def downgrade():
-    op.drop_index("ix_application_payments_receipt_id", table_name="application_payments")
-    op.drop_constraint("fk_application_payments_receipt_id", "application_payments", type_="foreignkey")
-    op.drop_column("application_payments", "receipt_id")
+    with op.batch_alter_table("application_payments") as batch:
+        batch.drop_index("ix_application_payments_receipt_id")
+        batch.drop_constraint("fk_application_payments_receipt_id", type_="foreignkey")
+        batch.drop_column("receipt_id")
