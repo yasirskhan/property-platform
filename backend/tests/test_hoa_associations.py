@@ -173,3 +173,25 @@ def test_rechecks_feature_permission_assignment_and_active_property(monkeypatch)
         assert db.query(GLTransaction).count() == 0
     finally:
         db.rollback(); db.close(); engine.dispose()
+
+
+
+def test_same_property_multiple_associations_and_deactivated_admin_guard():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, unassigned, other) = _seed(db)
+        first = api.create_association(_in("North HOA", [assigned.id]), db=db, current_user=admin)
+        second = api.create_association(_in("South HOA", [assigned.id]), db=db, current_user=owner)
+        assert first.id != second.id
+        assert len(api.list_associations(Response(), db=db, current_user=manager)) == 2
+        assert db.query(HOAPropertyMembership).filter(
+            HOAPropertyMembership.property_id == assigned.id,
+        ).count() == 2
+        admin.is_active = False
+        db.flush()
+        with pytest.raises(HTTPException) as exc:
+            api.list_associations(Response(), db=db, current_user=admin)
+        assert exc.value.status_code == 403
+        assert db.query(GLTransaction).count() == db.query(Charge).count() == 0
+    finally:
+        db.rollback(); db.close(); engine.dispose()
