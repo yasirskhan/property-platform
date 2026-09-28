@@ -14,6 +14,7 @@ from app.models.hoa_arc_intake import HOAARCIntake
 from app.models.hoa_governing_evidence import HOAGoverningEvidence
 from app.models.hoa_procedure_policy import HOAProcedurePolicy
 from app.models.hoa_violation_case import HOAViolationCase
+from app.models.hoa_reserve_account import HOAReserveAccount
 from app.models.contact import Contact
 from app.models.property import Property, PropertyAssignment
 from app.models.user import User, UserRole
@@ -251,6 +252,7 @@ def _archive_procedure_cases(
     for model, entity in (
         (HOAProcedurePolicy, "hoa_procedure_policy"),
         (HOAViolationCase, "hoa_violation_case"),
+        (HOAReserveAccount, "hoa_reserve_account"),
     ):
         rows = db.query(model).filter(
             model.organization_id == org_id,

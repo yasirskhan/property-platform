@@ -101,6 +101,7 @@ from app.routers import hoa_arc_intake as hoa_arc_intake_router
 from app.routers import hoa_governing_evidence as hoa_governing_evidence_router
 from app.routers import hoa_procedure_policies as hoa_procedure_policies_router
 from app.routers import hoa_violation_cases as hoa_violation_cases_router
+from app.routers import hoa_reserve_accounts as hoa_reserve_accounts_router
 from app.routers import commercial_lease_abstracts as commercial_lease_abstracts_router
 from app.routers import affordable_interest as affordable_interest_router
 from app.routers import affordable_evidence as affordable_evidence_router
@@ -230,6 +231,7 @@ app.include_router(hoa_arc_intake_router.router)
 app.include_router(hoa_governing_evidence_router.router)
 app.include_router(hoa_procedure_policies_router.router)
 app.include_router(hoa_violation_cases_router.router)
+app.include_router(hoa_reserve_accounts_router.router)
 app.include_router(commercial_lease_abstracts_router.router)
 app.include_router(affordable_interest_router.router)
 app.include_router(affordable_evidence_router.router)

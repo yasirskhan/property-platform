@@ -10,6 +10,7 @@ import HoaARCIntakePanel from "@/components/property/HoaARCIntakePanel";
 import HoaGoverningEvidencePanel from "@/components/property/HoaGoverningEvidencePanel";
 import HoaProcedurePolicyPanel from "@/components/property/HoaProcedurePolicyPanel";
 import HoaCaseWorkflowPanel from "@/components/property/HoaCaseWorkflowPanel";
+import HoaReserveBookPanel from "@/components/property/HoaReserveBookPanel";
 
 type Association = { id: number; name: string; property_ids: number[]; updated_at: string };
 type PropertyOption = { id: number; name: string; is_active: boolean };
@@ -28,6 +29,7 @@ export default function HoaAssociationsPanel({ propertyId, canEdit }: {
   const [evidenceAssociation, setEvidenceAssociation] = useState<number | null>(null);
   const [policyAssociation, setPolicyAssociation] = useState<number | null>(null);
   const [caseAssociation, setCaseAssociation] = useState<number | null>(null);
+  const [reserveAssociation, setReserveAssociation] = useState<number | null>(null);
   const [others, setOthers] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -106,6 +108,7 @@ export default function HoaAssociationsPanel({ propertyId, canEdit }: {
       if (evidenceAssociation === row.id) setEvidenceAssociation(null);
       if (policyAssociation === row.id) setPolicyAssociation(null);
       if (caseAssociation === row.id) setCaseAssociation(null);
+      if (reserveAssociation === row.id) setReserveAssociation(null);
       setMessage("Inventory archived. No charges or legal obligations were changed.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Cannot archive association.");
@@ -157,6 +160,8 @@ export default function HoaAssociationsPanel({ propertyId, canEdit }: {
                   className="text-blue-700">Procedure settings</button>
                 <button type="button" onClick={() => setCaseAssociation((old) => old === row.id ? null : row.id)}
                   className="text-blue-700">Staff cases</button>
+                <button type="button" onClick={() => setReserveAssociation((old) => old === row.id ? null : row.id)}
+                  className="text-blue-700">Reserve book</button>
               {canEdit && <>
                 <button type="button" disabled={busy} onClick={() => { void changeMembership(row, false); }}
                   className="text-blue-700 disabled:opacity-50">Unlink</button>
@@ -195,6 +200,10 @@ export default function HoaAssociationsPanel({ propertyId, canEdit }: {
               {caseAssociation === row.id && (
                 <HoaCaseWorkflowPanel associationId={row.id} propertyId={propertyId}
                   canEdit={canEdit} onClose={() => setCaseAssociation(null)} />
+              )}
+              {reserveAssociation === row.id && (
+                <HoaReserveBookPanel associationId={row.id} propertyId={propertyId}
+                  canEdit={canEdit} onClose={() => setReserveAssociation(null)} />
               )}
             </div>
           ))}
