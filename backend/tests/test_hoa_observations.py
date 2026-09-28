@@ -32,6 +32,7 @@ def access(monkeypatch):
     monkeypatch.setattr(hoa, "permission_allows_user", lambda *a, **kw: True)
     monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **kw: [
         SimpleNamespace(key=hoa.FEATURE_KEY, allowed=True),
+        SimpleNamespace(key=hoa.HOA_FEATURE_KEY, allowed=True),
     ])
 
 

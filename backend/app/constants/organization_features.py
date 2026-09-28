@@ -65,6 +65,7 @@ FEATURE_DEFINITIONS: dict[str, dict[str, object]] = {
     "release.properties": {"label": "Properties list", "entitlement": "core", "org_configurable": False, "permission": "PROPERTIES.ALL"},
     "release.properties.budget": {"label": "Budget tab", "entitlement": "budgeting", "org_configurable": True, "permission": "PROPERTIES.ALL"},
     "release.properties.compliance": {"label": "Compliance tab", "entitlement": "compliance", "org_configurable": True, "permission": "PROPERTIES.ALL"},
+    "release.properties.hoa": {"label": "HOA add-on", "entitlement": "hoa", "org_configurable": True, "permission": "PROPERTIES.ALL"},
     "release.properties.fixed_assets": {"label": "Fixed Assets tab", "entitlement": "fixed_assets", "org_configurable": True, "permission": "PROPERTIES.ALL"},
     "release.properties.groups": {"label": "Property Groups", "entitlement": "property_groups", "org_configurable": True, "permission": "PROPERTIES.GROUPS"},
     "release.properties.keys": {"label": "Keys tracking", "entitlement": "core", "org_configurable": True, "permission": "PROPERTIES.ALL"},

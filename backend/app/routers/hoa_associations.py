@@ -31,6 +31,7 @@ from app.services.menu_resolver import permission_allows_user
 router = APIRouter(prefix="/api/hoa/associations", tags=["HOA association inventory"])
 # Existing compliance capability, no new unrelated per-field flag.
 FEATURE_KEY = "release.properties.compliance"
+HOA_FEATURE_KEY = "release.properties.hoa"
 
 
 def _access(db: Session, actor: User, *, write: bool = False) -> int:
@@ -46,6 +47,11 @@ def _access(db: Session, actor: User, *, write: bool = False) -> int:
     )
     if decision is None or not decision.allowed:
         raise HTTPException(status_code=404, detail="HOA inventory unavailable.")
+    hoa_entitlement = next(
+        (x for x in resolve_customer_features(db, user=actor) if x.key == HOA_FEATURE_KEY), None
+    )
+    if hoa_entitlement is None or not hoa_entitlement.allowed:
+        raise HTTPException(status_code=404, detail="HOA add-on unavailable.")
     return int(actor.organization_id)
 
 

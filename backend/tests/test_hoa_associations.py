@@ -28,7 +28,8 @@ from app.services.entity_notes import _model_for_table
 def permissions(monkeypatch):
     monkeypatch.setattr(api, "permission_allows_user", lambda *a, **kw: True)
     monkeypatch.setattr(api, "resolve_customer_features", lambda *a, **kw: [
-        SimpleNamespace(key=api.FEATURE_KEY, allowed=True)
+        SimpleNamespace(key=api.FEATURE_KEY, allowed=True),
+        SimpleNamespace(key=api.HOA_FEATURE_KEY, allowed=True)
     ])
 
 

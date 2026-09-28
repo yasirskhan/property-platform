@@ -12,9 +12,11 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import inspect
+from sqlalchemy.orm import Session
 
 from app.core.database import Base, engine
 import init_db  # noqa: F401
+from app.services.hoa_addon_catalog import seed_unreleased_hoa_catalog
 
 BACKEND_ROOT = Path(__file__).resolve().parent
 
@@ -39,6 +41,11 @@ def bootstrap() -> None:
         )
 
     Base.metadata.create_all(bind=engine)
+    # Fresh bootstraps skip data-only Alembic revisions; seed the same
+    # hidden, unsubscribed HOA catalog without activating any billing.
+    with Session(engine) as db:
+        seed_unreleased_hoa_catalog(db)
+        db.commit()
     command.stamp(_alembic_config(), "head")
 
     created = sorted(t for t in inspect(engine).get_table_names() if t != "alembic_version")

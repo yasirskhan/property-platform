@@ -41,7 +41,8 @@ def access(monkeypatch):
     # those dependency symbols, not the assessment router that imports _access.
     monkeypatch.setattr(hoa, "permission_allows_user", lambda *a, **kw: True)
     monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **kw: [
-        SimpleNamespace(key=hoa.FEATURE_KEY, allowed=True)
+        SimpleNamespace(key=hoa.FEATURE_KEY, allowed=True),
+        SimpleNamespace(key=hoa.HOA_FEATURE_KEY, allowed=True)
     ])
 
 
@@ -377,7 +378,8 @@ def test_calendar_preview_authorization_and_archive_fail_closed(monkeypatch):
             preview(admin)
         assert exc.value.status_code == 404
         monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **kw: [
-            SimpleNamespace(key=hoa.FEATURE_KEY, allowed=True)
+            SimpleNamespace(key=hoa.FEATURE_KEY, allowed=True),
+        SimpleNamespace(key=hoa.HOA_FEATURE_KEY, allowed=True)
         ])
         api.archive_proposal(association.id, proposal.id, assigned.id,
                              db=db, current_user=admin)
@@ -557,6 +559,7 @@ def test_suggested_payer_feature_revocation_and_proposal_archive(monkeypatch):
         assert exc.value.status_code == 404
         monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **k: [
             SimpleNamespace(key=hoa.FEATURE_KEY, allowed=True),
+        SimpleNamespace(key=hoa.HOA_FEATURE_KEY, allowed=True),
         ])
         api.archive_proposal(
             association.id, proposal.id, assigned.id,
@@ -716,7 +719,8 @@ def test_occurrence_generation_scope_revocation_and_missing_payer(monkeypatch):
         with pytest.raises(HTTPException):
             _generate(db, admin, assoc, proposal, prop)
         monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **kw: [
-            SimpleNamespace(key=hoa.FEATURE_KEY, allowed=True)
+            SimpleNamespace(key=hoa.FEATURE_KEY, allowed=True),
+        SimpleNamespace(key=hoa.HOA_FEATURE_KEY, allowed=True)
         ])
         payer_api.archive_payer_draft(
             assoc.id, proposal.id, prop.id, db=db, current_user=owner,

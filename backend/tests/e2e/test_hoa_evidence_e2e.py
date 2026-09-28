@@ -23,6 +23,8 @@ from app.models.gl_transaction import GLTransaction
 from app.models.contact import Contact
 from app.models.hoa_association import HOAAssociation, HOAContactLink
 from app.models.release_gate import ReleaseGate, ReleaseStage
+from app.models.billing import Module, Plan, Subscription, SubscriptionItem, SubscriptionStatus
+from app.models.user import User
 
 pytestmark = pytest.mark.e2e
 
@@ -41,8 +43,12 @@ def _temporarily_release_hoa_ui():
         raise RuntimeError("HOA browser test requires an explicitly disposable E2E database")
     db = SessionLocal()
     previous = {}
+    subscription = None
+    created_subscription = False
+    created_item = None
+    created_plan = None
     try:
-        for key in ("release.properties.compliance", "release.documents.attachments"):
+        for key in ("release.properties.compliance", "release.properties.hoa", "release.documents.attachments"):
             gate = db.query(ReleaseGate).filter(ReleaseGate.key == key).one_or_none()
             if gate is None:
                 gate = ReleaseGate(key=key, stage=ReleaseStage.ALL_ORGS)
@@ -52,10 +58,46 @@ def _temporarily_release_hoa_ui():
             else:
                 previous[key] = (gate.id, gate.stage)
                 gate.stage = ReleaseStage.ALL_ORGS
+        # Disposable E2E org only. Does not start billing or grant a real customer.
+        actor = db.query(User).filter(User.email == EMAIL).one()
+        module = db.query(Module).filter(Module.key == "hoa", Module.is_core.is_(False)).one()
+        subscription = db.query(Subscription).filter(
+            Subscription.organization_id == actor.organization_id,
+        ).one_or_none()
+        if subscription is None:
+            created_plan = Plan(code="e2e-hoa-planning-entitlement", name="Synthetic HOA E2E Plan")
+            db.add(created_plan)
+            db.flush()
+            subscription = Subscription(
+                organization_id=actor.organization_id, plan_id=created_plan.id,
+                status=SubscriptionStatus.ACTIVE,
+            )
+            db.add(subscription)
+            db.flush()
+            created_subscription = True
+        elif subscription.status != SubscriptionStatus.ACTIVE:
+            raise RuntimeError("Disposable HOA E2E subscription must be ACTIVE")
+        previous_item = db.query(SubscriptionItem).filter(
+            SubscriptionItem.subscription_id == subscription.id,
+            SubscriptionItem.module_id == module.id,
+        ).one_or_none()
+        if previous_item is None:
+            created_item = SubscriptionItem(
+                subscription_id=subscription.id, module_id=module.id,
+                unit_price_cents=7900,
+            )
+            db.add(created_item)
         db.commit()
         yield
     finally:
         db.rollback()
+        if created_subscription and subscription is not None:
+            db.delete(subscription)
+            db.flush()
+            if created_plan is not None:
+                db.delete(created_plan)
+        elif created_item is not None:
+            db.delete(created_item)
         for identifier, prior_stage in previous.values():
             gate = db.get(ReleaseGate, identifier)
             if gate is not None:

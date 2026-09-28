@@ -10,7 +10,7 @@ import pytest
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = BACKEND_ROOT / "tests" / "fixtures" / "pre_alembic_1d77_schema.sql"
-EXPECTED_HEAD = "c0d2e4f6a8b1"
+EXPECTED_HEAD = "d1e3f5a7b9c2"
 EXPECTED_MODEL_TABLES = 150
 
 
@@ -59,6 +59,24 @@ def test_fresh_database_bootstrap_creates_current_schema_and_stamps_head(
     finally:
         conn.close()
     assert count == EXPECTED_MODEL_TABLES
+
+    # Fresh bootstrap must seed the same data-only, unbilled HOA catalog as
+    # an upgrade; it must not accidentally grant add-on entitlements.
+    conn = sqlite3.connect(db_path)
+    try:
+        assert conn.execute(
+            "SELECT unit_price_cents, currency, is_active FROM add_ons "
+            "WHERE code='hoa_monthly'"
+        ).fetchone() == (7900, "USD", 0)
+        assert conn.execute(
+            "SELECT is_core FROM modules WHERE key='hoa'"
+        ).fetchone() == (0,)
+        assert conn.execute(
+            "SELECT stage FROM release_gates WHERE key='release.properties.hoa'"
+        ).fetchone() == ("HIDDEN",)
+        assert conn.execute("SELECT COUNT(*) FROM subscription_items").fetchone() == (0,)
+    finally:
+        conn.close()
 
 
 @pytest.mark.integration
