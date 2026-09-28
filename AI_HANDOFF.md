@@ -7,20 +7,20 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `9b7551da061fe6bb032f799dc6fdf32f705c2069`
-- Source GitHub Actions run **36473978742: SUCCESS, all six jobs**
+- Last VERIFIED **product source**: `da557728f400a7b3b03c27ff7f33f935660d805a`
+- Source GitHub Actions run **36475977525: SUCCESS, all six jobs**
   (backend, frontend, platform-admin, security, authenticated E2E,
-  staging-config). Backend: **745 passed, 7 deselected, 16926 warnings
-  in 207.62s**. E2E: **7 passed, 20 warnings in 24.15s**. Lint,
+  staging-config). Backend: **745 passed, 8 deselected, 16926 warnings
+  in 185.98s**. E2E: **8 passed, 28 warnings in 23.81s**. Lint,
   TypeScript, build, security and staging: SUCCESS. This applies to
-  verified product source `9b7551da`. No local tests run.
+  verified product source `da557728`. No local tests run.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
 - Alembic head: **e6a8c0d2f4b1**. SQLAlchemy expected model tables: **146**.
   Previous head d5f7a9b1c3e4 / 144. PostgreSQL bootstrap, staging
   preparation and legacy migration guards passed in CI 36473978742.
 - CURRENT roadmap work: **Phase 4.7 C2 HOA IN PROGRESS**. Explicit user-directed priority: build generic HOA infrastructure first; independently verified Phase 4.8 C3 commercial reference/report source remains preserved, with no new commercial scope while HOA remains active. Authentic governing/legal sources are absent, so legally operative notices, assessments, fines and reserve postings remain blocked until reviewed. Previous Phase 3.7 reports and 1099 internal preparation retain verified scope.
-  **Latest verified batch: HOA staff board contact-role proposals and separately configurable proposed quorum/approval thresholds, all legally ineffective and restricted.**
+  **Latest verified batch: dedicated browser exercise of staff board role/quorum proposal UI, fully green following selector correction.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
@@ -28,6 +28,41 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
 - **Exact NEXT task: obtain/review actual HOA governing documents and the applicable property/association jurisdiction, authorized legal actors and accounting policies. Staff-only private-document evidence indexing, ARC intake, observations, meeting planning, contact references and assessment drafts are VERIFIED. A staff document link is NOT certification of governing authority. No official applications, architectural decisions, notices, penalties, board actions, dues/payer liability, reserve transfers or GL posting without reviewed legal/accounting authority. No uploaded governing source has been verified for this task. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows remain BLOCKED pending authoritative program rules and secure household policy.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED; do not label them completed screening/marketing conversions. External Stripe/IRS filing acceptance remains unimplemented.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight, 1099 preparation, tax profiles or W-9 archive.
+
+## CURRENT SESSION UPDATE — 2026-09-28 HOA BOARD BROWSER VERIFIED
+
+**Product source** `da557728f400a7b3b03c27ff7f33f935660d805a`;
+dedicated browser source `211585a3ebfdabcccacd428470b87f7e11550650`
+corrected by `da557728` after one strict-mode selector failure
+(the hidden SECRETARY select option matched the role text).
+First CI `36474996561`: frontend, backend, security, platform
+admin and staging PASS; browser **7 passed, 1 failed**. The only
+failure was the new ambiguous test selector, not broken functionality.
+Corrected GitHub Actions **36475977525 SUCCESS all six jobs**:
+backend **745 passed, 8 deselected, 16926 warnings in 185.98s**;
+E2E **8 passed, 28 warnings in 23.81s**; frontend lint/TypeScript/
+build, security, platform admin and staging SUCCESS. Hosted CI only,
+**TESTS NOT RUN locally**. One of eight is the new dedicated board
+browser test: synthetic same-association contact and staff-role
+proposal, proposed voting checkbox, configurable thresholds, proof
+that the UI shows unverified/vote disabled, and zero Charge/GL
+mutations. No real board identity, certified quorum or legal vote.
+Schema remains `e6a8c0d2f4b1`, **146 model tables**. No frozen
+`docs/` or parity edits. The previous verified product source
+`9b7551da` remains the board backend/UI implementation; `da557728`
+adds and verifies dedicated browser coverage.
+
+**Phase 4.7 still IN PROGRESS** and the user explicitly prohibits
+resuming Phase 4.8 until all six generic HOA features are built
+and tested. Next bounded original HOA work: generic vote record
+and meeting-minutes lifecycle integrated with the existing scoped
+meeting, proposed seat and quorum records, while effective legal
+voting stays disabled until verified board identities/authority.
+Other incomplete items remain dues payer/charge history and central
+idempotent posting/reversal, legally gated violations issuance,
+reserve central GL movement, board identity and $79/month subscription/
+entitlement. No fake governing rules or implicit authorization.
+This handoff itself is docs-only.
 
 ## CURRENT SESSION UPDATE — 2026-09-28 HOA BOARD ROLE PROPOSALS VERIFIED
 
