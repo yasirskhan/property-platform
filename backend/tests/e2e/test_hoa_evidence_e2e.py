@@ -512,6 +512,7 @@ def test_hoa_unissued_dues_history_browser_replay_and_void() -> None:
                 expect(history.get_by_text(re.compile("2028-02-29"))).to_be_visible()
                 history.get_by_role("button", name="Record unissued schedule").click()
                 expect(history.get_by_text(re.compile("0 new planning periods"))).to_be_visible()
+                page.once("dialog", lambda dialog: dialog.accept())
                 history.get_by_role("button", name="Void draft").first.click()
                 expect(history.get_by_text(re.compile("This is not a financial reversal"))).to_be_visible()
                 expect(history.get_by_text(re.compile("2028-01-31.*VOIDED"))).to_be_visible()
