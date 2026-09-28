@@ -7,20 +7,20 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `1aa87bdf2ad55e4728c117e1552fc6b94be3a1a9`
-- Source GitHub Actions run **36494856673: SUCCESS, all six jobs**
+- Last VERIFIED **product source**: `69f0b9297fcdff2027be6af582d8efd9f62ba32b`
+- Source GitHub Actions run **36499924708: SUCCESS, all six jobs**
   (backend, frontend, platform-admin, security, authenticated E2E,
-  staging-config). Backend: **760 passed, 11 deselected, 17603 warnings
-  in 192.10s**. E2E: **11 passed, 116 warnings in 39.54s**. Lint,
+  staging-config). Backend: **763 passed, 11 deselected, 17824 warnings
+  in 233.19s**. E2E: **11 passed, 123 warnings in 34.52s**. Lint,
   TypeScript, build, security and staging: SUCCESS. This applies to
-  verified product source `1aa87bdf`. No local tests run.
+  verified product source `69f0b92`. No local tests run.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **e2f4a6c8b0d3**. SQLAlchemy expected model tables: **151**.
-  Previous head d1e3f5a7b9c2 / 150. PostgreSQL bootstrap, staging
-  preparation and legacy migration guards passed in CI 36493987607.
+- Alembic head: **f3a5c7e9b1d4**. SQLAlchemy expected model tables: **153**.
+  Previous head e2f4a6c8b0d3 / 151. PostgreSQL bootstrap, staging
+  preparation and legacy migration guards passed in CI 36499924708.
 - CURRENT roadmap work: **Phase 4.7 C2 HOA IN PROGRESS**. Explicit user-directed priority: build generic HOA infrastructure first; independently verified Phase 4.8 C3 commercial reference/report source remains preserved, with no new commercial scope while HOA remains active. Authentic governing/legal sources are absent, so legally operative notices, assessments, fines and reserve postings remain blocked until reviewed. Previous Phase 3.7 reports and 1099 internal preparation retain verified scope.
-  **Latest verified batch: scoped HOA assessment issuance/posting readiness with accounting permission, suggested-payer, GL candidate and locked-period checks, plus dedicated browser coverage. Posting/reversals remain disabled.**
+  **Latest verified batch: matching verified-board-login ARC final approvals/denials, optional separately scoped member receivables, fee GL postings, follow-up work order for eligible tenants, and tracked applicant email.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
@@ -28,6 +28,92 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
 - **Exact NEXT task: obtain/review actual HOA governing documents and the applicable property/association jurisdiction, authorized legal actors and accounting policies. Staff-only private-document evidence indexing, ARC intake, observations, meeting planning, contact references and assessment drafts are VERIFIED. A staff document link is NOT certification of governing authority. No official applications, architectural decisions, notices, penalties, board actions, dues/payer liability, reserve transfers or GL posting without reviewed legal/accounting authority. No uploaded governing source has been verified for this task. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows remain BLOCKED pending authoritative program rules and secure household policy.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED; do not label them completed screening/marketing conversions. External Stripe/IRS filing acceptance remains unimplemented.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight, 1099 preparation, tax profiles or W-9 archive.
+
+## CURRENT SESSION UPDATE — 2026-09-28 HOA ARC BOARD DECISIONS VERIFIED
+
+**Verified PRODUCT source** `69f0b9297fcdff2027be6af582d8efd9f62ba32b`,
+following implementation `4093a2f0adf611c1c958deea31858f8efea6459d`.
+First CI `36499467784` failed exactly ONE outdated staging
+schema table-count expectation: backend **762 passed, 11 deselected,
+1 failed**, E2E/staging skipped. The corrective commit `69f0b92`
+updates `backend/tests/test_prepare_database.py` for the real
+two-table migration. Full **CI 36499924708 SUCCESS six of six**:
+backend **763 passed, 11 deselected, 17824 warnings in 233.19s**;
+dedicated/authenticated browser **11 passed, 123 warnings in 34.52s**;
+frontend lint, TypeScript, build, platform-admin, security,
+staging-config PASS. **TESTS NOT RUN locally**. Alembic
+**`f3a5c7e9b1d4`**, **153 model tables**. No frozen `docs/`
+or parity changes.
+
+User explicitly directed ARC board decisions recorded as operative
+when the board decides, with NO software-added
+`legal_decision_effective=false` flag. This user-directed
+exception is specific to the ARC flow; it does NOT waive
+organization isolation, financial permissions, authoritative
+payer identification, existing central GL locks or statutory
+violation/dues/reserve requirements. Current
+`HOAARCApplicationOut` and ARC UI no longer expose the
+`legal_decision_effective` or software governing-authority
+flags. Staff intake/review/decision-preparation remains intact.
+New POST
+`/api/hoa/associations/{association_id}/arc-applications/
+{application_id}/board-decision` records one final APPROVED
+or DENIED board decision, history event and redacted immutable
+audit. Existing paid `release.properties.hoa`, compliance,
+association/property, active applicant/contact links and
+ADMIN/OWNER live scope apply. It requires a verified logged-in
+actor whose email matches the active same-org/association/
+property eligible HOA board seat's contact email. A staff-only
+preparation, generic Contact, inactive seat or unrelated
+account cannot finalize the action. A unique decision/application
+constraint and row lock block duplicate decisions and fees;
+approved/denied status is terminal in the staff review
+state machine.
+
+Optional ARC approval fee, only with a verified same-org
+applicant user matching the scoped applicant contact email,
+creates a dedicated `hoa_arc_member_charges` record (NOT
+tenant-only `Charge`) and a balanced central
+`post_transaction(...,commit=False)` ASSET receivable /
+INCOME GL journal entry in the same DB transaction. It
+requires current CHARGES, RECEIVABLES and GL_ACCOUNTS
+permissions, separate active same-org accounts and honors
+locked periods and central GL restrictions. No fee is posted
+on no-fee decisions or denials. This is a NEW member receivable
+record with due date and GL source, not complete association
+member payments, reconciliation or reversal collection.
+Optional real WorkOrder is available only when applicant is
+a verified TENANT with ACTIVE lease in the expressly supplied
+same-property unit and maintenance permission; do not silently
+fabricate a work order against a homeowner absent a tenant
+work-order subject. No automatically scheduled inspection.
+When a verified applicant login exists, notification emails
+use the existing SMTP service AFTER durable decision, tracking
+SENT vs FAILED; no email delivery implies no rollback of
+the decision/fee. Unmatched unverified contacts yield
+NO_VERIFIED_RECIPIENT; no email claimed. Email retry/outbox is
+NOT YET IMPLEMENTED. Final ARC data and fee details are
+property-scoped, accounting endpoint requires CHARGES;
+generic notes/attachments deny new sensitive tables.
+Tests cover board identity, finality, cross-org/property,
+postings, locked-period rollback, recipient failure, duplicate
+replay and dedicated browser final approval. Do not repeat.
+
+**Phase 4.7 HOA remains IN PROGRESS, Phase 4.8 paused.**
+Exact next authorized feature batch from latest user direction:
+continue the EXISTING violation workflow without rebuilding
+verified OPEN -> NOTICE_DRAFT -> CURE_TRACKING /
+HEARING_PLANNED -> FINE_PROPOSED -> RESOLVED -> CLOSED
+staff stages and configurable procedure policy. Add persistent
+scope-checked action/correspondence history and safe recipient
+identity prerequisite, browser regression, without inventing
+jurisdictional legal notice/cure/fine authority. Actual
+statutory notice delivery, assessed fines and member-GL
+posting still require authenticated governing/procedure and
+payer authority; org-supplied policy text is not proof.
+Do not mark six-feature HOA complete or resume Commercial.
+Root handoff-only commit following green CI does not create
+a new verified product source.
 
 ## CURRENT SESSION UPDATE — 2026-09-28 HOA ISSUANCE READINESS VERIFIED
 
