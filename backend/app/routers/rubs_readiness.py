@@ -69,6 +69,7 @@ def rubs_readiness(
         by_utility[u.id] = {
             "utility_id": u.id, "utility_type": u.utility_type.value,
             "bill_count": 0, "periods_complete": 0, "periods_missing_or_invalid": 0,
+            "periods_overlapping": 0, "periods_duplicate": 0,
         }
     for bill in bills:
         item = by_utility[bill.utility_id]
@@ -78,6 +79,26 @@ def rubs_readiness(
             item["periods_complete"] += 1
         else:
             item["periods_missing_or_invalid"] += 1
+    # Detect repeated and overlapping recorded bill periods, without
+    # guessing which bill should be allocated or adjusting any amount.
+    # An overlap counts each subsequent sorted interval that intersects
+    # an earlier one (inclusive bill-period boundaries).
+    periods_by_utility: dict[int, list[tuple[object, object]]] = {uid: [] for uid in ids}
+    for bill in bills:
+        start, end = bill.billing_period_start, bill.billing_period_end
+        if start is not None and end is not None and start <= end:
+            periods_by_utility[bill.utility_id].append((start, end))
+    for uid, periods in periods_by_utility.items():
+        latest_end = None
+        seen: set[tuple[object, object]] = set()
+        for start, end in sorted(periods):
+            if latest_end is not None and start <= latest_end:
+                by_utility[uid]["periods_overlapping"] += 1
+            if (start, end) in seen:
+                by_utility[uid]["periods_duplicate"] += 1
+            seen.add((start, end))
+            if latest_end is None or end > latest_end:
+                latest_end = end
     response.headers["Cache-Control"] = "no-store"
     return {
         "property_id": prop.id,
@@ -85,5 +106,5 @@ def rubs_readiness(
         "items": list(by_utility.values()),
         "allocation_available": False,
         "billing_available": False,
-        "meaning": "Read-only shared-utility inventory; periods do not establish allocation eligibility, permitted tenant charges or regulatory compliance.",
+        "meaning": "Read-only shared-utility inventory; duplicate/overlap counts flag recorded periods for manual review, not tenant-billable amounts or regulatory compliance.",
     }

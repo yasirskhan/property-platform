@@ -9,6 +9,8 @@ type Utility = {
   bill_count: number;
   periods_complete: number;
   periods_missing_or_invalid: number;
+  periods_overlapping: number;
+  periods_duplicate: number;
 };
 type Readiness = {
   property_id: number;
@@ -55,18 +57,20 @@ export default function RubsReadinessTab({ propertyId }: { propertyId: number })
           <thead><tr className="border-b">
             <th className="p-2">Utility</th><th className="p-2">Recorded bills</th>
             <th className="p-2">Periods present</th><th className="p-2">Periods missing or invalid</th>
+            <th className="p-2">Duplicate periods</th><th className="p-2">Overlapping periods</th>
           </tr></thead>
           <tbody>{data.items.map(row=><tr key={row.utility_id} className="border-b">
             <th scope="row" className="p-2 font-medium">{row.utility_type} #{row.utility_id}</th>
             <td className="p-2">{row.bill_count}</td>
             <td className="p-2">{row.periods_complete}</td>
             <td className="p-2">{row.periods_missing_or_invalid}</td>
+            <td className="p-2">{row.periods_duplicate}</td><td className="p-2">{row.periods_overlapping}</td>
           </tr>)}</tbody>
         </table></div>}
       <p className="text-xs text-slate-500">
         Future allocation requires verified legal eligibility, supported calculation rules,
         meter or occupancy inputs, approved periods and reviewed tenant charges.
-        Current utility bills do not establish billable amounts.
+        Duplicate periods are repeated date ranges; overlap counts subsequent bill periods that intersect another, including shared boundary dates. Review source bills manually. Current utility bills do not establish billable amounts.
       </p>
     </div>}
   </section>;
