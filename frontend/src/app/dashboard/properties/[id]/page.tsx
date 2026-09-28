@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiGet, apiDelete } from "@/lib/api";
 import UtilitiesTab from "@/components/property/UtilitiesTab";
+import RubsReadinessTab from "@/components/property/RubsReadinessTab";
 import InsuranceTab from "@/components/property/InsuranceTab";
 import ExpensesTab from "@/components/property/ExpensesTab";
 import AmenitiesTab from "@/components/property/AmenitiesTab";
@@ -215,7 +216,8 @@ export default function PropertyDetailPage() {
           <Flag name="release.properties.staff"><button type="button" disabled>Staff</button></Flag>
           <Flag name="release.properties.budget"><button type="button" disabled>Budget</button></Flag>
           <Flag name="release.properties.fixed_assets"><button type="button" disabled>Fixed Assets</button></Flag>
-          <Flag name="release.properties.rubs"><button type="button" disabled>RUBs</button></Flag>
+          <Flag name="release.properties.rubs"><button type="button" onClick={() => setTab("rubs")}
+              className={`whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 transition ${tab === "rubs" ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-900"}`}>RUBs</button></Flag>
           <Flag name="release.properties.compliance"><button type="button" disabled>Compliance</button></Flag>
           <Flag name="release.documents.attachments">
             <button
@@ -266,6 +268,7 @@ export default function PropertyDetailPage() {
       {tab === "utilities" && (
         <UtilitiesTab propertyId={propertyId} canEdit={canManage} />
       )}
+      {tab === "rubs" && <Flag name="release.properties.rubs"><RubsReadinessTab propertyId={propertyId} /></Flag>}
       {tab === "insurance" && (
         <InsuranceTab propertyId={propertyId} canEdit={canDelete} />
       )}
@@ -292,6 +295,7 @@ export default function PropertyDetailPage() {
         tab !== "taxes" &&
         tab !== "policies" &&
         tab !== "utilities" &&
+        tab !== "rubs" &&
         tab !== "insurance" &&
         tab !== "expenses" &&
         tab !== "amenities" &&
