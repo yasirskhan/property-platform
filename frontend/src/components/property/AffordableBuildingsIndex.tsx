@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
+import Affordable8609Archive from "@/components/property/Affordable8609Archive";
 
 type Building = { id: number; program_id: number; building_label: string; agency_bin: string };
 type FormStatus = "NOT_RECORDED" | "FOLLOW_UP_NEEDED" | "REFERENCE_IDENTIFIED";
@@ -12,6 +13,7 @@ export default function AffordableBuildingsIndex({
   const [rows, setRows] = useState<Building[]>([]);
   const [forms, setForms] = useState<Record<number, FormReadiness>>({});
   const [formBusy, setFormBusy] = useState<number | null>(null);
+  const [archiveBuildingId, setArchiveBuildingId] = useState<number | null>(null);
   const [label, setLabel] = useState("");
   const [bin, setBin] = useState("");
   const [loading, setLoading] = useState(true);
@@ -73,6 +75,7 @@ export default function AffordableBuildingsIndex({
     try {
       await apiDelete(`${path}/${id}`);
       setRows((prev) => prev.filter((item) => item.id !== id));
+      setArchiveBuildingId((prev) => prev === id ? null : prev);
       setMessage("Staff record archived. No tax filing was changed.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Cannot archive this record.");
@@ -114,11 +117,17 @@ export default function AffordableBuildingsIndex({
                     <option value="REFERENCE_IDENTIFIED">Reference identified (not verified)</option>
                   </select>
                 </label>
+                {canEdit && <button type="button" onClick={() => setArchiveBuildingId((prior) => prior === row.id ? null : row.id)}
+                  className="rounded border px-2 py-1 text-sm">Restricted Form 8609 scans</button>}
                 {canEdit && <button type="button" disabled={busy} onClick={() => { void archive(row.id); }}
                   className="rounded border px-2 py-1 text-red-700 disabled:opacity-50">Archive</button>}
               </div>
             ))}
           </div>
+          {archiveBuildingId !== null && canEdit && rows.some((item) => item.id === archiveBuildingId) && (
+            <Affordable8609Archive propertyId={propertyId} programId={programId}
+              buildingId={archiveBuildingId} onClose={() => setArchiveBuildingId(null)} />
+          )}
           {canEdit && <form onSubmit={(event) => { void save(event); }} className="mt-4 grid gap-3 border-t pt-3 md:grid-cols-3">
             <label className="text-xs text-slate-700">Building label
               <input required maxLength={100} value={label}
