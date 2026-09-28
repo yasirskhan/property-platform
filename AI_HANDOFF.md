@@ -7,25 +7,25 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `8e751bed878d158501754ae3858f1047e39888ef`
-- Source GitHub Actions run **36359893698: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `af94f8afefd853a906c9bf19fc96819eab42c7fc`
+- Source GitHub Actions run **36360330500: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **626 passed, 3 deselected, 12590 warnings in 103.00s**.
-  E2E: **3 passed in 10.16s**. Lint, typecheck, production build, security
+  Backend: **629 passed, 3 deselected, 12662 warnings in 133.73s**.
+  E2E: **3 passed in 10.10s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **f1e3a5c7d9b0**. SQLAlchemy expected model tables: **114**.
-  Previous head e3f5a7b9c0d2 / 113 tables. One encrypted
-  application-private-details table added; PostgreSQL/bootstrap/legacy CI passed.
+- Alembic head: **f2e4a6c8d0b1**. SQLAlchemy expected model tables: **115**.
+  Previous head f1e3a5c7d9b0 / 114 tables. One application-fee-attempt
+  table added; PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4 read-only application fee quote + applicant UI. VERIFIED.**
+  **Latest completed batch: Phase 4 idempotent fee preparation; no payment charged. VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: Phase 4 Leasing Applications — provider-backed application-fee checkout with signed webhook verification and accounting posting. Encrypted applicant address/income and read-only server fee quote are VERIFIED; no fee has yet been charged or application marked paid. External Avalara/IRIS 1099 acceptance and recipient copies still await operator credentials.**
+- **Exact NEXT original-plan task: Phase 4 Leasing Applications fee settlement. Verified fee attempt and quote remain PREPARED only; implement staff-verified existing receipt settlement and reversal reconciliation as a safe interim option, then separately Stripe/merchant-account provider integration with signed webhook and accounting. No fee has been charged or application marked paid. External Avalara/IRIS acceptance and recipient copies still await operator credentials.**
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -108,6 +108,7 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 | Rental Applications safe applicant drafts, pending-payment submission and scoped staff queue | 864bf2e02a80e1b2a4af58a0bdaa279b5f4f14a9 | 36347804741 | 617 backend passed / 3 E2E |
 | Encrypted applicant address and income questionnaire | cbcc52bf710791abd721b8a63dc4bceb10c9b806 | 36348392919 | 623 backend passed / 3 E2E |
 | Read-only server-authorized unit application fee quote + applicant UI | 8e751bed878d158501754ae3858f1047e39888ef | 36359893698 | 626 backend passed, 3 deselected / 3 E2E |
+| Applicant idempotent fee preparation with immutable unit fee snapshot (no charge) | af94f8afefd853a906c9bf19fc96819eab42c7fc | 36360330500 | 629 backend passed, 3 deselected / 3 E2E |
 | Tenant delinquency live overdue rent invoices | 8a6a27ef3c248e394546bdb4e8a65c8ffa43e6b7, a644bd803787d3ffc9be36de4318a67915248364 | 36274961962 | 450 backend passed / 3 E2E |
 
 
@@ -2836,45 +2837,109 @@ POST /api/billing/checkout-session is SUBSCRIPTION mode, not
 the application fee route. No frozen docs/parity edited.
 No IRS/Avalara external filing progress is claimed by this batch.
 
+## Phase 4 fee preparation contract — VERIFIED 2026-09-27
+
+Source af94f8afefd853a906c9bf19fc96819eab42c7fc.
+Full CI 36360330500 SUCCESS all six jobs: backend
+629 passed, 3 deselected, 12662 warnings in 133.73s;
+authenticated E2E 3 passed in 10.10s; frontend,
+platform-admin, security and staging green.
+Migration f2e4a6c8d0b1 (after f1e3a5c7d9b0)
+creates one application_fee_attempts table; 115 model tables.
+Read-only Unit fee quote from prior batch still verified.
+
+POST /api/leasing/applications/{id}/fee-preparation
+is applicant-owned, pending_payment only, requires
+a currently active org/property/unit and configured
+positive server fee; rejects missing/unitless, zero,
+negative, changed fee and foreign/staff access.
+Request has only an idempotency key (extra fields
+forbidden); DB unique application ID and PostgreSQL
+row lock enforce one pending preparation per app.
+Duplicate same key+amount returns same prepared record;
+different key or changed fee returns 409. Receipt/Stripe
+payment rows, GL, app PAID status and existing signed
+webhook/subscription billing remain UNCHANGED.
+Status PREPARED and checkout_available=false are
+not payment authorization or money received.
+App payment provider step still needs verified
+merchant-of-record/funds destination: existing
+Stripe billing session is SaaS SUBSCRIPTION mode,
+not an authorized application fee merchant account.
+No live fee checkout should reuse platform
+subscription funds by default. Existing 1099 provider
+credentials are unrelated. Added three focused
+tests for idempotency, money nonmutation,
+foreign/staff/disabled-unit scope, fee precision
+and generic-attachment denial. No frozen docs
+or parity changes.
+
+Next safe fee-workflow batch: explicitly link a
+staff-received APPLICATION_FEE Receipt already
+posted through verified GL, with exact same-org
+property/unit and amount, source reference
+and non-reversed GL, admin + receipts and
+applications permissions, duplicate prevention,
+audit and reversal reconciliation. Do NOT
+post a second GL entry, fabricate payment
+or use frontend success as a receipt.
+This is *offline receipt accounting only*;
+online Stripe checkout still needs distinct
+org merchant/provider configuration, webhook,
+event idempotency and provider-confirmed funds.
+Respect original Section 18 Applications;
+external Stripe payments remain Phase 8
+integration dependency until configured.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Read full handoff, verify latest actual HEAD and all six CI jobs.
-   Latest source 8e751bed878d158501754ae3858f1047e39888ef VERIFIED.
-   Do not repeat applicant drafts, private questionnaire, fee quote,
-   report builder, labels or 1099 and other verified batches.
-2. Continue original Phase 4 Applications. Inspect real Stripe
-   subscription signed webhook, payment/receipt/GL posting, legacy
-   ApplicationPayment and Unit.application_fee. Add provider-backed
-   fee attempt/session, genuine signed webhook verification,
-   exact server amount, idempotent one-time accounting and
-   clear applicant consent/fee disclosure in bounded CI-verified
-   batches. Never mark paid on frontend return or session creation,
-   never use tenant SSN/DOB in new intake. Do not enable live
-   payments absent operator Stripe credentials and tested GL
-   account configuration.
-3. Use focused tests, commit on existing branch, six-job hosted
-   CI; fix failures before starting next batch. Update this root
-   handoff after each meaningful verified batch with exact run/
-   test counts and migration. Do not touch frozen docs/parity,
-   main, new branches or force push.
-4. After full Applications VERIFIED, continue original Lease
-   Templates, CRM/Prospects, Guest Cards. External IRIS/Avalara
-   acceptance remains dependent on operator credentials.
+1. Read root handoff fully; verify real branch HEAD and CI.
+   Fee preparation source af94f8afefd853a906c9bf19fc96819eab42c7fc
+   VERIFIED, CI 36360330500 all six jobs.
+   Do not repeat applicant drafts, encryption, quote or reservation.
+2. Next original Phase 4 fee batch: staff-verified offline
+   APPLICATION_FEE receipt linkage to PENDING_PAYMENT rental
+   application using immutable central GL posting that ALREADY
+   happened in the verified Receipts module. Check receipt
+   org/property/unit/applicant reference, exact amount,
+   active un-reversed GL/fee income account, staff role and
+   live receivables/leasing permissions plus feature gate;
+   ensure one receipt cannot pay two applications and
+   reversal/NSF reconciles applicant status atomically.
+   Don't post duplicate GL or accept browser-chosen amount.
+   Include focused tests, new migration guards if linking
+   receipt FK, and honest provider/offline distinctions.
+3. Provider-backed live application fee Checkout stays
+   disabled absent a verified organization merchant
+   destination, distinct webhook, server price,
+   payment_status paid, signed event, reconciliation,
+   idempotency and approved GL mapping. Subscription
+   checkout is NOT a rental-application payment gateway.
+4. Hosted CI on branch only, fix CI reds before another
+   feature batch; update root AI_HANDOFF.md after
+   every meaningful verified batch with counts and
+   migrations. No main/new branch or frozen docs edits.
+5. Then continue original Phase 4 Lease Templates,
+   CRM/Prospects and Guest Cards, keeping external
+   payment and Phase 8 screening dependencies honest.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform only on
-chatgpt/checkpoint-005-safety. Read entire repo-root AI_HANDOFF.md
-then verify live branch HEAD and latest CI.
-Latest VERIFIED source: 8e751bed878d158501754ae3858f1047e39888ef,
-CI 36359893698 SUCCESS, all six: 626 backend tests passed,
-3 deselected; E2E 3 passed in 10.16s. Alembic
-f1e3a5c7d9b0; 114 model tables. Phase 4 applicant
-draft/staff queue, encrypted questionnaire, read-only
-server unit application-fee quote VERIFIED.
-No Stripe application fee charged or paid status; next
-provider-backed checkout, signed webhook and GL/receipt
-idempotent accounting, then original Lease Templates.
-Keep all previously verified modules, protected privacy,
-org/property scopes, no main/new branch or unapproved
-docs edits. Commit + hosted CI + root handoff each batch.
+Continue yasirskhan/property-platform on
+chatgpt/checkpoint-005-safety. Read entire repo-root
+AI_HANDOFF.md, verify latest HEAD and CI.
+Last VERIFIED source af94f8afefd853a906c9bf19fc96819eab42c7fc;
+CI 36360330500 SUCCESS all six jobs, 629 backend passed,
+3 deselected and authenticated E2E 3 passed in 10.10s.
+Alembic f2e4a6c8d0b1; 115 model tables.
+Applicant draft, encrypted questionnaire, read-only
+verified unit fee quote, idempotent PREPARED fee
+record all VERIFIED. No money charged or PAID.
+Next safe Phase 4 fee batch: linking an already
+GL-posted staff-confirmed APPLICATION_FEE Receipt
+with reversal protection; live Stripe requires
+separate authorized merchant and webhook.
+Then original Lease Templates/CRM/Guest Cards.
+Do not modify main, create branch, alter frozen
+docs, repeat verified work or invent test results.
+Use commit+hosted CI and update root handoff.
