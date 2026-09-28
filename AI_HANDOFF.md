@@ -7,11 +7,11 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `70a5f00ae506f74567060d208e9aa8a92733663d`
-- Source GitHub Actions run **36365992264: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `423d78f52e1f3628701099ff8eba7dbff972903b`
+- Source GitHub Actions run **36366800985: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **640 passed, 3 deselected, 13110 warnings in 117.87s**.
-  E2E: **3 passed in 9.55s**. Lint, typecheck, production build, security
+  Backend: **642 passed, 3 deselected, 13172 warnings in 152.71s**.
+  E2E: **3 passed in 7.64s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
@@ -19,16 +19,13 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   Previous head f2e4a6c8d0b1 / 115 tables. Nullable receipt FK and
   unique receipt index added; PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest completed batch: Phase 4 Guest Cards, VERIFIED.**
+  **Latest completed batch: Phase 4 scoped CRM marketing-source summary, VERIFIED.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT original-plan task: complete Section 18 CRM marketing effectiveness read-only source summary.** Lease Templates, Leasing CRM/Prospects,
-  and Guest Cards are now VERIFIED. Existing CRM leads link to Contacts,
-  with property scope, stage/source/follow-up. Source counts must remain
-  authorized, and cannot be misrepresented as verified ad ROI or applications.
+- **Exact NEXT original-plan task: Phase 4.5 compliance foundation, beginning with Property RUBs tab / utility allocation readiness.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -3021,36 +3018,70 @@ verified paid conversions, ad spend or real applications. Do not
 infer marketing ROI without cost data or change GL/applications.
 Then consult original Phase 4 checklist for next unverified work.
 
+
+## Phase 4 CRM recorded marketing-source summary — VERIFIED 2026-09-27
+
+Source 423d78f52e1f3628701099ff8eba7dbff972903b.
+CI 36366800985 SUCCESS all six jobs: 642 backend passed,
+3 deselected, 13172 warnings in 152.71s; 3 authenticated E2E passed
+in 7.64s; frontend, platform-admin, security, staging-config green.
+No migration: Alembic f6e8a0c2d4e5, 119 model tables.
+GET /api/leasing/prospects/source-summary uses live LEASING.CRM,
+org isolation, manager assigned-property visibility, active
+property/contact/lead filters and bounded per-source/per-stage
+aggregation. Staff-marked stage APPLIED is not verified submitted
+Application; no ad-spend ROI, verified conversions or GL effects.
+Frontend marketing-source table within the verified CRM page updates
+after staff changes. Two focused backend tests cover scope,
+archived/disabled targets, role/menu permission and nonmutation.
+Existing E2E is generic smoke, not dedicated CRM analytics UI test.
+No frozen docs/ or planning parity changes.
+
+NEXT original roadmap after Section 18 leasing: Phase 4.5 compliance
+umbrella (HOA, Affordable, Commercial, RUBs, Escrow) and separate
+4.6-4.17 product-line subphases described in docs/PLAN_GAPS.md.
+Start with bounded property RUBs tab / allocation readiness,
+not a full tenant charge engine: existing PropertyUtility and
+UtilityBill describe current utility setup/owner-paid bills, but
+no verified RUBs allocation formula, meter readings or legal rate
+rules yet. Require org/property role/assignment scope; do not
+create charges, GL postings or pretend a utility bill is
+allocable without explicit reviewed rules and period data.
+Check frozen docs/PROJECT_MASTER.md Section 38/Compliance checklist
+and docs/PLAN_GAPS.md C1-C4 READ-ONLY; never amend without approval.
+Then proceed in original dependency order after hosted CI.
+
 # Exact next work: continue, don't stop at phase boundary
 
-1. Verify current HEAD/latest CI; Guest Cards source
-   70a5f00ae506f74567060d208e9aa8a92733663d
-   CI 36365992264 SUCCESS all six jobs. Do not rebuild Guest Cards.
-2. Section 18 CRM marketing effectiveness: read-only authorized
-   source/stage breakdown of existing active leasing prospects.
-   Respect manager property assignments, contact/property active
-   state and org scope; report actual recorded stages only,
-   no inferred paid marketing ROI, verified applications or GL.
-   Add regression tests and customer view; hosted six-job CI.
-3. Continue original roadmap after verified bounded CRM analytics.
-   Do not edit main, create branches, force push, or change
-   frozen docs/ without explicit authorization.
-4. External application Stripe checkout and live IRS/Avalara
-   acceptance remain operator/provider dependencies; do not
-   claim they operate from frontend success URLs.
-5. Refresh THIS root handoff after every meaningful batch,
-   with real commits/CI totals and exact next task.
+1. Verify branch HEAD and latest CI. CRM marketing source
+   423d78f52e1f3628701099ff8eba7dbff972903b
+   CI 36366800985 all six jobs success. No replay of verified
+   Lease Templates, CRM, Guest Cards or source analysis.
+2. Begin original Phase 4.5 compliance / Properties RUBs tab.
+   Inspect current property utilities, bills, frontend property tabs,
+   org feature and permission layers and original Phase 4.5 gaps.
+   Bound initial task to permissioned utility allocation readiness,
+   never auto-charge/GL/tenant billing or imply legal compliance.
+3. Include focused regressions, commit to existing branch and verify
+   all six GitHub Actions jobs before VERIFIED. Update root handoff.
+4. Continue Phase 4.5 in approved original order, preserve
+   additional compliance product lines 4.6 onward; no unauthorized
+   changes to frozen docs, no main edit/new branches/force pushes.
+5. External application Stripe merchant and tax filing provider
+   remain explicitly unconfigured; do not infer success URL as paid
+   or claim IRS submission without external acceptance.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform on branch
-chatgpt/checkpoint-005-safety. Read entire root AI_HANDOFF.md,
-verify actual HEAD and CI. Latest VERIFIED source
-70a5f00ae506f74567060d208e9aa8a92733663d;
-CI 36365992264 SUCCESS all six jobs (640 backend passed,
-3 deselected; 3 E2E passed). Alembic f6e8a0c2d4e5,
-119 model tables. Lease Templates, CRM pipeline and Guest Cards
-are VERIFIED. NEXT Section 18 CRM marketing effectiveness
-read-only source-stage breakdown, then original roadmap.
-Preserve verified work, no frozen docs/main edits;
-commit with focused regressions, hosted CI, refresh handoff.
+Continue yasirskhan/property-platform on
+chatgpt/checkpoint-005-safety. Read entire repo-root AI_HANDOFF.md,
+verify actual HEAD and CI. Last VERIFIED source
+423d78f52e1f3628701099ff8eba7dbff972903b,
+CI 36366800985 success all six: 642 backend passed,
+3 deselected, 3 E2E passed. Alembic f6e8a0c2d4e5,
+119 SQLAlchemy tables. Lease Templates, CRM, Guest Cards
+and CRM source/stage breakdown VERIFIED. NEXT original Phase4.5
+bounded RUBs property utility allocation readiness. Read
+PROJECT_MASTER/PLAN_GAPS original Phase4.5 dependency order.
+Preserve prior work, don't touch main/frozen docs,
+commit focused tests, verify six-job CI, update handoff.
