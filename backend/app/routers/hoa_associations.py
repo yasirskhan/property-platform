@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.models.hoa_association import HOAAssociation, HOAPropertyMembership, HOAContactLink
 from app.models.hoa_assessment import HOAAssessmentProposal
 from app.models.hoa_observation import HOAObservation
+from app.models.hoa_meeting_draft import HOAMeetingDraft
 from app.models.contact import Contact
 from app.models.property import Property, PropertyAssignment
 from app.models.user import User, UserRole
@@ -163,6 +164,32 @@ def _archive_staff_observations(
         )
 
 
+
+
+def _archive_meeting_drafts(
+    db: Session, *, org_id: int, association_id: int,
+    actor_id: int, action: str, property_id: int | None = None,
+) -> None:
+    """A later association relink must not reinstate old staff meeting plans."""
+    query = db.query(HOAMeetingDraft).filter(
+        HOAMeetingDraft.organization_id == org_id,
+        HOAMeetingDraft.association_id == association_id,
+        HOAMeetingDraft.is_active.is_(True),
+    )
+    if property_id is not None:
+        query = query.filter(HOAMeetingDraft.property_id == property_id)
+    for meeting in query.all():
+        meeting.is_active = False
+        meeting.updated_by_id = actor_id
+        db.flush()
+        append_audit_log(
+            db, organization_id=org_id, user_id=actor_id,
+            entity_type="hoa_meeting_draft", entity_id=meeting.id,
+            action=action,
+            new_value={"association_id": association_id, "property_id": meeting.property_id},
+        )
+
+
 def _save(db: Session, *, actor: User, payload: HOAAssociationIn,
           association_id: int | None = None) -> HOAAssociationOut:
     org_id = _access(db, actor, write=True)
@@ -217,6 +244,11 @@ def _save(db: Session, *, actor: User, payload: HOAAssociationIn,
                     action="association_property_unlinked",
                 )
                 _archive_staff_observations(
+                    db, org_id=org_id, association_id=row.id,
+                    actor_id=actor.id, property_id=m.property_id,
+                    action="association_property_unlinked",
+                )
+                _archive_meeting_drafts(
                     db, org_id=org_id, association_id=row.id,
                     actor_id=actor.id, property_id=m.property_id,
                     action="association_property_unlinked",
@@ -282,6 +314,10 @@ def archive_association(
         actor_id=current_user.id, action="association_archived",
     )
     _archive_staff_observations(
+        db, org_id=org_id, association_id=row.id,
+        actor_id=current_user.id, action="association_archived",
+    )
+    _archive_meeting_drafts(
         db, org_id=org_id, association_id=row.id,
         actor_id=current_user.id, action="association_archived",
     )

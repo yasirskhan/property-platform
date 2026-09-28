@@ -216,3 +216,120 @@ def test_staff_observation_ui_payload_keeps_manager_read_only():
         db.rollback()
         db.close()
         engine.dispose()
+
+
+def test_staff_meeting_drafts_crud_scope_audit_and_no_governance_or_finance():
+    from app.models.hoa_meeting_draft import HOAMeetingDraft
+    from app.routers import hoa_meeting_drafts as planning
+    from app.schemas.hoa_meeting_draft import HOAMeetingDraftIn
+
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, unassigned, other), assoc = _seed(db)
+        payload = HOAMeetingDraftIn(
+            property_id=assigned.id, title=" Budget discussion ",
+            proposed_on=date(2026, 11, 1), staff_agenda="Tentative agenda only.",
+        )
+        created = planning.create_meeting_draft(assoc.id, payload, db=db, current_user=admin)
+        assert created.status == "STAFF_DRAFT"
+        assert created.title == "Budget discussion"
+        out = planning.list_meeting_drafts(assoc.id, Response(), assigned.id, db=db, current_user=manager)
+        assert [x.id for x in out] == [created.id]
+        assert not ({"vote", "quorum", "notice", "minutes", "fine", "approved"} & set(out[0].model_dump()))
+        revised = planning.update_meeting_draft(
+            assoc.id, created.id, HOAMeetingDraftIn(
+                property_id=assigned.id, title="New agenda", proposed_on=date(2026, 11, 3),
+            ), db=db, current_user=owner,
+        )
+        assert revised.title == "New agenda"
+        planning.archive_meeting_draft(assoc.id, created.id, assigned.id, db=db, current_user=admin)
+        assert planning.list_meeting_drafts(assoc.id, Response(), assigned.id,
+                                            db=db, current_user=admin) == []
+        assert db.query(HOAMeetingDraft).count() == 1
+        assert db.query(AuditLog).filter(AuditLog.entity_type == "hoa_meeting_draft").count() == 3
+        assert db.query(GLTransaction).count() == db.query(Charge).count() == db.query(Lease).count() == 0
+    finally:
+        db.rollback()
+        db.close()
+        engine.dispose()
+
+
+def test_staff_meeting_drafts_access_revocation_and_input_contract(monkeypatch):
+    from app.routers import hoa_meeting_drafts as planning
+    from app.schemas.hoa_meeting_draft import HOAMeetingDraftIn
+
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, unassigned, other), assoc = _seed(db)
+        payload = HOAMeetingDraftIn(
+            property_id=assigned.id, title="Planning only", proposed_on=date(2026, 11, 1),
+        )
+        created = planning.create_meeting_draft(assoc.id, payload, db=db, current_user=admin)
+        for actor, prop in ((foreign, assigned), (manager, unassigned), (manager, other)):
+            with pytest.raises(HTTPException) as exc:
+                planning.list_meeting_drafts(assoc.id, Response(), prop.id, db=db, current_user=actor)
+            assert exc.value.status_code == 404
+        for actor in (manager, tenant):
+            with pytest.raises(HTTPException) as exc:
+                planning.update_meeting_draft(
+                    assoc.id, created.id, payload, db=db, current_user=actor,
+                )
+            assert exc.value.status_code == 403
+        with pytest.raises(HTTPException) as exc:
+            planning.archive_meeting_draft(
+                assoc.id, created.id, other.id, db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 404
+        monkeypatch.setattr(hoa, "permission_allows_user", lambda *a, **kw: False)
+        with pytest.raises(HTTPException) as exc:
+            planning.list_meeting_drafts(
+                assoc.id, Response(), assigned.id, db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 403
+        for field in ("vote", "quorum", "minutes", "notice_sent_on", "tenant_id", "fine_amount"):
+            with pytest.raises(ValidationError):
+                HOAMeetingDraftIn(
+                    property_id=assigned.id, title="Staff", proposed_on=date(2026, 11, 1),
+                    **{field: "never"},
+                )
+        assert db.query(Charge).count() == db.query(GLTransaction).count() == 0
+    finally:
+        db.rollback()
+        db.close()
+        engine.dispose()
+
+
+def test_meeting_plan_unlink_relink_and_association_archive_do_not_resurrect():
+    from app.models.hoa_meeting_draft import HOAMeetingDraft
+    from app.routers import hoa_meeting_drafts as planning
+    from app.schemas.hoa_meeting_draft import HOAMeetingDraftIn
+
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, unassigned, other), assoc = _seed(db)
+        def draft(prop_id):
+            return HOAMeetingDraftIn(
+                property_id=prop_id, title="Staff proposed meeting", proposed_on=date(2026, 11, 1),
+            )
+        first = planning.create_meeting_draft(assoc.id, draft(assigned.id), db=db, current_user=admin)
+        second = planning.create_meeting_draft(assoc.id, draft(unassigned.id), db=db, current_user=admin)
+        hoa.update_association(assoc.id, HOAAssociationIn(
+            name="Recorded HOA", property_ids=[unassigned.id],
+        ), db=db, current_user=admin)
+        hoa.update_association(assoc.id, HOAAssociationIn(
+            name="Recorded HOA", property_ids=[assigned.id, unassigned.id],
+        ), db=db, current_user=admin)
+        assert planning.list_meeting_drafts(
+            assoc.id, Response(), assigned.id, db=db, current_user=admin,
+        ) == []
+        assert db.query(HOAMeetingDraft).filter_by(id=first.id).one().is_active is False
+        hoa.archive_association(assoc.id, db=db, current_user=admin)
+        assert db.query(HOAMeetingDraft).filter_by(id=second.id).one().is_active is False
+        with pytest.raises(HTTPException) as exc:
+            _model_for_table("hoa_meeting_drafts")
+        assert exc.value.status_code == 404
+        assert db.query(Charge).count() == db.query(GLTransaction).count() == db.query(Lease).count() == 0
+    finally:
+        db.rollback()
+        db.close()
+        engine.dispose()
