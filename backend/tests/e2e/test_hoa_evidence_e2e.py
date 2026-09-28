@@ -11,6 +11,8 @@ import re
 
 import pytest
 
+import init_db  # noqa: F401 - register all SQLAlchemy models for live DB counts
+
 playwright_sync = pytest.importorskip("playwright.sync_api")
 expect = playwright_sync.expect
 sync_playwright = playwright_sync.sync_playwright
