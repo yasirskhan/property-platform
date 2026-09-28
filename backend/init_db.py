@@ -117,6 +117,7 @@ from app.models.saved_report import SavedReport  # noqa: F401
 from app.models.property_budget import PropertyBudgetLine  # noqa: F401
 from app.models.property_group import PropertyGroup, PropertyGroupMembership  # noqa: F401
 from app.models.affordable_program import AffordableProgram  # noqa: F401
+from app.models.hoa_association import HOAAssociation, HOAPropertyMembership  # noqa: F401
 from app.models.affordable_interest import AffordableInterest  # noqa: F401
 from app.models.affordable_evidence import AffordableEvidence  # noqa: F401
 from app.models.affordable_building import AffordableBuilding  # noqa: F401

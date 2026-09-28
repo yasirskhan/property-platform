@@ -20,6 +20,8 @@ _FORBIDDEN_TABLES = {
     "application_private_details",
     "affordable_program_interests",  # CRM-linked contact records require live LEASING.CRM scope.
     "affordable_program_evidence",  # Checklist has a narrower compliance-only access boundary.
+    "hoa_associations",  # HOA registry requires association-scoped permission, not generic notes.
+    "hoa_property_memberships",
     "affordable_lihtc_buildings",
     "affordable_lihtc_8609_readiness",
     "affordable_lihtc_8609_documents",
