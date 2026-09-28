@@ -92,6 +92,7 @@ from app.routers import lease_templates as lease_templates_router
 from app.routers import prospects as prospects_router
 from app.routers import guest_cards as guest_cards_router
 from app.routers import rubs_readiness as rubs_readiness_router
+from app.routers import affordable_programs as affordable_programs_router
 from app.routers import trust_interest as trust_interest_router
 from app.routers import positive_pay as positive_pay_router
 from app.routers import owner_packets as owner_packets_router
@@ -205,6 +206,7 @@ app.include_router(lease_templates_router.router)
 app.include_router(prospects_router.router)
 app.include_router(guest_cards_router.router)
 app.include_router(rubs_readiness_router.router)
+app.include_router(affordable_programs_router.router)
 app.include_router(trust_interest_router.router)
 app.include_router(positive_pay_router.router)
 app.include_router(owner_packets_router.router)

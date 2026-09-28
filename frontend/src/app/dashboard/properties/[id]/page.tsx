@@ -6,6 +6,7 @@ import Link from "next/link";
 import { apiGet, apiDelete } from "@/lib/api";
 import UtilitiesTab from "@/components/property/UtilitiesTab";
 import RubsReadinessTab from "@/components/property/RubsReadinessTab";
+import AffordableProgramsTab from "@/components/property/AffordableProgramsTab";
 import InsuranceTab from "@/components/property/InsuranceTab";
 import ExpensesTab from "@/components/property/ExpensesTab";
 import AmenitiesTab from "@/components/property/AmenitiesTab";
@@ -218,7 +219,8 @@ export default function PropertyDetailPage() {
           <Flag name="release.properties.fixed_assets"><button type="button" disabled>Fixed Assets</button></Flag>
           <Flag name="release.properties.rubs"><button type="button" onClick={() => setTab("rubs")}
               className={`whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 transition ${tab === "rubs" ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-900"}`}>RUBs</button></Flag>
-          <Flag name="release.properties.compliance"><button type="button" disabled>Compliance</button></Flag>
+          <Flag name="release.properties.compliance"><button type="button" onClick={() => setTab("compliance")}
+            className={`whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 transition ${tab === "compliance" ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-900"}`}>Compliance</button></Flag>
           <Flag name="release.documents.attachments">
             <button
               type="button"
@@ -269,6 +271,7 @@ export default function PropertyDetailPage() {
         <UtilitiesTab propertyId={propertyId} canEdit={canManage} />
       )}
       {tab === "rubs" && <Flag name="release.properties.rubs"><RubsReadinessTab propertyId={propertyId} /></Flag>}
+      {tab === "compliance" && <Flag name="release.properties.compliance"><AffordableProgramsTab propertyId={propertyId} canEdit={canEditProperty} /></Flag>}
       {tab === "insurance" && (
         <InsuranceTab propertyId={propertyId} canEdit={canDelete} />
       )}
@@ -296,6 +299,7 @@ export default function PropertyDetailPage() {
         tab !== "policies" &&
         tab !== "utilities" &&
         tab !== "rubs" &&
+        tab !== "compliance" &&
         tab !== "insurance" &&
         tab !== "expenses" &&
         tab !== "amenities" &&
