@@ -27,6 +27,8 @@ _FORBIDDEN_TABLES = {
     "hoa_observations",
     "hoa_meeting_drafts",
     "hoa_meeting_participation",  # Scoped staff-reported attendance, not public board membership.
+    "hoa_board_seats",  # Staff-proposed board identity, no generic notes.
+    "hoa_board_rule_drafts",  # No generic access to governance thresholds.
     "hoa_motion_drafts",  # Proposed motions never use generic notes or file sharing.
     "hoa_arc_intakes",
     "hoa_arc_applications",
