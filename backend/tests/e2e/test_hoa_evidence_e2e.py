@@ -20,6 +20,7 @@ sync_playwright = playwright_sync.sync_playwright
 from app.core.database import SessionLocal
 from app.models.charge import Charge
 from app.models.gl_transaction import GLTransaction
+from app.models.gl_account import GLAccount
 from app.models.contact import Contact
 from app.models.hoa_association import HOAAssociation, HOAContactLink
 from app.models.release_gate import ReleaseGate, ReleaseStage
@@ -558,6 +559,79 @@ def test_hoa_unissued_dues_history_browser_replay_and_void() -> None:
                 history.get_by_role("button", name="Void draft").first.click()
                 expect(history.get_by_text(re.compile("This is not a financial reversal"))).to_be_visible()
                 expect(history.get_by_text(re.compile("2028-01-31.*VOIDED"))).to_be_visible()
+                assert _financial_counts() == before
+            finally:
+                browser.close()
+        assert _financial_counts() == before
+
+
+def test_hoa_reserve_movement_staff_browser_never_posts_transfer() -> None:
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                          wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                name = "E2E Reserve Movement Planning Association"
+                page.get_by_label("Association name").fill(name)
+                page.get_by_role("button", name="Record association").click()
+                association = page.get_by_text(name, exact=True).locator("..").locator("..")
+                expect(association).to_be_visible()
+
+                # Synthetic accounts on disposable E2E DB, never a bank credential.
+                db = SessionLocal()
+                try:
+                    assoc = db.query(HOAAssociation).filter(
+                        HOAAssociation.name == name,
+                        HOAAssociation.is_active.is_(True),
+                    ).one()
+                    db.add_all([
+                        GLAccount(organization_id=assoc.organization_id,
+                                  gl_number="E2ERE1", name="E2E Reserve Cash",
+                                  account_type="ASSET", include_on_cash_flow=True, is_active=True),
+                        GLAccount(organization_id=assoc.organization_id,
+                                  gl_number="E2EOP1", name="E2E Operating Cash",
+                                  account_type="ASSET", include_on_cash_flow=True, is_active=True),
+                    ])
+                    db.commit()
+                finally:
+                    db.close()
+
+                association.get_by_role("button", name="Reserve book").click()
+                book = association.get_by_role(
+                    "heading", name="HOA reserve book readiness",
+                ).locator("..").locator("..")
+                book.get_by_label("Existing same-organization GL").select_option(
+                    label="E2ERE1 · E2E Reserve Cash",
+                )
+                book.get_by_role("button", name="Record reserve GL reference").click()
+                expect(book.get_by_text(re.compile("Staff GL reference recorded"))).to_be_visible()
+                movement = book.get_by_role(
+                    "heading", name="Reserve movement preparation",
+                ).locator("..").locator("..")
+                movement.get_by_label("Existing same-org counterparty cash GL").select_option(
+                    label="E2EOP1 · E2E Operating Cash",
+                )
+                movement.get_by_label("Proposed date").fill("2028-03-01")
+                movement.get_by_label("Proposed amount").fill("250.00")
+                movement.get_by_label("Staff memo").fill("Synthetic unissued reserve transfer")
+                movement.get_by_role("button", name="Prepare unissued movement").click()
+                expect(movement.get_by_text(re.compile("No funds were moved"))).to_be_visible()
+                expect(movement.get_by_text(re.compile("Synthetic unissued reserve transfer"))).to_be_visible()
+                assert _financial_counts() == before
+                page.once("dialog", lambda dialog: dialog.accept())
+                movement.get_by_role("button", name="Cancel draft").click()
+                expect(movement.get_by_text(re.compile("no financial transfer or reversal"))).to_be_visible()
                 assert _financial_counts() == before
             finally:
                 browser.close()

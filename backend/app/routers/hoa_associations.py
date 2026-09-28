@@ -25,6 +25,7 @@ from app.services.hoa_meeting_workspace_cleanup import archive_meeting_workspace
 from app.services.hoa_arc_application_cleanup import archive_arc_applications
 from app.services.hoa_board_cleanup import archive_board_proposals
 from app.services.hoa_payer_cleanup import archive_payer_drafts
+from app.services.hoa_reserve_movement_cleanup import cancel_reserve_plans
 from app.services.customer_features import resolve_customer_features
 from app.services.menu_resolver import permission_allows_user
 
@@ -282,6 +283,11 @@ def _archive_procedure_cases(
         if property_id is not None:
             rows = rows.filter(model.property_id == property_id)
         for row in rows.all():
+            if model is HOAReserveAccount:
+                cancel_reserve_plans(
+                    db, organization_id=org_id, association_id=association_id,
+                    property_id=row.property_id, actor_id=actor_id, action=action,
+                )
             row.is_active = False
             row.updated_by_id = actor_id
             db.flush()

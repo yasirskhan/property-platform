@@ -41,6 +41,7 @@ _FORBIDDEN_TABLES = {
     "commercial_lease_abstracts",  # Staff-only commencement metadata needs both property and leasing scope.
     "hoa_procedure_policies",  # Restricted staff policy/notice templates.
     "hoa_violation_cases",
+    "hoa_reserve_movement_drafts",  # Requires restricted HOA reserve authorization.
     "hoa_reserve_accounts",  # Restricted accounting scope; deny generic notes and attachments.  # Joint observation/compliance access, not generic notes.
     "hoa_governing_evidence",  # Evidence metadata is gated by HOA compliance/property scope.  # Staff architectural-interest intake is not an approved ARC decision.  # Staff-planned HOA meetings are not generic documents or legal minutes.  # Staff-only potential-issue notes; not public evidence or documents.  # Not a generic note or tenant liability.
     "affordable_lihtc_buildings",

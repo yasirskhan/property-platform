@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiGet, apiPut } from "@/lib/api";
+import HoaReserveMovementPlans from "@/components/property/HoaReserveMovementPlans";
 
 type Option = {
   gl_account_id: number;
@@ -188,6 +189,8 @@ export default function HoaReserveBookPanel({
           )}
         </div>
       )}
+      {saved && canEdit && <HoaReserveMovementPlans associationId={associationId}
+        propertyId={propertyId} reserveGlId={saved.gl_account_id} canEdit={canEdit} />}
       {saved && !canEdit && (
         <p className="text-xs text-slate-600">
           Organization-wide book balance is restricted to administrators/owners.
