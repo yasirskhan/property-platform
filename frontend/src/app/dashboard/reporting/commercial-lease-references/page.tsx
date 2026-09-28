@@ -22,7 +22,7 @@ export default function CommercialLeaseReferencesPage() {
 
   async function load() {
     setBusy(true); setError(""); setPreview(null); setApplied({});
-    const parameters = propertyId.trim() ? { property_id: propertyId.trim() } : {};
+    const parameters: Record<string, string> = propertyId.trim() ? { property_id: propertyId.trim() } : {};
     try {
       const query = new URLSearchParams(parameters);
       const suffix = query.size ? `?${query.toString()}` : "";
