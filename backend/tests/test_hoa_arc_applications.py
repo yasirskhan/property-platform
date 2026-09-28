@@ -301,12 +301,13 @@ def test_arc_application_archive_history_and_no_silent_duplicate():
         ) == []
         assert db.query(HOAARCApplication).filter_by(id=app.id).one().is_active is False
         assert db.query(HOAARCReviewEvent).filter_by(application_id=app.id).count() == 1
-        replacement = api.create_application(
-            assoc.id, _application(assigned.id, intake.id, links[0].id),
-            db=db, current_user=admin,
-        )
-        assert replacement.id != app.id
-        assert replacement.status == "SUBMITTED"
+        with pytest.raises(HTTPException) as exc:
+            api.create_application(
+                assoc.id, _application(assigned.id, intake.id, links[0].id),
+                db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(HOAARCApplication).count() == 1
         assert _counts(db) == (0, 0, 0, 0)
     finally:
         db.close(); engine.dispose()
