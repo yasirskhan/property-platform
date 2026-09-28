@@ -18,6 +18,9 @@ from app.models.charge import Charge
 from app.models.gl_transaction import GLTransaction
 from app.models.hoa_assessment import HOAAssessmentProposal
 from app.models.hoa_payer_draft import HOAPayerDraft
+from app.models.hoa_planned_occurrence import HOAPlannedOccurrence
+from app.routers import hoa_planned_occurrences as plan_api
+from app.schemas.hoa_planned_occurrence import HOAPlanGenerationIn
 from app.models.contact import Contact
 from app.routers import hoa_payer_drafts as payer_api
 from app.schemas.hoa_payer_draft import HOAPayerDraftIn
@@ -569,3 +572,160 @@ def test_suggested_payer_feature_revocation_and_proposal_archive(monkeypatch):
         assert db.query(Charge).count() == db.query(GLTransaction).count() == 0
     finally:
         db.close(); engine.dispose()
+
+
+def _plan_fixture(db):
+    (admin, owner, manager, tenant, foreign), (assigned, unassigned, other), assoc = _seed(db)
+    contact = Contact(
+        organization_id=admin.organization_id, display_name="Suggested only",
+        contact_type="PERSON", is_active=True,
+    )
+    db.add(contact)
+    db.commit()
+    link = hoa.add_contact_link(
+        assoc.id, HOAContactLinkIn(property_id=assigned.id, contact_id=contact.id),
+        db=db, current_user=admin,
+    )
+    proposal = api.create_proposal(
+        assoc.id, _payload(
+            assigned.id, frequency="MONTHLY",
+            proposed_first_on=date(2028, 1, 31), proposed_amount="125.50",
+        ), db=db, current_user=admin,
+    )
+    payer = payer_api.set_payer_draft(
+        assoc.id, proposal.id,
+        HOAPayerDraftIn(property_id=assigned.id, contact_link_id=link.id),
+        db=db, current_user=owner,
+    )
+    return (admin, owner, manager, tenant, foreign), (assigned, unassigned, other), assoc, proposal, payer
+
+
+def _generate(db, actor, assoc, proposal, prop, start=date(2028, 1, 1),
+              end=date(2028, 4, 30)):
+    return plan_api.generate_occurrences(
+        assoc.id, proposal.id,
+        HOAPlanGenerationIn(property_id=prop.id, date_from=start, date_to=end),
+        db=db, current_user=actor,
+    )
+
+
+def test_occurrence_generation_idempotent_snapshots_and_void_history():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, _, _), (prop, _, _), assoc, proposal, payer = _plan_fixture(db)
+        first = _generate(db, admin, assoc, proposal, prop)
+        assert first.new_count == 4 and first.existing_count == 0
+        assert [x.proposed_on for x in first.rows] == [
+            date(2028, 1, 31), date(2028, 2, 29),
+            date(2028, 3, 31), date(2028, 4, 30),
+        ]
+        assert all(
+            not row.is_issued and not row.is_receivable
+            and not row.legal_payer_verified and not row.gl_posting_enabled
+            and row.payer_draft_id == payer.id and row.proposed_amount == Decimal("125.50")
+            for row in first.rows
+        )
+        replay = _generate(db, owner, assoc, proposal, prop)
+        assert replay.new_count == 0 and replay.existing_count == 4
+        assert [r.id for r in replay.rows] == [r.id for r in first.rows]
+        original = db.get(HOAPlannedOccurrence, first.rows[0].id)
+        # Historic amount is immutable when a proposed assessment changes.
+        api.update_proposal(
+            assoc.id, proposal.id,
+            _payload(prop.id, frequency="MONTHLY",
+                     proposed_first_on=date(2028, 1, 31), proposed_amount="150"),
+            db=db, current_user=admin,
+        )
+        rerun = _generate(db, admin, assoc, proposal, prop)
+        assert rerun.new_count == 0
+        assert db.get(HOAPlannedOccurrence, original.id).proposed_amount == Decimal("125.50")
+        added = _generate(
+            db, admin, assoc, proposal, prop,
+            start=date(2028, 5, 1), end=date(2028, 5, 31),
+        )
+        assert added.new_count == 1 and added.rows[0].proposed_amount == Decimal("150")
+        voided = plan_api.void_occurrence(
+            assoc.id, proposal.id, original.id, property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        assert voided.status == "VOIDED" and voided.voided_at is not None
+        with pytest.raises(HTTPException) as exc:
+            plan_api.void_occurrence(
+                assoc.id, proposal.id, original.id, property_id=prop.id,
+                db=db, current_user=owner,
+            )
+        assert exc.value.status_code == 409
+        after_void_replay = _generate(db, admin, assoc, proposal, prop)
+        assert after_void_replay.new_count == 0
+        assert after_void_replay.rows[0].status == "VOIDED"
+        response = Response()
+        history = plan_api.list_occurrences(
+            assoc.id, proposal.id, response, property_id=prop.id,
+            db=db, current_user=manager,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert len(history) == 5
+        assert db.query(HOAPlannedOccurrence).count() == 5
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_planned_occurrence",
+        ).count() == 6
+        assert db.query(Charge).count() == db.query(GLTransaction).count() == db.query(Lease).count() == 0
+        with pytest.raises(HTTPException):
+            _model_for_table("hoa_planned_occurrences")
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_occurrence_generation_scope_revocation_and_missing_payer(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, other, outside), assoc, proposal, payer = _plan_fixture(db)
+        for actor, property_ in (
+            (manager, prop), (tenant, prop), (foreign, prop),
+            (admin, outside),
+        ):
+            with pytest.raises(HTTPException):
+                _generate(db, actor, assoc, proposal, property_)
+        with pytest.raises(HTTPException):
+            plan_api.list_occurrences(
+                assoc.id, proposal.id, Response(), property_id=other.id,
+                db=db, current_user=manager,
+            )
+        for actor in (tenant, foreign):
+            with pytest.raises(HTTPException):
+                plan_api.list_occurrences(
+                    assoc.id, proposal.id, Response(), property_id=prop.id,
+                    db=db, current_user=actor,
+                )
+        with pytest.raises(ValidationError):
+            HOAPlanGenerationIn(property_id=prop.id, date_from=date(2028, 1, 1),
+                                date_to=date(2028, 2, 1), charge_date=date(2028, 2, 1))
+        with pytest.raises(ValidationError):
+            HOAPlanGenerationIn(property_id=prop.id, date_from=date(2028, 3, 1),
+                                date_to=date(2028, 2, 1))
+        with pytest.raises(HTTPException) as exc:
+            _generate(db, admin, assoc, proposal, prop,
+                      start=date(2028, 1, 1), end=date(2035, 1, 1))
+        assert exc.value.status_code == 422
+        monkeypatch.setattr(hoa, "permission_allows_user", lambda *a, **kw: False)
+        with pytest.raises(HTTPException):
+            _generate(db, admin, assoc, proposal, prop)
+        monkeypatch.setattr(hoa, "permission_allows_user", lambda *a, **kw: True)
+        monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **kw: [])
+        with pytest.raises(HTTPException):
+            _generate(db, admin, assoc, proposal, prop)
+        monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **kw: [
+            SimpleNamespace(key=hoa.FEATURE_KEY, allowed=True)
+        ])
+        payer_api.archive_payer_draft(
+            assoc.id, proposal.id, prop.id, db=db, current_user=owner,
+        )
+        with pytest.raises(HTTPException) as exc:
+            _generate(db, admin, assoc, proposal, prop)
+        assert exc.value.status_code == 409
+        assert db.query(HOAPlannedOccurrence).count() == 0
+        assert db.query(Charge).count() == db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()

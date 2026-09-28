@@ -453,3 +453,69 @@ def test_hoa_staff_ballot_observations_never_become_legal_votes() -> None:
             finally:
                 browser.close()
         assert _financial_counts() == before
+
+
+def test_hoa_unissued_dues_history_browser_replay_and_void() -> None:
+    """A dedicated end-to-end HOA workflow never turns a contact into a debtor."""
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                          wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                association_name = "E2E Unissued Dues History Association"
+                page.get_by_label("Association name").fill(association_name)
+                page.get_by_role("button", name="Record association").click()
+                association = page.get_by_text(
+                    association_name, exact=True,
+                ).locator("..").locator("..")
+                expect(association).to_be_visible()
+                _seed_arc_applicant(association_name)
+
+                association.get_by_role("button", name="Draft assessments").click()
+                drafts = association.get_by_role(
+                    "heading", name="Assessment planning drafts",
+                ).locator("..").locator("..")
+                drafts.get_by_label("Proposal title").fill("Synthetic recurring dues")
+                drafts.get_by_label("Proposed amount (not billed)").fill("75.00")
+                drafts.get_by_label("Proposed first date (not a due date)").fill("2028-01-31")
+                drafts.get_by_role("button", name="Save draft only").click()
+                expect(drafts.get_by_text("Synthetic recurring dues", exact=False)).to_be_visible()
+                drafts.get_by_role("button", name="Suggested payer").click()
+                payer = drafts.get_by_role(
+                    "heading", name="Suggested assessment contact",
+                ).locator("..").locator("..")
+                payer.get_by_label("Staff-suggested contact").select_option(
+                    label="E2E ARC Applicant",
+                )
+                payer.get_by_role("button", name="Save staff reference").click()
+                expect(payer.get_by_text(re.compile("Issue charge: DISABLED"))).to_be_visible()
+
+                drafts.get_by_role("button", name="Planning history").click()
+                history = drafts.get_by_role(
+                    "heading", name="Unissued assessment planning history",
+                ).locator("..").locator("..")
+                history.get_by_label("From").fill("2028-01-01")
+                history.get_by_label("Through").fill("2028-03-31")
+                history.get_by_role("button", name="Record unissued schedule").click()
+                expect(history.get_by_text(re.compile("3 new planning periods"))).to_be_visible()
+                expect(history.get_by_text(re.compile("2028-02-29"))).to_be_visible()
+                history.get_by_role("button", name="Record unissued schedule").click()
+                expect(history.get_by_text(re.compile("0 new planning periods"))).to_be_visible()
+                history.get_by_role("button", name="Void draft").first.click()
+                expect(history.get_by_text(re.compile("This is not a financial reversal"))).to_be_visible()
+                expect(history.get_by_text(re.compile("2028-01-31.*VOIDED"))).to_be_visible()
+                assert _financial_counts() == before
+            finally:
+                browser.close()
+        assert _financial_counts() == before
