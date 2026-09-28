@@ -122,6 +122,7 @@ export default function LeasingCrmPage() {
   const visible = filter === "ALL" ? leads : leads.filter((lead) => lead.stage === filter);
   return (
     <div className="space-y-5">
+      <div className="text-sm"><Link href="/dashboard/leasing/guest-cards" className="underline text-slate-700">Guest cards →</Link></div>
       <header>
         <h1 className="text-2xl font-semibold text-slate-900">Leasing CRM</h1>
         <p className="mt-1 text-sm text-slate-600">
