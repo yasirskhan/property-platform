@@ -20,6 +20,8 @@ sync_playwright = playwright_sync.sync_playwright
 from app.core.database import SessionLocal
 from app.models.charge import Charge
 from app.models.gl_transaction import GLTransaction
+from app.models.contact import Contact
+from app.models.hoa_association import HOAAssociation, HOAContactLink
 from app.models.release_gate import ReleaseGate, ReleaseStage
 
 pytestmark = pytest.mark.e2e
@@ -249,6 +251,81 @@ def test_hoa_staff_meeting_motion_browser_flow_no_official_vote() -> None:
                 expect(workspace.get_by_text(re.compile("E2E draft landscaping motion"))).to_be_visible()
                 expect(workspace.get_by_text(re.compile("PROPOSED ONLY"))).to_be_visible()
                 expect(workspace.get_by_text(re.compile("No vote has occurred"))).to_be_visible()
+                assert _financial_counts() == before
+            finally:
+                browser.close()
+        assert _financial_counts() == before
+
+
+def _seed_arc_applicant(association_name: str) -> None:
+    if os.environ.get("E2E_SEED_ALLOWED", "").lower() != "true":
+        raise RuntimeError("ARC browser test requires disposable E2E database")
+    db = SessionLocal()
+    try:
+        association = db.query(HOAAssociation).filter(
+            HOAAssociation.name == association_name,
+            HOAAssociation.is_active.is_(True),
+        ).one()
+        contact = Contact(
+            organization_id=association.organization_id,
+            display_name="E2E ARC Applicant",
+            contact_type="PERSON", is_active=True,
+        )
+        db.add(contact); db.flush()
+        db.add(HOAContactLink(
+            organization_id=association.organization_id,
+            association_id=association.id,
+            property_id=PROPERTY_ID,
+            contact_id=contact.id,
+            is_active=True,
+        ))
+        db.commit()
+    finally:
+        db.close()
+
+
+def test_hoa_arc_application_review_browser_flow_prepares_no_effective_decision() -> None:
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+
+                association_name = "E2E ARC Application Association"
+                page.get_by_label("Association name").fill(association_name)
+                page.get_by_role("button", name="Record association").click()
+                association = page.get_by_text(association_name, exact=True).locator("..").locator("..")
+                expect(association).to_be_visible()
+                _seed_arc_applicant(association_name)
+
+                association.get_by_role("button", name="ARC staff intake").click()
+                intake = association.get_by_role("heading", name="ARC staff project intake").locator("..").locator("..")
+                intake.get_by_label("Project title").fill("E2E fence application")
+                intake.get_by_label("Date noted by staff").fill("2026-09-15")
+                intake.get_by_role("button", name="Save staff intake").click()
+                expect(intake.get_by_text("E2E fence application", exact=False)).to_be_visible()
+                intake.get_by_role("button", name="Application workflow").click()
+
+                workflow = intake.get_by_role("heading", name=re.compile("ARC application and review")).locator("..").locator("..")
+                workflow.get_by_label("Applicant contact").select_option(label="E2E ARC Applicant")
+                workflow.get_by_label("Application received date").fill("2026-09-16")
+                workflow.get_by_role("button", name="Record ARC application").click()
+                expect(workflow.get_by_text(re.compile("Effective legal decision: NO"))).to_be_visible()
+                workflow.get_by_role("button", name="Start staff review").click()
+                workflow.get_by_role("button", name="Mark ready for decision").click()
+                workflow.get_by_role("button", name="Prepare approval").click()
+                expect(workflow.get_by_text(re.compile("APPROVE PREPARED ONLY"))).to_be_visible()
+                expect(workflow.get_by_text(re.compile("Effective legal decision: NO"))).to_be_visible()
                 assert _financial_counts() == before
             finally:
                 browser.close()

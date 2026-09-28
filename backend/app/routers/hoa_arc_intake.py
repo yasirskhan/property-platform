@@ -11,6 +11,7 @@ from app.routers.auth import get_current_user
 from app.routers.hoa_assessments import _scope
 from app.schemas.hoa_arc_intake import HOAARCIntakeIn, HOAARCIntakeOut
 from app.services.audit import append_audit_log
+from app.services.hoa_arc_application_cleanup import archive_arc_applications
 
 router = APIRouter(prefix="/api/hoa/associations", tags=["HOA staff architectural intake"])
 
@@ -132,6 +133,11 @@ def archive_arc_intake(
     row = _row(db, org_id, assoc.id, property_id, intake_id)
     row.is_active = False
     row.updated_by_id = current_user.id
+    archive_arc_applications(
+        db, organization_id=org_id, association_id=assoc.id,
+        property_id=property_id, intake_id=row.id,
+        actor_id=current_user.id, action="arc_intake_archived",
+    )
     db.flush()
     append_audit_log(
         db, organization_id=org_id, user_id=current_user.id,

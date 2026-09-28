@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
+import HoaARCApplicationsPanel from "@/components/property/HoaARCApplicationsPanel";
 
 type Intake = {
   id: number; association_id: number; property_id: number;
@@ -18,6 +19,7 @@ export default function HoaARCIntakePanel({ associationId, propertyId, canEdit, 
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [workflowId, setWorkflowId] = useState<number | null>(null);
   const [title, setTitle] = useState("");
   const [notedOn, setNotedOn] = useState("");
   const [description, setDescription] = useState("");
@@ -26,7 +28,7 @@ export default function HoaARCIntakePanel({ associationId, propertyId, canEdit, 
   useEffect(() => {
     let live = true;
     setLoading(true); setItems([]); setError(""); setMessage("");
-    setEditingId(null); setTitle(""); setNotedOn(""); setDescription("");
+    setEditingId(null); setWorkflowId(null); setTitle(""); setNotedOn(""); setDescription("");
     void (async () => {
       try {
         const rows = await apiGet(
@@ -84,6 +86,7 @@ export default function HoaARCIntakePanel({ associationId, propertyId, canEdit, 
       await apiDelete(base + "/" + row.id + "?property_id=" + propertyId);
       setItems((prior) => prior.filter((item) => item.id !== row.id));
       if (editingId === row.id) clearForm();
+      if (workflowId === row.id) setWorkflowId(null);
       setMessage("Staff intake archived; no legal or financial action taken.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to archive staff ARC intake.");
@@ -119,12 +122,20 @@ export default function HoaARCIntakePanel({ associationId, propertyId, canEdit, 
             <p className="text-xs text-slate-500">Staff noted: {row.staff_noted_on}</p>
             {row.staff_description && <p className="mt-1 whitespace-pre-wrap break-words text-slate-600">{row.staff_description}</p>}
           </div>
-          {canEdit && <div className="flex gap-3 text-sm">
+          <div className="flex gap-3 text-sm">
+            <button type="button" onClick={() => setWorkflowId((old) => old === row.id ? null : row.id)}
+              className="text-blue-700">Application workflow</button>
+          {canEdit && <>
             <button type="button" disabled={busy} onClick={() => edit(row)}
               className="text-blue-700 disabled:opacity-50">Edit</button>
             <button type="button" disabled={busy} onClick={() => { void archive(row); }}
               className="text-red-700 disabled:opacity-50">Archive</button>
-          </div>}
+          </>}
+          </div>
+          {workflowId === row.id && <HoaARCApplicationsPanel
+            associationId={associationId} propertyId={propertyId} intakeId={row.id}
+            projectTitle={row.project_title} canEdit={canEdit}
+            onClose={() => setWorkflowId(null)} /> }
         </div>
       ))}
       {canEdit && !loading && (

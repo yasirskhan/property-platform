@@ -22,6 +22,7 @@ from app.routers.auth import get_current_user
 from app.schemas.hoa_association import HOAAssociationIn, HOAAssociationOut, HOAContactLinkIn, HOAContactLinkOut
 from app.services.audit import append_audit_log
 from app.services.hoa_meeting_workspace_cleanup import archive_meeting_workspace, archive_contact_participation
+from app.services.hoa_arc_application_cleanup import archive_arc_applications
 from app.services.customer_features import resolve_customer_features
 from app.services.menu_resolver import permission_allows_user
 
@@ -346,6 +347,11 @@ def _save(db: Session, *, actor: User, payload: HOAAssociationIn,
                     actor_id=actor.id, property_id=m.property_id,
                     action="association_property_unlinked",
                 )
+                archive_arc_applications(
+                    db, organization_id=org_id, association_id=row.id,
+                    actor_id=actor.id, property_id=m.property_id,
+                    action="association_property_unlinked",
+                )
                 _archive_governing_evidence(
                     db, org_id=org_id, association_id=row.id,
                     actor_id=actor.id, property_id=m.property_id,
@@ -426,6 +432,10 @@ def archive_association(
     )
     _archive_arc_intakes(
         db, org_id=org_id, association_id=row.id,
+        actor_id=current_user.id, action="association_archived",
+    )
+    archive_arc_applications(
+        db, organization_id=org_id, association_id=row.id,
         actor_id=current_user.id, action="association_archived",
     )
     _archive_governing_evidence(
@@ -578,6 +588,11 @@ def remove_contact_link(
     link.is_active = False
     link.updated_by_id = current_user.id
     archive_contact_participation(
+        db, organization_id=org_id, association_id=association.id,
+        property_id=property_id, contact_link_id=link.id,
+        actor_id=current_user.id, action="contact_link_archived",
+    )
+    archive_arc_applications(
         db, organization_id=org_id, association_id=association.id,
         property_id=property_id, contact_link_id=link.id,
         actor_id=current_user.id, action="contact_link_archived",

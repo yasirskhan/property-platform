@@ -82,6 +82,18 @@ def _governing_evidence_scope(db: Session, row: EntityAttachment, actor: User, *
     for link in links:
         _scope(db, actor=actor, association_id=link.association_id,
                property_id=link.property_id, write=write)
+    from app.models.hoa_arc_application import HOAARCApplication, HOAARCApplicationAttachment
+    arc_links = db.query(HOAARCApplication).join(
+        HOAARCApplicationAttachment,
+        HOAARCApplicationAttachment.application_id == HOAARCApplication.id,
+    ).filter(
+        HOAARCApplicationAttachment.attachment_id == row.id,
+        HOAARCApplicationAttachment.is_active.is_(True),
+        HOAARCApplication.is_active.is_(True),
+    ).all()
+    for application in arc_links:
+        _scope(db, actor=actor, association_id=application.association_id,
+               property_id=application.property_id, write=write)
 
 
 def _attachment_for_user(db: Session, *, attachment_id: int, current_user: User) -> EntityAttachment:
@@ -141,8 +153,18 @@ def update_entity_attachment_sharing(
         HOAGoverningEvidence.attachment_id == row.id,
         HOAGoverningEvidence.is_active.is_(True),
     ).first()
-    if linked is not None and (payload.share_with_tenants is True or payload.share_with_owners is True):
-        raise HTTPException(status_code=403, detail="Indexed HOA evidence cannot be shared.")
+    from app.models.hoa_arc_application import HOAARCApplication, HOAARCApplicationAttachment
+    arc_linked = db.query(HOAARCApplicationAttachment.id).join(
+        HOAARCApplication, HOAARCApplication.id == HOAARCApplicationAttachment.application_id,
+    ).filter(
+        HOAARCApplicationAttachment.attachment_id == row.id,
+        HOAARCApplicationAttachment.is_active.is_(True),
+        HOAARCApplication.is_active.is_(True),
+    ).first()
+    if (linked is not None or arc_linked is not None) and (
+        payload.share_with_tenants is True or payload.share_with_owners is True
+    ):
+        raise HTTPException(status_code=403, detail="Indexed HOA private documents cannot be shared.")
     if _role(current_user) not in {"ADMIN", "OWNER", "MANAGER"}:
         raise HTTPException(status_code=403, detail="Manager access required.")
     if payload.share_with_tenants is None and payload.share_with_owners is None:
