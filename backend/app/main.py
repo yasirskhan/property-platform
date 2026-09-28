@@ -110,6 +110,7 @@ from app.routers import hoa_ballots as hoa_ballots_router
 from app.routers import hoa_meeting_minutes as hoa_meeting_minutes_router
 from app.routers import hoa_payer_drafts as hoa_payer_drafts_router
 from app.routers import hoa_planned_occurrences as hoa_planned_occurrences_router
+from app.routers import hoa_issuance_readiness as hoa_issuance_readiness_router
 from app.routers import commercial_lease_abstracts as commercial_lease_abstracts_router
 from app.routers import affordable_interest as affordable_interest_router
 from app.routers import affordable_evidence as affordable_evidence_router
@@ -248,6 +249,7 @@ app.include_router(hoa_ballots_router.router)
 app.include_router(hoa_meeting_minutes_router.router)
 app.include_router(hoa_payer_drafts_router.router)
 app.include_router(hoa_planned_occurrences_router.router)
+app.include_router(hoa_issuance_readiness_router.router)
 app.include_router(commercial_lease_abstracts_router.router)
 app.include_router(affordable_interest_router.router)
 app.include_router(affordable_evidence_router.router)

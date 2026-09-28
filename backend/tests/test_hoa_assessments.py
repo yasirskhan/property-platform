@@ -15,6 +15,8 @@ import init_db  # noqa: F401
 from app.core.database import Base
 from app.models.audit_log import AuditLog
 from app.models.charge import Charge
+from app.models.gl_account import GLAccount
+from app.routers import hoa_issuance_readiness as readiness_api
 from app.models.gl_transaction import GLTransaction
 from app.models.hoa_assessment import HOAAssessmentProposal
 from app.models.hoa_payer_draft import HOAPayerDraft
@@ -731,5 +733,122 @@ def test_occurrence_generation_scope_revocation_and_missing_payer(monkeypatch):
         assert db.query(HOAPlannedOccurrence).count() == 0
         assert db.query(Charge).count() == db.query(GLTransaction).count() == 0
     finally:
+        db.close()
+        engine.dispose()
+
+
+def test_hoa_posting_readiness_reports_missing_authority_even_with_candidate_gl():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, _, _), assoc, proposal, payer = _plan_fixture(db)
+        plan = _generate(db, admin, assoc, proposal, prop)
+        occurrence = plan.rows[0]
+        before = (
+            db.query(Charge).count(), db.query(GLTransaction).count(),
+            db.query(AuditLog).count(),
+        )
+        response = Response()
+        empty = readiness_api.issuance_readiness(
+            assoc.id, proposal.id, occurrence.id, response,
+            property_id=prop.id, candidate_income_gl_account_id=None,
+            db=db, current_user=admin,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert empty.status == "PLANNED"
+        assert empty.governing_authority_verified is False
+        assert empty.legal_payer_liability_verified is False
+        assert empty.posting_enabled is False and empty.reversal_enabled is False
+        assert "NO_VALID_INCOME_GL_CANDIDATE" in empty.missing_requirements
+        local = GLAccount(
+            organization_id=admin.organization_id, gl_number="E2E-HOA-INCOME",
+            name="Synthetic candidate, not approved", account_type="INCOME",
+            is_active=True,
+        )
+        db.add(local)
+        db.commit()
+        candidate = readiness_api.issuance_readiness(
+            assoc.id, proposal.id, occurrence.id, Response(),
+            property_id=prop.id, candidate_income_gl_account_id=local.id,
+            db=db, current_user=owner,
+        )
+        assert candidate.candidate_income_account_valid is True
+        assert candidate.approved_gl_mapping_verified is False
+        assert "APPROVED_GL_MAPPING_UNAVAILABLE" in candidate.missing_requirements
+        assert "GOVERNING_AUTHORITY_UNVERIFIED" in candidate.missing_requirements
+        assert "LEGAL_PAYER_LIABILITY_UNVERIFIED" in candidate.missing_requirements
+        assert candidate.posting_enabled is False
+        org = db.get(Organization, admin.organization_id)
+        org.locked_through_date = date(2028, 12, 31)
+        db.flush()
+        locked = readiness_api.issuance_readiness(
+            assoc.id, proposal.id, occurrence.id, Response(),
+            property_id=prop.id, candidate_income_gl_account_id=local.id,
+            db=db, current_user=admin,
+        )
+        assert locked.accounting_period_unlocked is False
+        assert "ACCOUNTING_PERIOD_LOCKED" in locked.missing_requirements
+        org.locked_through_date = None
+        db.flush()
+        plan_api.void_occurrence(
+            assoc.id, proposal.id, occurrence.id, prop.id,
+            db=db, current_user=owner,
+        )
+        voided = readiness_api.issuance_readiness(
+            assoc.id, proposal.id, occurrence.id, Response(),
+            property_id=prop.id, candidate_income_gl_account_id=local.id,
+            db=db, current_user=admin,
+        )
+        assert "OCCURRENCE_VOIDED" in voided.missing_requirements
+        assert voided.posting_enabled is False
+        assert db.query(Charge).count() == db.query(GLTransaction).count() == 0
+        assert before[0] == 0 and before[1] == 0
+    finally:
+        db.rollback()
+        db.close()
+        engine.dispose()
+
+
+def test_hoa_posting_readiness_honors_live_scope_and_accounting_permissions(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, unassigned, other), assoc, proposal, payer = _plan_fixture(db)
+        row = _generate(db, admin, assoc, proposal, prop).rows[0]
+        def check(actor, property_id=prop.id, gl_id=None):
+            return readiness_api.issuance_readiness(
+                assoc.id, proposal.id, row.id, Response(),
+                property_id=property_id, candidate_income_gl_account_id=gl_id,
+                db=db, current_user=actor,
+            )
+        for actor, prop_id in (
+            (manager, prop.id), (tenant, prop.id), (foreign, prop.id),
+            (admin, unassigned.id), (admin, other.id),
+        ):
+            with pytest.raises(HTTPException):
+                check(actor, prop_id)
+        monkeypatch.setattr(
+            readiness_api, "permission_allows_user",
+            lambda db, *, user, menu_key: menu_key != "ACCOUNTING.CHARGES",
+        )
+        with pytest.raises(HTTPException) as e:
+            check(admin)
+        assert e.value.status_code == 403
+        monkeypatch.setattr(readiness_api, "permission_allows_user", lambda *a, **kw: True)
+        monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **kw: [])
+        with pytest.raises(HTTPException) as e:
+            check(admin)
+        assert e.value.status_code == 404
+        monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **kw: [
+            SimpleNamespace(key=hoa.FEATURE_KEY, allowed=True),
+            SimpleNamespace(key=hoa.HOA_FEATURE_KEY, allowed=True),
+        ])
+        payer_api.archive_payer_draft(
+            assoc.id, proposal.id, prop.id, db=db, current_user=owner,
+        )
+        stale = check(admin)
+        assert "PAYER_REFERENCE_STALE" in stale.missing_requirements
+        assert stale.posting_enabled is False
+        assert db.query(Charge).count() == db.query(GLTransaction).count() == 0
+    finally:
+        db.rollback()
         db.close()
         engine.dispose()

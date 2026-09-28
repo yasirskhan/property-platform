@@ -13,6 +13,8 @@ type Occurrence = {
   is_receivable: false;
   gl_posting_enabled: false;
 };
+type Readiness = { status: string; posting_enabled: false; reversal_enabled: false;
+  missing_requirements: string[]; accounting_period_unlocked: boolean };
 type Generation = {
   new_count: number;
   existing_count: number;
@@ -29,6 +31,7 @@ export default function HoaPlannedOccurrencesPanel({
   canEdit: boolean;
 }) {
   const [rows, setRows] = useState<Occurrence[]>([]);
+  const [readiness, setReadiness] = useState<Record<number, Readiness>>({});
   const [from, setFrom] = useState("");
   const [through, setThrough] = useState("");
   const [busy, setBusy] = useState(false);
@@ -71,6 +74,17 @@ export default function HoaPlannedOccurrencesPanel({
     } finally { setBusy(false); }
   }
 
+  async function checkReadiness(row: Occurrence) {
+    setBusy(true); setError("");
+    try {
+      const result = await apiGet(base + "/" + row.id +
+        "/issuance-readiness" + query) as Readiness;
+      setReadiness((prior) => ({ ...prior, [row.id]: result }));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Readiness unavailable.");
+    } finally { setBusy(false); }
+  }
+
   async function voidPlan(row: Occurrence) {
     if (!canEdit || busy || !window.confirm("Void this unissued planning period?")) return;
     setBusy(true); setError(""); setMessage("");
@@ -98,6 +112,14 @@ export default function HoaPlannedOccurrencesPanel({
     {!loading && rows.length > 0 && <ol className="space-y-1">
       {rows.map((row) => <li key={row.id} className="flex flex-wrap items-center gap-2">
         <span>{row.proposed_on} · Proposed ${row.proposed_amount} · {row.status}</span>
+        {canEdit && <button type="button" disabled={busy}
+          onClick={() => { void checkReadiness(row); }}
+          className="text-blue-700 disabled:opacity-50">Posting readiness</button>}
+        {readiness[row.id] && <p className="w-full text-xs text-amber-900" role="status">
+          Posting and reversal DISABLED. Outstanding prerequisites: {
+            readiness[row.id].missing_requirements.join(", ").replaceAll("_", " ").toLowerCase()
+          }.
+        </p>}
         {canEdit && row.status === "PLANNED" &&
           <button type="button" disabled={busy} onClick={() => { void voidPlan(row); }}
             className="text-red-700 disabled:opacity-50">Void draft</button>}
