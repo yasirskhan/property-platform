@@ -78,6 +78,10 @@ def _seed(db):
         property_id=props[0].id, user_id=users[2].id,
         role=UserRole.MANAGER, is_active=True,
     ))
+    db.add(PropertyAssignment(
+        property_id=props[0].id, user_id=users[3].id,
+        role=UserRole.CREW, is_active=True,
+    ))
     db.commit()
     association = hoa.create_association(
         HOAAssociationIn(name="Staff HOA", property_ids=[props[0].id, props[1].id]),
