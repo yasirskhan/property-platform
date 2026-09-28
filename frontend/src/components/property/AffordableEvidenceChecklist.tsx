@@ -6,7 +6,7 @@ import { apiGet, apiPut } from "@/lib/api";
 
 type Category = "AGENCY_GUIDANCE" | "PROGRAM_AGREEMENT" | "PROPERTY_RECORD_INDEX" | "INSPECTION_COORDINATION";
 type Status = "NOT_RECORDED" | "FOLLOW_UP_NEEDED" | "REFERENCE_IDENTIFIED";
-type Item = { category: Category; status: Status; staff_follow_up_on: string | null; updated_at: string | null };
+type Item = { category: Category; status: Status; staff_follow_up_on: string | null; source_url: string | null; source_checked_on: string | null; updated_at: string | null };
 const labels: Record<Category, string> = {
   AGENCY_GUIDANCE: "Agency or program guidance reference",
   PROGRAM_AGREEMENT: "Program agreement reference",
@@ -27,6 +27,8 @@ export default function AffordableEvidenceChecklist({
   const [busy, setBusy] = useState<Category | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [agencyUrl, setAgencyUrl] = useState("");
+  const [agencyCheckedOn, setAgencyCheckedOn] = useState("");
   const [inspectionSummary, setInspectionSummary] = useState<{ total_recorded: number; latest_recorded_on: string | null } | null>(null);
   const [inspectionError, setInspectionError] = useState("");
   const [inspectionBusy, setInspectionBusy] = useState(false);
@@ -36,7 +38,12 @@ export default function AffordableEvidenceChecklist({
     void (async () => {
       try {
         const rows = await apiGet(path) as Item[];
-        if (live) setItems(rows);
+        if (live) {
+          setItems(rows);
+          const agency = rows.find((row) => row.category === "AGENCY_GUIDANCE");
+          setAgencyUrl(agency?.source_url || "");
+          setAgencyCheckedOn(agency?.source_checked_on || "");
+        }
       } catch (cause) {
         if (live) setError(cause instanceof Error ? cause.message : "Evidence index unavailable.");
       } finally {
@@ -46,11 +53,13 @@ export default function AffordableEvidenceChecklist({
     return () => { live = false; };
   }, [path]);
 
-  async function save(item: Item, status: Status, date: string | null) {
+  async function save(item: Item, status: Status, date: string | null, url = item.source_url, checkedOn = item.source_checked_on) {
     setBusy(item.category); setError(""); setMessage("");
     try {
       const saved = await apiPut(path, {
         category: item.category, status, staff_follow_up_on: date || null,
+        source_url: status === "NOT_RECORDED" ? null : (url || null),
+        source_checked_on: status === "NOT_RECORDED" ? null : (checkedOn || null),
       }) as Item;
       setItems((prev) => prev.map((row) => row.category === saved.category ? saved : row));
       setMessage("Staff readiness index updated. No regulatory compliance decision was made.");
@@ -108,7 +117,12 @@ export default function AffordableEvidenceChecklist({
             <label className="text-xs text-slate-700">
               Recorded status
               <select value={item.status} disabled={!canEdit || busy !== null}
-                onChange={(event) => { void save(item, event.target.value as Status, item.staff_follow_up_on); }}
+                onChange={(event) => {
+                  if (event.target.value === "NOT_RECORDED" && item.category === "AGENCY_GUIDANCE") {
+                    setAgencyUrl(""); setAgencyCheckedOn("");
+                  }
+                  void save(item, event.target.value as Status, item.staff_follow_up_on);
+                }}
                 className="mt-1 block w-full rounded border p-2">
                 {Object.entries(statuses).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
               </select>
@@ -120,6 +134,49 @@ export default function AffordableEvidenceChecklist({
                 onChange={(event) => { void save(item, item.status, event.target.value || null); }}
                 className="mt-1 block w-full rounded border p-2" />
             </label>
+            {item.category === "AGENCY_GUIDANCE" && (
+              <div className="md:col-span-3 border-t pt-3">
+                <p className="text-xs text-slate-600">
+                  Staff-supplied public agency guidance reference only. This link and
+                  checked date are not independently verified, effective regulation,
+                  eligibility approval, an agency deadline, or a rent-limit decision.
+                  Do not paste household data, login tokens or protected documents.
+                </p>
+                {item.source_url && (
+                  <p className="mt-1 text-xs">
+                    <a href={item.source_url} target="_blank" rel="noopener noreferrer"
+                      className="break-all underline text-blue-700">
+                      Open staff-recorded public reference (unverified)
+                    </a>
+                    {item.source_checked_on && <span> · Staff last checked {item.source_checked_on}</span>}
+                  </p>
+                )}
+                {canEdit && (
+                  <div className="mt-2 flex flex-wrap items-end gap-2">
+                    <label className="text-xs text-slate-700">
+                      Public HTTPS agency reference
+                      <input type="url" value={agencyUrl} maxLength={500}
+                        onChange={(event) => setAgencyUrl(event.target.value)}
+                        placeholder="https://agency.example.gov/guidance"
+                        className="mt-1 block w-72 max-w-full rounded border p-2" />
+                    </label>
+                    <label className="text-xs text-slate-700">
+                      Date staff checked link
+                      <input type="date" value={agencyCheckedOn}
+                        onChange={(event) => setAgencyCheckedOn(event.target.value)}
+                        className="mt-1 block rounded border p-2" />
+                    </label>
+                    <button type="button" disabled={busy !== null ||
+                      (item.status === "NOT_RECORDED" && agencyUrl.trim() !== "")}
+                      onClick={() => { void save(item, item.status, item.staff_follow_up_on,
+                        agencyUrl.trim() || null, agencyUrl.trim() ? agencyCheckedOn || null : null); }}
+                      className="rounded border px-3 py-2 text-xs disabled:opacity-50">
+                      Save reference
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>}

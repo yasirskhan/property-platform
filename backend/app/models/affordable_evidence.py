@@ -15,6 +15,9 @@ class AffordableEvidence(Base):
     category = Column(String(40), nullable=False)
     status = Column(String(24), nullable=False, default="NOT_RECORDED")
     staff_follow_up_on = Column(Date, nullable=True)
+    # Staff-supplied PUBLIC agency guidance link, never a verified regulation.
+    source_url = Column(String(500), nullable=True)
+    source_checked_on = Column(Date, nullable=True)
     updated_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 

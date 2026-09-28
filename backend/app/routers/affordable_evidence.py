@@ -40,6 +40,8 @@ def list_evidence(
             category=key,
             status=saved[key].status if key in saved else "NOT_RECORDED",
             staff_follow_up_on=saved[key].staff_follow_up_on if key in saved else None,
+            source_url=saved[key].source_url if key in saved else None,
+            source_checked_on=saved[key].source_checked_on if key in saved else None,
             updated_at=saved[key].updated_at if key in saved else None,
         )
         for key in CATEGORIES
@@ -71,6 +73,8 @@ def save_evidence(
     previous = None if created else row.status
     row.status = payload.status
     row.staff_follow_up_on = payload.staff_follow_up_on
+    row.source_url = payload.source_url
+    row.source_checked_on = payload.source_checked_on
     row.updated_by_id = current_user.id
     try:
         db.flush()
@@ -80,7 +84,8 @@ def save_evidence(
             action="created" if created else "updated",
             old_value=None if created else {"status": previous},
             new_value={"program_id": program.id, "category": payload.category,
-                       "status": payload.status},
+                       "status": payload.status,
+                       "public_reference_present": bool(payload.source_url)},
         )
         db.commit()
     except IntegrityError as exc:

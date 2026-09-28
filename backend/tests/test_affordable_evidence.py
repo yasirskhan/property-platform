@@ -251,3 +251,65 @@ def test_inspection_summary_excludes_disabled_units_and_archived_program(monkeyp
         assert exc.value.status_code == 404
     finally:
         db.rollback(); db.close(); engine.dispose()
+
+
+def test_staff_public_agency_guidance_provenance_is_scoped_unverified_and_safe():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, unassigned, _), (program, other_program, _) = _seed(db)
+        url = "https://www.hud.gov/program_offices/public_indian_housing"
+        data = AffordableEvidenceIn(
+            category="AGENCY_GUIDANCE", status="REFERENCE_IDENTIFIED",
+            source_url=url, source_checked_on=date(2026, 9, 28),
+        )
+        saved = api.save_evidence(prop.id, program.id, data, db=db, current_user=admin)
+        assert saved.source_url == url
+        assert saved.source_checked_on == date(2026, 9, 28)
+        read = api.list_evidence(prop.id, program.id, Response(),
+                                 db=db, current_user=manager)
+        assert read[0].source_url == url
+        assert "agency_verified" not in read[0].model_dump()
+        assert "eligibility" not in read[0].model_dump()
+        # Link is staff-entered metadata only, never logged as sensitive content.
+        logs = db.query(AuditLog).filter_by(entity_type="affordable_evidence").all()
+        assert len(logs) == 1 and url not in (logs[0].new_value or "")
+        for actor, property_, record in (
+            (foreign, prop, program), (manager, unassigned, other_program),
+        ):
+            with pytest.raises(HTTPException):
+                api.list_evidence(property_.id, record.id, Response(),
+                                  db=db, current_user=actor)
+        removed = api.save_evidence(
+            prop.id, program.id, _payload(status="NOT_RECORDED"),
+            db=db, current_user=owner,
+        )
+        assert removed.source_url is None and removed.source_checked_on is None
+        for model in (GLTransaction, Charge, Lease):
+            assert db.query(model).count() == 0
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_public_guidance_reference_validation_rejects_unsafe_and_false_certifications():
+    def check(url, category="AGENCY_GUIDANCE", status="REFERENCE_IDENTIFIED",
+              checked=date(2026, 9, 28)):
+        return AffordableEvidenceIn(
+            category=category, status=status, source_url=url,
+            source_checked_on=checked,
+        )
+    for url in ("javascript:alert(1)", "http://www.hud.gov", "https://localhost/ref",
+                "https://127.0.0.1/data", "https://user:secret@www.hud.gov/",
+                "https://intranet.local/records", "https://agency.org:8443/ref",
+                "https://agency.org/contains space", "https://example.com/" + "a"*510):
+        with pytest.raises(ValueError):
+            check(url)
+    with pytest.raises(ValueError):
+        check("https://www.hud.gov", category="PROGRAM_AGREEMENT")
+    with pytest.raises(ValueError):
+        check("https://www.hud.gov", status="NOT_RECORDED")
+    with pytest.raises(ValueError):
+        check("https://www.hud.gov", checked=date(2099, 1, 1))
+    with pytest.raises(ValueError):
+        AffordableEvidenceIn(category="AGENCY_GUIDANCE", status="REFERENCE_IDENTIFIED",
+                             source_url=None, source_checked_on=date(2026, 9, 28))
+    assert check(" https://www.hud.gov/a ").source_url == "https://www.hud.gov/a"
