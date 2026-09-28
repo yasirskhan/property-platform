@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
+import AffordableInterestLog from "@/components/property/AffordableInterestLog";
 
 type ProgramType = "SECTION_8_VOUCHER" | "SECTION_8_PROJECT_BASED" | "LIHTC" | "HUD_OTHER" | "OTHER";
 type Program = {
@@ -37,6 +38,7 @@ export default function AffordableProgramsTab({
   const [items, setItems] = useState<Program[]>([]);
   const [draft, setDraft] = useState<Draft>(blank);
   const [editing, setEditing] = useState<number | null>(null);
+  const [interestProgramId, setInterestProgramId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -136,7 +138,10 @@ export default function AffordableProgramsTab({
             <tbody>
               {items.map((item) => (
                 <tr key={item.id} className="border-b">
-                  <td className="p-2">{item.label}</td>
+                  <td className="p-2">{item.label}
+                    <button type="button" onClick={() => setInterestProgramId(item.id)}
+                      className="ml-2 text-xs text-blue-700 underline">Interest</button>
+                  </td>
                   <td className="p-2">{types[item.program_type]}</td>
                   <td className="p-2">{item.agency_name || "Not recorded"}</td>
                   <td className="p-2">{item.recorded_start || "—"} – {item.recorded_end || "—"}</td>
@@ -155,6 +160,11 @@ export default function AffordableProgramsTab({
             </tbody>
           </table>
         </div>
+      )}
+      {interestProgramId !== null && (
+        <AffordableInterestLog key={interestProgramId} propertyId={propertyId}
+          programId={interestProgramId} canEdit={canEdit}
+          onClose={() => setInterestProgramId(null)} />
       )}
       {canEdit && (
         <form onSubmit={(event) => { void save(event); }} className="space-y-3 border-t pt-4">
