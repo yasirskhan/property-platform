@@ -20,6 +20,7 @@ import {
 } from "@/lib/bankAccounts";
 import { apiGet } from "@/lib/api";
 import Flag from "@/components/features/Flag";
+import TrustInterestReview from "@/components/accounting/TrustInterestReview";
 import { useDisplay } from "@/contexts/DisplayContext";
 
 type Me = { role: string };
@@ -34,6 +35,7 @@ export default function BankAccountsPage() {
   const [error, setError] = useState("");
 
   const [selected, setSelected] = useState<BankAccount | null>(null);
+  const [selectedInterest, setSelectedInterest] = useState<BankAccount | null>(null);
 
   async function load() {
     setLoading(true);
@@ -59,6 +61,7 @@ export default function BankAccountsPage() {
   if (!data) return null;
 
   const canWrite = me ? WRITE_ROLES.includes(String(me.role).toUpperCase()) : false;
+  const canReviewInterest = me ? ["ADMIN", "OWNER"].includes(String(me.role).toUpperCase()) : false;
 
   return (
     <div data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()} data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}>
@@ -156,6 +159,14 @@ export default function BankAccountsPage() {
                   <Flag name="release.accounting.ach_files"><Link href={`/dashboard/accounting/bank-accounts/${b.id}/ach`} className="text-blue-600 hover:text-blue-800 text-xs mr-3">ACH File</Link></Flag>
                   <Flag name="release.accounting.bank_feed"><Link href={`/dashboard/accounting/bank-accounts/${b.id}/bank-feed`} className="text-blue-600 hover:text-blue-800 text-xs mr-3">Bank Feed</Link></Flag>
                   <Flag name="release.accounting.bank_adjustments"><Link href={`/dashboard/accounting/bank-accounts/${b.id}/adjustments`} className="text-blue-600 hover:text-blue-800 text-xs mr-3">Adjustments</Link></Flag>
+                  {canReviewInterest && (
+                    <Flag name="release.accounting.bank_accounts">
+                      <button type="button" onClick={() => setSelectedInterest(b)}
+                        className="text-blue-600 hover:text-blue-800 text-xs mr-3">
+                        Interest review
+                      </button>
+                    </Flag>
+                  )}
                   {canWrite && (
                     <button
                       onClick={() => setSelected(b)}
@@ -170,6 +181,13 @@ export default function BankAccountsPage() {
           </tbody>
         </table>
       </div>
+
+      {selectedInterest && (
+        <TrustInterestReview
+          account={selectedInterest}
+          onClose={() => setSelectedInterest(null)}
+        />
+      )}
 
       {selected && (
         <EditModal

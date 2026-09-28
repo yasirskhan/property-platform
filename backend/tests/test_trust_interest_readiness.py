@@ -139,3 +139,30 @@ def test_interest_gate_permissions_and_inactive_bank_fail_closed(monkeypatch):
         assert db.query(TrustInterestReadiness).count()==0
     finally:
         db.close();engine.dispose()
+
+
+
+def test_interest_http_no_store_and_bank_cash_scope():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (bank, escrow, outside) = _seed(db)
+        response = Response()
+        assert api.get_interest_readiness(bank.id, response, db=db, current_user=admin).configured is False
+        assert response.headers["cache-control"] == "no-store"
+        result = Response()
+        api.put_interest_readiness(
+            bank.id, TrustInterestInput(jurisdiction="OH", proposed_recipient="OTHER",
+                                        basis_reference="Review reference"),
+            result, db=db, current_user=admin,
+        )
+        assert result.headers["cache-control"] == "no-store"
+        gl = db.query(GLAccount).filter(GLAccount.id == bank.gl_account_id).one()
+        gl.account_type = "EXPENSE"
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.get_interest_readiness(bank.id, Response(), db=db, current_user=admin)
+        assert exc.value.status_code == 422
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
