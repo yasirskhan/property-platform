@@ -120,6 +120,7 @@ from app.models.affordable_program import AffordableProgram  # noqa: F401
 from app.models.affordable_interest import AffordableInterest  # noqa: F401
 from app.models.affordable_evidence import AffordableEvidence  # noqa: F401
 from app.models.affordable_building import AffordableBuilding  # noqa: F401
+from app.models.affordable_8609_readiness import Affordable8609Readiness  # noqa: F401
 from app.models.unit_inspection import UnitInspectionRecord  # noqa: F401
 from app.models.vendor import Vendor  # noqa: F401
 from app.models.contact import Contact  # noqa: F401

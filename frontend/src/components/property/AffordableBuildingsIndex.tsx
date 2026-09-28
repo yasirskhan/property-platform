@@ -1,13 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiDelete, apiGet, apiPost } from "@/lib/api";
+import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 
 type Building = { id: number; program_id: number; building_label: string; agency_bin: string };
+type FormStatus = "NOT_RECORDED" | "FOLLOW_UP_NEEDED" | "REFERENCE_IDENTIFIED";
+type FormReadiness = { building_id: number; status: FormStatus; updated_at: string | null };
 export default function AffordableBuildingsIndex({
   propertyId, programId, canEdit, onClose,
 }: { propertyId: number; programId: number; canEdit: boolean; onClose: () => void }) {
   const [rows, setRows] = useState<Building[]>([]);
+  const [forms, setForms] = useState<Record<number, FormReadiness>>({});
+  const [formBusy, setFormBusy] = useState<number | null>(null);
   const [label, setLabel] = useState("");
   const [bin, setBin] = useState("");
   const [loading, setLoading] = useState(true);
@@ -21,7 +25,14 @@ export default function AffordableBuildingsIndex({
     void (async () => {
       try {
         const data = await apiGet(path) as Building[];
-        if (active) setRows(data);
+        if (active) {
+          setRows(data);
+          const current = await Promise.all(data.map(async (row) => {
+            const value = await apiGet(`${path}/${row.id}/8609-readiness`) as FormReadiness;
+            return [row.id, value] as const;
+          }));
+          if (active) setForms(Object.fromEntries(current));
+        }
       } catch (cause) {
         if (active) setError(cause instanceof Error ? cause.message : "Recorded buildings unavailable.");
       } finally { if (active) setLoading(false); }
@@ -43,6 +54,17 @@ export default function AffordableBuildingsIndex({
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Cannot record this building.");
     } finally { setBusy(false); }
+  }
+
+  async function saveForm(id: number, status: FormStatus) {
+    setFormBusy(id); setError(""); setMessage("");
+    try {
+      const result = await apiPut(`${path}/${id}/8609-readiness`, { status }) as FormReadiness;
+      setForms((prev) => ({ ...prev, [id]: result }));
+      setMessage("Staff Form 8609 reference status recorded. No IRS form or credit was verified.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Cannot update Form 8609 reference.");
+    } finally { setFormBusy(null); }
   }
 
   async function archive(id: number) {
@@ -67,7 +89,8 @@ export default function AffordableBuildingsIndex({
         Enter each agency-assigned Building Identification Number (BIN) separately.
         One property may have multiple LIHTC buildings. This inventory does not verify
         an issued Form 8609, agency allocation, tax-credit amount, owner election,
-        certification or IRS filing. Do not enter taxpayer IDs or tenant information.
+        certification or IRS filing. Form 8609 reference status is staff-entered metadata,
+        not an agency-reviewed signed Form 8609 or an annual 8609-A. Do not enter taxpayer IDs or tenant information.
         See the{" "}
         <a href="https://www.irs.gov/instructions/i8609" target="_blank" rel="noopener noreferrer"
           className="underline">IRS Form 8609 instructions</a>.
@@ -82,6 +105,15 @@ export default function AffordableBuildingsIndex({
             {rows.map((row) => (
               <div key={row.id} className="flex flex-wrap items-center justify-between gap-2 rounded border bg-white p-3 text-sm">
                 <span><strong>{row.building_label}</strong> — staff-entered BIN {row.agency_bin}</span>
+                <label className="text-xs text-slate-700">Form 8609 reference (staff index only)
+                  <select value={forms[row.id]?.status || "NOT_RECORDED"} disabled={!canEdit || formBusy !== null}
+                    onChange={(event) => { void saveForm(row.id, event.target.value as FormStatus); }}
+                    className="mt-1 block rounded border p-2">
+                    <option value="NOT_RECORDED">Not recorded</option>
+                    <option value="FOLLOW_UP_NEEDED">Follow-up needed</option>
+                    <option value="REFERENCE_IDENTIFIED">Reference identified (not verified)</option>
+                  </select>
+                </label>
                 {canEdit && <button type="button" disabled={busy} onClick={() => { void archive(row.id); }}
                   className="rounded border px-2 py-1 text-red-700 disabled:opacity-50">Archive</button>}
               </div>
