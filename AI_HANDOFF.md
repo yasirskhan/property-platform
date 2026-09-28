@@ -7,21 +7,20 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `61dcfdcef466eb2a20cc8adb8cf865d0e4eb6bb4`
-- Source GitHub Actions run **36463180281: SUCCESS, all six jobs**
+- Last VERIFIED **product source**: `01df09859e98e6575c8c16ae49c1dc23d1a94d67`
+- Source GitHub Actions run **36466695309: SUCCESS, all six jobs**
   (backend, frontend, platform-admin, security, authenticated E2E,
-  staging-config). Backend: **738 passed, 6 deselected, 16593 warnings
-  in 209.74s**. E2E: **6 passed, 12 warnings in 19.61s**. Lint,
-  TypeScript, build, security and staging: SUCCESS. This run used
-  docs-only HEAD `28c3aa3c` on verified product `61dcfdce`.
-  No local tests run.
+  staging-config). Backend: **742 passed, 7 deselected, 16805 warnings
+  in 206.88s**. E2E: **7 passed, 20 warnings in 21.86s**. Lint,
+  TypeScript, build, security and staging: SUCCESS. This applies to
+  verified product source `01df0985`. No local tests run.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **c4e6a8d0f2b1**. SQLAlchemy expected model tables: **141**.
+- Alembic head: **d5f7a9b1c3e4**. SQLAlchemy expected model tables: **144**.
   Previous head c3e5a7b9d1f2 / 139. PostgreSQL bootstrap, staging
   preparation and legacy migration guards passed in CI 36463180281.
 - CURRENT roadmap work: **Phase 4.7 C2 HOA IN PROGRESS**. Explicit user-directed priority: build generic HOA infrastructure first; independently verified Phase 4.8 C3 commercial reference/report source remains preserved, with no new commercial scope while HOA remains active. Authentic governing/legal sources are absent, so legally operative notices, assessments, fines and reserve postings remain blocked until reviewed. Previous Phase 3.7 reports and 1099 internal preparation retain verified scope.
-  **Latest verified batch: HOA staff meeting participation and motion preparation, plus dedicated meeting/case browser tests. No certified board vote or quorum.**
+  **Latest verified batch: HOA ARC application/review lifecycle with scoped applicant contact, private documents, review history and prepared approval/denial states that remain legally ineffective.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
@@ -29,6 +28,65 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
 - **Exact NEXT task: obtain/review actual HOA governing documents and the applicable property/association jurisdiction, authorized legal actors and accounting policies. Staff-only private-document evidence indexing, ARC intake, observations, meeting planning, contact references and assessment drafts are VERIFIED. A staff document link is NOT certification of governing authority. No official applications, architectural decisions, notices, penalties, board actions, dues/payer liability, reserve transfers or GL posting without reviewed legal/accounting authority. No uploaded governing source has been verified for this task. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows remain BLOCKED pending authoritative program rules and secure household policy.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED; do not label them completed screening/marketing conversions. External Stripe/IRS filing acceptance remains unimplemented.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight, 1099 preparation, tax profiles or W-9 archive.
+
+## CURRENT SESSION UPDATE — 2026-09-28 HOA ARC APPLICATION WORKFLOW VERIFIED
+
+**Verified product source** `01df09859e98e6575c8c16ae49c1dc23d1a94d67`.
+Implementation began at `0fa7b80698b29dcfffb1415717665d4b49803e3c`;
+compile import correction `16ab88d84744b21725b42139786870aa368c0415`;
+archive duplicate fail-closed source `e7e49d1521e359d1d6fe76cb09782929fee3a3b4`;
+final regression correction `01df09859e98e6575c8c16ae49c1dc23d1a94d67`.
+GitHub Actions **36466695309 SUCCESS all six jobs**:
+backend **742 passed, 7 deselected, 16805 warnings in 206.88s**;
+authenticated/dedicated browser **7 passed, 20 warnings in 21.86s**;
+frontend lint/TypeScript/build, platform-admin, security and staging passed.
+No local tests run. Earlier source run `36465878722` failed compile from
+one invalid import expression; `36466039178` then ran **741 passed,
+1 failed, 7 deselected** because a test attempted to recreate an archived
+application despite the schema's intentional unique/no-resurrection rule.
+The final source fails closed with HTTP 409 and passed fully. Intermediate
+run `36466679647` was superseded/cancelled.
+
+Migration **d5f7a9b1c3e4** follows c4e6a8d0f2b1 and adds
+`hoa_arc_applications`, `hoa_arc_application_attachments` and
+`hoa_arc_review_events`: **144 model tables** from 141. Fresh SQLite,
+PostgreSQL, staging preparation and legacy upgrade guards passed.
+
+Generic ARC workflow now reuses one existing active same-scope staff ARC
+intake plus an active same-association/property HOA Contact link as the
+applicant reference; no parallel applicant identity store was created.
+ADMIN/OWNER can record an application and review transitions; assigned
+MANAGER can read through the existing compliance/property scope. Review
+history supports SUBMITTED -> UNDER_REVIEW -> MORE_INFO_REQUESTED ->
+INFO_RECEIVED -> READY_FOR_DECISION -> DECISION_PREPARED, including
+prepared APPROVE/DENY recommendations. Every response states
+`governing_authority_verified=false` and
+`legal_decision_effective=false`; there is no operative approval,
+denial, permit, deadline, fee, charge or notice.
+
+ARC application files reuse existing PRIVATE property attachments and are
+blocked from owner/tenant generic sharing while actively linked. Archive
+of applicant contact, ARC intake, association or association/property
+scope soft-archives dependent applications; relink does not silently
+restore them. Generic notes/attachments cannot target ARC internal tables.
+Audits record scoped IDs/status only. No Charge, RentInvoice, GLEntry,
+GLTransaction or bank mutation. Dedicated browser coverage records ARC
+intake, application, staff review and prepared approval, then asserts
+"Effective legal decision: NO" and zero finance mutation.
+
+**Phase 4.7 remains IN PROGRESS** under the user's six-feature completion
+condition. ARC generic application/review/document/history infrastructure
+is now implemented; legally effective approval/denial remains gated on
+authenticated governing/decision authority. Existing private CC&R/rules/
+minutes storage, violation case workflow, staff meeting participation/
+motion prep and reserve read-only book remain verified. Still required:
+explicit board member role/eligibility/approval configuration and formal
+generic vote/minutes workflow without pretending authority; actual dues
+payer assignment + idempotent charge history/reversal/posting contract
+behind authority/accounting gates; reserve transfer/posting workflow
+behind central GL locks; and the $79/month HOA add-on entitlement/pricing
+activation. Do NOT resume Phase 4.8 until the six generic HOA workflows
+meet the user's completion condition.
 
 ## CURRENT SESSION UPDATE — 2026-09-28 HOA MEETING WORKSPACE VERIFIED
 
