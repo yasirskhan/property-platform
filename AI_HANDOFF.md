@@ -7,20 +7,20 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `9912398fcb67d4a37ddb31c656c47f40c525c33a`
-- Source GitHub Actions run **36493987607: SUCCESS, all six jobs**
+- Last VERIFIED **product source**: `1aa87bdf2ad55e4728c117e1552fc6b94be3a1a9`
+- Source GitHub Actions run **36494856673: SUCCESS, all six jobs**
   (backend, frontend, platform-admin, security, authenticated E2E,
-  staging-config). Backend: **758 passed, 11 deselected, 17505 warnings
-  in 232.87s**. E2E: **11 passed, 116 warnings in 37.21s**. Lint,
+  staging-config). Backend: **760 passed, 11 deselected, 17603 warnings
+  in 192.10s**. E2E: **11 passed, 116 warnings in 39.54s**. Lint,
   TypeScript, build, security and staging: SUCCESS. This applies to
-  verified product source `9912398f`. No local tests run.
+  verified product source `1aa87bdf`. No local tests run.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
 - Alembic head: **e2f4a6c8b0d3**. SQLAlchemy expected model tables: **151**.
   Previous head d1e3f5a7b9c2 / 150. PostgreSQL bootstrap, staging
   preparation and legacy migration guards passed in CI 36493987607.
 - CURRENT roadmap work: **Phase 4.7 C2 HOA IN PROGRESS**. Explicit user-directed priority: build generic HOA infrastructure first; independently verified Phase 4.8 C3 commercial reference/report source remains preserved, with no new commercial scope while HOA remains active. Authentic governing/legal sources are absent, so legally operative notices, assessments, fines and reserve postings remain blocked until reviewed. Previous Phase 3.7 reports and 1099 internal preparation retain verified scope.
-  **Latest verified batch: scoped, unissued HOA reserve movement drafts with idempotent cancellation, corrected counterparty GL selector and dedicated browser regression. No funds posted or transferred.**
+  **Latest verified batch: scoped HOA assessment issuance/posting readiness with accounting permission, suggested-payer, GL candidate and locked-period checks, plus dedicated browser coverage. Posting/reversals remain disabled.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
@@ -28,6 +28,84 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
 - **Exact NEXT task: obtain/review actual HOA governing documents and the applicable property/association jurisdiction, authorized legal actors and accounting policies. Staff-only private-document evidence indexing, ARC intake, observations, meeting planning, contact references and assessment drafts are VERIFIED. A staff document link is NOT certification of governing authority. No official applications, architectural decisions, notices, penalties, board actions, dues/payer liability, reserve transfers or GL posting without reviewed legal/accounting authority. No uploaded governing source has been verified for this task. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows remain BLOCKED pending authoritative program rules and secure household policy.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED; do not label them completed screening/marketing conversions. External Stripe/IRS filing acceptance remains unimplemented.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight, 1099 preparation, tax profiles or W-9 archive.
+
+## CURRENT SESSION UPDATE — 2026-09-28 HOA ISSUANCE READINESS VERIFIED
+
+**Verified PRODUCT source** `1aa87bdf2ad55e4728c117e1552fc6b94be3a1a9`.
+GitHub Actions **36494856673 SUCCESS all six jobs**: backend
+**760 passed, 11 deselected, 17603 warnings in 192.10s**;
+authenticated browser **11 passed, 116 warnings in 39.54s**;
+frontend lint/typecheck/build, platform-admin, security and
+staging-config all PASS. Hosted CI only, **TESTS NOT RUN locally**.
+No schema/migration changes: Alembic `e2f4a6c8b0d3`, **151
+SQLAlchemy tables**. Frozen `docs/` and parity files unchanged.
+Previous handoff-only run `36494822406` was cancelled/superseded;
+do not report that docs-only run as a separate green product.
+
+The new GET `/api/hoa/associations/{id}/draft-assessments/
+{proposal_id}/planned-occurrences/{occurrence_id}/issuance-readiness`
+is deliberately READ-ONLY and fail-closed. It reuses the live
+HOA paid entitlement/release, association/property/proposal/
+planned-occurrence and contact scope, then requires ADMIN/OWNER
+plus ACCOUNTING.CHARGES and ACCOUNTING.GL_ACCOUNTS permissions.
+It checks the historical plan against the live payer reference,
+an optional active same-org INCOME GL candidate, the current
+organization accounting lock and VOIDED status. No identity
+from a mere staff contact is treated as a legal debtor; the
+candidate is NOT an approved HOA GL mapping. The response
+names missing governing authority, assessment approval,
+legal payer liability and approved GL mapping. Flags
+`governing_authority_verified`,
+`assessment_approval_verified`,
+`legal_payer_liability_verified`,
+`approved_gl_mapping_verified`, `posting_enabled` and
+`reversal_enabled` are all explicitly FALSE regardless of a
+valid candidate. This API does not accept attestation-by-query
+or mutate Charge, RentInvoice, GLTransaction, GLEntry, bank,
+posted history, a due date or a legal notice.
+
+The existing unissued planning-history UI now allows admin/
+owner to inspect precisely these blockers on each planning
+row, without a dangerous "Issue charge" button. Two focused
+new backend regressions cover active versus voided period,
+locked date, candidate income GL versus approved mapping,
+current payer archive, cross-property/manager/tenant/foreign
+denial, accounting permission and feature revocation, no-store
+and ZERO Charge/GL effects. The already dedicated HOA dues
+browser test now also checks posting-readiness display and
+zero finance; browser suite remains 11 tests. Earlier
+reserve batch `9912398f` is independently verified by
+`36493987607`, and earlier HOA/Commercial features remain
+untouched.
+
+**Original user completion condition remains OPEN.**
+Recurring/special plans and history are NOT issued legal dues.
+No official notices/fines, adopted board votes/minutes, final
+ARC legal decisions or reserve GL transfer are enabled.
+Private document evidence and the `$79/mo` hidden catalog
+with separate paid HOA gating are verified; authorized
+production add-on checkout/Stripe activation remains absent.
+Operational legal activation requires actual applicable
+authenticated HOA governing instruments, identifiable
+authorized association actors/board members, approved
+assessment payer, legal notice/fine/ARC rules, and authorized
+reserve/GL policy. Org-entered text is not such evidence.
+Preserve generic draft/case/review/document/meeting/GL-read
+features and independent verified Phase 4.8 source, but do
+NOT advance Phase 4.8 until requested six generic HOA
+workflows are integrated and tested.
+
+**Exact next safe original HOA task:** implement a reviewed,
+non-self-certifying authority-evidence/decision-maker contract
+that can ultimately authorize separate atomic issuance/
+reversal and reserve posting through the existing central GL
+once the genuine governing documents and payer mapping exist.
+Do not invent authenticated HOA records, legal deadlines or
+auto-bill a generic tenant from a Contact link. Also continue
+independently safe board-member identity and subscription
+purchase integration only with adequate authentication and
+provider authorization; no self-issued legal authority.
+This root handoff-only update is not a product test.
 
 ## CURRENT SESSION UPDATE — 2026-09-28 HOA RESERVE MOVEMENT DRAFTS VERIFIED
 
