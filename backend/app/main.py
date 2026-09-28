@@ -95,6 +95,7 @@ from app.routers import rubs_readiness as rubs_readiness_router
 from app.routers import affordable_programs as affordable_programs_router
 from app.routers import hoa_associations as hoa_associations_router
 from app.routers import hoa_assessments as hoa_assessments_router
+from app.routers import hoa_observations as hoa_observations_router
 from app.routers import affordable_interest as affordable_interest_router
 from app.routers import affordable_evidence as affordable_evidence_router
 from app.routers import affordable_buildings as affordable_buildings_router
@@ -217,6 +218,7 @@ app.include_router(rubs_readiness_router.router)
 app.include_router(affordable_programs_router.router)
 app.include_router(hoa_associations_router.router)
 app.include_router(hoa_assessments_router.router)
+app.include_router(hoa_observations_router.router)
 app.include_router(affordable_interest_router.router)
 app.include_router(affordable_evidence_router.router)
 app.include_router(affordable_buildings_router.router)

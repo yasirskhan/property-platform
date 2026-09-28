@@ -23,7 +23,8 @@ _FORBIDDEN_TABLES = {
     "hoa_associations",  # HOA registry requires association-scoped permission, not generic notes.
     "hoa_property_memberships",
     "hoa_contact_links",  # Requires joint HOA + contact scope.
-    "hoa_assessment_proposals",  # Not a generic note or tenant liability.
+    "hoa_assessment_proposals",
+    "hoa_observations",  # Staff-only potential-issue notes; not public evidence or documents.  # Not a generic note or tenant liability.
     "affordable_lihtc_buildings",
     "affordable_lihtc_8609_readiness",
     "affordable_lihtc_8609_documents",

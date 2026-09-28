@@ -7,24 +7,24 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `b78f8fd8569a3b0a3c95699d3461123cbdcd9c4a`
-- Source GitHub Actions run **36428959926: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `fe1449420ab89723973e4e3730ce48d917f58f36`
+- Source GitHub Actions run **36431000854: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **698 passed, 3 deselected, 14988 warnings in 151.75s**.
-  E2E: **3 passed in 6.24s**. Lint, typecheck, production build, security
+  Backend: **700 passed, 3 deselected, 15059 warnings in 136.91s**.
+  E2E: **3 passed in 9.35s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
 - Alembic head: **f8b0c2d4e6a9**. SQLAlchemy expected model tables: **131**.
   Previous head e7a9b1c3d5f8 / 130 tables (one HOA assessment draft table added). PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest verified batch: Phase 4.7 C2 HOA assessment DRAFT backend, VERIFIED. Customer draft UI is in an unverified source batch awaiting CI.**
+  **Latest verified batch: Phase 4.7 C2 HOA assessment DRAFT backend/UI and unlink/archive integrity, VERIFIED. Next observation backend is unverified until CI.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT task after UI verification: original Phase 4.7 C2 remaining legal HOA dues/payer dependencies; do not invent governing authority. The staff DRAFT recurring/special assessment policy backend is verified, customer interface awaiting CI; no payer designation, GL or tenant charge. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows are still BLOCKED on authoritative jurisdiction/program rules and secure household policy; do not mark Phase 4.6 complete or infer eligibility from staff evidence.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
+- **Exact NEXT task: original Phase 4.7 C2 staff HOA observation intake, no issued violations, legal notices, fines or hearings without governing authority. Staff observation backend is in the pending CI batch; customer UI follows successful CI. No payer designation, GL or tenant charge. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows are still BLOCKED on authoritative jurisdiction/program rules and secure household policy; do not mark Phase 4.6 complete or infer eligibility from staff evidence.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -3834,52 +3834,48 @@ automatic charge, GL booking, reserve accounting or fine
 without verified governing authority, recipient ownership/
 payer obligation, board approval, accounting policies.
 
-# Exact next work: continue, don't stop at phase boundary
+# Exact next work: continue original C2 safely
 
-1. Read root handoff, verify branch HEAD, CI. Last verified
-   source 8b25ab6240c7cd69c1708d28002f583b526af71c;
-   CI 36426366891 SUCCESS, 694 backend passed, 3 deselected,
-   3 E2E passed, six jobs. Alembic e7a9b1c3d5f8, 130
-   SQLAlchemy tables. Do not repeat HOA registry, contact
-   references or existing customer Compliance UI.
-2. Original Phase 4.7 C2 next safe batch: explicit bounded
-   HOA recurring/special assessment PROPOSAL/DRAFT policy
-   (org, active association, explicitly linked property,
-   dates/frequency/amount) with no approved/billed status,
-   no payer/tenant allocation, due notice, Charge, GL, ACH,
-   fine, reserve or board governance action. Only user-entered
-   assumptions; guard live scope and role. Include regression
-   tests showing no finance mutation.
-3. Before any real HOA billing, obtain lawful member/owner
-   payer designation, governing documents, association
-   authorization and accounting policy, then use central
-   immutable GL. The existing Contacts roster NEVER proves
-   any legal liability or membership.
-4. Phase 4.6 HUD/LIHTC substantive household, AMI/HAP
-   legal calculations remain blocked on actual authoritative
-   jurisdiction/program rules and secure household policy.
-5. Commit bounded source+tests, require all applicable CI
-   green, fix reds, and keep THIS root handoff accurate.
-   Never modify frozen docs/, main or branch structure.
+1. Read full root handoff; verify actual branch HEAD and latest CI.
+   Latest verified product fe1449420ab89723973e4e3730ce48d917f58f36,
+   CI 36431000854 SUCCESS (700 backend passed, 3 deselected,
+   3 E2E passed). Verified migration f8b0c2d4e6a9 / 131 tables.
+   No duplicate HOA registry/contact/draft implementation.
+2. Bounded original C2 violations prerequisite is staff-only
+   observations. Pending source batch adds scoped read/write
+   backend and migration a9c1e3f5b7d0 / 132 tables plus tests.
+   That source is NOT VERIFIED until all applicable CI jobs pass.
+   Then add a read-only MANAGER / ADMIN-OWNER editing customer UI
+   in existing property HOA panel; do not issue legal notices.
+3. Actual violation notice, statutory cure period, fines,
+   hearings, dues/payer liability, board approval and reserve
+   accounting require reviewed governing documents, applicable
+   jurisdiction rules and explicit legal actor authority.
+   Never infer liability or send notices from staff observations.
+   Phase 4.6 substantive HUD/LIHTC legal calculations similarly
+   remain blocked on authoritative jurisdiction/program data.
+4. Commit source+tests, require all six CI jobs green, fix reds.
+   Keep this root handoff current with actual SHA/results;
+   frozen docs/, main and branch structure unchanged.
 
 ## Session start for successor
 
-Continue yasirskhan/property-platform ONLY on existing
-chatgpt/checkpoint-005-safety. Read whole root AI_HANDOFF.md
-and verify branch HEAD/CI. Last VERIFIED source
-8b25ab6240c7cd69c1708d28002f583b526af71c;
-CI 36426366891 all six success, 694 backend passed,
-3 deselected, 3 E2E passed. Alembic e7a9b1c3d5f8,
-130 tables. Phase 4.7 HOA association/property inventory,
-customer Compliance UI and Contacts references VERIFIED;
-do not repeat. Next original C2 task: DRAFT recurring/special
-assessment configuration with no legal dues, payer
-responsibility or GL posting. Phase4.6 HUD/LIHTC actual
-eligibility and HAP blocked on authoritative requirements.
-Commit source+regressions and verify GitHub CI; update root
-handoff after each meaningful batch. No main/new branch
-or frozen docs edits. Do not request Work mode.
-
+Continue ONLY yasirskhan/property-platform branch
+chatgpt/checkpoint-005-safety. Read entire repo-root AI_HANDOFF.md
+and verify HEAD/CI. Last VERIFIED source
+fe1449420ab89723973e4e3730ce48d917f58f36;
+CI 36431000854 SUCCESS all six jobs: 700 backend passed,
+3 deselected; 3 browser E2E passed. Alembic f8b0c2d4e6a9,
+131 tables. Verified HOA association registry, contacts,
+staff-only recurring/special assessment draft backend/UI and
+unlink/archive integrity. Do not repeat those batches.
+Pending source adds Phase 4.7 staff HOA observations backend,
+migration a9c1e3f5b7d0 / 132 tables; CI pending/not verified.
+Fix CI if red before adding its customer UI. Actual HOA
+legal notices/fines and HUD/LIHTC eligibility need reviewed
+governing/jurisdiction rules. Do not touch main/new branches or
+unrelated frozen docs. Use GitHub CI after commit; refresh handoff
+after verified batch. Do not request Work mode.
 
 ## Phase 4.7 C2 HOA assessment draft source — VERIFIED 2026-09-28
 
@@ -3903,12 +3899,48 @@ archived/unlinked records fail closed. Generic unencrypted notes and
 attachments cannot target proposals. Audit metadata redacted.
 No changes to frozen docs/ or planning parity.
 
-## Phase 4.7 C2 HOA assessment customer UI — UNVERIFIED SOURCE BATCH
+## Phase 4.7 C2 HOA assessment customer UI — VERIFIED 2026-09-28
 
-This source commit adds HoaDraftAssessmentsPanel.tsx to existing
-property Compliance HOA panel and one additional API contract test.
-Do NOT call the UI verified until its own GitHub Actions run succeeds.
+Source ead950a0b7dc0aa0bae18c44513db5ccbbbe28e2 added
+HoaDraftAssessmentsPanel.tsx to existing property Compliance HOA panel
+and one additional API contract test. CI 36429898691 SUCCESS all six
+jobs: 699 backend passed, 3 deselected, 15017 warnings in
+176.77s; 3 authenticated E2E passed in 9.19s; frontend,
+platform-admin, security and staging passed. Existing generic
+browser smoke, NOT a dedicated HOA draft UI interaction test.
 The panel offers read-only manager viewing, ADMIN/OWNER create/edit/
 archive of staff DRAFT amounts/frequency/dates, and explains clearly
 that no legal assessment, payer, approved charge or GL is created.
-No migration. If CI fails, fix before starting another feature batch.
+No migration. Source head f8b0c2d4e6a9 and 131 tables remain verified.
+
+
+## Phase 4.7 C2 HOA draft scope integrity — VERIFIED 2026-09-28
+
+Source fe1449420ab89723973e4e3730ce48d917f58f36;
+CI 36431000854 SUCCESS all six jobs, backend 700 passed,
+3 deselected, 15059 warnings in 136.91s; 3 browser E2E
+passed in 9.35s. No migration: f8b0c2d4e6a9 / 131 tables.
+On association/property unlink or association archive, active
+staff assessment draft assumptions are softly archived with
+redacted immutable audit; a later relink cannot resurrect
+obsolete amounts. Regression tests cover relink, archive,
+per-org isolation, zero Charge/GL/Lease effects.
+
+## Phase 4.7 C2 staff observation prerequisite — UNVERIFIED SOURCE BATCH
+
+This new source batch adds only organization/property/association-
+scoped staff observations for possible HOA issues. It is NOT
+an adjudicated violation, an issued notice, a cure deadline, a
+fine, a legal obligation, a hearing or a GL/tenant charge.
+ADMIN/OWNER write; assigned MANAGER read. Backend checks live
+association membership, compliance release gate, org and
+property scope, and PROPERTIES.ALL permission. Generic notes/
+unencrypted attachments denylisted; audit metadata excludes
+free-text details. Association unlink and archive soft-disable
+old staff records so relink cannot silently reactivate them.
+Migration a9c1e3f5b7d0 adds hoa_observations (132 model tables).
+Focused tests assert no legal/finance fields and no GL/Charge/
+Lease mutation. Do not mark this feature, migration or test counts
+VERIFIED until this source CI passes. Next dependent batch is
+customer staff observation list/form (no notices/fines).
+No frozen docs/ or planning parity changes in this batch.
