@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import AffordableInterestLog from "@/components/property/AffordableInterestLog";
 import AffordableEvidenceChecklist from "@/components/property/AffordableEvidenceChecklist";
+import AffordableBuildingsIndex from "@/components/property/AffordableBuildingsIndex";
 
 type ProgramType = "SECTION_8_VOUCHER" | "SECTION_8_PROJECT_BASED" | "LIHTC" | "HUD_OTHER" | "OTHER";
 type Program = {
@@ -41,6 +42,7 @@ export default function AffordableProgramsTab({
   const [editing, setEditing] = useState<number | null>(null);
   const [interestProgramId, setInterestProgramId] = useState<number | null>(null);
   const [evidenceProgramId, setEvidenceProgramId] = useState<number | null>(null);
+  const [buildingsProgramId, setBuildingsProgramId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -145,6 +147,9 @@ export default function AffordableProgramsTab({
                       className="ml-2 text-xs text-blue-700 underline">Interest</button>
                     <button type="button" onClick={() => setEvidenceProgramId(item.id)}
                       className="ml-2 text-xs text-blue-700 underline">Readiness checklist</button>
+                    {item.program_type === "LIHTC" && <button type="button"
+                      onClick={() => setBuildingsProgramId(item.id)}
+                      className="ml-2 text-xs text-blue-700 underline">Recorded LIHTC buildings</button>}
                   </td>
                   <td className="p-2">{types[item.program_type]}</td>
                   <td className="p-2">{item.agency_name || "Not recorded"}</td>
@@ -164,6 +169,11 @@ export default function AffordableProgramsTab({
             </tbody>
           </table>
         </div>
+      )}
+      {buildingsProgramId !== null && (
+        <AffordableBuildingsIndex key={buildingsProgramId} propertyId={propertyId}
+          programId={buildingsProgramId} canEdit={canEdit}
+          onClose={() => setBuildingsProgramId(null)} />
       )}
       {evidenceProgramId !== null && (
         <AffordableEvidenceChecklist key={evidenceProgramId} propertyId={propertyId}

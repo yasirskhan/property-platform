@@ -95,6 +95,7 @@ from app.routers import rubs_readiness as rubs_readiness_router
 from app.routers import affordable_programs as affordable_programs_router
 from app.routers import affordable_interest as affordable_interest_router
 from app.routers import affordable_evidence as affordable_evidence_router
+from app.routers import affordable_buildings as affordable_buildings_router
 from app.routers import trust_interest as trust_interest_router
 from app.routers import positive_pay as positive_pay_router
 from app.routers import owner_packets as owner_packets_router
@@ -211,6 +212,7 @@ app.include_router(rubs_readiness_router.router)
 app.include_router(affordable_programs_router.router)
 app.include_router(affordable_interest_router.router)
 app.include_router(affordable_evidence_router.router)
+app.include_router(affordable_buildings_router.router)
 app.include_router(trust_interest_router.router)
 app.include_router(positive_pay_router.router)
 app.include_router(owner_packets_router.router)
