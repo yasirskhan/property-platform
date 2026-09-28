@@ -30,3 +30,17 @@ class HOAAssociationOut(BaseModel):
     name: str
     property_ids: list[int]
     updated_at: datetime
+
+
+
+class HOAContactLinkIn(BaseModel):
+    property_id: int = Field(ge=1)
+    contact_id: int = Field(ge=1)
+
+
+class HOAContactLinkOut(BaseModel):
+    id: int
+    association_id: int
+    property_id: int
+    contact_id: int
+    contact_name: str

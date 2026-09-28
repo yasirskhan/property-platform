@@ -22,6 +22,7 @@ _FORBIDDEN_TABLES = {
     "affordable_program_evidence",  # Checklist has a narrower compliance-only access boundary.
     "hoa_associations",  # HOA registry requires association-scoped permission, not generic notes.
     "hoa_property_memberships",
+    "hoa_contact_links",  # Requires joint HOA + contact scope.
     "affordable_lihtc_buildings",
     "affordable_lihtc_8609_readiness",
     "affordable_lihtc_8609_documents",

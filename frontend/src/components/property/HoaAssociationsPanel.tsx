@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
+import HoaContactsPanel from "@/components/property/HoaContactsPanel";
 
 type Association = { id: number; name: string; property_ids: number[]; updated_at: string };
 type PropertyOption = { id: number; name: string; is_active: boolean };
@@ -12,6 +13,7 @@ export default function HoaAssociationsPanel({ propertyId, canEdit }: {
   const [items, setItems] = useState<Association[]>([]);
   const [properties, setProperties] = useState<PropertyOption[]>([]);
   const [name, setName] = useState("");
+  const [contactsAssociation, setContactsAssociation] = useState<number | null>(null);
   const [others, setOthers] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -82,6 +84,7 @@ export default function HoaAssociationsPanel({ propertyId, canEdit }: {
     try {
       await apiDelete("/api/hoa/associations/" + row.id);
       setItems((prior) => prior.filter((item) => item.id !== row.id));
+      if (contactsAssociation === row.id) setContactsAssociation(null);
       setMessage("Inventory archived. No charges or legal obligations were changed.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Cannot archive association.");
@@ -116,12 +119,20 @@ export default function HoaAssociationsPanel({ propertyId, canEdit }: {
                 <div className="font-medium text-slate-900">{row.name}</div>
                 <div className="text-xs text-slate-500">{row.property_ids.length} visible linked properties</div>
               </div>
-              {canEdit && <div className="flex gap-3 text-sm">
+              <div className="flex gap-3 text-sm">
+                <button type="button" onClick={() => setContactsAssociation((old) => old === row.id ? null : row.id)}
+                  className="text-blue-700">Contacts</button>
+              {canEdit && <>
                 <button type="button" disabled={busy} onClick={() => { void changeMembership(row, false); }}
                   className="text-blue-700 disabled:opacity-50">Unlink</button>
                 <button type="button" disabled={busy} onClick={() => { void archive(row); }}
                   className="text-red-700 disabled:opacity-50">Archive</button>
-              </div>}
+              </>}
+              </div>
+              {contactsAssociation === row.id && (
+                <HoaContactsPanel associationId={row.id} propertyId={propertyId} canEdit={canEdit}
+                  onClose={() => setContactsAssociation(null)} />
+              )}
             </div>
           ))}
           {canEdit && (

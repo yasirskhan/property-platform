@@ -11,6 +11,8 @@ from sqlalchemy.orm import sessionmaker
 import init_db  # noqa: F401
 from app.core.database import Base
 from app.models.audit_log import AuditLog
+from app.models.contact import Contact
+from app.models.hoa_association import HOAContactLink
 from app.models.charge import Charge
 from app.models.gl_transaction import GLTransaction
 from app.models.hoa_association import HOAAssociation, HOAPropertyMembership
@@ -18,7 +20,7 @@ from app.models.lease import Lease
 from app.models.property import Property, PropertyAssignment
 from app.models.user import Organization, User, UserRole
 from app.routers import hoa_associations as api
-from app.schemas.hoa_association import HOAAssociationIn
+from app.schemas.hoa_association import HOAAssociationIn, HOAContactLinkIn
 from app.services.entity_notes import _model_for_table
 
 
@@ -195,3 +197,96 @@ def test_same_property_multiple_associations_and_deactivated_admin_guard():
         assert db.query(GLTransaction).count() == db.query(Charge).count() == 0
     finally:
         db.rollback(); db.close(); engine.dispose()
+
+
+
+def test_contact_links_scope_revocation_archival_and_property_unlink(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, unassigned, other) = _seed(db)
+        local = Contact(organization_id=admin.organization_id, display_name="Staff Contact",
+                        contact_type="PERSON", is_active=True)
+        far = Contact(organization_id=foreign.organization_id, display_name="Foreign Contact",
+                      contact_type="PERSON", is_active=True)
+        db.add_all([local, far]); db.commit()
+        assoc = api.create_association(_in("Contact HOA", [assigned.id, unassigned.id]),
+                                       db=db, current_user=admin)
+        with pytest.raises(HTTPException) as exc:
+            api.add_contact_link(assoc.id, HOAContactLinkIn(property_id=assigned.id,
+                                 contact_id=far.id), db=db, current_user=admin)
+        assert exc.value.status_code == 404
+        with pytest.raises(HTTPException) as exc:
+            api.add_contact_link(assoc.id, HOAContactLinkIn(property_id=other.id,
+                                 contact_id=local.id), db=db, current_user=admin)
+        assert exc.value.status_code == 404
+        saved = api.add_contact_link(assoc.id, HOAContactLinkIn(
+            property_id=assigned.id, contact_id=local.id), db=db, current_user=admin)
+        assert saved.contact_name == "Staff Contact"
+        response = Response()
+        listed = api.list_contact_links(assoc.id, assigned.id, response,
+                                        db=db, current_user=manager)
+        assert [r.id for r in listed] == [saved.id]
+        assert response.headers["cache-control"] == "no-store"
+        with pytest.raises(HTTPException) as exc:
+            api.list_contact_links(assoc.id, unassigned.id, Response(),
+                                   db=db, current_user=manager)
+        assert exc.value.status_code == 404
+        with pytest.raises(HTTPException) as exc:
+            api.add_contact_link(assoc.id, HOAContactLinkIn(
+                property_id=assigned.id, contact_id=local.id), db=db, current_user=manager)
+        assert exc.value.status_code == 403
+        with pytest.raises(HTTPException) as exc:
+            api.add_contact_link(assoc.id, HOAContactLinkIn(
+                property_id=assigned.id, contact_id=local.id), db=db, current_user=admin)
+        assert exc.value.status_code == 409
+        monkeypatch.setattr(api, "permission_allows_user",
+                            lambda db, *, user, menu_key: menu_key != "PEOPLE.CONTACTS")
+        with pytest.raises(HTTPException) as exc:
+            api.list_contact_links(assoc.id, assigned.id, Response(),
+                                   db=db, current_user=admin)
+        assert exc.value.status_code == 403
+        monkeypatch.setattr(api, "permission_allows_user", lambda *a, **k: True)
+        api.update_association(assoc.id, _in("Contact HOA", [unassigned.id]),
+                               db=db, current_user=admin)
+        assert db.query(HOAContactLink).one().is_active is False
+        api.update_association(assoc.id, _in("Contact HOA", [assigned.id, unassigned.id]),
+                               db=db, current_user=admin)
+        assert api.list_contact_links(assoc.id, assigned.id, Response(),
+                                      db=db, current_user=admin) == []
+        restored = api.add_contact_link(assoc.id, HOAContactLinkIn(
+            property_id=assigned.id, contact_id=local.id), db=db, current_user=admin)
+        assert restored.id == saved.id
+        api.remove_contact_link(assoc.id, saved.id, assigned.id, db=db, current_user=owner)
+        assert api.list_contact_links(assoc.id, assigned.id, Response(),
+                                      db=db, current_user=admin) == []
+        assert db.query(GLTransaction).count() == db.query(Charge).count() == 0
+        with pytest.raises(HTTPException) as exc:
+            _model_for_table("hoa_contact_links")
+        assert exc.value.status_code == 404
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_contact_links_hidden_for_deactivated_contact_and_foreign_organization():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, unassigned, other) = _seed(db)
+        contact = Contact(organization_id=admin.organization_id, display_name="Inactive HOA contact",
+                          contact_type="PERSON", is_active=True)
+        db.add(contact); db.commit()
+        assoc = api.create_association(_in("Second HOA", [assigned.id]),
+                                       db=db, current_user=admin)
+        added = api.add_contact_link(assoc.id, HOAContactLinkIn(
+            property_id=assigned.id, contact_id=contact.id), db=db, current_user=admin)
+        contact.is_active = False
+        db.flush()
+        assert api.list_contact_links(assoc.id, assigned.id, Response(),
+                                      db=db, current_user=admin) == []
+        with pytest.raises(HTTPException) as exc:
+            api.list_contact_links(assoc.id, assigned.id, Response(),
+                                   db=db, current_user=foreign)
+        assert exc.value.status_code == 404
+        db.rollback()
+        assert db.query(HOAContactLink).filter(HOAContactLink.id == added.id).count() == 1
+    finally:
+        db.close(); engine.dispose()

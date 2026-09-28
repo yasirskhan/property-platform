@@ -6,11 +6,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.hoa_association import HOAAssociation, HOAPropertyMembership
+from app.models.hoa_association import HOAAssociation, HOAPropertyMembership, HOAContactLink
+from app.models.contact import Contact
 from app.models.property import Property, PropertyAssignment
 from app.models.user import User, UserRole
 from app.routers.auth import get_current_user
-from app.schemas.hoa_association import HOAAssociationIn, HOAAssociationOut
+from app.schemas.hoa_association import HOAAssociationIn, HOAAssociationOut, HOAContactLinkIn, HOAContactLinkOut
 from app.services.audit import append_audit_log
 from app.services.customer_features import resolve_customer_features
 from app.services.menu_resolver import permission_allows_user
@@ -146,6 +147,20 @@ def _save(db: Session, *, actor: User, payload: HOAAssociationIn,
         current_ids = {m.property_id for m in current}
         for m in current:
             if m.property_id not in wanted:
+                for link in db.query(HOAContactLink).filter(
+                    HOAContactLink.organization_id == org_id,
+                    HOAContactLink.association_id == row.id,
+                    HOAContactLink.property_id == m.property_id,
+                    HOAContactLink.is_active.is_(True),
+                ).all():
+                    link.is_active = False
+                    link.updated_by_id = actor.id
+                    db.flush()
+                    append_audit_log(
+                        db, organization_id=org_id, user_id=actor.id,
+                        entity_type="hoa_contact_link", entity_id=link.id,
+                        action="association_property_unlinked",
+                    )
                 db.delete(m)
         for property_id in sorted(wanted - current_ids):
             db.add(HOAPropertyMembership(
@@ -191,11 +206,163 @@ def archive_association(
     row = _association(db, org_id=org_id, association_id=association_id)
     row.is_active = False
     row.updated_by_id = current_user.id
+    for link in db.query(HOAContactLink).filter(
+        HOAContactLink.organization_id == org_id,
+        HOAContactLink.association_id == row.id,
+        HOAContactLink.is_active.is_(True),
+    ).all():
+        link.is_active = False
+        link.updated_by_id = current_user.id
+        db.flush()
+        append_audit_log(db, organization_id=org_id, user_id=current_user.id,
+                         entity_type="hoa_contact_link", entity_id=link.id,
+                         action="association_archived")
     db.flush()
     append_audit_log(
         db, organization_id=org_id, user_id=current_user.id,
         entity_type="hoa_association", entity_id=row.id,
         action="archived",
+    )
+    db.commit()
+    return Response(status_code=204, headers={"Cache-Control": "no-store"})
+
+
+
+def _contact_scope(
+    db: Session, *, actor: User, association_id: int,
+    property_id: int, write: bool,
+) -> tuple[int, HOAAssociation]:
+    org_id = _access(db, actor, write=write)
+    if not permission_allows_user(db, user=actor, menu_key="PEOPLE.CONTACTS"):
+        raise HTTPException(status_code=403, detail="Contacts permission required.")
+    association = _association(db, org_id=org_id, association_id=association_id)
+    prop = _visible(db, org_id=org_id, actor=actor).filter(Property.id == property_id).first()
+    if prop is None:
+        raise HTTPException(status_code=404, detail="Association property not found.")
+    linked = db.query(HOAPropertyMembership.id).filter(
+        HOAPropertyMembership.organization_id == org_id,
+        HOAPropertyMembership.association_id == association.id,
+        HOAPropertyMembership.property_id == prop.id,
+    ).first()
+    if linked is None:
+        raise HTTPException(status_code=404, detail="Association property not found.")
+    return org_id, association
+
+
+def _contact(db: Session, *, org_id: int, contact_id: int) -> Contact:
+    row = db.query(Contact).filter(
+        Contact.id == contact_id, Contact.organization_id == org_id,
+        Contact.is_active.is_(True), Contact.deleted_at.is_(None),
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Contact not found.")
+    return row
+
+
+@router.get("/{association_id}/contacts", response_model=list[HOAContactLinkOut])
+def list_contact_links(
+    association_id: int, property_id: int, response: Response,
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    """View only staff references within this currently visible association property."""
+    org_id, association = _contact_scope(
+        db, actor=current_user, association_id=association_id,
+        property_id=property_id, write=False,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    rows = db.query(HOAContactLink, Contact).join(
+        Contact, Contact.id == HOAContactLink.contact_id,
+    ).filter(
+        HOAContactLink.organization_id == org_id,
+        HOAContactLink.association_id == association.id,
+        HOAContactLink.property_id == property_id,
+        HOAContactLink.is_active.is_(True),
+        Contact.organization_id == org_id,
+        Contact.is_active.is_(True),
+        Contact.deleted_at.is_(None),
+    ).order_by(Contact.display_name, HOAContactLink.id).limit(501).all()
+    if len(rows) > 500:
+        raise HTTPException(status_code=422, detail="Too many recorded contacts for one property.")
+    return [
+        HOAContactLinkOut(id=link.id, association_id=association.id,
+                          property_id=property_id, contact_id=contact.id,
+                          contact_name=contact.display_name)
+        for link, contact in rows
+    ]
+
+
+@router.post("/{association_id}/contacts", response_model=HOAContactLinkOut, status_code=201)
+def add_contact_link(
+    association_id: int, payload: HOAContactLinkIn,
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    org_id, association = _contact_scope(
+        db, actor=current_user, association_id=association_id,
+        property_id=payload.property_id, write=True,
+    )
+    contact = _contact(db, org_id=org_id, contact_id=payload.contact_id)
+    link = db.query(HOAContactLink).filter(
+        HOAContactLink.organization_id == org_id,
+        HOAContactLink.association_id == association.id,
+        HOAContactLink.property_id == payload.property_id,
+        HOAContactLink.contact_id == contact.id,
+    ).first()
+    if link is not None and link.is_active:
+        raise HTTPException(status_code=409, detail="Contact already recorded for this property.")
+    created = link is None
+    if created:
+        link = HOAContactLink(
+            organization_id=org_id, association_id=association.id,
+            property_id=payload.property_id, contact_id=contact.id,
+            created_by_id=current_user.id,
+        )
+        db.add(link)
+    else:
+        link.is_active = True
+    link.updated_by_id = current_user.id
+    try:
+        db.flush()
+        append_audit_log(
+            db, organization_id=org_id, user_id=current_user.id,
+            entity_type="hoa_contact_link", entity_id=link.id,
+            action="created" if created else "restored",
+            new_value={"association_id": association.id, "property_id": payload.property_id,
+                       "contact_id": contact.id},
+        )
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Contact link was updated concurrently.") from exc
+    db.refresh(link)
+    return HOAContactLinkOut(id=link.id, association_id=association.id,
+                             property_id=payload.property_id,
+                             contact_id=contact.id, contact_name=contact.display_name)
+
+
+@router.delete("/{association_id}/contacts/{link_id}", status_code=204)
+def remove_contact_link(
+    association_id: int, link_id: int, property_id: int,
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    org_id, association = _contact_scope(
+        db, actor=current_user, association_id=association_id,
+        property_id=property_id, write=True,
+    )
+    link = db.query(HOAContactLink).filter(
+        HOAContactLink.id == link_id, HOAContactLink.organization_id == org_id,
+        HOAContactLink.association_id == association.id,
+        HOAContactLink.property_id == property_id,
+        HOAContactLink.is_active.is_(True),
+    ).first()
+    if link is None:
+        raise HTTPException(status_code=404, detail="Contact link not found.")
+    link.is_active = False
+    link.updated_by_id = current_user.id
+    db.flush()
+    append_audit_log(
+        db, organization_id=org_id, user_id=current_user.id,
+        entity_type="hoa_contact_link", entity_id=link.id, action="archived",
+        new_value={"association_id": association.id, "property_id": property_id},
     )
     db.commit()
     return Response(status_code=204, headers={"Cache-Control": "no-store"})
