@@ -7,24 +7,24 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `d061925d5e29dee69833d13dcb8f6aaf785c7479`
-- Source GitHub Actions run **36436896287: SUCCESS, all six jobs** (backend,
+- Last VERIFIED **product source**: `0073e49ccf84d5e8b6bfe48c459c7b4a0bb8b025`
+- Source GitHub Actions run **36438320448: SUCCESS, all six jobs** (backend,
   frontend, platform-admin, security, authenticated E2E, staging-config).
-  Backend: **705 passed, 3 deselected, 15194 warnings in 156.31s**.
-  E2E: **3 passed in 8.14s**. Lint, typecheck, production build, security
+  Backend: **708 passed, 3 deselected, 15297 warnings in 180.28s**.
+  E2E: **3 passed in 8.21s**. Lint, typecheck, production build, security
   and staging: SUCCESS. These counts apply to this exact source commit only.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **c7e9a1b3d5f2**. SQLAlchemy expected model tables: **132**.
-  Previous head f8b0c2d4e6a9 / 131 tables (staff HOA observations add one table). PostgreSQL/bootstrap/legacy CI passed.
+- Alembic head: **d8f0a2b4c6e9**. SQLAlchemy expected model tables: **133**.
+  Previous head c7e9a1b3d5f2 / 132 tables (staff meeting draft adds one table). PostgreSQL/bootstrap/legacy CI passed.
 - Phase 3.7 Reports + Universal Attachments: IN PROGRESS.
-  **Latest verified batch: Phase 4.7 C2 scoped staff observations backend/UI, verified by CI.**
+  **Latest verified batch: Phase 4.7 C2 scoped staff meeting planning backend/UI, verified by CI.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT task: original Phase 4.7 C2 governing-authority prerequisites and safe board-portal planning; do not issue violations, legal notices, fines or hearings without governing authority. Staff observation backend and customer UI are verified. No payer designation, GL or tenant charge. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows are still BLOCKED on authoritative jurisdiction/program rules and secure household policy; do not mark Phase 4.6 complete or infer eligibility from staff evidence.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
+- **Exact NEXT task: original Phase 4.7 C2 staff-only ARC project-interest intake, without official applications, approvals, denials, permits or fees. Governing-authority-dependent HOA notices/votes/fines remain blocked. Staff observations and meeting planning are verified. No payer designation, GL or tenant charge. Phase 4.6 substantive HUD/LIHTC legal, household, AMI and HAP workflows are still BLOCKED on authoritative jurisdiction/program rules and secure household policy; do not mark Phase 4.6 complete or infer eligibility from staff evidence.** Leasing CRM/Prospects, Guest Cards, and source/stage breakdown are VERIFIED. Do not call recorded stages verified applications, marketing conversions, ad ROI, or infer utility charges from bills. No external Stripe/IRS filing integration yet.
   Tenant Delinquency, Security Deposit Funds Detail, Tenant Directory, Tenant Ledger, Tenant Tickler, Tenant Unpaid Charges and Unpaid Charges Summary, plus Owner Packets VERIFIED. Do not repeat verified preflight,
   manual review, register, revision guards, tax profiles or W-9 archive.
 
@@ -3841,13 +3841,12 @@ payer obligation, board approval, accounting policies.
    CI 36436896287 SUCCESS (705 backend passed, 3 deselected,
    3 E2E passed). Verified migration c7e9a1b3d5f2 / 132 tables.
    No duplicate HOA registry/contact/draft implementation.
-2. HOA staff observations backend and customer UI are now VERIFIED.
-   Next independent Phase 4.7 C2 safe prerequisite is staff-only
-   board meeting PLANNING metadata, without official votes, minutes,
-   meeting notices, quorum claims or action taken. Reuse association
-   authorization, audit, and existing property HOA panel; do not
-   create a parallel identity or contacts service. Original violation
-   notice/fine workflow remains blocked on governing authority.
+2. HOA staff observations and staff meeting planning are VERIFIED.
+   Current pending bounded Phase 4.7 C2 batch is staff-only ARC
+   project-interest intake (backend/UI, migration e9a1b3c5d7f0,
+   134 tables), NOT an approved architectural request or notice.
+   Fix CI before proceeding; do not touch legal violation/fine
+   workflows until governing authority and jurisdiction rules exist.
 3. Actual violation notice, statutory cure period, fines,
    hearings, dues/payer liability, board approval and reserve
    accounting require reviewed governing documents, applicable
@@ -3864,16 +3863,17 @@ payer obligation, board approval, accounting policies.
 Continue ONLY yasirskhan/property-platform branch
 chatgpt/checkpoint-005-safety. Read entire repo-root AI_HANDOFF.md
 and verify HEAD/CI. Last VERIFIED source
-d061925d5e29dee69833d13dcb8f6aaf785c7479;
-CI 36436896287 SUCCESS all six jobs: 705 backend passed,
-3 deselected; 3 browser E2E passed. Alembic c7e9a1b3d5f2,
-132 tables. Verified HOA association registry, contacts,
+0073e49ccf84d5e8b6bfe48c459c7b4a0bb8b025;
+CI 36438320448 SUCCESS all six jobs: 708 backend passed,
+3 deselected; 3 browser E2E passed. Alembic d8f0a2b4c6e9,
+133 tables. Verified HOA association registry, contacts,
 staff-only recurring/special assessment draft backend/UI and
 unlink/archive integrity. Do not repeat those batches.
-Staff HOA observations backend/UI are verified. The next safely
-independent original C2 batch is bounded association-scoped staff
-board meeting planning (NOT official meetings, minutes or votes).
-Actual violation issuance/fines remain blocked on governing rules. Actual HOA
+HOA staff observations and meeting planning are verified.
+Pending source adds bounded staff ARC project-interest intake,
+migration e9a1b3c5d7f0 / 134 tables; CI NOT YET VERIFIED.
+Do not repeat verified work. Formal ARC approval, board votes,
+actual violation issuance/fines remain blocked on governing rules. Actual HOA
 legal notices/fines and HUD/LIHTC eligibility need reviewed
 governing/jurisdiction rules. Do not touch main/new branches or
 unrelated frozen docs. Use GitHub CI after commit; refresh handoff
@@ -3958,3 +3958,43 @@ no tenant notifications or charges. Focused additional regression
 checks manager payload visibility and no unauthorized archive or
 finance posting. Frozen docs/ and parity unchanged.
 No frozen docs/ or planning parity changes in this batch.
+
+
+## Phase 4.7 C2 HOA staff meeting planning — VERIFIED 2026-09-28
+
+Source 0073e49ccf84d5e8b6bfe48c459c7b4a0bb8b025.
+CI 36438320448 SUCCESS all six jobs; backend 708 passed,
+3 deselected, 15297 warnings in 180.28s; generic authenticated
+E2E 3 passed in 8.21s; frontend lint/typecheck/production build,
+platform-admin, security and staging green.
+Migration d8f0a2b4c6e9 from c7e9a1b3d5f2 adds
+hoa_meeting_drafts (133 SQLAlchemy tables). Planning parity and
+frozen docs/ untouched.
+Association/property/org-scoped staff draft CRUD at
+/api/hoa/associations/{id}/meeting-drafts; existing live
+PROPERTIES.ALL and compliance release gate, staff role and
+manager assignment authorization rechecked. ADMIN/OWNER writes,
+assigned MANAGER reads, TENANT/CREW denied. One hundred percent
+staff planning: title, proposed date and tentative agenda; no
+official meeting notice, minutes, votes, board quorum,
+board membership certification, fines, dues or GL effects.
+Generic notes/attachments denylist applies. Unlink/archive
+soft-disable staff drafts, no hidden resurrection on relink.
+Redacted append-only audit, no-store reads, bounded records.
+Customer property HOA panel includes HoaMeetingDraftsPanel.
+Three focused tests cover CRUD, org/role/assignment/revocation,
+forbidden governance fields, no GL/Charge/Lease changes and
+unlink/archive. E2E is generic browser smoke, NOT dedicated
+meeting UI E2E. Formal board portal is NOT VERIFIED.
+
+## Phase 4.7 C2 ARC staff intake — SOURCE UNVERIFIED
+
+Current bounded source adds staff-only property-linked
+architectural interest records, NOT filed ARC applications,
+approvals/denials, statutory timelines, permits or fees.
+Proposed migration e9a1b3c5d7f0 / 134 tables, backend scoped
+CRUD + regression tests and customer HOA panel.
+This source must be verified by all six CI jobs before
+marking completed or using its test counts; if CI red,
+fix before another feature batch. Frozen docs/ and original
+planning parity unchanged.

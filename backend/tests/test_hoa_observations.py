@@ -333,3 +333,110 @@ def test_meeting_plan_unlink_relink_and_association_archive_do_not_resurrect():
         db.rollback()
         db.close()
         engine.dispose()
+
+
+def test_arc_staff_intake_crud_and_zero_official_or_financial_effects():
+    from app.models.hoa_arc_intake import HOAARCIntake
+    from app.routers import hoa_arc_intake as arc
+    from app.schemas.hoa_arc_intake import HOAARCIntakeIn
+
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, unassigned, other), assoc = _seed(db)
+        payload = HOAARCIntakeIn(
+            property_id=assigned.id, project_title=" Patio extension ",
+            staff_noted_on=date(2026, 9, 20),
+            staff_description="Staff summary only.",
+        )
+        recorded = arc.create_arc_intake(assoc.id, payload, db=db, current_user=admin)
+        assert recorded.status == "STAFF_INTAKE"
+        assert recorded.project_title == "Patio extension"
+        read = arc.list_arc_intakes(assoc.id, Response(), assigned.id,
+                                    db=db, current_user=manager)
+        assert [row.id for row in read] == [recorded.id]
+        assert not ({"applicant_id", "approval", "denial", "permit", "fee", "deadline"} & set(read[0].model_dump()))
+        changed = arc.update_arc_intake(
+            assoc.id, recorded.id, HOAARCIntakeIn(
+                property_id=assigned.id, project_title="Revised staff note",
+                staff_noted_on=date(2026, 9, 21),
+            ), db=db, current_user=owner,
+        )
+        assert changed.project_title == "Revised staff note"
+        arc.archive_arc_intake(assoc.id, recorded.id, assigned.id, db=db, current_user=admin)
+        assert arc.list_arc_intakes(assoc.id, Response(), assigned.id,
+                                    db=db, current_user=admin) == []
+        assert db.query(HOAARCIntake).count() == 1
+        assert db.query(AuditLog).filter(AuditLog.entity_type == "hoa_arc_intake").count() == 3
+        assert db.query(GLTransaction).count() == db.query(Charge).count() == db.query(Lease).count() == 0
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_arc_staff_intake_scopes_revocation_and_refuses_decision_fields(monkeypatch):
+    from app.routers import hoa_arc_intake as arc
+    from app.schemas.hoa_arc_intake import HOAARCIntakeIn
+
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, unassigned, other), assoc = _seed(db)
+        payload = HOAARCIntakeIn(
+            property_id=assigned.id, project_title="Staff only", staff_noted_on=date(2026, 9, 20),
+        )
+        first = arc.create_arc_intake(assoc.id, payload, db=db, current_user=admin)
+        for actor, prop in ((foreign, assigned), (manager, unassigned), (manager, other)):
+            with pytest.raises(HTTPException) as exc:
+                arc.list_arc_intakes(assoc.id, Response(), prop.id, db=db, current_user=actor)
+            assert exc.value.status_code == 404
+        for actor in (manager, tenant):
+            with pytest.raises(HTTPException) as exc:
+                arc.update_arc_intake(assoc.id, first.id, payload, db=db, current_user=actor)
+            assert exc.value.status_code == 403
+        with pytest.raises(HTTPException) as exc:
+            arc.archive_arc_intake(assoc.id, first.id, other.id, db=db, current_user=admin)
+        assert exc.value.status_code == 404
+        monkeypatch.setattr(hoa, "permission_allows_user", lambda *a, **kw: False)
+        with pytest.raises(HTTPException) as exc:
+            arc.list_arc_intakes(assoc.id, Response(), assigned.id, db=db, current_user=admin)
+        assert exc.value.status_code == 403
+        for field in ("approved", "decision", "permit", "fee", "applicant_id", "deadline"):
+            with pytest.raises(ValidationError):
+                HOAARCIntakeIn(
+                    property_id=assigned.id, project_title="Staff",
+                    staff_noted_on=date(2026, 9, 20), **{field: "never"},
+                )
+        assert db.query(GLTransaction).count() == db.query(Charge).count() == 0
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_arc_intake_unlink_and_archive_do_not_restore_old_records():
+    from app.models.hoa_arc_intake import HOAARCIntake
+    from app.routers import hoa_arc_intake as arc
+    from app.schemas.hoa_arc_intake import HOAARCIntakeIn
+
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, unassigned, other), assoc = _seed(db)
+        def payload(p):
+            return HOAARCIntakeIn(
+                property_id=p, project_title="Project note",
+                staff_noted_on=date(2026, 9, 20),
+            )
+        first = arc.create_arc_intake(assoc.id, payload(assigned.id), db=db, current_user=admin)
+        second = arc.create_arc_intake(assoc.id, payload(unassigned.id), db=db, current_user=admin)
+        hoa.update_association(assoc.id, HOAAssociationIn(
+            name="Recorded HOA", property_ids=[unassigned.id],
+        ), db=db, current_user=admin)
+        hoa.update_association(assoc.id, HOAAssociationIn(
+            name="Recorded HOA", property_ids=[assigned.id, unassigned.id],
+        ), db=db, current_user=admin)
+        assert arc.list_arc_intakes(assoc.id, Response(), assigned.id, db=db, current_user=admin) == []
+        assert db.query(HOAARCIntake).filter_by(id=first.id).one().is_active is False
+        hoa.archive_association(assoc.id, db=db, current_user=admin)
+        assert db.query(HOAARCIntake).filter_by(id=second.id).one().is_active is False
+        with pytest.raises(HTTPException) as exc:
+            _model_for_table("hoa_arc_intakes")
+        assert exc.value.status_code == 404
+        assert db.query(GLTransaction).count() == db.query(Charge).count() == db.query(Lease).count() == 0
+    finally:
+        db.rollback(); db.close(); engine.dispose()

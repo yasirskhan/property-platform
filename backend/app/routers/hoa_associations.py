@@ -10,6 +10,7 @@ from app.models.hoa_association import HOAAssociation, HOAPropertyMembership, HO
 from app.models.hoa_assessment import HOAAssessmentProposal
 from app.models.hoa_observation import HOAObservation
 from app.models.hoa_meeting_draft import HOAMeetingDraft
+from app.models.hoa_arc_intake import HOAARCIntake
 from app.models.contact import Contact
 from app.models.property import Property, PropertyAssignment
 from app.models.user import User, UserRole
@@ -190,6 +191,31 @@ def _archive_meeting_drafts(
         )
 
 
+
+
+def _archive_arc_intakes(
+    db: Session, *, org_id: int, association_id: int,
+    actor_id: int, action: str, property_id: int | None = None,
+) -> None:
+    """Relink must not resurrect obsolete staff ARC intake assumptions."""
+    query = db.query(HOAARCIntake).filter(
+        HOAARCIntake.organization_id == org_id,
+        HOAARCIntake.association_id == association_id,
+        HOAARCIntake.is_active.is_(True),
+    )
+    if property_id is not None:
+        query = query.filter(HOAARCIntake.property_id == property_id)
+    for record in query.all():
+        record.is_active = False
+        record.updated_by_id = actor_id
+        db.flush()
+        append_audit_log(
+            db, organization_id=org_id, user_id=actor_id,
+            entity_type="hoa_arc_intake", entity_id=record.id, action=action,
+            new_value={"association_id": association_id, "property_id": record.property_id},
+        )
+
+
 def _save(db: Session, *, actor: User, payload: HOAAssociationIn,
           association_id: int | None = None) -> HOAAssociationOut:
     org_id = _access(db, actor, write=True)
@@ -249,6 +275,11 @@ def _save(db: Session, *, actor: User, payload: HOAAssociationIn,
                     action="association_property_unlinked",
                 )
                 _archive_meeting_drafts(
+                    db, org_id=org_id, association_id=row.id,
+                    actor_id=actor.id, property_id=m.property_id,
+                    action="association_property_unlinked",
+                )
+                _archive_arc_intakes(
                     db, org_id=org_id, association_id=row.id,
                     actor_id=actor.id, property_id=m.property_id,
                     action="association_property_unlinked",
@@ -318,6 +349,10 @@ def archive_association(
         actor_id=current_user.id, action="association_archived",
     )
     _archive_meeting_drafts(
+        db, org_id=org_id, association_id=row.id,
+        actor_id=current_user.id, action="association_archived",
+    )
+    _archive_arc_intakes(
         db, org_id=org_id, association_id=row.id,
         actor_id=current_user.id, action="association_archived",
     )
