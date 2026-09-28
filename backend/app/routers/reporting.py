@@ -644,6 +644,27 @@ def preview_property_directory(
     }
 
 
+@router.get("/commercial-lease-references/preview")
+def preview_commercial_lease_references(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Staff references only; never infer executed terms or financial obligations."""
+    org_id = _require_report_access(
+        db, current_user=current_user, report_key="commercial.lease_references",
+    )
+    _require_export_feature(db, current_user)
+    data = _build_or_422(
+        db, organization_id=org_id, report_key="commercial.lease_references",
+        parameters=dict(request.query_params), current_user=current_user,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return {"title": data.title, "headers": data.headers,
+            "rows": data.rows, "total": len(data.rows)}
+
+
 @router.get("/lease-expirations/preview")
 def preview_lease_expirations(
     request: Request,

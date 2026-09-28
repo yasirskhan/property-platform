@@ -172,6 +172,13 @@ REPORT_CATALOG: tuple[ReportDefinition, ...] = (
         description="Units without an eligible currently recorded lease; not verified physical vacancy.",
     ),
 
+    # Commercial: staff records only, not authenticated contracts or billing
+    _standard(
+        "commercial.lease_references", "Commercial Lease References", "Commercial",
+        href="/dashboard/reporting/commercial-lease-references",
+        description="Staff-recorded commercial lease commencement references; not legal or billing instructions.",
+    ),
+
     # Owner and vendor
     _standard(
         "owner.directory", "Owner Directory", "Owner & Vendor",
