@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import HoaDuesPreviewPanel from "@/components/property/HoaDuesPreviewPanel";
+import HoaPayerDraftPanel from "@/components/property/HoaPayerDraftPanel";
 
 type Kind = "RECURRING" | "SPECIAL";
 type Frequency = "MONTHLY" | "QUARTERLY" | "ANNUAL" | "ONE_TIME";
@@ -32,6 +33,7 @@ export default function HoaDraftAssessmentsPanel({
   const [message, setMessage] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [previewId, setPreviewId] = useState<number | null>(null);
+  const [payerId, setPayerId] = useState<number | null>(null);
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<Kind>("RECURRING");
   const [frequency, setFrequency] = useState<Frequency>("MONTHLY");
@@ -147,6 +149,8 @@ export default function HoaDraftAssessmentsPanel({
             </p>
           </div>
           <div className="flex gap-3 text-sm">
+            <button type="button" onClick={() => setPayerId((old) => old === row.id ? null : row.id)}
+              className="text-blue-700">Suggested payer</button>
             <button type="button" onClick={() => setPreviewId((old) => old === row.id ? null : row.id)}
               className="text-blue-700">Preview dates</button>
             {canEdit && <>
@@ -156,6 +160,8 @@ export default function HoaDraftAssessmentsPanel({
                 className="text-red-700 disabled:opacity-50">Archive</button>
             </>}
           </div>
+          {payerId === row.id && <HoaPayerDraftPanel associationId={associationId}
+            propertyId={propertyId} proposalId={row.id} canEdit={canEdit} />}
           {previewId === row.id && <HoaDuesPreviewPanel associationId={associationId}
             propertyId={propertyId} proposalId={row.id} />}
         </div>

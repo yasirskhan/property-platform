@@ -24,6 +24,7 @@ from app.services.audit import append_audit_log
 from app.services.hoa_meeting_workspace_cleanup import archive_meeting_workspace, archive_contact_participation
 from app.services.hoa_arc_application_cleanup import archive_arc_applications
 from app.services.hoa_board_cleanup import archive_board_proposals
+from app.services.hoa_payer_cleanup import archive_payer_drafts
 from app.services.customer_features import resolve_customer_features
 from app.services.menu_resolver import permission_allows_user
 
@@ -137,6 +138,11 @@ def _archive_property_drafts(
     if property_id is not None:
         query = query.filter(HOAAssessmentProposal.property_id == property_id)
     for draft in query.all():
+        archive_payer_drafts(
+            db, organization_id=org_id, association_id=association_id,
+            property_id=draft.property_id, proposal_id=draft.id,
+            actor_id=actor_id, action=action,
+        )
         draft.is_active = False
         draft.updated_by_id = actor_id
         db.flush()
@@ -597,6 +603,11 @@ def remove_contact_link(
         raise HTTPException(status_code=404, detail="Contact link not found.")
     link.is_active = False
     link.updated_by_id = current_user.id
+    archive_payer_drafts(
+        db, organization_id=org_id, association_id=association.id,
+        property_id=property_id, contact_link_id=link.id,
+        actor_id=current_user.id, action="contact_link_archived",
+    )
     archive_contact_participation(
         db, organization_id=org_id, association_id=association.id,
         property_id=property_id, contact_link_id=link.id,

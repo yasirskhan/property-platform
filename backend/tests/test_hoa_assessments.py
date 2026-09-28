@@ -17,6 +17,11 @@ from app.models.audit_log import AuditLog
 from app.models.charge import Charge
 from app.models.gl_transaction import GLTransaction
 from app.models.hoa_assessment import HOAAssessmentProposal
+from app.models.hoa_payer_draft import HOAPayerDraft
+from app.models.contact import Contact
+from app.routers import hoa_payer_drafts as payer_api
+from app.schemas.hoa_payer_draft import HOAPayerDraftIn
+from app.schemas.hoa_association import HOAContactLinkIn
 from app.models.lease import Lease
 from app.models.property import Property, PropertyAssignment
 from app.models.user import Organization, User, UserRole
@@ -380,3 +385,187 @@ def test_calendar_preview_authorization_and_archive_fail_closed(monkeypatch):
     finally:
         db.close()
         engine.dispose()
+
+
+def test_suggested_payer_lifecycle_is_not_legal_liability_or_charge():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, unassigned, other), association = _seed(db)
+        local = Contact(organization_id=admin.organization_id, display_name="Staff contact",
+                        contact_type="PERSON", is_active=True)
+        db.add(local); db.commit()
+        linked = hoa.add_contact_link(
+            association.id, HOAContactLinkIn(
+                property_id=assigned.id, contact_id=local.id,
+            ), db=db, current_user=admin,
+        )
+        proposal = api.create_proposal(association.id, _payload(assigned.id),
+                                       db=db, current_user=admin)
+        suggested = payer_api.set_payer_draft(
+            association.id, proposal.id, HOAPayerDraftIn(
+                property_id=assigned.id, contact_link_id=linked.id,
+            ), db=db, current_user=owner,
+        )
+        assert suggested.status == "STAFF_SUGGESTED_UNVERIFIED"
+        assert suggested.legal_payer_verified is False
+        assert suggested.issue_charge_enabled is False
+        assert suggested.contact_name == "Staff contact"
+        response = Response()
+        assert payer_api.get_payer_draft(
+            association.id, proposal.id, response, assigned.id,
+            db=db, current_user=manager,
+        ).id == suggested.id
+        assert response.headers["cache-control"] == "no-store"
+        assert db.query(Charge).count() == db.query(GLTransaction).count() == 0
+        payer_api.archive_payer_draft(
+            association.id, proposal.id, assigned.id,
+            db=db, current_user=admin,
+        )
+        assert payer_api.get_payer_draft(
+            association.id, proposal.id, Response(), assigned.id,
+            db=db, current_user=manager,
+        ) is None
+        with pytest.raises(HTTPException) as exc:
+            payer_api.set_payer_draft(
+                association.id, proposal.id, HOAPayerDraftIn(
+                    property_id=assigned.id, contact_link_id=linked.id,
+                ), db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(HOAPayerDraft).count() == 1
+        assert db.query(Charge).count() == db.query(GLTransaction).count() == 0
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_payer_draft",
+        ).count() == 2
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_suggested_payer_cross_scope_and_relink_guards(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, unassigned, other), association = _seed(db)
+        local = Contact(organization_id=admin.organization_id, display_name="Local",
+                        contact_type="PERSON", is_active=True)
+        db.add(local); db.commit()
+        assigned_link = hoa.add_contact_link(
+            association.id, HOAContactLinkIn(
+                property_id=assigned.id, contact_id=local.id,
+            ), db=db, current_user=admin,
+        )
+        other_link = hoa.add_contact_link(
+            association.id, HOAContactLinkIn(
+                property_id=unassigned.id, contact_id=local.id,
+            ), db=db, current_user=admin,
+        )
+        proposal = api.create_proposal(association.id, _payload(assigned.id),
+                                       db=db, current_user=admin)
+        for actor, pid in ((manager, unassigned.id), (tenant, assigned.id),
+                           (foreign, assigned.id), (admin, other.id)):
+            with pytest.raises(HTTPException):
+                payer_api.get_payer_draft(
+                    association.id, proposal.id, Response(), pid,
+                    db=db, current_user=actor,
+                )
+        for actor in (manager, tenant, foreign):
+            with pytest.raises(HTTPException):
+                payer_api.set_payer_draft(
+                    association.id, proposal.id, HOAPayerDraftIn(
+                        property_id=assigned.id, contact_link_id=assigned_link.id,
+                    ), db=db, current_user=actor,
+                )
+        with pytest.raises(HTTPException) as exc:
+            payer_api.set_payer_draft(
+                association.id, proposal.id, HOAPayerDraftIn(
+                    property_id=assigned.id, contact_link_id=other_link.id,
+                ), db=db, current_user=owner,
+            )
+        assert exc.value.status_code == 404
+        for forbidden in ("legal_payer_verified", "tenant_user_id", "gl_account_id",
+                          "issue_charge_enabled", "is_owner"):
+            with pytest.raises(ValidationError):
+                HOAPayerDraftIn(
+                    property_id=assigned.id, contact_link_id=assigned_link.id,
+                    **{forbidden: True},
+                )
+        with pytest.raises(HTTPException):
+            _model_for_table("hoa_payer_drafts")
+        record = payer_api.set_payer_draft(
+            association.id, proposal.id, HOAPayerDraftIn(
+                property_id=assigned.id, contact_link_id=assigned_link.id,
+            ), db=db, current_user=admin,
+        )
+        hoa.remove_contact_link(
+            association.id, assigned_link.id, assigned.id,
+            db=db, current_user=admin,
+        )
+        assert payer_api.get_payer_draft(
+            association.id, proposal.id, Response(), assigned.id,
+            db=db, current_user=admin,
+        ) is None
+        assert db.get(HOAPayerDraft, record.id).is_active is False
+        hoa.add_contact_link(
+            association.id, HOAContactLinkIn(
+                property_id=assigned.id, contact_id=local.id,
+            ), db=db, current_user=admin,
+        )
+        assert payer_api.get_payer_draft(
+            association.id, proposal.id, Response(), assigned.id,
+            db=db, current_user=admin,
+        ) is None
+        assert db.query(GLTransaction).count() == db.query(Charge).count() == 0
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_suggested_payer_feature_revocation_and_proposal_archive(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, unassigned, other), association = _seed(db)
+        local = Contact(organization_id=admin.organization_id, display_name="Test",
+                        contact_type="PERSON", is_active=True)
+        db.add(local); db.commit()
+        link = hoa.add_contact_link(
+            association.id, HOAContactLinkIn(property_id=assigned.id, contact_id=local.id),
+            db=db, current_user=admin,
+        )
+        proposal = api.create_proposal(
+            association.id, _payload(assigned.id), db=db, current_user=admin,
+        )
+        record = payer_api.set_payer_draft(
+            association.id, proposal.id, HOAPayerDraftIn(
+                property_id=assigned.id, contact_link_id=link.id,
+            ), db=db, current_user=admin,
+        )
+        monkeypatch.setattr(hoa, "permission_allows_user", lambda *a, **k: False)
+        with pytest.raises(HTTPException) as exc:
+            payer_api.get_payer_draft(
+                association.id, proposal.id, Response(), assigned.id,
+                db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 403
+        monkeypatch.setattr(hoa, "permission_allows_user", lambda *a, **k: True)
+        monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **k: [])
+        with pytest.raises(HTTPException) as exc:
+            payer_api.get_payer_draft(
+                association.id, proposal.id, Response(), assigned.id,
+                db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 404
+        monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **k: [
+            SimpleNamespace(key=hoa.FEATURE_KEY, allowed=True),
+        ])
+        api.archive_proposal(
+            association.id, proposal.id, assigned.id,
+            db=db, current_user=admin,
+        )
+        assert db.get(HOAPayerDraft, record.id).is_active is False
+        with pytest.raises(HTTPException) as exc:
+            payer_api.get_payer_draft(
+                association.id, proposal.id, Response(), assigned.id,
+                db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 404
+        assert db.query(Charge).count() == db.query(GLTransaction).count() == 0
+    finally:
+        db.close(); engine.dispose()

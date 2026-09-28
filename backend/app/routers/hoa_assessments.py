@@ -21,6 +21,7 @@ from app.schemas.hoa_assessment import (
     HOAAssessmentPreviewOccurrence, HOAAssessmentPreviewOut,
 )
 from app.services.audit import append_audit_log
+from app.services.hoa_payer_cleanup import archive_payer_drafts
 
 router = APIRouter(prefix="/api/hoa/associations", tags=["HOA staff assessment proposals"])
 
@@ -169,6 +170,11 @@ def archive_proposal(
     )
     row = _record(db, org_id=org_id, association_id=association.id,
                   property_id=property_id, proposal_id=proposal_id)
+    archive_payer_drafts(
+        db, organization_id=org_id, association_id=association.id,
+        property_id=property_id, proposal_id=row.id,
+        actor_id=current_user.id, action="assessment_draft_archived",
+    )
     row.is_active = False
     row.updated_by_id = current_user.id
     db.flush()
