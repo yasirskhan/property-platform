@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
+import HoaCaseFinePaymentsPanel from "@/components/property/HoaCaseFinePaymentsPanel";
 
 type Fine = {
   id: number; decision: "APPROVED" | "DENIED";
   status: "APPROVED" | "DENIED" | "POSTED" | "REVERSED";
-  amount: string | null; member_user_id: number | null;
+  amount: string | null; amount_paid: string; member_user_id: number | null;
   policy_revision: number; service_record_id: number;
   gl_transaction_id: number | null; reversal_transaction_id: number | null;
   hearing_disposition: string; decided_on: string; decision_note: string;
@@ -118,6 +119,9 @@ export default function HoaCaseFinePanel({
         {" · "}Service #{fine.service_record_id} · Procedure rev {fine.policy_revision}</p>
       <p>Hearing disposition: {fine.hearing_disposition}</p>
       <p>Decision note: {fine.decision_note}</p>
+      {fine.status === "POSTED" && fine.amount !== null && <p>
+        Paid ${fine.amount_paid} · Outstanding ${(Number(fine.amount) - Number(fine.amount_paid)).toFixed(2)}
+      </p>}
       {fine.gl_transaction_id && <p>Central GL #{fine.gl_transaction_id}
         {fine.reversal_transaction_id && " · Reversal GL #" + fine.reversal_transaction_id}</p>}
     </div> : <p>No final association fine decision recorded.</p>}
@@ -202,7 +206,11 @@ export default function HoaCaseFinePanel({
         Post approved fine to member GL
       </button>
     </div>}
-    {canEdit && fine?.status === "POSTED" && <div className="space-y-2 border-t pt-2">
+    {canEdit && fine?.status === "POSTED" && fine.amount !== null && fine.member_user_id !== null &&
+      <HoaCaseFinePaymentsPanel associationId={associationId} propertyId={propertyId}
+        caseId={caseId} memberId={fine.member_user_id} amount={fine.amount}
+        amountPaid={fine.amount_paid} onChange={() => { void reload(); }} />}
+    {canEdit && fine?.status === "POSTED" && Number(fine.amount_paid) === 0 && <div className="space-y-2 border-t pt-2">
       <label className="block">Fine reversal date
         <input type="date" value={reversalOn} onChange={event => setReversalOn(event.target.value)}
           className="mt-1 block rounded border p-2"/></label>

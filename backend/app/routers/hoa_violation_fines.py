@@ -52,7 +52,8 @@ def _out(row):
     return HOAFineOut(
         id=row.id, case_id=row.case_id, property_id=row.property_id,
         decision=row.decision, status=row.status, member_user_id=row.member_user_id,
-        amount=row.amount, hearing_disposition=row.hearing_disposition,
+        amount=row.amount, amount_paid=row.amount_paid,
+        hearing_disposition=row.hearing_disposition,
         hearing_held_on=row.hearing_held_on,
         hearing_record_attachment_id=row.hearing_record_attachment_id,
         board_seat_id=row.board_seat_id, service_record_id=row.service_record_id,
@@ -360,6 +361,8 @@ def reverse_fine(
     row = _fine(db, org, assoc.id, payload.property_id, case.id, lock=True)
     if row is None or row.status != "POSTED":
         raise HTTPException(status_code=409, detail="Only posted, unreversed fine can be reversed.")
+    if row.amount_paid != Decimal("0.00"):
+        raise HTTPException(status_code=409, detail="Reverse all allocated fine receipts before reversing the fine.")
     original = db.query(GLTransaction).filter(
         GLTransaction.id == row.gl_transaction_id,
         GLTransaction.organization_id == org,

@@ -69,6 +69,7 @@ class HOAFineOut(BaseModel):
     status: Literal["APPROVED", "DENIED", "POSTED", "REVERSED"]
     member_user_id: int | None
     amount: Decimal | None
+    amount_paid: Decimal
     hearing_disposition: str
     hearing_held_on: date | None
     hearing_record_attachment_id: int | None

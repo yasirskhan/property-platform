@@ -1,3 +1,49 @@
+# AI_HANDOFF.md — 2026-09-29 HOA FINE RECEIPTS PROVISIONAL
+
+**Read the ENTIRE file.** This newest record supersedes historical NEXT
+and PROVISIONAL headings below. Repository
+`yasirskhan/property-platform`, ONLY branch
+`chatgpt/checkpoint-005-safety`. No main, new branches,
+force pushes, PR merge, frozen docs/ changes or Phase 4.8.
+
+- Last VERIFIED product source `f82561f9ecc42ebef26e273a0acd9e7dac97f255`.
+  GitHub Actions **36620561609 SUCCESS ALL SIX jobs**:
+  812 backend passed, 15 deselected; 15 authenticated browser tests.
+  Verified Alembic `f2b4d6e8a0c3` / 174 model tables.
+  The docs-only HEAD `31e0c68e` passed all six CI jobs
+  in **36621779725**, without advancing the product source.
+- Latest Phase 4.7 violation fine RECEIPTS batch is PROVISIONAL,
+  NOT YET VERIFIED. Reuses the existing Receipt, ReceiptLine
+  and balanced central GL for cash received offline and allocated
+  to the exact POSTED board-approved fine. Adds idempotent
+  partial/full payments, history and scoped reversal, separate
+  cash/receivable accounts, verified member identity, active
+  accounting/HOA permissions, locked period, deposited-receipt
+  denial, audit, duplicate prevention and payment-aware fine
+  reversal guard. Generic receipt reverse/NSF cannot bypass
+  HOA_FINE allocation rollback. No bank/card collection or
+  real-world obligation is initiated by synthetic tests.
+- Proposed Alembic `a3c5e7f9b1d4` after f2b4d6e8a0c3,
+  EXPECTED 175 tables. Do NOT advance verified migration/table
+  count until all SIX GitHub Actions jobs PASS on the product
+  commit. Backend/HOA browser regressions, frontend UI and
+  migration guards are included. TESTS NOT RUN locally.
+- Next action: inspect CI on the provisional commit, correct any
+  failing tests or product code on this same branch, then mark
+  VERIFIED only when backend, frontend, platform-admin,
+  security, staging and authenticated E2E all pass. Record
+  actual positive counts and source SHA in a new top-of-file
+  handoff checkpoint. Continue the next independently actionable
+  Phase 4.7 HOA violation appeal/correction workflow.
+- Preserve operative ARC APPROVED/DENIED, other verified HOA
+  assessment/receipt/statements, board minutes/voting,
+  annual budgets, reserve GL, documents and $79/month
+  paid HOA entitlement. Association decisionmakers authorize
+  their actions, no blanket platform legal-effect gate;
+  enforce exact procedural and payer safeguards.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 HOA OPERATIVE FINES VERIFIED
 
 **Read this entire file.** This newest status supersedes older NEXT and

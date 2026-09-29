@@ -448,8 +448,8 @@ def reverse_receipt(
 
     # HOA receipts must be reversed with the member assessment allocation.
     # Generic NSF/reversal would leave the member receivable incorrect.
-    if original.type == "HOA_MEMBER":
-        raise PostingError("Use the scoped HOA member-payment reversal workflow.")
+    if original.type in {"HOA_MEMBER", "HOA_FINE"}:
+        raise PostingError("Use the scoped HOA member/fine payment reversal workflow.")
 
     # Coordinate an existing fee link before reversing GL. reverse_transaction
     # uses commit=False internally, then commits the GL reversal, payment

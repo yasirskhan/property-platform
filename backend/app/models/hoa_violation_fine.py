@@ -19,6 +19,7 @@ class HOAViolationFine(Base):
     decision = Column(String(16), nullable=False)
     status = Column(String(16), nullable=False)
     amount = Column(Numeric(14, 2))
+    amount_paid = Column(Numeric(14, 2), nullable=False, default=0, server_default="0.00")
     decision_note = Column(Text, nullable=False)
     hearing_disposition = Column(String(32), nullable=False)
     hearing_held_on = Column(Date)

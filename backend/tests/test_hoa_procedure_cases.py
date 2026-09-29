@@ -24,11 +24,20 @@ from app.models.hoa_violation_correspondence import HOAViolationCorrespondenceDr
 from app.models.hoa_violation_notice_delivery import HOAViolationNoticeDelivery
 from app.models.hoa_violation_service_record import HOAViolationServiceRecord
 from app.models.hoa_violation_fine import HOAViolationFine
+from app.models.hoa_violation_fine_payment import HOAViolationFinePayment
+from app.models.receipt import Receipt
+from app.models.receipt_line import ReceiptLine
+from app.models.deposit_line import DepositLine
 from app.models.gl_account import GLAccount
 from app.models.gl_entry import GLEntry
 from app.routers import hoa_violation_fines as fine_api
+from app.routers import hoa_violation_fine_payments as fine_payments
 from app.routers import hoa_member_assessments as member_api
 from app.schemas.hoa_violation_fine import HOAFineDecisionIn, HOAFinePostIn, HOAFineReverseIn
+from app.schemas.hoa_violation_fine_payment import HOAFinePaymentIn, HOAFinePaymentReverseIn
+from app.schemas.receipt import ReceiptCreateIn
+from app.services.receipt_posting import reverse_receipt, process_nsf_receipt
+from app.services.gl_posting import PostingError
 from app.routers import hoa_violation_service_records as service_api
 from app.schemas.hoa_violation_service_record import HOAServiceRecordIn
 from app.models.gl_transaction import GLTransaction
@@ -2038,5 +2047,255 @@ def test_recorded_hearing_private_proof_is_retained_and_staff_cannot_rewrite_boa
             )
         assert deleted.value.status_code == 409
         assert _balances(db) == (0, 0, 0, 0)
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+def _fine_receipt(prop, member, cash, *, key="hoa-fine-receipt-00001",
+                  amount="10.00", reference="FINE-CHECK-100", **extra):
+    values = dict(
+        property_id=prop.id, member_user_id=member.id,
+        cash_gl_account_id=cash.id, received_on=date.today(),
+        amount=amount, payment_reference=reference, idempotency_key=key,
+    )
+    values.update(extra)
+    return HOAFinePaymentIn(**values)
+
+
+def _fine_receipt_reversal(prop, **extra):
+    values = dict(
+        property_id=prop.id, reversal_on=date.today(),
+        reason="Correct independently recorded fine funds",
+    )
+    values.update(extra)
+    return HOAFinePaymentReverseIn(**values)
+
+
+def test_actual_fine_receipt_partial_full_reversal_and_paid_fine_guard(monkeypatch):
+    db, engine = _db()
+    try:
+        monkeypatch.setattr(member_api, "permission_allows_user", lambda *a, **kw: True)
+        users, props, assoc, case, draft, seat, proof = _record_served_fine_case(db, monkeypatch)
+        admin, owner, manager, tenant, foreign = users
+        prop = props[0]
+        fine_api.decide_fine(
+            assoc.id, case.id, _fine_decision(prop, tenant),
+            db=db, current_user=admin,
+        )
+        ar = GLAccount(
+            organization_id=admin.organization_id, gl_number="FINE-PAY-AR",
+            name="Fine receivable", account_type="ASSET", is_active=True,
+        )
+        income = GLAccount(
+            organization_id=admin.organization_id, gl_number="FINE-PAY-INCOME",
+            name="Fine income", account_type="INCOME", is_active=True,
+        )
+        cash = GLAccount(
+            organization_id=admin.organization_id, gl_number="FINE-PAY-CASH",
+            name="Actually received cash", account_type="ASSET",
+            include_on_cash_flow=True, is_active=True,
+        )
+        db.add_all([ar, income, cash]); db.commit()
+        posted = fine_api.post_fine(
+            assoc.id, case.id,
+            HOAFinePostIn(
+                property_id=prop.id, posting_on=date.today(),
+                receivable_gl_account_id=ar.id, income_gl_account_id=income.id,
+            ), db=db, current_user=admin,
+        )
+        assert posted.amount_paid == Decimal("0.00")
+        before_gl = db.query(GLTransaction).count()
+        response = Response()
+        options = fine_payments.fine_cash_options(
+            assoc.id, case.id, response, property_id=prop.id,
+            db=db, current_user=owner,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert [x.id for x in options] == [cash.id]
+        first = fine_payments.record_fine_payment(
+            assoc.id, case.id, _fine_receipt(prop, tenant, cash),
+            db=db, current_user=owner,
+        )
+        assert first.status == "POSTED" and first.manually_recorded
+        assert first.bank_collection_executed is False
+        assert db.get(HOAViolationFine, posted.id).amount_paid == Decimal("10.00")
+        receipt = db.get(Receipt, first.receipt_id)
+        assert receipt.type == "HOA_FINE"
+        assert receipt.owner_id is None and receipt.tenant_user_id is None
+        assert db.query(ReceiptLine).filter(ReceiptLine.receipt_id == receipt.id).count() == 1
+        transaction = db.get(GLTransaction, receipt.gl_transaction_id)
+        assert transaction.source_type == "receipt" and transaction.source_id == receipt.id
+        entries = db.query(GLEntry).filter(GLEntry.transaction_id == transaction.id).all()
+        assert len(entries) == 2
+        assert any(e.gl_account_id == cash.id and e.debit == Decimal("10.00") for e in entries)
+        assert any(e.gl_account_id == ar.id and e.credit == Decimal("10.00") for e in entries)
+        replay = fine_payments.record_fine_payment(
+            assoc.id, case.id, _fine_receipt(prop, tenant, cash),
+            db=db, current_user=admin,
+        )
+        assert replay.id == first.id and db.query(GLTransaction).count() == before_gl + 1
+        with pytest.raises(HTTPException) as conflict:
+            fine_payments.record_fine_payment(
+                assoc.id, case.id, _fine_receipt(prop, tenant, cash, reference="OTHER"),
+                db=db, current_user=admin,
+            )
+        assert conflict.value.status_code == 409
+        with pytest.raises(HTTPException) as too_much:
+            fine_payments.record_fine_payment(
+                assoc.id, case.id,
+                _fine_receipt(prop, tenant, cash, key="hoa-fine-receipt-00002",
+                              amount="25.00"),
+                db=db, current_user=admin,
+            )
+        assert too_much.value.status_code == 409
+        with pytest.raises(PostingError):
+            reverse_receipt(
+                db, original=receipt, reversal_date=date.today(),
+                memo="Attempt generic reversal", created_by=admin,
+            )
+        with pytest.raises(PostingError):
+            process_nsf_receipt(
+                db, original=receipt, process_date=date.today(),
+                memo="Attempt generic NSF", created_by=admin,
+            )
+        with pytest.raises(ValidationError):
+            ReceiptCreateIn(
+                type="HOA_FINE", receipt_date=date.today(), amount=Decimal("1.00"),
+                cash_gl_account_id=cash.id,
+            )
+        second = fine_payments.record_fine_payment(
+            assoc.id, case.id,
+            _fine_receipt(prop, tenant, cash, key="hoa-fine-receipt-00002",
+                          amount="15.00", reference="FINE-CHECK-101"),
+            db=db, current_user=admin,
+        )
+        assert db.get(HOAViolationFine, posted.id).amount_paid == Decimal("25.00")
+        with pytest.raises(HTTPException) as paid:
+            fine_api.reverse_fine(
+                assoc.id, case.id,
+                HOAFineReverseIn(
+                    property_id=prop.id, reversal_on=date.today(),
+                    reason="Cannot reverse while allocated funds remain",
+                ), db=db, current_user=admin,
+            )
+        assert paid.value.status_code == 409
+        reversed_second = fine_payments.reverse_fine_payment(
+            assoc.id, case.id, second.id, _fine_receipt_reversal(prop),
+            db=db, current_user=owner,
+        )
+        assert reversed_second.status == "REVERSED"
+        assert reversed_second.reversal_receipt_id != second.receipt_id
+        assert db.get(HOAViolationFine, posted.id).amount_paid == Decimal("10.00")
+        with pytest.raises(HTTPException) as duplicate:
+            fine_payments.reverse_fine_payment(
+                assoc.id, case.id, second.id, _fine_receipt_reversal(prop),
+                db=db, current_user=admin,
+            )
+        assert duplicate.value.status_code == 409
+        fine_payments.reverse_fine_payment(
+            assoc.id, case.id, first.id, _fine_receipt_reversal(prop),
+            db=db, current_user=admin,
+        )
+        assert db.get(HOAViolationFine, posted.id).amount_paid == Decimal("0.00")
+        history_response = Response()
+        history = fine_payments.list_fine_payments(
+            assoc.id, case.id, history_response, property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        assert history_response.headers["cache-control"] == "no-store"
+        assert len(history) == 2 and all(p.status == "REVERSED" for p in history)
+        assert db.query(GLTransaction).count() == before_gl + 4
+        assert db.query(Receipt).count() == 4
+        assert db.query(Charge).count() == db.query(RentInvoice).count() == 0
+        with pytest.raises(HTTPException):
+            _model_for_table("hoa_violation_fine_payments")
+        reversed_fine = fine_api.reverse_fine(
+            assoc.id, case.id,
+            HOAFineReverseIn(
+                property_id=prop.id, reversal_on=date.today(),
+                reason="Fine reversal after both receipts cancelled",
+            ), db=db, current_user=admin,
+        )
+        assert reversed_fine.status == "REVERSED"
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_fine_receipt_member_scope_period_lock_deposit_and_revocation(monkeypatch):
+    db, engine = _db()
+    try:
+        monkeypatch.setattr(member_api, "permission_allows_user", lambda *a, **kw: True)
+        users, props, assoc, case, draft, seat, proof = _record_served_fine_case(db, monkeypatch)
+        admin, owner, manager, tenant, foreign = users
+        prop, other, outside = props
+        fine_api.decide_fine(
+            assoc.id, case.id, _fine_decision(prop, tenant),
+            db=db, current_user=admin,
+        )
+        ar = GLAccount(
+            organization_id=admin.organization_id, gl_number="FINE-LOCK-AR",
+            name="Locked fine receivable", account_type="ASSET", is_active=True,
+        )
+        income = GLAccount(
+            organization_id=admin.organization_id, gl_number="FINE-LOCK-INCOME",
+            name="Locked fine income", account_type="INCOME", is_active=True,
+        )
+        cash = GLAccount(
+            organization_id=admin.organization_id, gl_number="FINE-LOCK-CASH",
+            name="Recorded fine cash", account_type="ASSET",
+            include_on_cash_flow=True, is_active=True,
+        )
+        db.add_all([ar, income, cash]); db.commit()
+        fine_api.post_fine(
+            assoc.id, case.id,
+            HOAFinePostIn(
+                property_id=prop.id, posting_on=date.today(),
+                receivable_gl_account_id=ar.id, income_gl_account_id=income.id,
+            ), db=db, current_user=admin,
+        )
+        payload = _fine_receipt(prop, tenant, cash)
+        for actor, prop_id, member_id in (
+            (manager, prop.id, tenant.id),
+            (tenant, prop.id, tenant.id),
+            (foreign, prop.id, tenant.id),
+            (admin, other.id, tenant.id),
+            (admin, outside.id, tenant.id),
+            (admin, prop.id, admin.id),
+        ):
+            with pytest.raises(HTTPException):
+                fine_payments.record_fine_payment(
+                    assoc.id, case.id,
+                    payload.model_copy(update={"property_id": prop_id, "member_user_id": member_id}),
+                    db=db, current_user=actor,
+                )
+        with pytest.raises(HTTPException):
+            fine_payments.record_fine_payment(
+                assoc.id, case.id,
+                payload.model_copy(update={"cash_gl_account_id": ar.id}),
+                db=db, current_user=admin,
+            )
+        org = db.get(Organization, admin.organization_id)
+        org.locked_through_date = date.today(); db.flush()
+        with pytest.raises(HTTPException) as locked:
+            fine_payments.record_fine_payment(
+                assoc.id, case.id, payload, db=db, current_user=admin,
+            )
+        assert locked.value.status_code == 409
+        assert db.query(Receipt).count() == 0
+        org.locked_through_date = None; db.flush()
+        actual = fine_payments.record_fine_payment(
+            assoc.id, case.id, payload, db=db, current_user=admin,
+        )
+        org.locked_through_date = date.today(); db.flush()
+        with pytest.raises(HTTPException) as reversal_locked:
+            fine_payments.reverse_fine_payment(
+                assoc.id, case.id, actual.id, _fine_receipt_reversal(prop),
+                db=db, current_user=admin,
+            )
+        assert reversal_locked.value.status_code == 409
+        org.locked_through_date = None; db.flush()
+        assert db.query(HOAViolationFinePayment).count() == 1
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_violation_fine_payment",
+        ).count() == 1
     finally:
         db.rollback(); db.close(); engine.dispose()

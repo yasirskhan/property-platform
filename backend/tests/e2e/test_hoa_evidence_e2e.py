@@ -398,15 +398,33 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 ).click()
                 expect(fine.get_by_text(re.compile("POSTED"))).to_be_visible()
                 assert _financial_counts() == (before[0], before[1] + 1)
+                fine.get_by_label("Fine payment cash GL").select_option(
+                    label="E2E-CASE-FINE-CASH · E2E Case Fine Cash",
+                )
+                fine.get_by_label("Fine received on").fill(date.today().isoformat())
+                fine.get_by_label("Fine received amount").fill("25.00")
+                fine.get_by_label("Fine payment reference").fill("SYNTHETIC-FINE-CHECK")
+                page.once("dialog", lambda dialog: dialog.accept())
+                fine.get_by_role("button", name="Record received fine payment").click()
+                expect(fine.get_by_text(re.compile("No bank collection initiated"))).to_be_visible()
+                expect(fine.get_by_text(re.compile(r"Outstanding \$0\.00"))).to_be_visible()
+                assert _financial_counts() == (before[0], before[1] + 2)
+                expect(fine.get_by_role("button", name="Reverse posted fine")).to_have_count(0)
+                fine.get_by_label("Fine receipt reversal date").fill(date.today().isoformat())
+                fine.get_by_label("Fine receipt reversal reason").fill("Synthetic receipt correction")
+                page.once("dialog", lambda dialog: dialog.accept())
+                fine.get_by_role("button", name="Reverse fine payment").click()
+                expect(fine.get_by_text(re.compile("receipt reversed in the central GL"))).to_be_visible()
+                assert _financial_counts() == (before[0], before[1] + 3)
                 fine.get_by_label("Fine reversal date").fill(date.today().isoformat())
                 fine.get_by_label("Fine reversal reason").fill("Synthetic accounting correction")
                 page.once("dialog", lambda dialog: dialog.accept())
                 fine.get_by_role("button", name="Reverse posted fine").click()
                 expect(fine.get_by_text(re.compile("REVERSED"))).to_be_visible()
-                assert _financial_counts() == (before[0], before[1] + 2)
+                assert _financial_counts() == (before[0], before[1] + 4)
             finally:
                 browser.close()
-        assert _financial_counts() == (before[0], before[1] + 2)
+        assert _financial_counts() == (before[0], before[1] + 4)
 
 
 def test_hoa_staff_meeting_motion_browser_flow_no_official_vote() -> None:
@@ -541,6 +559,11 @@ def _seed_case_recipient(association_name: str) -> None:
                 organization_id=association.organization_id,
                 gl_number="E2E-CASE-FINE-INCOME", name="E2E Case Fine Income",
                 account_type="INCOME", is_active=True,
+            ),
+            GLAccount(
+                organization_id=association.organization_id,
+                gl_number="E2E-CASE-FINE-CASH", name="E2E Case Fine Cash",
+                account_type="ASSET", include_on_cash_flow=True, is_active=True,
             ),
         ])
         db.commit()
