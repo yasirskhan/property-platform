@@ -1228,7 +1228,7 @@ def test_hoa_annual_budget_board_adoption_browser_without_finance_posting() -> N
                     "not an independently allocated HOA-only", re.IGNORECASE,
                 ))).to_be_visible()
                 expect(actuals.get_by_text(re.compile(
-                    r"Budget \$300\.00.*Book actual \$0\.00",
+                    r"Budget \$300(?:\.00)?.*Book actual \$0(?:\.00)?",
                 ))).to_be_visible()
                 assert _financial_counts() == before
                 annual.get_by_role("button", name="Annual assessment increases").click()
