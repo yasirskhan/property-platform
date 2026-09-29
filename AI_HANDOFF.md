@@ -1,3 +1,51 @@
+# AI_HANDOFF.md — 2026-09-29 HOA SERVICE PROOF VERIFIED
+
+**Read the entire file.** This is the newest status; historical
+PROVISIONAL and NEXT headings below are superseded. Only branch
+`chatgpt/checkpoint-005-safety` in `yasirskhan/property-platform`.
+Do not modify main/frozen docs, add branches, force-push, merge or
+advance Phase 4.8.
+
+- VERIFIED PRODUCT source `195a048194ad44a1fc4ddd5453d03484c407d97b`.
+  GitHub Actions **36615815202 SUCCESS all six jobs**.
+  Backend **808 passed, 15 deselected, 20770 warnings in 211.50s**;
+  authenticated browser **15 passed, 226 warnings in 68.21s**;
+  frontend lint/TypeScript/build, platform-admin, security and
+  staging-config SUCCESS. **TESTS NOT RUN locally**.
+- Verified Alembic head **e1a3c5f7b9d2**, expected **173 tables**,
+  up from d0f2a4c6e8b1 / 172. Fresh/legacy/PostgreSQL/staging guards
+  passed on the same product source.
+- Newly VERIFIED: association-authorized recorded actual notice
+  service with exact private correspondence/policy revision, matching
+  verified recipient, dated method, case-linked retained PRIVATE
+  service proof, audit and case/request idempotency. The board supplies
+  its service record; the platform does not independently certify
+  compliance. SMTP_ACCEPTED/TEST_ONLY are not by themselves proof
+  of service. The case browser exercises this flow with synthetic
+  data. NO fine, charge or central GL posting in this batch.
+- Source correction history: initial d4f75f04 and several
+  successive product/test corrections; final test-only fixture
+  correction `195a048194ad44a1fc4ddd5453d03484c407d97b` passed all six. The previous
+  `195a` handoff's PREPARED label below is historical and must
+  not cause this feature to be repeated.
+- NEXT independently actionable Phase 4.7 violation batch:
+  actual association board-recorded fine decision and separately
+  permissioned member-ledger GL posting/reversal; reuse existing
+  case, service evidence, verified member, real receipt/assessment
+  posting infrastructure. Scope by live association/property,
+  board seat, correctly matched member and actual case policy.
+  Check service/cure/hearing prerequisites, amount cap, board
+  outcome, central GL lock, idempotency and reversal. Do not
+  infer legal delivery from SMTP or invent liability. Unsupported
+  individual operations stay pending, not the whole project.
+- Seven original HOA operational capabilities remain required.
+  Preserve ARC direct APPROVED/DENIED, current member payments,
+  board decisions, reserve GL, budget, documents and $79/month
+  catalog/entitlement. No production notices or real financial
+  obligations merely from synthetic CI.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 HOA SERVICE PROOF PROVISIONAL
 
 **Read the entire file.** This new entry supersedes older NEXT/PREPARED
