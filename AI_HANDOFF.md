@@ -30,6 +30,66 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
 - **Exact NEXT task: continue Phase 4.7 HOA violations, preferably a discrete, authorized real-operations batch once applicable procedure, legal service, board authorization and liable member have actual verified records. Existing observation, case stages/history, potential recipient, versioned correspondence drafts and private evidence links are VERIFIED; do not repeat. If binding authority is unavailable, continue only independent generic case management and truthful readiness diagnostics without sending statutory notices or posting fines. Do not restore a legal-effect gate to final ARC decisions. Keep HOA priority and preserve all Phase 4.8 product work without advancing it.**
 
+## CURRENT SESSION UPDATE — 2026-09-28 CASE FOLLOW-UP PREPARED, UNCOMMITTED
+
+**PREPARED ONLY — NOT TESTED — NOT COMMITTED — NOT VERIFIED.**
+The requested next Phase 4.7 violation batch was designed using
+the live GitHub branch at product source `4546b6ab` and
+handoff-only HEAD `9823b11`. Drafted **15 Git blob objects**
+in the connected repository, but did not update any product
+files or create a product commit. The prepared implementation
+has a new scoped `hoa_case_tasks` task model, migration
+`e9a1c3f5b7d0` after `d8f0a2c4e6b9`, schemas, router,
+case closeout guard, frontend task panel, updated bootstraps,
+two focused backend regression tests and an extension of the
+existing dedicated HOA browser test. It provides optional
+staff-assigned internal inspections/remediation/review
+follow-ups, idempotent request keys, versioned status
+transitions, immutable existing audit-log events, completion
+notes, property-assigned manager access, and no assumed
+legal notice, member payer, Charge or GL posting.
+
+**Blocker (actual):** Product-code commits require applicable
+tests to run first. There is no current local checkout in the
+session runtime. GitHub direct clone fails DNS with
+`Could not resolve host: github.com`; the available
+Library ZIP checkpoint-005 dates to **September 23** and
+has no later HOA models. Actions cannot test uncommitted
+changes on the existing branch. Therefore
+**APPLICABLE TESTS NOT RUN**, **NO PRODUCT COMMIT**,
+and **NO CI RUN** for this prepared batch. Do not
+mark it VERIFIED or update Alembic head/model counts
+in the live verified header. Do not put this change
+on main or a new branch to bypass the user's test rule.
+
+**Prepared Git blob pointers (not source commits):**
+- Model `backend/app/models/hoa_case_task.py`: `123513d03e699a0c99da8cf4c255d220b63747f6`
+- Migration `backend/alembic/versions/e9a1c3f5b7d0_hoa_case_tasks.py`: `9af675e0b72bcf6fb6bca85f243b5e5fd8028bda`
+- Schema `backend/app/schemas/hoa_case_task.py`: `e9e4c99d69dedd9629fb5c0cdc48c9c14f2b7ccf`
+- Router `backend/app/routers/hoa_case_tasks.py`: `f10f960c1e94c0c1acfc28b005db3a586ae66310`
+- Case closeout guard `backend/app/routers/hoa_violation_cases.py`: `7a1cacddd0df375d38860d1c4e9371c9a7159cd9`
+- UI component `frontend/src/components/property/HoaCaseTasksPanel.tsx`: `b5738aff22705e1f3526f424dd596b9e90ccb8f1`
+- UI parent `frontend/src/components/property/HoaCaseWorkflowPanel.tsx`: `3fc001e3c077b51526d1c9030bafd3e815c7ef11`
+- Backend tests `backend/tests/test_hoa_procedure_cases.py`: `cf6f8daf37c1e47a6c0f240407e207ac453ea1f7`
+- Browser tests `backend/tests/e2e/test_hoa_evidence_e2e.py`: `8e82f724c3d994a1c06b50c6de69e294e35aaeb1`
+- Router registration `backend/app/main.py`: `883d2aa7fee20ac38800384d4108b63115ab7e66`
+- Model registration `backend/init_db.py`: `30a2585a17f5f4844b7fb0508db7680de29fa0c9`
+- Entity-notes denylist `backend/app/services/entity_notes.py`: `cfc54a30188d079be0eb5744370af4eefa2a8d1a`
+- Migration expectation `backend/tests/test_migrations.py`: `9c6bcc42b0f0b6c06040be30c1047ec93e84b70b`
+- PostgreSQL expectation `backend/tests/test_postgres_smoke.py`: `337bd7a5b2cc06df7ff3d6f55c40d52ac70e4c44`
+- Staging expectation `backend/tests/test_prepare_database.py`: `d3176ffa5aad50fdd695007caf615ce3035b08ee`
+
+**NEXT:** obtain a testable current HEAD checkout. Independently
+review and run the applicable focused backend, migration,
+frontend lint/typecheck and HOA browser tests against the
+assembled proposed source before any product-code commit;
+repair any failures before committing. A stale September 23
+ZIP and blob existence are NOT a tested current checkout.
+Keep ARC decisions direct and final without a blanket
+legal-effect gate, keep Phase 4.8 paused. Unreferenced Git
+blob objects may eventually expire, so treat this list as
+temporary staging rather than a committed change.
+
 ## CURRENT SESSION UPDATE — 2026-09-28 HOA PRIVATE VIOLATION EVIDENCE VERIFIED
 
 **Verified product source** `4546b6abb597609690cc99fae25457892643a4e1`.
