@@ -1,3 +1,60 @@
+# AI_HANDOFF.md — 2026-09-29 BOARD MOTION OUTCOMES VERIFIED
+
+**READ THIS ENTIRE ROOT FILE.** This newest checkpoint supersedes all historical
+NEXT/PREPARED headings below, which remain preserved for audit. Only repository
+`yasirskhan/property-platform`, branch `chatgpt/checkpoint-005-safety`.
+Do not modify main, create branches, force push, edit frozen docs/, merge,
+or advance Phase 4.8.
+
+- Latest VERIFIED PRODUCT source `a2edafce2aa224b4e5aa798888003526e85b3e0f`.
+  GitHub Actions [36604831597](https://github.com/yasirskhan/property-platform/actions/runs/36604831597):
+  **SUCCESS all SIX jobs on exact source**. Backend **803 passed,
+  15 deselected, 20423 warnings in 154.65s**; authenticated browser
+  **15 passed, 224 warnings in 66.43s**. Frontend lint, TypeScript,
+  build, platform-admin, security, staging-config SUCCESS.
+  **TESTS NOT RUN locally.**
+- Verified Alembic head `c9e1f3b5d7a0`, **171 model tables** (was
+  `b8d0f2a4c6e9` / 170). Fresh/legacy/PostgreSQL and staging PASS.
+- VERIFIED operational board motion final outcome: an authorized verified
+  association board member explicitly finalizes the exact immutable
+  current motion SHA-256 and recorded individual vote-register digest
+  using CURRENT board-adopted quorum/approval revision. Recorded
+  `PASSED` or `NOT_PASSED` and snapshots of FOR/AGAINST/ABSTAIN,
+  thresholds, adoption revision and recorder are immutable with redacted
+  audit; stale changes or lack of quorum fail closed, duplicate races are
+  serialized, later voting is rejected. This is actual association
+  decision recording, NOT the platform's independent legal
+  certification or automatic GL/notice.
+- The older "BOARD MOTION OUTCOME PROVISIONAL" section below is now
+  HISTORICAL. Corrective source `a2edafce` completed all six jobs.
+  Earlier source `b7181855` and `b86339c2` CI runs were cancelled,
+  not counted as passing.
+- Preserve existing authenticated board portal, quorum rule adoption,
+  vote history, ARC direct APPROVED/DENIED and protected fees/reversals,
+  member assessments/receipts/statements, approved annual budget and
+  increase GL, reserve GL book, private governing documents/delivery,
+  HOA violations/case follow-ups and paid $79/mo entitlement.
+- **NEXT independently actionable original Phase 4.7 feature: actual
+  violation notification delivery and decision/cure workflow**,
+  extending EXISTING private case correspondence, verified contact,
+  staff-configured procedure and existing email/outbox. Require an
+  authenticated association-authorized decision, current recipient
+  identity, current correspondence revision and configured notice/cure
+  prerequisites before an explicit send. Distinguish SMTP transport
+  acceptance from proof of statutory service; no invented legal
+  deadline, fine, debtor or charge. Implement a bounded end-to-end
+  workflow, focused backend/security/browser tests, provisional commit
+  on only feature branch, six green CI jobs, then refresh this handoff.
+  If a particular delivery method or rule requires external inputs,
+  block only that action and continue independent HOA operations.
+- User's original SEVEN Phase 4.7 capabilities remain scope. Do not
+  substitute additional endless draft screens for working workflows.
+  Do not reinstate blanket platform legal-authorization gate.
+  No live customer messages or real-world financial obligations
+  from disposable CI. Phase 4.8 PAUSED.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 BOARD MOTION OUTCOME PROVISIONAL
 
 **Read this entire root file.** Latest verified checkpoint is below;
