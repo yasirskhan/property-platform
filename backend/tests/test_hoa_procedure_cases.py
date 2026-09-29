@@ -1902,6 +1902,7 @@ def test_fine_board_auth_service_policy_hearing_and_member_revocation(monkeypatc
                 assoc.id, case.id,
                 _fine_decision(
                     prop, tenant, hearing_disposition="HEARING_HELD",
+                    hearing_held_on=date.today(),
                     hearing_record_attachment_id=987654321,
                 ), db=db, current_user=admin,
             )
@@ -1981,6 +1982,8 @@ def test_fine_refuses_stale_service_or_policy_and_locked_period(monkeypatch):
 def test_recorded_hearing_private_proof_is_retained_and_staff_cannot_rewrite_board_outcome(monkeypatch):
     db, engine = _db()
     try:
+        # This fixture tests evidence retention, not document feature rollout.
+        monkeypatch.setattr(case_evidence, "_require_attachment_feature", lambda *a, **kw: None)
         users, props, assoc, case, draft, seat, service_proof = _record_served_fine_case(db, monkeypatch)
         admin, owner, manager, tenant, foreign = users
         prop = props[0]
