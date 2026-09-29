@@ -29,15 +29,18 @@ export default function HoaMinutesDraftPanel({
   const [approval, setApproval] = useState<Approval | null>(null);
   const [approvalNote, setApprovalNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
     setError(""); setMessage(""); setBody(""); setRecord(null);
     void (apiGet(base + "?property_id=" + propertyId) as Promise<Minutes | null>)
       .then((row) => { if (active) { setRecord(row); setBody(row?.staff_minutes || ""); } })
-      .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Minutes unavailable."); });
+      .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Minutes unavailable."); })
+      .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [base, propertyId]);
 
@@ -114,6 +117,7 @@ export default function HoaMinutesDraftPanel({
         do not establish legal quorum, adoption, approval or a board resolution.
         Certified minutes and document sharing require separate authority checks.
       </p>
+      {loading && <p className="text-xs">Loading staff minutes…</p>}
       {error && <p role="alert" className="text-red-700">{error}</p>}
       {message && <p role="status" className="text-green-700">{message}</p>}
       {approval && <p role="status" className="text-xs font-semibold text-teal-800">
@@ -123,7 +127,7 @@ export default function HoaMinutesDraftPanel({
       {record && <p className="text-xs text-slate-600">
         {record.status.replaceAll("_", " ")} · Legal minutes effective: NO
       </p>}
-      {canEdit && boardPreview && !approval && record && <div className="space-y-2 border-t pt-2">
+      {!loading && canEdit && boardPreview && !approval && record && <div className="space-y-2 border-t pt-2">
         <p className="text-xs">Board approval applies only to revision {boardPreview.revision}.
           It records your decision, not certification of an entire board vote or quorum.</p>
         <label className="block text-xs">Board approval note
@@ -137,7 +141,7 @@ export default function HoaMinutesDraftPanel({
           Approve this minutes revision as authorized board member
         </button>
       </div>}
-      {canEdit && !approval ? (
+      {!loading && canEdit && !approval ? (
         <form onSubmit={(event) => { void save(event); }} className="space-y-2">
           <label className="block text-xs">Staff minutes (not certified)
             <textarea value={body} maxLength={4000} required rows={5}
