@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiFetch, apiGet, apiPost } from "@/lib/api";
+import HoaAppealNotificationPanel from "./HoaAppealNotificationPanel";
 
 type Appeal = {
   association_id: number; property_id: number; case_id: number;
@@ -9,9 +10,16 @@ type Appeal = {
   member_user_id: number; appeal_reason: string; has_private_evidence: boolean;
   status: "OPEN";
 };
+type FinalAppeal = {
+  association_id: number; property_id: number; case_id: number;
+  fine_id: number; appeal_id: number; outcome: "UPHELD" | "VACATED";
+  decided_on: string; notification_status: string | null;
+};
 
 export default function HoaBoardFineAppealsPanel() {
   const [appeals, setAppeals] = useState<Appeal[]>([]);
+  const [finalAppeals, setFinalAppeals] = useState<FinalAppeal[]>([]);
+  const [notificationOpen, setNotificationOpen] = useState<number | null>(null);
   const [choices, setChoices] = useState<Record<number, "UPHELD" | "VACATED">>({});
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
@@ -21,13 +29,20 @@ export default function HoaBoardFineAppealsPanel() {
   const requestKeys = useRef<Record<number, string>>({});
 
   async function reload() {
-    setAppeals(await apiGet("/api/hoa/board/my-fine-appeals") as Appeal[]);
+    const [open, decided] = await Promise.all([
+      apiGet("/api/hoa/board/my-fine-appeals") as Promise<Appeal[]>,
+      apiGet("/api/hoa/board/my-final-fine-appeals") as Promise<FinalAppeal[]>,
+    ]);
+    setAppeals(open); setFinalAppeals(decided);
   }
 
   useEffect(() => {
     let live = true;
-    void apiGet("/api/hoa/board/my-fine-appeals").then(rows => {
-      if (live) setAppeals(rows as Appeal[]);
+    void Promise.all([
+      apiGet("/api/hoa/board/my-fine-appeals") as Promise<Appeal[]>,
+      apiGet("/api/hoa/board/my-final-fine-appeals") as Promise<FinalAppeal[]>,
+    ]).then(([open, decided]) => {
+      if (live) { setAppeals(open); setFinalAppeals(decided); }
     }).catch(cause => {
       if (live) setError(cause instanceof Error ? cause.message : "Board appeals unavailable.");
     }).finally(() => { if (live) setLoading(false); });
@@ -85,9 +100,9 @@ export default function HoaBoardFineAppealsPanel() {
   return <section className="space-y-3 rounded border bg-white p-4">
     <h2 className="font-semibold">Board fine appeals</h2>
     <p className="text-xs text-slate-600">
-      Only open appeals within your verified association-specific board authority
-      are shown. UPHELD/VACATED records the association decision, not a refund,
-      mailed notice, or automatic change to previously posted GL entries.
+      Open and final appeals remain scoped to your currently verified
+      association-specific board authority. UPHELD/VACATED records a decision,
+      not a refund, mailed notice or automatic general-ledger correction.
     </p>
     {loading && <p className="text-xs">Loading board appeals…</p>}
     {error && <p role="alert" className="text-red-700">{error}</p>}
@@ -131,6 +146,37 @@ export default function HoaBoardFineAppealsPanel() {
         className="rounded bg-teal-900 px-3 py-2 text-white disabled:opacity-50">
         Record my board appeal decision
       </button>
+    </article>)}
+    <h3 className="font-semibold">Final board appeal outcomes</h3>
+    <p className="text-xs text-slate-600">
+      Final decision history remains available only while the board seat is
+      authorized. Email delivery is separate from the decision and does not
+      complete legal service or alter member receipts or general-ledger entries.
+    </p>
+    {finalAppeals.length === 0 && !loading && !error &&
+      <p className="text-xs">No final board appeals for this authorized seat.</p>}
+    {finalAppeals.map(appeal => <article key={appeal.appeal_id}
+      className="space-y-2 rounded border bg-slate-50 p-3 text-sm">
+      <h4 className="font-medium">Final fine appeal #{appeal.appeal_id} · {appeal.outcome}</h4>
+      <p className="text-xs">Association #{appeal.association_id}
+        {" · "}Property #{appeal.property_id} · Case #{appeal.case_id}
+        {" · "}Board decision date {appeal.decided_on}</p>
+      <p className="text-xs">Outcome email: {appeal.notification_status
+        ? appeal.notification_status.replaceAll("_", " ")
+        : "NOT REQUESTED"}. SMTP acceptance does not prove inbox delivery.</p>
+      <button type="button" className="text-blue-700"
+        onClick={() => setNotificationOpen(
+          notificationOpen === appeal.appeal_id ? null : appeal.appeal_id
+        )}>
+        {notificationOpen === appeal.appeal_id
+          ? "Hide final outcome email" : "Open final outcome email"}
+      </button>
+      {notificationOpen === appeal.appeal_id && <HoaAppealNotificationPanel
+        associationId={appeal.association_id} propertyId={appeal.property_id}
+        caseId={appeal.case_id} appealId={appeal.appeal_id} canEdit
+        onClose={() => { setNotificationOpen(null); void reload().catch(cause => {
+          setError(cause instanceof Error ? cause.message : "Final appeal history unavailable.");
+        }); }}/>}
     </article>)}
   </section>;
 }

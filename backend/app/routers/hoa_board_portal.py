@@ -21,6 +21,7 @@ from app.models.hoa_association import HOAAssociation, HOAContactLink, HOAProper
 from app.models.hoa_board import HOABoardSeat
 from app.models.hoa_meeting_draft import HOAMeetingDraft
 from app.models.hoa_violation_fine_appeal import HOAFineAppeal
+from app.models.hoa_fine_appeal_notification import HOAFineAppealNotification
 from app.models.property import Property
 from app.models.user import Organization, User
 from app.routers.auth import get_current_user
@@ -258,6 +259,111 @@ def my_board_fine_appeals(
             raise HTTPException(status_code=422, detail="Board appeal list exceeds 100; contact the administrator.")
     response.headers["Cache-Control"] = "no-store"
     return result
+
+
+class HOABoardFinalFineAppealOut(BaseModel):
+    association_id: int
+    property_id: int
+    case_id: int
+    fine_id: int
+    appeal_id: int
+    outcome: Literal["UPHELD", "VACATED"]
+    decided_on: date
+    notification_status: Literal[
+        "PENDING", "SENDING", "FAILED", "TEST_ONLY", "SMTP_ACCEPTED"
+    ] | None = None
+
+
+@router.get("/my-final-fine-appeals",
+            response_model=list[HOABoardFinalFineAppealOut])
+def my_board_final_fine_appeals(
+    response: Response, db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Final outcomes for the caller's LIVE verified, paid-HOA board seat only.
+
+    No private appeal reason, email address, template text, generic contact
+    access or broad staff property permission is exposed.
+    """
+    actor = current_user
+    if (actor.organization_id is None or not actor.is_active
+        or actor.deleted_at is not None or not actor.is_verified):
+        raise HTTPException(status_code=403, detail="Verified board login required.")
+    org = db.query(Organization.id).filter(
+        Organization.id == actor.organization_id,
+        Organization.is_active.is_(True), Organization.deleted_at.is_(None),
+    ).first()
+    if org is None:
+        raise HTTPException(status_code=403, detail="Organization inactive.")
+    grants = {item.key: item for item in resolve_customer_features(db, user=actor)}
+    if any(
+        (value := grants.get(key)) is None
+        or not (value.release_allowed and value.entitlement_allowed
+                and value.org_config_allowed)
+        for key in HOA_GATES
+    ):
+        raise HTTPException(status_code=404, detail="HOA board module unavailable.")
+    rows = db.query(HOAFineAppeal).join(
+        HOABoardSeat, and_(
+            HOABoardSeat.organization_id == HOAFineAppeal.organization_id,
+            HOABoardSeat.association_id == HOAFineAppeal.association_id,
+            HOABoardSeat.property_id == HOAFineAppeal.property_id,
+        ),
+    ).filter(
+        HOAFineAppeal.organization_id == actor.organization_id,
+        HOAFineAppeal.status.in_(("UPHELD", "VACATED")),
+        HOABoardSeat.organization_id == actor.organization_id,
+        HOABoardSeat.authorized_user_id == actor.id,
+        HOABoardSeat.is_active.is_(True),
+        HOABoardSeat.decision_authorized.is_(True),
+        HOABoardSeat.staff_voting_eligible.is_(True),
+    ).order_by(HOAFineAppeal.id.desc()).limit(201).all()
+    if len(rows) > 200:
+        raise HTTPException(status_code=422, detail="Board final appeal history exceeds 200.")
+    found = []
+    seen = set()
+    for appeal in rows:
+        if appeal.id in seen:
+            continue
+        seen.add(appeal.id)
+        try:
+            org_id, assoc, _ = _board_scope(
+                db, actor=actor, association_id=appeal.association_id,
+                property_id=appeal.property_id,
+            )
+            _case(
+                db, org_id=org_id, association_id=assoc.id,
+                property_id=appeal.property_id, case_id=appeal.case_id,
+            )
+        except HTTPException:
+            continue
+        fine = _fine(
+            db, org_id, assoc.id, appeal.property_id, appeal.case_id,
+        )
+        if (fine is None or fine.id != appeal.fine_id
+            or fine.member_user_id is None
+            or fine.member_user_id != appeal.member_user_id
+            or appeal.decided_on is None
+            or appeal.decision_board_seat_id is None):
+            continue
+        notification = db.query(HOAFineAppealNotification).filter(
+            HOAFineAppealNotification.organization_id == org_id,
+            HOAFineAppealNotification.association_id == assoc.id,
+            HOAFineAppealNotification.property_id == appeal.property_id,
+            HOAFineAppealNotification.case_id == appeal.case_id,
+            HOAFineAppealNotification.fine_id == fine.id,
+            HOAFineAppealNotification.appeal_id == appeal.id,
+        ).first()
+        found.append(HOABoardFinalFineAppealOut(
+            association_id=assoc.id, property_id=appeal.property_id,
+            case_id=appeal.case_id, fine_id=fine.id, appeal_id=appeal.id,
+            outcome=appeal.status, decided_on=appeal.decided_on,
+            notification_status=notification.status if notification else None,
+        ))
+        if len(found) > 100:
+            raise HTTPException(status_code=422, detail="Board final appeal list exceeds 100.")
+    response.headers["Cache-Control"] = "no-store"
+    return found
 
 
 @router.get("/fine-appeals/{appeal_id}/supporting-evidence")

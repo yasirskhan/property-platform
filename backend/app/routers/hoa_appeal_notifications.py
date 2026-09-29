@@ -23,6 +23,7 @@ from app.models.user import Organization, User
 from app.routers.auth import get_current_user
 from app.routers.hoa_arc_board_decisions import _board_scope
 from app.routers.hoa_violation_fines import _fine
+from app.routers.hoa_violation_cases import _case
 from app.routers.hoa_violation_recipients import _matched_contact, _prerequisites
 from app.schemas.hoa_appeal_notification import (
     HOAAppealNotificationIn, HOAAppealNotificationOut, HOAAppealTemplateOut,
@@ -35,9 +36,24 @@ MAX_ATTEMPTS = 20
 
 
 def _scope(db, actor, association_id, property_id, case_id, *, write):
-    org, assoc, case = _prerequisites(
+    # Staff access retains its existing property/contact checks. A LIVE
+    # delegated board member independently has narrowly scoped read/send
+    # access without acquiring staff-wide PROPERTIES.ALL or PEOPLE.CONTACTS.
+    try:
+        return _prerequisites(
+            db, actor=actor, association_id=association_id,
+            property_id=property_id, case_id=case_id, write=write,
+        )
+    except HTTPException as exc:
+        if exc.status_code not in {403, 404}:
+            raise
+    org, assoc, _ = _board_scope(
         db, actor=actor, association_id=association_id,
-        property_id=property_id, case_id=case_id, write=write,
+        property_id=property_id,
+    )
+    case = _case(
+        db, org_id=org, association_id=assoc.id,
+        property_id=property_id, case_id=case_id,
     )
     return org, assoc, case
 

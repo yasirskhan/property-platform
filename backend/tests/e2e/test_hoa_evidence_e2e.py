@@ -420,6 +420,17 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 expect(board_appeals.get_by_text(
                     re.compile("Your direct board appeal disposition was recorded"),
                 )).to_be_visible()
+                expect(board_appeals.get_by_role(
+                    "heading", name=re.compile("Final fine appeal #.*UPHELD"),
+                )).to_be_visible()
+                expect(board_appeals.get_by_text(
+                    re.compile("Outcome email: NOT REQUESTED"),
+                )).to_be_visible()
+                board_appeals.get_by_role("button", name="Open final outcome email").click()
+                expect(board_appeals.get_by_role(
+                    "heading", name="Fine appeal outcome email",
+                )).to_be_visible()
+                board_appeals.get_by_role("button", name="Close appeal email").click()
                 assert _financial_counts() == before
                 page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
                           wait_until="domcontentloaded")

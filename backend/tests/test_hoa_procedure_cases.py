@@ -29,6 +29,7 @@ from app.models.hoa_violation_fine_appeal import HOAFineAppeal
 from app.models.hoa_fine_appeal_notification import HOAFineAppealNotification
 from app.models.letter_template import LetterTemplate
 from app.models.hoa_board import HOABoardSeat
+from app.models.hoa_association import HOAContactLink
 from app.models.receipt import Receipt
 from app.models.receipt_line import ReceiptLine
 from app.models.deposit_line import DepositLine
@@ -2695,7 +2696,7 @@ def test_delegated_board_downloads_only_live_private_appeal_evidence(monkeypatch
         db.rollback(); db.close(); engine.dispose()
 
 
-def _appeal_notification_setup(db, monkeypatch):
+def _appeal_notification_setup(db, monkeypatch, *, outcome="UPHELD"):
     """Disposable same-association actual recipient, authorized fine and final appeal."""
     monkeypatch.setattr(member_api, "permission_allows_user", lambda *a, **kw: True)
     users, props, assoc, case, draft, seat, _ = _record_served_fine_case(db, monkeypatch)
@@ -2709,7 +2710,7 @@ def _appeal_notification_setup(db, monkeypatch):
         db=db, current_user=owner,
     )
     decision = appeals_api.decide_appeal(
-        assoc.id, case.id, opened.id, _appeal_decision(props[0]),
+        assoc.id, case.id, opened.id, _appeal_decision(props[0], outcome=outcome),
         db=db, current_user=admin,
     )
     template = LetterTemplate(
@@ -2916,5 +2917,122 @@ def test_appeal_outcome_email_failure_retry_revocation_and_resolved_only(monkeyp
                 payload.model_copy(update={"request_key": "hoa-appeal-outcome-email-0005"}),
                 db=db, current_user=admin,
             )
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_delegated_board_only_final_outcome_email_and_scope_revocation(monkeypatch):
+    """A verified board member needs no organization-wide staff contacts access."""
+    db, engine = _db()
+    try:
+        users, props, assoc, case, admin_seat, appeal, template = (
+            _appeal_notification_setup(db, monkeypatch, outcome="VACATED")
+        )
+        admin, owner, manager, tenant, foreign = users
+        prop, other, outside = props
+        link = db.query(HOAContactLink).join(
+            Contact, Contact.id == HOAContactLink.contact_id,
+        ).filter(
+            HOAContactLink.association_id == assoc.id,
+            HOAContactLink.property_id == prop.id,
+            Contact.email == tenant.email,
+        ).one()
+        board_member_seat = HOABoardSeat(
+            organization_id=admin.organization_id,
+            association_id=assoc.id, property_id=prop.id,
+            contact_link_id=link.id, proposed_role="MEMBER",
+            staff_voting_eligible=True, is_active=True,
+            authorized_user_id=tenant.id, decision_authorized=True,
+            authorized_by_id=admin.id,
+        )
+        db.add(board_member_seat); db.commit()
+        gates = [
+            SimpleNamespace(
+                key=key, release_allowed=True,
+                entitlement_allowed=True, org_config_allowed=True,
+            ) for key in arc_board.HOA_GATES
+        ]
+        monkeypatch.setattr(board_portal, "resolve_customer_features",
+                            lambda *a, **kw: gates)
+        monkeypatch.setattr(member_api, "permission_allows_user",
+                            lambda *a, **kw: True)
+        # The member's TENANT role does not grant a staff property/contact
+        # directory; it only gets its specifically delegated board authority.
+        with pytest.raises(HTTPException):
+            recipients._prerequisites(
+                db, actor=tenant, association_id=assoc.id,
+                property_id=prop.id, case_id=case.id, write=True,
+            )
+        before = _balances(db)
+        response = Response()
+        final = board_portal.my_board_final_fine_appeals(
+            response, db=db, current_user=tenant,
+        )
+        assert len(final) == 1 and final[0].appeal_id == appeal.id
+        assert final[0].outcome == "VACATED"
+        assert final[0].notification_status is None
+        assert response.headers["cache-control"] == "no-store"
+        with pytest.raises(HTTPException):
+            board_portal.my_board_final_fine_appeals(
+                Response(), db=db, current_user=foreign,
+            )
+        choices = appeal_notifications.list_appeal_email_templates(
+            assoc.id, case.id, Response(), property_id=prop.id,
+            db=db, current_user=tenant,
+        )
+        assert [t.id for t in choices] == [template.id]
+        assert appeal_notifications.list_appeal_notifications(
+            assoc.id, case.id, appeal.id, Response(), property_id=prop.id,
+            db=db, current_user=tenant,
+        ) == []
+        sent = []
+        monkeypatch.setattr(email_service, "send_email",
+                            lambda **kw: sent.append(kw))
+        monkeypatch.setattr(email_service, "settings",
+                            SimpleNamespace(EMAIL_MODE="console"))
+        payload = HOAAppealNotificationIn(
+            property_id=prop.id, template_id=template.id,
+            request_key="hoa-board-only-outcome-email-0001",
+        )
+        delivery = appeal_notifications.send_appeal_notification(
+            assoc.id, case.id, appeal.id, payload,
+            db=db, current_user=tenant,
+        )
+        assert delivery.status == "TEST_ONLY" and delivery.outcome == "VACATED"
+        assert len(sent) == 1 and sent[0]["to"] == tenant.email.lower()
+        assert "VACATED" in sent[0]["body"]
+        assert delivery.actual_delivery_confirmed is False
+        assert delivery.accounting_modified is False
+        assert board_portal.my_board_final_fine_appeals(
+            Response(), db=db, current_user=tenant,
+        )[0].notification_status == "TEST_ONLY"
+        assert appeal_notifications.send_appeal_notification(
+            assoc.id, case.id, appeal.id, payload,
+            db=db, current_user=tenant,
+        ).id == delivery.id
+        assert len(sent) == 1
+        for wrong_property in (other.id, outside.id):
+            with pytest.raises(HTTPException):
+                appeal_notifications.retry_appeal_notification(
+                    assoc.id, case.id, appeal.id, delivery.id,
+                    wrong_property, db=db, current_user=tenant,
+                )
+        assert len(sent) == 1
+        board_member_seat.decision_authorized = False
+        db.commit()
+        assert board_portal.my_board_final_fine_appeals(
+            Response(), db=db, current_user=tenant,
+        ) == []
+        with pytest.raises(HTTPException):
+            appeal_notifications.retry_appeal_notification(
+                assoc.id, case.id, appeal.id, delivery.id, prop.id,
+                db=db, current_user=tenant,
+            )
+        with pytest.raises(HTTPException):
+            appeal_notifications.list_appeal_notifications(
+                assoc.id, case.id, appeal.id, Response(),
+                property_id=prop.id, db=db, current_user=tenant,
+            )
+        assert len(sent) == 1 and _balances(db) == before
     finally:
         db.rollback(); db.close(); engine.dispose()
