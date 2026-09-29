@@ -1,3 +1,48 @@
+# AI_HANDOFF.md — 2026-09-29 BOARD RULE ADOPTION PROVISIONAL
+
+**Read entire root handoff; this newest entry supersedes older NEXT lines.**
+Repository `yasirskhan/property-platform`, ONLY branch
+`chatgpt/checkpoint-005-safety`. Do not touch main, frozen docs/,
+new branches, force push, PR merges or Phase 4.8.
+
+- Last VERIFIED PRODUCT source `3bd9f11c828c089dbf36dd0f50f1741b0d395d7f`,
+  six-job GitHub Actions **36597915429 SUCCESS**: **799 backend passed,
+  15 deselected** and **15 browser passed**; frontend lint,
+  TypeScript/build, platform-admin, security, staging PASS.
+  Alembic verified `a7c9e1f3b5d8` / **169 model tables**.
+  Following handoff-only HEAD `6ac64f02676c0e869728daa6654c1d25ee587cf8`
+  also has six green CI jobs (36599268351). No local tests ran.
+- This next source batch is **PROVISIONAL UNTIL SIX GREEN JOBS**:
+  authenticated association member adoption of exactly configured
+  quorum/approval numbers with source SHA-256 and immutable history.
+  It extends current authorized board-seat and HOA entitlement scope,
+  uses the previously verified staff rule configuration and board
+  portal, rejects missing/stale inputs and duplicate records, and
+  does not itself resolve any motion, send notice or post finance.
+  New migration `b8d0f2a4c6e9` after a7c9e1f3b5d8 is PROPOSED,
+  expected model count **170**, NOT VERIFIED until new source CI passes.
+  Dedicated backend tests cover active/foreign/revoked/entitlement
+  access, revision changes, duplicate replay, immutable history,
+  audit and zero finance; the existing authenticated board browser
+  test is extended to adopt configured thresholds.
+- User direction: complete all SEVEN real operational HOA areas,
+  not preparation-only screens. Board records decisions and the
+  platform applies recorded rules without extra blanket platform
+  legal certification. Preserve operative ARC APPROVED/DENIED,
+  existing member accounting, annual budgets, reserve GL,
+  document delivery, violations cases/tasks, and $79/mo HOA entitlement.
+  Do not infer law, payer or completed delivery from draft inputs.
+- After this batch passes six CI jobs, update the VERIFIED source/run/
+  actual backend/browser counts and migration here, then next batch:
+  apply the adopted explicit quorum/approval thresholds to immutable
+  authenticated motion votes, with association decision outcome,
+  idempotency, unauthorized/revoked role checks, historical snapshot,
+  no invented default thresholds, and no automatic GL/notices.
+  If a concrete external prerequisite is unavailable, continue
+  other independently actionable Phase 4.7 work.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 BOARD VOTE REGISTER VERIFIED
 
 **READ THE ENTIRE ROOT HANDOFF.** This is the latest verified

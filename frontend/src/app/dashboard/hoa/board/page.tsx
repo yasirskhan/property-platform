@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
+import HoaBoardRuleAdoptionPanel from "@/components/property/HoaBoardRuleAdoptionPanel";
 
 type Meeting = {
   association_id: number; property_id: number; meeting_id: number;
@@ -158,6 +159,7 @@ export default function HOABoardPortal() {
           {isOpen ? "Close board minutes" : "Review board minutes"}
         </button>
         {isOpen && detail && <div className="space-y-3 border-t pt-3">
+          <HoaBoardRuleAdoptionPanel associationId={meeting.association_id} propertyId={meeting.property_id} />
           <h3 className="font-medium">Board motions</h3>
           <p className="text-xs text-slate-600">
             A motion choice records your individual board vote. No automatic quorum,

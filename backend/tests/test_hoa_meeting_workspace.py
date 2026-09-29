@@ -22,6 +22,10 @@ from app.models.hoa_meeting_workspace import HOAMeetingParticipation, HOAMotionD
 from app.models.hoa_meeting_draft import HOAMeetingDraft
 from app.models.hoa_meeting_minutes import HOAMeetingMinutesApproval, HOAMeetingMinutesDraft
 from app.models.hoa_board_vote import HOABoardVote
+from app.models.hoa_board_rule_adoption import HOABoardRuleAdoption
+from app.routers import hoa_board_rule_adoptions as rule_api
+from app.schemas.hoa_board import HOABoardRulesIn
+from app.schemas.hoa_board_rule_adoption import HOABoardRuleAdoptIn
 from app.routers import hoa_meeting_minutes as minutes
 from app.routers import hoa_meeting_minutes_board as minutes_board
 from app.routers import hoa_board_portal as portal
@@ -813,6 +817,168 @@ def test_board_member_votes_require_meeting_date_and_current_entitlement(monkeyp
         with pytest.raises(ValidationError):
             HOABoardVoteIn(property_id=prop.id,
                            motion_sha256="a" * 64, choice="INVALID")
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_board_member_adopts_exact_configured_thresholds_with_immutable_history(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, crew, tenant, foreign), (prop, other, outside), assoc, plan, seat = _minutes_board_setup(db, monkeypatch)
+        initial = rule_api.get_board_rule_adoptions(
+            assoc.id, Response(), property_id=prop.id, db=db, current_user=admin,
+        )
+        assert initial.proposal_sha256 is None and initial.active_adoption_id is None
+        with pytest.raises(HTTPException) as missing:
+            rule_api.adopt_board_rules(
+                assoc.id, HOABoardRuleAdoptIn(
+                    property_id=prop.id, expected_proposal_sha256="0" * 64,
+                ), db=db, current_user=admin,
+            )
+        assert missing.value.status_code == 409
+        board_api.configure_proposed_board_rules(
+            assoc.id, HOABoardRulesIn(
+                property_id=prop.id, proposed_quorum_min=2, proposed_approval_min=2,
+            ), db=db, current_user=admin,
+        )
+        before = (
+            db.query(Charge).count(), db.query(GLTransaction).count(),
+            db.query(GLEntry).count(),
+        )
+        snapshot = rule_api.get_board_rule_adoptions(
+            assoc.id, Response(), property_id=prop.id, db=db, current_user=admin,
+        )
+        assert snapshot.proposal_sha256 is not None
+        assert snapshot.active_adoption_id is None
+        with pytest.raises(HTTPException) as stale:
+            rule_api.adopt_board_rules(
+                assoc.id, HOABoardRuleAdoptIn(
+                    property_id=prop.id, expected_proposal_sha256="f" * 64,
+                ), db=db, current_user=admin,
+            )
+        assert stale.value.status_code == 409
+        for actor, property_id in (
+            (owner, prop.id), (manager, prop.id), (crew, prop.id),
+            (tenant, prop.id), (foreign, prop.id),
+            (admin, other.id), (admin, outside.id),
+        ):
+            with pytest.raises(HTTPException):
+                rule_api.get_board_rule_adoptions(
+                    assoc.id, Response(), property_id=property_id,
+                    db=db, current_user=actor,
+                )
+            with pytest.raises(HTTPException):
+                rule_api.adopt_board_rules(
+                    assoc.id, HOABoardRuleAdoptIn(
+                        property_id=property_id,
+                        expected_proposal_sha256=snapshot.proposal_sha256,
+                    ), db=db, current_user=actor,
+                )
+        recorded = rule_api.adopt_board_rules(
+            assoc.id, HOABoardRuleAdoptIn(
+                property_id=prop.id,
+                expected_proposal_sha256=snapshot.proposal_sha256,
+            ), db=db, current_user=admin,
+        )
+        assert recorded.status == "BOARD_MEMBER_ADOPTED"
+        assert recorded.quorum_min == 2 and recorded.approval_min == 2
+        assert recorded.board_seat_id == seat.id
+        assert recorded.platform_legal_certification is False
+        repeated = rule_api.adopt_board_rules(
+            assoc.id, HOABoardRuleAdoptIn(
+                property_id=prop.id,
+                expected_proposal_sha256=snapshot.proposal_sha256,
+            ), db=db, current_user=admin,
+        )
+        assert repeated.id == recorded.id
+        view = rule_api.get_board_rule_adoptions(
+            assoc.id, Response(), property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        assert view.active_adoption_id == recorded.id
+        assert len(view.history) == 1
+        assert view.legal_quorum_certified is False
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_board_rule_adoption",
+        ).count() == 1
+        board_api.configure_proposed_board_rules(
+            assoc.id, HOABoardRulesIn(
+                property_id=prop.id, proposed_quorum_min=3, proposed_approval_min=2,
+            ), db=db, current_user=admin,
+        )
+        changed = rule_api.get_board_rule_adoptions(
+            assoc.id, Response(), property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        assert changed.active_adoption_id is None
+        assert changed.proposal_sha256 != snapshot.proposal_sha256
+        with pytest.raises(HTTPException):
+            rule_api.adopt_board_rules(
+                assoc.id, HOABoardRuleAdoptIn(
+                    property_id=prop.id,
+                    expected_proposal_sha256=snapshot.proposal_sha256,
+                ), db=db, current_user=admin,
+            )
+        second = rule_api.adopt_board_rules(
+            assoc.id, HOABoardRuleAdoptIn(
+                property_id=prop.id,
+                expected_proposal_sha256=changed.proposal_sha256,
+            ), db=db, current_user=admin,
+        )
+        assert second.id != recorded.id and second.quorum_min == 3
+        assert len(rule_api.get_board_rule_adoptions(
+            assoc.id, Response(), property_id=prop.id,
+            db=db, current_user=admin,
+        ).history) == 2
+        assert db.query(HOABoardRuleAdoption).count() == 2
+        assert (
+            db.query(Charge).count(), db.query(GLTransaction).count(),
+            db.query(GLEntry).count(),
+        ) == before
+        with pytest.raises(HTTPException):
+            _model_for_table("hoa_board_rule_adoptions")
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_board_rule_adoption_rechecks_live_role_entitlement_and_proposal(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, crew, tenant, foreign), (prop, other, outside), assoc, plan, seat = _minutes_board_setup(db, monkeypatch)
+        board_api.configure_proposed_board_rules(
+            assoc.id, HOABoardRulesIn(
+                property_id=prop.id, proposed_quorum_min=1,
+                proposed_approval_min=1,
+            ), db=db, current_user=admin,
+        )
+        snapshot = rule_api.get_board_rule_adoptions(
+            assoc.id, Response(), property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        payload = HOABoardRuleAdoptIn(
+            property_id=prop.id,
+            expected_proposal_sha256=snapshot.proposal_sha256,
+        )
+        admin.is_verified = False; db.flush()
+        with pytest.raises(HTTPException):
+            rule_api.adopt_board_rules(assoc.id, payload, db=db, current_user=admin)
+        admin.is_verified = True; db.flush()
+        monkeypatch.setattr(arc_board, "resolve_customer_features", lambda *args, **kwargs: [])
+        with pytest.raises(HTTPException):
+            rule_api.adopt_board_rules(assoc.id, payload, db=db, current_user=admin)
+        monkeypatch.setattr(arc_board, "resolve_customer_features", lambda *args, **kwargs: [
+            SimpleNamespace(key=key, release_allowed=True, entitlement_allowed=True,
+                            org_config_allowed=True)
+            for key in arc_board.HOA_GATES
+        ])
+        board_api.revoke_board_seat(
+            assoc.id, seat.id, property_id=prop.id,
+            db=db, current_user=owner,
+        )
+        with pytest.raises(HTTPException):
+            rule_api.adopt_board_rules(assoc.id, payload, db=db, current_user=admin)
+        assert db.query(HOABoardRuleAdoption).count() == 0
         assert db.query(GLTransaction).count() == 0
     finally:
         db.rollback(); db.close(); engine.dispose()

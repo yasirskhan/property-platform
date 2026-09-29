@@ -1327,12 +1327,30 @@ def test_hoa_authorized_board_minutes_revision_approval_browser() -> None:
                 )
                 workspace.get_by_role("button", name="Save motion draft").click()
                 expect(workspace.get_by_text(re.compile("Synthetic member vote on landscaping motion"))).to_be_visible()
+                association.get_by_role("button", name="Board role proposals").click()
+                rules = association.get_by_role(
+                    "heading", name="Board role and voting rule proposals",
+                ).locator("..").locator("..")
+                rules.get_by_label("Proposed minimum quorum").fill("1")
+                rules.get_by_label("Proposed approval threshold").fill("1")
+                rules.get_by_role("button", name="Save proposed rules").click()
+                expect(rules.get_by_text(re.compile("Proposed thresholds saved"))).to_be_visible()
+                rules.get_by_role("button", name="Close").click()
                 # A board-only scoped portal reuses the verified approval route.
                 page.goto(f"{BASE_URL}/dashboard", wait_until="domcontentloaded")
                 page.get_by_role("link", name="My HOA board meetings").click()
                 expect(page.get_by_role("heading", name="My HOA board meetings")).to_be_visible()
                 expect(page.get_by_role("button", name="Review board minutes")).to_have_count(1)
                 page.get_by_role("button", name="Review board minutes").click()
+                threshold = page.get_by_role(
+                    "heading", name="Association voting thresholds",
+                ).locator("..").locator("..")
+                expect(threshold.get_by_text(re.compile("Configured quorum: 1"))).to_be_visible()
+                page.once("dialog", lambda dialog: dialog.accept())
+                threshold.get_by_role("button", name="Adopt configured board thresholds").click()
+                expect(threshold.get_by_text(re.compile("Board member adoption recorded"))).to_be_visible()
+                expect(threshold.get_by_text(re.compile("Association board adoption recorded"))).to_be_visible()
+                assert _financial_counts() == before
                 expect(page.get_by_text(
                     "Synthetic member vote on landscaping motion", exact=True,
                 )).to_be_visible()
