@@ -68,7 +68,7 @@ on main or a new branch to bypass the user's test rule.
 - Schema `backend/app/schemas/hoa_case_task.py`: `e9e4c99d69dedd9629fb5c0cdc48c9c14f2b7ccf`
 - Router `backend/app/routers/hoa_case_tasks.py`: `f10f960c1e94c0c1acfc28b005db3a586ae66310`
 - Case closeout guard `backend/app/routers/hoa_violation_cases.py`: `7a1cacddd0df375d38860d1c4e9371c9a7159cd9`
-- UI component `frontend/src/components/property/HoaCaseTasksPanel.tsx`: `b5738aff22705e1f3526f424dd596b9e90ccb8f1`
+- UI component `frontend/src/components/property/HoaCaseTasksPanel.tsx`: `3c2c2507b2965d1851dee754368aaf02f9cbdbc4` (updated; prior blob `b5738aff22705e1f3526f424dd596b9e90ccb8f1`)
 - UI parent `frontend/src/components/property/HoaCaseWorkflowPanel.tsx`: `3fc001e3c077b51526d1c9030bafd3e815c7ef11`
 - Backend tests `backend/tests/test_hoa_procedure_cases.py`: `cf6f8daf37c1e47a6c0f240407e207ac453ea1f7`
 - Browser tests `backend/tests/e2e/test_hoa_evidence_e2e.py`: `8e82f724c3d994a1c06b50c6de69e294e35aaeb1`
@@ -78,6 +78,8 @@ on main or a new branch to bypass the user's test rule.
 - Migration expectation `backend/tests/test_migrations.py`: `9c6bcc42b0f0b6c06040be30c1047ec93e84b70b`
 - PostgreSQL expectation `backend/tests/test_postgres_smoke.py`: `337bd7a5b2cc06df7ff3d6f55c40d52ac70e4c44`
 - Staging expectation `backend/tests/test_prepare_database.py`: `d3176ffa5aad50fdd695007caf615ce3035b08ee`
+
+**Static review follow-up (2026-09-28):** Reviewed all 15 staged blobs against current branch contracts and confirmed the prepared code remains uncommitted. Found and corrected a real interface authorization mismatch in a newly staged `HoaCaseTasksPanel.tsx` blob: ADMIN/OWNER may create and cancel; a logged-in assigned MANAGER now also sees start/complete actions matching the backend authorization, while non-assigned managers cannot transition and managers never see cancel controls. New staged blob SHA `3c2c2507b2965d1851dee754368aaf02f9cbdbc4`; previous SHA above was superseded. This is **source review only**, not a frontend lint/typecheck/browser test. Confirmed the Library's latest full repository ZIP is September 23 and contains none of the Phase 4.7 HOA additions; the connected GitHub tools have no remote uncommitted-code test execution facility. Neither the passing Actions run 36515302369 nor earlier CI tested the staged task batch.
 
 **NEXT:** obtain a testable current HEAD checkout. Independently
 review and run the applicable focused backend, migration,
