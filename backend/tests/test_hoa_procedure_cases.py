@@ -25,6 +25,7 @@ from app.models.hoa_violation_notice_delivery import HOAViolationNoticeDelivery
 from app.models.hoa_violation_service_record import HOAViolationServiceRecord
 from app.models.hoa_violation_fine import HOAViolationFine
 from app.models.hoa_violation_fine_payment import HOAViolationFinePayment
+from app.models.hoa_violation_fine_appeal import HOAFineAppeal
 from app.models.receipt import Receipt
 from app.models.receipt_line import ReceiptLine
 from app.models.deposit_line import DepositLine
@@ -32,6 +33,8 @@ from app.models.gl_account import GLAccount
 from app.models.gl_entry import GLEntry
 from app.routers import hoa_violation_fines as fine_api
 from app.routers import hoa_violation_fine_payments as fine_payments
+from app.routers import hoa_fine_appeals as appeals_api
+from app.schemas.hoa_fine_appeal import HOAFineAppealIn, HOAFineAppealDecisionIn
 from app.routers import hoa_member_assessments as member_api
 from app.schemas.hoa_violation_fine import HOAFineDecisionIn, HOAFinePostIn, HOAFineReverseIn
 from app.schemas.hoa_violation_fine_payment import HOAFinePaymentIn, HOAFinePaymentReverseIn
@@ -2297,5 +2300,227 @@ def test_fine_receipt_member_scope_period_lock_deposit_and_revocation(monkeypatc
         assert db.query(AuditLog).filter(
             AuditLog.entity_type == "hoa_violation_fine_payment",
         ).count() == 1
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def _appeal_payload(prop, key="hoa-fine-appeal-request-0001", **changes):
+    values = dict(property_id=prop.id, received_on=date.today(),
+                  appeal_reason="Member disputed synthetic board fine",
+                  request_key=key)
+    values.update(changes)
+    return HOAFineAppealIn(**values)
+
+
+def _appeal_decision(prop, outcome="UPHELD", key="hoa-fine-appeal-decision-0001", **changes):
+    values = dict(property_id=prop.id, result=outcome,
+                  decision_note="Association board reviewed member appeal",
+                  request_key=key)
+    values.update(changes)
+    return HOAFineAppealDecisionIn(**values)
+
+
+def test_fine_appeal_board_disposition_holds_posting_and_preserves_finance(monkeypatch):
+    db, engine = _db()
+    try:
+        monkeypatch.setattr(member_api, "permission_allows_user", lambda *a, **kw: True)
+        users, props, assoc, case, draft, seat, proof = _record_served_fine_case(db, monkeypatch)
+        admin, owner, manager, tenant, foreign = users
+        prop = props[0]
+        fine = fine_api.decide_fine(
+            assoc.id, case.id, _fine_decision(prop, tenant),
+            db=db, current_user=admin,
+        )
+        before = _balances(db)
+        response = Response()
+        assert appeals_api.list_appeals(
+            assoc.id, case.id, response, property_id=prop.id,
+            db=db, current_user=admin,
+        ) == []
+        assert response.headers["cache-control"] == "no-store"
+        opened = appeals_api.record_appeal(
+            assoc.id, case.id, _appeal_payload(prop),
+            db=db, current_user=owner,
+        )
+        assert opened.status == "OPEN" and opened.member_user_id == tenant.id
+        assert not opened.accounting_reversal_pending
+        assert appeals_api.record_appeal(
+            assoc.id, case.id, _appeal_payload(prop),
+            db=db, current_user=owner,
+        ).id == opened.id
+        with pytest.raises(HTTPException) as changed_key:
+            appeals_api.record_appeal(
+                assoc.id, case.id, _appeal_payload(
+                    prop, appeal_reason="Changed reason using same key",
+                ), db=db, current_user=admin,
+            )
+        assert changed_key.value.status_code == 409
+        with pytest.raises(HTTPException) as duplicate_open:
+            appeals_api.record_appeal(
+                assoc.id, case.id, _appeal_payload(
+                    prop, key="hoa-fine-appeal-request-0002",
+                ), db=db, current_user=admin,
+            )
+        assert duplicate_open.value.status_code == 409
+        ar = GLAccount(
+            organization_id=admin.organization_id, gl_number="HOA-APPEAL-AR",
+            name="Fine receivable", account_type="ASSET", is_active=True,
+        )
+        income = GLAccount(
+            organization_id=admin.organization_id, gl_number="HOA-APPEAL-INCOME",
+            name="Fine income", account_type="INCOME", is_active=True,
+        )
+        cash = GLAccount(
+            organization_id=admin.organization_id, gl_number="HOA-APPEAL-CASH",
+            name="Fine cash", account_type="ASSET", is_active=True,
+            include_on_cash_flow=True,
+        )
+        db.add_all([ar, income, cash]); db.commit()
+        posting = HOAFinePostIn(
+            property_id=prop.id, posting_on=date.today(),
+            receivable_gl_account_id=ar.id, income_gl_account_id=income.id,
+        )
+        with pytest.raises(HTTPException) as held:
+            fine_api.post_fine(
+                assoc.id, case.id, posting, db=db, current_user=owner,
+            )
+        assert held.value.status_code == 409
+        assert _balances(db) == before
+        upheld = appeals_api.decide_appeal(
+            assoc.id, case.id, opened.id, _appeal_decision(prop),
+            db=db, current_user=admin,
+        )
+        assert upheld.status == "UPHELD" and upheld.decision_board_seat_id == seat.id
+        assert appeals_api.decide_appeal(
+            assoc.id, case.id, opened.id, _appeal_decision(prop),
+            db=db, current_user=admin,
+        ).id == opened.id
+        fine_api.post_fine(
+            assoc.id, case.id, posting, db=db, current_user=owner,
+        )
+        assert db.query(GLTransaction).count() == before[1] + 1
+        second = appeals_api.record_appeal(
+            assoc.id, case.id,
+            _appeal_payload(prop, key="hoa-fine-appeal-request-0003"),
+            db=db, current_user=owner,
+        )
+        with pytest.raises(HTTPException):
+            fine_payments.record_fine_payment(
+                assoc.id, case.id, _fine_receipt(prop, tenant, cash),
+                db=db, current_user=owner,
+            )
+        vacated = appeals_api.decide_appeal(
+            assoc.id, case.id, second.id,
+            _appeal_decision(prop, outcome="VACATED",
+                             key="hoa-fine-appeal-decision-0002"),
+            db=db, current_user=admin,
+        )
+        assert vacated.accounting_reversal_pending
+        assert vacated.status == "VACATED"
+        with pytest.raises(HTTPException):
+            fine_payments.record_fine_payment(
+                assoc.id, case.id, _fine_receipt(prop, tenant, cash),
+                db=db, current_user=owner,
+            )
+        with pytest.raises(HTTPException) as reopened:
+            appeals_api.record_appeal(
+                assoc.id, case.id,
+                _appeal_payload(prop, key="hoa-fine-appeal-request-0004"),
+                db=db, current_user=admin,
+            )
+        assert reopened.value.status_code == 409
+        assert db.query(Receipt).count() == 0
+        assert db.query(GLTransaction).count() == before[1] + 1
+        reversed_fine = fine_api.reverse_fine(
+            assoc.id, case.id, HOAFineReverseIn(
+                property_id=prop.id, reversal_on=date.today(),
+                reason="Board vacated the recorded fine on appeal",
+            ), db=db, current_user=owner,
+        )
+        assert reversed_fine.status == "REVERSED"
+        history = appeals_api.list_appeals(
+            assoc.id, case.id, Response(), property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        assert [item.status for item in history] == ["UPHELD", "VACATED"]
+        assert history[-1].accounting_reversal_pending is False
+        assert db.query(GLTransaction).count() == before[1] + 2
+        audit = db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_violation_fine_appeal",
+        ).order_by(AuditLog.id).all()
+        assert len(audit) == 4
+        assert all("Member disputed synthetic" not in str(a.new_value) for a in audit)
+        assert all("Association board reviewed" not in str(a.new_value) for a in audit)
+        with pytest.raises(HTTPException):
+            _model_for_table("hoa_violation_fine_appeals")
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_fine_appeals_scope_evidence_and_board_authorization(monkeypatch):
+    db, engine = _db()
+    try:
+        monkeypatch.setattr(member_api, "permission_allows_user", lambda *a, **kw: True)
+        users, props, assoc, case, draft, seat, proof = _record_served_fine_case(db, monkeypatch)
+        admin, owner, manager, tenant, foreign = users
+        prop, other, outside = props
+        fine_api.decide_fine(
+            assoc.id, case.id, _fine_decision(prop, tenant),
+            db=db, current_user=admin,
+        )
+        for actor, property_id in (
+            (manager, prop.id), (tenant, prop.id),
+            (foreign, prop.id), (admin, outside.id),
+            (manager, other.id),
+        ):
+            with pytest.raises(HTTPException):
+                appeals_api.record_appeal(
+                    assoc.id, case.id, _appeal_payload(prop, property_id=property_id),
+                    db=db, current_user=actor,
+                )
+            with pytest.raises(HTTPException):
+                appeals_api.list_appeals(
+                    assoc.id, case.id, Response(), property_id=property_id,
+                    db=db, current_user=actor,
+                )
+        with pytest.raises(HTTPException) as false_proof:
+            appeals_api.record_appeal(
+                assoc.id, case.id, _appeal_payload(
+                    prop, supporting_attachment_id=999999,
+                ), db=db, current_user=owner,
+            )
+        assert false_proof.value.status_code == 409
+        opened = appeals_api.record_appeal(
+            assoc.id, case.id,
+            _appeal_payload(prop, supporting_attachment_id=proof.id),
+            db=db, current_user=owner,
+        )
+        assert opened.supporting_attachment_id == proof.id
+        with pytest.raises(HTTPException) as unassigned_board:
+            appeals_api.decide_appeal(
+                assoc.id, case.id, opened.id, _appeal_decision(prop),
+                db=db, current_user=manager,
+            )
+        assert unassigned_board.value.status_code == 403
+        with pytest.raises(HTTPException):
+            appeals_api.decide_appeal(
+                assoc.id, case.id, opened.id,
+                _appeal_decision(prop, property_id=other.id),
+                db=db, current_user=admin,
+            )
+        result = appeals_api.decide_appeal(
+            assoc.id, case.id, opened.id, _appeal_decision(prop),
+            db=db, current_user=admin,
+        )
+        assert result.status == "UPHELD"
+        with pytest.raises(HTTPException) as immutable:
+            appeals_api.decide_appeal(
+                assoc.id, case.id, opened.id,
+                _appeal_decision(prop, outcome="VACATED"),
+                db=db, current_user=admin,
+            )
+        assert immutable.value.status_code == 409
+        assert db.query(HOAFineAppeal).count() == 1
+        assert _balances(db) == (0, 0, 0, 0)
     finally:
         db.rollback(); db.close(); engine.dispose()

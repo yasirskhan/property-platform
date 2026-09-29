@@ -18,6 +18,7 @@ from app.models.gl_account import GLAccount
 from app.models.gl_entry import GLEntry
 from app.models.gl_transaction import GLTransaction
 from app.models.hoa_violation_fine_payment import HOAViolationFinePayment
+from app.models.hoa_violation_fine_appeal import HOAFineAppeal
 from app.models.receipt import Receipt
 from app.models.receipt_line import ReceiptLine
 from app.models.user import User
@@ -143,6 +144,14 @@ def record_fine_payment(
         if not same:
             raise HTTPException(status_code=409, detail="Fine receipt request key already used.")
         return _out(old)
+    if db.query(HOAFineAppeal.id).filter(
+        HOAFineAppeal.organization_id == org,
+        HOAFineAppeal.association_id == assoc.id,
+        HOAFineAppeal.property_id == payload.property_id,
+        HOAFineAppeal.fine_id == fine.id,
+        HOAFineAppeal.status.in_(("OPEN", "VACATED")),
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Open or vacated appeal holds new fine receipts.")
     if (fine.status != "POSTED" or fine.gl_transaction_id is None
         or fine.receivable_gl_account_id is None or fine.member_user_id is None):
         raise HTTPException(status_code=409, detail="A board-approved posted fine is required.")

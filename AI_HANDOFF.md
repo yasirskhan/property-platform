@@ -1,3 +1,54 @@
+# AI_HANDOFF.md — 2026-09-29 HOA FINE APPEAL PROVISIONAL
+
+**READ ENTIRE FILE. This newest checkpoint supersedes older NEXT and
+PROVISIONAL status labels below, preserved as history.**
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. No main, new branch,
+force-push, PR merge, frozen docs/, or Phase 4.8.
+
+- Last VERIFIED product source:
+  `99b7728cf57c8bef66b149cf04e89a5b35e30504`;
+  GitHub Actions **36632320665 SUCCESS all SIX jobs** on exact
+  SHA. Backend **814 passed, 15 deselected, 21336 warnings in
+  280.51s**; authenticated E2E **15 passed, 232 warnings in
+  70.77s**. Frontend lint/TS/build, platform-admin, security
+  and staging-config PASS. **TESTS NOT RUN locally.**
+  Verified Alembic **c8e0a2f4b6d9**, **175 model tables**.
+  Previous handoff's fine-payment unverified label is historical:
+  partial/full offline-recorded fine receipts, central Receipt and
+  balanced GL, audit/replay guards, member scope, receipt reversal
+  and paid-fine GL reversal protection are VERIFIED in 99b7728c.
+  No real bank capture/real-world CI payments.
+- Current NEW batch: HOA fine appeal intake and authorized association
+  board UPHELD/VACATED disposition. Proposed migration
+  `6f9e2a7d4c1b` (after c8e0a2f4b6d9),
+  anticipated **176** tables, NOT VERIFIED until SIX green jobs.
+  Record one open appeal per fine, request-key replay guards, private
+  optional evidence, association/property scopes, direct
+  board-authorized disposition, immutable audit/redacted private
+  narrative and history. OPEN/VACATED holds newly created fine
+  GL posts/receipts. VACATED does NOT automatically erase
+  earlier fine, undo settled receipts, refund cash, email members
+  or post GL; previously verified receipt-specific reversal must
+  precede separately authorized fine reversal. The UI explicitly
+  shows pending accounting correction after vacatur.
+  Includes focused backend, migration, and dedicated HOA browser
+  extension. No new generalized legal deadlines invented.
+  **Provisional product CI has not yet been verified.**
+- NEXT: inspect CI for this exact new product commit; repair
+  failures autonomously on same feature branch. Mark verified only
+  when six jobs pass; record exact product SHA, counts, migration
+  and schema. Then immediately continue an independently actionable
+  Phase 4.7 operational HOA batch; do not stop at green CI.
+- Preserve existing operative ARC direct APPROVED/DENIED and fees,
+  approved member dues and receipts, board meetings/decisions,
+  reserve GL, governing delivery, budgets and paid $79/month HOA
+  entitlement; no blanket platform certification gate. User requires
+  all SEVEN HOA capabilities real and tested, and no Phase 4.8 until
+  independently actionable HOA work completes.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 HOA FINE RECEIPT E2E CORRECTION
 
 The Phase 4.7 fine-payment implementation remains PROVISIONAL.

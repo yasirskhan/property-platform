@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
 import HoaCaseFinePaymentsPanel from "@/components/property/HoaCaseFinePaymentsPanel";
+import HoaCaseFineAppealsPanel from "@/components/property/HoaCaseFineAppealsPanel";
 
 type Fine = {
   id: number; decision: "APPROVED" | "DENIED";
@@ -27,6 +28,7 @@ export default function HoaCaseFinePanel({
   const base = root + "/staff-cases/" + caseId;
   const query = "?property_id=" + propertyId;
   const [fine, setFine] = useState<Fine | null>(null);
+  const [appealsOpen, setAppealsOpen] = useState(false);
   const [service, setService] = useState<Service | null>(null);
   const [proofs, setProofs] = useState<Proof[]>([]);
   const [accounts, setAccounts] = useState<GL[]>([]);
@@ -113,6 +115,15 @@ export default function HoaCaseFinePanel({
       The platform does not independently certify applicable law or delivery.</p>
     {error && <p role="alert" className="text-red-700">{error}</p>}
     {message && <p role="status" className="text-green-800">{message}</p>}
+    {fine?.decision === "APPROVED" && <>
+      <button type="button" className="text-blue-700"
+        onClick={() => setAppealsOpen(v => !v)}>
+        {appealsOpen ? "Hide fine appeals" : "Fine appeals"}
+      </button>
+      {appealsOpen && <HoaCaseFineAppealsPanel associationId={associationId}
+        propertyId={propertyId} caseId={caseId} canEdit={canEdit}
+        onClose={() => setAppealsOpen(false)}/>}
+    </>}
     {fine ? <div className="space-y-1 rounded border bg-white p-2">
       <p>Board decision #{fine.id}: {fine.decision} · {fine.status} · {fine.decided_on}</p>
       <p>Member #{fine.member_user_id ?? "none"} · Amount {fine.amount ?? "not assessed"}

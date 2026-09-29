@@ -385,6 +385,22 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 ).click()
                 expect(fine.get_by_text(re.compile("Board decision #.*APPROVED"))).to_be_visible()
                 assert _financial_counts() == before
+                fine.get_by_role("button", name="Fine appeals", exact=True).click()
+                appeal = fine.get_by_role(
+                    "heading", name="Fine appeal and correction history",
+                ).locator("..").locator("..")
+                appeal.get_by_label("Fine appeal received date").fill(date.today().isoformat())
+                appeal.get_by_label("Received appeal reason").fill("Synthetic member disputed fine")
+                page.once("dialog", lambda dialog: dialog.accept())
+                appeal.get_by_role("button", name="Record appeal received").click()
+                expect(appeal.get_by_text(re.compile("Appeal #.*OPEN"))).to_be_visible()
+                assert _financial_counts() == before
+                appeal.get_by_label("Board appeal explanation").fill(
+                    "Synthetic board confirmed the previous fine"
+                )
+                page.once("dialog", lambda dialog: dialog.accept())
+                appeal.get_by_role("button", name="Record final board appeal decision").click()
+                expect(appeal.get_by_text(re.compile("Appeal #.*UPHELD"))).to_be_visible()
                 fine.get_by_label("GL posting date").fill(date.today().isoformat())
                 fine.get_by_label("Fine receivable GL").select_option(
                     label="E2E-CASE-FINE-AR · E2E Case Fine Receivable",
@@ -410,6 +426,20 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 expect(fine.get_by_text(re.compile(r"Outstanding \$0\.00")).first).to_be_visible()
                 assert _financial_counts() == (before[0], before[1] + 2)
                 expect(fine.get_by_role("button", name="Reverse posted fine")).to_have_count(0)
+                appeal.get_by_label("Fine appeal received date").fill(date.today().isoformat())
+                appeal.get_by_label("Received appeal reason").fill("Second synthetic member appeal")
+                page.once("dialog", lambda dialog: dialog.accept())
+                appeal.get_by_role("button", name="Record appeal received").click()
+                expect(appeal.get_by_text(re.compile("Appeal #.*OPEN"))).to_be_visible()
+                appeal.get_by_label("Fine appeal board outcome").select_option("VACATED")
+                appeal.get_by_label("Board appeal explanation").fill(
+                    "Synthetic board vacated the member fine"
+                )
+                page.once("dialog", lambda dialog: dialog.accept())
+                appeal.get_by_role("button", name="Record final board appeal decision").click()
+                expect(appeal.get_by_text(re.compile("Appeal #.*VACATED"))).to_be_visible()
+                expect(appeal.get_by_text(re.compile("posted GL still requires"))).to_be_visible()
+                assert _financial_counts() == (before[0], before[1] + 2)
                 fine.get_by_label("Fine receipt reversal date").fill(date.today().isoformat())
                 fine.get_by_label("Fine receipt reversal reason").fill("Synthetic receipt correction")
                 page.once("dialog", lambda dialog: dialog.accept())
@@ -422,6 +452,7 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 fine.get_by_role("button", name="Reverse posted fine").click()
                 expect(fine.get_by_text(re.compile(r"^Board decision #\d+: APPROVED · REVERSED ·"))).to_be_visible()
                 assert _financial_counts() == (before[0], before[1] + 4)
+                expect(appeal.get_by_text(re.compile("posted GL still requires"))).to_have_count(0)
             finally:
                 browser.close()
         assert _financial_counts() == (before[0], before[1] + 4)

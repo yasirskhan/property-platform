@@ -20,6 +20,7 @@ from app.models.gl_entry import GLEntry
 from app.models.gl_transaction import GLTransaction
 from app.models.hoa_violation_evidence import HOAViolationEvidence
 from app.models.hoa_violation_fine import HOAViolationFine
+from app.models.hoa_violation_fine_appeal import HOAFineAppeal
 from app.models.hoa_violation_recipient import HOAViolationRecipientDraft
 from app.models.hoa_violation_service_record import HOAViolationServiceRecord
 from app.models.user import User
@@ -288,6 +289,14 @@ def post_fine(
         raise HTTPException(status_code=409, detail="Fine already posted with different terms.")
     if row.status != "APPROVED" or row.gl_transaction_id is not None:
         raise HTTPException(status_code=409, detail="Only unposted approved fine may be posted.")
+    if db.query(HOAFineAppeal.id).filter(
+        HOAFineAppeal.organization_id == org,
+        HOAFineAppeal.association_id == assoc.id,
+        HOAFineAppeal.property_id == payload.property_id,
+        HOAFineAppeal.fine_id == row.id,
+        HOAFineAppeal.status.in_(("OPEN", "VACATED")),
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Open or vacated appeal holds fine posting.")
     service = _service(db, org=org, association_id=assoc.id,
                        property_id=payload.property_id, case_id=case.id)
     policy = _procedure(
