@@ -461,9 +461,20 @@ def test_hoa_board_role_proposals_browser_flow_never_enables_vote() -> None:
                 try:
                     admin = db.query(User).filter(User.email == EMAIL).one()
                     admin.is_verified = True
-                    contact = db.query(Contact).filter(
+                    association_row = db.query(HOAAssociation).filter(
+                        HOAAssociation.name == association_name,
+                        HOAAssociation.organization_id == admin.organization_id,
+                        HOAAssociation.is_active.is_(True),
+                    ).one()
+                    contact = db.query(Contact).join(
+                        HOAContactLink, HOAContactLink.contact_id == Contact.id,
+                    ).filter(
                         Contact.organization_id == admin.organization_id,
                         Contact.display_name == "E2E ARC Applicant",
+                        HOAContactLink.organization_id == admin.organization_id,
+                        HOAContactLink.association_id == association_row.id,
+                        HOAContactLink.property_id == PROPERTY_ID,
+                        HOAContactLink.is_active.is_(True),
                     ).one()
                     contact.email = admin.email
                     board_login_id = admin.id
