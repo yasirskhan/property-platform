@@ -136,6 +136,7 @@ from app.models.hoa_violation_case import HOAViolationCase  # noqa: F401
 from app.models.hoa_violation_case_event import HOAViolationCaseEvent  # noqa: F401
 from app.models.hoa_violation_recipient import HOAViolationRecipientDraft  # noqa: F401
 from app.models.hoa_violation_correspondence import HOAViolationCorrespondenceDraft  # noqa: F401
+from app.models.hoa_violation_notice_delivery import HOAViolationNoticeDelivery  # noqa: F401
 from app.models.hoa_violation_evidence import HOAViolationEvidence  # noqa: F401
 from app.models.hoa_case_task import HOACaseTask  # noqa: F401
 from app.models.hoa_reserve_account import HOAReserveAccount  # noqa: F401

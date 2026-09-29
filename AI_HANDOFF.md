@@ -1,3 +1,43 @@
+# AI_HANDOFF.md — 2026-09-29 CASE CORRESPONDENCE EMAIL PROVISIONAL
+
+**READ ENTIRE ROOT HANDOFF.** Latest independent VERIFIED product source
+`a2edafce2aa224b4e5aa798888003526e85b3e0f`; CI
+[36604831597](https://github.com/yasirskhan/property-platform/actions/runs/36604831597)
+SUCCESS all six: **803 backend passed, 15 deselected, 20423 warnings**;
+**15 browser passed, 224 warnings**. Alembic verified
+`c9e1f3b5d7a0` / **171 model tables**.
+Handoff-only `ac0a7a7` changed no product source.
+
+**PROVISIONAL NEXT BATCH, NOT VERIFIED:** Phase 4.7 association board-
+authorized actual email transmission of a current private case
+correspondence revision, extending already verified observation, case,
+procedure, matched verified recipient, correspondence, board-seat
+delegation, paid HOA feature gates and existing email SMTP implementation.
+No invented law, statutory service, case-level liability, member charge,
+fine or GL effect. Exact case/policy/stage/recipient identity checks
+before every attempt. A current verified authorized board AND existing
+admin/staff contact permission must explicitly request. Durable
+idempotent outbox, retry on failure, console-mode TEST_ONLY,
+SMTP_ACCEPTED distinct from proof of inbox receipt, immutable redacted
+audit and private history. Case/recipient/policy revision changes block
+unattempted and retried sends; stale correspondence never silently
+sent. Browser covers disposable console-only transmission with zero
+finance. No production email is sent merely by CI.
+
+Prepared proposal: new migration `d0f2a4c6e8b1` after verified
+`c9e1f3b5d7a0`; expected model-table count **172** only if all six
+CI jobs pass. GitHub Actions must run against the exact provisional
+feature-branch product commit; local tests **TESTS NOT RUN**.
+After full green record actual SHA/counts/migration and continue
+another independently actionable original Phase 4.7 batch. If CI
+fails, fix it autonomously without touching main/frozen docs/,
+creating branch, force push, merging or advancing Phase 4.8.
+Preserve direct operative ARC decisions, current board outcome
+and prior verified member assessments/receipts, reserve GL,
+budget approval and documents.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 BOARD MOTION OUTCOMES VERIFIED
 
 **READ THIS ENTIRE ROOT FILE.** This newest checkpoint supersedes all historical

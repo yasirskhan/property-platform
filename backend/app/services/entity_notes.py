@@ -52,6 +52,7 @@ _FORBIDDEN_TABLES = {
     "hoa_violation_case_events",
     "hoa_violation_recipient_drafts",
     "hoa_violation_correspondence_drafts",
+    "hoa_violation_notice_deliveries",  # Board-authorized private email transport history.
     "hoa_violation_evidence",
     "hoa_case_tasks",  # Case/property/role-scoped staff operations and private notes.  # Joint scope-checked private case document references.  # Confidential scope-checked staff drafts; deny generic notes.  # Needs live case plus scoped verified contact and user.  # Scoped review history, no generic exports.
     "hoa_reserve_movement_decisions",  # Private board authority and financial posting.

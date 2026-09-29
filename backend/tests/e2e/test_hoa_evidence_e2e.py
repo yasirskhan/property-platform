@@ -273,6 +273,7 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 policy = association.get_by_role("heading", name="HOA staff procedure configuration").locator("..").locator("..")
                 expect(policy.get_by_text("Legal issuance remains disabled")).to_be_visible()
                 policy.get_by_label("Proposed cure-tracking days").fill("5")
+                policy.get_by_label("Proposed hearing request days").fill("7")
                 policy.get_by_label("Proposed fine cap (not assessed)").fill("45.00")
                 policy.get_by_label("Staff draft notice language (not delivered)").fill(
                     "Internal TEST DRAFT only, do not send."
@@ -333,6 +334,10 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 letters.get_by_label("Internal correspondence body (never sent)").fill("Internal staff draft, NOT an issued statutory notice.")
                 letters.get_by_role("button", name="Record private draft only").click()
                 expect(letters.get_by_text(re.compile("STAFF DRAFT.*NOT SENT"))).to_be_visible()
+                page.once("dialog", lambda dialog: dialog.accept())
+                letters.get_by_role("button", name="Board-authorize and email this correspondence").click()
+                expect(letters.get_by_text(re.compile("Console test only"))).to_be_visible()
+                expect(letters.get_by_text(re.compile("Email attempt #.*TEST_ONLY"))).to_be_visible()
                 assert _financial_counts() == before
                 letters.get_by_role("button", name="Close correspondence").click()
                 cases.get_by_role("button", name="Advance internal case").click()
@@ -450,10 +455,20 @@ def _seed_case_recipient(association_name: str) -> None:
         )
         db.add(contact)
         db.flush()
-        db.add(HOAContactLink(
+        link = HOAContactLink(
             organization_id=association.organization_id,
             association_id=association.id, property_id=PROPERTY_ID,
             contact_id=contact.id, is_active=True,
+        )
+        db.add(link)
+        db.flush()
+        db.add(HOABoardSeat(
+            organization_id=association.organization_id,
+            association_id=association.id, property_id=PROPERTY_ID,
+            contact_link_id=link.id, proposed_role="CHAIR",
+            staff_voting_eligible=True, is_active=True,
+            authorized_user_id=user.id, decision_authorized=True,
+            authorized_by_id=user.id, can_record_offline=True,
         ))
         db.add(EntityAttachment(
             organization_id=association.organization_id,

@@ -21,6 +21,7 @@ from app.models.hoa_violation_evidence import HOAViolationEvidence
 from app.models.hoa_case_task import HOACaseTask
 from app.models.hoa_violation_recipient import HOAViolationRecipientDraft
 from app.models.hoa_violation_correspondence import HOAViolationCorrespondenceDraft
+from app.models.hoa_violation_notice_delivery import HOAViolationNoticeDelivery
 from app.models.gl_transaction import GLTransaction
 from app.models.hoa_procedure_policy import HOAProcedurePolicy
 from app.models.hoa_violation_case import HOAViolationCase
@@ -34,6 +35,12 @@ from app.routers import hoa_procedure_policies as policies
 from app.routers import hoa_violation_cases as cases
 from app.routers import hoa_violation_recipients as recipients
 from app.routers import hoa_violation_correspondence as correspondence
+from app.routers import hoa_violation_notice_delivery as notice_delivery
+from app.routers import hoa_arc_board_decisions as arc_board
+from app.routers import hoa_board as board_api
+from app.core import email as email_service
+from app.schemas.hoa_violation_notice_delivery import HOAViolationNoticeSendIn
+from app.schemas.hoa_board import HOABoardSeatIn, HOABoardAuthorizationIn
 from app.routers import hoa_violation_evidence as case_evidence
 from app.routers import hoa_case_tasks as case_tasks
 from app.routers import entity_attachments as attachments
@@ -1307,5 +1314,229 @@ def test_case_tasks_property_auth_revocation_and_close_requires_clearance():
             )
         assert terminal_create.value.status_code == 409
         assert _balances(db) == before
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def _notice_board(db, monkeypatch):
+    users, props, assoc, case, link, contact = _ready_correspondence(db)
+    admin, owner, manager, tenant, foreign = users
+    prop = props[0]
+    admin.is_verified = True
+    db.flush()
+    board_link, _ = _recipient_candidate(
+        db, actor=admin, assoc=assoc, prop=prop,
+        name="Association board login", email=admin.email,
+    )
+    seat = board_api.record_board_seat(
+        assoc.id,
+        HOABoardSeatIn(
+            property_id=prop.id, contact_link_id=board_link.id,
+            proposed_role="CHAIR", staff_voting_eligible=True,
+        ), db=db, current_user=admin,
+    )
+    board_api.authorize_board_seat(
+        assoc.id, seat.id, HOABoardAuthorizationIn(
+            property_id=prop.id, user_id=admin.id, can_record_offline=True,
+        ), db=db, current_user=admin,
+    )
+    monkeypatch.setattr(arc_board, "resolve_customer_features",
+                        lambda *a, **kw: [
+                            SimpleNamespace(
+                                key=k, release_allowed=True,
+                                entitlement_allowed=True, org_config_allowed=True,
+                            ) for k in arc_board.HOA_GATES
+                        ])
+    original = correspondence.prepare_correspondence(
+        assoc.id, case.id,
+        CorrespondenceIn(
+            property_id=prop.id, subject="Association case email",
+            body="Association-authored synthetic correspondence",
+        ), db=db, current_user=admin,
+    )
+    payload = HOAViolationNoticeSendIn(
+        property_id=prop.id, correspondence_revision=original.revision,
+        policy_revision=original.policy_revision,
+        request_key="notice-email-request-0001",
+    )
+    return users, props, assoc, case, original, seat, payload
+
+
+def test_authorized_case_email_exact_revision_idempotency_and_no_finance(monkeypatch):
+    db, engine = _db()
+    try:
+        users, props, assoc, case, draft, seat, payload = _notice_board(db, monkeypatch)
+        admin, owner, manager, tenant, foreign = users
+        prop = props[0]
+        before = _balances(db)
+        sent = []
+        monkeypatch.setattr(email_service, "send_email", lambda **kw: sent.append(kw))
+        monkeypatch.setattr(email_service, "settings", SimpleNamespace(EMAIL_MODE="smtp"))
+        delivery = notice_delivery.send_notice_email(
+            assoc.id, case.id, draft.id, payload, db=db, current_user=admin,
+        )
+        assert delivery.status == "SMTP_ACCEPTED" and delivery.attempt_count == 1
+        assert delivery.smtp_accepted_at is not None
+        assert delivery.legally_served is False and delivery.fine_assessed is False
+        assert delivery.smtp_is_proof_of_receipt is False
+        assert len(sent) == 1 and sent[0]["to"] == tenant.email.lower()
+        assert sent[0]["subject"] == "Association case email"
+        assert sent[0]["body"] == "Association-authored synthetic correspondence"
+        assert sent[0]["organization_id"] == admin.organization_id
+        again = notice_delivery.send_notice_email(
+            assoc.id, case.id, draft.id, payload, db=db, current_user=admin,
+        )
+        assert again.id == delivery.id and len(sent) == 1
+        with pytest.raises(HTTPException) as collision:
+            notice_delivery.send_notice_email(
+                assoc.id, case.id, draft.id,
+                HOAViolationNoticeSendIn(
+                    property_id=prop.id, correspondence_revision=2,
+                    policy_revision=1, request_key=payload.request_key,
+                ), db=db, current_user=admin,
+            )
+        assert collision.value.status_code == 409
+        with pytest.raises(HTTPException) as duplicate:
+            notice_delivery.send_notice_email(
+                assoc.id, case.id, draft.id,
+                HOAViolationNoticeSendIn(
+                    property_id=prop.id, correspondence_revision=1,
+                    policy_revision=1, request_key="notice-email-request-0002",
+                ), db=db, current_user=admin,
+            )
+        assert duplicate.value.status_code == 409
+        rows = notice_delivery.list_notice_emails(
+            assoc.id, case.id, Response(), property_id=prop.id,
+            db=db, current_user=manager,
+        )
+        assert len(rows) == 1 and rows[0].id == delivery.id
+        assert len(sent) == 1
+        assert notice_delivery.retry_notice_email(
+            assoc.id, case.id, delivery.id, prop.id, db=db, current_user=admin,
+        ).status == "SMTP_ACCEPTED"
+        assert len(sent) == 1
+        audit = db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_violation_notice_delivery",
+        ).all()
+        assert len(audit) == 3
+        assert all("Association-authored synthetic correspondence" not in str(ev.new_value) for ev in audit)
+        assert all(tenant.email not in str(ev.new_value) for ev in audit)
+        with pytest.raises(HTTPException):
+            _model_for_table("hoa_violation_notice_deliveries")
+        assert _balances(db) == before
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_case_email_requires_current_board_policy_recipient_and_stage(monkeypatch):
+    db, engine = _db()
+    try:
+        users, props, assoc, case, draft, seat, payload = _notice_board(db, monkeypatch)
+        admin, owner, manager, tenant, foreign = users
+        prop, other, outside = props
+        before = _balances(db)
+        sent = []
+        monkeypatch.setattr(email_service, "send_email", lambda **kw: sent.append(kw))
+        monkeypatch.setattr(email_service, "settings", SimpleNamespace(EMAIL_MODE="console"))
+        for actor, prop_id in (
+            (owner, prop.id), (manager, prop.id),
+            (tenant, prop.id), (foreign, prop.id),
+            (admin, other.id), (admin, outside.id),
+        ):
+            with pytest.raises(HTTPException):
+                notice_delivery.send_notice_email(
+                    assoc.id, case.id, draft.id,
+                    payload.model_copy(update={"property_id": prop_id}),
+                    db=db, current_user=actor,
+                )
+        policies.put_policy(
+            assoc.id, _profile(prop.id, cure_preparation_days=None),
+            db=db, current_user=admin,
+        )
+        with pytest.raises(HTTPException) as stale:
+            notice_delivery.send_notice_email(
+                assoc.id, case.id, draft.id, payload, db=db, current_user=admin,
+            )
+        assert stale.value.status_code == 409
+        fresh = correspondence.prepare_correspondence(
+            assoc.id, case.id,
+            CorrespondenceIn(
+                property_id=prop.id, subject="Updated revision",
+                body="Same privacy protections after a policy change",
+            ), db=db, current_user=admin,
+        )
+        with pytest.raises(HTTPException) as missing_cure:
+            notice_delivery.send_notice_email(
+                assoc.id, case.id, fresh.id,
+                payload.model_copy(update={
+                    "correspondence_revision": fresh.revision,
+                    "policy_revision": fresh.policy_revision,
+                }), db=db, current_user=admin,
+            )
+        assert missing_cure.value.status_code == 409
+        policies.put_policy(assoc.id, _profile(prop.id), db=db, current_user=admin)
+        recipient = recipients.get_case_recipient(
+            assoc.id, case.id, Response(), property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        recipients.clear_case_recipient(
+            assoc.id, case.id, property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        with pytest.raises(HTTPException):
+            notice_delivery.send_notice_email(
+                assoc.id, case.id, fresh.id,
+                payload.model_copy(update={
+                    "correspondence_revision": fresh.revision,
+                    "policy_revision": fresh.policy_revision,
+                }), db=db, current_user=admin,
+            )
+        assert db.query(HOAViolationNoticeDelivery).count() == 0
+        assert sent == []
+        assert _balances(db) == before
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_case_email_failure_retry_and_current_scope_revocation(monkeypatch):
+    db, engine = _db()
+    try:
+        users, props, assoc, case, draft, seat, payload = _notice_board(db, monkeypatch)
+        admin, owner, manager, tenant, foreign = users
+        prop = props[0]
+        before = _balances(db)
+        attempts = []
+        def transport(**kw):
+            attempts.append(kw["to"])
+            if len(attempts) == 1:
+                raise RuntimeError("Synthetic email transport failure")
+        monkeypatch.setattr(email_service, "send_email", transport)
+        monkeypatch.setattr(email_service, "settings", SimpleNamespace(EMAIL_MODE="smtp"))
+        failed = notice_delivery.send_notice_email(
+            assoc.id, case.id, draft.id, payload, db=db, current_user=admin,
+        )
+        assert failed.status == "FAILED" and failed.attempt_count == 1
+        assert len(attempts) == 1
+        admin.is_verified = False
+        db.flush()
+        with pytest.raises(HTTPException):
+            notice_delivery.retry_notice_email(
+                assoc.id, case.id, failed.id, prop.id, db=db, current_user=admin,
+            )
+        admin.is_verified = True
+        db.flush()
+        tenant.is_verified = False
+        db.flush()
+        with pytest.raises(HTTPException):
+            notice_delivery.retry_notice_email(
+                assoc.id, case.id, failed.id, prop.id, db=db, current_user=admin,
+            )
+        tenant.is_verified = True
+        db.flush()
+        succeeded = notice_delivery.retry_notice_email(
+            assoc.id, case.id, failed.id, prop.id, db=db, current_user=admin,
+        )
+        assert succeeded.status == "SMTP_ACCEPTED" and succeeded.attempt_count == 2
+        assert len(attempts) == 2 and _balances(db) == before
     finally:
         db.rollback(); db.close(); engine.dispose()

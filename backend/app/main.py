@@ -113,6 +113,7 @@ from app.routers import hoa_procedure_policies as hoa_procedure_policies_router
 from app.routers import hoa_violation_cases as hoa_violation_cases_router
 from app.routers import hoa_violation_recipients as hoa_violation_recipients_router
 from app.routers import hoa_violation_correspondence as hoa_violation_correspondence_router
+from app.routers import hoa_violation_notice_delivery as hoa_violation_notice_delivery_router
 from app.routers import hoa_violation_evidence as hoa_violation_evidence_router
 from app.routers import hoa_case_tasks as hoa_case_tasks_router
 from app.routers import hoa_reserve_accounts as hoa_reserve_accounts_router
@@ -270,6 +271,7 @@ app.include_router(hoa_procedure_policies_router.router)
 app.include_router(hoa_violation_cases_router.router)
 app.include_router(hoa_violation_recipients_router.router)
 app.include_router(hoa_violation_correspondence_router.router)
+app.include_router(hoa_violation_notice_delivery_router.router)
 app.include_router(hoa_violation_evidence_router.router)
 app.include_router(hoa_case_tasks_router.router)
 app.include_router(hoa_reserve_accounts_router.router)
