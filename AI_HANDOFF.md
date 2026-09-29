@@ -1,3 +1,76 @@
+# AI_HANDOFF.md — 2026-09-29 BOARD PORTAL VERIFIED / BOARD VOTES PREPARED
+
+**READ THE ENTIRE ROOT FILE.** This latest entry overrides earlier
+NEXT/PREPARED status labels, but historical verified entries below stay
+unchanged. Repo `yasirskhan/property-platform`, ONLY existing branch
+`chatgpt/checkpoint-005-safety`; never touch main, frozen docs/, make
+a branch, force-push, merge PR or advance Phase 4.8.
+
+- Last VERIFIED product source:
+  `659a499c9ad76afe8cd2751ab0b69767bcbe62c7`.
+  GitHub Actions [36591325344](https://github.com/yasirskhan/property-platform/actions/runs/36591325344)
+  SUCCESS ALL SIX JOBS on this SHA. Backend **797 passed,
+  15 deselected, 20034 warnings in 198.29s**; authenticated browser
+  **15 passed, 224 warnings in 64.16s**; frontend lint/TypeScript/build,
+  platform-admin, security, staging PASS. TESTS NOT RUN locally.
+  Earlier provisional portal `8e94c976` CI `36590469656` FAILED
+  one backend regression (`HOAContactLinkOut` response incorrectly
+  treated as mutable SQLAlchemy row). Commit `659a499c` fixes the
+  test to change persisted `HOAContactLink`; only this corrected
+  source is marked VERIFIED.
+- Alembic verified head `f6b8d0e2a4c7`; **168 model tables**.
+  Current verified portal batch adds NO migration.
+- Authenticated board-only `/dashboard/hoa/board` now lists live
+  scoped association/property meetings for currently authorized
+  verified board logins, including board members without
+  organization-wide PROPERTIES.ALL permission. It reads exact
+  minutes revision and records the individual authorized member's
+  existing immutable minutes approval. Live HOA paid gate, active
+  org/contact/seat/membership, E2E navigation, role revocation,
+  audit, and zero finance are tested. This is not an official
+  quorum or certified full-board vote.
+- NEXT batch **PREPARED AS 15 UNCOMMITTED Git blobs**, NOT TESTED,
+  NOT VERIFIED: authenticated individual member motion voting
+  distinct from old STAFF-REPORTED ballot notes. A board member
+  with current live association seat records exactly one
+  immutable FOR/AGAINST/ABSTAIN choice for an exact motion
+  SHA-256 text, with request replay and collision guards.
+  Authenticated board portal gets motion list/own vote and a
+  vote button; meeting/motion edits or archive cannot erase a
+  recorded vote. No derived quorum/resolution, financial posting,
+  statutory notice, law assumption or external message.
+  Proposed migration `a7c9e1f3b5d8` follows f6b8d0e2a4c7;
+  expected model count **169** is NOT verified until CI passes.
+  Complete static review, assemble on current branch using one
+  provisional commit and run all six hosted CI jobs; fix reds
+  autonomously, then update this handoff and continue independently.
+- **Prepared Git blob pointers**:
+  - `backend/app/models/hoa_board_vote.py` `727b9e2121c65e5c97517b0756fec63bcdc88b5b`
+  - `backend/alembic/versions/a7c9e1f3b5d8_hoa_board_votes.py` `7b04ac029f0f5db44d958559523303df32a6ca40`
+  - `backend/app/schemas/hoa_board_vote.py` `a70ed4200749f9485a334e4bd8ca0181b1ee16d2`
+  - `backend/app/routers/hoa_board_votes.py` `98e190eabb3119dbec9be25d333970f40bcf17c2`
+  - `backend/app/main.py` `c53166963518a815afb71bdf16c565207ec4f763`
+  - `backend/init_db.py` `c8bab8ceb560abe241aa0a2af77d031a464dad60`
+  - `backend/app/services/entity_notes.py` `fb89cd7f75a3c4f123a0492dd19f6dcedee8a170`
+  - `backend/app/routers/hoa_meeting_workspace.py` `73eb79efaca5cfeb3049629033bc51dc9e0fa633`
+  - `backend/app/routers/hoa_meeting_drafts.py` `a5375ecd645743e5a5994cf1e2a2c8ab38712fbd`
+  - `frontend/src/app/dashboard/hoa/board/page.tsx` `4c3442d88917d98159496dfc081af08047c314c9`
+  - `backend/tests/test_hoa_meeting_workspace.py` `ea24764dd49be3cba91ceaf7d247a49273b29b38`
+  - `backend/tests/e2e/test_hoa_evidence_e2e.py` `f9d520f46aae3881c9c54b4ca329ce5c605da2f5`
+  - `backend/tests/test_migrations.py` `65758a5a425025b760cc40f61ac37fade254ba89`
+  - `backend/tests/test_postgres_smoke.py` `4c594604684eabb52cf5b0eface032b50ff5ab54`
+  - `backend/tests/test_prepare_database.py` `902a83696a295c42516f7b8fe5639876d357b604`
+- Original SEVEN operational HOA capabilities remain the Phase 4.7
+  product goal. Preserve verified member accounting, annual budget,
+  ARC direct APPROVED/DENIED with protected fees/notifications,
+  reserve GL book, document delivery, case tasks and $79/month HOA
+  entitlement. Do not invent statutory deadlines, legal service,
+  member liability or bank transfer; isolate specific prerequisites
+  to their own action and continue other operational work.
+  Phase 4.8 PAUSED.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 AUTHENTICATED HOA BOARD PORTAL PROVISIONAL
 
 **READ ENTIRE ROOT HANDOFF.** This is the most recent state; older
