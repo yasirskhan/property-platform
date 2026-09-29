@@ -346,7 +346,7 @@ def test_governing_document_real_smtp_attachment_idempotency_and_audit(monkeypat
             delivery.send_document(
                 assoc.id, evidence.id,
                 HOADocumentSendIn(
-                    property_id=prop.id, contact_link_id=admin.id,
+                    property_id=prop.id, contact_link_id=link.id + 99999,
                     request_key="hoa-doc-delivery-001",
                 ), db=db, current_user=owner,
             )
