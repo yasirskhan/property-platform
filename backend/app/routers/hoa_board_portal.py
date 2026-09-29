@@ -10,6 +10,7 @@ from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
@@ -25,7 +26,9 @@ from app.models.user import Organization, User
 from app.routers.auth import get_current_user
 from app.routers.hoa_arc_board_decisions import HOA_GATES, _board_scope
 from app.routers.hoa_violation_cases import _case
-from app.routers.hoa_violation_fines import _fine
+from app.routers.hoa_violation_fines import _fine, _private_case_proof
+from app.routers.hoa_governing_evidence import _require_attachment_feature
+from app.services.attachment_storage import attachment_path
 from app.services.customer_features import resolve_customer_features
 
 router = APIRouter(prefix="/api/hoa/board", tags=["HOA authenticated board portal"])
@@ -131,6 +134,7 @@ class HOABoardFineAppealOut(BaseModel):
     received_on: date
     member_user_id: int
     appeal_reason: str
+    has_private_evidence: bool = False
     status: Literal["OPEN"] = "OPEN"
 
 
@@ -227,6 +231,20 @@ def my_board_fine_appeals(
         )
         if fine is None or fine.id != appeal.fine_id or fine.member_user_id is None:
             continue
+        has_evidence = False
+        if appeal.supporting_attachment_id is not None:
+            try:
+                _private_case_proof(
+                    db, org=actor.organization_id,
+                    association_id=appeal.association_id,
+                    property_id=appeal.property_id,
+                    case_id=appeal.case_id,
+                    attachment_id=appeal.supporting_attachment_id,
+                )
+            except HTTPException:
+                pass
+            else:
+                has_evidence = True
         result.append(HOABoardFineAppealOut(
             association_id=appeal.association_id,
             property_id=appeal.property_id, case_id=appeal.case_id,
@@ -234,8 +252,62 @@ def my_board_fine_appeals(
             received_on=appeal.received_on,
             member_user_id=fine.member_user_id,
             appeal_reason=appeal.appeal_reason,
+            has_private_evidence=has_evidence,
         ))
         if len(result) > 100:
             raise HTTPException(status_code=422, detail="Board appeal list exceeds 100; contact the administrator.")
     response.headers["Cache-Control"] = "no-store"
     return result
+
+
+@router.get("/fine-appeals/{appeal_id}/supporting-evidence")
+def download_board_appeal_evidence(
+    appeal_id: int, db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Download ONLY current private proof of a pending appeal for its board.
+
+    No staff property permission is granted to the board login; every read
+    checks live board delegation, paid HOA and attachment release, parent
+    case, fine, private case-evidence index and file storage.
+    """
+    actor = current_user
+    if actor.organization_id is None or not actor.is_active or actor.deleted_at is not None:
+        raise HTTPException(status_code=403, detail="Verified board login required.")
+    appeal = db.query(HOAFineAppeal).filter(
+        HOAFineAppeal.id == appeal_id,
+        HOAFineAppeal.organization_id == actor.organization_id,
+        HOAFineAppeal.status == "OPEN",
+    ).first()
+    if appeal is None or appeal.supporting_attachment_id is None:
+        raise HTTPException(status_code=404, detail="Pending appeal evidence not found.")
+    org, association, _ = _board_scope(
+        db, actor=actor, association_id=appeal.association_id,
+        property_id=appeal.property_id,
+    )
+    _require_attachment_feature(db, actor)
+    _case(
+        db, org_id=org, association_id=association.id,
+        property_id=appeal.property_id, case_id=appeal.case_id,
+    )
+    fine = _fine(
+        db, org, association.id, appeal.property_id, appeal.case_id,
+    )
+    if fine is None or fine.id != appeal.fine_id or fine.member_user_id != appeal.member_user_id:
+        raise HTTPException(status_code=404, detail="Pending appeal evidence not found.")
+    proof = _private_case_proof(
+        db, org=org, association_id=association.id,
+        property_id=appeal.property_id, case_id=appeal.case_id,
+        attachment_id=appeal.supporting_attachment_id,
+    )
+    try:
+        file_path = attachment_path(proof.storage_key)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Private appeal file not found.") from exc
+    if not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Private appeal file not found.")
+    return FileResponse(
+        file_path, media_type=proof.content_type or "application/octet-stream",
+        filename=proof.original_name,
+        headers={"Cache-Control": "private, no-store"},
+    )

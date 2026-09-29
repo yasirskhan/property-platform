@@ -24,6 +24,7 @@ from app.models.gl_transaction import GLTransaction
 from app.models.gl_account import GLAccount
 from app.models.contact import Contact
 from app.models.entity_attachment import EntityAttachment
+from app.services.attachment_storage import attachment_path
 from app.models.hoa_association import HOAAssociation, HOAContactLink
 from app.models.hoa_board import HOABoardSeat
 from app.models.release_gate import ReleaseGate, ReleaseStage
@@ -391,6 +392,9 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 ).locator("..").locator("..")
                 appeal.get_by_label("Fine appeal received date").fill(date.today().isoformat())
                 appeal.get_by_label("Received appeal reason").fill("Synthetic member disputed fine")
+                appeal.get_by_label("Appeal private supporting evidence").select_option(
+                    label="e2e-private-case-photo.png",
+                )
                 page.once("dialog", lambda dialog: dialog.accept())
                 appeal.get_by_role("button", name="Record appeal received").click()
                 expect(appeal.get_by_text(re.compile("Appeal #.*OPEN"))).to_be_visible()
@@ -402,6 +406,11 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                     "heading", name="Board fine appeals",
                 ).locator("..")
                 expect(board_appeals.get_by_text(re.compile("Fine appeal #"))).to_be_visible()
+                with page.expect_download() as downloaded:
+                    board_appeals.get_by_role("button", name="Download private appeal evidence").click()
+                assert downloaded.value.suggested_filename.startswith("hoa-appeal-evidence-")
+                assert downloaded.value.path().stat().st_size == 100
+                assert _financial_counts() == before
                 board_appeals.get_by_label(
                     re.compile("Board portal appeal explanation"),
                 ).fill("Synthetic delegated board upheld the member fine")
@@ -601,6 +610,10 @@ def _seed_case_recipient(association_name: str) -> None:
             authorized_user_id=user.id, decision_authorized=True,
             authorized_by_id=user.id, can_record_offline=True,
         ))
+        # Synthetic downloadable file is confined to this disposable E2E run.
+        attachment_path(f"case-evidence-{association.id}.png").write_bytes(
+            bytes([137, 80, 78, 71, 13, 10, 26, 10]) + bytes(92)
+        )
         db.add(EntityAttachment(
             organization_id=association.organization_id,
             entity_type="properties", entity_id=PROPERTY_ID,

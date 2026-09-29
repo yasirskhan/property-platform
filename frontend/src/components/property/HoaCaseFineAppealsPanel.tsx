@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
 
+type PrivateEvidence = { attachment_id: number; filename: string };
+
 type Appeal = {
   id: number; fine_id: number; received_on: string;
   appeal_reason: string; supporting_attachment_id: number | null;
@@ -22,6 +24,8 @@ export default function HoaCaseFineAppealsPanel({
   const query = "?property_id=" + propertyId;
   const [records, setRecords] = useState<Appeal[]>([]);
   const [receivedOn, setReceivedOn] = useState("");
+  const [evidence, setEvidence] = useState<PrivateEvidence[]>([]);
+  const [supportingId, setSupportingId] = useState("");
   const [reason, setReason] = useState("");
   const [choice, setChoice] = useState<"UPHELD" | "VACATED">("UPHELD");
   const [decisionNote, setDecisionNote] = useState("");
@@ -42,6 +46,12 @@ export default function HoaCaseFineAppealsPanel({
     }).catch(cause => {
       if (live) setError(cause instanceof Error ? cause.message : "Appeal history unavailable.");
     });
+    void apiGet("/api/hoa/associations/" + associationId +
+      "/staff-cases/" + caseId + "/evidence" + query).then(rows => {
+      if (live) setEvidence(rows as PrivateEvidence[]);
+    }).catch(() => {
+      if (live) setEvidence([]);
+    });
     return () => { live = false; };
   }, [base, query]);
 
@@ -55,10 +65,11 @@ export default function HoaCaseFineAppealsPanel({
       await apiPost(base, {
         property_id: propertyId, received_on: receivedOn,
         appeal_reason: reason.trim(), request_key: requestKey.current,
+        supporting_attachment_id: supportingId ? Number(supportingId) : null,
       });
       requestKey.current = "";
       await reload();
-      setReason(""); setReceivedOn("");
+      setReason(""); setReceivedOn(""); setSupportingId("");
       setMessage("Appeal received and recorded. No fine was reversed or notice sent.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not record fine appeal.");
@@ -136,6 +147,15 @@ export default function HoaCaseFineAppealsPanel({
       <label className="block">Received appeal reason
         <textarea maxLength={2000} value={reason} onChange={event => setReason(event.target.value)}
           className="mt-1 block w-full border p-2"/>
+      </label>
+      <label className="block">Private case-linked appeal evidence (optional)
+        <select aria-label="Appeal private supporting evidence" value={supportingId}
+          onChange={event => setSupportingId(event.target.value)}
+          className="mt-1 block w-full border p-2">
+          <option value="">No supporting file</option>
+          {evidence.map(file => <option key={file.attachment_id} value={file.attachment_id}>
+            {file.filename}</option>)}
+        </select>
       </label>
       <button type="submit" disabled={busy || !receivedOn || !reason.trim()}
         className="text-blue-700 disabled:opacity-50">Record appeal received</button>

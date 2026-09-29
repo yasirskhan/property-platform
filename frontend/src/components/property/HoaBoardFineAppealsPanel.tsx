@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiFetch, apiGet, apiPost } from "@/lib/api";
 
 type Appeal = {
   association_id: number; property_id: number; case_id: number;
   fine_id: number; appeal_id: number; received_on: string;
-  member_user_id: number; appeal_reason: string; status: "OPEN";
+  member_user_id: number; appeal_reason: string; has_private_evidence: boolean;
+  status: "OPEN";
 };
 
 export default function HoaBoardFineAppealsPanel() {
@@ -32,6 +33,29 @@ export default function HoaBoardFineAppealsPanel() {
     }).finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, []);
+
+  async function downloadEvidence(appeal: Appeal) {
+    if (busy || !appeal.has_private_evidence) return;
+    setBusy(true); setError("");
+    try {
+      const response = await apiFetch(
+        "/api/hoa/board/fine-appeals/" + appeal.appeal_id + "/supporting-evidence",
+        { method: "GET" },
+      );
+      if (!response.ok) throw new Error("Private board evidence is unavailable or access has been revoked.");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "hoa-appeal-evidence-" + appeal.appeal_id;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Private appeal evidence unavailable.");
+    } finally { setBusy(false); }
+  }
 
   async function decide(appeal: Appeal) {
     if (busy || !(notes[appeal.appeal_id] || "").trim()) return;
@@ -78,6 +102,11 @@ export default function HoaBoardFineAppealsPanel() {
         {" · "}Member #{appeal.member_user_id}</p>
       <p>Received {appeal.received_on} · {appeal.status}</p>
       <p className="whitespace-pre-wrap break-words">Member appeal reason: {appeal.appeal_reason}</p>
+      {appeal.has_private_evidence && <button type="button" disabled={busy}
+        onClick={() => { void downloadEvidence(appeal); }}
+        className="text-blue-700 disabled:opacity-50">
+        Download private appeal evidence
+      </button>}
       <label className="block text-sm">Board appeal disposition
         <select aria-label={"Board portal appeal outcome " + appeal.appeal_id}
           value={choices[appeal.appeal_id] || "UPHELD"}

@@ -1,3 +1,36 @@
+# AI_HANDOFF.md — 2026-09-29 BOARD APPEAL PRIVATE EVIDENCE PROVISIONAL
+
+Read entire handoff; this section supersedes historical NEXT labels.
+Branch `chatgpt/checkpoint-005-safety` only. No main, new branch,
+force-push, frozen docs/ or Phase 4.8.
+
+Last VERIFIED product is `543d2bbba7e8c6ab29b5ddb39993eaeb8a9cde53`:
+run 36639458401 attempt 2 SUCCESS, all SIX jobs;
+backend **817 passed, 15 deselected**; browser **15 passed**.
+Alembic **6f9e2a7d4c1b**, **176 tables**.
+The docs-only commit `86d5b0b2` recorded this verification.
+
+NEW proposed batch (NOT VERIFIED until its own all-six-job CI):
+a currently delegated and paid-HOA-gated board member may download
+only an OPEN fine appeal's active, PRIVATE, case-linked supporting
+evidence. Staff can select previously linked case evidence during
+appeal intake; the board list reveals availability but not generic
+attachment access. Download revalidates board association/property,
+parent case, fine, private linkage, document release and storage.
+Backend tests cover role/org scope, revoked board seat, shared/stale
+proof, disabled documents, terminal appeal and no finance side
+effects. Dedicated browser exercises staff proof association and
+board download in disposable E2E. No migration/new general ledger,
+member charge, delivery or statutory service. No real data should
+be seeded by CI. Only an authorized board can decide, as verified.
+NEXT: commit this proposed source provisionally on THIS branch;
+inspect actual CI and repair red jobs, mark VERIFIED only after six
+jobs pass. Then refresh handoff and continue the next independent
+operational HOA batch, with existing verified ARC, dues/fines, board,
+budget, reserve and governing delivery intact.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 DELEGATED BOARD APPEAL PORTAL VERIFIED
 
 **Read entire handoff. This current entry supersedes all older NEXT,

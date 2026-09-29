@@ -2598,3 +2598,94 @@ def test_board_portal_only_lists_currently_authorized_pending_fine_appeals(monke
         assert _balances(db) == (0, 0, 0, 0)
     finally:
         db.rollback(); db.close(); engine.dispose()
+
+
+def test_delegated_board_downloads_only_live_private_appeal_evidence(monkeypatch, tmp_path):
+    """A current board member can see the linked proof, never general files."""
+    db, engine = _db()
+    try:
+        monkeypatch.setattr(member_api, "permission_allows_user", lambda *a, **kw: True)
+        monkeypatch.setattr(board_portal, "resolve_customer_features", lambda *a, **kw: [
+            SimpleNamespace(key=k, release_allowed=True,
+                            entitlement_allowed=True, org_config_allowed=True)
+            for k in arc_board.HOA_GATES
+        ])
+        monkeypatch.setattr(board_portal, "_require_attachment_feature", lambda *a, **kw: None)
+        users, props, assoc, case, draft, seat, proof = _record_served_fine_case(db, monkeypatch)
+        admin, owner, manager, tenant, foreign = users
+        prop = props[0]
+        fine_api.decide_fine(
+            assoc.id, case.id, _fine_decision(prop, tenant),
+            db=db, current_user=admin,
+        )
+        appeal = appeals_api.record_appeal(
+            assoc.id, case.id,
+            _appeal_payload(prop, supporting_attachment_id=proof.id),
+            db=db, current_user=owner,
+        )
+        path = tmp_path / "private-appeal-evidence.pdf"
+        path.write_bytes(b"private proof")
+        monkeypatch.setattr(board_portal, "attachment_path", lambda key: path)
+        before = _balances(db)
+        rows = board_portal.my_board_fine_appeals(
+            Response(), db=db, current_user=admin,
+        )
+        assert len(rows) == 1 and rows[0].has_private_evidence is True
+        result = board_portal.download_board_appeal_evidence(
+            appeal.id, db=db, current_user=admin,
+        )
+        assert str(result.path) == str(path)
+        assert result.filename == proof.original_name
+        assert result.headers["cache-control"] == "private, no-store"
+        for actor in (owner, manager, tenant, foreign):
+            with pytest.raises(HTTPException):
+                board_portal.download_board_appeal_evidence(
+                    appeal.id, db=db, current_user=actor,
+                )
+        with pytest.raises(HTTPException) as wrong:
+            board_portal.download_board_appeal_evidence(
+                appeal.id + 9999, db=db, current_user=admin,
+            )
+        assert wrong.value.status_code == 404
+        proof.share_with_owners = True
+        db.flush()
+        assert board_portal.my_board_fine_appeals(
+            Response(), db=db, current_user=admin,
+        )[0].has_private_evidence is False
+        with pytest.raises(HTTPException):
+            board_portal.download_board_appeal_evidence(
+                appeal.id, db=db, current_user=admin,
+            )
+        proof.share_with_owners = False
+        db.flush()
+        db.get(HOABoardSeat, seat.id).decision_authorized = False
+        db.flush()
+        with pytest.raises(HTTPException) as revoked:
+            board_portal.download_board_appeal_evidence(
+                appeal.id, db=db, current_user=admin,
+            )
+        assert revoked.value.status_code == 403
+        db.get(HOABoardSeat, seat.id).decision_authorized = True
+        db.flush()
+        monkeypatch.setattr(board_portal, "_require_attachment_feature",
+                            lambda *a, **kw: (_ for _ in ()).throw(
+                                HTTPException(status_code=404, detail="Document disabled")
+                            ))
+        with pytest.raises(HTTPException) as disabled:
+            board_portal.download_board_appeal_evidence(
+                appeal.id, db=db, current_user=admin,
+            )
+        assert disabled.value.status_code == 404
+        monkeypatch.setattr(board_portal, "_require_attachment_feature", lambda *a, **kw: None)
+        appeals_api.decide_appeal(
+            assoc.id, case.id, appeal.id, _appeal_decision(prop),
+            db=db, current_user=admin,
+        )
+        with pytest.raises(HTTPException) as closed:
+            board_portal.download_board_appeal_evidence(
+                appeal.id, db=db, current_user=admin,
+            )
+        assert closed.value.status_code == 404
+        assert _balances(db) == before
+    finally:
+        db.rollback(); db.close(); engine.dispose()
