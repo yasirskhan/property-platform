@@ -1,3 +1,26 @@
+# AI_HANDOFF.md — 2026-09-29 HOA FINE RECEIPT E2E CORRECTION
+
+The Phase 4.7 fine-payment implementation remains PROVISIONAL.
+First source `d95fda55` / Actions 36630385628 failed only
+five Alembic/bootstrapping tests due to a duplicate revision ID.
+Corrected source `76d6519e` / Actions 36631193524 passed
+backend **814 passed, 15 deselected, 21336 warnings in 221.94s**,
+frontend, platform-admin, security, staging. E2E **14 passed,
+1 failed**. The sole browser failure was a non-specific locator
+matching a receipt reversal text before the fine-GL reversal had
+completed; the test asserted GL count too early. This new test-only
+correction anchors the browser wait to the exact board fine
+status line. The source business logic is unchanged.
+**NOT VERIFIED** until all six jobs on the new corrected
+product SHA pass. Verified product remains `f82561f9`,
+Alembic f2b4d6e8a0c3 / 174 tables until that point.
+Next: fetch new CI, address any genuine failure, then
+record final implementation SHA, test counts, new revision
+c8e0a2f4b6d9 / 175 tables in root handoff. Continue
+board appeal/correction history independently afterward.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 HOA FINE RECEIPTS PROVISIONAL
 
 **Read the ENTIRE file.** This newest record supersedes historical NEXT

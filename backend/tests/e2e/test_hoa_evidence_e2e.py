@@ -420,7 +420,7 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 fine.get_by_label("Fine reversal reason").fill("Synthetic accounting correction")
                 page.once("dialog", lambda dialog: dialog.accept())
                 fine.get_by_role("button", name="Reverse posted fine").click()
-                expect(fine.get_by_text(re.compile("Board decision #.*REVERSED"))).to_be_visible()
+                expect(fine.get_by_text(re.compile(r"^Board decision #\d+: APPROVED · REVERSED ·"))).to_be_visible()
                 assert _financial_counts() == (before[0], before[1] + 4)
             finally:
                 browser.close()
