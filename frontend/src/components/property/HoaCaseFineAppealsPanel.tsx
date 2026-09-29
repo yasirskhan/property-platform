@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
+import HoaAppealNotificationPanel from "./HoaAppealNotificationPanel";
 
 type PrivateEvidence = { attachment_id: number; filename: string };
 
@@ -23,6 +24,7 @@ export default function HoaCaseFineAppealsPanel({
     "/staff-cases/" + caseId + "/fine/appeals";
   const query = "?property_id=" + propertyId;
   const [records, setRecords] = useState<Appeal[]>([]);
+  const [notificationAppealId, setNotificationAppealId] = useState<number | null>(null);
   const [receivedOn, setReceivedOn] = useState("");
   const [evidence, setEvidence] = useState<PrivateEvidence[]>([]);
   const [supportingId, setSupportingId] = useState("");
@@ -116,6 +118,16 @@ export default function HoaCaseFineAppealsPanel({
       <p>Recorded reason: {row.appeal_reason}</p>
       {row.decision_note && <p>Board disposition: {row.decision_note}
         {" · "}Seat #{row.decision_board_seat_id} · {row.decided_on}</p>}
+      {row.status !== "OPEN" && <div className="space-y-2">
+        <button type="button" className="text-blue-700" onClick={() =>
+          setNotificationAppealId(notificationAppealId === row.id ? null : row.id)}>
+          {notificationAppealId === row.id ? "Hide appeal outcome email" : "Appeal outcome email"}
+        </button>
+        {notificationAppealId === row.id && <HoaAppealNotificationPanel
+          associationId={associationId} propertyId={propertyId} caseId={caseId}
+          appealId={row.id} canEdit={canEdit}
+          onClose={() => setNotificationAppealId(null)}/>}
+      </div>}
       {row.accounting_reversal_pending && <p className="font-semibold text-amber-800">
         Board vacated the fine, but its posted GL still requires an authorized
         reversal. Reverse allocated receipts first. Do not infer a cash refund.</p>}

@@ -20,6 +20,7 @@ sync_playwright = playwright_sync.sync_playwright
 
 from app.core.database import SessionLocal
 from app.models.charge import Charge
+from app.models.letter_template import LetterTemplate
 from app.models.gl_transaction import GLTransaction
 from app.models.gl_account import GLAccount
 from app.models.contact import Contact
@@ -439,6 +440,46 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                     "heading", name="Fine appeal and correction history",
                 ).locator("..").locator("..")
                 expect(appeal.get_by_text(re.compile("Appeal #.*UPHELD"))).to_be_visible()
+                # The appeal outcome email is explicitly authorized in the
+                # disposable browser environment. Console-mode sends no email.
+                db = SessionLocal()
+                try:
+                    association = db.query(HOAAssociation).filter(
+                        HOAAssociation.name == association_name,
+                        HOAAssociation.is_active.is_(True),
+                    ).one()
+                    actor = db.query(User).filter(
+                        User.organization_id == association.organization_id,
+                        User.email == EMAIL,
+                    ).one()
+                    db.add(LetterTemplate(
+                        organization_id=association.organization_id,
+                        title="HOA Appeal: synthetic outcome",
+                        category="CUSTOM",
+                        subject="E2E board appeal outcome",
+                        body="Synthetic association-authored appeal outcome message.",
+                        created_by_id=actor.id, is_active=True,
+                    ))
+                    db.commit()
+                finally:
+                    db.rollback(); db.close()
+                appeal.get_by_role("button", name="Appeal outcome email").click()
+                outcome_email = appeal.get_by_role(
+                    "heading", name="Fine appeal outcome email",
+                ).locator("..").locator("..")
+                outcome_email.get_by_label(
+                    "Appeal outcome letter template",
+                ).select_option(label="HOA Appeal: synthetic outcome")
+                page.once("dialog", lambda dialog: dialog.accept())
+                outcome_email.get_by_role(
+                    "button", name="Authorize and email appeal outcome",
+                ).click()
+                expect(outcome_email.get_by_text(
+                    "Test-only: no real email was transmitted.",
+                )).to_be_visible()
+                expect(outcome_email.get_by_text(re.compile("TEST ONLY"))).to_be_visible()
+                assert _financial_counts() == before
+                outcome_email.get_by_role("button", name="Close appeal email").click()
                 fine.get_by_label("GL posting date").fill(date.today().isoformat())
                 fine.get_by_label("Fine receivable GL").select_option(
                     label="E2E-CASE-FINE-AR · E2E Case Fine Receivable",

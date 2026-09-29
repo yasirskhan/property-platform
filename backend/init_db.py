@@ -141,6 +141,7 @@ from app.models.hoa_violation_service_record import HOAViolationServiceRecord  #
 from app.models.hoa_violation_fine import HOAViolationFine  # noqa: F401
 from app.models.hoa_violation_fine_payment import HOAViolationFinePayment  # noqa: F401
 from app.models.hoa_violation_fine_appeal import HOAFineAppeal  # noqa: F401
+from app.models.hoa_fine_appeal_notification import HOAFineAppealNotification  # noqa: F401
 from app.models.hoa_violation_evidence import HOAViolationEvidence  # noqa: F401
 from app.models.hoa_case_task import HOACaseTask  # noqa: F401
 from app.models.hoa_reserve_account import HOAReserveAccount  # noqa: F401

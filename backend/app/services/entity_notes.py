@@ -56,6 +56,7 @@ _FORBIDDEN_TABLES = {
     "hoa_violation_fines",
     "hoa_violation_fine_payments",
     "hoa_violation_fine_appeals",  # Private appeal and board decision; must respect association/case scopes.
+    "hoa_fine_appeal_notifications",  # Private recipient, message snapshot and email attempt history.
     "hoa_violation_notice_deliveries",  # Board-authorized private email transport history.
     "hoa_violation_evidence",
     "hoa_case_tasks",  # Case/property/role-scoped staff operations and private notes.  # Joint scope-checked private case document references.  # Confidential scope-checked staff drafts; deny generic notes.  # Needs live case plus scoped verified contact and user.  # Scoped review history, no generic exports.

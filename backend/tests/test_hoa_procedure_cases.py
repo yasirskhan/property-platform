@@ -26,6 +26,8 @@ from app.models.hoa_violation_service_record import HOAViolationServiceRecord
 from app.models.hoa_violation_fine import HOAViolationFine
 from app.models.hoa_violation_fine_payment import HOAViolationFinePayment
 from app.models.hoa_violation_fine_appeal import HOAFineAppeal
+from app.models.hoa_fine_appeal_notification import HOAFineAppealNotification
+from app.models.letter_template import LetterTemplate
 from app.models.hoa_board import HOABoardSeat
 from app.models.receipt import Receipt
 from app.models.receipt_line import ReceiptLine
@@ -35,6 +37,8 @@ from app.models.gl_entry import GLEntry
 from app.routers import hoa_violation_fines as fine_api
 from app.routers import hoa_violation_fine_payments as fine_payments
 from app.routers import hoa_fine_appeals as appeals_api
+from app.routers import hoa_appeal_notifications as appeal_notifications
+from app.schemas.hoa_appeal_notification import HOAAppealNotificationIn
 from app.routers import hoa_board_portal as board_portal
 from app.schemas.hoa_fine_appeal import HOAFineAppealIn, HOAFineAppealDecisionIn
 from app.routers import hoa_member_assessments as member_api
@@ -2687,5 +2691,230 @@ def test_delegated_board_downloads_only_live_private_appeal_evidence(monkeypatch
             )
         assert closed.value.status_code == 404
         assert _balances(db) == before
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def _appeal_notification_setup(db, monkeypatch):
+    """Disposable same-association actual recipient, authorized fine and final appeal."""
+    monkeypatch.setattr(member_api, "permission_allows_user", lambda *a, **kw: True)
+    users, props, assoc, case, draft, seat, _ = _record_served_fine_case(db, monkeypatch)
+    admin, owner, manager, tenant, foreign = users
+    fine_api.decide_fine(
+        assoc.id, case.id, _fine_decision(props[0], tenant),
+        db=db, current_user=admin,
+    )
+    opened = appeals_api.record_appeal(
+        assoc.id, case.id, _appeal_payload(props[0]),
+        db=db, current_user=owner,
+    )
+    decision = appeals_api.decide_appeal(
+        assoc.id, case.id, opened.id, _appeal_decision(props[0]),
+        db=db, current_user=admin,
+    )
+    template = LetterTemplate(
+        organization_id=admin.organization_id,
+        title="HOA Appeal: recorded outcome",
+        category="CUSTOM",
+        subject="Association review at {{property_name}}",
+        body="Dear member, {{organization_name}} has recorded the following review.",
+        is_active=True, created_by_id=admin.id,
+    )
+    db.add(template); db.commit()
+    return users, props, assoc, case, seat, decision, template
+
+
+def test_appeal_outcome_email_snapshot_idempotency_and_no_accounting(monkeypatch):
+    db, engine = _db()
+    try:
+        users, props, assoc, case, seat, appeal, template = _appeal_notification_setup(db, monkeypatch)
+        admin, owner, manager, tenant, foreign = users
+        prop = props[0]
+        before = _balances(db)
+        sent = []
+        monkeypatch.setattr(email_service, "send_email", lambda **kw: sent.append(kw))
+        monkeypatch.setattr(email_service, "settings", SimpleNamespace(EMAIL_MODE="console"))
+        candidates = appeal_notifications.list_appeal_email_templates(
+            assoc.id, case.id, Response(), property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        assert [item.id for item in candidates] == [template.id]
+        payload = HOAAppealNotificationIn(
+            property_id=prop.id, template_id=template.id,
+            request_key="hoa-appeal-outcome-email-0001",
+        )
+        result = appeal_notifications.send_appeal_notification(
+            assoc.id, case.id, appeal.id, payload,
+            db=db, current_user=admin,
+        )
+        assert result.status == "TEST_ONLY" and result.outcome == "UPHELD"
+        assert result.attempt_count == 1 and result.smtp_accepted_at is None
+        assert result.actual_delivery_confirmed is False
+        assert result.legally_served is False and result.accounting_modified is False
+        assert len(sent) == 1 and sent[0]["to"] == tenant.email.lower()
+        assert sent[0]["organization_id"] == admin.organization_id
+        assert "UPHELD" in sent[0]["body"] and str(appeal.id) in sent[0]["body"]
+        assert "{{organization_name}}" not in sent[0]["body"]
+        assert appeal_notifications.send_appeal_notification(
+            assoc.id, case.id, appeal.id, payload,
+            db=db, current_user=admin,
+        ).id == result.id
+        assert len(sent) == 1
+        with pytest.raises(HTTPException) as duplicate:
+            appeal_notifications.send_appeal_notification(
+                assoc.id, case.id, appeal.id, payload.model_copy(update={
+                    "request_key": "hoa-appeal-outcome-email-0002",
+                }), db=db, current_user=admin,
+            )
+        assert duplicate.value.status_code == 409
+        with pytest.raises(HTTPException) as conflict:
+            appeal_notifications.send_appeal_notification(
+                assoc.id, case.id, appeal.id, payload.model_copy(update={
+                    "template_id": 999999,
+                }), db=db, current_user=admin,
+            )
+        assert conflict.value.status_code == 409
+        template.body = "Changed after queue"; db.commit()
+        monkeypatch.setattr(email_service, "settings", SimpleNamespace(EMAIL_MODE="smtp"))
+        retry = appeal_notifications.retry_appeal_notification(
+            assoc.id, case.id, appeal.id, result.id, prop.id,
+            db=db, current_user=admin,
+        )
+        assert retry.status == "SMTP_ACCEPTED" and retry.attempt_count == 2
+        assert retry.smtp_accepted_at is not None
+        assert len(sent) == 2 and "Changed after queue" not in sent[1]["body"]
+        assert appeal_notifications.retry_appeal_notification(
+            assoc.id, case.id, appeal.id, result.id, prop.id,
+            db=db, current_user=admin,
+        ).status == "SMTP_ACCEPTED"
+        assert len(sent) == 2
+        history = appeal_notifications.list_appeal_notifications(
+            assoc.id, case.id, appeal.id, Response(), property_id=prop.id,
+            db=db, current_user=manager,
+        )
+        assert len(history) == 1 and history[0].status == "SMTP_ACCEPTED"
+        assert db.query(HOAFineAppealNotification).count() == 1
+        assert _balances(db) == before
+        audits = db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_fine_appeal_notification",
+        ).all()
+        assert len(audits) == 5
+        assert all(tenant.email not in str(row.new_value) for row in audits)
+        assert all("Dear member" not in str(row.new_value) for row in audits)
+        with pytest.raises(HTTPException):
+            _model_for_table("hoa_fine_appeal_notifications")
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_appeal_outcome_email_denies_wrong_actor_scope_and_stale_recipient(monkeypatch):
+    db, engine = _db()
+    try:
+        users, props, assoc, case, seat, appeal, template = _appeal_notification_setup(db, monkeypatch)
+        admin, owner, manager, tenant, foreign = users
+        prop, other, outside = props
+        before = _balances(db)
+        sent = []
+        monkeypatch.setattr(email_service, "send_email", lambda **kw: sent.append(kw))
+        monkeypatch.setattr(email_service, "settings", SimpleNamespace(EMAIL_MODE="smtp"))
+        payload = HOAAppealNotificationIn(
+            property_id=prop.id, template_id=template.id,
+            request_key="hoa-appeal-outcome-email-0003",
+        )
+        for actor, property_id in (
+            (owner, prop.id), (manager, prop.id), (tenant, prop.id),
+            (foreign, prop.id), (admin, other.id), (admin, outside.id),
+        ):
+            with pytest.raises(HTTPException):
+                appeal_notifications.send_appeal_notification(
+                    assoc.id, case.id, appeal.id,
+                    payload.model_copy(update={"property_id": property_id}),
+                    db=db, current_user=actor,
+                )
+        with pytest.raises(HTTPException):
+            appeal_notifications.list_appeal_notifications(
+                assoc.id, case.id, appeal.id, Response(), property_id=outside.id,
+                db=db, current_user=admin,
+            )
+        tenant.is_verified = False
+        db.commit()
+        with pytest.raises(HTTPException) as denied:
+            appeal_notifications.send_appeal_notification(
+                assoc.id, case.id, appeal.id, payload,
+                db=db, current_user=admin,
+            )
+        assert denied.value.status_code == 409
+        tenant.is_verified = True
+        db.commit()
+        template.title = "Not an HOA template"
+        db.commit()
+        with pytest.raises(HTTPException):
+            appeal_notifications.send_appeal_notification(
+                assoc.id, case.id, appeal.id, payload,
+                db=db, current_user=admin,
+            )
+        assert db.query(HOAFineAppealNotification).count() == 0
+        assert sent == [] and _balances(db) == before
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_appeal_outcome_email_failure_retry_revocation_and_resolved_only(monkeypatch):
+    db, engine = _db()
+    try:
+        users, props, assoc, case, seat, appeal, template = _appeal_notification_setup(db, monkeypatch)
+        admin, owner, manager, tenant, foreign = users
+        prop = props[0]
+        before = _balances(db)
+        attempts = []
+        def transport(**kw):
+            attempts.append(kw["to"])
+            if len(attempts) == 1:
+                raise RuntimeError("Synthetic SMTP failure")
+        monkeypatch.setattr(email_service, "send_email", transport)
+        monkeypatch.setattr(email_service, "settings", SimpleNamespace(EMAIL_MODE="smtp"))
+        payload = HOAAppealNotificationIn(
+            property_id=prop.id, template_id=template.id,
+            request_key="hoa-appeal-outcome-email-0004",
+        )
+        row = appeal_notifications.send_appeal_notification(
+            assoc.id, case.id, appeal.id, payload, db=db, current_user=admin,
+        )
+        assert row.status == "FAILED" and row.attempt_count == 1
+        db.get(HOABoardSeat, seat.id).decision_authorized = False
+        db.commit()
+        with pytest.raises(HTTPException):
+            appeal_notifications.retry_appeal_notification(
+                assoc.id, case.id, appeal.id, row.id, prop.id,
+                db=db, current_user=admin,
+            )
+        assert len(attempts) == 1
+        db.get(HOABoardSeat, seat.id).decision_authorized = True
+        tenant.is_verified = False
+        db.commit()
+        with pytest.raises(HTTPException):
+            appeal_notifications.retry_appeal_notification(
+                assoc.id, case.id, appeal.id, row.id, prop.id,
+                db=db, current_user=admin,
+            )
+        assert len(attempts) == 1
+        tenant.is_verified = True
+        db.commit()
+        recovered = appeal_notifications.retry_appeal_notification(
+            assoc.id, case.id, appeal.id, row.id, prop.id,
+            db=db, current_user=admin,
+        )
+        assert recovered.status == "SMTP_ACCEPTED"
+        assert recovered.attempt_count == 2 and len(attempts) == 2
+        assert _balances(db) == before
+        opened = db.get(HOAFineAppeal, appeal.id)
+        opened.status = "OPEN"
+        db.commit()
+        with pytest.raises(HTTPException):
+            appeal_notifications.send_appeal_notification(
+                assoc.id, case.id, appeal.id,
+                payload.model_copy(update={"request_key": "hoa-appeal-outcome-email-0005"}),
+                db=db, current_user=admin,
+            )
     finally:
         db.rollback(); db.close(); engine.dispose()
