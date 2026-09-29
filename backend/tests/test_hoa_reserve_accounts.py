@@ -30,6 +30,15 @@ from app.routers import hoa_associations as hoa
 from app.routers import hoa_reserve_accounts as api
 from app.schemas.hoa_association import HOAAssociationIn
 from app.schemas.hoa_reserve_account import HOAReserveIn
+from app.models.contact import Contact
+from app.models.hoa_association import HOAContactLink
+from app.models.hoa_reserve_movement_decision import HOAReserveMovementDecision
+from app.routers import hoa_board as board_api
+from app.routers import hoa_arc_board_decisions as arc_board
+from app.routers import hoa_reserve_execution as execution
+from app.schemas.hoa_association import HOAContactLinkIn
+from app.schemas.hoa_board import HOABoardSeatIn, HOABoardAuthorizationIn
+from app.schemas.hoa_reserve_execution import HOAReserveDecisionIn, HOAReservePostIn, HOAReserveReverseIn
 from app.services.entity_notes import _model_for_table
 
 
@@ -41,6 +50,11 @@ def grants(monkeypatch):
         SimpleNamespace(key=hoa.HOA_FEATURE_KEY, allowed=True)
     ])
     monkeypatch.setattr(api, "permission_allows_user", lambda *a, **kw: True)
+    monkeypatch.setattr(arc_board, "resolve_customer_features", lambda *a, **kw: [
+        SimpleNamespace(key=key, release_allowed=True,
+                        entitlement_allowed=True, org_config_allowed=True)
+        for key in arc_board.HOA_GATES
+    ])
 
 
 def _db():
@@ -471,3 +485,160 @@ def test_reserve_movement_plans_deny_cross_scope_and_stale_mappings(monkeypatch)
         db.rollback()
         db.close()
         engine.dispose()
+
+
+def _authorize_reserve_board(db, *, admin, assoc, prop):
+    admin.is_verified = True
+    db.flush()
+    contact = Contact(
+        organization_id=admin.organization_id,
+        display_name="Reserve board member", email=admin.email,
+        contact_type="PERSON", is_active=True,
+    )
+    db.add(contact); db.flush()
+    link = hoa.add_contact_link(
+        assoc.id, HOAContactLinkIn(
+            property_id=prop.id, contact_id=contact.id,
+        ), db=db, current_user=admin,
+    )
+    seat = board_api.record_board_seat(
+        assoc.id, HOABoardSeatIn(
+            property_id=prop.id, contact_link_id=link.id,
+            proposed_role="CHAIR", staff_voting_eligible=True,
+        ), db=db, current_user=admin,
+    )
+    board_api.authorize_board_seat(
+        assoc.id, seat.id, HOABoardAuthorizationIn(
+            property_id=prop.id, user_id=admin.id, can_record_offline=True,
+        ), db=db, current_user=admin,
+    )
+    return seat
+
+
+def test_board_approved_reserve_book_posts_reverses_without_bank_transfer():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, _, _), assoc, cash, _, other_gl, _, bank, _ = _seed(db)
+        api.put_reserve(assoc.id, _payload(prop, cash, bank), db=db, current_user=admin)
+        seat = _authorize_reserve_board(db, admin=admin, assoc=assoc, prop=prop)
+        draft = movement_api.create_movement_draft(
+            assoc.id, _movement(prop, other_gl.id, planned_on=date.today()),
+            db=db, current_user=admin,
+        )
+        before = _finances(db)
+        with pytest.raises(HTTPException):
+            execution.record_reserve_decision(
+                assoc.id, draft.id, HOAReserveDecisionIn(
+                    property_id=prop.id, decision="APPROVED", decision_note="Approved",
+                ), db=db, current_user=manager,
+            )
+        approved = execution.record_reserve_decision(
+            assoc.id, draft.id, HOAReserveDecisionIn(
+                property_id=prop.id, decision="APPROVED",
+                decision_note="Board approved the reserve book movement",
+            ), db=db, current_user=admin,
+        )
+        assert approved.status == "APPROVED" and approved.board_seat_id == seat.id
+        assert approved.amount == Decimal("105.25") and approved.bank_transfer_executed is False
+        assert _finances(db) == before
+        with pytest.raises(HTTPException) as duplicate:
+            execution.record_reserve_decision(
+                assoc.id, draft.id, HOAReserveDecisionIn(
+                    property_id=prop.id, decision="APPROVED", decision_note="Duplicate",
+                ), db=db, current_user=admin,
+            )
+        assert duplicate.value.status_code == 409
+        with pytest.raises(HTTPException) as cannot_cancel:
+            movement_api.cancel_movement_draft(
+                assoc.id, draft.id, property_id=prop.id, db=db, current_user=owner,
+            )
+        assert cannot_cancel.value.status_code == 409
+        posted = execution.post_reserve_book_movement(
+            assoc.id, draft.id, HOAReservePostIn(
+                property_id=prop.id, transaction_on=date.today(),
+            ), db=db, current_user=owner,
+        )
+        assert posted.status == "POSTED" and posted.gl_transaction_id is not None
+        assert posted.bank_transfer_executed is False
+        assert execution.post_reserve_book_movement(
+            assoc.id, draft.id, HOAReservePostIn(
+                property_id=prop.id, transaction_on=date.today(),
+            ), db=db, current_user=owner,
+        ).gl_transaction_id == posted.gl_transaction_id
+        tx = db.get(GLTransaction, posted.gl_transaction_id)
+        assert tx.transaction_type == "TRANSFER"
+        assert tx.source_type == "hoa_reserve_book_movement"
+        lines = db.query(GLEntry).filter(GLEntry.transaction_id == tx.id).all()
+        assert len(lines) == 2
+        assert {x.gl_account_id for x in lines} == {cash.id, other_gl.id}
+        assert sum((x.debit for x in lines), Decimal("0")) == Decimal("105.25")
+        assert sum((x.credit for x in lines), Decimal("0")) == Decimal("105.25")
+        assert any(x.gl_account_id == cash.id and x.debit == Decimal("105.25") for x in lines)
+        reversed_book = execution.reverse_reserve_book_movement(
+            assoc.id, draft.id, HOAReserveReverseIn(
+                property_id=prop.id, reversal_on=date.today(),
+                reason="Corrected approved reserve instruction",
+            ), db=db, current_user=owner,
+        )
+        assert reversed_book.status == "REVERSED"
+        assert reversed_book.reversal_transaction_id != posted.gl_transaction_id
+        assert db.get(GLTransaction, tx.id).is_reversed
+        assert db.query(GLTransaction).count() == before[3] + 2
+        assert db.query(GLEntry).count() == before[4] + 4
+        assert db.query(Charge).count() == db.query(Lease).count() == db.query(RentInvoice).count() == 0
+        with pytest.raises(HTTPException):
+            execution.reverse_reserve_book_movement(
+                assoc.id, draft.id, HOAReserveReverseIn(
+                    property_id=prop.id, reversal_on=date.today(),
+                    reason="Repeat reversal",
+                ), db=db, current_user=owner,
+            )
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_reserve_movement_decision",
+        ).count() == 3
+        assert db.query(HOAReserveMovementDecision).count() == 1
+        with pytest.raises(HTTPException):
+            _model_for_table("hoa_reserve_movement_decisions")
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_reserve_posting_scope_and_denied_board_decision_fail_closed(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, other, outside), assoc, cash, _, other_gl, foreign_gl, bank, _ = _seed(db)
+        api.put_reserve(assoc.id, _payload(prop, cash, bank), db=db, current_user=admin)
+        _authorize_reserve_board(db, admin=admin, assoc=assoc, prop=prop)
+        draft = movement_api.create_movement_draft(
+            assoc.id, _movement(prop, other_gl.id, planned_on=date.today()),
+            db=db, current_user=admin,
+        )
+        with pytest.raises(HTTPException):
+            execution.record_reserve_decision(
+                assoc.id, draft.id, HOAReserveDecisionIn(
+                    property_id=other.id, decision="APPROVED", decision_note="Wrong property",
+                ), db=db, current_user=admin,
+            )
+        with pytest.raises(HTTPException):
+            execution.record_reserve_decision(
+                assoc.id, draft.id, HOAReserveDecisionIn(
+                    property_id=prop.id, decision="APPROVED", decision_note="Foreign board",
+                ), db=db, current_user=foreign,
+            )
+        denied = execution.record_reserve_decision(
+            assoc.id, draft.id, HOAReserveDecisionIn(
+                property_id=prop.id, decision="DENIED", decision_note="Board denied",
+            ), db=db, current_user=admin,
+        )
+        assert denied.status == "DENIED"
+        with pytest.raises(HTTPException) as denied_post:
+            execution.post_reserve_book_movement(
+                assoc.id, draft.id, HOAReservePostIn(
+                    property_id=prop.id, transaction_on=date.today(),
+                ), db=db, current_user=owner,
+            )
+        assert denied_post.value.status_code == 409
+        assert db.query(GLTransaction).count() == 0
+        assert db.query(Charge).count() == 0
+    finally:
+        db.rollback(); db.close(); engine.dispose()

@@ -1,3 +1,85 @@
+# AI_HANDOFF.md — 2026-09-29 CURRENT VERIFIED CHECKPOINT
+
+**READ THIS ENTIRE FILE.** The entry below is the newest status. Older
+"NEXT" entries retained later in the file are historical and superseded.
+
+- ONLY repository `yasirskhan/property-platform`, ONLY working branch
+  `chatgpt/checkpoint-005-safety`. No `main`, new branch, force-push,
+  merge, frozen `docs/`, or Phase 4.8 work.
+- VERIFIED PRODUCT SOURCE `cee88200f3780f3e1c42a300baf5afb44b4b229f`.
+  GitHub Actions run **36527051274 SUCCESS ALL SIX JOBS** on that exact SHA:
+  **783 backend passed, 12 deselected, 18963 warnings in 158.62s**;
+  **12 authenticated browser E2E passed, 155 warnings in 53.22s**.
+  Frontend lint, TypeScript, production build, platform-admin, security,
+  and staging-config PASS. **TESTS NOT RUN locally**.
+- Verified Alembic head `a1c3e5f7b9d2`, **163 model tables**.
+  Previous head `f0b2d4e6a8c1`, 161 tables. PostgreSQL/fresh/legacy
+  schema and staging checks passed on corrected source.
+- Latest VERIFIED batch: ACTUAL association board-approved recurring/special
+  assessment member receivables (not tenant-only Charge) with same-scope
+  verified member, immutable approved proposal amount, explicit due date,
+  idempotent occurrence issuance, balanced central GL, locks, reversal and
+  private audit; member-ledger UI and dedicated browser. This is an
+  operating subset, NOT completed payment allocation or collection.
+  Initial commit `7de7ae71` CI 36526517909 FAILED two backend regressions:
+  missing HOAMemberAssessmentCharge list import and incorrect ability to
+  void a posted planned occurrence; 781 passed, 2 failed, 12 deselected.
+  Corrected product `cee88200` adds import and row-locked posted-occurrence
+  void guard, then six green jobs. No false green attribution to initial run.
+- Earlier VERIFIED: private HOA governing-document email attachment delivery
+  `bb9e9094` / 36525127269; internal violation case follow-ups
+  `ef901b38` / 36521596577; effective ARC APPROVED/DENIED, protected fees,
+  notifications/reversals, $79/mo HOA add-on catalog and entitlement.
+- **Phase 4.7 IN PROGRESS:** seven operational HOA areas must be integrated
+  and tested. No platform blanket `legal_decision_effective=false` gate.
+  Apply actual configured procedure, authorized decision-maker, verified
+  payer, permissions, GL lock/idempotency/reversal and delivery safeguards.
+  Do not invent law, auto-charge a tenant or treat SMTP transport acceptance
+  as legal service. Phase 4.8 remains PAUSED.
+- This session's NEXT scoped batch is operational HOA reserve GL BOOK
+  movement approval, posting and reversal, extending the existing VERIFIED
+  reserve draft and account mapping. A GL book transfer is NOT an external
+  bank transfer and cannot certify restricted reserve ownership. The
+  15 source blobs listed below were prepared for one provisional feature
+  commit on the existing branch. They have NOT run applicable CI yet.
+  Commit source provisionally using GitHub connector, correct any CI red,
+  mark VERIFIED only after six jobs pass, then refresh THIS handoff and
+  proceed with the next independent original HOA workflow.
+
+## PREPARED, UNCOMMITTED, NOT VERIFIED: RESERVE BOOK POSTING
+
+This is NOT the last VERIFIED source until hosted CI passes.
+- Model: `backend/app/models/hoa_reserve_movement_decision.py` `563142533d947a0d94bbbdeee8e97096f61ca6ee`
+- Migration: `backend/alembic/versions/b2d4f6a8c0e3_hoa_reserve_movement_decisions.py` `3fff8521bcbc270e8ca14ec89f80d758717c3a03`
+- Schema: `backend/app/schemas/hoa_reserve_execution.py` `8ce70df20d97be02b4a6cac45341e573ad3559ed`
+- Router: `backend/app/routers/hoa_reserve_execution.py` `da7a4bf4a4fdb08e1a79fb23e4aa05497e7ac182`
+- Registration: `backend/app/main.py` `ae740dc5129fe5d1915f47dcc8564dc7d9e95475`
+- Model bootstrap: `backend/init_db.py` `01822f6bfc9ab25d8e2bfc134e1eed6febae43cd`
+- Private notes denylist: `backend/app/services/entity_notes.py` `3008ec4ec75fcc665846c67a2f812d7412e60960`
+- Prevent cancellation after board decision: `backend/app/routers/hoa_reserve_movements.py` `a200a1172627bde5a81512955d25b20a2a1cb8d0`
+- Focused backend tests: `backend/tests/test_hoa_reserve_accounts.py` `a2a75a87eaf1faddb93595102d41fa9d78a982ce`
+- Customer component: `frontend/src/components/property/HoaReserveExecutionPanel.tsx` `06a95bfb991c74b5ed4eee8cc694e41882262426`
+- Parent UI: `frontend/src/components/property/HoaReserveMovementPlans.tsx` `671a485f6685ac75f2efcb6fe39708f063a1eaa7`
+- Migration test: `backend/tests/test_migrations.py` `4c278f8bc4769f6de906089f55296baa6182d519`
+- PostgreSQL test: `backend/tests/test_postgres_smoke.py` `e6e9ba766b0e0644b550642c3060fd7febc348e5`
+- Staging test: `backend/tests/test_prepare_database.py` `9ca1e976af81a41debf70616ce2e709debba031e`
+- Dedicated browser extension: `backend/tests/e2e/test_hoa_evidence_e2e.py` `78219bf63557efca4dea920c2ed1c0bdb076b92e`
+
+New migration proposes `b2d4f6a8c0e3` after verified
+`a1c3e5f7b9d2` and would increase models 163 to 164, but
+the live verified schema is still 163 until complete CI passes.
+Board decisions require authenticated same-association/property
+authorized seat, with optional authenticated offline maker and private
+record. Separate accounting-authorized actions post balanced property
+GL TRANSFER and immutable REVERSAL with source/reference and redacted
+audit. Idempotency and row locks prevent duplicates; a board-decided
+draft cannot be cancelled; cancelled/unapproved/stale mappings cannot
+post. The UI and synthetic dedicated browser test explicitly distinguish
+real BOOK ledger entries from an actual bank transfer. No bank API action,
+legal reserve certification or real-world transaction is claimed from CI.
+
+---
+
 # AI_HANDOFF.md — Property Platform, 2026-09-29
 
 **READ THIS WHOLE FILE FIRST.** Latest instructions and verification

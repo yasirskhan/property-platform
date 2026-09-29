@@ -995,3 +995,109 @@ def test_hoa_reserve_movement_staff_browser_never_posts_transfer() -> None:
             finally:
                 browser.close()
         assert _financial_counts() == before
+
+
+def test_hoa_authorized_reserve_book_gl_posting_and_reversal_browser() -> None:
+    """Use synthetic E2E GL only; a book entry is not a bank transfer."""
+    with _temporarily_release_hoa_ui():
+        before_charge, before_gl = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                          wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                name = "E2E Posted Reserve Book Association"
+                page.get_by_label("Association name").fill(name)
+                page.get_by_role("button", name="Record association").click()
+                association = page.get_by_text(name, exact=True).locator("..").locator("..")
+                expect(association).to_be_visible()
+                db = SessionLocal()
+                try:
+                    assoc = db.query(HOAAssociation).filter(
+                        HOAAssociation.name == name,
+                        HOAAssociation.is_active.is_(True),
+                    ).one()
+                    actor = db.query(User).filter(
+                        User.organization_id == assoc.organization_id,
+                        User.email == EMAIL,
+                    ).one()
+                    actor.is_verified = True
+                    contact = Contact(
+                        organization_id=assoc.organization_id,
+                        display_name="E2E Reserve Board", email=actor.email,
+                        contact_type="PERSON", is_active=True,
+                    )
+                    db.add(contact); db.flush()
+                    link = HOAContactLink(
+                        organization_id=assoc.organization_id,
+                        association_id=assoc.id, property_id=PROPERTY_ID,
+                        contact_id=contact.id, is_active=True,
+                    )
+                    db.add(link); db.flush()
+                    db.add(HOABoardSeat(
+                        organization_id=assoc.organization_id,
+                        association_id=assoc.id, property_id=PROPERTY_ID,
+                        contact_link_id=link.id, proposed_role="CHAIR",
+                        staff_voting_eligible=True, is_active=True,
+                        authorized_user_id=actor.id, authorized_by_id=actor.id,
+                        decision_authorized=True, can_record_offline=True,
+                    ))
+                    db.add_all([
+                        GLAccount(organization_id=assoc.organization_id,
+                                  gl_number="E2ERBK1", name="E2E Book Reserve Cash",
+                                  account_type="ASSET", include_on_cash_flow=True, is_active=True),
+                        GLAccount(organization_id=assoc.organization_id,
+                                  gl_number="E2ERBK2", name="E2E Book Operating Cash",
+                                  account_type="ASSET", include_on_cash_flow=True, is_active=True),
+                    ])
+                    db.commit()
+                finally:
+                    db.rollback(); db.close()
+                association.get_by_role("button", name="Reserve book").click()
+                book = association.get_by_role(
+                    "heading", name="HOA reserve book readiness",
+                ).locator("..").locator("..")
+                book.get_by_label("Existing same-organization GL").select_option(
+                    label="E2ERBK1 · E2E Book Reserve Cash",
+                )
+                book.get_by_role("button", name="Record reserve GL reference").click()
+                expect(book.get_by_text(re.compile("Staff GL reference recorded"))).to_be_visible()
+                movement = book.get_by_role(
+                    "heading", name="Reserve movement preparation",
+                ).locator("..").locator("..")
+                movement.get_by_label("Existing same-org counterparty cash GL").select_option(
+                    label="E2ERBK2 · E2E Book Operating Cash",
+                )
+                movement.get_by_label("Proposed date").fill(date.today().isoformat())
+                movement.get_by_label("Proposed amount").fill("25.00")
+                movement.get_by_label("Staff memo").fill("Synthetic approved reserve book transfer")
+                movement.get_by_role("button", name="Prepare unissued movement").click()
+                expect(movement.get_by_text(re.compile("Synthetic approved reserve book transfer"))).to_be_visible()
+                assert _financial_counts() == (before_charge, before_gl)
+                movement.get_by_label("Board decision note").fill("Recorded association approval")
+                page.once("dialog", lambda dialog: dialog.accept())
+                movement.get_by_role("button", name="Record board approval").click()
+                expect(movement.get_by_text(re.compile("Board decision: APPROVED"))).to_be_visible()
+                assert _financial_counts() == (before_charge, before_gl)
+                movement.get_by_label("GL transaction date").fill(date.today().isoformat())
+                page.once("dialog", lambda dialog: dialog.accept())
+                movement.get_by_role("button", name="Post approved reserve book transfer").click()
+                expect(movement.get_by_text(re.compile("Status: POSTED"))).to_be_visible()
+                assert _financial_counts() == (before_charge, before_gl + 1)
+                movement.get_by_label("Reversal reason").fill("Synthetic board-approved correction")
+                page.once("dialog", lambda dialog: dialog.accept())
+                movement.get_by_role("button", name="Reverse posted reserve book transfer").click()
+                expect(movement.get_by_text(re.compile("Status: REVERSED"))).to_be_visible()
+                assert _financial_counts() == (before_charge, before_gl + 2)
+                expect(movement.get_by_text(re.compile("bank transfer", re.IGNORECASE)).first).to_be_visible()
+            finally:
+                browser.close()

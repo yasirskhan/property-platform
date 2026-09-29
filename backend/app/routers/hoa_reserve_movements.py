@@ -15,6 +15,7 @@ from app.models.gl_account import GLAccount
 from app.models.hoa_reserve_account import HOAReserveAccount
 from app.schemas.hoa_reserve_account import HOAReserveOptionOut
 from app.models.hoa_reserve_movement_draft import HOAReserveMovementDraft
+from app.models.hoa_reserve_movement_decision import HOAReserveMovementDecision
 from app.models.user import User, UserRole
 from app.routers.auth import get_current_user
 from app.routers.hoa_reserve_accounts import _accounts, _reserve, _scope_with_accounting
@@ -210,6 +211,13 @@ def cancel_movement_draft(
         raise HTTPException(status_code=404, detail="Movement draft not found.")
     if row.status == "CANCELLED":
         raise HTTPException(status_code=409, detail="Movement draft already cancelled.")
+    if db.query(HOAReserveMovementDecision.id).filter(
+        HOAReserveMovementDecision.organization_id == org,
+        HOAReserveMovementDecision.association_id == assoc.id,
+        HOAReserveMovementDecision.property_id == property_id,
+        HOAReserveMovementDecision.draft_id == row.id,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Board-decided reserve movements cannot be cancelled as drafts.")
     row.status = "CANCELLED"
     row.cancelled_at = datetime.utcnow()
     row.cancelled_by_id = current_user.id

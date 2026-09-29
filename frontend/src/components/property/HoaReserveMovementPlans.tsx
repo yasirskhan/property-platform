@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
+import HoaReserveExecutionPanel from "@/components/property/HoaReserveExecutionPanel";
 
 type Option = { gl_account_id: number; gl_number: string; gl_name: string };
 type Movement = {
@@ -88,9 +89,9 @@ export default function HoaReserveMovementPlans({
   return <section className="space-y-2 rounded border border-amber-300 bg-amber-50 p-3 text-xs">
     <h4 className="font-semibold">Reserve movement preparation</h4>
     <p className="text-amber-900">
-      Unverified internal instructions only. Nothing is posted to the ledger,
-      released to a bank or treated as certified reserve ownership. No
-      withdrawal or transfer can be executed here.
+      Staff preparation does not move money. An authenticated association board
+      decision can authorize a separate balanced GL book transfer below.
+      GL book transfers do not execute bank transfers or certify legally restricted funds.
     </p>
     {loading && <p>Loading movement requests…</p>}
     {error && <p role="alert" className="text-red-700">{error}</p>}
@@ -103,6 +104,10 @@ export default function HoaReserveMovementPlans({
       {canEdit && row.status === "DRAFT" &&
         <button type="button" disabled={busy} className="text-red-700 disabled:opacity-50"
           onClick={() => { void cancel(row); }}>Cancel draft</button>}
+      <div className="basis-full">
+        <HoaReserveExecutionPanel associationId={associationId} propertyId={propertyId}
+          draftId={row.id} canEdit={canEdit} onChange={() => { void refresh(); }} />
+      </div>
     </div>)}
     {canEdit && !loading && <form onSubmit={(event) => { void save(event); }}
       className="space-y-2 border-t pt-2">
