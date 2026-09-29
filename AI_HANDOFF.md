@@ -1,3 +1,52 @@
+# AI_HANDOFF.md — 2026-09-29 DELEGATED BOARD APPEAL PORTAL VERIFIED
+
+**Read entire handoff. This current entry supersedes all older NEXT,
+PROVISIONAL and CI-in-progress entries preserved below.**
+Repository `yasirskhan/property-platform`, ONLY branch
+`chatgpt/checkpoint-005-safety`. Do not touch main, start another
+branch, force push, merge, modify frozen docs/, or advance Phase 4.8.
+
+- Last VERIFIED product source `543d2bbba7e8c6ab29b5ddb39993eaeb8a9cde53`.
+  GitHub Actions run **36639458401 attempt 2 SUCCESS all SIX jobs**
+  on that exact SHA. Backend **817 passed, 15 deselected,
+  21595 warnings in 218.03s**; browser **15 passed,
+  232 warnings in 75.31s**. Frontend lint/TypeScript/build,
+  platform-admin, security, staging PASS. **TESTS NOT RUN locally**.
+  Run attempt 1 FAILED one older board-proposals login/navigation
+  browser test while 14 other browser tests passed. Failed-jobs rerun
+  succeeded without product edits; do not count attempt 1 as green.
+- Verified Alembic head `6f9e2a7d4c1b` and **176 model tables**.
+  No migration in delegated fine-appeal board portal batch.
+- Verified board portal GET `/api/hoa/board/my-fine-appeals`
+  lists OPEN fine appeals only for currently verified active member
+  logins tied to active authorized association/property board seats
+  with live paid HOA gates and parent case/fine scope. Board UI
+  submits direct UPHELD/VACATED via the already verified disposition
+  API without granting organization-wide staff permissions. It does
+  not post GL, refund, send notice or override the source board decision.
+  Earlier appealed fine accounting guard/reversal workflow remains.
+- NEXT scoped independent Phase 4.7 batch: make previously recorded
+  PRIVATE case-linked appeal supporting evidence available for
+  authenticated, authorized, currently scoped board decision-makers.
+  Expose only case-linked, active, unshared private evidence and only
+  for a live appeal/board seat; add an authorized board download and
+  strict revocation/foreign-scope test, customer board portal control
+  and dedicated browser coverage. Reuse existing attachment bytes,
+  do not grant generic file access, do not publish to owners/tenants,
+  and do not infer legal service or send real messages. No new model
+  or migration expected. Provisional feature branch source must
+  pass ALL SIX CI jobs before marking this further batch verified.
+  If this batch changes direction, record exact reason and next task.
+- Original SEVEN real HOA capabilities remain Phase 4.7 priority.
+  Preserve effective ARC APPROVED/DENIED, existing dues/fine
+  GL/receipts/appeals, board votes and budgets, reserve book posting,
+  private governing delivery and $79/month paid HOA gate. Avoid
+  blanket platform legal-certification gates, do not invent statutory
+  procedure, and leave only truly unsupported individual actions pending.
+  Synthetic CI must not dispatch real notices or create real obligations.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 DELEGATED HOA BOARD APPEAL PORTAL PROVISIONAL
 
 **Read the entire file.** Latest entry supersedes historical NEXT
