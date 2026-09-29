@@ -1,13 +1,13 @@
 """Scope the staff violation recipient proposal to an authenticated user.
 
-Revision ID: b6d8f0a2c4e7
+Revision ID: f4b6d8a0c2e9
 Revises: a5c7e9f1b3d6
 Create Date: 2026-09-28
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "b6d8f0a2c4e7"
+revision = "f4b6d8a0c2e9"
 down_revision = "a5c7e9f1b3d6"
 branch_labels = None
 depends_on = None
