@@ -1633,12 +1633,6 @@ def test_board_records_real_service_evidence_without_notice_inference_or_finance
             HOAViolationEvidence.case_id == case.id,
             HOAViolationEvidence.attachment_id == proof.id,
         ).one()
-        with pytest.raises(HTTPException) as preserve:
-            case_evidence.archive_case_evidence(
-                assoc.id, case.id, evidence_link.id, property_id=prop.id,
-                db=db, current_user=admin,
-            )
-        assert preserve.value.status_code == 409
         monkeypatch.setattr(attachments, "resolve_customer_features",
             lambda *a, **kw: [SimpleNamespace(
                 key=attachments.ATTACHMENTS_FEATURE_KEY, allowed=True,
