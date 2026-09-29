@@ -5,6 +5,7 @@ import { apiGet, apiPost } from "@/lib/api";
 import HoaCaseRecipientPanel from "@/components/property/HoaCaseRecipientPanel";
 import HoaCaseCorrespondencePanel from "@/components/property/HoaCaseCorrespondencePanel";
 import HoaCaseEvidencePanel from "@/components/property/HoaCaseEvidencePanel";
+import HoaCaseServicePanel from "@/components/property/HoaCaseServicePanel";
 import HoaCaseTasksPanel from "@/components/property/HoaCaseTasksPanel";
 
 type Observation = { id: number; summary: string; observed_on: string };
@@ -59,6 +60,7 @@ export default function HoaCaseWorkflowPanel({
   const [recipientCase, setRecipientCase] = useState<number | null>(null);
   const [correspondenceCase, setCorrespondenceCase] = useState<number | null>(null);
   const [evidenceCase, setEvidenceCase] = useState<number | null>(null);
+  const [serviceCase, setServiceCase] = useState<number | null>(null);
   const [tasksCase, setTasksCase] = useState<number | null>(null);
   const [history, setHistory] = useState<HistoryEvent[]>([]);
   const [observations, setObservations] = useState<Observation[]>([]);
@@ -210,6 +212,16 @@ export default function HoaCaseWorkflowPanel({
             <HoaCaseTasksPanel associationId={associationId} propertyId={propertyId}
               caseId={row.id} stage={row.stage} canEdit={canEdit}
               onClose={() => setTasksCase(null)} />
+          )}
+          <button type="button" disabled={busy}
+            onClick={() => setServiceCase((prior) => prior === row.id ? null : row.id)}
+            className="text-sm text-blue-700 disabled:opacity-50">
+            {serviceCase === row.id ? "Hide notice service" : "Notice service"}
+          </button>
+          {serviceCase === row.id && (
+            <HoaCaseServicePanel associationId={associationId} propertyId={propertyId}
+              caseId={row.id} canEdit={canEdit && row.stage !== "CLOSED"}
+              onClose={() => setServiceCase(null)} />
           )}
           <button type="button" disabled={busy}
             onClick={() => setEvidenceCase((prior) => prior === row.id ? null : row.id)}

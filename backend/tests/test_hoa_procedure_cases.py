@@ -22,6 +22,9 @@ from app.models.hoa_case_task import HOACaseTask
 from app.models.hoa_violation_recipient import HOAViolationRecipientDraft
 from app.models.hoa_violation_correspondence import HOAViolationCorrespondenceDraft
 from app.models.hoa_violation_notice_delivery import HOAViolationNoticeDelivery
+from app.models.hoa_violation_service_record import HOAViolationServiceRecord
+from app.routers import hoa_violation_service_records as service_api
+from app.schemas.hoa_violation_service_record import HOAServiceRecordIn
 from app.models.gl_transaction import GLTransaction
 from app.models.hoa_procedure_policy import HOAProcedurePolicy
 from app.models.hoa_violation_case import HOAViolationCase
@@ -1538,5 +1541,163 @@ def test_case_email_failure_retry_and_current_scope_revocation(monkeypatch):
         )
         assert succeeded.status == "SMTP_ACCEPTED" and succeeded.attempt_count == 2
         assert len(attempts) == 2 and _balances(db) == before
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def _service_proof(db, users, prop, assoc, case):
+    admin = users[0]
+    proof = EntityAttachment(
+        organization_id=admin.organization_id,
+        entity_type="properties", entity_id=prop.id,
+        storage_key="synthetic-hoa-service-proof-" + str(case.id) + ".pdf",
+        original_name="synthetic-hoa-service-proof.pdf",
+        content_type="application/pdf", size_bytes=12,
+        is_active=True, share_with_tenants=False, share_with_owners=False,
+    )
+    db.add(proof); db.flush()
+    db.add(HOAViolationEvidence(
+        organization_id=admin.organization_id,
+        association_id=assoc.id, property_id=prop.id,
+        case_id=case.id, attachment_id=proof.id,
+        evidence_type="DOCUMENT", is_active=True,
+        recorded_by_id=admin.id,
+    ))
+    db.commit()
+    return proof
+
+
+def _service_payload(prop, draft, tenant, proof, **changes):
+    values = dict(
+        property_id=prop.id, correspondence_id=draft.id,
+        correspondence_revision=draft.revision,
+        policy_revision=draft.policy_revision,
+        member_user_id=tenant.id, proof_attachment_id=proof.id,
+        delivery_method="PERSONAL", served_on=date(2026, 9, 3),
+        request_key="hoa-evidenced-service-0001",
+    )
+    values.update(changes)
+    return HOAServiceRecordIn(**values)
+
+
+def test_board_records_real_service_evidence_without_notice_inference_or_finance(monkeypatch):
+    db, engine = _db()
+    try:
+        users, props, assoc, case, draft, seat, payload = _notice_board(db, monkeypatch)
+        admin, owner, manager, tenant, foreign = users
+        prop = props[0]
+        proof = _service_proof(db, users, prop, assoc, case)
+        before = _balances(db)
+        response = Response()
+        assert service_api.get_service_record(
+            assoc.id, case.id, response, property_id=prop.id,
+            db=db, current_user=manager,
+        ) is None
+        assert response.headers["cache-control"] == "no-store"
+        request = _service_payload(prop, draft, tenant, proof)
+        result = service_api.record_service(
+            assoc.id, case.id, request, db=db, current_user=admin,
+        )
+        assert result.board_seat_id == seat.id
+        assert result.member_user_id == tenant.id
+        assert result.correspondence_revision == draft.revision
+        assert result.cure_earliest_on == date(2026, 9, 8)
+        assert result.hearing_request_earliest_on == date(2026, 9, 12)
+        assert result.platform_certifies_service is False
+        assert service_api.record_service(
+            assoc.id, case.id, request, db=db, current_user=admin,
+        ).id == result.id
+        with pytest.raises(HTTPException) as key:
+            service_api.record_service(
+                assoc.id, case.id,
+                _service_payload(prop, draft, tenant, proof, delivery_method="OTHER"),
+                db=db, current_user=admin,
+            )
+        assert key.value.status_code == 409
+        with pytest.raises(HTTPException) as second:
+            service_api.record_service(
+                assoc.id, case.id,
+                _service_payload(prop, draft, tenant, proof,
+                                 request_key="hoa-evidenced-service-0002"),
+                db=db, current_user=admin,
+            )
+        assert second.value.status_code == 409
+        visible = service_api.get_service_record(
+            assoc.id, case.id, Response(), property_id=prop.id,
+            db=db, current_user=manager,
+        )
+        assert visible.id == result.id
+        assert _balances(db) == before
+        assert db.query(HOAViolationServiceRecord).count() == 1
+        evidence_link = db.query(HOAViolationEvidence).filter(
+            HOAViolationEvidence.case_id == case.id,
+            HOAViolationEvidence.attachment_id == proof.id,
+        ).one()
+        with pytest.raises(HTTPException) as preserve:
+            case_evidence.archive_case_evidence(
+                assoc.id, case.id, evidence_link.id, property_id=prop.id,
+                db=db, current_user=admin,
+            )
+        assert preserve.value.status_code == 409
+        audit = db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_violation_service_record",
+        ).all()
+        assert len(audit) == 1
+        assert "synthetic-hoa-service-proof" not in str(audit[0].new_value)
+        assert "Association case email" not in str(audit[0].new_value)
+        with pytest.raises(HTTPException):
+            _model_for_table("hoa_violation_service_records")
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_service_record_denies_stale_policy_recipient_scope_and_nonboard(monkeypatch):
+    db, engine = _db()
+    try:
+        users, props, assoc, case, draft, seat, payload = _notice_board(db, monkeypatch)
+        admin, owner, manager, tenant, foreign = users
+        prop, other, outside = props
+        proof = _service_proof(db, users, prop, assoc, case)
+        request = _service_payload(prop, draft, tenant, proof)
+        for actor, prop_id in (
+            (owner, prop.id), (manager, prop.id), (tenant, prop.id),
+            (foreign, prop.id), (admin, other.id), (admin, outside.id),
+        ):
+            with pytest.raises(HTTPException):
+                service_api.record_service(
+                    assoc.id, case.id,
+                    request.model_copy(update={"property_id": prop_id}),
+                    db=db, current_user=actor,
+                )
+        with pytest.raises(HTTPException):
+            service_api.record_service(
+                assoc.id, case.id,
+                request.model_copy(update={"member_user_id": admin.id}),
+                db=db, current_user=admin,
+            )
+        with pytest.raises(HTTPException):
+            service_api.record_service(
+                assoc.id, case.id,
+                request.model_copy(update={"served_on": date(2026, 9, 1)}),
+                db=db, current_user=admin,
+            )
+        tenant.is_verified = False
+        db.flush()
+        with pytest.raises(HTTPException):
+            service_api.record_service(
+                assoc.id, case.id, request, db=db, current_user=admin,
+            )
+        tenant.is_verified = True
+        db.flush()
+        policies.put_policy(
+            assoc.id, _profile(prop.id, cure_preparation_days=15),
+            db=db, current_user=admin,
+        )
+        with pytest.raises(HTTPException):
+            service_api.record_service(
+                assoc.id, case.id, request, db=db, current_user=admin,
+            )
+        assert db.query(HOAViolationServiceRecord).count() == 0
+        assert _balances(db) == (0, 0, 0, 0)
     finally:
         db.rollback(); db.close(); engine.dispose()

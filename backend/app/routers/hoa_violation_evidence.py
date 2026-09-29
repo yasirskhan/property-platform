@@ -196,6 +196,13 @@ def archive_case_evidence(
     ).with_for_update().first()
     if row is None:
         raise HTTPException(status_code=404, detail="Active case evidence link not found.")
+    from app.models.hoa_violation_service_record import HOAViolationServiceRecord
+    if db.query(HOAViolationServiceRecord.id).filter(
+        HOAViolationServiceRecord.organization_id == org,
+        HOAViolationServiceRecord.case_id == case.id,
+        HOAViolationServiceRecord.service_proof_attachment_id == row.attachment_id,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Evidenced service proof cannot be archived.")
     row.is_active = False
     row.archived_by_id = current_user.id
     row.archived_at = datetime.utcnow()

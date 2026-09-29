@@ -1,3 +1,56 @@
+# AI_HANDOFF.md — 2026-09-29 HOA SERVICE PROOF PROVISIONAL
+
+**Read the entire file.** This new entry supersedes older NEXT/PREPARED
+sections; historical source and CI facts are preserved below.
+Only `yasirskhan/property-platform` branch
+`chatgpt/checkpoint-005-safety`. No main, new branch, force-push,
+PR merge, frozen docs/ edits, or Phase 4.8.
+
+- Last VERIFIED PRODUCT source `e9156f611c77031acb43f0b90530f00b4f25c3fe`,
+  CI **36609991874 SUCCESS all six jobs**: backend 806 passed,
+  15 deselected; authenticated browser 15 passed. Migration
+  `d0f2a4c6e8b1`, **172 model tables**.
+- Subsequent documentation-only HEAD `fdc5328a8205df2239ab531a18c24ef52dbbf1ad`
+  CI **36611150653** initially failed one transient browser login
+  navigation, 14 passed/1 failed; rerun attempt 2 passed
+  **15 E2E**, all six jobs SUCCESS. This did NOT change or independently
+  advance verified PRODUCT source.
+- This session's NEXT independent Phase 4.7 violation batch is
+  **association-reported actual notice-service evidence**, extending
+  already verified exact correspondence, verified recipient,
+  authorized board seat, procedure settings, private case evidence
+  and paid HOA scopes. Implementation source is PROVISIONAL until
+  GitHub Actions runs all six jobs on the exact product commit.
+  One new append-only model `hoa_violation_service_records` and
+  migration `e1a3c5f7b9d2` after d0f2a4c6e8b1;
+  EXPECTED table count 173, but VERIFIED head/count remains d0/172
+  until six CI green.
+  Association-authorized verified board actor records specific
+  served-on date/method, exact latest correspondence revision,
+  same-scope verified recipient, current policy revision, and
+  active PRIVATE CASE-LINKED proof. Retain immutable identity,
+  policy, evidence and staff actor snapshot. Unique case/request
+  key, duplicate/replay checks, age/rule constraints, audit redaction
+  and zero finance. Dedicated HOA case browser extension uses synthetic
+  evidence, no production notice.
+  This event captures what the association reports and independently
+  evidences; the platform does not certify legal service.
+  SMTP_ACCEPTED/TEST_ONLY alone never qualifies as proof.
+  Original case evidence proof cannot be archived while referenced.
+- After verification, NEXT Phase 4.7 violations work: separately
+  recorded authorized fine decision and properly gated central
+  GL member-receivable posting/reversal. Require case-specific
+  service/procedure/hearing prerequisites and correct verified payer.
+  An SMTP transport event alone is never legal service; an association
+  service record alone never automatically assesses a fine.
+  Block only missing individual prerequisites; continue independent
+  operational HOA batches. Preserve direct operative ARC board
+  APPROVED/DENIED, member assessment and receipt postings,
+  board outcomes, reserve GL, budgets, governing documents and
+  $79/mo entitlement. **TESTS NOT RUN locally.**
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 HOA CASE EMAIL VERIFIED
 
 **Read the entire repository-root file.** This header supersedes all

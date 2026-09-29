@@ -340,6 +340,17 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 expect(letters.get_by_text(re.compile("Email attempt #.*TEST_ONLY"))).to_be_visible()
                 assert _financial_counts() == before
                 letters.get_by_role("button", name="Close correspondence").click()
+                cases.get_by_role("button", name="Notice service").click()
+                service = cases.get_by_role("heading", name="Association notice-service record").locator("..").locator("..")
+                service.get_by_label("HOA service delivery method").select_option("PERSONAL")
+                service.get_by_label("Actual date served").fill("2026-09-03")
+                service.get_by_label("HOA service proof").select_option(label="e2e-private-case-photo.png")
+                page.once("dialog", lambda dialog: dialog.accept())
+                service.get_by_role("button", name="Record evidenced service").click()
+                expect(service.get_by_text(re.compile("Service record #"))).to_be_visible()
+                expect(service.get_by_text(re.compile("Configured cure calculation: 2026-09-08"))).to_be_visible()
+                assert _financial_counts() == before
+                service.get_by_role("button", name="Close service record").click()
                 cases.get_by_role("button", name="Advance internal case").click()
                 cases.get_by_role("button", name="Record staff stage").click()
                 expect(cases.get_by_text(re.compile("Tentative cure tracking"))).to_be_visible()
