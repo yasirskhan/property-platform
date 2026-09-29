@@ -1,3 +1,62 @@
+# AI_HANDOFF.md — 2026-09-29 HOA ANNUAL INCREASE VERIFIED / BOARD MINUTES NEXT
+
+**READ THE ENTIRE FILE.** This newest verification supersedes the historical
+PREPARED and NEXT labels below. Only `yasirskhan/property-platform`
+branch `chatgpt/checkpoint-005-safety`. Never modify main,
+frozen docs/, merge, force-push, create another branch or start Phase 4.8.
+
+- Latest VERIFIED product SOURCE
+  `430db13f81414e97c4bfe027313e6ad84283d9fc`.
+  GitHub Actions [36578090888](https://github.com/yasirskhan/property-platform/actions/runs/36578090888)
+  **SUCCESS all six jobs on that exact source**:
+  backend **793 passed, 14 deselected, 19764 warnings in 212.41s**;
+  authenticated browser **14 passed, 206 warnings in 51.69s**.
+  Frontend lint, TypeScript, production build, platform-admin, security
+  and staging passed. **TESTS NOT RUN locally.**
+- Verified Alembic head **e5a7c9d1f3b6**, **167 model tables**
+  (previous d4f6a8c0e2b5 / 166). PostgreSQL migrations,
+  fresh/legacy and staging schema guards passed.
+- The 16 provisional annual budget-linked increase files committed at
+  `430db13f` are now TESTED/VERIFIED. New immutable provenance
+  relates an already APPROVED association annual budget, an existing
+  posted nonreversed recurring member charge and a newly drafted
+  increased recurring assessment for the same currently verified
+  responsible member. The amount must increase, the new effective
+  date must be within the approved budget year, idempotency/locks
+  prevent duplicate links. It atomically creates a new scoped
+  HOAAssessmentProposal plus suggested payer reference, NOT a charge.
+  The NEW board decision, explicit occurrence generation and actual
+  accountant-controlled central GL issuance still take place through
+  already verified, existing routes. In this source CI backend
+  regression explicitly completed the new independent board
+  APPROVED and POSTED $150 synthetic member receivable after the
+  $125.50 previous charge. Existing private recipient history,
+  ARC direct APPROVED/DENIED, receipt/reversal, governing documents,
+  reserve GL book, paid $79/month HOA gates and earlier HOA features
+  remained intact. Synthetic E2E sends no production messages or
+  real-world charges.
+- **Exact NEXT independently actionable original Phase 4.7 C Board portal
+  batch:** authorized association board approval of existing staff
+  meeting minutes, with immutable content hash/version, actual
+  authenticated board-member decision, live association/property/
+  meeting scope, no silent changes after approval, redacted audit,
+  direct customer UI and dedicated browser test. Do not confuse
+  one authorized member approving minutes with a certified quorum,
+  formal full-board vote or statutory meeting notice. This is
+  operationally meaningful board action, NOT completion of the
+  seven-feature Phase 4.7 scope. Follow next with authenticated
+  voting/quorum where technically appropriate.
+- The original seven HOA capabilities remain operational goal.
+  Individual action prerequisites (verified member, configured
+  service procedure, payer/GL mapping and delivery settings) must
+  be enforced, without blanket platform certification or manufactured
+  broad blockers. No statutory notices/fines from staff drafts.
+  Phase 4.7 IN PROGRESS; Phase 4.8 PAUSED. After each bounded batch,
+  six green CI jobs and actual counts, refresh this root handoff
+  and continue next independent batch.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 ANNUAL BUDGET INCREASE PROVISIONAL
 
 **Authoritative most recent status. Read whole file; older NEXT/PREPARED
