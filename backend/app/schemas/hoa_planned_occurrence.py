@@ -29,10 +29,10 @@ class HOAPlannedOccurrenceOut(BaseModel):
     status: Literal["PLANNED", "VOIDED"]
     created_at: datetime
     voided_at: datetime | None = None
-    is_issued: Literal[False] = False
-    is_receivable: Literal[False] = False
+    is_issued: bool = False
+    is_receivable: bool = False
     legal_payer_verified: Literal[False] = False
-    gl_posting_enabled: Literal[False] = False
+    gl_posting_enabled: bool = False
 
 
 class HOAPlanGenerationOut(BaseModel):

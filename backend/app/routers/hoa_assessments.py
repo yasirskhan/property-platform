@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.hoa_assessment import HOAAssessmentProposal
+from app.models.hoa_member_assessment import HOAAssessmentDecision
 from app.models.hoa_association import HOAPropertyMembership
 from app.models.property import Property
 from app.models.user import User
@@ -143,6 +144,11 @@ def update_proposal(
     )
     row = _record(db, org_id=org_id, association_id=association.id,
                   property_id=payload.property_id, proposal_id=proposal_id)
+    if db.query(HOAAssessmentDecision.id).filter(
+        HOAAssessmentDecision.organization_id == org_id,
+        HOAAssessmentDecision.proposal_id == row.id,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Board-decided assessment cannot be edited; create a new proposal.")
     for key, value in payload.model_dump().items():
         setattr(row, key, value)
     row.updated_by_id = current_user.id
@@ -170,6 +176,11 @@ def archive_proposal(
     )
     row = _record(db, org_id=org_id, association_id=association.id,
                   property_id=property_id, proposal_id=proposal_id)
+    if db.query(HOAAssessmentDecision.id).filter(
+        HOAAssessmentDecision.organization_id == org_id,
+        HOAAssessmentDecision.proposal_id == row.id,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Board-decided assessment is immutable; corrections use the member ledger reversal.")
     archive_payer_drafts(
         db, organization_id=org_id, association_id=association.id,
         property_id=property_id, proposal_id=row.id,

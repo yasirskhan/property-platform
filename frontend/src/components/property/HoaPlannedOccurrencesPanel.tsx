@@ -9,9 +9,9 @@ type Occurrence = {
   proposed_amount: string;
   payer_draft_id: number;
   status: "PLANNED" | "VOIDED";
-  is_issued: false;
-  is_receivable: false;
-  gl_posting_enabled: false;
+  is_issued: boolean;
+  is_receivable: boolean;
+  gl_posting_enabled: boolean;
 };
 type Readiness = { status: string; posting_enabled: false; reversal_enabled: false;
   missing_requirements: string[]; accounting_period_unlocked: boolean };
@@ -111,8 +111,8 @@ export default function HoaPlannedOccurrencesPanel({
     {!loading && rows.length === 0 && <p>No planning periods have been recorded.</p>}
     {!loading && rows.length > 0 && <ol className="space-y-1">
       {rows.map((row) => <li key={row.id} className="flex flex-wrap items-center gap-2">
-        <span>{row.proposed_on} · Proposed ${row.proposed_amount} · {row.status}</span>
-        {canEdit && <button type="button" disabled={busy}
+        <span>{row.proposed_on} · Proposed ${row.proposed_amount} · {row.status}{row.is_issued ? " · ISSUED TO MEMBER" : ""}</span>
+        {canEdit && !row.is_issued && <button type="button" disabled={busy}
           onClick={() => { void checkReadiness(row); }}
           className="text-blue-700 disabled:opacity-50">Posting readiness</button>}
         {readiness[row.id] && <p className="w-full text-xs text-amber-900" role="status">
@@ -120,7 +120,7 @@ export default function HoaPlannedOccurrencesPanel({
             readiness[row.id].missing_requirements.join(", ").replaceAll("_", " ").toLowerCase()
           }.
         </p>}
-        {canEdit && row.status === "PLANNED" &&
+        {canEdit && row.status === "PLANNED" && !row.is_issued &&
           <button type="button" disabled={busy} onClick={() => { void voidPlan(row); }}
             className="text-red-700 disabled:opacity-50">Void draft</button>}
       </li>)}

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import os
+from datetime import date
 import re
 
 import pytest
@@ -714,6 +715,142 @@ def test_hoa_staff_ballot_observations_never_become_legal_votes() -> None:
             finally:
                 browser.close()
         assert _financial_counts() == before
+
+
+def _seed_operational_hoa_assessment(association_name: str) -> None:
+    """Only the disposable E2E organization receives synthetic board/member/GL data."""
+    if os.environ.get("E2E_SEED_ALLOWED", "").lower() != "true":
+        raise RuntimeError("HOA posting browser fixture requires a disposable database")
+    db = SessionLocal()
+    try:
+        org_association = db.query(HOAAssociation).filter(
+            HOAAssociation.name == association_name,
+            HOAAssociation.is_active.is_(True),
+        ).one()
+        actor = db.query(User).filter(
+            User.organization_id == org_association.organization_id,
+            User.email == EMAIL,
+        ).one()
+        actor.is_verified = True
+        contact = Contact(
+            organization_id=org_association.organization_id,
+            display_name="E2E Assessment Member",
+            email=actor.email, contact_type="PERSON", is_active=True,
+        )
+        db.add(contact); db.flush()
+        link = HOAContactLink(
+            organization_id=org_association.organization_id,
+            association_id=org_association.id, property_id=PROPERTY_ID,
+            contact_id=contact.id, is_active=True,
+        )
+        db.add(link); db.flush()
+        db.add(HOABoardSeat(
+            organization_id=org_association.organization_id,
+            association_id=org_association.id, property_id=PROPERTY_ID,
+            contact_link_id=link.id, proposed_role="CHAIR",
+            staff_voting_eligible=True, is_active=True,
+            authorized_user_id=actor.id, authorized_by_id=actor.id,
+            decision_authorized=True, can_record_offline=True,
+        ))
+        db.add_all([
+            GLAccount(
+                organization_id=org_association.organization_id,
+                gl_number="E2E-HOA-AR", name="Synthetic HOA receivable",
+                account_type="ASSET", is_active=True,
+            ),
+            GLAccount(
+                organization_id=org_association.organization_id,
+                gl_number="E2E-HOA-INCOME", name="Synthetic HOA income",
+                account_type="INCOME", is_active=True,
+            ),
+        ])
+        db.commit()
+    finally:
+        db.rollback()
+        db.close()
+
+
+def test_hoa_operational_member_assessment_browser_posts_and_reverses() -> None:
+    """Only disposable E2E rows are financially posted, never a real customer."""
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                name = "E2E Operational Member Assessments"
+                page.get_by_label("Association name").fill(name)
+                page.get_by_role("button", name="Record association").click()
+                association = page.get_by_text(name, exact=True).locator("..").locator("..")
+                expect(association).to_be_visible()
+                _seed_operational_hoa_assessment(name)
+                association.get_by_role("button", name="Draft assessments").click()
+                drafts = association.get_by_role(
+                    "heading", name="Assessment planning drafts",
+                ).locator("..").locator("..")
+                drafts.get_by_label("Proposal title").fill("E2E approved quarterly dues")
+                drafts.get_by_label("Proposed amount (not billed)").fill("75.00")
+                drafts.get_by_label("Proposed first date (not a due date)").fill("2028-01-31")
+                drafts.get_by_role("button", name="Save draft only").click()
+                drafts.get_by_role("button", name="Suggested payer").click()
+                payer = drafts.get_by_role(
+                    "heading", name="Suggested assessment contact",
+                ).locator("..").locator("..")
+                payer.get_by_label("Staff-suggested contact").select_option(
+                    label="E2E Assessment Member",
+                )
+                payer.get_by_role("button", name="Save staff reference").click()
+                expect(payer.get_by_text(re.compile("Issue charge: DISABLED"))).to_be_visible()
+                drafts.get_by_role("button", name="Planning history").click()
+                history = drafts.get_by_role(
+                    "heading", name="Unissued assessment planning history",
+                ).locator("..").locator("..")
+                history.get_by_label("From").fill("2028-01-01")
+                history.get_by_label("Through").fill("2028-01-31")
+                history.get_by_role("button", name="Record unissued schedule").click()
+                expect(history.get_by_text(re.compile("1 new planning periods"))).to_be_visible()
+                assert _financial_counts() == before
+                drafts.get_by_role("button", name="Board decision / member ledger").click()
+                member_ledger = drafts.get_by_role(
+                    "heading", name="Board-approved member assessments",
+                ).locator("..")
+                member_ledger.get_by_label("Assessment responsible member").select_option(label="E2E Admin · "+EMAIL)
+                member_ledger.get_by_label("Board decision note").fill(
+                    "Synthetic board approved the stated member dues"
+                )
+                page.once("dialog", lambda dialog: dialog.accept())
+                member_ledger.get_by_role("button", name="Record association board decision").click()
+                expect(member_ledger.get_by_text(re.compile("Board decision: APPROVED"))).to_be_visible()
+                assert _financial_counts() == before
+                member_ledger.get_by_label("Assessment due date").fill("2028-02-01")
+                member_ledger.get_by_label("Assessment receivable GL").select_option(label="E2E-HOA-AR · Synthetic HOA receivable")
+                member_ledger.get_by_label("Assessment income GL").select_option(label="E2E-HOA-INCOME · Synthetic HOA income")
+                page.once("dialog", lambda dialog: dialog.accept())
+                member_ledger.get_by_role("button", name="Issue member receivable").click()
+                expect(member_ledger.get_by_text(re.compile("Approved member receivable posted"))).to_be_visible()
+                after_issue = _financial_counts()
+                assert after_issue == (before[0], before[1] + 1)
+                member_ledger.get_by_label("Reversal date").fill(date.today().isoformat())
+                member_ledger.get_by_label("Reversal reason").fill("Synthetic board amendment")
+                page.once("dialog", lambda dialog: dialog.accept())
+                member_ledger.get_by_role("button", name="Reverse member assessment via GL").click()
+                expect(member_ledger.get_by_text(re.compile("Member assessment reversed"))).to_be_visible()
+                expect(member_ledger.get_by_text(re.compile("REVERSED"))).to_be_visible()
+                after_reversal = _financial_counts()
+                assert after_reversal == (before[0], before[1] + 2)
+            finally:
+                browser.close()
+        # Posted E2E data is synthetic and remains in this disposable test DB only.
+        assert _financial_counts() == (before[0], before[1] + 2)
 
 
 def test_hoa_unissued_dues_history_browser_replay_and_void() -> None:

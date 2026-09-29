@@ -5,6 +5,7 @@ import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import HoaDuesPreviewPanel from "@/components/property/HoaDuesPreviewPanel";
 import HoaPayerDraftPanel from "@/components/property/HoaPayerDraftPanel";
 import HoaPlannedOccurrencesPanel from "@/components/property/HoaPlannedOccurrencesPanel";
+import HoaMemberAssessmentsPanel from "@/components/property/HoaMemberAssessmentsPanel";
 
 type Kind = "RECURRING" | "SPECIAL";
 type Frequency = "MONTHLY" | "QUARTERLY" | "ANNUAL" | "ONE_TIME";
@@ -36,6 +37,7 @@ export default function HoaDraftAssessmentsPanel({
   const [previewId, setPreviewId] = useState<number | null>(null);
   const [payerId, setPayerId] = useState<number | null>(null);
   const [historyId, setHistoryId] = useState<number | null>(null);
+  const [memberLedgerId, setMemberLedgerId] = useState<number | null>(null);
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<Kind>("RECURRING");
   const [frequency, setFrequency] = useState<Frequency>("MONTHLY");
@@ -153,6 +155,8 @@ export default function HoaDraftAssessmentsPanel({
           <div className="flex gap-3 text-sm">
             <button type="button" onClick={() => setPayerId((old) => old === row.id ? null : row.id)}
               className="text-blue-700">Suggested payer</button>
+            {canEdit && <button type="button" onClick={() => setMemberLedgerId((old) => old === row.id ? null : row.id)}
+              className="text-teal-700">Board decision / member ledger</button>}
             <button type="button" onClick={() => setHistoryId((old) => old === row.id ? null : row.id)}
               className="text-blue-700">Planning history</button>
             <button type="button" onClick={() => setPreviewId((old) => old === row.id ? null : row.id)}
@@ -166,6 +170,9 @@ export default function HoaDraftAssessmentsPanel({
           </div>
           {payerId === row.id && <HoaPayerDraftPanel associationId={associationId}
             propertyId={propertyId} proposalId={row.id} canEdit={canEdit} />}
+          {memberLedgerId === row.id && canEdit && <HoaMemberAssessmentsPanel
+            associationId={associationId} propertyId={propertyId} proposalId={row.id}
+            proposalAmount={row.proposed_amount} canEdit={canEdit} />}
           {historyId === row.id && <HoaPlannedOccurrencesPanel associationId={associationId}
             propertyId={propertyId} proposalId={row.id} canEdit={canEdit} />}
           {previewId === row.id && <HoaDuesPreviewPanel associationId={associationId}

@@ -63,12 +63,13 @@ def _rows(db: Session, org: int, association_id: int, property_id: int, proposal
     ).order_by(HOAPlannedOccurrence.proposed_on, HOAPlannedOccurrence.id)
 
 
-def _out(row: HOAPlannedOccurrence) -> HOAPlannedOccurrenceOut:
+def _out(row: HOAPlannedOccurrence, *, issued: bool = False) -> HOAPlannedOccurrenceOut:
     return HOAPlannedOccurrenceOut(
         id=row.id, proposal_id=row.proposal_id, property_id=row.property_id,
         payer_draft_id=row.payer_draft_id, proposed_on=row.proposed_on,
         proposed_amount=row.proposed_amount, proposal_revision_at=row.proposal_revision_at,
         status=row.status, created_at=row.created_at, voided_at=row.voided_at,
+        is_issued=issued, is_receivable=issued, gl_posting_enabled=issued,
     )
 
 
@@ -83,8 +84,15 @@ def list_occurrences(
     rows = _rows(db, org, assoc.id, property_id, proposal_id).limit(501).all()
     if len(rows) > 500:
         raise HTTPException(status_code=422, detail="Too many historical planning records.")
+    ids = [row.id for row in rows]
+    issued_ids = {ident for (ident,) in db.query(HOAMemberAssessmentCharge.occurrence_id).filter(
+        HOAMemberAssessmentCharge.organization_id == org,
+        HOAMemberAssessmentCharge.association_id == assoc.id,
+        HOAMemberAssessmentCharge.property_id == property_id,
+        HOAMemberAssessmentCharge.occurrence_id.in_(ids),
+    ).all()} if ids else set()
     response.headers["Cache-Control"] = "no-store"
-    return [_out(row) for row in rows]
+    return [_out(row, issued=row.id in issued_ids) for row in rows]
 
 
 @router.post("/{association_id}/draft-assessments/{proposal_id}/planned-occurrences/generate",
