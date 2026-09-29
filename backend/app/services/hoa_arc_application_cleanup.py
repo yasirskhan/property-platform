@@ -1,4 +1,5 @@
 """Soft-archive HOA ARC application state when a prerequisite scope is removed."""
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models.hoa_arc_application import HOAARCApplication, HOAARCApplicationAttachment
@@ -26,8 +27,14 @@ def archive_arc_applications(
         query = query.filter(HOAARCApplication.intake_id == intake_id)
     if contact_link_id is not None:
         query = query.filter(HOAARCApplication.applicant_contact_link_id == contact_link_id)
+    affected = query.all()
+    if any(row.status in {"APPROVED", "DENIED"} for row in affected):
+        raise HTTPException(
+            status_code=409,
+            detail="Recorded board decisions prevent archiving this association reference.",
+        )
     count = 0
-    for row in query.all():
+    for row in affected:
         row.is_active = False
         row.updated_by_id = actor_id
         for link in db.query(HOAARCApplicationAttachment).filter(

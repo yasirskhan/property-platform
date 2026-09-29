@@ -12,12 +12,18 @@ type ContactLink = {
   contact_name: string;
 };
 type FeeOption = { id: number; number: string; name: string; account_type: "ASSET" | "INCOME" };
+type AppUser = { id: number; email: string; first_name: string; last_name: string; is_verified: boolean; is_active: boolean };
+type BoardSeat = { id: number; contact_name: string; decision_authorized: boolean; can_record_offline: boolean };
 type BoardDecision = {
   id: number; decision: "APPROVED" | "DENIED"; decision_note: string;
-  decided_at: string; board_seat_id: number; notification_status: string;
+  decided_at: string; board_seat_id: number; decision_maker_seat_id: number;
+  decided_on: string; record_method: "DIRECT" | "OFFLINE";
+  supporting_attachment_id: number | null; notification_status: string;
   member_charge_id: number | null; member_charge_amount: string | null;
   member_charge_due_on: string | null; fee_gl_transaction_id: number | null;
-  work_order_id: number | null;
+  fee_reversal_transaction_id: number | null;
+  follow_up_id: number | null; follow_up_kind: string | null;
+  existing_work_order_id: number | null; work_order_id: number | null;
 };
 type Application = {
   id: number;
@@ -87,6 +93,16 @@ export default function HoaARCApplicationsPanel({
   const [receivableGlId, setReceivableGlId] = useState("");
   const [followupUnitId, setFollowupUnitId] = useState("");
   const [feeOptions, setFeeOptions] = useState<FeeOption[]>([]);
+  const [memberUsers, setMemberUsers] = useState<AppUser[]>([]);
+  const [memberUserId, setMemberUserId] = useState("");
+  const [boardSeats, setBoardSeats] = useState<BoardSeat[]>([]);
+  const [offlineDate, setOfflineDate] = useState("");
+  const [decisionMakerSeatId, setDecisionMakerSeatId] = useState("");
+  const [supportId, setSupportId] = useState("");
+  const [followUpKind, setFollowUpKind] = useState("");
+  const [followUpDescription, setFollowUpDescription] = useState("");
+  const [reversalOn, setReversalOn] = useState("");
+  const [reversalReason, setReversalReason] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -139,10 +155,20 @@ export default function HoaARCApplicationsPanel({
   useEffect(() => {
     let alive = true;
     if (!canEdit) return () => { alive = false; };
-    void (apiGet("/api/hoa/associations/" + associationId +
-      "/arc-fee-gl-options" + query) as Promise<FeeOption[]>)
-      .then((options) => { if (alive) setFeeOptions(options); })
-      .catch(() => { if (alive) setFeeOptions([]); });
+    void Promise.all([
+      apiGet("/api/hoa/associations/" + associationId +
+        "/arc-fee-gl-options" + query) as Promise<FeeOption[]>,
+      apiGet("/api/hoa/associations/" + associationId +
+        "/board-proposals" + query) as Promise<{ seats: BoardSeat[] }>,
+      apiGet("/users") as Promise<AppUser[]>,
+    ]).then(([options, board, members]) => {
+      if (!alive) return;
+      setFeeOptions(options);
+      setBoardSeats(board.seats);
+      setMemberUsers(members.filter(item => item.is_active && item.is_verified));
+    }).catch(() => { if (alive) {
+      setFeeOptions([]); setBoardSeats([]); setMemberUsers([]);
+    } });
     return () => { alive = false; };
   }, [associationId, canEdit, query]);
 
@@ -185,27 +211,71 @@ export default function HoaARCApplicationsPanel({
 
   async function decide(decision: "APPROVED" | "DENIED") {
     if (!application || !canEdit || busy || !note.trim()) return;
-    if (feeAmount && (!feeDueOn || !incomeGlId || !receivableGlId)) {
-      setError("Fee amount, due date, receivables GL, and income GL are required together.");
+    if (feeAmount && (!memberUserId || !feeDueOn || !incomeGlId || !receivableGlId)) {
+      setError("A verified member, fee amount, due date, receivables GL and income GL are required together.");
+      return;
+    }
+    if (offlineDate && (!decisionMakerSeatId || !supportId)) {
+      setError("Offline decisions require a decision-maker seat and private supporting record.");
+      return;
+    }
+    if (followUpKind && followUpDescription.trim().length < 10) {
+      setError("Describe the work-order or inspection follow-up.");
       return;
     }
     setBusy(true); setError(""); setMessage("");
     try {
       await apiPost(base + "/" + application.id + "/board-decision", {
         property_id: propertyId, decision, decision_note: note.trim(),
+        offline_meeting_on: offlineDate || null,
+        decision_maker_seat_id: offlineDate ? Number(decisionMakerSeatId) : null,
+        supporting_attachment_id: offlineDate ? Number(supportId) : null,
         fee: feeAmount ? {
+          member_user_id: Number(memberUserId),
           amount: feeAmount, due_on: feeDueOn,
           receivable_gl_account_id: Number(receivableGlId),
           income_gl_account_id: Number(incomeGlId),
         } : null,
-        follow_up_unit_id: followupUnitId ? Number(followupUnitId) : null,
+        follow_up_kind: followUpKind || null,
+        follow_up_description: followUpKind ? followUpDescription.trim() : null,
+        follow_up_unit_id: followUpKind === "WORK_ORDER" && followupUnitId
+          ? Number(followupUnitId) : null,
       });
       setNote(""); setFeeAmount(""); setFeeDueOn("");
-      setIncomeGlId(""); setReceivableGlId(""); setFollowupUnitId("");
+      setIncomeGlId(""); setReceivableGlId(""); setMemberUserId("");
+      setFollowupUnitId(""); setFollowUpKind(""); setFollowUpDescription("");
+      setOfflineDate(""); setDecisionMakerSeatId(""); setSupportId("");
       await reload();
       setMessage("Board decision recorded. Any requested member fee and follow-up were processed atomically.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to record board decision.");
+    } finally { setBusy(false); }
+  }
+
+  async function retryNotification() {
+    if (!application || !canEdit || busy) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      await apiPost(base + "/" + application.id + "/notification/retry" + query, {});
+      await reload();
+      setMessage("Applicant notification delivery retried. Decision and charges are unchanged.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Applicant notice cannot be retried.");
+    } finally { setBusy(false); }
+  }
+
+  async function reverseFee() {
+    if (!application || !canEdit || busy || !reversalOn || !reversalReason.trim()) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      await apiPost(base + "/" + application.id + "/member-fee/reverse", {
+        property_id: propertyId, reversal_on: reversalOn,
+        reason: reversalReason.trim(),
+      });
+      await reload();
+      setMessage("The fee was reversed with a new immutable GL entry. The board decision remains recorded.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Fee reversal rejected.");
     } finally { setBusy(false); }
   }
 
@@ -293,15 +363,55 @@ export default function HoaARCApplicationsPanel({
                   Board decision: {application.board_decision.decision} · Recorded {application.board_decision.decided_at}
                 </p>
                 <p>{application.board_decision.decision_note}</p>
+                <p>Recorded by board seat #{application.board_decision.board_seat_id}
+                  {application.board_decision.record_method === "OFFLINE"
+                    ? " · Offline meeting " + application.board_decision.decided_on +
+                      " · Decision maker seat #" + application.board_decision.decision_maker_seat_id
+                    : " · Direct board record"}
+                </p>
+                {application.board_decision.supporting_attachment_id && (
+                  <p>Private supporting record #{application.board_decision.supporting_attachment_id}</p>
+                )}
                 <p>Applicant notification: {application.board_decision.notification_status.replaceAll("_", " ")}</p>
+                {canEdit && application.board_decision.notification_status !== "SENT" && (
+                  <button type="button" disabled={busy} onClick={() => { void retryNotification(); }}
+                    className="rounded border border-blue-600 px-2 py-1 text-blue-700 disabled:opacity-50">
+                    Retry applicant notice
+                  </button>
+                )}
                 {application.board_decision.member_charge_id && (
                   <p>Member fee #{application.board_decision.member_charge_id}: ${application.board_decision.member_charge_amount}
                     · Due {application.board_decision.member_charge_due_on}
                     · GL transaction #{application.board_decision.fee_gl_transaction_id}</p>
                 )}
-                {application.board_decision.work_order_id && (
-                  <p>Work order #{application.board_decision.work_order_id} created.</p>
+                {application.board_decision.fee_reversal_transaction_id && (
+                  <p>Fee reversed by GL #{application.board_decision.fee_reversal_transaction_id}.</p>
                 )}
+                {application.board_decision.follow_up_id && (
+                  <p>HOA {application.board_decision.follow_up_kind} follow-up #{application.board_decision.follow_up_id}
+                    {application.board_decision.existing_work_order_id
+                      ? " · Work order #" + application.board_decision.existing_work_order_id
+                      : " · Association follow-up requested"}
+                  </p>
+                )}
+                {canEdit && application.board_decision.member_charge_id &&
+                  !application.board_decision.fee_reversal_transaction_id && (
+                    <div className="mt-2 flex flex-wrap items-end gap-2">
+                      <label>Fee reversal date
+                        <input type="date" value={reversalOn}
+                          onChange={(event) => setReversalOn(event.target.value)}
+                          className="mt-1 block rounded border p-2" /></label>
+                      <label>Reversal reason
+                        <input maxLength={500} value={reversalReason}
+                          onChange={(event) => setReversalReason(event.target.value)}
+                          className="mt-1 block rounded border p-2" /></label>
+                      <button type="button" disabled={busy || !reversalOn || !reversalReason.trim()}
+                        onClick={() => { void reverseFee(); }}
+                        className="rounded border border-red-500 px-3 py-2 text-red-700 disabled:opacity-50">
+                        Reverse fee via GL
+                      </button>
+                    </div>
+                  )}
               </div>
             )}
           </div>
@@ -376,6 +486,18 @@ export default function HoaARCApplicationsPanel({
                     </label>
                     {feeAmount && (
                       <div className="grid gap-2 sm:grid-cols-2">
+                        <label>Responsible verified member account
+                          <select aria-label="ARC responsible member" value={memberUserId}
+                            onChange={(event) => setMemberUserId(event.target.value)}
+                            className="mt-1 block w-full rounded border p-2">
+                            <option value="">Select verified member</option>
+                            {memberUsers.map(item => (
+                              <option key={item.id} value={item.id}>
+                                {item.first_name} {item.last_name} · {item.email}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
                         <label>Fee due date<input type="date" required value={feeDueOn}
                           onChange={(event) => setFeeDueOn(event.target.value)}
                           className="mt-1 block w-full rounded border p-2" /></label>
@@ -401,21 +523,71 @@ export default function HoaARCApplicationsPanel({
                         </label>
                       </div>
                     )}
-                    <label className="block">Optional follow-up work-order unit ID
-                      <input type="number" min="1" step="1" value={followupUnitId}
-                        onChange={(event) => setFollowupUnitId(event.target.value)}
-                        className="mt-1 block w-full rounded border p-2" />
-                      <span className="text-xs text-slate-500">
-                        Requires a verified tenant applicant with an active lease on this unit.
-                      </span>
+                    <label className="block">Optional follow-up
+                      <select value={followUpKind} onChange={(event) => {
+                        setFollowUpKind(event.target.value); setFollowupUnitId("");
+                      }} className="mt-1 block w-full rounded border p-2">
+                        <option value="">No follow-up</option>
+                        <option value="WORK_ORDER">Work-order follow-up</option>
+                        <option value="INSPECTION">Inspection request</option>
+                      </select>
                     </label>
+                    {followUpKind && <>
+                      <label className="block">Follow-up instructions
+                        <textarea minLength={10} maxLength={1000}
+                          value={followUpDescription}
+                          onChange={(event) => setFollowUpDescription(event.target.value)}
+                          className="mt-1 block w-full rounded border p-2" />
+                      </label>
+                      {followUpKind === "WORK_ORDER" && (
+                        <label className="block">Optional existing lease unit ID
+                          <input type="number" min="1" step="1" value={followupUnitId}
+                            onChange={(event) => setFollowupUnitId(event.target.value)}
+                            className="mt-1 block w-full rounded border p-2" />
+                          <span className="text-xs text-slate-500">
+                            Creates an existing maintenance work order only for a verified
+                            tenant applicant with an active lease on this unit. Otherwise
+                            a separately scoped HOA work-order request is recorded.
+                          </span>
+                        </label>
+                      )}
+                    </>}
+                    <label className="block">Offline board meeting date (optional)
+                      <input aria-label="Offline ARC meeting date" type="date" value={offlineDate}
+                        onChange={(event) => setOfflineDate(event.target.value)}
+                        className="mt-1 block w-full rounded border p-2" />
+                    </label>
+                    {offlineDate && <>
+                      <label className="block">Board decision maker
+                        <select aria-label="Offline ARC decision maker" value={decisionMakerSeatId}
+                          onChange={(event) => setDecisionMakerSeatId(event.target.value)}
+                          className="mt-1 block w-full rounded border p-2">
+                          <option value="">Choose authorized board seat</option>
+                          {boardSeats.filter(seat => seat.decision_authorized).map(seat => (
+                            <option key={seat.id} value={seat.id}>{seat.contact_name} · Seat #{seat.id}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block">Private supporting meeting record
+                        <select aria-label="Offline ARC support document" value={supportId}
+                          onChange={(event) => setSupportId(event.target.value)}
+                          className="mt-1 block w-full rounded border p-2">
+                          <option value="">Choose private document</option>
+                          {documents.map(item => (
+                            <option key={item.id} value={item.id}>{item.original_name}</option>
+                          ))}
+                        </select>
+                      </label>
+                    </>}
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" disabled={busy || !note.trim()}
+                      <button type="button" disabled={busy || !note.trim() ||
+                        (!!offlineDate && (!decisionMakerSeatId || !supportId))}
                         onClick={() => { void decide("APPROVED"); }}
                         className="rounded bg-emerald-700 px-3 py-2 text-white disabled:opacity-50">
                         Record board approval
                       </button>
-                      <button type="button" disabled={busy || !note.trim() || !!feeAmount || !!followupUnitId}
+                      <button type="button" disabled={busy || !note.trim() || !!feeAmount || !!followUpKind ||
+                        (!!offlineDate && (!decisionMakerSeatId || !supportId))}
                         onClick={() => { void decide("DENIED"); }}
                         className="rounded border border-red-500 px-3 py-2 text-red-700 disabled:opacity-50">
                         Record board denial

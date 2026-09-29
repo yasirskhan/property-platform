@@ -13,12 +13,22 @@ class HOABoardSeatIn(BaseModel):
     staff_voting_eligible: bool = False
 
 
+class HOABoardAuthorizationIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    property_id: int = Field(ge=1)
+    user_id: int = Field(ge=1)
+    can_record_offline: bool = False
+
+
 class HOABoardSeatOut(HOABoardSeatIn):
     id: int
     contact_name: str
     authority_verified: Literal[False] = False
     vote_enabled: Literal[False] = False
-    status: Literal["STAFF_PROPOSED_UNVERIFIED"] = "STAFF_PROPOSED_UNVERIFIED"
+    authorized_user_id: int | None = None
+    decision_authorized: bool = False
+    can_record_offline: bool = False
+    status: Literal["STAFF_PROPOSED_UNVERIFIED", "AUTHORIZED_BOARD_LOGIN"] = "STAFF_PROPOSED_UNVERIFIED"
 
 
 class HOABoardRulesIn(BaseModel):

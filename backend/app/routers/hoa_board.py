@@ -5,6 +5,8 @@ not a legal right to vote. No effective vote, notice or accounting action.
 """
 from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from datetime import datetime
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -16,7 +18,7 @@ from app.models.user import User
 from app.routers.auth import get_current_user
 from app.routers.hoa_associations import _contact_scope
 from app.schemas.hoa_board import (
-    HOABoardRosterOut, HOABoardRulesIn, HOABoardRulesOut,
+    HOABoardAuthorizationIn, HOABoardRosterOut, HOABoardRulesIn, HOABoardRulesOut,
     HOABoardSeatIn, HOABoardSeatOut,
 )
 from app.services.audit import append_audit_log
@@ -65,6 +67,10 @@ def _seat_out(row: HOABoardSeat, contact: Contact) -> HOABoardSeatOut:
         contact_name=contact.display_name,
         proposed_role=row.proposed_role,
         staff_voting_eligible=row.staff_voting_eligible,
+        authorized_user_id=row.authorized_user_id,
+        decision_authorized=row.decision_authorized,
+        can_record_offline=row.can_record_offline,
+        status=("AUTHORIZED_BOARD_LOGIN" if row.decision_authorized else "STAFF_PROPOSED_UNVERIFIED"),
     )
 
 
@@ -166,6 +172,106 @@ def record_board_seat(
         db.rollback()
         raise HTTPException(status_code=409, detail="Seat proposal already recorded.") from exc
     db.refresh(row)
+    return _seat_out(row, contact)
+
+
+@router.post(
+    "/{association_id}/board-proposals/seats/{seat_id}/authorize",
+    response_model=HOABoardSeatOut,
+)
+def authorize_board_seat(
+    association_id: int, seat_id: int, payload: HOABoardAuthorizationIn,
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    """Association administrator authorizes an authenticated member to record decisions.
+
+    A staff-created Contact or an unverified email alone never delegates
+    board decision authority. Authorization is explicit, scoped and audited.
+    """
+    org, assoc = _contact_scope(
+        db, actor=current_user, association_id=association_id,
+        property_id=payload.property_id, write=True,
+    )
+    row = _seat(
+        db, org_id=org, assoc_id=assoc.id,
+        prop_id=payload.property_id, seat_id=seat_id,
+    )
+    _, contact = _link(
+        db, org, assoc.id, payload.property_id, row.contact_link_id,
+    )
+    user = db.query(User).filter(
+        User.id == payload.user_id,
+        User.organization_id == org,
+        User.is_active.is_(True),
+        User.is_verified.is_(True),
+        User.deleted_at.is_(None),
+    ).first()
+    if (
+        user is None or not contact.email
+        or user.email.strip().lower() != contact.email.strip().lower()
+        or not row.staff_voting_eligible
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Eligible seat and verified matching association login required.",
+        )
+    if row.decision_authorized and row.authorized_user_id != user.id:
+        raise HTTPException(status_code=409, detail="Revoke the existing seat assignment first.")
+    if payload.can_record_offline and row.proposed_role not in {
+        "CHAIR", "VICE_CHAIR", "SECRETARY", "TREASURER",
+    }:
+        raise HTTPException(status_code=422, detail="Only designated officers may record offline board decisions.")
+    row.authorized_user_id = user.id
+    row.decision_authorized = True
+    row.can_record_offline = payload.can_record_offline
+    row.authorized_by_id = current_user.id
+    row.authorized_at = datetime.utcnow()
+    row.updated_by_id = current_user.id
+    db.flush()
+    append_audit_log(
+        db, organization_id=org, user_id=current_user.id,
+        entity_type="hoa_board_seat", entity_id=row.id,
+        action="board_login_authorized",
+        new_value={
+            "association_id": assoc.id, "property_id": row.property_id,
+            "board_user_id": user.id, "can_record_offline": row.can_record_offline,
+        },
+    )
+    db.commit()
+    return _seat_out(row, contact)
+
+
+@router.post(
+    "/{association_id}/board-proposals/seats/{seat_id}/revoke",
+    response_model=HOABoardSeatOut,
+)
+def revoke_board_seat(
+    association_id: int, seat_id: int,
+    property_id: int = Query(ge=1),
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    org, assoc = _contact_scope(
+        db, actor=current_user, association_id=association_id,
+        property_id=property_id, write=True,
+    )
+    row = _seat(db, org_id=org, assoc_id=assoc.id,
+                prop_id=property_id, seat_id=seat_id)
+    _, contact = _link(db, org, assoc.id, property_id, row.contact_link_id)
+    if not row.decision_authorized:
+        raise HTTPException(status_code=409, detail="Seat is not authorized.")
+    row.decision_authorized = False
+    row.can_record_offline = False
+    row.authorized_user_id = None
+    row.authorized_by_id = current_user.id
+    row.updated_by_id = current_user.id
+    db.flush()
+    append_audit_log(
+        db, organization_id=org, user_id=current_user.id,
+        entity_type="hoa_board_seat", entity_id=row.id,
+        action="board_login_revoked",
+        new_value={"association_id": assoc.id, "property_id": row.property_id},
+    )
+    db.commit()
     return _seat_out(row, contact)
 
 

@@ -385,8 +385,12 @@ def test_hoa_arc_application_review_browser_records_board_approval() -> None:
                     db.add(HOABoardSeat(
                         organization_id=assoc.organization_id,
                         association_id=assoc.id, property_id=PROPERTY_ID,
-                        contact_link_id=link.id, proposed_role="DIRECTOR",
+                        contact_link_id=link.id, proposed_role="CHAIR",
                         staff_voting_eligible=True, is_active=True,
+                        authorized_user_id=board_actor.id,
+                        authorized_by_id=board_actor.id,
+                        decision_authorized=True,
+                        can_record_offline=True,
                     ))
                     db.commit()
                 finally:
@@ -414,6 +418,7 @@ def test_hoa_arc_application_review_browser_records_board_approval() -> None:
                 )
                 workflow.get_by_role("button", name="Record board approval").click()
                 expect(workflow.get_by_text(re.compile("Board decision: APPROVED"))).to_be_visible()
+                expect(workflow.get_by_text(re.compile("Direct board record"))).to_be_visible()
                 expect(workflow.get_by_text(re.compile("Applicant notification: NO VERIFIED RECIPIENT"))).to_be_visible()
                 expect(workflow.get_by_role("button", name="Record board approval")).to_have_count(0)
                 assert _financial_counts() == before
@@ -450,11 +455,26 @@ def test_hoa_board_role_proposals_browser_flow_never_enables_vote() -> None:
                 expect(association).to_be_visible()
                 # Explicitly disposable synthetic contact; no actual board identity.
                 _seed_arc_applicant(association_name)
+                # This disposable E2E fixture explicitly binds the proposed
+                # seat to an authenticated, same-org customer login.
+                db = SessionLocal()
+                try:
+                    admin = db.query(User).filter(User.email == EMAIL).one()
+                    admin.is_verified = True
+                    contact = db.query(Contact).filter(
+                        Contact.organization_id == admin.organization_id,
+                        Contact.display_name == "E2E ARC Applicant",
+                    ).one()
+                    contact.email = admin.email
+                    board_login_id = admin.id
+                    db.commit()
+                finally:
+                    db.close()
                 association.get_by_role("button", name="Board role proposals").click()
                 board = association.get_by_role(
                     "heading", name="Board role and voting rule proposals",
                 ).locator("..").locator("..")
-                expect(board.get_by_text(re.compile("not authenticated board", re.I))).to_be_visible()
+                expect(board.get_by_text(re.compile("not themselves authenticated board roles", re.I))).to_be_visible()
                 board.get_by_label("Existing scoped HOA contact").select_option(
                     label="E2E ARC Applicant",
                 )
@@ -462,11 +482,18 @@ def test_hoa_board_role_proposals_browser_flow_never_enables_vote() -> None:
                 board.get_by_label(re.compile("Staff-proposed voting eligibility")).check()
                 board.get_by_role("button", name="Record role proposal").click()
                 expect(board.get_by_text("E2E ARC Applicant: SECRETARY", exact=False)).to_be_visible()
-                expect(board.get_by_text("Unverified. Vote disabled.")).to_be_visible()
+                expect(board.get_by_text(re.compile("ARC decision role: Not authorized"))).to_be_visible()
+                board.get_by_label("Board login for E2E ARC Applicant").select_option(str(board_login_id))
+                board.get_by_label("Designated officer may record offline decisions").check()
+                board.get_by_role("button", name="Authorize board login").click()
+                expect(board.get_by_text(re.compile("ARC decision role: Authorized login"))).to_be_visible()
+                expect(board.get_by_text(re.compile("May record offline board decisions"))).to_be_visible()
+                board.get_by_role("button", name="Revoke ARC decision role").click()
+                expect(board.get_by_text(re.compile("ARC decision role: Not authorized"))).to_be_visible()
                 board.get_by_label("Proposed minimum quorum").fill("3")
                 board.get_by_label("Proposed approval threshold").fill("2")
                 board.get_by_role("button", name="Save proposed rules").click()
-                expect(board.get_by_text(re.compile("No verified board authority"))).to_be_visible()
+                expect(board.get_by_text(re.compile("Separate motion ballots require their own adoption records"))).to_be_visible()
                 expect(board.get_by_text(re.compile("Proposed quorum: 3"))).to_be_visible()
                 assert _financial_counts() == before
             finally:
@@ -509,7 +536,7 @@ def test_hoa_staff_ballot_observations_never_become_legal_votes() -> None:
                 )
                 board.get_by_label(re.compile("Staff-proposed voting eligibility")).check()
                 board.get_by_role("button", name="Record role proposal").click()
-                expect(board.get_by_text("Unverified. Vote disabled.")).to_be_visible()
+                expect(board.get_by_text(re.compile("ARC decision role: Not authorized"))).to_be_visible()
                 board.get_by_role("button", name="Close").click()
 
                 association.get_by_role("button", name="Meeting plans").click()

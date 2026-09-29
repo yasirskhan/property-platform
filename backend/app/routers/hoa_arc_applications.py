@@ -12,7 +12,7 @@ from app.models.hoa_arc_application import (
     HOAARCApplication, HOAARCApplicationAttachment, HOAARCReviewEvent,
 )
 from app.models.hoa_arc_intake import HOAARCIntake
-from app.models.hoa_arc_decision import HOAARCDecision, HOAARCMemberCharge
+from app.models.hoa_arc_decision import HOAARCDecision, HOAARCMemberCharge, HOAARCFollowUp, HOAARCNotification
 from app.models.gl_account import GLAccount
 from app.models.hoa_association import HOAContactLink
 from app.models.user import User
@@ -151,17 +151,33 @@ def _out(db: Session, row: HOAARCApplication) -> HOAARCApplicationOut:
         HOAARCMemberCharge.organization_id == row.organization_id,
         HOAARCMemberCharge.application_id == row.id,
     ).first() if decision is not None else None
+    follow_up = db.query(HOAARCFollowUp).filter(
+        HOAARCFollowUp.organization_id == row.organization_id,
+        HOAARCFollowUp.decision_id == decision.id,
+    ).first() if decision is not None else None
+    notice = db.query(HOAARCNotification).filter(
+        HOAARCNotification.organization_id == row.organization_id,
+        HOAARCNotification.decision_id == decision.id,
+    ).first() if decision is not None else None
     recorded = HOAARCDecisionOut(
         id=decision.id, decision=decision.decision,
         decision_note=decision.decision_note,
         board_seat_id=decision.board_seat_id,
+        decision_maker_seat_id=decision.decision_maker_seat_id or decision.board_seat_id,
+        decided_on=decision.decided_on or decision.decided_at.date(),
+        record_method=decision.record_method,
+        supporting_attachment_id=decision.supporting_attachment_id,
         decided_at=decision.decided_at,
         member_charge_id=fee.id if fee else None,
         member_charge_amount=fee.amount if fee else None,
         member_charge_due_on=fee.due_on if fee else None,
         fee_gl_transaction_id=fee.gl_transaction_id if fee else None,
+        fee_reversal_transaction_id=fee.reversal_transaction_id if fee else None,
+        follow_up_id=follow_up.id if follow_up else None,
+        follow_up_kind=follow_up.kind if follow_up else None,
+        existing_work_order_id=follow_up.existing_work_order_id if follow_up else None,
         work_order_id=decision.work_order_id,
-        notification_status=decision.notification_status,
+        notification_status=notice.status if notice is not None else decision.notification_status,
     ) if decision is not None else None
     return HOAARCApplicationOut(
         id=row.id, association_id=row.association_id, property_id=row.property_id,
@@ -437,6 +453,8 @@ def archive_application(
         db, org_id=org_id, association_id=assoc.id,
         property_id=property_id, application_id=application_id,
     )
+    if row.status in {"APPROVED", "DENIED"}:
+        raise HTTPException(status_code=409, detail="Recorded board decisions cannot be archived.")
     row.is_active = False
     row.updated_by_id = current_user.id
     for link in db.query(HOAARCApplicationAttachment).filter(

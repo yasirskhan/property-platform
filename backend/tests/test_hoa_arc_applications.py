@@ -24,7 +24,9 @@ from app.models.work_order import WorkOrder
 from app.routers import hoa_arc_board_decisions as board_api
 from app.routers import hoa_board as hoa_board_api
 from app.schemas.hoa_arc_application import HOAARCDecisionIn, HOAARCDecisionFeeIn
-from app.schemas.hoa_board import HOABoardSeatIn
+from app.schemas.hoa_board import HOABoardSeatIn, HOABoardAuthorizationIn
+from app.models.hoa_arc_decision import HOAARCNotification, HOAARCFollowUp
+from app.routers.hoa_arc_board_decisions import HOAARCReversalIn
 from app.models.contact import Contact
 from app.models.entity_attachment import EntityAttachment
 from app.models.gl_entry import GLEntry
@@ -58,6 +60,11 @@ def access(monkeypatch):
     ])
     monkeypatch.setattr(api, "_require_attachment_feature", lambda *a, **kw: None)
     monkeypatch.setattr(board_api, "permission_allows_user", lambda *a, **kw: True)
+    monkeypatch.setattr(board_api, "resolve_customer_features", lambda *a, **kw: [
+        SimpleNamespace(key=key, release_allowed=True, entitlement_allowed=True,
+                        org_config_allowed=True)
+        for key in board_api.HOA_GATES
+    ])
     monkeypatch.setattr(api, "permission_allows_user", lambda *a, **kw: True)
     monkeypatch.setattr(attachments, "resolve_customer_features", lambda *a, **kw: [
         SimpleNamespace(key=attachments.ATTACHMENTS_FEATURE_KEY, allowed=True)
@@ -343,9 +350,15 @@ def _board_member(db, assoc, prop, admin):
     seat = hoa_board_api.record_board_seat(
         assoc.id, HOABoardSeatIn(
             property_id=prop.id, contact_link_id=link.id,
-            proposed_role="DIRECTOR", staff_voting_eligible=True,
+            proposed_role="CHAIR", staff_voting_eligible=True,
         ), db=db, current_user=admin,
     )
+    assigned = hoa_board_api.authorize_board_seat(
+        assoc.id, seat.id, HOABoardAuthorizationIn(
+            property_id=prop.id, user_id=admin.id, can_record_offline=True,
+        ), db=db, current_user=admin,
+    )
+    assert assigned.decision_authorized is True
     return seat
 
 
@@ -457,9 +470,11 @@ def test_arc_approved_fee_uses_member_receivable_gl_and_real_work_order(monkeypa
             property_id=prop.id, decision="APPROVED",
             decision_note="Board approved with scheduled follow-up",
             fee=HOAARCDecisionFeeIn(
-                amount="85.25", due_on=date(2026, 12, 1),
+                member_user_id=tenant.id, amount="85.25", due_on=date(2026, 12, 1),
                 receivable_gl_account_id=ar.id, income_gl_account_id=income.id,
             ),
+            follow_up_kind="WORK_ORDER",
+            follow_up_description="Inspect the fence installation after approval.",
             follow_up_unit_id=unit.id,
         )
         locked = db.get(Organization, admin.organization_id)
@@ -490,7 +505,7 @@ def test_arc_approved_fee_uses_member_receivable_gl_and_real_work_order(monkeypa
         assert fee.due_on == date(2026, 12, 1)
         txn = db.get(GLTransaction, fee.gl_transaction_id)
         assert txn.source_type == "hoa_arc_member_charge"
-        assert txn.source_id == application.id
+        assert txn.source_id == detail.board_decision.id
         lines = db.query(GLEntry).filter(GLEntry.transaction_id == txn.id).all()
         assert len(lines) == 2
         assert sum((x.debit for x in lines), Decimal(0)) == Decimal("85.25")
@@ -521,6 +536,43 @@ def test_arc_approved_fee_uses_member_receivable_gl_and_real_work_order(monkeypa
         assert conflict.value.status_code == 409
         assert db.query(GLTransaction).count() == db.query(WorkOrder).count() == 1
         assert len(sent) == 1
+        # Financial reversal is a new immutable GL transaction; the board
+        # approval, original entry and member identity remain unchanged.
+        locked = db.get(Organization, admin.organization_id)
+        locked.locked_through_date = date.today()
+        db.flush()
+        with pytest.raises(HTTPException) as locked_error:
+            board_api.reverse_arc_member_fee(
+                assoc.id, application.id, HOAARCReversalIn(
+                    property_id=prop.id, reversal_on=date.today(),
+                    reason="Duplicate quoted assessment fee",
+                ), db=db, current_user=admin,
+            )
+        assert locked_error.value.status_code == 409
+        locked.locked_through_date = None
+        db.flush()
+        reversal = board_api.reverse_arc_member_fee(
+            assoc.id, application.id, HOAARCReversalIn(
+                property_id=prop.id, reversal_on=date.today(),
+                reason="Duplicate quoted assessment fee",
+            ), db=db, current_user=admin,
+        )
+        assert reversal.status == "APPROVED"
+        assert reversal.board_decision.fee_reversal_transaction_id is not None
+        assert db.query(HOAARCMemberCharge).one().status == "REVERSED"
+        assert db.get(GLTransaction, txn.id).is_reversed is True
+        assert db.query(GLTransaction).count() == 2
+        assert db.query(GLEntry).count() == 4
+        assert db.query(WorkOrder).count() == 1
+        with pytest.raises(HTTPException) as duplicate_reversal:
+            board_api.reverse_arc_member_fee(
+                assoc.id, application.id, HOAARCReversalIn(
+                    property_id=prop.id, reversal_on=date.today(),
+                    reason="Repeat reversal",
+                ), db=db, current_user=admin,
+            )
+        assert duplicate_reversal.value.status_code == 409
+        assert db.query(GLTransaction).count() == 2
     finally:
         db.rollback()
         db.close()
@@ -570,19 +622,18 @@ def test_arc_denial_notification_failure_and_cross_scope_guard(monkeypatch):
                     "income_gl_account_id": 2,
                 }, illegally_waive_fines=True,
             )
-        with pytest.raises(HTTPException) as exc:
+        with pytest.raises(ValidationError):
             decide(fee=HOAARCDecisionFeeIn(
-                amount="25", due_on=date.today(),
+                member_user_id=tenant.id, amount="25", due_on=date.today(),
                 receivable_gl_account_id=1, income_gl_account_id=2,
             ))
-        assert exc.value.status_code == 422
-        monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **kw: [])
+        monkeypatch.setattr(board_api, "resolve_customer_features", lambda *a, **kw: [])
         with pytest.raises(HTTPException) as exc:
             decide()
         assert exc.value.status_code == 404
-        monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **kw: [
-            SimpleNamespace(key=hoa.FEATURE_KEY, allowed=True),
-            SimpleNamespace(key=hoa.HOA_FEATURE_KEY, allowed=True),
+        monkeypatch.setattr(board_api, "resolve_customer_features", lambda *a, **kw: [
+            SimpleNamespace(key=key, release_allowed=True, entitlement_allowed=True,
+                            org_config_allowed=True) for key in board_api.HOA_GATES
         ])
         monkeypatch.setattr(board_api, "send_email", lambda **kw: (_ for _ in ()).throw(RuntimeError("smtp unavailable")))
         result = decide()
@@ -595,3 +646,201 @@ def test_arc_denial_notification_failure_and_cross_scope_guard(monkeypatch):
         db.rollback()
         db.close()
         engine.dispose()
+
+
+def test_authorized_officer_can_record_offline_board_decision_with_private_evidence():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, other, outside), assoc, links, intake, docs = _seed(db)
+        seat = _board_member(db, assoc, prop, admin)
+        app = _ready_application(db, assoc, prop, intake, links[0], admin)
+        with pytest.raises(ValidationError):
+            HOAARCDecisionIn(
+                property_id=prop.id, decision="DENIED",
+                decision_note="Offline meeting decision",
+                offline_meeting_on=date(2026, 9, 18),
+            )
+        wrong_evidence = HOAARCDecisionIn(
+            property_id=prop.id, decision="DENIED",
+            decision_note="Offline meeting decision",
+            offline_meeting_on=date(2026, 9, 18),
+            decision_maker_seat_id=seat.id,
+            supporting_attachment_id=docs[2].id,
+        )
+        with pytest.raises(HTTPException) as exc:
+            board_api.record_board_decision(
+                assoc.id, app.id, wrong_evidence, db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 404
+        valid = HOAARCDecisionIn(
+            property_id=prop.id, decision="DENIED",
+            decision_note="Offline board meeting rejected design proposal",
+            offline_meeting_on=date(2026, 9, 18),
+            decision_maker_seat_id=seat.id,
+            supporting_attachment_id=docs[0].id,
+        )
+        result = board_api.record_board_decision(
+            assoc.id, app.id, valid, db=db, current_user=admin,
+        )
+        assert result.status == "DENIED"
+        decision = result.board_decision
+        assert decision.board_seat_id == seat.id
+        assert decision.decision_maker_seat_id == seat.id
+        assert decision.record_method == "OFFLINE"
+        assert decision.decided_on == date(2026, 9, 18)
+        assert decision.supporting_attachment_id == docs[0].id
+        audit = db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_arc_decision",
+        ).one()
+        assert '"decision_maker_seat_id"' in audit.new_value
+        assert '"supporting_attachment_id"' in audit.new_value
+        assert '"decided_on"' in audit.new_value
+        assert _counts(db) == (0, 0, 0, 0)
+        with pytest.raises(HTTPException) as conflict:
+            board_api.record_board_decision(
+                assoc.id, app.id, valid, db=db, current_user=admin,
+            )
+        assert conflict.value.status_code == 409
+        assert db.query(HOAARCDecision).count() == 1
+        with pytest.raises(HTTPException) as archive:
+            api.archive_application(
+                assoc.id, app.id, prop.id, db=db, current_user=admin,
+            )
+        assert archive.value.status_code == 409
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_board_authorization_revocation_is_live_and_does_not_restore_archived_seat():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, other, outside), assoc, links, intake, _ = _seed(db)
+        seat = _board_member(db, assoc, prop, admin)
+        app = _ready_application(db, assoc, prop, intake, links[0], admin)
+        denied = HOAARCDecisionIn(
+            property_id=prop.id, decision="DENIED",
+            decision_note="Board denied the application",
+        )
+        hoa_board_api.revoke_board_seat(
+            assoc.id, seat.id, prop.id, db=db, current_user=admin,
+        )
+        with pytest.raises(HTTPException) as exc:
+            board_api.record_board_decision(
+                assoc.id, app.id, denied, db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 403
+        with pytest.raises(HTTPException):
+            hoa_board_api.authorize_board_seat(
+                assoc.id, seat.id, HOABoardAuthorizationIn(
+                    property_id=other.id, user_id=admin.id,
+                ), db=db, current_user=admin,
+            )
+        reauthorized = hoa_board_api.authorize_board_seat(
+            assoc.id, seat.id, HOABoardAuthorizationIn(
+                property_id=prop.id, user_id=admin.id, can_record_offline=False,
+            ), db=db, current_user=admin,
+        )
+        assert reauthorized.decision_authorized is True
+        assert reauthorized.can_record_offline is False
+        with pytest.raises(HTTPException) as offline:
+            board_api.record_board_decision(
+                assoc.id, app.id, HOAARCDecisionIn(
+                    property_id=prop.id, decision="DENIED",
+                    decision_note="Officer meeting decision",
+                    offline_meeting_on=date(2026, 9, 18),
+                    decision_maker_seat_id=seat.id,
+                    supporting_attachment_id=1,
+                ), db=db, current_user=admin,
+            )
+        assert offline.value.status_code == 403
+        direct = board_api.record_board_decision(
+            assoc.id, app.id, denied, db=db, current_user=admin,
+        )
+        assert direct.status == "DENIED"
+        assert db.query(HOAARCDecision).count() == 1
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_arc_notification_failure_retry_and_success_are_finance_idempotent(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, other, outside), assoc, links, intake, _ = _seed(db)
+        _board_member(db, assoc, prop, admin)
+        tenant.is_verified = True
+        contact = db.query(Contact).filter(Contact.id == links[0].contact_id).one()
+        contact.email = tenant.email
+        db.commit()
+        app = _ready_application(db, assoc, prop, intake, links[0], admin)
+        outgoing = []
+        def broken_smtp(**kw):
+            outgoing.append(kw["to"])
+            raise RuntimeError("SMTP unavailable")
+        monkeypatch.setattr(board_api, "send_email", broken_smtp)
+        result = board_api.record_board_decision(
+            assoc.id, app.id, HOAARCDecisionIn(
+                property_id=prop.id, decision="APPROVED",
+                decision_note="Board approved the request",
+            ), db=db, current_user=admin,
+        )
+        assert result.board_decision.notification_status == "FAILED"
+        assert db.query(HOAARCNotification).count() == 1
+        assert db.query(HOAARCNotification).one().attempt_count == 1
+        assert outgoing == [tenant.email]
+        with pytest.raises(HTTPException):
+            board_api.retry_arc_notification(
+                assoc.id, app.id, prop.id, db=db, current_user=foreign,
+            )
+        monkeypatch.setattr(board_api, "send_email", lambda **kw: outgoing.append(kw["to"]))
+        retry = board_api.retry_arc_notification(
+            assoc.id, app.id, prop.id, db=db, current_user=admin,
+        )
+        assert retry.board_decision.notification_status == "SENT"
+        assert outgoing == [tenant.email, tenant.email]
+        assert db.query(HOAARCNotification).one().attempt_count == 2
+        board_api.retry_arc_notification(
+            assoc.id, app.id, prop.id, db=db, current_user=admin,
+        )
+        assert outgoing == [tenant.email, tenant.email]
+        assert db.query(HOAARCDecision).count() == 1
+        assert db.query(HOAARCNotification).count() == 1
+        assert _counts(db) == (0, 0, 0, 0)
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_arc_fee_rejects_unresolved_member_before_creating_decision(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, other, outside), assoc, links, intake, _ = _seed(db)
+        _board_member(db, assoc, prop, admin)
+        app = _ready_application(db, assoc, prop, intake, links[0], admin)
+        receivable = GLAccount(
+            organization_id=admin.organization_id, gl_number="E2E-ARC-MEMBER-AR",
+            name="ARC member receivable", account_type="ASSET", is_active=True,
+        )
+        income = GLAccount(
+            organization_id=admin.organization_id, gl_number="E2E-ARC-MEMBER-INCOME",
+            name="ARC income", account_type="INCOME", is_active=True,
+        )
+        db.add_all([receivable, income]); db.commit()
+        payload = HOAARCDecisionIn(
+            property_id=prop.id, decision="APPROVED",
+            decision_note="Board approved conditional fee",
+            fee=HOAARCDecisionFeeIn(
+                member_user_id=tenant.id,
+                amount=Decimal("40"), due_on=date.today(),
+                receivable_gl_account_id=receivable.id,
+                income_gl_account_id=income.id,
+            ),
+        )
+        with pytest.raises(HTTPException) as exc:
+            board_api.record_board_decision(
+                assoc.id, app.id, payload, db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(HOAARCDecision).count() == 0
+        assert db.query(HOAARCMemberCharge).count() == 0
+        assert _counts(db) == (0, 0, 0, 0)
+    finally:
+        db.rollback(); db.close(); engine.dispose()

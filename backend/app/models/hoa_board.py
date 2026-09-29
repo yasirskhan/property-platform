@@ -13,6 +13,13 @@ class HOABoardSeat(Base):
     contact_link_id = Column(Integer, ForeignKey("hoa_contact_links.id", ondelete="RESTRICT"), nullable=False, index=True)
     proposed_role = Column(String(20), nullable=False)
     staff_voting_eligible = Column(Boolean, nullable=False, default=False, server_default="false")
+    # An explicit association administrator authorization binds a real,
+    # verified customer login to this association-specific board seat.
+    authorized_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True, index=True)
+    decision_authorized = Column(Boolean, nullable=False, default=False, server_default="false")
+    can_record_offline = Column(Boolean, nullable=False, default=False, server_default="false")
+    authorized_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    authorized_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True, server_default="true")
     created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     updated_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

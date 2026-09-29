@@ -124,7 +124,7 @@ from app.models.hoa_meeting_draft import HOAMeetingDraft  # noqa: F401
 from app.models.hoa_meeting_workspace import HOAMeetingParticipation, HOAMotionDraft  # noqa: F401
 from app.models.hoa_arc_intake import HOAARCIntake  # noqa: F401
 from app.models.hoa_arc_application import HOAARCApplication, HOAARCApplicationAttachment, HOAARCReviewEvent  # noqa: F401
-from app.models.hoa_arc_decision import HOAARCDecision, HOAARCMemberCharge  # noqa: F401
+from app.models.hoa_arc_decision import HOAARCDecision, HOAARCMemberCharge, HOAARCFollowUp, HOAARCNotification  # noqa: F401
 from app.models.hoa_governing_evidence import HOAGoverningEvidence  # noqa: F401
 from app.models.hoa_procedure_policy import HOAProcedurePolicy  # noqa: F401
 from app.models.hoa_violation_case import HOAViolationCase  # noqa: F401

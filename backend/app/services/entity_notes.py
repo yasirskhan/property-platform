@@ -40,6 +40,8 @@ _FORBIDDEN_TABLES = {
     "hoa_arc_review_events",
     "hoa_arc_decisions",  # Scoped irreversible board decision history.
     "hoa_arc_member_charges",  # Sensitive member receivables and financial links.
+    "hoa_arc_follow_ups",  # Scoped HOA followup tasks.
+    "hoa_arc_notifications",  # Sensitive notification queue.
     "commercial_lease_abstracts",  # Staff-only commencement metadata needs both property and leasing scope.
     "hoa_procedure_policies",  # Restricted staff policy/notice templates.
     "hoa_violation_cases",
