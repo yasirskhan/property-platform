@@ -1,3 +1,62 @@
+# AI_HANDOFF.md — 2026-09-29 HOA CASE EMAIL VERIFIED
+
+**Read the entire repository-root file.** This header supersedes all
+earlier NEXT/PREPARED labels, preserved below as history. Work only
+`yasirskhan/property-platform` branch
+`chatgpt/checkpoint-005-safety`. Do not touch main, frozen docs/,
+create a new branch, force push, merge or advance Phase 4.8.
+
+- Latest VERIFIED PRODUCT source `e9156f611c77031acb43f0b90530f00b4f25c3fe`.
+  GitHub Actions [36609991874](https://github.com/yasirskhan/property-platform/actions/runs/36609991874)
+  **SUCCESS all SIX jobs**, exact source. Backend **806 passed,
+  15 deselected, 20636 warnings in 229.58s**. Authenticated
+  E2E **15 passed, 226 warnings in 68.09s**. Frontend lint,
+  TypeScript/production build, platform-admin, security, staging PASS.
+  **TESTS NOT RUN locally.**
+- Verified migration **d0f2a4c6e8b1**, SQLAlchemy expected **172
+  model tables**, preceding c9e1f3b5d7a0 / 171. Fresh/legacy/PostgreSQL
+  and staging checks passed.
+- Actual authenticated association BOARD and permitted staff member may
+  explicitly request email transport of the current exact private
+  HOA violation correspondence, after live org/property/paid HOA,
+  verified matching recipient, stage, notice and cure policy revision,
+  and board-seat authorization checks. A durable idempotent record
+  captures attempts, TEST_ONLY console, FAILED, SMTP_ACCEPTED, and
+  redacted audit; retries revalidate live constraints. Snapshot email,
+  revision and board seat remain private. Browser exercises a synthetic
+  console-only attempt with **ZERO finance**. No statutory service is
+  certified merely because SMTP accepts email. No fine/charge, liability
+  or GL posting. SMTP retry is at-least-once when prior acceptance is
+  uncertain; do not claim exactly-once external email delivery.
+- Initial provisional source `e9156f611c77031acb43f0b90530f00b4f25c3fe` passed all six jobs
+  without corrective product commits. Previously approved motion
+  outcomes `a2edafce` / CI 36604831597 remain preserved.
+  Historical "CASE CORRESPONDENCE EMAIL PROVISIONAL" heading below
+  describes the state before this verified commit, NOT pending work.
+- Original SEVEN operational Phase 4.7 features remain the scope.
+  Preserve member dues/receipts/statements, authenticated board
+  outcomes, operative ARC direct APPROVED/DENIED, reserve-book GL,
+  annual budget/increases, governing documents, $79/month HOA paid
+  entitlement and verified case tasks. No blanket platform legal
+  certification gate.
+- **NEXT independently actionable Phase 4.7 violation batch:**
+  association-authorized fine decision + accounting, extending the
+  existing FINE_PROPOSED case, verified contact/member identity,
+  configurable procedure and real central GL posting. Require a
+  specific authorized board decision, applicable association-entered
+  notice/hearing prerequisites, an explicitly confirmed responsible
+  member, actual scoped receivable/income accounts, idempotency,
+  locked-period protections, reversals and immutable audit. If an
+  individual real-world fine lacks an applicable procedural record,
+  keep THAT action pending; do not manufacture broad HOA blockers.
+  Do not infer legally effective service from SMTP_ACCEPTED alone.
+  Add focused security/backend and dedicated browser tests. Only
+  synthetic CI posts, never real-world financial obligations.
+  After six jobs pass, update this file and immediately continue
+  another independent HOA batch. Phase 4.8 PAUSED.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 CASE CORRESPONDENCE EMAIL PROVISIONAL
 
 **READ ENTIRE ROOT HANDOFF.** Latest independent VERIFIED product source
