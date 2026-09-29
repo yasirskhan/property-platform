@@ -15,6 +15,8 @@ import init_db  # noqa: F401
 from app.core.database import Base
 from app.models.audit_log import AuditLog
 from app.models.charge import Charge
+from app.models.contact import Contact
+from app.models.hoa_violation_recipient import HOAViolationRecipientDraft
 from app.models.gl_transaction import GLTransaction
 from app.models.hoa_procedure_policy import HOAProcedurePolicy
 from app.models.hoa_violation_case import HOAViolationCase
@@ -26,7 +28,9 @@ from app.routers import hoa_associations as hoa
 from app.routers import hoa_observations as observations
 from app.routers import hoa_procedure_policies as policies
 from app.routers import hoa_violation_cases as cases
-from app.schemas.hoa_association import HOAAssociationIn
+from app.routers import hoa_violation_recipients as recipients
+from app.schemas.hoa_association import HOAAssociationIn, HOAContactLinkIn
+from app.schemas.hoa_violation_recipient import HOAViolationRecipientIn
 from app.schemas.hoa_observation import HOAObservationIn
 from app.schemas.hoa_procedure_policy import HOAProcedurePolicyIn
 from app.schemas.hoa_violation_case import HOAViolationCaseIn, HOAViolationAdvanceIn
@@ -539,3 +543,165 @@ def test_violation_timeline_scope_and_archive_preserve_private_history(monkeypat
         db.rollback()
         db.close()
         engine.dispose()
+
+
+def _recipient_candidate(db, *, actor, assoc, prop, name, email):
+    row = Contact(
+        organization_id=actor.organization_id, display_name=name,
+        email=email, contact_type="PERSON", is_active=True,
+    )
+    db.add(row); db.flush()
+    return hoa.add_contact_link(
+        assoc.id, HOAContactLinkIn(property_id=prop.id, contact_id=row.id),
+        db=db, current_user=actor,
+    ), row
+
+
+def test_violation_recipient_requires_matching_verified_login_and_never_sends():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, _, _), assoc, obs = _seed(db)
+        case = cases.create_case(
+            assoc.id, HOAViolationCaseIn(property_id=prop.id, observation_id=obs.id),
+            db=db, current_user=admin,
+        )
+        link, contact = _recipient_candidate(
+            db, actor=admin, assoc=assoc, prop=prop,
+            name="Potential member", email=tenant.email,
+        )
+        response = Response()
+        assert recipients.get_case_recipient(
+            assoc.id, case.id, response, property_id=prop.id,
+            db=db, current_user=manager,
+        ) is None
+        assert response.headers["cache-control"] == "no-store"
+        with pytest.raises(HTTPException) as unverified:
+            recipients.set_case_recipient(
+                assoc.id, case.id,
+                HOAViolationRecipientIn(property_id=prop.id, contact_link_id=link.id),
+                db=db, current_user=admin,
+            )
+        assert unverified.value.status_code == 409
+        tenant.is_verified = True
+        db.flush()
+        initial = _balances(db)
+        record = recipients.set_case_recipient(
+            assoc.id, case.id,
+            HOAViolationRecipientIn(property_id=prop.id, contact_link_id=link.id),
+            db=db, current_user=admin,
+        )
+        assert record.contact_name == "Potential member"
+        assert record.matched_user_id == tenant.id
+        assert record.member_liability_verified is False
+        assert record.notice_delivery_enabled is False
+        assert record.legal_recipient_certified is False
+        assert recipients.get_case_recipient(
+            assoc.id, case.id, Response(), property_id=prop.id,
+            db=db, current_user=manager,
+        ).matched_user_id == tenant.id
+        with pytest.raises(HTTPException) as replay:
+            recipients.set_case_recipient(
+                assoc.id, case.id,
+                HOAViolationRecipientIn(property_id=prop.id, contact_link_id=link.id),
+                db=db, current_user=owner,
+            )
+        assert replay.value.status_code == 409
+        # Mutated identity does not permit a stale reference to be used.
+        contact.email = owner.email
+        db.flush()
+        with pytest.raises(HTTPException) as stale:
+            recipients.get_case_recipient(
+                assoc.id, case.id, Response(), property_id=prop.id,
+                db=db, current_user=manager,
+            )
+        assert stale.value.status_code == 409
+        contact.email = tenant.email
+        db.flush()
+        recipients.clear_case_recipient(
+            assoc.id, case.id, property_id=prop.id,
+            db=db, current_user=owner,
+        )
+        assert recipients.get_case_recipient(
+            assoc.id, case.id, Response(), property_id=prop.id,
+            db=db, current_user=manager,
+        ) is None
+        revived = recipients.set_case_recipient(
+            assoc.id, case.id,
+            HOAViolationRecipientIn(property_id=prop.id, contact_link_id=link.id),
+            db=db, current_user=admin,
+        )
+        assert revived.id == record.id
+        assert db.query(HOAViolationRecipientDraft).count() == 1
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_violation_recipient_draft",
+        ).count() == 3
+        assert _balances(db) == initial
+        with pytest.raises(HTTPException) as notes:
+            _model_for_table("hoa_violation_recipient_drafts")
+        assert notes.value.status_code == 404
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_violation_recipient_scope_permissions_and_closed_cases(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, other, outside), assoc, obs = _seed(db)
+        tenant.is_verified = True
+        link, contact = _recipient_candidate(
+            db, actor=admin, assoc=assoc, prop=prop,
+            name="Scoped contact", email=tenant.email,
+        )
+        case = cases.create_case(
+            assoc.id, HOAViolationCaseIn(property_id=prop.id, observation_id=obs.id),
+            db=db, current_user=admin,
+        )
+        payload = HOAViolationRecipientIn(property_id=prop.id, contact_link_id=link.id)
+        for actor, prop_id in ((manager, prop.id), (tenant, prop.id),
+                                (foreign, prop.id), (owner, outside.id)):
+            with pytest.raises(HTTPException):
+                recipients.set_case_recipient(
+                    assoc.id, case.id,
+                    HOAViolationRecipientIn(property_id=prop_id, contact_link_id=link.id),
+                    db=db, current_user=actor,
+                )
+        with pytest.raises(HTTPException):
+            recipients.set_case_recipient(
+                assoc.id, case.id,
+                HOAViolationRecipientIn(property_id=other.id, contact_link_id=link.id),
+                db=db, current_user=owner,
+            )
+        monkeypatch.setattr(
+            recipients, "permission_allows_user", lambda *a, **kw: False,
+        )
+        with pytest.raises(HTTPException) as denied:
+            recipients.set_case_recipient(
+                assoc.id, case.id, payload, db=db, current_user=admin,
+            )
+        assert denied.value.status_code == 403
+        monkeypatch.setattr(recipients, "permission_allows_user", lambda *a, **kw: True)
+        recipients.set_case_recipient(
+            assoc.id, case.id, payload, db=db, current_user=admin,
+        )
+        for stage, extras in (
+            ("RESOLVED", dict(staff_resolution="Staff resolution")),
+            ("CLOSED", {}),
+        ):
+            cases.advance_case(
+                assoc.id, case.id, _advance(prop, stage, **extras),
+                db=db, current_user=admin,
+            )
+        with pytest.raises(HTTPException) as closed:
+            recipients.clear_case_recipient(
+                assoc.id, case.id, property_id=prop.id,
+                db=db, current_user=owner,
+            )
+        assert closed.value.status_code == 409
+        with pytest.raises(ValidationError):
+            HOAViolationRecipientIn(
+                property_id=prop.id, contact_link_id=link.id,
+                notice_sent=True,
+            )
+        assert _balances(db) == (0, 0, 0, 0)
+    finally:
+        db.rollback(); db.close(); engine.dispose()

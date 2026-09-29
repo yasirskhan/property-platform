@@ -212,6 +212,8 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 )
                 expect(association).to_be_visible()
 
+                _seed_case_recipient(association_name)
+
                 association.get_by_role("button", name="Procedure settings").click()
                 policy = association.get_by_role("heading", name="HOA staff procedure configuration").locator("..").locator("..")
                 expect(policy.get_by_text("Legal issuance remains disabled")).to_be_visible()
@@ -238,6 +240,13 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 cases.locator("select").last.select_option(index=1)
                 cases.get_by_role("button", name="Open internal case").click()
                 expect(cases.get_by_text(re.compile("Open staff review"))).to_be_visible()
+                cases.get_by_role("button", name="Potential recipient").click()
+                candidate = cases.get_by_role("heading", name=re.compile("Potential violation recipient")).locator("..").locator("..")
+                candidate.get_by_label("Potential recipient contact").select_option(label="E2E Verified Case Recipient")
+                candidate.get_by_role("button", name="Record potential recipient").click()
+                expect(candidate.get_by_text(re.compile("Notice delivery DISABLED"))).to_be_visible()
+                assert _financial_counts() == before
+                candidate.get_by_role("button", name="Close recipient").click()
                 cases.get_by_role("button", name="Advance internal case").click()
                 cases.get_by_label("Staff-planned date").fill("2026-09-02")
                 cases.get_by_role("button", name="Record staff stage").click()
@@ -329,6 +338,38 @@ def _seed_arc_applicant(association_name: str) -> None:
             property_id=PROPERTY_ID,
             contact_id=contact.id,
             is_active=True,
+        ))
+        db.commit()
+    finally:
+        db.close()
+
+
+def _seed_case_recipient(association_name: str) -> None:
+    """Disposable verified member login linked only to this association."""
+    if os.environ.get("E2E_SEED_ALLOWED", "").lower() != "true":
+        raise RuntimeError("Violation recipient test requires disposable E2E database")
+    db = SessionLocal()
+    try:
+        association = db.query(HOAAssociation).filter(
+            HOAAssociation.name == association_name,
+            HOAAssociation.is_active.is_(True),
+        ).one()
+        user = db.query(User).filter(
+            User.organization_id == association.organization_id,
+            User.email == EMAIL,
+        ).one()
+        user.is_verified = True
+        contact = Contact(
+            organization_id=association.organization_id,
+            display_name="E2E Verified Case Recipient",
+            email=user.email, contact_type="PERSON", is_active=True,
+        )
+        db.add(contact)
+        db.flush()
+        db.add(HOAContactLink(
+            organization_id=association.organization_id,
+            association_id=association.id, property_id=PROPERTY_ID,
+            contact_id=contact.id, is_active=True,
         ))
         db.commit()
     finally:

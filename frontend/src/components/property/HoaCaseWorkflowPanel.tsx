@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
+import HoaCaseRecipientPanel from "@/components/property/HoaCaseRecipientPanel";
 
 type Observation = { id: number; summary: string; observed_on: string };
 type HistoryEvent = {
@@ -52,6 +53,7 @@ export default function HoaCaseWorkflowPanel({
 }) {
   const [items, setItems] = useState<Case[]>([]);
   const [historyCase, setHistoryCase] = useState<number | null>(null);
+  const [recipientCase, setRecipientCase] = useState<number | null>(null);
   const [history, setHistory] = useState<HistoryEvent[]>([]);
   const [observations, setObservations] = useState<Observation[]>([]);
   const [selectedObservation, setSelectedObservation] = useState("");
@@ -183,6 +185,16 @@ export default function HoaCaseWorkflowPanel({
           </p>
           {row.proposed_fine && <p className="text-xs">Unassessed fine proposal: ${row.proposed_fine}</p>}
           {row.staff_resolution && <p className="text-xs">Staff resolution: {row.staff_resolution}</p>}
+          <button type="button" disabled={busy}
+            onClick={() => setRecipientCase((prior) => prior === row.id ? null : row.id)}
+            className="text-sm text-blue-700 disabled:opacity-50">
+            {recipientCase === row.id ? "Hide potential recipient" : "Potential recipient"}
+          </button>
+          {recipientCase === row.id && (
+            <HoaCaseRecipientPanel associationId={associationId} propertyId={propertyId}
+              caseId={row.id} canEdit={canEdit && row.stage !== "CLOSED"}
+              onClose={() => setRecipientCase(null)} />
+          )}
           <button type="button" disabled={busy}
             onClick={() => { void toggleHistory(row); }}
             className="text-sm text-blue-700 disabled:opacity-50">
