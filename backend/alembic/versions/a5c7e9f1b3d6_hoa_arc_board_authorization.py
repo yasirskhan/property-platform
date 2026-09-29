@@ -12,39 +12,45 @@ branch_labels = None
 depends_on = None
 
 
+def _add_scoped_fk(table: str, column: str, target: str, ondelete: str) -> None:
+    """Add a nullable reference without losing legacy SQLite constraints.
+
+    SQLite natively supports nullable REFERENCES in ALTER TABLE ADD COLUMN,
+    but Alembic's add_column extracts that FK into a separate ALTER CONSTRAINT
+    unsupported by SQLite. Do not rebuild tables: their historical UNIQUE
+    application keys must remain intact.
+    """
+    if op.get_bind().dialect.name == "sqlite":
+        op.execute(sa.text(
+            f'ALTER TABLE "{table}" ADD COLUMN "{column}" INTEGER '
+            f'REFERENCES "{target}"(id) ON DELETE {ondelete}'
+        ))
+    else:
+        op.add_column(table, sa.Column(
+            column, sa.Integer(), sa.ForeignKey(f"{target}.id", ondelete=ondelete),
+        ))
+
+
 def upgrade() -> None:
-    op.add_column("hoa_board_seats", sa.Column(
-        "authorized_user_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="RESTRICT"),
-    ))
+    _add_scoped_fk("hoa_board_seats", "authorized_user_id", "users", "RESTRICT")
     op.add_column("hoa_board_seats", sa.Column(
         "decision_authorized", sa.Boolean(), nullable=False, server_default=sa.text("false"),
     ))
     op.add_column("hoa_board_seats", sa.Column(
         "can_record_offline", sa.Boolean(), nullable=False, server_default=sa.text("false"),
     ))
-    op.add_column("hoa_board_seats", sa.Column(
-        "authorized_by_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="SET NULL"),
-    ))
+    _add_scoped_fk("hoa_board_seats", "authorized_by_id", "users", "SET NULL")
     op.add_column("hoa_board_seats", sa.Column("authorized_at", sa.DateTime()))
     op.create_index(
         "ix_hoa_board_seats_authorized_user_id", "hoa_board_seats", ["authorized_user_id"],
     )
-    op.add_column("hoa_arc_decisions", sa.Column(
-        "decision_maker_seat_id", sa.Integer(),
-        sa.ForeignKey("hoa_board_seats.id", ondelete="RESTRICT"),
-    ))
+    _add_scoped_fk("hoa_arc_decisions", "decision_maker_seat_id", "hoa_board_seats", "RESTRICT")
     op.add_column("hoa_arc_decisions", sa.Column("decided_on", sa.Date()))
     op.add_column("hoa_arc_decisions", sa.Column(
         "record_method", sa.String(16), nullable=False, server_default="DIRECT",
     ))
-    op.add_column("hoa_arc_decisions", sa.Column(
-        "supporting_attachment_id", sa.Integer(),
-        sa.ForeignKey("entity_attachments.id", ondelete="RESTRICT"),
-    ))
-    op.add_column("hoa_arc_member_charges", sa.Column(
-        "reversal_transaction_id", sa.Integer(),
-        sa.ForeignKey("gl_transactions.id", ondelete="RESTRICT"),
-    ))
+    _add_scoped_fk("hoa_arc_decisions", "supporting_attachment_id", "entity_attachments", "RESTRICT")
+    _add_scoped_fk("hoa_arc_member_charges", "reversal_transaction_id", "gl_transactions", "RESTRICT")
     op.create_index(
         "uq_hoa_arc_member_charge_reversal_gl", "hoa_arc_member_charges",
         ["reversal_transaction_id"], unique=True,
