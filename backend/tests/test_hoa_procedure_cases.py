@@ -16,6 +16,8 @@ from app.core.database import Base
 from app.models.audit_log import AuditLog
 from app.models.charge import Charge
 from app.models.contact import Contact
+from app.models.entity_attachment import EntityAttachment
+from app.models.hoa_violation_evidence import HOAViolationEvidence
 from app.models.hoa_violation_recipient import HOAViolationRecipientDraft
 from app.models.hoa_violation_correspondence import HOAViolationCorrespondenceDraft
 from app.models.gl_transaction import GLTransaction
@@ -31,9 +33,13 @@ from app.routers import hoa_procedure_policies as policies
 from app.routers import hoa_violation_cases as cases
 from app.routers import hoa_violation_recipients as recipients
 from app.routers import hoa_violation_correspondence as correspondence
+from app.routers import hoa_violation_evidence as case_evidence
+from app.routers import entity_attachments as attachments
 from app.schemas.hoa_association import HOAAssociationIn, HOAContactLinkIn
 from app.schemas.hoa_violation_recipient import HOAViolationRecipientIn
 from app.routers.hoa_violation_correspondence import CorrespondenceIn
+from app.routers.hoa_violation_evidence import EvidenceIn
+from app.schemas.entity_attachment import EntityAttachmentShareUpdate
 from app.schemas.hoa_observation import HOAObservationIn
 from app.schemas.hoa_procedure_policy import HOAProcedurePolicyIn
 from app.schemas.hoa_violation_case import HOAViolationCaseIn, HOAViolationAdvanceIn
@@ -922,5 +928,177 @@ def test_private_correspondence_rejects_bad_scope_and_absent_policy(monkeypatch)
                 CorrespondenceIn(**data)
         assert _balances(db) == (0, 0, 0, 0)
         assert db.query(HOAViolationCorrespondenceDraft).count() == 0
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def _private_case_file(db, org_id, prop_id, name, *, shared=False):
+    file = EntityAttachment(
+        organization_id=org_id, entity_type="properties",
+        entity_id=prop_id, storage_key="violation-" + name,
+        original_name=name,
+        content_type="image/png" if name.endswith(".png") else "application/pdf",
+        size_bytes=120, is_active=True,
+        share_with_tenants=shared, share_with_owners=False,
+    )
+    db.add(file); db.flush()
+    return file
+
+
+def test_private_violation_evidence_scope_duplicate_archive_and_finance(monkeypatch):
+    monkeypatch.setattr(case_evidence, "_require_attachment_feature", lambda *a, **kw: None)
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, other, outside), assoc, obs = _seed(db)
+        case = cases.create_case(
+            assoc.id, HOAViolationCaseIn(property_id=prop.id, observation_id=obs.id),
+            db=db, current_user=owner,
+        )
+        private = _private_case_file(db, admin.organization_id, prop.id, "evidence.png")
+        public = _private_case_file(db, admin.organization_id, prop.id, "public.pdf", shared=True)
+        wrong_property = _private_case_file(db, admin.organization_id, other.id, "other.pdf")
+        wrong_org = _private_case_file(db, foreign.organization_id, outside.id, "foreign.pdf")
+        initial = _balances(db)
+        before = db.query(AuditLog).filter(AuditLog.entity_type == "hoa_violation_evidence").count()
+        result = case_evidence.link_case_evidence(
+            assoc.id, case.id, EvidenceIn(
+                property_id=prop.id, attachment_id=private.id, evidence_type="PHOTO",
+            ), db=db, current_user=admin,
+        )
+        assert result.filename == "evidence.png"
+        assert result.private_only is True
+        assert result.legal_notice_served is result.legal_violation_proven is False
+        response = Response()
+        assert [x.attachment_id for x in case_evidence.list_case_evidence(
+            assoc.id, case.id, response, property_id=prop.id,
+            db=db, current_user=manager,
+        )] == [private.id]
+        assert response.headers["cache-control"] == "no-store"
+        for other_file in (public, wrong_property, wrong_org):
+            with pytest.raises(HTTPException) as invalid:
+                case_evidence.link_case_evidence(
+                    assoc.id, case.id, EvidenceIn(
+                        property_id=prop.id, attachment_id=other_file.id,
+                        evidence_type="DOCUMENT",
+                    ), db=db, current_user=owner,
+                )
+            assert invalid.value.status_code == 404
+        with pytest.raises(HTTPException) as replay:
+            case_evidence.link_case_evidence(
+                assoc.id, case.id, EvidenceIn(
+                    property_id=prop.id, attachment_id=private.id,
+                    evidence_type="PHOTO",
+                ), db=db, current_user=admin,
+            )
+        assert replay.value.status_code == 409
+        monkeypatch.setattr(attachments, "resolve_customer_features", lambda *a, **kw: [
+            SimpleNamespace(key=attachments.ATTACHMENTS_FEATURE_KEY, allowed=True),
+        ])
+        notes = __import__("app.services.entity_notes", fromlist=["permission_allows_user"])
+        monkeypatch.setattr(notes, "permission_allows_user", lambda *a, **kw: True)
+        with pytest.raises(HTTPException) as share:
+            attachments.update_entity_attachment_sharing(
+                private.id, EntityAttachmentShareUpdate(share_with_owners=True),
+                db=db, current_user=admin,
+            )
+        assert share.value.status_code == 403
+        case_evidence.archive_case_evidence(
+            assoc.id, case.id, result.id, property_id=prop.id,
+            db=db, current_user=owner,
+        )
+        assert case_evidence.list_case_evidence(
+            assoc.id, case.id, Response(), property_id=prop.id,
+            db=db, current_user=manager,
+        ) == []
+        with pytest.raises(HTTPException) as duplicate_after_archive:
+            case_evidence.link_case_evidence(
+                assoc.id, case.id, EvidenceIn(
+                    property_id=prop.id, attachment_id=private.id,
+                    evidence_type="PHOTO",
+                ), db=db, current_user=admin,
+            )
+        assert duplicate_after_archive.value.status_code == 409
+        assert db.query(HOAViolationEvidence).count() == 1
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_violation_evidence",
+        ).count() == before + 2
+        assert _balances(db) == initial
+        with pytest.raises(HTTPException) as forbidden:
+            _model_for_table("hoa_violation_evidence")
+        assert forbidden.value.status_code == 404
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_private_violation_evidence_role_isolation_revocation_and_closed_case(monkeypatch):
+    monkeypatch.setattr(case_evidence, "_require_attachment_feature", lambda *a, **kw: None)
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, other, outside), assoc, obs = _seed(db)
+        case = cases.create_case(
+            assoc.id, HOAViolationCaseIn(property_id=prop.id, observation_id=obs.id),
+            db=db, current_user=owner,
+        )
+        private = _private_case_file(db, admin.organization_id, prop.id, "record.pdf")
+        for actor, prop_id in (
+            (manager, prop.id), (tenant, prop.id),
+            (foreign, prop.id), (owner, other.id), (owner, outside.id),
+        ):
+            with pytest.raises(HTTPException):
+                case_evidence.link_case_evidence(
+                    assoc.id, case.id, EvidenceIn(
+                        property_id=prop_id,
+                        attachment_id=private.id, evidence_type="DOCUMENT",
+                    ), db=db, current_user=actor,
+                )
+        with pytest.raises(HTTPException):
+            case_evidence.list_case_evidence(
+                assoc.id, case.id, Response(), property_id=outside.id,
+                db=db, current_user=foreign,
+            )
+        monkeypatch.setattr(
+            case_evidence, "_require_attachment_feature",
+            lambda *a, **kw: (_ for _ in ()).throw(
+                HTTPException(status_code=404, detail="No attachment entitlement.")
+            ),
+        )
+        with pytest.raises(HTTPException) as gate:
+            case_evidence.link_case_evidence(
+                assoc.id, case.id, EvidenceIn(
+                    property_id=prop.id, attachment_id=private.id, evidence_type="DOCUMENT",
+                ), db=db, current_user=admin,
+            )
+        assert gate.value.status_code == 404
+        monkeypatch.setattr(case_evidence, "_require_attachment_feature", lambda *a, **kw: None)
+        created = case_evidence.link_case_evidence(
+            assoc.id, case.id, EvidenceIn(
+                property_id=prop.id, attachment_id=private.id, evidence_type="DOCUMENT",
+            ), db=db, current_user=admin,
+        )
+        cases.advance_case(
+            assoc.id, case.id,
+            _advance(prop, "RESOLVED", staff_resolution="Case resolved"),
+            db=db, current_user=admin,
+        )
+        cases.advance_case(
+            assoc.id, case.id, _advance(prop, "CLOSED"),
+            db=db, current_user=owner,
+        )
+        with pytest.raises(HTTPException) as closed:
+            case_evidence.archive_case_evidence(
+                assoc.id, case.id, created.id, property_id=prop.id,
+                db=db, current_user=owner,
+            )
+        assert closed.value.status_code == 409
+        assert [x.attachment_id for x in case_evidence.list_case_evidence(
+            assoc.id, case.id, Response(), property_id=prop.id,
+            db=db, current_user=manager,
+        )] == [private.id]
+        with pytest.raises(ValidationError):
+            EvidenceIn(
+                property_id=prop.id, attachment_id=private.id,
+                evidence_type="DOCUMENT", share_with_tenants=True,
+            )
+        assert _balances(db) == (0, 0, 0, 0)
     finally:
         db.rollback(); db.close(); engine.dispose()

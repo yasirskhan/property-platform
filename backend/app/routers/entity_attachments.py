@@ -94,6 +94,14 @@ def _governing_evidence_scope(db: Session, row: EntityAttachment, actor: User, *
     for application in arc_links:
         _scope(db, actor=actor, association_id=application.association_id,
                property_id=application.property_id, write=write)
+    from app.models.hoa_violation_evidence import HOAViolationEvidence
+    case_links = db.query(HOAViolationEvidence).filter(
+        HOAViolationEvidence.attachment_id == row.id,
+        HOAViolationEvidence.is_active.is_(True),
+    ).all()
+    for link in case_links:
+        _scope(db, actor=actor, association_id=link.association_id,
+               property_id=link.property_id, write=write)
 
 
 def _attachment_for_user(db: Session, *, attachment_id: int, current_user: User) -> EntityAttachment:
@@ -161,7 +169,12 @@ def update_entity_attachment_sharing(
         HOAARCApplicationAttachment.is_active.is_(True),
         HOAARCApplication.is_active.is_(True),
     ).first()
-    if (linked is not None or arc_linked is not None) and (
+    from app.models.hoa_violation_evidence import HOAViolationEvidence
+    case_linked = db.query(HOAViolationEvidence.id).filter(
+        HOAViolationEvidence.attachment_id == row.id,
+        HOAViolationEvidence.is_active.is_(True),
+    ).first()
+    if (linked is not None or arc_linked is not None or case_linked is not None) and (
         payload.share_with_tenants is True or payload.share_with_owners is True
     ):
         raise HTTPException(status_code=403, detail="Indexed HOA private documents cannot be shared.")

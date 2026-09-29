@@ -22,6 +22,7 @@ from app.models.charge import Charge
 from app.models.gl_transaction import GLTransaction
 from app.models.gl_account import GLAccount
 from app.models.contact import Contact
+from app.models.entity_attachment import EntityAttachment
 from app.models.hoa_association import HOAAssociation, HOAContactLink
 from app.models.hoa_board import HOABoardSeat
 from app.models.release_gate import ReleaseGate, ReleaseStage
@@ -240,6 +241,13 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 cases.locator("select").last.select_option(index=1)
                 cases.get_by_role("button", name="Open internal case").click()
                 expect(cases.get_by_text(re.compile("Open staff review"))).to_be_visible()
+                cases.get_by_role("button", name="Private case evidence").click()
+                evidence = cases.get_by_role("heading", name=re.compile("Private violation evidence")).locator("..").locator("..")
+                evidence.get_by_label("Private property evidence file").select_option(label="e2e-private-case-photo.png")
+                evidence.get_by_role("button", name="Link private case evidence").click()
+                expect(evidence.get_by_text(re.compile("PHOTO.*e2e-private-case-photo"))).to_be_visible()
+                assert _financial_counts() == before
+                evidence.get_by_role("button", name="Close evidence").click()
                 cases.get_by_role("button", name="Potential recipient").click()
                 candidate = cases.get_by_role("heading", name=re.compile("Potential violation recipient")).locator("..").locator("..")
                 candidate.get_by_label("Potential recipient contact").select_option(label="E2E Verified Case Recipient")
@@ -378,6 +386,15 @@ def _seed_case_recipient(association_name: str) -> None:
             organization_id=association.organization_id,
             association_id=association.id, property_id=PROPERTY_ID,
             contact_id=contact.id, is_active=True,
+        ))
+        db.add(EntityAttachment(
+            organization_id=association.organization_id,
+            entity_type="properties", entity_id=PROPERTY_ID,
+            storage_key=f"case-evidence-{association.id}.png",
+            original_name="e2e-private-case-photo.png",
+            content_type="image/png", size_bytes=100,
+            is_active=True, share_with_tenants=False,
+            share_with_owners=False,
         ))
         db.commit()
     finally:

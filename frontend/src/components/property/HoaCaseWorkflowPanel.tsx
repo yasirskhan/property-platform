@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
 import HoaCaseRecipientPanel from "@/components/property/HoaCaseRecipientPanel";
 import HoaCaseCorrespondencePanel from "@/components/property/HoaCaseCorrespondencePanel";
+import HoaCaseEvidencePanel from "@/components/property/HoaCaseEvidencePanel";
 
 type Observation = { id: number; summary: string; observed_on: string };
 type HistoryEvent = {
@@ -56,6 +57,7 @@ export default function HoaCaseWorkflowPanel({
   const [historyCase, setHistoryCase] = useState<number | null>(null);
   const [recipientCase, setRecipientCase] = useState<number | null>(null);
   const [correspondenceCase, setCorrespondenceCase] = useState<number | null>(null);
+  const [evidenceCase, setEvidenceCase] = useState<number | null>(null);
   const [history, setHistory] = useState<HistoryEvent[]>([]);
   const [observations, setObservations] = useState<Observation[]>([]);
   const [selectedObservation, setSelectedObservation] = useState("");
@@ -196,6 +198,16 @@ export default function HoaCaseWorkflowPanel({
             <HoaCaseRecipientPanel associationId={associationId} propertyId={propertyId}
               caseId={row.id} canEdit={canEdit && row.stage !== "CLOSED"}
               onClose={() => setRecipientCase(null)} />
+          )}
+          <button type="button" disabled={busy}
+            onClick={() => setEvidenceCase((prior) => prior === row.id ? null : row.id)}
+            className="text-sm text-blue-700 disabled:opacity-50">
+            {evidenceCase === row.id ? "Hide private evidence" : "Private case evidence"}
+          </button>
+          {evidenceCase === row.id && (
+            <HoaCaseEvidencePanel associationId={associationId} propertyId={propertyId}
+              caseId={row.id} canEdit={canEdit && row.stage !== "CLOSED"}
+              onClose={() => setEvidenceCase(null)} />
           )}
           <button type="button" disabled={busy}
             onClick={() => setCorrespondenceCase((prior) => prior === row.id ? null : row.id)}
