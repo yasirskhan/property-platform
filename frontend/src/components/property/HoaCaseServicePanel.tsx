@@ -56,7 +56,7 @@ export default function HoaCaseServicePanel({
     const latest = drafts[drafts.length - 1];
     if (!canEdit || busy || !latest || !proofId || !servedOn) return;
     if (!window.confirm(
-      "Record the association's actual service with private proof? " +
+      "Record the association&apos;s actual service with private proof? " +
       "This is not an automatic legal certification or a fine posting."
     )) return;
     if (!requestKey.current) requestKey.current = window.crypto.randomUUID();
@@ -88,9 +88,9 @@ export default function HoaCaseServicePanel({
       <h4 className="font-semibold">Association notice-service record</h4>
       <button type="button" onClick={onClose} className="text-blue-700">Close service record</button>
     </div>
-    <p>This records the association's statement of actual delivery with private
+    <p>This records the association&apos;s statement of actual delivery with private
       supporting evidence, not an assumption based on SMTP acceptance.
-      Service validity and jurisdiction-specific procedures remain the association's responsibility.
+      Service validity and jurisdiction-specific procedures remain the association&apos;s responsibility.
       This screen never assesses a fine or changes the general ledger.</p>
     {error && <p role="alert" className="text-red-700">{error}</p>}
     {message && <p role="status" className="text-green-800">{message}</p>}
