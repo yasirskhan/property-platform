@@ -18,6 +18,14 @@ from app.models.contact import Contact
 from app.models.gl_account import GLAccount
 from app.models.gl_entry import GLEntry
 from app.models.gl_transaction import GLTransaction
+from app.models.hoa_member_assessment_payment import HOAMemberAssessmentPayment
+from app.models.receipt import Receipt
+from app.models.receipt_line import ReceiptLine
+from app.routers import hoa_member_payments as payments_api
+from app.schemas.hoa_member_payment import HOAMemberPaymentIn, HOAMemberPaymentReverseIn
+from app.schemas.receipt import ReceiptCreateIn
+from app.services.receipt_posting import reverse_receipt, process_nsf_receipt
+from app.services.gl_posting import PostingError
 from app.models.hoa_member_assessment import HOAAssessmentDecision, HOAMemberAssessmentCharge
 from app.models.lease import RentInvoice
 from app.models.property import Property, PropertyAssignment
@@ -396,5 +404,275 @@ def test_board_denial_offline_evidence_and_input_constraints():
             )
         assert denied.value.status_code == 409
         assert db.query(GLTransaction).count() == 0
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def _member_payment(prop, member, cash, *, key="hoa-member-receipt-0001",
+                    amount="40.00", reference="CHECK-1001", **changes):
+    values = dict(
+        property_id=prop.id, member_user_id=member.id,
+        cash_gl_account_id=cash.id, received_on=date.today(),
+        amount=amount, payment_reference=reference,
+        idempotency_key=key,
+    )
+    values.update(changes)
+    return HOAMemberPaymentIn(**values)
+
+
+def _payment_reverse(prop, **changes):
+    values = dict(
+        property_id=prop.id, reversal_on=date.today(),
+        reason="Correct the offline member receipt",
+    )
+    values.update(changes)
+    return HOAMemberPaymentReverseIn(**values)
+
+
+def test_actual_offline_hoa_member_receipt_partial_full_and_atomic_reversal():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, member, foreign), (prop, other, outside), assoc, plan, payer, seat, period, ar, income = _seed(db)
+        member_api.record_assessment_decision(
+            assoc.id, plan.id, _decision(prop, payer, member),
+            db=db, current_user=admin,
+        )
+        charge = member_api.issue_assessment(
+            assoc.id, plan.id, period.id, _issue(prop, member, ar, income),
+            db=db, current_user=owner,
+        )
+        cash = GLAccount(
+            organization_id=admin.organization_id, gl_number="HOA-CASH",
+            name="Received HOA cash", account_type="ASSET",
+            include_on_cash_flow=True, is_active=True,
+        )
+        db.add(cash); db.commit()
+        response = Response()
+        options = payments_api.receipt_cash_options(
+            assoc.id, plan.id, charge.id, response, property_id=prop.id,
+            db=db, current_user=owner,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert [x.id for x in options] == [cash.id]
+        initial_gl = db.query(GLTransaction).count()
+        first = payments_api.record_assessment_payment(
+            assoc.id, plan.id, charge.id,
+            _member_payment(prop, member, cash),
+            db=db, current_user=owner,
+        )
+        assert first.amount == Decimal("40.00") and first.status == "POSTED"
+        assert first.manually_recorded and not first.bank_collection_executed
+        assert db.get(HOAMemberAssessmentCharge, charge.id).amount_paid == Decimal("40.00")
+        assert db.get(HOAMemberAssessmentCharge, charge.id).status == "OPEN"
+        original = db.get(Receipt, first.receipt_id)
+        assert original.type == "HOA_MEMBER"
+        assert original.owner_id is None and original.tenant_user_id is None
+        assert original.property_id == prop.id
+        assert original.reference_number == "CHECK-1001"
+        assert original.income_gl_account_id is None
+        assert db.query(ReceiptLine).filter(ReceiptLine.receipt_id == original.id).count() == 1
+        payment_gl = db.get(GLTransaction, original.gl_transaction_id)
+        assert payment_gl.source_type == "receipt" and payment_gl.source_id == original.id
+        entry_rows = db.query(GLEntry).filter(GLEntry.transaction_id == payment_gl.id).all()
+        assert {e.gl_account_id for e in entry_rows} == {cash.id, ar.id}
+        assert any(e.gl_account_id == cash.id and e.debit == Decimal("40.00") for e in entry_rows)
+        assert any(e.gl_account_id == ar.id and e.credit == Decimal("40.00") for e in entry_rows)
+        repeated = payments_api.record_assessment_payment(
+            assoc.id, plan.id, charge.id,
+            _member_payment(prop, member, cash),
+            db=db, current_user=admin,
+        )
+        assert repeated.id == first.id and db.query(GLTransaction).count() == initial_gl + 1
+        with pytest.raises(HTTPException) as key_conflict:
+            payments_api.record_assessment_payment(
+                assoc.id, plan.id, charge.id,
+                _member_payment(prop, member, cash, reference="DIFFERENT"),
+                db=db, current_user=admin,
+            )
+        assert key_conflict.value.status_code == 409
+        with pytest.raises(HTTPException) as too_large:
+            payments_api.record_assessment_payment(
+                assoc.id, plan.id, charge.id,
+                _member_payment(prop, member, cash, key="hoa-member-receipt-oversize",
+                                amount="125.50"),
+                db=db, current_user=admin,
+            )
+        assert too_large.value.status_code == 409
+        with pytest.raises(PostingError):
+            reverse_receipt(
+                db, original=original, reversal_date=date.today(),
+                memo="Generic cross-route bypass", created_by=admin,
+            )
+        with pytest.raises(PostingError):
+            process_nsf_receipt(
+                db, original=original, process_date=date.today(),
+                memo="Generic NSF bypass", created_by=admin,
+            )
+        second = payments_api.record_assessment_payment(
+            assoc.id, plan.id, charge.id,
+            _member_payment(prop, member, cash, key="hoa-member-receipt-0002",
+                            amount="85.50", reference="CHECK-1002"),
+            db=db, current_user=admin,
+        )
+        assert second.status == "POSTED"
+        assert db.get(HOAMemberAssessmentCharge, charge.id).amount_paid == Decimal("125.50")
+        assert db.get(HOAMemberAssessmentCharge, charge.id).status == "PAID"
+        with pytest.raises(HTTPException) as protected:
+            member_api.reverse_assessment(
+                assoc.id, plan.id, charge.id,
+                HOAChargeReverseIn(
+                    property_id=prop.id, reversal_on=date.today(),
+                    reason="Cannot undo receivable with paid receipts",
+                ), db=db, current_user=admin,
+            )
+        assert protected.value.status_code == 409
+        reversed_second = payments_api.reverse_assessment_payment(
+            assoc.id, plan.id, charge.id, second.id,
+            _payment_reverse(prop), db=db, current_user=owner,
+        )
+        assert reversed_second.status == "REVERSED"
+        assert reversed_second.reversal_receipt_id != second.receipt_id
+        assert db.get(HOAMemberAssessmentCharge, charge.id).status == "OPEN"
+        assert db.get(HOAMemberAssessmentCharge, charge.id).amount_paid == Decimal("40.00")
+        assert db.get(Receipt, second.receipt_id).is_reversed is True
+        assert db.get(GLTransaction, db.get(Receipt, second.receipt_id).gl_transaction_id).is_reversed
+        with pytest.raises(HTTPException) as replay:
+            payments_api.reverse_assessment_payment(
+                assoc.id, plan.id, charge.id, second.id,
+                _payment_reverse(prop), db=db, current_user=admin,
+            )
+        assert replay.value.status_code == 409
+        reversed_first = payments_api.reverse_assessment_payment(
+            assoc.id, plan.id, charge.id, first.id,
+            _payment_reverse(prop), db=db, current_user=admin,
+        )
+        assert reversed_first.status == "REVERSED"
+        assert db.get(HOAMemberAssessmentCharge, charge.id).amount_paid == Decimal("0.00")
+        assert db.query(GLTransaction).count() == initial_gl + 4
+        assert db.query(Receipt).count() == 4
+        assert db.query(HOAMemberAssessmentPayment).count() == 2
+        assert db.query(Charge).count() == db.query(RentInvoice).count() == 0
+        response = Response()
+        history = payments_api.list_assessment_payments(
+            assoc.id, plan.id, charge.id, response, property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert len(history) == 2 and all(p.status == "REVERSED" for p in history)
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_member_assessment_payment",
+        ).count() == 4
+        with pytest.raises(HTTPException):
+            _model_for_table("hoa_member_assessment_payments")
+        with pytest.raises(ValidationError):
+            ReceiptCreateIn(
+                type="HOA_MEMBER", receipt_date=date.today(),
+                amount=1, cash_gl_account_id=cash.id,
+            )
+        member_api.reverse_assessment(
+            assoc.id, plan.id, charge.id,
+            HOAChargeReverseIn(
+                property_id=prop.id, reversal_on=date.today(),
+                reason="Approved correction after payment reversal",
+            ), db=db, current_user=admin,
+        )
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_hoa_member_receipt_scopes_member_identity_cash_and_locked_period(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, member, foreign), (prop, other, outside), assoc, plan, payer, seat, period, ar, income = _seed(db)
+        member_api.record_assessment_decision(
+            assoc.id, plan.id, _decision(prop, payer, member),
+            db=db, current_user=admin,
+        )
+        charge = member_api.issue_assessment(
+            assoc.id, plan.id, period.id, _issue(prop, member, ar, income),
+            db=db, current_user=owner,
+        )
+        cash = GLAccount(
+            organization_id=admin.organization_id, gl_number="HOA-CASH-2",
+            name="Recorded cash", account_type="ASSET",
+            include_on_cash_flow=True, is_active=True,
+        )
+        db.add(cash); db.commit()
+        payload = _member_payment(prop, member, cash)
+        for actor in (manager, member, foreign):
+            with pytest.raises(HTTPException):
+                payments_api.record_assessment_payment(
+                    assoc.id, plan.id, charge.id, payload,
+                    db=db, current_user=actor,
+                )
+        with pytest.raises(HTTPException):
+            payments_api.record_assessment_payment(
+                assoc.id, plan.id, charge.id, _member_payment(other, member, cash),
+                db=db, current_user=admin,
+            )
+        with pytest.raises(HTTPException):
+            payments_api.record_assessment_payment(
+                assoc.id, plan.id, charge.id,
+                _member_payment(prop, foreign, cash),
+                db=db, current_user=admin,
+            )
+        with pytest.raises(HTTPException):
+            payments_api.record_assessment_payment(
+                assoc.id, plan.id, charge.id,
+                _member_payment(prop, member, ar),
+                db=db, current_user=admin,
+            )
+        with pytest.raises(HTTPException):
+            payments_api.record_assessment_payment(
+                assoc.id, plan.id, charge.id,
+                _member_payment(prop, member, cash, received_on=date(2030, 1, 1)),
+                db=db, current_user=admin,
+            )
+        member.is_verified = False; db.flush()
+        with pytest.raises(HTTPException):
+            payments_api.record_assessment_payment(
+                assoc.id, plan.id, charge.id, payload,
+                db=db, current_user=admin,
+            )
+        member.is_verified = True; db.flush()
+        from app.models.user import Organization
+        org = db.get(Organization, admin.organization_id)
+        org.locked_through_date = date.today()
+        db.flush()
+        with pytest.raises(HTTPException) as locked:
+            payments_api.record_assessment_payment(
+                assoc.id, plan.id, charge.id, payload,
+                db=db, current_user=admin,
+            )
+        assert locked.value.status_code == 409
+        assert db.query(Receipt).count() == 0
+        assert db.query(GLTransaction).count() == 1
+        org.locked_through_date = None
+        db.flush()
+        receipt = payments_api.record_assessment_payment(
+            assoc.id, plan.id, charge.id, payload,
+            db=db, current_user=admin,
+        )
+        assert receipt.status == "POSTED"
+        org.locked_through_date = date.today()
+        db.flush()
+        with pytest.raises(HTTPException) as closed:
+            payments_api.reverse_assessment_payment(
+                assoc.id, plan.id, charge.id, receipt.id,
+                _payment_reverse(prop), db=db, current_user=admin,
+            )
+        assert closed.value.status_code == 409
+        assert db.get(HOAMemberAssessmentPayment, receipt.id).status == "POSTED"
+        org.locked_through_date = None
+        db.flush()
+        db.query(HOAMemberAssessmentPayment).filter(
+            HOAMemberAssessmentPayment.id == receipt.id,
+        ).one()
+        monkeypatch.setattr(hoa, "permission_allows_user", lambda *a, **kw: False)
+        with pytest.raises(HTTPException):
+            payments_api.list_assessment_payments(
+                assoc.id, plan.id, charge.id, Response(), property_id=prop.id,
+                db=db, current_user=admin,
+            )
     finally:
         db.rollback(); db.close(); engine.dispose()

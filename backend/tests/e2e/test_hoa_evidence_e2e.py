@@ -763,6 +763,11 @@ def _seed_operational_hoa_assessment(association_name: str) -> None:
                 gl_number="E2E-HOA-INCOME", name="Synthetic HOA income",
                 account_type="INCOME", is_active=True,
             ),
+            GLAccount(
+                organization_id=org_association.organization_id,
+                gl_number="E2E-HOA-CASH", name="Synthetic HOA received cash",
+                account_type="ASSET", include_on_cash_flow=True, is_active=True,
+            ),
         ])
         db.commit()
     finally:
@@ -839,6 +844,28 @@ def test_hoa_operational_member_assessment_browser_posts_and_reverses() -> None:
                 expect(member_ledger.get_by_text(re.compile("Approved member receivable posted"))).to_be_visible()
                 after_issue = _financial_counts()
                 assert after_issue == (before[0], before[1] + 1)
+                # Synthetic offline receipt is real central-GL accounting
+                # only inside the disposable E2E database.
+                member_ledger.get_by_label("HOA payment cash GL").select_option(
+                    label="E2E-HOA-CASH · Synthetic HOA received cash",
+                )
+                member_ledger.get_by_label("HOA received amount").fill("75.00")
+                member_ledger.get_by_label("HOA received on").fill(date.today().isoformat())
+                member_ledger.get_by_label("HOA payment reference").fill("E2E-CHECK-100")
+                page.once("dialog", lambda dialog: dialog.accept())
+                member_ledger.get_by_role("button", name="Record received HOA payment").click()
+                expect(member_ledger.get_by_text(re.compile("No bank collection was initiated"))).to_be_visible()
+                expect(member_ledger.get_by_text(re.compile("PAID"))).to_be_visible()
+                assert _financial_counts() == (before[0], before[1] + 2)
+                expect(member_ledger.get_by_role(
+                    "button", name="Reverse member assessment via GL",
+                )).to_have_count(0)
+                member_ledger.get_by_label("HOA receipt reversal date").fill(date.today().isoformat())
+                member_ledger.get_by_label("HOA receipt reversal reason").fill("Synthetic cheque correction")
+                page.once("dialog", lambda dialog: dialog.accept())
+                member_ledger.get_by_role("button", name="Reverse HOA payment").click()
+                expect(member_ledger.get_by_text(re.compile("receipt reversed in the central GL"))).to_be_visible()
+                assert _financial_counts() == (before[0], before[1] + 3)
                 member_ledger.get_by_label("Reversal date").fill(date.today().isoformat())
                 member_ledger.get_by_label("Reversal reason").fill("Synthetic board amendment")
                 page.once("dialog", lambda dialog: dialog.accept())
@@ -846,11 +873,11 @@ def test_hoa_operational_member_assessment_browser_posts_and_reverses() -> None:
                 expect(member_ledger.get_by_text(re.compile("Member assessment reversed"))).to_be_visible()
                 expect(member_ledger.get_by_text(re.compile("REVERSED"))).to_be_visible()
                 after_reversal = _financial_counts()
-                assert after_reversal == (before[0], before[1] + 2)
+                assert after_reversal == (before[0], before[1] + 4)
             finally:
                 browser.close()
         # Posted E2E data is synthetic and remains in this disposable test DB only.
-        assert _financial_counts() == (before[0], before[1] + 2)
+        assert _financial_counts() == (before[0], before[1] + 4)
 
 
 def test_hoa_unissued_dues_history_browser_replay_and_void() -> None:

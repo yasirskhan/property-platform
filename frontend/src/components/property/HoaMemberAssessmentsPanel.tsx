@@ -1,13 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
+import HoaMemberPaymentsPanel from "@/components/property/HoaMemberPaymentsPanel";
 
 type Board = { id: number; decision: "APPROVED"|"DENIED"; member_user_id: number|null; approved_amount: string|null; decided_on: string };
 type Who = { contact_link_id: number; contact_name: string };
 type Member = { id: number; email: string; first_name: string; last_name: string; is_verified: boolean; is_active: boolean };
 type Account = { id: number; number: string; name: string; account_type: "ASSET"|"INCOME" };
 type Period = { id: number; proposed_on: string; proposed_amount: string; status: string };
-type Charge = { id: number; occurrence_id: number; member_user_id: number; amount: string; amount_paid: string; due_on: string; status: "OPEN"|"REVERSED"; gl_transaction_id: number; reversal_transaction_id: number|null };
+type Charge = { id: number; occurrence_id: number; member_user_id: number; amount: string; amount_paid: string; due_on: string; status: "OPEN"|"PAID"|"REVERSED"; gl_transaction_id: number; reversal_transaction_id: number|null };
 
 export default function HoaMemberAssessmentsPanel({ associationId, propertyId, proposalId, proposalAmount, canEdit }:
   {associationId:number;propertyId:number;proposalId:number;proposalAmount:string;canEdit:boolean}) {
@@ -160,6 +161,11 @@ export default function HoaMemberAssessmentsPanel({ associationId, propertyId, p
           <button type="button" disabled={busy||!reverseOn||!reason.trim()} onClick={()=>reverse(c)}
             className="text-red-700 disabled:opacity-50">Reverse member assessment via GL</button>
         </div>}
+        {c.status!=="REVERSED"&&<HoaMemberPaymentsPanel
+          associationId={associationId} propertyId={propertyId}
+          proposalId={proposalId} chargeId={c.id} memberId={c.member_user_id}
+          amount={c.amount} amountPaid={c.amount_paid} status={c.status}
+          canEdit={canEdit} onChange={()=>{void reload();}} />}
       </div>)}
     </div>
   </section>;

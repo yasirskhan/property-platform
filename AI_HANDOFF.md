@@ -1,3 +1,66 @@
+# AI_HANDOFF.md — 2026-09-29 CURRENT SESSION: MEMBER PAYMENT PROVISIONAL
+
+**READ ENTIRE FILE.** This entry supersedes historical NEXT/PREPARED entries
+below; earlier product verification remains correct and unchanged.
+
+- Repository `yasirskhan/property-platform`; ONLY working branch
+  `chatgpt/checkpoint-005-safety`. Never modify main/frozen docs,
+  force push, merge or advance Phase 4.8.
+- Last VERIFIED product SOURCE `951d144aa06283f14b8f4f65b8e951d5706a7ee4`.
+  GitHub Actions **36527708582 SUCCESS ALL SIX JOBS** on that SHA:
+  backend **785 passed, 13 deselected, 19090 warnings in 140.43s**,
+  dedicated/authenticated browser **13 passed, 177 warnings in 51.99s**;
+  frontend lint/TypeScript/build, platform admin, security, staging PASS.
+  **TESTS NOT RUN locally.** Alembic **b2d4f6a8c0e3, 164 model tables**.
+  Board-authorized reserve GL BOOK transfer/reversal is VERIFIED.
+  No bank API transfer or certified statutory reserve restriction.
+- Previously VERIFIED approved member assessments `cee88200`,
+  CI 36527051274, 783 backend/12 browser, migration
+  `a1c3e5f7b9d2`, 163 tables. Member payment allocation is the
+  next real operational Phase 4.7 A dependency.
+- Latest working batch is newly **PREPARED ONLY**, NOT COMMITTED,
+  NOT TESTED, NOT VERIFIED: actual offline-recorded HOA member receipts
+  linked to existing central Receipt + ReceiptLine and two-line balanced
+  GL cash debit/member-receivable credit. Explicit verified member,
+  scoped accountant permissions, live HOA entitlement, idempotency,
+  partial/full allocations, overpayment and locked-period denial,
+  receipt-specific reversals and immutable audit. No payment processor
+  capture or bank transfer; staff must record only funds actually
+  received. Generic receipt NSF/reverse route is blocked for HOA type
+  so it cannot bypass the member allocation rollback. One migration
+  `c3e5a7b9d1f4` follows verified b2 and is EXPECTED to make 165
+  tables, but live VERIFIED head/table count stays b2/164 until
+  its own six jobs pass.
+
+**Prepared source blob pointers (uncommitted Git objects):**
+- `backend/app/models/hoa_member_assessment_payment.py`: `d3aa7e08c116718631e69a840eb06c849fc01daf`
+- `backend/alembic/versions/c3e5a7b9d1f4_hoa_member_assessment_payments.py`: `e0b08998920bc9a939e77a4bca467d5e8371cc56`
+- `backend/app/schemas/hoa_member_payment.py`: `374d77b27f8ad7aba2ba949cab02b906057c31c9`
+- `backend/app/routers/hoa_member_payments.py`: `270958677a7a996c2e10e292e244279b195a13dc`
+- `backend/app/main.py`: `b7e440d0ecb4f0e5890511d4a38caeae51fe8ca6`
+- `backend/init_db.py`: `4529297f0a1d02d52ebfaf94f33083627c2b43db`
+- `backend/app/services/entity_notes.py`: `afc3b0f0bd2f9288a878d11f322512b0acb2e1e5`
+- `backend/app/services/receipt_posting.py`: `0549a2a1c2f96b8d067b77c2d56333bd96099075`
+- `backend/app/schemas/hoa_member_assessment.py`: `6c96a8125f77ff18e9bad25acc026d78576555a1`
+- `frontend/src/components/property/HoaMemberPaymentsPanel.tsx`: `4c8bcde2c5b6e0eb457adc97648f3bd4900d44a6`
+- `frontend/src/components/property/HoaMemberAssessmentsPanel.tsx`: `2e456d2b69057b5e724c64a9d18f7762459bda0e`
+- `backend/tests/test_hoa_member_assessments.py`: `7bb76d41924ebc5cae5a8ca214a1d9c64bf939a5`
+- `backend/tests/e2e/test_hoa_evidence_e2e.py`: `5a66acd34c019e8bed152a117a3e8041d2d263c7`
+- `backend/tests/test_migrations.py`: `f20bb0a4d1fc6669b9b4bc4ce4147269b65e2cd3`
+- `backend/tests/test_postgres_smoke.py`: `18eace749616af6e003b768c1e7f786bc3f331f0`
+- `backend/tests/test_prepare_database.py`: `f73b912ebbfda2d7164565955d366a8cdbcdce54`
+
+**Exact NEXT action:** Check branch HEAD and actual files, assemble these
+16 product blobs with this root handoff in ONE provisional commit on
+the designated branch. Run GitHub Actions against committed code and
+fix CI failures autonomously. After six green jobs, record SHA, actual
+backend/browser counts, migration head/table count, completed behavior
+and remaining real HOA dependencies in this root handoff. Then start
+next independent Phase 4.7 operational batch. Do not assume earlier CI
+tested these uncommitted blobs. Preserve ARC direct board decisions
+and the seven original operational HOA requirements.
+
+---
 # AI_HANDOFF.md — 2026-09-29 LATEST VERIFIED CHECKPOINT
 
 **READ ENTIRE FILE FIRST.** This entry supersedes historical NEXT and

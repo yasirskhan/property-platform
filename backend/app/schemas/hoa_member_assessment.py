@@ -78,7 +78,7 @@ class HOAMemberChargeOut(BaseModel):
     amount: Decimal
     amount_paid: Decimal
     due_on: date
-    status: Literal["OPEN", "REVERSED"]
+    status: Literal["OPEN", "PAID", "REVERSED"]
     gl_transaction_id: int
     reversal_transaction_id: int | None
     issued_at: datetime
