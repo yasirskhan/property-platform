@@ -584,7 +584,7 @@ def test_board_portal_meetings_are_authentic_scoped_and_entitled(monkeypatch):
         assert [x.meeting_id for x in portal.my_board_meetings(
             Response(), db=db, current_user=tenant,
         )] == [first.id]
-        tenant_link.is_active = False
+        db.get(HOAContactLink, tenant_link.id).is_active = False
         db.flush()
         assert portal.my_board_meetings(
             Response(), db=db, current_user=tenant,
