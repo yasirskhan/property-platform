@@ -1,3 +1,49 @@
+# AI_HANDOFF.md — 2026-09-29 DELEGATED HOA BOARD APPEAL PORTAL PROVISIONAL
+
+**Read the entire file.** Latest entry supersedes historical NEXT
+and PREPARED labels. ONLY repository `yasirskhan/property-platform`,
+branch `chatgpt/checkpoint-005-safety`. No main, new branch,
+force push, PR merge, frozen docs/, or Phase 4.8.
+
+- Last VERIFIED product source `c41ea3e8fad879f0ca825682786433d7066a54ef`.
+  GitHub Actions **36637242297 SUCCESS all SIX jobs**:
+  backend **816 passed, 15 deselected, 21515 warnings in 293.32s**;
+  authenticated browser **15 passed, 232 warnings in 73.08s**;
+  frontend lint/typecheck/build, platform-admin, security, staging PASS.
+  TESTS NOT RUN locally. Verified Alembic **6f9e2a7d4c1b** /
+  **176 model tables**. Latest docs-only verified-handoff
+  commit `a5e45e0c` does NOT establish new product test.
+- Verified appeal case state, direct board UPHELD/VACATED outcome,
+  private evidence, role isolation, audit, open/vacated holds
+  on new fine receipt/GL issuance, and separate receipt then fine
+  reversal with an explicit pending correction indication.
+  Original protected accounting and ARC remains unchanged.
+- NEXT BATCH is PROVISIONAL delegated BOARD PORTAL fine-appeal
+  disposition: restricted GET `/api/hoa/board/my-fine-appeals`
+  enumerates only OPEN appeal records for currently live,
+  verified board seats with exact association/property/contact
+  membership, paid HOA gates, live case/fine. Its dedicated
+  board portal UI sends the existing board-authorized appeal
+  decision (no independent legal gate or new posting).
+  Focused backend regression and authenticated browser navigation
+  exercise an appeal opened in property compliance, decided
+  through the board portal, then accounting in the property panel.
+  NO migration or new model; expected head remains
+  6f9e2a7d4c1b, 176 tables. Existing six-job CI has NOT
+  tested this provisional batch.
+- NEXT: commit proposed changes on THIS branch, obtain actual
+  GitHub Actions six-job CI, repair failures; mark verified ONLY
+  after all six pass on the new product SHA. Update this root
+  handoff with real test counts and exact next independent
+  Phase 4.7 operational requirement. Continue another batch
+  if possible without user approval.
+- Preserve seven operational HOA capabilities and the existing
+  $79/month entitlement. Do not conflate a book GL reversal
+  with actual bank movement, SMTP acceptance with statutory
+  service or staff uploads with independent law certification.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 HOA FINE APPEAL VERIFIED
 
 **READ ENTIRE FILE.** This section supersedes historical PREPARED/NEXT

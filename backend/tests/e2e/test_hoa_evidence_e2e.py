@@ -395,11 +395,40 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 appeal.get_by_role("button", name="Record appeal received").click()
                 expect(appeal.get_by_text(re.compile("Appeal #.*OPEN"))).to_be_visible()
                 assert _financial_counts() == before
-                appeal.get_by_label("Board appeal explanation").fill(
-                    "Synthetic board confirmed the previous fine"
-                )
+                # The delegated board portal (not the staff accounting panel)
+                # records the direct appeal disposition under the same live seat.
+                page.goto(f"{BASE_URL}/dashboard/hoa/board", wait_until="domcontentloaded")
+                board_appeals = page.get_by_role(
+                    "heading", name="Board fine appeals",
+                ).locator("..")
+                expect(board_appeals.get_by_text(re.compile("Fine appeal #"))).to_be_visible()
+                board_appeals.get_by_label(
+                    re.compile("Board portal appeal explanation"),
+                ).fill("Synthetic delegated board upheld the member fine")
                 page.once("dialog", lambda dialog: dialog.accept())
-                appeal.get_by_role("button", name="Record final board appeal decision").click()
+                board_appeals.get_by_role("button", name="Record my board appeal decision").click()
+                expect(board_appeals.get_by_text(
+                    re.compile("Your direct board appeal disposition was recorded"),
+                )).to_be_visible()
+                assert _financial_counts() == before
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                          wait_until="domcontentloaded")
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                association = page.get_by_text(
+                    association_name, exact=True,
+                ).locator("..").locator("..")
+                association.get_by_role("button", name="Staff cases").click()
+                cases = association.get_by_role(
+                    "heading", name="HOA internal review cases",
+                ).locator("..").locator("..")
+                cases.get_by_role("button", name="Association fine").click()
+                fine = cases.get_by_role(
+                    "heading", name="Association violation fine decision and ledger",
+                ).locator("..").locator("..")
+                fine.get_by_role("button", name="Fine appeals", exact=True).click()
+                appeal = fine.get_by_role(
+                    "heading", name="Fine appeal and correction history",
+                ).locator("..").locator("..")
                 expect(appeal.get_by_text(re.compile("Appeal #.*UPHELD"))).to_be_visible()
                 fine.get_by_label("GL posting date").fill(date.today().isoformat())
                 fine.get_by_label("Fine receivable GL").select_option(

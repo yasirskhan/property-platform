@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
 import HoaBoardRuleAdoptionPanel from "@/components/property/HoaBoardRuleAdoptionPanel";
 import HoaBoardMotionOutcomePanel from "@/components/property/HoaBoardMotionOutcomePanel";
+import HoaBoardFineAppealsPanel from "@/components/property/HoaBoardFineAppealsPanel";
 
 type Meeting = {
   association_id: number; property_id: number; meeting_id: number;
@@ -139,6 +140,7 @@ export default function HOABoardPortal() {
       Approving minutes records your individual decision. This is not certification of
       quorum, a full-board vote, statutory delivery, or any financial transaction.
     </p>
+    <HoaBoardFineAppealsPanel />
     {loading && <p>Loading authorized meetings…</p>}
     {error && <p role="alert" className="text-red-700">{error}</p>}
     {message && <p role="status" className="text-green-800">{message}</p>}

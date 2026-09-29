@@ -26,6 +26,7 @@ from app.models.hoa_violation_service_record import HOAViolationServiceRecord
 from app.models.hoa_violation_fine import HOAViolationFine
 from app.models.hoa_violation_fine_payment import HOAViolationFinePayment
 from app.models.hoa_violation_fine_appeal import HOAFineAppeal
+from app.models.hoa_board import HOABoardSeat
 from app.models.receipt import Receipt
 from app.models.receipt_line import ReceiptLine
 from app.models.deposit_line import DepositLine
@@ -34,6 +35,7 @@ from app.models.gl_entry import GLEntry
 from app.routers import hoa_violation_fines as fine_api
 from app.routers import hoa_violation_fine_payments as fine_payments
 from app.routers import hoa_fine_appeals as appeals_api
+from app.routers import hoa_board_portal as board_portal
 from app.schemas.hoa_fine_appeal import HOAFineAppealIn, HOAFineAppealDecisionIn
 from app.routers import hoa_member_assessments as member_api
 from app.schemas.hoa_violation_fine import HOAFineDecisionIn, HOAFinePostIn, HOAFineReverseIn
@@ -2521,6 +2523,71 @@ def test_fine_appeals_scope_evidence_and_board_authorization(monkeypatch):
             )
         assert immutable.value.status_code == 409
         assert db.query(HOAFineAppeal).count() == 1
+        assert _balances(db) == (0, 0, 0, 0)
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_board_portal_only_lists_currently_authorized_pending_fine_appeals(monkeypatch):
+    db, engine = _db()
+    try:
+        monkeypatch.setattr(member_api, "permission_allows_user", lambda *a, **kw: True)
+        def board_gates(*args, **kwargs):
+            return [SimpleNamespace(key=k, release_allowed=True,
+                                    entitlement_allowed=True, org_config_allowed=True)
+                    for k in arc_board.HOA_GATES]
+        monkeypatch.setattr(board_portal, "resolve_customer_features", board_gates)
+        users, props, assoc, case, draft, seat, proof = _record_served_fine_case(db, monkeypatch)
+        admin, owner, manager, tenant, foreign = users
+        prop = props[0]
+        fine = fine_api.decide_fine(
+            assoc.id, case.id, _fine_decision(prop, tenant),
+            db=db, current_user=admin,
+        )
+        appeal = appeals_api.record_appeal(
+            assoc.id, case.id, _appeal_payload(prop),
+            db=db, current_user=owner,
+        )
+        response = Response()
+        rows = board_portal.my_board_fine_appeals(response, db=db, current_user=admin)
+        assert response.headers["cache-control"] == "no-store"
+        assert len(rows) == 1
+        row = rows[0]
+        assert row.appeal_id == appeal.id and row.fine_id == fine.id
+        assert row.association_id == assoc.id and row.property_id == prop.id
+        assert row.case_id == case.id and row.member_user_id == tenant.id
+        assert row.status == "OPEN"
+        for actor in (manager, tenant, foreign):
+            with pytest.raises(HTTPException):
+                board_portal.my_board_fine_appeals(
+                    Response(), db=db, current_user=actor,
+                )
+        db.get(HOABoardSeat, seat.id).decision_authorized = False
+        db.flush()
+        assert board_portal.my_board_fine_appeals(
+            Response(), db=db, current_user=admin,
+        ) == []
+        db.get(HOABoardSeat, seat.id).decision_authorized = True
+        db.flush()
+        assert len(board_portal.my_board_fine_appeals(
+            Response(), db=db, current_user=admin,
+        )) == 1
+        monkeypatch.setattr(board_portal, "resolve_customer_features",
+                            lambda *a, **kw: [])
+        with pytest.raises(HTTPException) as disabled:
+            board_portal.my_board_fine_appeals(
+                Response(), db=db, current_user=admin,
+            )
+        assert disabled.value.status_code == 404
+        monkeypatch.setattr(board_portal, "resolve_customer_features", board_gates)
+        decision = appeals_api.decide_appeal(
+            assoc.id, case.id, appeal.id, _appeal_decision(prop),
+            db=db, current_user=admin,
+        )
+        assert decision.status == "UPHELD"
+        assert board_portal.my_board_fine_appeals(
+            Response(), db=db, current_user=admin,
+        ) == []
         assert _balances(db) == (0, 0, 0, 0)
     finally:
         db.rollback(); db.close(); engine.dispose()
