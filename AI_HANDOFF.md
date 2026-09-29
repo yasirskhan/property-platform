@@ -1,3 +1,51 @@
+# AI_HANDOFF.md — 2026-09-29 AUTHENTICATED HOA BOARD PORTAL PROVISIONAL
+
+**READ ENTIRE ROOT HANDOFF.** This is the most recent state; older
+NEXT/PREPARED sections below are historical. Only repository
+`yasirskhan/property-platform`, only branch
+`chatgpt/checkpoint-005-safety`. Never modify main, create a branch,
+force push, merge PR, edit frozen docs/ or advance Phase 4.8.
+
+- Latest VERIFIED product source `1cc1d5596304f25bf1460f3d5e33d76564a6b4ce`.
+  GitHub Actions 36588839813 SUCCESS ALL SIX jobs:
+  **796 backend passed, 15 deselected, 19964 warnings**;
+  authenticated browser **15 passed, 224 warnings**;
+  frontend lint/TypeScript/build, platform-admin, security, staging PASS.
+  Alembic **f6b8d0e2a4c7, 168 model tables**. Local tests NOT RUN.
+  Root handoff-only commit `d52d37ed0b2b24068396e75e929dd078a602c53a`
+  records this actual verified product.
+- Latest NEXT provisional Phase 4.7 board-portal batch: isolated
+  `GET /api/hoa/board/my-meetings` for active verified association
+  board login, checking the existing paid HOA gates, active org,
+  active association/property membership, verified matching contact
+  and current authorized board seat. Supports a board member who
+  has no broad PROPERTIES.ALL staff permission. The customer dashboard
+  offers a board-meetings link only for an eligible user and a
+  `/dashboard/hoa/board` view with live scoped meeting agenda,
+  board-only exact-revision minutes preview, immutable approval
+  through the already VERIFIED board approval API, confirmation,
+  retry/error handling. Adds focused permission/revocation tests and
+  synthetic authenticated E2E exercising actual board portal approval.
+  Existing ARC, board minutes, member accounting, annual budget,
+  reserve GL, private correspondence and governing docs unchanged.
+  NO migration and no billing or external notice/bank effects.
+- Source changes are PROVISIONAL until six green hosted CI jobs on
+  the new product SHA; do not attribute earlier green CI to the
+  new portal. If a CI job fails, inspect logs and correct it
+  autonomously on the same feature branch; actual test counts and
+  source SHA required for VERIFIED. After green CI update root
+  handoff and proceed to next independent Phase 4.7 board vote/
+  configured quorum or scoped operational violations batch.
+- Seven original HOA operational capabilities remain in progress.
+  No blanket platform legal certification; enforce concrete
+  association permission, decision record, applicable procedure,
+  correctly identified payer, central GL, delivery and audit.
+  Do not issue statutory notices or real customer finance in
+  synthetic CI. Preserve paid $79/month HOA add-on.
+  Phase 4.8 remains PAUSED.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 HOA BOARD MINUTES VERIFIED / AUTHENTICATED BOARD PORTAL NEXT
 
 **READ ENTIRE REPOSITORY-ROOT FILE.** This newest verified checkpoint supersedes

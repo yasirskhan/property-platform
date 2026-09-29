@@ -23,6 +23,7 @@ from app.models.hoa_meeting_draft import HOAMeetingDraft
 from app.models.hoa_meeting_minutes import HOAMeetingMinutesApproval, HOAMeetingMinutesDraft
 from app.routers import hoa_meeting_minutes as minutes
 from app.routers import hoa_meeting_minutes_board as minutes_board
+from app.routers import hoa_board_portal as portal
 from app.routers import hoa_board as board_api
 from app.routers import hoa_arc_board_decisions as arc_board
 from app.schemas.hoa_board import HOABoardSeatIn, HOABoardAuthorizationIn
@@ -519,5 +520,89 @@ def test_minutes_board_approval_requires_live_board_entitlement_and_meeting_date
                 content_sha256="invalid", approval_note="Bad hash",
             )
         assert db.query(GLTransaction).count() == 0
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_board_portal_meetings_are_authentic_scoped_and_entitled(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, crew, tenant, foreign), (prop, other, outside), assoc, first, seat = _minutes_board_setup(db, monkeypatch)
+        monkeypatch.setattr(portal, "resolve_customer_features",
+                            arc_board.resolve_customer_features)
+        second = meeting.create_meeting_draft(
+            assoc.id, HOAMeetingDraftIn(
+                property_id=other.id, title="Unassigned board property",
+                proposed_on=date.today(),
+            ), db=db, current_user=owner,
+        )
+        response = Response()
+        visible = portal.my_board_meetings(
+            response, db=db, current_user=admin,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert len(visible) == 1 and visible[0].meeting_id == first.id
+        assert visible[0].title == "Synthetic planning meeting"
+        assert all(x.property_id == prop.id for x in visible)
+        owner.is_verified = True
+        db.flush()
+        assert portal.my_board_meetings(
+            Response(), db=db, current_user=owner,
+        ) == []
+        for actor in (manager, crew, tenant, foreign):
+            with pytest.raises(HTTPException) as invalid:
+                portal.my_board_meetings(
+                    Response(), db=db, current_user=actor,
+                )
+            assert invalid.value.status_code == 403
+        # A verified tenant can hold an explicit, scoped board seat
+        # without receiving organization-wide property-manager permission.
+        tenant.is_verified = True
+        db.flush()
+        contact = Contact(
+            organization_id=admin.organization_id,
+            display_name="Authorized member", email=tenant.email,
+            contact_type="PERSON", is_active=True,
+        )
+        db.add(contact); db.flush()
+        tenant_link = hoa.add_contact_link(
+            assoc.id, HOAContactLinkIn(
+                property_id=prop.id, contact_id=contact.id,
+            ), db=db, current_user=admin,
+        )
+        tenant_seat = board_api.record_board_seat(
+            assoc.id, HOABoardSeatIn(
+                property_id=prop.id, contact_link_id=tenant_link.id,
+                proposed_role="DIRECTOR", staff_voting_eligible=True,
+            ), db=db, current_user=admin,
+        )
+        board_api.authorize_board_seat(
+            assoc.id, tenant_seat.id, HOABoardAuthorizationIn(
+                property_id=prop.id, user_id=tenant.id,
+            ), db=db, current_user=admin,
+        )
+        assert [x.meeting_id for x in portal.my_board_meetings(
+            Response(), db=db, current_user=tenant,
+        )] == [first.id]
+        tenant_link.is_active = False
+        db.flush()
+        assert portal.my_board_meetings(
+            Response(), db=db, current_user=tenant,
+        ) == []
+        from app.models.hoa_board import HOABoardSeat
+        assigned = db.get(HOABoardSeat, seat.id)
+        assigned.decision_authorized = False
+        db.flush()
+        assert portal.my_board_meetings(
+            Response(), db=db, current_user=admin,
+        ) == []
+        monkeypatch.setattr(portal, "resolve_customer_features", lambda *a, **kw: [])
+        with pytest.raises(HTTPException) as disabled:
+            portal.my_board_meetings(
+                Response(), db=db, current_user=admin,
+            )
+        assert disabled.value.status_code == 404
+        assert db.query(Charge).count() == db.query(GLTransaction).count() == 0
+        assert db.query(GLEntry).count() == 0
     finally:
         db.rollback(); db.close(); engine.dispose()

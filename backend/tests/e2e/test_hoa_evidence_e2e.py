@@ -1322,19 +1322,28 @@ def test_hoa_authorized_board_minutes_revision_approval_browser() -> None:
                 )
                 minutes.get_by_role("button", name="Save staff minutes").click()
                 expect(minutes.get_by_text(re.compile("Staff minutes saved"))).to_be_visible()
-                minutes.get_by_label("Board minutes approval note").fill(
-                    "I approve the exact text as an authorized association board member."
+                # A board-only scoped portal reuses the verified approval route.
+                page.goto(f"{BASE_URL}/dashboard", wait_until="domcontentloaded")
+                page.get_by_role("link", name="My HOA board meetings").click()
+                expect(page.get_by_role("heading", name="My HOA board meetings")).to_be_visible()
+                expect(page.get_by_role("button", name="Review board minutes")).to_have_count(1)
+                page.get_by_role("button", name="Review board minutes").click()
+                expect(page.get_by_text(
+                    "Synthetic board-reviewed meeting text, not production evidence.",
+                    exact=True,
+                )).to_be_visible()
+                page.get_by_label("Portal board approval note").fill(
+                    "I approve this exact text as the authorized association board member."
                 )
-                minutes.get_by_role(
-                    "button", name="Approve this minutes revision as authorized board member",
-                ).click()
-                expect(minutes.get_by_text(
-                    re.compile("board-member approval was recorded", re.IGNORECASE),
+                page.once("dialog", lambda dialog: dialog.accept())
+                page.get_by_role("button", name="Approve exact minutes revision").click()
+                expect(page.get_by_text(
+                    re.compile("board-member approval of this minutes revision was recorded", re.IGNORECASE),
                 )).to_be_visible()
-                expect(minutes.get_by_text(
-                    re.compile("No full-board quorum is certified"),
+                expect(page.get_by_text(
+                    re.compile("BOARD MEMBER APPROVED"),
                 )).to_be_visible()
-                expect(minutes.get_by_role("button", name="Save staff minutes")).to_have_count(0)
+                expect(page.get_by_role("button", name="Approve exact minutes revision")).to_have_count(0)
                 assert _financial_counts() == before
             finally:
                 browser.close()
