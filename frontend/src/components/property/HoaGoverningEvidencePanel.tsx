@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
 import EntityAttachments from "@/components/EntityAttachments";
+import HoaDocumentDeliveryPanel from "@/components/property/HoaDocumentDeliveryPanel";
 import { downloadEntityAttachment, listEntityAttachments, type EntityAttachment } from "@/lib/entityAttachments";
 
 type Evidence = {
@@ -44,6 +45,7 @@ export default function HoaGoverningEvidencePanel({ associationId, propertyId, c
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [showUpload, setShowUpload] = useState(false);
+  const [deliveryRef, setDeliveryRef] = useState<number | null>(null);
   const base = "/api/hoa/associations/" + associationId + "/governing-evidence";
   const query = "?property_id=" + propertyId;
 
@@ -135,10 +137,17 @@ export default function HoaGoverningEvidencePanel({ associationId, propertyId, c
               );
             }} className="text-blue-700">Download</button>
             {canEdit && <button type="button" disabled={busy}
+              onClick={() => setDeliveryRef((old) => old === row.id ? null : row.id)}
+              className="text-blue-700 disabled:opacity-50">Email copy</button>}
+            {canEdit && <button type="button" disabled={busy}
               onClick={() => { void archive(row); }} className="text-red-700 disabled:opacity-50">Archive link</button>}
           </div>
         </div>
       ))}
+      {canEdit && deliveryRef !== null && evidence.some((row) => row.id === deliveryRef) && (
+        <HoaDocumentDeliveryPanel associationId={associationId} propertyId={propertyId}
+          evidenceId={deliveryRef} onClose={() => setDeliveryRef(null)} />
+      )}
       {canEdit && !loading && (
         <form onSubmit={(event) => { void save(event); }} className="space-y-3 border-t pt-3">
           <h4 className="text-sm font-semibold">Link existing private property document</h4>

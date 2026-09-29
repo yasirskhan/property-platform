@@ -174,6 +174,25 @@ def test_hoa_staff_evidence_upload_link_download_and_archive() -> None:
                     page.get_by_role("button", name="Download", exact=True).click()
                 assert downloaded.value.suggested_filename == DOCUMENT_NAME
 
+                # An explicitly verified same-association login receives only a
+                # TEST_ONLY console attempt in the disposable E2E environment.
+                _seed_governing_delivery_recipient()
+                page.get_by_role("button", name="Email copy").click()
+                delivery = page.get_by_role("heading", name="Email document copy").locator("..").locator("..")
+                delivery.get_by_label("Verified association contact").select_option(
+                    label="E2E Governing Recipient",
+                )
+                page.once("dialog", lambda dialog: dialog.accept())
+                delivery.get_by_role("button", name="Email document copy").click()
+                expect(delivery.get_by_text(
+                    "Test mode: no document attachment was emailed.",
+                )).to_be_visible()
+                expect(delivery.get_by_text(
+                    re.compile("TEST ONLY"),
+                )).to_be_visible()
+                assert _financial_counts() == before
+                delivery.get_by_role("button", name="Close delivery").click()
+
                 page.once("dialog", lambda dialog: dialog.accept())
                 page.get_by_role("button", name="Archive link").click()
                 expect(page.get_by_text(re.compile("Reference archived; no legal action"))).to_be_visible()
@@ -183,6 +202,40 @@ def test_hoa_staff_evidence_upload_link_download_and_archive() -> None:
                 browser.close()
         assert _financial_counts() == before
 
+
+
+
+def _seed_governing_delivery_recipient() -> None:
+    """The customer login is verified only inside the disposable E2E database."""
+    if os.environ.get("E2E_SEED_ALLOWED", "").lower() != "true":
+        raise RuntimeError("Document delivery browser seed requires a disposable E2E database")
+    db = SessionLocal()
+    try:
+        association = db.query(HOAAssociation).filter(
+            HOAAssociation.name == ASSOCIATION_NAME,
+            HOAAssociation.is_active.is_(True),
+        ).one()
+        user = db.query(User).filter(
+            User.organization_id == association.organization_id,
+            User.email == EMAIL,
+        ).one()
+        user.is_verified = True
+        contact = Contact(
+            organization_id=association.organization_id,
+            display_name="E2E Governing Recipient",
+            email=user.email, contact_type="PERSON", is_active=True,
+        )
+        db.add(contact)
+        db.flush()
+        db.add(HOAContactLink(
+            organization_id=association.organization_id,
+            association_id=association.id, property_id=PROPERTY_ID,
+            contact_id=contact.id, is_active=True,
+        ))
+        db.commit()
+    finally:
+        db.rollback()
+        db.close()
 
 def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
     """Exercise the actual staff UI, not an official notice/fine delivery."""

@@ -250,3 +250,234 @@ def test_meeting_minutes_are_private_staff_documents_not_board_approval():
     finally:
         db.close()
         engine.dispose()
+
+
+
+def _delivery_subject(db, *, admin, tenant, prop, association, document):
+    from app.models.contact import Contact
+    from app.schemas.hoa_association import HOAContactLinkIn
+
+    tenant.is_verified = True
+    contact = Contact(
+        organization_id=admin.organization_id,
+        display_name="Verified HOA recipient", contact_type="PERSON",
+        email=tenant.email, is_active=True,
+    )
+    db.add(contact); db.flush()
+    link = hoa.add_contact_link(
+        association.id, HOAContactLinkIn(
+            property_id=prop.id, contact_id=contact.id,
+        ), db=db, current_user=admin,
+    )
+    evidence = api.link_evidence(
+        association.id, _payload(prop, document),
+        db=db, current_user=admin,
+    )
+    return contact, link, evidence
+
+
+def test_governing_document_real_smtp_attachment_idempotency_and_audit(monkeypatch, tmp_path):
+    import hashlib
+    from app.routers import hoa_document_delivery as delivery
+    from app.models.hoa_document_delivery import HOADocumentDelivery
+    from app.schemas.hoa_document_delivery import HOADocumentSendIn
+    from app.services.entity_notes import _model_for_table
+
+    db, engine = _db()
+    try:
+        (admin, owner, manager, crew, tenant, foreign), (prop, _, _), assoc, docs = _seed(db)
+        _contact, link, evidence = _delivery_subject(
+            db, admin=admin, tenant=tenant, prop=prop,
+            association=assoc, document=docs[0],
+        )
+        data = b"%PDF-1.4\nX"  # Ten bytes, matching the stored fixture metadata.
+        assert len(data) == docs[0].size_bytes
+        source = tmp_path / "document.pdf"
+        source.write_bytes(data)
+        monkeypatch.setattr(delivery, "attachment_path", lambda key: source)
+        sent = []
+        def capture(**kwargs):
+            sent.append(kwargs)
+        monkeypatch.setattr(
+            delivery, "email_service",
+            SimpleNamespace(settings=SimpleNamespace(EMAIL_MODE="smtp"), send_email=capture),
+        )
+        before = (db.query(Charge).count(), db.query(GLTransaction).count(), db.query(Lease).count())
+        payload = HOADocumentSendIn(
+            property_id=prop.id, contact_link_id=link.id,
+            request_key="hoa-doc-delivery-001",
+        )
+        eligible = delivery.eligible_recipients(
+            assoc.id, Response(), prop.id, db=db, current_user=owner,
+        )
+        assert [(x.contact_link_id, x.contact_name) for x in eligible] == [
+            (link.id, "Verified HOA recipient"),
+        ]
+        issued = delivery.send_document(
+            assoc.id, evidence.id, payload, db=db, current_user=admin,
+        )
+        assert issued.status == "SMTP_ACCEPTED" and issued.attempt_count == 1
+        assert issued.email_attachment_included is True
+        assert issued.recipient_delivery_confirmed is False and issued.legally_served is False
+        assert issued.file_sha256 == hashlib.sha256(data).hexdigest()
+        assert len(sent) == 1 and sent[0]["to"] == tenant.email
+        assert sent[0]["attachments"][0] == ("private.pdf", data, "application/pdf")
+        again = delivery.send_document(
+            assoc.id, evidence.id, payload, db=db, current_user=owner,
+        )
+        assert again.id == issued.id and len(sent) == 1
+        again = delivery.retry_document(
+            assoc.id, issued.id, prop.id, db=db, current_user=owner,
+        )
+        assert again.status == "SMTP_ACCEPTED" and len(sent) == 1
+        assert db.query(HOADocumentDelivery).count() == 1
+        listing = delivery.delivery_history(
+            assoc.id, Response(), prop.id, db=db, current_user=owner,
+        )
+        assert len(listing) == 1 and listing[0].id == issued.id
+        for invalid in [
+            dict(property_id=prop.id, contact_link_id=link.id, request_key="a"),
+            dict(property_id=prop.id, contact_link_id=link.id,
+                 request_key="hoa-doc-delivery-001", notify_tenant=True),
+        ]:
+            with pytest.raises(ValidationError):
+                HOADocumentSendIn(**invalid)
+        with pytest.raises(HTTPException) as reused:
+            delivery.send_document(
+                assoc.id, evidence.id,
+                HOADocumentSendIn(
+                    property_id=prop.id, contact_link_id=admin.id,
+                    request_key="hoa-doc-delivery-001",
+                ), db=db, current_user=owner,
+            )
+        assert reused.value.status_code == 409
+        logs = db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_document_delivery",
+        ).order_by(AuditLog.id).all()
+        assert len(logs) == 3
+        assert all(tenant.email not in (x.new_value or "") for x in logs)
+        assert all("private.pdf" not in (x.new_value or "") for x in logs)
+        with pytest.raises(HTTPException) as generic:
+            _model_for_table("hoa_document_deliveries")
+        assert generic.value.status_code == 404
+        assert before == (db.query(Charge).count(), db.query(GLTransaction).count(), db.query(Lease).count())
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_governing_document_delivery_failure_retry_identity_scope_and_bytes(monkeypatch, tmp_path):
+    from app.models.hoa_document_delivery import HOADocumentDelivery
+    from app.routers import hoa_document_delivery as delivery
+    from app.schemas.hoa_document_delivery import HOADocumentSendIn
+
+    db, engine = _db()
+    try:
+        (admin, owner, manager, crew, tenant, foreign), (prop, other, _), assoc, docs = _seed(db)
+        _contact, link, evidence = _delivery_subject(
+            db, admin=admin, tenant=tenant, prop=prop,
+            association=assoc, document=docs[0],
+        )
+        path = tmp_path / "private.pdf"
+        path.write_bytes(b"%PDF-1.4\nX")
+        monkeypatch.setattr(delivery, "attachment_path", lambda key: path)
+        attempted = []
+        def flaky(**kwargs):
+            attempted.append(kwargs)
+            if len(attempted) == 1:
+                raise RuntimeError("synthetic SMTP unavailable")
+        monkeypatch.setattr(
+            delivery, "email_service",
+            SimpleNamespace(settings=SimpleNamespace(EMAIL_MODE="smtp"), send_email=flaky),
+        )
+        payload = HOADocumentSendIn(
+            property_id=prop.id, contact_link_id=link.id,
+            request_key="hoa-document-retry-01",
+        )
+        for actor in (manager, crew, tenant, foreign):
+            with pytest.raises(HTTPException):
+                delivery.send_document(
+                    assoc.id, evidence.id, payload,
+                    db=db, current_user=actor,
+                )
+        with pytest.raises(HTTPException) as wrong_prop:
+            delivery.send_document(
+                assoc.id, evidence.id,
+                HOADocumentSendIn(
+                    property_id=other.id, contact_link_id=link.id,
+                    request_key="hoa-document-other-prop",
+                ), db=db, current_user=admin,
+            )
+        assert wrong_prop.value.status_code == 404
+        outcome = delivery.send_document(
+            assoc.id, evidence.id, payload, db=db, current_user=admin,
+        )
+        assert outcome.status == "FAILED" and len(attempted) == 1
+        again = delivery.send_document(
+            assoc.id, evidence.id, payload, db=db, current_user=owner,
+        )
+        assert again.id == outcome.id and len(attempted) == 1
+        tenant.is_verified = False; db.commit()
+        with pytest.raises(HTTPException) as revoked:
+            delivery.retry_document(
+                assoc.id, outcome.id, prop.id,
+                db=db, current_user=admin,
+            )
+        assert revoked.value.status_code == 409 and len(attempted) == 1
+        tenant.is_verified = True; db.commit()
+        path.write_bytes(b"modified??")
+        with pytest.raises(HTTPException) as changed:
+            delivery.retry_document(
+                assoc.id, outcome.id, prop.id,
+                db=db, current_user=admin,
+            )
+        assert changed.value.status_code == 409 and len(attempted) == 1
+        path.write_bytes(b"%PDF-1.4\nX")
+        accepted = delivery.retry_document(
+            assoc.id, outcome.id, prop.id, db=db, current_user=admin,
+        )
+        assert accepted.status == "SMTP_ACCEPTED" and accepted.attempt_count == 2
+        assert len(attempted) == 2 and db.query(HOADocumentDelivery).count() == 1
+        assert db.query(Charge).count() == db.query(GLTransaction).count() == 0
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_governing_document_console_transport_never_claims_attachment_delivery(monkeypatch, tmp_path):
+    from app.routers import hoa_document_delivery as delivery
+    from app.schemas.hoa_document_delivery import HOADocumentSendIn
+
+    db, engine = _db()
+    try:
+        (admin, owner, manager, crew, tenant, foreign), (prop, _, _), assoc, docs = _seed(db)
+        _contact, link, evidence = _delivery_subject(
+            db, admin=admin, tenant=tenant, prop=prop,
+            association=assoc, document=docs[0],
+        )
+        path = tmp_path / "private.pdf"
+        path.write_bytes(b"%PDF-1.4\nX")
+        monkeypatch.setattr(delivery, "attachment_path", lambda key: path)
+        attempted = []
+        monkeypatch.setattr(
+            delivery, "email_service",
+            SimpleNamespace(settings=SimpleNamespace(EMAIL_MODE="console"),
+                            send_email=lambda **kw: attempted.append(kw)),
+        )
+        request = HOADocumentSendIn(
+            property_id=prop.id, contact_link_id=link.id,
+            request_key="hoa-doc-test-only-01",
+        )
+        result = delivery.send_document(
+            assoc.id, evidence.id, request, db=db, current_user=admin,
+        )
+        assert result.status == "TEST_ONLY" and result.accepted_at is None
+        assert result.email_attachment_included is False
+        assert result.recipient_delivery_confirmed is False
+        assert len(attempted) == 1
+        monkeypatch.setattr(delivery.email_service.settings, "EMAIL_MODE", "smtp")
+        sent = delivery.retry_document(
+            assoc.id, result.id, prop.id, db=db, current_user=owner,
+        )
+        assert sent.status == "SMTP_ACCEPTED"
+        assert sent.attempt_count == 2 and len(attempted) == 2
+    finally:
+        db.rollback(); db.close(); engine.dispose()

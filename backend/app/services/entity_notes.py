@@ -52,6 +52,7 @@ _FORBIDDEN_TABLES = {
     "hoa_case_tasks",  # Case/property/role-scoped staff operations and private notes.  # Joint scope-checked private case document references.  # Confidential scope-checked staff drafts; deny generic notes.  # Needs live case plus scoped verified contact and user.  # Scoped review history, no generic exports.
     "hoa_reserve_movement_drafts",  # Requires restricted HOA reserve authorization.
     "hoa_reserve_accounts",  # Restricted accounting scope; deny generic notes and attachments.  # Joint observation/compliance access, not generic notes.
+    "hoa_document_deliveries",  # Restricted contact/document delivery history.
     "hoa_governing_evidence",  # Evidence metadata is gated by HOA compliance/property scope.  # Staff architectural-interest intake is not an approved ARC decision.  # Staff-planned HOA meetings are not generic documents or legal minutes.  # Staff-only potential-issue notes; not public evidence or documents.  # Not a generic note or tenant liability.
     "affordable_lihtc_buildings",
     "affordable_lihtc_8609_readiness",
