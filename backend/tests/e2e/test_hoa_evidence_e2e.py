@@ -844,6 +844,12 @@ def test_hoa_operational_member_assessment_browser_posts_and_reverses() -> None:
                 expect(member_ledger.get_by_text(re.compile("Approved member receivable posted"))).to_be_visible()
                 after_issue = _financial_counts()
                 assert after_issue == (before[0], before[1] + 1)
+                association.get_by_role("button", name="Member statements").click()
+                statement = association.get_by_role(
+                    "heading", name="Posted HOA member statements",
+                ).locator("..").locator("..")
+                expect(statement.get_by_text(re.compile(r"Outstanding: \$75\.00"))).to_be_visible()
+                expect(statement.get_by_text(re.compile("Assessment #"))).to_be_visible()
                 # Synthetic offline receipt is real central-GL accounting
                 # only inside the disposable E2E database.
                 member_ledger.get_by_label("HOA payment cash GL").select_option(
@@ -857,6 +863,9 @@ def test_hoa_operational_member_assessment_browser_posts_and_reverses() -> None:
                 expect(member_ledger.get_by_text(re.compile("No bank collection was initiated"))).to_be_visible()
                 expect(member_ledger.get_by_text(re.compile("PAID"))).to_be_visible()
                 assert _financial_counts() == (before[0], before[1] + 2)
+                statement.get_by_role("button", name="Refresh member statements").click()
+                expect(statement.get_by_text(re.compile(r"Outstanding: \$0\.00"))).to_be_visible()
+                expect(statement.get_by_text(re.compile("Receipt #"))).to_be_visible()
                 expect(member_ledger.get_by_role(
                     "button", name="Reverse member assessment via GL",
                 )).to_have_count(0)
@@ -866,6 +875,9 @@ def test_hoa_operational_member_assessment_browser_posts_and_reverses() -> None:
                 member_ledger.get_by_role("button", name="Reverse HOA payment").click()
                 expect(member_ledger.get_by_text(re.compile("receipt reversed in the central GL"))).to_be_visible()
                 assert _financial_counts() == (before[0], before[1] + 3)
+                statement.get_by_role("button", name="Refresh member statements").click()
+                expect(statement.get_by_text(re.compile(r"Outstanding: \$75\.00"))).to_be_visible()
+                expect(statement.get_by_text(re.compile("REVERSED")).first).to_be_visible()
                 member_ledger.get_by_label("Reversal date").fill(date.today().isoformat())
                 member_ledger.get_by_label("Reversal reason").fill("Synthetic board amendment")
                 page.once("dialog", lambda dialog: dialog.accept())
@@ -874,6 +886,9 @@ def test_hoa_operational_member_assessment_browser_posts_and_reverses() -> None:
                 expect(member_ledger.get_by_text(re.compile("REVERSED"))).to_be_visible()
                 after_reversal = _financial_counts()
                 assert after_reversal == (before[0], before[1] + 4)
+                statement.get_by_role("button", name="Refresh member statements").click()
+                expect(statement.get_by_text(re.compile(r"Assessed: \$0\.00"))).to_be_visible()
+                expect(statement.get_by_text(re.compile(r"Outstanding: \$0\.00"))).to_be_visible()
             finally:
                 browser.close()
         # Posted E2E data is synthetic and remains in this disposable test DB only.

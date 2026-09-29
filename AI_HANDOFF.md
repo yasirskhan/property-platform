@@ -1,3 +1,51 @@
+# AI_HANDOFF.md — 2026-09-29 MEMBER PAYMENTS VERIFIED / MEMBER STATEMENTS PROVISIONAL
+
+**Read the entire file; newest state supersedes the older NEXT labels below.**
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. No main, new branch, force push,
+frozen docs/ edits, PR merge or Phase 4.8 implementation.
+
+- Last independently VERIFIED product source:
+  `84371e9fb104b7fdb2aa95874a2d9552883abf7d`.
+  GitHub Actions **36528948778 SUCCESS all SIX jobs** on this exact SHA:
+  backend **787 passed, 13 deselected, 19291 warnings in 207.20s**;
+  authenticated browser **13 passed, 179 warnings in 57.76s**.
+  Frontend lint/typecheck/build, platform-admin, security,
+  staging-config PASS. **TESTS NOT RUN locally**.
+- Verified Alembic head `c3e5a7b9d1f4`; **165 model tables**
+  after prior `b2d4f6a8c0e3` / 164. The earlier 16
+  uncommitted member-payment blobs ARE now committed and verified
+  in `84371e9f`, not pending. Real offline-recorded funds receive
+  one existing Receipt/ReceiptLine and balanced central GL cash debit/
+  receivable credit, with verified member, scoped permissions,
+  partial/full allocations, idempotency and reversal. This is not
+  bank collection, card capture or processor reconciliation.
+  Existing generic receipt reverse/NSF paths cannot bypass
+  HOA allocation rollback.
+- NEXT independent Phase 4.7 A operational batch is **association-wide
+  posted member account statements** across proposals. The new
+  read-only accountant-scoped endpoint/component/test extension is
+  PROVISIONAL until its own GitHub Actions runs all SIX jobs.
+  It reflects actual posted receivables, receipts and reversals,
+  explicitly rejects inconsistent amount_paid versus live allocations,
+  and never books charges or sends messages. No migration is planned.
+  Once all six jobs pass, update the verified-source SHA and actual
+  counts here and immediately move to the next unblocked original
+  HOA capability (operational violations, board portal or annual budget).
+- User requires SEVEN functional HOA areas: recurring/special dues,
+  violation notice/cure/fines/hearings, board portal, operative ARC,
+  reserve funds/GL, governing document delivery and annual budget/
+  assessment increases. Preserve verified operative ARC APPROVED/DENIED
+  without restoring blanket legal-effect gate. The board is the
+  authority; honor actual procedural requirements and correct member/
+  account identification. Block only an action whose prerequisites
+  are actually absent; continue independent development. Never
+  issue real-world notices or payments from synthetic CI.
+- Maintain existing paid $79/month HOA catalog, organization entitlement
+  and permissions. Phase 4.8 remains PAUSED.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 CURRENT SESSION: MEMBER PAYMENT PROVISIONAL
 
 **READ ENTIRE FILE.** This entry supersedes historical NEXT/PREPARED entries

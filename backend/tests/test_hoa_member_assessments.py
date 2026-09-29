@@ -22,6 +22,7 @@ from app.models.hoa_member_assessment_payment import HOAMemberAssessmentPayment
 from app.models.receipt import Receipt
 from app.models.receipt_line import ReceiptLine
 from app.routers import hoa_member_payments as payments_api
+from app.routers import hoa_member_statements as statement_api
 from app.schemas.hoa_member_payment import HOAMemberPaymentIn, HOAMemberPaymentReverseIn
 from app.schemas.receipt import ReceiptCreateIn
 from app.services.receipt_posting import reverse_receipt, process_nsf_receipt
@@ -674,5 +675,147 @@ def test_hoa_member_receipt_scopes_member_identity_cash_and_locked_period(monkey
                 assoc.id, plan.id, charge.id, Response(), property_id=prop.id,
                 db=db, current_user=admin,
             )
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+def test_actual_member_statements_reconcile_receipts_reversals_and_scopes(monkeypatch):
+    """Account statements reflect only actual member postings, across proposals."""
+    db, engine = _db()
+    try:
+        (admin, owner, manager, member, foreign), (prop, other, outside), assoc, plan, payer, seat, period, ar, income = _seed(db)
+        assert statement_api.member_statements(
+            assoc.id, Response(), property_id=prop.id, db=db, current_user=admin,
+        ) == []
+        member_api.record_assessment_decision(
+            assoc.id, plan.id, _decision(prop, payer, member),
+            db=db, current_user=admin,
+        )
+        charge = member_api.issue_assessment(
+            assoc.id, plan.id, period.id, _issue(prop, member, ar, income),
+            db=db, current_user=owner,
+        )
+        before = (db.query(Charge).count(), db.query(RentInvoice).count(),
+                  db.query(GLTransaction).count(), db.query(Receipt).count(),
+                  db.query(AuditLog).count())
+        response = Response()
+        rows = statement_api.member_statements(
+            assoc.id, response, property_id=prop.id,
+            db=db, current_user=owner,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert len(rows) == 1 and rows[0].member_user_id == member.id
+        assert rows[0].total_assessed == Decimal("125.50")
+        assert rows[0].total_paid == Decimal("0.00")
+        assert rows[0].outstanding == Decimal("125.50")
+        assert rows[0].charges[0].status == "OPEN"
+        assert len(rows[0].charges[0].payments) == 0
+        assert statement_api.member_statements(
+            assoc.id, Response(), property_id=prop.id, member_user_id=admin.id,
+            db=db, current_user=admin,
+        ) == []
+        cash = GLAccount(
+            organization_id=admin.organization_id, gl_number="HOA-STATEMENT-CASH",
+            name="Statement test cash", account_type="ASSET",
+            include_on_cash_flow=True, is_active=True,
+        )
+        db.add(cash); db.commit()
+        first = payments_api.record_assessment_payment(
+            assoc.id, plan.id, charge.id, _member_payment(prop, member, cash),
+            db=db, current_user=admin,
+        )
+        rows = statement_api.member_statements(
+            assoc.id, Response(), property_id=prop.id,
+            member_user_id=member.id, db=db, current_user=admin,
+        )
+        assert rows[0].total_paid == Decimal("40.00")
+        assert rows[0].outstanding == Decimal("85.50")
+        assert len(rows[0].charges[0].payments) == 1
+        assert rows[0].charges[0].payments[0].receipt_id == first.receipt_id
+        assert rows[0].charges[0].payments[0].status == "POSTED"
+        payments_api.reverse_assessment_payment(
+            assoc.id, plan.id, charge.id, first.id, _payment_reverse(prop),
+            db=db, current_user=owner,
+        )
+        rows = statement_api.member_statements(
+            assoc.id, Response(), property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        assert rows[0].total_paid == Decimal("0.00")
+        assert rows[0].outstanding == Decimal("125.50")
+        assert rows[0].charges[0].payments[0].status == "REVERSED"
+        assert rows[0].charges[0].payments[0].reversal_receipt_id is not None
+        member_api.reverse_assessment(
+            assoc.id, plan.id, charge.id,
+            HOAChargeReverseIn(
+                property_id=prop.id, reversal_on=date.today(),
+                reason="Account statement cancellation test",
+            ), db=db, current_user=admin,
+        )
+        rows = statement_api.member_statements(
+            assoc.id, Response(), property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        assert rows[0].total_assessed == Decimal("0.00")
+        assert rows[0].total_paid == Decimal("0.00")
+        assert rows[0].outstanding == Decimal("0.00")
+        assert rows[0].charges[0].status == "REVERSED"
+        assert rows[0].charges[0].reversal_transaction_id is not None
+        for actor, property_id in (
+            (manager, prop.id), (member, prop.id),
+            (foreign, prop.id), (admin, outside.id),
+            (manager, other.id),
+        ):
+            with pytest.raises(HTTPException):
+                statement_api.member_statements(
+                    assoc.id, Response(), property_id=property_id,
+                    db=db, current_user=actor,
+                )
+        monkeypatch.setattr(member_api, "permission_allows_user",
+                            lambda *args, **kwargs: False)
+        with pytest.raises(HTTPException) as denied:
+            statement_api.member_statements(
+                assoc.id, Response(), property_id=prop.id,
+                db=db, current_user=admin,
+            )
+        assert denied.value.status_code == 403
+        monkeypatch.setattr(member_api, "permission_allows_user",
+                            lambda *args, **kwargs: True)
+        monkeypatch.setattr(hoa, "resolve_customer_features", lambda *args, **kwargs: [])
+        with pytest.raises(HTTPException):
+            statement_api.member_statements(
+                assoc.id, Response(), property_id=prop.id,
+                db=db, current_user=admin,
+            )
+        assert db.query(Charge).count() == before[0]
+        assert db.query(RentInvoice).count() == before[1]
+        assert db.query(GLTransaction).count() == before[2] + 3
+        assert db.query(Receipt).count() == before[3] + 2
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_member_statement_detects_inconsistent_accounting_without_mutation():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, member, foreign), (prop, other, outside), assoc, plan, payer, seat, period, ar, income = _seed(db)
+        member_api.record_assessment_decision(
+            assoc.id, plan.id, _decision(prop, payer, member),
+            db=db, current_user=admin,
+        )
+        charge = member_api.issue_assessment(
+            assoc.id, plan.id, period.id, _issue(prop, member, ar, income),
+            db=db, current_user=admin,
+        )
+        stored = db.get(HOAMemberAssessmentCharge, charge.id)
+        stored.amount_paid = Decimal("10.00")
+        db.flush()
+        with pytest.raises(HTTPException) as mismatch:
+            statement_api.member_statements(
+                assoc.id, Response(), property_id=prop.id,
+                db=db, current_user=admin,
+            )
+        assert mismatch.value.status_code == 409
+        assert db.query(GLTransaction).count() == 1
+        assert db.query(Receipt).count() == 0
     finally:
         db.rollback(); db.close(); engine.dispose()
