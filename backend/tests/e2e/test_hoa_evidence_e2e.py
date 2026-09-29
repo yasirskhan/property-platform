@@ -1322,12 +1322,27 @@ def test_hoa_authorized_board_minutes_revision_approval_browser() -> None:
                 )
                 minutes.get_by_role("button", name="Save staff minutes").click()
                 expect(minutes.get_by_text(re.compile("Staff minutes saved"))).to_be_visible()
+                workspace.get_by_label("Proposed staff motion").fill(
+                    "Synthetic member vote on landscaping motion"
+                )
+                workspace.get_by_role("button", name="Save motion draft").click()
+                expect(workspace.get_by_text(re.compile("Synthetic member vote on landscaping motion"))).to_be_visible()
                 # A board-only scoped portal reuses the verified approval route.
                 page.goto(f"{BASE_URL}/dashboard", wait_until="domcontentloaded")
                 page.get_by_role("link", name="My HOA board meetings").click()
                 expect(page.get_by_role("heading", name="My HOA board meetings")).to_be_visible()
                 expect(page.get_by_role("button", name="Review board minutes")).to_have_count(1)
                 page.get_by_role("button", name="Review board minutes").click()
+                expect(page.get_by_text(
+                    "Synthetic member vote on landscaping motion", exact=True,
+                )).to_be_visible()
+                page.get_by_role("combobox", name=re.compile("Board motion choice")).select_option("FOR")
+                page.once("dialog", lambda dialog: dialog.accept())
+                page.get_by_role("button", name="Record my board vote").click()
+                expect(page.get_by_text(re.compile("authenticated member vote was recorded"))).to_be_visible()
+                expect(page.get_by_text(re.compile("Your authenticated vote: FOR"))).to_be_visible()
+                expect(page.get_by_role("button", name="Record my board vote")).to_have_count(0)
+                assert _financial_counts() == before
                 expect(page.get_by_text(
                     "Synthetic board-reviewed meeting text, not production evidence.",
                     exact=True,

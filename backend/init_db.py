@@ -143,6 +143,7 @@ from app.models.hoa_reserve_movement_draft import HOAReserveMovementDraft  # noq
 from app.models.hoa_reserve_movement_decision import HOAReserveMovementDecision  # noqa: F401
 from app.models.hoa_board import HOABoardSeat, HOABoardRuleDraft  # noqa: F401
 from app.models.hoa_ballot import HOABallotRecord  # noqa: F401
+from app.models.hoa_board_vote import HOABoardVote  # noqa: F401
 from app.models.hoa_meeting_minutes import HOAMeetingMinutesDraft, HOAMeetingMinutesApproval  # noqa: F401
 from app.models.hoa_payer_draft import HOAPayerDraft  # noqa: F401
 from app.models.hoa_planned_occurrence import HOAPlannedOccurrence  # noqa: F401

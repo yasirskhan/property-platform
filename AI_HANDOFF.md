@@ -37,7 +37,8 @@ a branch, force-push, merge PR or advance Phase 4.8.
   SHA-256 text, with request replay and collision guards.
   Authenticated board portal gets motion list/own vote and a
   vote button; meeting/motion edits or archive cannot erase a
-  recorded vote. No derived quorum/resolution, financial posting,
+  recorded vote. Meeting/motion row locks serialize with vote
+  insertion to prevent concurrent archive/edit races. No derived quorum/resolution, financial posting,
   statutory notice, law assumption or external message.
   Proposed migration `a7c9e1f3b5d8` follows f6b8d0e2a4c7;
   expected model count **169** is NOT verified until CI passes.
@@ -48,12 +49,12 @@ a branch, force-push, merge PR or advance Phase 4.8.
   - `backend/app/models/hoa_board_vote.py` `727b9e2121c65e5c97517b0756fec63bcdc88b5b`
   - `backend/alembic/versions/a7c9e1f3b5d8_hoa_board_votes.py` `7b04ac029f0f5db44d958559523303df32a6ca40`
   - `backend/app/schemas/hoa_board_vote.py` `a70ed4200749f9485a334e4bd8ca0181b1ee16d2`
-  - `backend/app/routers/hoa_board_votes.py` `98e190eabb3119dbec9be25d333970f40bcf17c2`
+  - `backend/app/routers/hoa_board_votes.py` `71ba59d4765793eceb1a023898f63632947663c0`
   - `backend/app/main.py` `c53166963518a815afb71bdf16c565207ec4f763`
   - `backend/init_db.py` `c8bab8ceb560abe241aa0a2af77d031a464dad60`
   - `backend/app/services/entity_notes.py` `fb89cd7f75a3c4f123a0492dd19f6dcedee8a170`
-  - `backend/app/routers/hoa_meeting_workspace.py` `73eb79efaca5cfeb3049629033bc51dc9e0fa633`
-  - `backend/app/routers/hoa_meeting_drafts.py` `a5375ecd645743e5a5994cf1e2a2c8ab38712fbd`
+  - `backend/app/routers/hoa_meeting_workspace.py` `b8ff66064b3b4622684b0e134ddd1b4fa45ecdb4`
+  - `backend/app/routers/hoa_meeting_drafts.py` `934abe4b97917e7e08914c26157c273757a5c57d`
   - `frontend/src/app/dashboard/hoa/board/page.tsx` `4c3442d88917d98159496dfc081af08047c314c9`
   - `backend/tests/test_hoa_meeting_workspace.py` `ea24764dd49be3cba91ceaf7d247a49273b29b38`
   - `backend/tests/e2e/test_hoa_evidence_e2e.py` `f9d520f46aae3881c9c54b4ca329ce5c605da2f5`

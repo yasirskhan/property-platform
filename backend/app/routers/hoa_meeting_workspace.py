@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.models.contact import Contact
 from app.models.hoa_association import HOAContactLink
 from app.models.hoa_meeting_workspace import HOAMeetingParticipation, HOAMotionDraft
+from app.models.hoa_board_vote import HOABoardVote
 from app.models.user import User
 from app.routers.auth import get_current_user
 from app.routers.hoa_associations import _contact_scope
@@ -40,15 +41,16 @@ def _attendance(db: Session, org_id: int, association_id: int, property_id: int,
 
 
 def _motion(db: Session, org_id: int, association_id: int, property_id: int,
-            meeting_id: int, motion_id: int) -> HOAMotionDraft:
-    row = db.query(HOAMotionDraft).filter(
+            meeting_id: int, motion_id: int, lock: bool = False) -> HOAMotionDraft:
+    query = db.query(HOAMotionDraft).filter(
         HOAMotionDraft.id == motion_id,
         HOAMotionDraft.organization_id == org_id,
         HOAMotionDraft.association_id == association_id,
         HOAMotionDraft.property_id == property_id,
         HOAMotionDraft.meeting_draft_id == meeting_id,
         HOAMotionDraft.is_active.is_(True),
-    ).first()
+    )
+    row = (query.with_for_update() if lock else query).first()
     if row is None:
         raise HTTPException(status_code=404, detail="Proposed motion not found.")
     return row
@@ -260,8 +262,16 @@ def archive_motion(
         db, actor=current_user, association_id=association_id,
         property_id=property_id, write=True,
     )
-    _meeting(db, org_id, association.id, property_id, meeting_id)
-    row = _motion(db, org_id, association.id, property_id, meeting_id, motion_id)
+    _meeting(db, org_id, association.id, property_id, meeting_id, lock=True)
+    row = _motion(db, org_id, association.id, property_id, meeting_id, motion_id, lock=True)
+    if db.query(HOABoardVote.id).filter(
+        HOABoardVote.organization_id == org_id,
+        HOABoardVote.association_id == association.id,
+        HOABoardVote.property_id == property_id,
+        HOABoardVote.meeting_draft_id == meeting_id,
+        HOABoardVote.motion_draft_id == row.id,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="A board member voted; motion text and history cannot be archived.")
     archive_ballots(
         db, organization_id=org_id, association_id=association.id,
         property_id=property_id, meeting_draft_id=meeting_id,

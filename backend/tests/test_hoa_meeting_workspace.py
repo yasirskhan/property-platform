@@ -21,14 +21,17 @@ from app.models.hoa_association import HOAContactLink
 from app.models.hoa_meeting_workspace import HOAMeetingParticipation, HOAMotionDraft
 from app.models.hoa_meeting_draft import HOAMeetingDraft
 from app.models.hoa_meeting_minutes import HOAMeetingMinutesApproval, HOAMeetingMinutesDraft
+from app.models.hoa_board_vote import HOABoardVote
 from app.routers import hoa_meeting_minutes as minutes
 from app.routers import hoa_meeting_minutes_board as minutes_board
 from app.routers import hoa_board_portal as portal
+from app.routers import hoa_board_votes as votes_api
 from app.routers import hoa_board as board_api
 from app.routers import hoa_arc_board_decisions as arc_board
 from app.schemas.hoa_board import HOABoardSeatIn, HOABoardAuthorizationIn
 from app.schemas.hoa_meeting_minutes import HOAMinutesDraftIn
 from app.schemas.hoa_meeting_minutes_approval import HOAMinutesBoardApprovalIn
+from app.schemas.hoa_board_vote import HOABoardVoteIn
 from app.models.property import Property, PropertyAssignment
 from app.models.user import Organization, User, UserRole
 from app.routers import hoa_associations as hoa
@@ -604,5 +607,198 @@ def test_board_portal_meetings_are_authentic_scoped_and_entitled(monkeypatch):
         assert disabled.value.status_code == 404
         assert db.query(Charge).count() == db.query(GLTransaction).count() == 0
         assert db.query(GLEntry).count() == 0
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_real_board_member_vote_immutable_scoped_and_zero_finance(monkeypatch):
+    from hashlib import sha256
+    from app.models.hoa_board import HOABoardSeat
+
+    db, engine = _db()
+    try:
+        (admin, owner, manager, crew, tenant, foreign), (prop, other, outside), assoc, plan, seat = _minutes_board_setup(db, monkeypatch)
+        motion = api.propose_motion(
+            assoc.id, plan.id, HOAMotionDraftIn(
+                property_id=prop.id, proposed_motion="Adopt landscaping policy for this association",
+            ), db=db, current_user=owner,
+        )
+        digest = sha256(motion.proposed_motion.encode("utf-8")).hexdigest()
+        before = (db.query(Charge).count(), db.query(GLTransaction).count(),
+                  db.query(GLEntry).count())
+        response = Response()
+        possible = votes_api.board_motions(
+            assoc.id, plan.id, response, property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert len(possible) == 1 and possible[0].motion_sha256 == digest
+        assert possible[0].recorded_votes == 0 and possible[0].my_vote is None
+        first_payload = HOABoardVoteIn(
+            property_id=prop.id, motion_sha256=digest, choice="FOR",
+        )
+        for actor in (owner, manager, crew, tenant, foreign):
+            with pytest.raises(HTTPException):
+                votes_api.cast_board_vote(
+                    assoc.id, plan.id, motion.id, first_payload,
+                    db=db, current_user=actor,
+                )
+        for property_id in (other.id, outside.id):
+            with pytest.raises(HTTPException):
+                votes_api.board_motions(
+                    assoc.id, plan.id, Response(), property_id=property_id,
+                    db=db, current_user=admin,
+                )
+        with pytest.raises(HTTPException) as stale:
+            votes_api.cast_board_vote(
+                assoc.id, plan.id, motion.id,
+                HOABoardVoteIn(property_id=prop.id, motion_sha256="0" * 64,
+                               choice="FOR"), db=db, current_user=admin,
+            )
+        assert stale.value.status_code == 409
+        first = votes_api.cast_board_vote(
+            assoc.id, plan.id, motion.id, first_payload,
+            db=db, current_user=admin,
+        )
+        assert first.authenticated_member_vote is True
+        assert first.choice == "FOR" and first.board_seat_id == seat.id
+        assert first.quorum_certified is False
+        assert first.resolution_effective is False
+        replay = votes_api.cast_board_vote(
+            assoc.id, plan.id, motion.id, first_payload,
+            db=db, current_user=admin,
+        )
+        assert replay.id == first.id and db.query(HOABoardVote).count() == 1
+        with pytest.raises(HTTPException) as changed:
+            votes_api.cast_board_vote(
+                assoc.id, plan.id, motion.id,
+                HOABoardVoteIn(property_id=prop.id, motion_sha256=digest,
+                               choice="AGAINST"), db=db, current_user=admin,
+            )
+        assert changed.value.status_code == 409
+        viewed = votes_api.board_motions(
+            assoc.id, plan.id, Response(), property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        assert viewed[0].recorded_votes == 1 and viewed[0].my_vote.id == first.id
+        tenant.is_verified = True
+        db.flush()
+        contact = Contact(
+            organization_id=admin.organization_id,
+            display_name="Other voting member",
+            email=tenant.email, contact_type="PERSON", is_active=True,
+        )
+        db.add(contact); db.flush()
+        linked = hoa.add_contact_link(
+            assoc.id, HOAContactLinkIn(
+                property_id=prop.id, contact_id=contact.id,
+            ), db=db, current_user=admin,
+        )
+        other_seat = board_api.record_board_seat(
+            assoc.id, HOABoardSeatIn(
+                property_id=prop.id, contact_link_id=linked.id,
+                proposed_role="DIRECTOR", staff_voting_eligible=True,
+            ), db=db, current_user=admin,
+        )
+        board_api.authorize_board_seat(
+            assoc.id, other_seat.id, HOABoardAuthorizationIn(
+                property_id=prop.id, user_id=tenant.id,
+            ), db=db, current_user=admin,
+        )
+        other_view = votes_api.board_motions(
+            assoc.id, plan.id, Response(), property_id=prop.id,
+            db=db, current_user=tenant,
+        )
+        assert other_view[0].my_vote is None and other_view[0].recorded_votes == 1
+        second = votes_api.cast_board_vote(
+            assoc.id, plan.id, motion.id,
+            HOABoardVoteIn(property_id=prop.id, motion_sha256=digest,
+                           choice="ABSTAIN"), db=db, current_user=tenant,
+        )
+        assert second.board_seat_id == other_seat.id and second.choice == "ABSTAIN"
+        assert votes_api.board_motions(
+            assoc.id, plan.id, Response(), property_id=prop.id,
+            db=db, current_user=admin,
+        )[0].recorded_votes == 2
+        with pytest.raises(HTTPException) as no_archive:
+            api.archive_motion(
+                assoc.id, plan.id, motion.id, prop.id,
+                db=db, current_user=owner,
+            )
+        assert no_archive.value.status_code == 409
+        with pytest.raises(HTTPException):
+            meeting.update_meeting_draft(
+                assoc.id, plan.id, HOAMeetingDraftIn(
+                    property_id=prop.id, title="Changed after recorded vote",
+                    proposed_on=date.today(),
+                ), db=db, current_user=owner,
+            )
+        with pytest.raises(HTTPException):
+            meeting.archive_meeting_draft(
+                assoc.id, plan.id, prop.id,
+                db=db, current_user=owner,
+            )
+        db.get(HOABoardSeat, other_seat.id).decision_authorized = False
+        db.flush()
+        with pytest.raises(HTTPException):
+            votes_api.board_motions(
+                assoc.id, plan.id, Response(), property_id=prop.id,
+                db=db, current_user=tenant,
+            )
+        assert db.query(HOABoardVote).count() == 2
+        events = db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_board_vote",
+        ).all()
+        assert len(events) == 2
+        assert all("Adopt landscaping policy" not in str(e.new_value) for e in events)
+        assert (db.query(Charge).count(), db.query(GLTransaction).count(),
+                db.query(GLEntry).count()) == before
+        with pytest.raises(HTTPException):
+            _model_for_table("hoa_board_votes")
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_board_member_votes_require_meeting_date_and_current_entitlement(monkeypatch):
+    from hashlib import sha256
+    db, engine = _db()
+    try:
+        (admin, owner, manager, crew, tenant, foreign), (prop, other, outside), assoc, plan, seat = _minutes_board_setup(db, monkeypatch)
+        motion = api.propose_motion(
+            assoc.id, plan.id, HOAMotionDraftIn(
+                property_id=prop.id, proposed_motion="Review association maintenance",
+            ), db=db, current_user=admin,
+        )
+        payload = HOABoardVoteIn(
+            property_id=prop.id,
+            motion_sha256=sha256(motion.proposed_motion.encode("utf-8")).hexdigest(),
+            choice="AGAINST",
+        )
+        db.get(HOAMeetingDraft, plan.id).proposed_on = date.today() + timedelta(days=1)
+        db.flush()
+        with pytest.raises(HTTPException) as early:
+            votes_api.cast_board_vote(
+                assoc.id, plan.id, motion.id, payload,
+                db=db, current_user=admin,
+            )
+        assert early.value.status_code == 409
+        db.get(HOAMeetingDraft, plan.id).proposed_on = date.today()
+        db.flush()
+        monkeypatch.setattr(arc_board, "resolve_customer_features",
+                            lambda *a, **k: [])
+        with pytest.raises(HTTPException) as unavailable:
+            votes_api.cast_board_vote(
+                assoc.id, plan.id, motion.id, payload,
+                db=db, current_user=admin,
+            )
+        assert unavailable.value.status_code == 404
+        assert db.query(HOABoardVote).count() == 0
+        with pytest.raises(ValidationError):
+            HOABoardVoteIn(property_id=prop.id,
+                           motion_sha256="invalid", choice="FOR")
+        with pytest.raises(ValidationError):
+            HOABoardVoteIn(property_id=prop.id,
+                           motion_sha256="a" * 64, choice="INVALID")
+        assert db.query(GLTransaction).count() == 0
     finally:
         db.rollback(); db.close(); engine.dispose()

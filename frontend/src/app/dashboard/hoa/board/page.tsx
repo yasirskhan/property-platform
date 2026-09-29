@@ -15,7 +15,15 @@ type Approval = {
   approved_by_user_id: number; approved_at: string; approval_note: string;
   status: "BOARD_MEMBER_APPROVED"; quorum_certified: false;
 };
-type Detail = { minutes: Minutes | null; approval: Approval | null };
+type Vote = {
+  id: number; choice: "FOR" | "AGAINST" | "ABSTAIN";
+  motion_sha256: string; voted_at: string; authenticated_member_vote: true;
+};
+type Motion = {
+  id: number; proposed_motion: string; motion_sha256: string;
+  recorded_votes: number; my_vote: Vote | null;
+};
+type Detail = { minutes: Minutes | null; approval: Approval | null; motions: Motion[] };
 
 function url(meeting: Meeting) {
   return "/api/hoa/associations/" + meeting.association_id +
@@ -27,6 +35,7 @@ export default function HOABoardPortal() {
   const [selected, setSelected] = useState<number | null>(null);
   const [details, setDetails] = useState<Record<number, Detail>>({});
   const [note, setNote] = useState("");
+  const [choices, setChoices] = useState<Record<number, "FOR" | "AGAINST" | "ABSTAIN">>({});
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -48,11 +57,12 @@ export default function HOABoardPortal() {
     setBusy(true); setError(""); setMessage(""); setNote("");
     try {
       const suffix = "?property_id=" + meeting.property_id;
-      const [minutes, approval] = await Promise.all([
+      const [minutes, approval, motions] = await Promise.all([
         apiGet(url(meeting) + "/minutes-board-preview" + suffix) as Promise<Minutes | null>,
         apiGet(url(meeting) + "/minutes-board-approval" + suffix) as Promise<Approval | null>,
+        apiGet(url(meeting) + "/board-motions" + suffix) as Promise<Motion[]>,
       ]);
-      setDetails(prior => ({ ...prior, [meeting.meeting_id]: { minutes, approval } }));
+      setDetails(prior => ({ ...prior, [meeting.meeting_id]: { minutes, approval, motions } }));
       setSelected(meeting.meeting_id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Minutes unavailable.");
@@ -73,12 +83,44 @@ export default function HOABoardPortal() {
       }) as Approval;
       setDetails(prior => ({
         ...prior,
-        [meeting.meeting_id]: { minutes, approval: saved },
+        [meeting.meeting_id]: { ...details[meeting.meeting_id], minutes, approval: saved },
       }));
       setNote("");
       setMessage("Your board-member approval of this minutes revision was recorded.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Approval was not recorded. Reload the minutes.");
+    } finally { setBusy(false); }
+  }
+
+  async function vote(meeting: Meeting, motion: Motion) {
+    if (busy || motion.my_vote) return;
+    const choice = choices[motion.id] || "ABSTAIN";
+    if (!window.confirm("Record your own " + choice + " vote on this exact motion?")) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const saved = await apiPost(
+        url(meeting) + "/board-motions/" + motion.id + "/vote",
+        {
+          property_id: meeting.property_id,
+          motion_sha256: motion.motion_sha256, choice,
+        },
+      ) as Vote;
+      setDetails(prior => {
+        const existing = prior[meeting.meeting_id];
+        if (!existing) return prior;
+        return {
+          ...prior,
+          [meeting.meeting_id]: {
+            ...existing,
+            motions: existing.motions.map(row => row.id === motion.id
+              ? { ...row, my_vote: saved, recorded_votes: row.recorded_votes + 1 }
+              : row),
+          },
+        };
+      });
+      setMessage("Your authenticated member vote was recorded on the exact motion.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Vote was not recorded. Review the current motion.");
     } finally { setBusy(false); }
   }
 
@@ -110,6 +152,39 @@ export default function HOABoardPortal() {
           {isOpen ? "Close board minutes" : "Review board minutes"}
         </button>
         {isOpen && detail && <div className="space-y-3 border-t pt-3">
+          <h3 className="font-medium">Board motions</h3>
+          <p className="text-xs text-slate-600">
+            A motion choice records your individual board vote. No automatic quorum,
+            full-board resolution, external notice, or financial effect is created.
+          </p>
+          {detail.motions.length === 0 && <p>No active motions recorded for this meeting.</p>}
+          {detail.motions.map(motion => <div key={motion.id} className="space-y-2 rounded border p-3">
+            <p className="whitespace-pre-wrap break-words text-sm">{motion.proposed_motion}</p>
+            <p className="text-xs">Recorded board member votes: {motion.recorded_votes}</p>
+            {motion.my_vote ? <p role="status" className="text-teal-800">
+              Your authenticated vote: {motion.my_vote.choice}. Recorded {motion.my_vote.voted_at}.
+            </p> : <div className="flex flex-wrap items-center gap-2">
+              <label className="text-sm">My motion vote
+                <select aria-label={"Board motion choice " + motion.id}
+                  value={choices[motion.id] || "ABSTAIN"}
+                  onChange={event => setChoices(old => ({
+                    ...old,
+                    [motion.id]: event.target.value as "FOR" | "AGAINST" | "ABSTAIN",
+                  }))}
+                  className="ml-2 rounded border p-2">
+                  <option value="FOR">FOR</option>
+                  <option value="AGAINST">AGAINST</option>
+                  <option value="ABSTAIN">ABSTAIN</option>
+                </select>
+              </label>
+              <button type="button" disabled={busy}
+                onClick={() => { void vote(meeting, motion); }}
+                className="rounded bg-teal-900 px-3 py-2 text-white disabled:opacity-50">
+                Record my board vote
+              </button>
+            </div>}
+          </div>)}
+          <h3 className="font-medium">Meeting minutes</h3>
           {detail.minutes ? <>
             <h3 className="font-medium">Recorded minutes, revision {detail.minutes.revision}</h3>
             <p className="whitespace-pre-wrap break-words rounded bg-slate-50 p-3 text-sm">

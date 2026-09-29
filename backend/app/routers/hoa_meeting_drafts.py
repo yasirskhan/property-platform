@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.models.hoa_meeting_draft import HOAMeetingDraft
 from app.models.user import User
 from app.models.hoa_meeting_minutes import HOAMeetingMinutesApproval
+from app.models.hoa_board_vote import HOABoardVote
 from app.routers.auth import get_current_user
 from app.routers.hoa_assessments import _scope
 from app.schemas.hoa_meeting_draft import HOAMeetingDraftIn, HOAMeetingDraftOut
@@ -18,14 +19,16 @@ from app.services.hoa_meeting_workspace_cleanup import archive_meeting_workspace
 router = APIRouter(prefix="/api/hoa/associations", tags=["HOA staff meeting plans"])
 
 
-def _row(db: Session, org_id: int, association_id: int, property_id: int, draft_id: int) -> HOAMeetingDraft:
-    found = db.query(HOAMeetingDraft).filter(
+def _row(db: Session, org_id: int, association_id: int, property_id: int,
+         draft_id: int, lock: bool = False) -> HOAMeetingDraft:
+    query = db.query(HOAMeetingDraft).filter(
         HOAMeetingDraft.id == draft_id,
         HOAMeetingDraft.organization_id == org_id,
         HOAMeetingDraft.association_id == association_id,
         HOAMeetingDraft.property_id == property_id,
         HOAMeetingDraft.is_active.is_(True),
-    ).first()
+    )
+    found = (query.with_for_update() if lock else query).first()
     if found is None:
         raise HTTPException(status_code=404, detail="Staff meeting draft not found.")
     return found
@@ -108,7 +111,14 @@ def update_meeting_draft(
         db, actor=current_user, association_id=association_id,
         property_id=payload.property_id, write=True,
     )
-    row = _row(db, org_id, assoc.id, payload.property_id, draft_id)
+    row = _row(db, org_id, assoc.id, payload.property_id, draft_id, lock=True)
+    if db.query(HOABoardVote.id).filter(
+        HOABoardVote.organization_id == org_id,
+        HOABoardVote.association_id == assoc.id,
+        HOABoardVote.property_id == payload.property_id,
+        HOABoardVote.meeting_draft_id == draft_id,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Meeting with recorded board votes cannot be modified.")
     if db.query(HOAMeetingMinutesApproval.id).filter(
         HOAMeetingMinutesApproval.organization_id == org_id,
         HOAMeetingMinutesApproval.association_id == assoc.id,
@@ -140,7 +150,14 @@ def archive_meeting_draft(
         db, actor=current_user, association_id=association_id,
         property_id=property_id, write=True,
     )
-    row = _row(db, org_id, assoc.id, property_id, draft_id)
+    row = _row(db, org_id, assoc.id, property_id, draft_id, lock=True)
+    if db.query(HOABoardVote.id).filter(
+        HOABoardVote.organization_id == org_id,
+        HOABoardVote.association_id == assoc.id,
+        HOABoardVote.property_id == property_id,
+        HOABoardVote.meeting_draft_id == draft_id,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Meeting with recorded board votes cannot be archived.")
     if db.query(HOAMeetingMinutesApproval.id).filter(
         HOAMeetingMinutesApproval.organization_id == org_id,
         HOAMeetingMinutesApproval.association_id == assoc.id,
