@@ -476,7 +476,7 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 ).click()
                 expect(outcome_email.get_by_text(
                     "Test-only: no real email was transmitted.",
-                )).to_be_visible()
+                ).first).to_be_visible()
                 expect(outcome_email.get_by_text(re.compile("TEST ONLY"))).to_be_visible()
                 assert _financial_counts() == before
                 outcome_email.get_by_role("button", name="Close appeal email").click()
