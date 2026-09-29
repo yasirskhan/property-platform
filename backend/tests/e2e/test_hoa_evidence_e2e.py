@@ -407,7 +407,7 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 page.once("dialog", lambda dialog: dialog.accept())
                 fine.get_by_role("button", name="Record received fine payment").click()
                 expect(fine.get_by_text(re.compile("No bank collection initiated"))).to_be_visible()
-                expect(fine.get_by_text(re.compile(r"Outstanding \$0\.00"))).to_be_visible()
+                expect(fine.get_by_text(re.compile(r"Outstanding \$0\.00")).first).to_be_visible()
                 assert _financial_counts() == (before[0], before[1] + 2)
                 expect(fine.get_by_role("button", name="Reverse posted fine")).to_have_count(0)
                 fine.get_by_label("Fine receipt reversal date").fill(date.today().isoformat())
@@ -420,7 +420,7 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 fine.get_by_label("Fine reversal reason").fill("Synthetic accounting correction")
                 page.once("dialog", lambda dialog: dialog.accept())
                 fine.get_by_role("button", name="Reverse posted fine").click()
-                expect(fine.get_by_text(re.compile("REVERSED"))).to_be_visible()
+                expect(fine.get_by_text(re.compile("Board decision #.*REVERSED"))).to_be_visible()
                 assert _financial_counts() == (before[0], before[1] + 4)
             finally:
                 browser.close()

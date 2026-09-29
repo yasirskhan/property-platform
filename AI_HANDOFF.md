@@ -23,8 +23,8 @@ force pushes, PR merge, frozen docs/ changes or Phase 4.8.
   reversal guard. Generic receipt reverse/NSF cannot bypass
   HOA_FINE allocation rollback. No bank/card collection or
   real-world obligation is initiated by synthetic tests.
-- Proposed Alembic `a3c5e7f9b1d4` after f2b4d6e8a0c3,
-  EXPECTED 175 tables. Do NOT advance verified migration/table
+- Proposed Alembic `c8e0a2f4b6d9` after f2b4d6e8a0c3,
+  EXPECTED 175 tables. First provisional source d95fda55 CI 36630385628 FAILED five bootstrap/migration tests (809 passed, 5 failed, 15 deselected): the proposed revision a3c5e7f9b1d4 collided with pre-existing LIHTC revision. Corrected revision c8e0a2f4b6d9 has unique filename/revision. All non-migration tests passed at the first source. Do NOT advance verified migration/table
   count until all SIX GitHub Actions jobs PASS on the product
   commit. Backend/HOA browser regressions, frontend UI and
   migration guards are included. TESTS NOT RUN locally.
@@ -6461,7 +6461,7 @@ CI 36383165892 SUCCESS all six jobs: backend 678 passed,
 browser E2E 3 passed in 9.96s; frontend, platform-admin,
 security, staging green. E2E is existing browser smoke,
 NOT dedicated document upload/preview E2E. New migration
-a3c5e7f9b1d4 from f2a4b6c8d0e3, 126 model tables from 125.
+c8e0a2f4b6d9 from f2a4b6c8d0e3, 126 model tables from 125.
 Frozen docs/ and planning parity untouched.
 
 New encrypted table affordable_lihtc_8609_documents linked to active,
@@ -6513,7 +6513,7 @@ CI 36383794588 SUCCESS all six jobs: backend 681 passed,
 E2E 3 passed in 9.49s, frontend, security, platform-admin
 and staging green. E2E is generic browser smoke, NOT
 dedicated 8609-A interaction. New migration b4d6f8a0c2e5
-after a3c5e7f9b1d4, 127 SQLAlchemy tables from 126.
+after c8e0a2f4b6d9, 127 SQLAlchemy tables from 126.
 Frozen docs/ and planning parity untouched.
 
 New affordable_lihtc_8609_annual table is only one bounded

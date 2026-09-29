@@ -10,7 +10,7 @@ import pytest
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = BACKEND_ROOT / "tests" / "fixtures" / "pre_alembic_1d77_schema.sql"
-EXPECTED_HEAD = "a3c5e7f9b1d4"
+EXPECTED_HEAD = "c8e0a2f4b6d9"
 EXPECTED_MODEL_TABLES = 175
 
 

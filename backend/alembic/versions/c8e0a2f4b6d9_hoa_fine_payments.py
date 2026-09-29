@@ -1,12 +1,12 @@
 """HOA fine-specific receipt allocations with protected central GL reversal.
 
-Revision ID: a3c5e7f9b1d4
+Revision ID: c8e0a2f4b6d9
 Revises: f2b4d6e8a0c3
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "a3c5e7f9b1d4"
+revision = "c8e0a2f4b6d9"
 down_revision = "f2b4d6e8a0c3"
 branch_labels = None
 depends_on = None
