@@ -1,3 +1,64 @@
+# AI_HANDOFF.md — 2026-09-29 HOA OPERATIVE FINES VERIFIED
+
+**Read this entire file.** This newest status supersedes older NEXT and
+PROVISIONAL entries, which remain below as historical evidence.
+Repository `yasirskhan/property-platform`, ONLY branch
+`chatgpt/checkpoint-005-safety`. No main, new branches, force pushes,
+PR merge, frozen docs/ edits or Phase 4.8.
+
+- Last VERIFIED PRODUCT SOURCE
+  `f82561f9ecc42ebef26e273a0acd9e7dac97f255`.
+  GitHub Actions **36620561609 SUCCESS all six jobs on this SHA**:
+  backend **812 passed, 15 deselected, 21095 warnings in 288.63s**;
+  authenticated browser **15 passed, 230 warnings in 71.09s**;
+  frontend lint/TypeScript/production build, platform-admin, security
+  and staging-config all PASS. **TESTS NOT RUN locally**.
+- Verified Alembic **f2b4d6e8a0c3**, expected **174 model tables**;
+  prior e1a3c5f7b9d2/173. PostgreSQL, migration and staging checks
+  passed on the exact verified source.
+- VERIFIED Phase 4.7 violation fine work: the association's authorized
+  board records APPROVED or DENIED on a case after its configured
+  documented service, cure/hearing opportunity, live private evidence
+  and verified member controls. Hearing-held outcomes record date and
+  privately retained case proof. A distinct accounting-authorized
+  action posts approved member receivable/income through the
+  existing balanced central GL with locked-period and replay
+  protections; an explicit reversal retains the immutable trail.
+  No tenant Charge, legal validity certification or SMTP-based
+  service presumption. Tests cover unauthorized/foreign access,
+  mismatched member, service/policy revisions, fine cap, hearing
+  proof, denial, duplicate decision and posting, GL reversal,
+  closed-period safeguards and private evidence retention.
+  Dedicated synthetic HOA browser covers decision -> posting ->
+  reversal. This is not a production financial posting from CI.
+- Initial provisional product commit `dd0e5c49` CI
+  **36619966428 FAILED** only two test fixtures:
+  810 passed, 2 failed, 15 deselected; frontend/security/admin
+  green; E2E/staging skipped. Test-only correction
+  `f82561f9` supplied required hearing date and explicit synthetic
+  attachment feature in proof-retention test; subsequent full
+  **36620561609 SUCCESS**. Never attribute passing tests to the
+  failed initial SHA. Older provisional handoff below is historical.
+- Original seven operational HOA areas remain Phase 4.7 priority;
+  preserve direct operative ARC board decisions, member dues,
+  existing receipt/statement flow, board votes, reserve GL,
+  budgets, documents and $79/month paid entitlement.
+- Exact NEXT independently actionable Phase 4.7 violation task:
+  **offline-recorded fine-specific member receipts/partial/full
+  allocation and reversal** against the posted fine, reusing central
+  Receipt/ReceiptLine and GL, correctly confirmed member, scoped
+  accountant, cash-like GL, deposits/locked periods, idempotency,
+  no overpayment or reversal of an allocated receivable.
+  Distinguish actual recorded offline funds from bank/processor
+  collection; no tenant receipt or duplicate ledger. Add focused
+  backend and dedicated HOA browser coverage. A paid fine's
+  GL original cannot be reversed until its receipts are reversed.
+  Follow with appeal/correction tracking; no guessed legal deadlines
+  or a blanket platform legal certification gate. Continue
+  remaining independent HOA work without repeating completed batches.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 HOA BOARD FINE PROVISIONAL
 
 **Read this ENTIRE root handoff.** This entry supersedes earlier
