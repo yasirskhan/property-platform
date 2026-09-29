@@ -1349,7 +1349,13 @@ def test_annual_budget_actuals_include_posted_reversals_and_exclude_foreign_tags
         assert by_account[expense.id]["actual_book"] == Decimal("35.00")
         assert by_account[income.id]["variance_actual_minus_budget"] == Decimal("-235.00")
         assert by_account[expense.id]["variance_actual_minus_budget"] == Decimal("-90.00")
-        for actor, pid in [(manager, prop.id), (member, prop.id), (foreign, prop.id),
+        # An assigned manager with the live accounting permissions may read
+        # property-tagged budget actuals; foreign/unassigned actors may not.
+        assert budget_actuals_api.annual_budget_actuals(
+            assoc.id, draft.id, Response(), property_id=prop.id,
+            db=db, current_user=manager,
+        )["lines"][0]["gl_account_id"] in {income.id, expense.id}
+        for actor, pid in [(member, prop.id), (foreign, prop.id),
                            (admin, outside.id), (manager, other.id)]:
             with pytest.raises(HTTPException):
                 budget_actuals_api.annual_budget_actuals(
