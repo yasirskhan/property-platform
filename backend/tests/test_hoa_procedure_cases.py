@@ -1639,6 +1639,12 @@ def test_board_records_real_service_evidence_without_notice_inference_or_finance
                 db=db, current_user=admin,
             )
         assert preserve.value.status_code == 409
+        monkeypatch.setattr(attachments, "resolve_customer_features",
+            lambda *a, **kw: [SimpleNamespace(
+                key=attachments.ATTACHMENTS_FEATURE_KEY, allowed=True,
+            )])
+        monkeypatch.setattr(attachments, "resolve_note_target",
+                            lambda *a, **kw: None)
         with pytest.raises(HTTPException) as proof_delete:
             attachments.delete_entity_attachment(
                 proof.id, db=db, current_user=admin,
