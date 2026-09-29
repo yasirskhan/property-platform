@@ -31,6 +31,10 @@ class HOABoardMotionOut(BaseModel):
     proposed_motion: str
     motion_sha256: str
     recorded_votes: int
+    votes_for: int
+    votes_against: int
+    votes_abstain: int
+    vote_register: list[HOABoardVoteOut]
     my_vote: HOABoardVoteOut | None
     quorum_certified: Literal[False] = False
     resolution_effective: Literal[False] = False

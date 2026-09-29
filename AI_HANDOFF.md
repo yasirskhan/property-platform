@@ -1,3 +1,46 @@
+# AI_HANDOFF.md — 2026-09-29 BOARD MEMBER VOTES VERIFIED / VOTE REGISTER NEXT
+
+**READ THE ENTIRE ROOT FILE.** This entry supersedes old NEXT and
+PREPARED labels below. Only `yasirskhan/property-platform` on existing
+`chatgpt/checkpoint-005-safety`. No main, new branch, force push,
+frozen docs/, PR merge or Phase 4.8 work.
+
+- Last VERIFIED product source `e1783988f04a55c35f3b6e174c1c07a2b8240d14`;
+  GitHub Actions **36594111679 SUCCESS ALL SIX JOBS**, backend
+  **799 passed, 15 deselected, 20163 warnings in 213.11s**,
+  authenticated browser **15 passed, 224 warnings in 65.77s**.
+  Frontend lint/TypeScript/build, platform-admin, security and staging
+  PASS. **TESTS NOT RUN locally.**
+- Verified Alembic head `a7c9e1f3b5d8`; **169 model tables**.
+  Prepared individual vote blobs from historical handoff were committed
+  and tested through the corrected product commit above. Previous
+  provisional `f7366cec` CI 36592695951 FAILED due to minutes editor
+  initial-load race; corrected `e1783988` passed six jobs.
+- Completed: currently authorized, verified board-member login votes
+  once immutably FOR/AGAINST/ABSTAIN on the exact motion SHA-256 through
+  private board portal, idempotent exact replay and conflict detection.
+  Meeting and motion updates/archive are protected when voted.
+  Organization-scoped entitlement, current seat and source record
+  access are rechecked. Recorded votes are NOT quorum certification
+  or automatically effective association resolutions.
+- NEXT independently actionable Phase 4.7 board batch: show a
+  scoped, read-only authenticated member-vote register and FOR/AGAINST/
+  ABSTAIN counts for each motion, using existing immutable `HOABoardVote`.
+  Add backend + authenticated browser tests; no new migration, legal
+  certification, notices, accounting or separate vote storage.
+  Provisional commit to ONLY existing branch and verify all six CI
+  jobs before marking complete. Then continue the next unblocked
+  operational HOA workflow.
+- All seven original operational Phase 4.7 HOA areas remain goal.
+  Preserve previously verified member assessments/receipts/statements,
+  annual budget, ARC direct decisions without blanket legal-effect
+  gate, reserve GL book, document delivery, private case tasks, and
+  $79/month HOA entitlement. Only specific missing action input
+  blocks an individual operation; no inferred law, payer or real
+  notice/bank collection. Phase 4.8 PAUSED.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 BOARD PORTAL VERIFIED / BOARD VOTES PREPARED
 
 **READ THE ENTIRE ROOT FILE.** This latest entry overrides earlier

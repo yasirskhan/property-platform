@@ -67,6 +67,10 @@ def board_motions(
         HOABoardVote.motion_draft_id.in_([m.id for m in motions]),
     ).all()
     by_motion = Counter(v.motion_draft_id for v in votes)
+    choices = Counter((v.motion_draft_id, v.choice) for v in votes)
+    grouped = {m.id: [] for m in motions}
+    for v in sorted(votes, key=lambda row: row.id):
+        grouped[v.motion_draft_id].append(_out(v))
     own = {v.motion_draft_id: v for v in votes if v.board_seat_id == seat.id}
     response.headers["Cache-Control"] = "no-store"
     return [
@@ -74,6 +78,10 @@ def board_motions(
             id=m.id, meeting_draft_id=meeting_id, proposed_motion=m.proposed_motion,
             motion_sha256=sha256(m.proposed_motion.encode("utf-8")).hexdigest(),
             recorded_votes=by_motion[m.id],
+            votes_for=choices[(m.id, "FOR")],
+            votes_against=choices[(m.id, "AGAINST")],
+            votes_abstain=choices[(m.id, "ABSTAIN")],
+            vote_register=grouped[m.id],
             my_vote=_out(own[m.id]) if m.id in own else None,
         ) for m in motions
     ]

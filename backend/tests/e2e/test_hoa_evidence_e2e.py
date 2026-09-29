@@ -1342,6 +1342,10 @@ def test_hoa_authorized_board_minutes_revision_approval_browser() -> None:
                 expect(page.get_by_text(re.compile("authenticated member vote was recorded"))).to_be_visible()
                 expect(page.get_by_text(re.compile("Your authenticated vote: FOR"))).to_be_visible()
                 expect(page.get_by_role("button", name="Record my board vote")).to_have_count(0)
+                expect(page.get_by_text(re.compile("Member choices: 1 FOR"))).to_be_visible()
+                page.get_by_text("View recorded member vote register").click()
+                expect(page.get_by_text(re.compile("Board seat #.*FOR"))).to_be_visible()
+                expect(page.get_by_text(re.compile("not a certified resolution"))).to_be_visible()
                 assert _financial_counts() == before
                 expect(page.get_by_text(
                     "Synthetic board-reviewed meeting text, not production evidence.",

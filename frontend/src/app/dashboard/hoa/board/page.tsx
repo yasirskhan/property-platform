@@ -16,12 +16,14 @@ type Approval = {
   status: "BOARD_MEMBER_APPROVED"; quorum_certified: false;
 };
 type Vote = {
-  id: number; choice: "FOR" | "AGAINST" | "ABSTAIN";
+  id: number; board_seat_id: number; choice: "FOR" | "AGAINST" | "ABSTAIN";
   motion_sha256: string; voted_at: string; authenticated_member_vote: true;
 };
 type Motion = {
   id: number; proposed_motion: string; motion_sha256: string;
-  recorded_votes: number; my_vote: Vote | null;
+  recorded_votes: number; votes_for: number; votes_against: number;
+  votes_abstain: number; vote_register: Vote[];
+  my_vote: Vote | null;
 };
 type Detail = { minutes: Minutes | null; approval: Approval | null; motions: Motion[] };
 
@@ -113,7 +115,11 @@ export default function HOABoardPortal() {
           [meeting.meeting_id]: {
             ...existing,
             motions: existing.motions.map(row => row.id === motion.id
-              ? { ...row, my_vote: saved, recorded_votes: row.recorded_votes + 1 }
+              ? { ...row, my_vote: saved, recorded_votes: row.recorded_votes + 1,
+                  votes_for: row.votes_for + (saved.choice === "FOR" ? 1 : 0),
+                  votes_against: row.votes_against + (saved.choice === "AGAINST" ? 1 : 0),
+                  votes_abstain: row.votes_abstain + (saved.choice === "ABSTAIN" ? 1 : 0),
+                  vote_register: [...row.vote_register, saved] }
               : row),
           },
         };
@@ -161,6 +167,15 @@ export default function HOABoardPortal() {
           {detail.motions.map(motion => <div key={motion.id} className="space-y-2 rounded border p-3">
             <p className="whitespace-pre-wrap break-words text-sm">{motion.proposed_motion}</p>
             <p className="text-xs">Recorded board member votes: {motion.recorded_votes}</p>
+            <p className="text-xs">Member choices: {motion.votes_for} FOR · {motion.votes_against} AGAINST · {motion.votes_abstain} ABSTAIN. Historical record, not a certified resolution.</p>
+            {motion.vote_register.length > 0 && <details className="text-xs">
+              <summary>View recorded member vote register</summary>
+              <ol className="mt-1 space-y-1">
+                {motion.vote_register.map(v => <li key={v.id}>
+                  Board seat #{v.board_seat_id}: {v.choice} · {v.voted_at}
+                </li>)}
+              </ol>
+            </details>
             {motion.my_vote ? <p role="status" className="text-teal-800">
               Your authenticated vote: {motion.my_vote.choice}. Recorded {motion.my_vote.voted_at}.
             </p> : <div className="flex flex-wrap items-center gap-2">

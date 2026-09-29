@@ -634,6 +634,8 @@ def test_real_board_member_vote_immutable_scoped_and_zero_finance(monkeypatch):
         assert response.headers["cache-control"] == "no-store"
         assert len(possible) == 1 and possible[0].motion_sha256 == digest
         assert possible[0].recorded_votes == 0 and possible[0].my_vote is None
+        assert (possible[0].votes_for, possible[0].votes_against, possible[0].votes_abstain) == (0, 0, 0)
+        assert possible[0].vote_register == []
         first_payload = HOABoardVoteIn(
             property_id=prop.id, motion_sha256=digest, choice="FOR",
         )
@@ -681,6 +683,8 @@ def test_real_board_member_vote_immutable_scoped_and_zero_finance(monkeypatch):
             db=db, current_user=admin,
         )
         assert viewed[0].recorded_votes == 1 and viewed[0].my_vote.id == first.id
+        assert (viewed[0].votes_for, viewed[0].votes_against, viewed[0].votes_abstain) == (1, 0, 0)
+        assert [v.board_seat_id for v in viewed[0].vote_register] == [seat.id]
         tenant.is_verified = True
         db.flush()
         contact = Contact(
@@ -716,10 +720,20 @@ def test_real_board_member_vote_immutable_scoped_and_zero_finance(monkeypatch):
                            choice="ABSTAIN"), db=db, current_user=tenant,
         )
         assert second.board_seat_id == other_seat.id and second.choice == "ABSTAIN"
-        assert votes_api.board_motions(
+        summary = votes_api.board_motions(
             assoc.id, plan.id, Response(), property_id=prop.id,
             db=db, current_user=admin,
-        )[0].recorded_votes == 2
+        )[0]
+        assert summary.recorded_votes == 2
+        assert (summary.votes_for, summary.votes_against, summary.votes_abstain) == (1, 0, 1)
+        assert [(v.board_seat_id, v.choice) for v in summary.vote_register] == [
+            (seat.id, "FOR"), (other_seat.id, "ABSTAIN"),
+        ]
+        assert summary.quorum_certified is False and summary.resolution_effective is False
+        assert votes_api.board_motions(
+            assoc.id, plan.id, Response(), property_id=prop.id,
+            db=db, current_user=tenant,
+        )[0].vote_register[0].board_seat_id == seat.id
         with pytest.raises(HTTPException) as no_archive:
             api.archive_motion(
                 assoc.id, plan.id, motion.id, prop.id,
