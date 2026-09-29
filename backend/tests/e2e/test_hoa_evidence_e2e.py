@@ -1220,6 +1220,14 @@ def test_hoa_annual_budget_board_adoption_browser_without_finance_posting() -> N
                 expect(annual.get_by_text(
                     re.compile("Planned reserve allocation: \$20\.00"),
                 )).to_be_visible()
+                annual.get_by_role("button", name="Annual assessment increases").click()
+                increases = annual.get_by_role(
+                    "heading", name="Annual budget-linked member increases",
+                ).locator("..").locator("..")
+                expect(increases.get_by_text("No unlinked prior recurring member assessments available.")).to_be_visible()
+                expect(increases.get_by_text(re.compile(
+                    "new association board decision", re.IGNORECASE,
+                ))).to_be_visible()
                 assert _financial_counts() == before
             finally:
                 browser.close()

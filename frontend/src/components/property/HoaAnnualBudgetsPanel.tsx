@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiGet, apiPost, apiPut } from "@/lib/api";
+import HoaAnnualBudgetIncreasesPanel from "@/components/property/HoaAnnualBudgetIncreasesPanel";
 
 type Account = {
   id: number; number: string; name: string;
@@ -43,6 +44,7 @@ export default function HoaAnnualBudgetsPanel({
   const [decision, setDecision] = useState<"APPROVED" | "DENIED">("APPROVED");
   const [note, setNote] = useState("");
   const [deciding, setDeciding] = useState<number | null>(null);
+  const [increasing, setIncreasing] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -202,6 +204,15 @@ export default function HoaAnnualBudgetsPanel({
       {item.status !== "DRAFT" && <p role="status">Association board decision: {item.status}
         {" · "}Recorded on {item.decided_on} · {item.decision_method}
         {" · "}{item.decision_note}</p>}
+      {item.status === "APPROVED" && canEdit && <>
+        <button type="button" className="text-blue-700"
+          onClick={() => setIncreasing(prior => prior === item.id ? null : item.id)}>
+          {increasing === item.id ? "Hide assessment increases" : "Annual assessment increases"}</button>
+        {increasing === item.id && <HoaAnnualBudgetIncreasesPanel
+          associationId={associationId} propertyId={propertyId}
+          budgetId={item.id} budgetYear={item.calendar_year}
+          onClose={() => setIncreasing(null)} />}
+      </>}
       {item.status === "DRAFT" && canEdit && <>
         <button type="button" onClick={() => openDraft(item)}
           className="text-blue-700">Edit annual draft</button>

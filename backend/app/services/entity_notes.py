@@ -55,7 +55,8 @@ _FORBIDDEN_TABLES = {
     "hoa_reserve_accounts",  # Restricted accounting scope; deny generic notes and attachments.  # Joint observation/compliance access, not generic notes.
     "hoa_document_deliveries",  # Restricted contact/document delivery history.
     "hoa_assessment_decisions",  # Scoped final board decisions and private notes.
-    "hoa_annual_budgets",  # Association-scoped approval history and confidential budget details.
+    "hoa_annual_budgets",
+    "hoa_annual_assessment_increases",  # Association-scoped approval history and confidential budget details.
     "hoa_member_assessment_payments",  # Private receipt-backed member allocation.
     "hoa_member_assessment_charges",  # Member-specific receivable GL records.
     "hoa_governing_evidence",  # Evidence metadata is gated by HOA compliance/property scope.  # Staff architectural-interest intake is not an approved ARC decision.  # Staff-planned HOA meetings are not generic documents or legal minutes.  # Staff-only potential-issue notes; not public evidence or documents.  # Not a generic note or tenant liability.

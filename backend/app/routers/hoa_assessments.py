@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.hoa_assessment import HOAAssessmentProposal
+from app.models.hoa_annual_assessment_increase import HOAAnnualAssessmentIncrease
 from app.models.hoa_member_assessment import HOAAssessmentDecision
 from app.models.hoa_association import HOAPropertyMembership
 from app.models.property import Property
@@ -149,6 +150,11 @@ def update_proposal(
         HOAAssessmentDecision.proposal_id == row.id,
     ).first() is not None:
         raise HTTPException(status_code=409, detail="Board-decided assessment cannot be edited; create a new proposal.")
+    if db.query(HOAAnnualAssessmentIncrease.id).filter(
+        HOAAnnualAssessmentIncrease.proposal_id == row.id,
+        HOAAnnualAssessmentIncrease.organization_id == org_id,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Budget-linked increase must not be silently edited; record an authorized revision.")
     for key, value in payload.model_dump().items():
         setattr(row, key, value)
     row.updated_by_id = current_user.id
@@ -181,6 +187,11 @@ def archive_proposal(
         HOAAssessmentDecision.proposal_id == row.id,
     ).first() is not None:
         raise HTTPException(status_code=409, detail="Board-decided assessment is immutable; corrections use the member ledger reversal.")
+    if db.query(HOAAnnualAssessmentIncrease.id).filter(
+        HOAAnnualAssessmentIncrease.proposal_id == row.id,
+        HOAAnnualAssessmentIncrease.organization_id == org_id,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Recorded budget-linked increase cannot be silently archived.")
     archive_payer_drafts(
         db, organization_id=org_id, association_id=association.id,
         property_id=property_id, proposal_id=row.id,

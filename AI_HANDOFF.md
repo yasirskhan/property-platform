@@ -1,3 +1,56 @@
+# AI_HANDOFF.md — 2026-09-29 ANNUAL BUDGET INCREASE PROVISIONAL
+
+**Authoritative most recent status. Read whole file; older NEXT/PREPARED
+entries below are historical.** Repository `yasirskhan/property-platform`;
+ONLY working branch `chatgpt/checkpoint-005-safety`. No main, new branch,
+force-push, frozen docs/, PR merge, or Phase 4.8.
+
+- Latest VERIFIED product source `cedb96d2c6c7301626330e78ef9f2546c50bca25`;
+  CI **36574549498 SUCCESS all six jobs**, backend **791 passed,
+  14 deselected**, browser **14 passed**. Migration
+  `d4f6a8c0e2b5`, **166 tables**. No local tests.
+- The immediately preceding root handoff commit
+  `5d689fd6da6fc0bd87c369e5c2d002bb800dd05b`
+  is documentation-only.
+- Current proposed NEXT batch (NOT VERIFIED until six CI jobs pass):
+  LINK approved association annual budget to a *new* recurring
+  member assessment increase proposal, requiring an actual prior
+  posted recurring HOA member receivable and independently verified
+  same-scope responsible member. Idempotent source-charge/budget
+  association, immutable previous and proposed amount snapshots,
+  separate board decision and GL issuance, staff accountant
+  permission and live HOA subscription/release gates, cross-property
+  and cross-organization checks, audit redaction. The new proposed
+  amount MUST exceed the previously issued amount; first assessment
+  date must be in adopted budget year. The new proposal is atomically
+  created with inherited currently live payer reference, but NO new
+  board approval, notice or member charge/GL transaction results
+  from creation. Existing separate authorized board decision,
+  recurrence generation, GL posting, receipt, reversal remain
+  mandatory and reusable.
+- Proposed migration `e5a7c9d1f3b6` follows
+  `d4f6a8c0e2b5`; EXPECTED **167 tables** only after verified.
+  New table `hoa_annual_assessment_increases`. Proposed source
+  includes route, component, backend regressions and annual budget
+  browser extension. PROVISIONAL implementation commit and
+  hosted GitHub Actions test result must be verified independently;
+  do NOT attribute earlier green CI to this batch.
+- After six green jobs, update handoff with real source SHA, run ID,
+  backend/browser counts and schema. Continue the next unblocked
+  Phase 4.7 operational batch, prioritizing authorized notice
+  delivery for a specific approved member assessment or violation
+  with exact configured procedure and recipient. No platform-wide
+  legal approval gate; missing per-action jurisdictional fields,
+  decision maker, verified payer or delivery channel block only
+  that specific action.
+- Preserve all previously verified HOA assessment posting, receipts,
+  statements, annual budgets, direct ARC APPROVED/DENIED, reserve
+  GL book transfers/reversal, private documents and $79/month
+  add-on entitlements. The SEVEN original HOA capabilities must
+  become operational and tested; Phase 4.7 IN PROGRESS.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 HOA ANNUAL BUDGET VERIFIED
 
 **Latest verified product source** `cedb96d2c6c7301626330e78ef9f2546c50bca25`.

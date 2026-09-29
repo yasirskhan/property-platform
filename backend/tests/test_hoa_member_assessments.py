@@ -24,6 +24,9 @@ from app.models.receipt_line import ReceiptLine
 from app.routers import hoa_member_payments as payments_api
 from app.routers import hoa_member_statements as statement_api
 from app.routers import hoa_annual_budgets as budget_api
+from app.routers import hoa_annual_assessment_increases as increase_api
+from app.models.hoa_annual_assessment_increase import HOAAnnualAssessmentIncrease
+from app.schemas.hoa_annual_assessment_increase import HOAIncreaseCreateIn
 from app.models.hoa_annual_budget import HOAAnnualBudget
 from app.schemas.hoa_annual_budget import (
     HOAAnnualBudgetCreateIn, HOAAnnualBudgetReviseIn,
@@ -35,6 +38,7 @@ from app.schemas.receipt import ReceiptCreateIn
 from app.services.receipt_posting import reverse_receipt, process_nsf_receipt
 from app.services.gl_posting import PostingError
 from app.models.hoa_member_assessment import HOAAssessmentDecision, HOAMemberAssessmentCharge
+from app.models.hoa_assessment import HOAAssessmentProposal
 from app.models.lease import RentInvoice
 from app.models.property import Property, PropertyAssignment
 from app.models.user import Organization, User, UserRole
@@ -1069,5 +1073,213 @@ def test_hoa_annual_budget_offline_scope_archive_and_unauthorized_gl(monkeypatch
         assert db.get(HOAAnnualBudget, saved.id).status == "APPROVED"
         assert db.query(GLTransaction).count() == 0
         assert db.query(Charge).count() == 0
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+def _budget_linked_increase(prop, old, **changes):
+    data = dict(
+        property_id=prop.id, source_charge_id=old.id,
+        title="Adopted annual budget member increase",
+        proposed_amount="150.00", effective_on=date(2029, 1, 1),
+    )
+    data.update(changes)
+    return HOAIncreaseCreateIn(**data)
+
+
+def test_annual_budget_linked_increase_requires_independent_board_decision_and_posting():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, member, foreign), (prop, other, outside), assoc, old_proposal, payer, seat, old_period, ar, income = _seed(db)
+        member_api.record_assessment_decision(
+            assoc.id, old_proposal.id, _decision(prop, payer, member),
+            db=db, current_user=admin,
+        )
+        prior = member_api.issue_assessment(
+            assoc.id, old_proposal.id, old_period.id,
+            _issue(prop, member, ar, income),
+            db=db, current_user=owner,
+        )
+        expense = GLAccount(
+            organization_id=admin.organization_id, gl_number="HOA-INCREASE-EXP",
+            name="Annual budget expense", account_type="EXPENSE", is_active=True,
+        )
+        db.add(expense); db.commit()
+        budget = budget_api.create_annual_budget(
+            assoc.id, _annual(prop, income, expense), db=db, current_user=admin,
+        )
+        expected = _budget_linked_increase(prop, prior)
+        with pytest.raises(HTTPException) as draft:
+            increase_api.propose_increase(
+                assoc.id, budget.id, expected, db=db, current_user=admin,
+            )
+        assert draft.value.status_code == 409
+        approved = budget_api.decide_annual_budget(
+            assoc.id, budget.id, HOAAnnualBudgetDecisionIn(
+                property_id=prop.id, expected_version=1,
+                decision="APPROVED", decision_note="Annual budget adoption",
+            ), db=db, current_user=admin,
+        )
+        assert approved.status == "APPROVED"
+        baseline_finance = (db.query(GLTransaction).count(), db.query(Charge).count(),
+                            db.query(RentInvoice).count(), db.query(Receipt).count())
+        response = Response()
+        sources = increase_api.increase_sources(
+            assoc.id, budget.id, response, property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert [x.charge_id for x in sources] == [prior.id]
+        assert sources[0].member_user_id == member.id
+        with pytest.raises(HTTPException) as no_increase:
+            increase_api.propose_increase(
+                assoc.id, budget.id,
+                _budget_linked_increase(prop, prior, proposed_amount="125.50"),
+                db=db, current_user=admin,
+            )
+        assert no_increase.value.status_code == 422
+        with pytest.raises(HTTPException) as wrong_year:
+            increase_api.propose_increase(
+                assoc.id, budget.id,
+                _budget_linked_increase(prop, prior, effective_on=date(2028, 12, 1)),
+                db=db, current_user=admin,
+            )
+        assert wrong_year.value.status_code == 422
+        increase = increase_api.propose_increase(
+            assoc.id, budget.id, expected, db=db, current_user=admin,
+        )
+        assert increase.member_user_id == member.id
+        assert increase.previous_amount == Decimal("125.50")
+        assert increase.proposed_amount == Decimal("150.00")
+        assert increase.new_board_decision_required and not increase.new_member_charge_posted
+        assert increase_api.propose_increase(
+            assoc.id, budget.id, expected, db=db, current_user=owner,
+        ).id == increase.id
+        assert db.query(HOAAnnualAssessmentIncrease).count() == 1
+        assert (db.query(GLTransaction).count(), db.query(Charge).count(),
+                db.query(RentInvoice).count(), db.query(Receipt).count()) == baseline_finance
+        created = db.get(HOAAssessmentProposal, increase.proposal_id)
+        assert created.frequency == "QUARTERLY"
+        assert created.proposed_amount == Decimal("150.00")
+        assert payer_api.get_payer_draft(
+            assoc.id, created.id, Response(), property_id=prop.id,
+            db=db, current_user=admin,
+        ).contact_link_id == payer.id
+        with pytest.raises(HTTPException) as change:
+            plans.update_proposal(
+                assoc.id, created.id, HOAAssessmentProposalIn(
+                    property_id=prop.id, title="Unreviewed changed amount",
+                    assessment_type="RECURRING", frequency="QUARTERLY",
+                    proposed_amount="170.00", proposed_first_on=date(2029, 1, 1),
+                ), db=db, current_user=admin,
+            )
+        assert change.value.status_code == 409
+        with pytest.raises(HTTPException) as archived:
+            plans.archive_proposal(
+                assoc.id, created.id, property_id=prop.id,
+                db=db, current_user=admin,
+            )
+        assert archived.value.status_code == 409
+        response = Response()
+        history = increase_api.list_increases(
+            assoc.id, budget.id, response, property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        assert len(history) == 1 and history[0].id == increase.id
+        assert response.headers["cache-control"] == "no-store"
+        member_api.record_assessment_decision(
+            assoc.id, created.id, _decision(prop, payer, member),
+            db=db, current_user=admin,
+        )
+        new_plan = occurrences.generate_occurrences(
+            assoc.id, created.id, HOAPlanGenerationIn(
+                property_id=prop.id, date_from=date(2029, 1, 1),
+                date_to=date(2029, 1, 1),
+            ), db=db, current_user=admin,
+        )
+        assert len(new_plan.rows) == 1
+        posted = member_api.issue_assessment(
+            assoc.id, created.id, new_plan.rows[0].id,
+            _issue(prop, member, ar, income, due_on=date(2029, 2, 1)),
+            db=db, current_user=owner,
+        )
+        assert posted.amount == Decimal("150.00")
+        assert posted.member_user_id == member.id
+        assert db.query(GLTransaction).count() == baseline_finance[0] + 1
+        assert db.query(Charge).count() == db.query(RentInvoice).count() == 0
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_annual_assessment_increase",
+        ).count() == 1
+        with pytest.raises(HTTPException):
+            _model_for_table("hoa_annual_assessment_increases")
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_annual_increase_rejects_foreign_staff_missing_member_and_revocation(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, member, foreign), (prop, other, outside), assoc, old_proposal, payer, seat, old_period, ar, income = _seed(db)
+        member_api.record_assessment_decision(
+            assoc.id, old_proposal.id, _decision(prop, payer, member),
+            db=db, current_user=admin,
+        )
+        prior = member_api.issue_assessment(
+            assoc.id, old_proposal.id, old_period.id,
+            _issue(prop, member, ar, income), db=db, current_user=owner,
+        )
+        expense = GLAccount(
+            organization_id=admin.organization_id, gl_number="HOA-INCREASE-EXP-2",
+            name="Annual budget expense", account_type="EXPENSE", is_active=True,
+        )
+        db.add(expense); db.commit()
+        budget = budget_api.create_annual_budget(
+            assoc.id, _annual(prop, income, expense), db=db, current_user=admin,
+        )
+        budget_api.decide_annual_budget(
+            assoc.id, budget.id, HOAAnnualBudgetDecisionIn(
+                property_id=prop.id, expected_version=1,
+                decision="APPROVED", decision_note="Association approved budget",
+            ), db=db, current_user=admin,
+        )
+        payload = _budget_linked_increase(prop, prior)
+        for actor, target in (
+            (manager, prop), (member, prop), (foreign, prop),
+            (admin, outside), (admin, other),
+        ):
+            with pytest.raises(HTTPException):
+                increase_api.propose_increase(
+                    assoc.id, budget.id,
+                    _budget_linked_increase(target, prior),
+                    db=db, current_user=actor,
+                )
+        with pytest.raises(HTTPException):
+            increase_api.propose_increase(
+                assoc.id, budget.id,
+                _budget_linked_increase(prop, prior, source_charge_id=999999),
+                db=db, current_user=admin,
+            )
+        member.is_verified = False; db.flush()
+        with pytest.raises(HTTPException) as member_unverified:
+            increase_api.propose_increase(
+                assoc.id, budget.id, payload, db=db, current_user=admin,
+            )
+        assert member_unverified.value.status_code == 409
+        member.is_verified = True; db.flush()
+        monkeypatch.setattr(member_api, "permission_allows_user",
+                            lambda *args, **kwargs: False)
+        with pytest.raises(HTTPException) as denied:
+            increase_api.propose_increase(
+                assoc.id, budget.id, payload, db=db, current_user=admin,
+            )
+        assert denied.value.status_code == 403
+        monkeypatch.setattr(member_api, "permission_allows_user",
+                            lambda *args, **kwargs: True)
+        monkeypatch.setattr(hoa, "resolve_customer_features", lambda *args, **kwargs: [])
+        with pytest.raises(HTTPException):
+            increase_api.propose_increase(
+                assoc.id, budget.id, payload, db=db, current_user=admin,
+            )
+        assert db.query(HOAAnnualAssessmentIncrease).count() == 0
+        assert db.query(GLTransaction).count() == 1
     finally:
         db.rollback(); db.close(); engine.dispose()
