@@ -18,6 +18,7 @@ from app.models.charge import Charge
 from app.models.gl_transaction import GLTransaction
 from app.models.hoa_procedure_policy import HOAProcedurePolicy
 from app.models.hoa_violation_case import HOAViolationCase
+from app.models.hoa_violation_case_event import HOAViolationCaseEvent
 from app.models.lease import Lease, RentInvoice
 from app.models.property import Property, PropertyAssignment
 from app.models.user import Organization, User, UserRole
@@ -415,3 +416,126 @@ def test_procedure_reference_must_be_same_scope_private_active_document(monkeypa
         assert _balances(db) == (0, 0, 0, 0)
     finally:
         db.rollback(); db.close(); engine.dispose()
+
+
+def test_violation_timeline_records_real_stage_history_without_posting():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, _, _), assoc, obs = _seed(db)
+        p = policies.put_policy(assoc.id, _profile(prop.id), db=db, current_user=admin)
+        case = cases.create_case(
+            assoc.id, HOAViolationCaseIn(property_id=prop.id, observation_id=obs.id),
+            db=db, current_user=owner,
+        )
+        def history(actor=admin, property_id=prop.id):
+            return cases.get_case_history(
+                assoc.id, case.id, Response(), property_id=property_id,
+                db=db, current_user=actor,
+            )
+        assert len(history()) == 1
+        assert history()[0].from_stage is None and history()[0].to_stage == "OPEN"
+        cases.advance_case(
+            assoc.id, case.id, _advance(prop, "NOTICE_DRAFT", action_on=date(2026, 10, 1)),
+            db=db, current_user=admin,
+        )
+        cases.advance_case(
+            assoc.id, case.id, _advance(prop, "CURE_TRACKING"),
+            db=db, current_user=owner,
+        )
+        result = history(manager)
+        assert [e.to_stage for e in result] == ["OPEN", "NOTICE_DRAFT", "CURE_TRACKING"]
+        assert result[1].from_stage == "OPEN"
+        assert result[1].staff_action_on == date(2026, 10, 1)
+        assert result[1].policy_revision == p.revision
+        assert result[2].tentative_cure_on == date(2026, 10, 6)
+        assert all(e.notice_delivered is False and e.fine_posted is False for e in result)
+        policies.put_policy(
+            assoc.id, _profile(prop.id, cure_preparation_days=15),
+            db=db, current_user=admin,
+        )
+        # Revision and tentative dates are immutable history snapshots.
+        older = history()
+        assert older[2].policy_revision == 1
+        assert older[2].tentative_cure_on == date(2026, 10, 6)
+        cases.advance_case(
+            assoc.id, case.id,
+            _advance(prop, "FINE_PROPOSED", proposed_fine="24.50"),
+            db=db, current_user=owner,
+        )
+        cases.advance_case(
+            assoc.id, case.id,
+            _advance(prop, "RESOLVED", staff_resolution="Internal follow-up"),
+            db=db, current_user=admin,
+        )
+        cases.advance_case(
+            assoc.id, case.id, _advance(prop, "CLOSED"),
+            db=db, current_user=admin,
+        )
+        final = history()
+        assert [e.to_stage for e in final][-3:] == [
+            "FINE_PROPOSED", "RESOLVED", "CLOSED",
+        ]
+        assert final[-3].proposed_fine == Decimal("24.50")
+        assert final[-2].staff_resolution == "Internal follow-up"
+        assert final[-1].from_stage == "RESOLVED"
+        assert final[-1].proposed_fine == Decimal("24.50")
+        assert len({e.id for e in final}) == 6
+        assert db.query(HOAViolationCaseEvent).count() == 6
+        response = Response()
+        assert len(cases.get_case_history(
+            assoc.id, case.id, response, property_id=prop.id,
+            db=db, current_user=manager,
+        )) == 6
+        assert response.headers["cache-control"] == "no-store"
+        assert _balances(db) == (0, 0, 0, 0)
+        with pytest.raises(HTTPException):
+            _model_for_table("hoa_violation_case_events")
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_violation_timeline_scope_and_archive_preserve_private_history(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, other, outside), assoc, obs = _seed(db)
+        case = cases.create_case(
+            assoc.id, HOAViolationCaseIn(property_id=prop.id, observation_id=obs.id),
+            db=db, current_user=admin,
+        )
+        def read(actor, prop_id=prop.id):
+            return cases.get_case_history(
+                assoc.id, case.id, Response(), property_id=prop_id,
+                db=db, current_user=actor,
+            )
+        for actor, prop_id in (
+            (tenant, prop.id), (foreign, prop.id),
+            (manager, other.id), (admin, outside.id),
+        ):
+            with pytest.raises(HTTPException):
+                read(actor, prop_id)
+        monkeypatch.setattr(hoa, "permission_allows_user", lambda *a, **kw: False)
+        with pytest.raises(HTTPException) as exc:
+            read(admin)
+        assert exc.value.status_code == 403
+        monkeypatch.setattr(hoa, "permission_allows_user", lambda *a, **kw: True)
+        monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **kw: [])
+        with pytest.raises(HTTPException) as exc:
+            read(admin)
+        assert exc.value.status_code == 404
+        monkeypatch.setattr(hoa, "resolve_customer_features", lambda *a, **kw: [
+            SimpleNamespace(key=hoa.FEATURE_KEY, allowed=True),
+            SimpleNamespace(key=hoa.HOA_FEATURE_KEY, allowed=True),
+        ])
+        observations.archive_observation(
+            assoc.id, obs.id, prop.id, db=db, current_user=owner,
+        )
+        with pytest.raises(HTTPException) as exc:
+            read(admin)
+        assert exc.value.status_code == 404
+        assert db.query(HOAViolationCaseEvent).count() == 1
+        assert _balances(db) == (0, 0, 0, 0)
+    finally:
+        db.rollback()
+        db.close()
+        engine.dispose()

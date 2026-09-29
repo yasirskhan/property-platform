@@ -10,11 +10,13 @@ from app.core.database import get_db
 from app.models.hoa_observation import HOAObservation
 from app.models.hoa_procedure_policy import HOAProcedurePolicy
 from app.models.hoa_violation_case import HOAViolationCase
+from app.models.hoa_violation_case_event import HOAViolationCaseEvent
 from app.models.user import User
 from app.routers.auth import get_current_user
 from app.routers.hoa_assessments import _scope
 from app.schemas.hoa_violation_case import (
     HOAViolationAdvanceIn, HOAViolationCaseIn, HOAViolationCaseOut,
+    HOAViolationCaseEventOut,
 )
 from app.services.audit import append_audit_log
 
@@ -100,6 +102,59 @@ def _audit(db: Session, *, row: HOAViolationCase, actor: User, action: str) -> N
     )
 
 
+def _record_transition(db: Session, *, row: HOAViolationCase, actor: User,
+                       previous: str | None, staff_action_on=None) -> None:
+    db.add(HOAViolationCaseEvent(
+        organization_id=row.organization_id, association_id=row.association_id,
+        property_id=row.property_id, case_id=row.id,
+        from_stage=previous, to_stage=row.stage,
+        policy_revision=row.policy_revision,
+        staff_action_on=staff_action_on,
+        tentative_cure_on=row.tentative_cure_on,
+        tentative_hearing_on=row.tentative_hearing_on,
+        proposed_fine=row.proposed_fine,
+        staff_resolution=row.staff_resolution,
+        recorded_by_id=actor.id,
+    ))
+
+
+@router.get("/{association_id}/staff-cases/{case_id}/history",
+            response_model=list[HOAViolationCaseEventOut])
+def get_case_history(
+    association_id: int, case_id: int, response: Response,
+    property_id: int = Query(ge=1),
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    org_id, assoc = _scope(
+        db, actor=current_user, association_id=association_id,
+        property_id=property_id, write=False,
+    )
+    case = _case(
+        db, org_id=org_id, association_id=assoc.id,
+        property_id=property_id, case_id=case_id,
+    )
+    events = db.query(HOAViolationCaseEvent).filter(
+        HOAViolationCaseEvent.organization_id == org_id,
+        HOAViolationCaseEvent.association_id == assoc.id,
+        HOAViolationCaseEvent.property_id == property_id,
+        HOAViolationCaseEvent.case_id == case.id,
+    ).order_by(HOAViolationCaseEvent.id).limit(201).all()
+    if len(events) > 200:
+        raise HTTPException(status_code=422, detail="Case history exceeds display limit.")
+    response.headers["Cache-Control"] = "no-store"
+    return [
+        HOAViolationCaseEventOut(
+            id=e.id, case_id=e.case_id,
+            from_stage=e.from_stage, to_stage=e.to_stage,
+            policy_revision=e.policy_revision, staff_action_on=e.staff_action_on,
+            tentative_cure_on=e.tentative_cure_on,
+            tentative_hearing_on=e.tentative_hearing_on,
+            proposed_fine=e.proposed_fine, staff_resolution=e.staff_resolution,
+            recorded_at=e.recorded_at,
+        ) for e in events
+    ]
+
+
 @router.get("/{association_id}/staff-cases", response_model=list[HOAViolationCaseOut])
 def list_cases(
     association_id: int, response: Response, property_id: int = Query(ge=1),
@@ -162,6 +217,7 @@ def create_case(
     db.add(row)
     try:
         db.flush()
+        _record_transition(db, row=row, actor=current_user, previous=None)
         _audit(db, row=row, actor=current_user, action="staff_case_created")
         db.commit()
     except IntegrityError as exc:
@@ -216,9 +272,12 @@ def advance_case(
         row.proposed_fine = payload.proposed_fine
     elif payload.next_stage == "RESOLVED":
         row.staff_resolution = payload.staff_resolution.strip()
+    previous_stage = row.stage
     row.stage = payload.next_stage
     row.policy_revision = policy.revision if policy else None
     row.updated_by_id = current_user.id
+    _record_transition(db, row=row, actor=current_user,
+                       previous=previous_stage, staff_action_on=payload.action_on)
     db.flush()
     _audit(db, row=row, actor=current_user, action="staff_case_advanced")
     db.commit()

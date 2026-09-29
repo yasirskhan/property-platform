@@ -246,6 +246,13 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 cases.get_by_role("button", name="Record staff stage").click()
                 expect(cases.get_by_text(re.compile("Tentative cure tracking"))).to_be_visible()
                 expect(cases.get_by_text(re.compile("Tentative cure: 2026-09-07"))).to_be_visible()
+                cases.get_by_role("button", name="Case history").click()
+                history = cases.get_by_role("heading", name="Internal case history").locator("..")
+                expect(history.get_by_text(re.compile("NEW.*OPEN"))).to_be_visible()
+                expect(history.get_by_text(re.compile("OPEN.*NOTICE DRAFT"))).to_be_visible()
+                expect(history.get_by_text(re.compile("NOTICE DRAFT.*CURE TRACKING"))).to_be_visible()
+                expect(history.get_by_text(re.compile("Procedure revision 1")).first).to_be_visible()
+                expect(history.get_by_text(re.compile("does not deliver a legal notice"))).to_be_visible()
                 assert _financial_counts() == before
             finally:
                 browser.close()

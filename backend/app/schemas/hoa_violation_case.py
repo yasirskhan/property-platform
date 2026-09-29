@@ -58,3 +58,19 @@ class HOAViolationCaseOut(BaseModel):
     notice_sent: Literal[False] = False
     fine_assessed: Literal[False] = False
     legally_adjudicated: Literal[False] = False
+
+
+class HOAViolationCaseEventOut(BaseModel):
+    id: int
+    case_id: int
+    from_stage: CaseStage | None
+    to_stage: CaseStage
+    policy_revision: int | None
+    staff_action_on: date | None
+    tentative_cure_on: date | None
+    tentative_hearing_on: date | None
+    proposed_fine: Decimal | None
+    staff_resolution: str | None
+    recorded_at: datetime
+    notice_delivered: Literal[False] = False
+    fine_posted: Literal[False] = False

@@ -4,6 +4,21 @@ import { useEffect, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
 
 type Observation = { id: number; summary: string; observed_on: string };
+type HistoryEvent = {
+  id: number;
+  case_id: number;
+  from_stage: string | null;
+  to_stage: string;
+  policy_revision: number | null;
+  staff_action_on: string | null;
+  tentative_cure_on: string | null;
+  tentative_hearing_on: string | null;
+  proposed_fine: string | null;
+  staff_resolution: string | null;
+  recorded_at: string;
+  notice_delivered: false;
+  fine_posted: false;
+};
 type Stage = "OPEN" | "NOTICE_DRAFT" | "CURE_TRACKING" |
   "HEARING_PLANNED" | "FINE_PROPOSED" | "RESOLVED" | "CLOSED";
 type Case = {
@@ -36,6 +51,8 @@ export default function HoaCaseWorkflowPanel({
   canEdit: boolean; onClose: () => void;
 }) {
   const [items, setItems] = useState<Case[]>([]);
+  const [historyCase, setHistoryCase] = useState<number | null>(null);
+  const [history, setHistory] = useState<HistoryEvent[]>([]);
   const [observations, setObservations] = useState<Observation[]>([]);
   const [selectedObservation, setSelectedObservation] = useState("");
   const [editing, setEditing] = useState<number | null>(null);
@@ -57,6 +74,9 @@ export default function HoaCaseWorkflowPanel({
       apiGet(root + "/observations" + query) as Promise<Observation[]>,
     ]);
     setItems(cases); setObservations(source);
+    if (historyCase !== null) {
+      setHistory(await apiGet(base + "/" + historyCase + "/history" + query) as HistoryEvent[]);
+    }
   }
 
   useEffect(() => {
@@ -87,6 +107,20 @@ export default function HoaCaseWorkflowPanel({
       setMessage("Internal staff case opened. No legal notice was issued.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to open staff case.");
+    } finally { setBusy(false); }
+  }
+
+  async function toggleHistory(row: Case) {
+    if (historyCase === row.id) {
+      setHistoryCase(null); setHistory([]);
+      return;
+    }
+    setBusy(true); setError("");
+    try {
+      setHistory(await apiGet(base + "/" + row.id + "/history" + query) as HistoryEvent[]);
+      setHistoryCase(row.id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Case history unavailable.");
     } finally { setBusy(false); }
   }
 
@@ -149,6 +183,36 @@ export default function HoaCaseWorkflowPanel({
           </p>
           {row.proposed_fine && <p className="text-xs">Unassessed fine proposal: ${row.proposed_fine}</p>}
           {row.staff_resolution && <p className="text-xs">Staff resolution: {row.staff_resolution}</p>}
+          <button type="button" disabled={busy}
+            onClick={() => { void toggleHistory(row); }}
+            className="text-sm text-blue-700 disabled:opacity-50">
+            {historyCase === row.id ? "Hide case history" : "Case history"}
+          </button>
+          {historyCase === row.id && (
+            <div className="space-y-1 rounded border bg-slate-50 p-2 text-xs">
+              <h4 className="font-semibold">Internal case history</h4>
+              {history.length === 0 && <p>No recorded transition history for this case.</p>}
+              <ol className="space-y-1">
+                {history.map((item) => (
+                  <li key={item.id} className="rounded border bg-white p-2">
+                    <p>{(item.from_stage || "NEW").replaceAll("_", " ")} → {item.to_stage.replaceAll("_", " ")}
+                      {" · "}Recorded {item.recorded_at}</p>
+                    {item.policy_revision !== null &&
+                      <p>Procedure revision {item.policy_revision}</p>}
+                    {item.staff_action_on && <p>Staff-planned date: {item.staff_action_on}</p>}
+                    {item.tentative_cure_on && <p>Tentative cure: {item.tentative_cure_on}</p>}
+                    {item.tentative_hearing_on && <p>Tentative hearing: {item.tentative_hearing_on}</p>}
+                    {item.proposed_fine && <p>Unassessed proposal: ${item.proposed_fine}</p>}
+                    {item.staff_resolution && <p>Staff resolution: {item.staff_resolution}</p>}
+                  </li>
+                ))}
+              </ol>
+              <p className="text-amber-900">
+                Recorded history does not deliver a legal notice, assess a fine
+                or create a member receivable.
+              </p>
+            </div>
+          )}
           {canEdit && NEXT[row.stage].length > 0 && (
             <button type="button" onClick={() => begin(row)}
               className="text-sm text-blue-700">Advance internal case</button>
