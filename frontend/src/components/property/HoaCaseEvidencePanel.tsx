@@ -104,7 +104,7 @@ export default function HoaCaseEvidencePanel({
         References existing private property documents or photos. A file does
         not establish that a violation occurred, prove service of notice,
         authorize a penalty, or become visible to a member. Upload private
-        files using the property's existing attachment uploader first.
+        files using the property attachment uploader first.
       </p>
       {error && <p role="alert" className="text-red-700">{error}</p>}
       {message && <p role="status" className="text-emerald-700">{message}</p>}
