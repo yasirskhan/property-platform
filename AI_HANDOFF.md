@@ -28,7 +28,78 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT task: continue Phase 4.7 HOA violations, preferably a discrete, authorized real-operations batch once applicable procedure, legal service, board authorization and liable member have actual verified records. Existing observation, case stages/history, potential recipient, versioned correspondence drafts and private evidence links are VERIFIED; do not repeat. If binding authority is unavailable, continue only independent generic case management and truthful readiness diagnostics without sending statutory notices or posting fines. Do not restore a legal-effect gate to final ARC decisions. Keep HOA priority and preserve all Phase 4.8 product work without advancing it.**
+- **Exact NEXT task: FIRST recover a testable checkout of current branch HEAD and independently test the 15 ALREADY PREPARED, UNCOMMITTED Git blobs listed below (HOA violation case staff follow-up tasks). Review and repair the prepared implementation against current contracts; run focused backend, migration, frontend lint/typecheck, and dedicated HOA browser tests BEFORE product-code commit, as required by the user. If no current executable checkout is available, report this specific genuine blocker and do NOT commit untested product code or claim CI verification. Once tests pass, commit ONE bounded batch on this branch, obtain all SIX green CI jobs, then update this handoff with exact passing tests and migration/table counts. Do not repeat verified private evidence, correspondence, recipient, case, or ARC features. Phase 4.8 remains paused.**
+
+## NEXT SESSION START HERE — exact 2026-09-28 stopping point
+
+The last action in this chat is this **documentation-only handoff
+update**. Immediately before this edit, branch HEAD was
+`ce2aae77a02a07f8b9c9fc48245b7f1b7aea7186`, itself
+documentation-only, with run `36519516166` IN PROGRESS
+at the time checked. Re-query the actual branch HEAD and its
+latest run when the new chat starts; do not assume that docs CI
+passed or that `ce2aae77` is still HEAD.
+
+**Verified product baseline:** `4546b6abb597609690cc99fae25457892643a4e1`;
+GitHub Actions `36510915584` SUCCESS on all six jobs:
+775 backend passed, 11 deselected; 11 browser E2E passed;
+frontend lint/TypeScript/build, platform-admin, security,
+staging-config green. Alembic `d8f0a2c4e6b9`,
+159 model tables. Later handoff-only commits do **NOT**
+change the verified product baseline. No tests for the
+proposed case-follow-up task batch have run.
+
+**In-flight exact task:** Phase 4.7 HOA violation staff
+case follow-ups. Fifteen Git blobs are prepared (complete
+paths and SHAs immediately below). They cover the SQLAlchemy
+task model, migration `e9a1c3f5b7d0`, API schemas/router,
+closed-case outstanding-task guard, task and parent UI,
+focused regression tests, HOA browser extension, bootstraps
+and notes denylist. A later static review fixed a manager
+UI authorization mismatch: use the **updated** task UI blob
+`3c2c2507b2965d1851dee754368aaf02f9cbdbc4`,
+not its superseded predecessor. **Prepared Git blob
+objects are not a branch commit.** Never report these
+changes as implemented or verified in the deployed branch.
+
+**Do exactly this next:** check connected GitHub, read
+this entire root handoff, inspect current HEAD and CI,
+retrieve the listed 15 blobs if they still exist, and
+assemble their proposed source atop the exact current
+branch. Obtain an executable checkout of that current
+source, run applicable focused backend + migration tests,
+frontend lint and TypeScript, and dedicated HOA browser
+tests *before* a product-code commit. Review role/assignee
+authorization, request-key idempotency, stale optimistic
+versions, closed/resolved case transitions, zero finance
+side effects, no information leaks, and missing/foreign
+property tests. If checkout/test access is still blocked,
+state **TESTS NOT RUN** and stop before product-code
+mutation; do not stage an unverified commit, alter
+`main`, or make a new branch to work around the rule.
+After precommit tests pass, create one bounded product
+commit on `chatgpt/checkpoint-005-safety`, verify all
+six CI jobs at the resulting SHA and record real positive
+test counts. Fix failures autonomously. Update this
+handoff after verification.
+
+**Security/product boundary:** ARC final board approval
+or denial is already operational; its board decision is
+recorded directly as APPROVED or DENIED without a blanket
+`legal_decision_effective=false` gate. Keep its atomic
+member-fee posting, work order/inspection follow-up,
+offline decision record, notification retries, and
+reversal protections intact. Violation case staff stages,
+potential-recipient references, private evidence,
+versioned internal correspondence, and proposed fines
+are a different workflow. The new tasks are internal
+staff assignments only; they do not serve statutory
+notices, assess fines, establish a liable member, or
+post GL entries. Never misrepresent planning fields as
+legally operative activity. HOA Phase 4.7 remains
+IN PROGRESS; Phase 4.8 stays paused. Frozen `docs/`
+and existing verified product code must not be altered
+without a scoped, tested need.
 
 ## CURRENT SESSION UPDATE — 2026-09-28 CASE FOLLOW-UP PREPARED, UNCOMMITTED
 
