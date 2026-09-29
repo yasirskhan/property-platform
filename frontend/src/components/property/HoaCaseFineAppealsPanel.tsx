@@ -95,6 +95,8 @@ export default function HoaCaseFineAppealsPanel({
       records UPHELD or VACATED. No automatic penalty adjustment, refund, member
       notice or GL transaction is created. Open/vacated appeals hold new posting
       and receipt allocations; any existing payments need separately approved corrections.</p>
+    <button type="button" disabled={busy} onClick={() => { void reload().catch(cause => { setError(cause instanceof Error ? cause.message : "Appeal refresh unavailable."); }); }}
+      className="text-blue-700 disabled:opacity-50">Refresh appeal history</button>
     {error && <p role="alert" className="text-red-700">{error}</p>}
     {message && <p role="status" className="text-green-800">{message}</p>}
     {records.length === 0 && <p>No association appeal recorded.</p>}

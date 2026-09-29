@@ -452,6 +452,7 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 fine.get_by_role("button", name="Reverse posted fine").click()
                 expect(fine.get_by_text(re.compile(r"^Board decision #\d+: APPROVED · REVERSED ·"))).to_be_visible()
                 assert _financial_counts() == (before[0], before[1] + 4)
+                appeal.get_by_role("button", name="Refresh appeal history").click()
                 expect(appeal.get_by_text(re.compile("posted GL still requires"))).to_have_count(0)
             finally:
                 browser.close()
