@@ -1,34 +1,97 @@
-# AI_HANDOFF.md — Property Platform, 2026-09-28
+# AI_HANDOFF.md — Property Platform, 2026-09-29
 
-**READ THIS WHOLE FILE FIRST.** This is the repo-ROOT authoritative session handoff;
-it does NOT belong under docs/. Refresh after every meaningful CI-verified batch.
-Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
+**READ THE ENTIRE FILE FIRST.** This repository-root handoff is authoritative.
+The 2026-09-28 "NEXT SESSION START HERE" and "PREPARED, UNCOMMITTED"
+sections below are preserved as HISTORY and are superseded by this update.
 
-- Private repository: `yasirskhan/property-platform`
-- ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
-  create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `4546b6abb597609690cc99fae25457892643a4e1`
-- Source GitHub Actions run **36510915584: SUCCESS, all six jobs**
-  (backend, frontend, platform-admin, security, authenticated E2E,
-  staging-config). Backend: **775 passed, 11 deselected, 18533 warnings
-  in 241.93s**. E2E **11 passed, 129 warnings in 28.64s**.
-  Lint, TypeScript, build, security and staging: SUCCESS.
-  This applies to verified product source `4546b6ab`.
-  First product commit dd228cbc failed frontend lint only;
-  corrective 4546b6ab passed complete CI. No local tests run.
-  This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
-  current branch HEAD and latest CI before continuing.
-- Alembic head: **d8f0a2c4e6b9**. SQLAlchemy expected model tables: **159**.
-  Previous head c7e9f1a3b5d8 / 158. PostgreSQL bootstrap, staging
-  preparation and legacy migration guards passed in CI 36510915584.
-- CURRENT roadmap work: **Phase 4.7 C2 HOA IN PROGRESS**. Explicit user-directed priority: build generic HOA infrastructure first; independently verified Phase 4.8 C3 commercial reference/report source remains preserved, with no new commercial scope while HOA remains active. Authentic governing/legal sources are absent, so legally operative notices, assessments, fines and reserve postings remain blocked until reviewed. Previous Phase 3.7 reports and 1099 internal preparation retain verified scope.
-  **Latest verified batch: private scoped violation case evidence links, attachment sharing guards and dedicated browser regression; no statutory notice or fine posted. Previously verified staff correspondence drafts and operative ARC decisions, atomic fees/follow-up, retryable outbox and reversals remain intact.**
-- **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
-  NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
-  no-submission guarantees. Actual external sandbox acceptance requires operator
-  Avalara subscription/credentials/issuer; production filing/IRS acceptance and
-  recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT task: FIRST recover a testable checkout of current branch HEAD and independently test the 15 ALREADY PREPARED, UNCOMMITTED Git blobs listed below (HOA violation case staff follow-up tasks). Review and repair the prepared implementation against current contracts; run focused backend, migration, frontend lint/typecheck, and dedicated HOA browser tests BEFORE product-code commit, as required by the user. If no current executable checkout is available, report this specific genuine blocker and do NOT commit untested product code or claim CI verification. Once tests pass, commit ONE bounded batch on this branch, obtain all SIX green CI jobs, then update this handoff with exact passing tests and migration/table counts. Do not repeat verified private evidence, correspondence, recipient, case, or ARC features. Phase 4.8 remains paused.**
+- Private repository: `yasirskhan/property-platform`.
+- ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not touch
+  `main`, create another branch, force-push, merge a PR, modify frozen
+  `docs/`, or advance Phase 4.8.
+- Last VERIFIED **product source**: `ef901b38b53c13c493fa8130ec8df31ee1303d14`.
+  GitHub Actions [run 36521596577](https://github.com/yasirskhan/property-platform/actions/runs/36521596577)
+  **SUCCESS, all SIX jobs**, on this exact product commit.
+  Backend: **777 passed, 11 deselected, 18621 warnings in 217.55s**.
+  Authenticated E2E: **11 passed, 129 warnings in 48.40s**.
+  Frontend lint/TypeScript/production build, platform-admin, security and
+  staging-config PASS. **TESTS NOT RUN locally**; all tests ran on hosted CI.
+- Verified Alembic head **e9a1c3f5b7d0**, up from d8f0a2c4e6b9.
+  Expected SQLAlchemy model tables **160** (was 159). PostgreSQL,
+  fresh/legacy migrations and staging guards passed in the source CI.
+- Phase **4.7 HOA IN PROGRESS**. Last VERIFIED batch is **internal
+  HOA violation case follow-up tasks** for inspections, remediation,
+  staff review and optional assignments. The fifteen previously
+  uncommitted blobs were assembled and committed in the product source
+  above; they are no longer pending or untested.
+- User explicitly authorized GitHub-connector source inspection,
+  provisional commits on this EXISTING branch and GitHub Actions as
+  the actual test environment on 2026-09-29. Earlier instructions below
+  requiring a terminal checkout and local pre-commit tests are superseded
+  for this workflow. Do not claim uncommitted code passed CI.
+- Existing operative ARC board decisions remain direct APPROVED/DENIED
+  with authorized actors, atomic optional member fees, follow-up,
+  retryable notifications and reversal protections. DO NOT reinstate
+  a blanket `legal_decision_effective=false` gate.
+- Do not infer statutory violation notices, fines, member liability,
+  official delivery, dues or reserve GL postings from internal staff
+  tasks or unreviewed rule settings.
+
+**Exact NEXT dependency:** Continue Phase 4.7 violations with review
+of actual association declaration/CC&Rs, bylaws/amendments, applicable
+written violation/notice/hearing rules, specific property jurisdiction,
+authorized decisionmakers, legally liable member identity and approved
+fine/GL mapping. Only implement legally operative notice/fine execution
+after those authentic inputs are established. They were NOT established
+by this task batch. Until then, notices, fines and unidentified-member
+charges are BLOCKED. Preserve safe completed internal workflow and do
+not manufacture requirements. Phase 4.8 remains PAUSED.
+
+## CURRENT SESSION UPDATE — 2026-09-29 HOA INTERNAL CASE TASKS VERIFIED
+
+The 15 prepared Git objects from the historical 2026-09-28 handoff
+were recovered, reviewed against the actual feature-branch contracts
+and assembled in one provisional product commit,
+`ef901b38b53c13c493fa8130ec8df31ee1303d14`. Its GitHub Actions run **36521596577** completed
+SUCCESS across all six jobs. Backend **777 passed, 11 deselected**;
+browser **11 passed** including the existing dedicated HOA
+case browser test extended to create, start and complete a task.
+Frontend lint, TypeScript, production build, platform-admin, security
+and staging-config PASS. Local tests: **TESTS NOT RUN**.
+New migration `e9a1c3f5b7d0_hoa_case_tasks.py` follows
+`d8f0a2c4e6b9`; schema expectations are **160 tables**.
+
+The private `hoa_case_tasks` model and scoped routes provide internal
+task assignment, target dates, idempotent request keys, a bounded
+case task list and eligible verified staff selector. ADMIN/OWNER can
+create/cancel; the currently assigned MANAGER can start and complete,
+subject to live property permissions, verified identity, current
+assignment and active association/observation/case. The task state
+machine uses optimistic `expected_version` checks and row locks,
+with terminal DONE/CANCELLED states. Completion requires a private
+result note. Case closeout rejects outstanding OPEN/IN_PROGRESS tasks;
+closed-case tasks are immutable. Tests cover duplicate key replay,
+changed-payload conflicts, stale versions, unauthorized roles,
+foreign-property/organization and feature revocation, non-staff or
+unverified assignees, required completion notes, audit redaction,
+generic-notes denylist and zero Charge/RentInvoice/Lease/GL mutation.
+No new statutory notice, fine, assessed liability, official inspection
+or work order is created.
+
+The corrected `HoaCaseTasksPanel.tsx` source blob
+`3c2c2507b2965d1851dee754368aaf02f9cbdbc4`
+is included. Do not restore superseded UI blob
+`b5738aff22705e1f3526f424dd596b9e90ccb8f1`.
+All previously verified violation observations, case stages/history,
+candidate-recipient references, correspondence and private evidence
+remain intact. ARC final decisions are unchanged.
+
+All work here was via the connected GitHub integration, not a
+local clone. The GitHub Actions run tested the COMMITTED source
+`ef901b38b53c13c493fa8130ec8df31ee1303d14`, not its prior uncommitted blobs.
+The next dependency and governing-input blocker are described above.
+Do not repeat this completed batch.
+
+---
 
 ## NEXT SESSION START HERE — exact 2026-09-28 stopping point
 
