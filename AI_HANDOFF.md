@@ -1,3 +1,53 @@
+# AI_HANDOFF.md — 2026-09-29 BOARD VOTE REGISTER VERIFIED
+
+**READ THE ENTIRE ROOT HANDOFF.** This is the latest verified
+checkpoint. Previous PREPARED and NEXT labels are historical.
+Repository `yasirskhan/property-platform`, ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch main, frozen docs/,
+create another branch, force push, merge or advance Phase 4.8.
+
+- Verified PRODUCT source `3bd9f11c828c089dbf36dd0f50f1741b0d395d7f`.
+  [GitHub Actions 36597915429](https://github.com/yasirskhan/property-platform/actions/runs/36597915429)
+  **SUCCESS, all SIX jobs**. Backend **799 passed, 15 deselected,
+  20163 warnings in 271.73s**; authenticated browser **15 passed,
+  224 warnings in 65.36s**; frontend lint/TypeScript/build,
+  platform-admin, security, staging-config PASS.
+  **TESTS NOT RUN locally.**
+- Alembic `a7c9e1f3b5d8`, **169 model tables**. No new migration.
+- Authenticated active association board members now see the
+  historical per-motion seat/vote register plus FOR/AGAINST/ABSTAIN
+  totals, alongside their own exact-text immutable vote. All
+  reads remain current-seat, current-entitlement, current-property
+  scoped; no general account export. Existing user/case/GL/ARC
+  source and any prior verified work remain untouched.
+- Initial provisional source `9f51d393` failed frontend lint
+  from an unclosed JSX conditional. Corrected source
+  `3bd9f11c828c089dbf36dd0f50f1741b0d395d7f` passed ALL six jobs. No falsely claimed verification
+  on earlier source. The historical vote register represents
+  actual recorded choices, NOT an automatic quorum certificate
+  or statutory association resolution.
+- NEXT independently actionable Phase 4.7 board batch: record
+  association-authorized activation of the organization's
+  explicitly configured quorum and approval thresholds using
+  current verified association board seat and exact staff
+  proposal revision, preserving an immutable history. Do not
+  invent legal thresholds, infer authority from unauthenticated
+  seat proposals or make the platform certify applicable law.
+  Follow with explicit board motion outcome execution using
+  authorized votes and captured thresholds. Test real board
+  interaction and revocation with zero financial effects.
+  Continue other operational HOA work if this specific input
+  is unavailable; Phase 4.8 remains PAUSED.
+- Original SEVEN operational HOA capabilities remain the priority.
+  Preserve actual member charges/receipts/statements, budget
+  adoption/actuals, operative ARC APPROVED/DENIED with protected
+  fees/notifications, reserve GL book, document delivery, private
+  case tasks and $79/month entitlement. No automatic external
+  money movement, statutory notice, fine or liability from this
+  board-vote register. Do not restore a blanket ARC legal-effect gate.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 BOARD MEMBER VOTES VERIFIED / VOTE REGISTER NEXT
 
 **READ THE ENTIRE ROOT FILE.** This entry supersedes old NEXT and
