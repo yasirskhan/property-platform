@@ -17,6 +17,7 @@ from app.models.audit_log import AuditLog
 from app.models.charge import Charge
 from app.models.contact import Contact
 from app.models.hoa_violation_recipient import HOAViolationRecipientDraft
+from app.models.hoa_violation_correspondence import HOAViolationCorrespondenceDraft
 from app.models.gl_transaction import GLTransaction
 from app.models.hoa_procedure_policy import HOAProcedurePolicy
 from app.models.hoa_violation_case import HOAViolationCase
@@ -29,8 +30,10 @@ from app.routers import hoa_observations as observations
 from app.routers import hoa_procedure_policies as policies
 from app.routers import hoa_violation_cases as cases
 from app.routers import hoa_violation_recipients as recipients
+from app.routers import hoa_violation_correspondence as correspondence
 from app.schemas.hoa_association import HOAAssociationIn, HOAContactLinkIn
 from app.schemas.hoa_violation_recipient import HOAViolationRecipientIn
+from app.routers.hoa_violation_correspondence import CorrespondenceIn
 from app.schemas.hoa_observation import HOAObservationIn
 from app.schemas.hoa_procedure_policy import HOAProcedurePolicyIn
 from app.schemas.hoa_violation_case import HOAViolationCaseIn, HOAViolationAdvanceIn
@@ -703,5 +706,221 @@ def test_violation_recipient_scope_permissions_and_closed_cases(monkeypatch):
                 notice_sent=True,
             )
         assert _balances(db) == (0, 0, 0, 0)
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def _ready_correspondence(db):
+    (admin, owner, manager, tenant, foreign), (prop, other, outside), assoc, obs = _seed(db)
+    tenant.is_verified = True
+    link, contact = _recipient_candidate(
+        db, actor=admin, assoc=assoc, prop=prop,
+        name="Private recipient", email=tenant.email,
+    )
+    policies.put_policy(
+        assoc.id, _profile(prop.id), db=db, current_user=admin,
+    )
+    case = cases.create_case(
+        assoc.id, HOAViolationCaseIn(property_id=prop.id, observation_id=obs.id),
+        db=db, current_user=admin,
+    )
+    cases.advance_case(
+        assoc.id, case.id,
+        _advance(prop, "NOTICE_DRAFT", action_on=date(2026, 9, 2)),
+        db=db, current_user=admin,
+    )
+    recipients.set_case_recipient(
+        assoc.id, case.id,
+        HOAViolationRecipientIn(property_id=prop.id, contact_link_id=link.id),
+        db=db, current_user=owner,
+    )
+    return (admin, owner, manager, tenant, foreign), (prop, other, outside), assoc, case, link, contact
+
+
+def test_private_violation_correspondence_snapshots_and_stale_revisions():
+    db, engine = _db()
+    try:
+        users, props, assoc, case, link, contact = _ready_correspondence(db)
+        admin, owner, manager, tenant, foreign = users
+        prop = props[0]
+        before = _balances(db)
+        payload = CorrespondenceIn(
+            property_id=prop.id, subject="Internal case preparation",
+            body="Internal staff review text; not served.",
+        )
+        row = correspondence.prepare_correspondence(
+            assoc.id, case.id, payload, db=db, current_user=owner,
+        )
+        assert row.revision == 1 and row.status == "STAFF_DRAFT_NOT_SENT"
+        assert row.recipient_reference_current is True
+        assert row.policy_revision_current is True
+        assert row.case_stage_current is True
+        assert row.legally_served is row.fine_assessed is False
+        response = Response()
+        result = correspondence.get_correspondence(
+            assoc.id, case.id, response, property_id=prop.id,
+            db=db, current_user=manager,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert len(result) == 1 and result[0].body == payload.body
+        with pytest.raises(HTTPException) as replay:
+            correspondence.prepare_correspondence(
+                assoc.id, case.id, payload, db=db, current_user=admin,
+            )
+        assert replay.value.status_code == 409
+
+        policies.put_policy(
+            assoc.id, _profile(prop.id, cure_preparation_days=8),
+            db=db, current_user=admin,
+        )
+        assert correspondence.get_correspondence(
+            assoc.id, case.id, Response(), property_id=prop.id,
+            db=db, current_user=owner,
+        )[0].policy_revision_current is False
+
+        second = correspondence.prepare_correspondence(
+            assoc.id, case.id, payload, db=db, current_user=admin,
+        )
+        assert second.revision == 2 and second.policy_revision == 2
+        assert correspondence.get_correspondence(
+            assoc.id, case.id, Response(), property_id=prop.id,
+            db=db, current_user=manager,
+        )[0].policy_revision == 1
+
+        recipients.clear_case_recipient(
+            assoc.id, case.id, property_id=prop.id, db=db, current_user=owner,
+        )
+        latest = correspondence.get_correspondence(
+            assoc.id, case.id, Response(), property_id=prop.id,
+            db=db, current_user=manager,
+        )
+        assert all(not entry.recipient_reference_current for entry in latest)
+        with pytest.raises(HTTPException) as missing:
+            correspondence.prepare_correspondence(
+                assoc.id, case.id,
+                CorrespondenceIn(
+                    property_id=prop.id, subject="Unmatched",
+                    body="Must not accept an inactive reference",
+                ),
+                db=db, current_user=admin,
+            )
+        assert missing.value.status_code == 409
+
+        recipients.set_case_recipient(
+            assoc.id, case.id,
+            HOAViolationRecipientIn(
+                property_id=prop.id, contact_link_id=link.id,
+            ), db=db, current_user=owner,
+        )
+        contact.email = foreign.email
+        db.flush()
+        with pytest.raises(HTTPException):
+            correspondence.prepare_correspondence(
+                assoc.id, case.id,
+                CorrespondenceIn(
+                    property_id=prop.id, subject="Incorrect member",
+                    body="Must fail when identity is stale",
+                ),
+                db=db, current_user=admin,
+            )
+        contact.email = tenant.email
+        db.flush()
+        cases.advance_case(
+            assoc.id, case.id, _advance(prop, "CURE_TRACKING"),
+            db=db, current_user=owner,
+        )
+        assert correspondence.get_correspondence(
+            assoc.id, case.id, Response(), property_id=prop.id,
+            db=db, current_user=manager,
+        )[1].case_stage_current is False
+        assert db.query(HOAViolationCorrespondenceDraft).count() == 2
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_violation_correspondence_draft",
+        ).count() == 2
+        assert _balances(db) == before
+        with pytest.raises(HTTPException) as forbidden:
+            _model_for_table("hoa_violation_correspondence_drafts")
+        assert forbidden.value.status_code == 404
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_private_correspondence_rejects_bad_scope_and_absent_policy(monkeypatch):
+    db, engine = _db()
+    try:
+        users, props, assoc, case, link, contact = _ready_correspondence(db)
+        admin, owner, manager, tenant, foreign = users
+        prop, other, outside = props
+        payload = CorrespondenceIn(
+            property_id=prop.id, subject="Internal notice", body="Private preparatory text.",
+        )
+        for actor, prop_id in (
+            (manager, prop.id), (tenant, prop.id),
+            (foreign, prop.id), (owner, outside.id),
+        ):
+            with pytest.raises(HTTPException):
+                correspondence.prepare_correspondence(
+                    assoc.id, case.id,
+                    CorrespondenceIn(
+                        property_id=prop_id, subject=payload.subject, body=payload.body,
+                    ), db=db, current_user=actor,
+                )
+        with pytest.raises(HTTPException):
+            correspondence.get_correspondence(
+                assoc.id, case.id, Response(), property_id=outside.id,
+                db=db, current_user=foreign,
+            )
+        monkeypatch.setattr(
+            recipients, "permission_allows_user", lambda *a, **kw: False,
+        )
+        with pytest.raises(HTTPException) as denied:
+            correspondence.prepare_correspondence(
+                assoc.id, case.id, payload, db=db, current_user=admin,
+            )
+        assert denied.value.status_code == 403
+        monkeypatch.setattr(
+            recipients, "permission_allows_user", lambda *a, **kw: True,
+        )
+        contact.email = foreign.email
+        db.flush()
+        with pytest.raises(HTTPException) as stale:
+            correspondence.prepare_correspondence(
+                assoc.id, case.id, payload, db=db, current_user=admin,
+            )
+        assert stale.value.status_code == 409
+        contact.email = tenant.email
+        db.flush()
+        policy = db.query(HOAProcedurePolicy).filter(
+            HOAProcedurePolicy.association_id == assoc.id,
+            HOAProcedurePolicy.property_id == prop.id,
+        ).one()
+        policy.draft_notice_text = None
+        db.flush()
+        with pytest.raises(HTTPException) as missing:
+            correspondence.prepare_correspondence(
+                assoc.id, case.id, payload, db=db, current_user=admin,
+            )
+        assert missing.value.status_code == 409
+        policy.draft_notice_text = "Staff internal text"
+        db.flush()
+        cases.advance_case(
+            assoc.id, case.id,
+            _advance(prop, "RESOLVED", staff_resolution="Case complete internally"),
+            db=db, current_user=admin,
+        )
+        with pytest.raises(HTTPException) as terminal:
+            correspondence.prepare_correspondence(
+                assoc.id, case.id, payload, db=db, current_user=admin,
+            )
+        assert terminal.value.status_code == 409
+        for data in (
+            {"property_id": prop.id, "subject": "", "body": "valid"},
+            {"property_id": prop.id, "subject": "valid", "body": ""},
+            {"property_id": prop.id, "subject": "valid", "body": "valid", "send_notice": True},
+        ):
+            with pytest.raises(ValidationError):
+                CorrespondenceIn(**data)
+        assert _balances(db) == (0, 0, 0, 0)
+        assert db.query(HOAViolationCorrespondenceDraft).count() == 0
     finally:
         db.rollback(); db.close(); engine.dispose()
