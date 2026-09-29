@@ -1207,7 +1207,7 @@ def test_hoa_annual_budget_board_adoption_browser_without_finance_posting() -> N
                 expect(annual.get_by_text("2029 · Revision 1 · DRAFT")).to_be_visible()
                 assert _financial_counts() == before
                 annual.get_by_role("button", name="Record annual budget decision").click()
-                annual.get_by_label("Budget board decision").select_option("APPROVED")
+                annual.get_by_label("Budget board decision", exact=True).select_option("APPROVED")
                 annual.get_by_label("Budget board decision note").fill(
                     "Synthetic board adopts the annual budget",
                 )
