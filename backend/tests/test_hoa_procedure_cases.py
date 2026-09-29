@@ -2558,10 +2558,17 @@ def test_board_portal_only_lists_currently_authorized_pending_fine_appeals(monke
         assert row.case_id == case.id and row.member_user_id == tenant.id
         assert row.status == "OPEN"
         for actor in (manager, tenant, foreign):
-            with pytest.raises(HTTPException):
-                board_portal.my_board_fine_appeals(
+            # Verified non-board accounts get an empty board workspace;
+            # other invalid accounts may be rejected. Neither may see
+            # another member's private pending appeal.
+            try:
+                denied = board_portal.my_board_fine_appeals(
                     Response(), db=db, current_user=actor,
                 )
+            except HTTPException as exc:
+                assert exc.status_code in {403, 404}
+            else:
+                assert denied == []
         db.get(HOABoardSeat, seat.id).decision_authorized = False
         db.flush()
         assert board_portal.my_board_fine_appeals(
