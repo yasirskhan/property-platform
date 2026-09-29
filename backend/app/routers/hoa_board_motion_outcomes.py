@@ -62,8 +62,8 @@ def _votes(db, org, assoc, prop, meeting, motion):
     return counts, len(rows), sha256(exact.encode("utf-8")).hexdigest()
 
 
-def _adopted(db, org, assoc, prop):
-    rule = _proposal(db, org, assoc, prop)
+def _adopted(db, org, assoc, prop, *, lock=False):
+    rule = _proposal(db, org, assoc, prop, lock=lock)
     digest = _digest(rule)
     if digest is None:
         return None
@@ -149,7 +149,7 @@ def record_motion_outcome(
             and existing.vote_register_sha256 == payload.expected_vote_register_sha256):
             return _out(existing)
         raise HTTPException(status_code=409, detail="Motion outcome already finalized.")
-    adoption = _adopted(db, org, assoc.id, payload.property_id)
+    adoption = _adopted(db, org, assoc.id, payload.property_id, lock=True)
     if adoption is None or adoption.id != payload.rule_adoption_id:
         raise HTTPException(status_code=409, detail="Current board-adopted voting thresholds required.")
     counts, tally, register_digest = _votes(

@@ -1189,6 +1189,33 @@ def test_board_motion_outcome_can_record_not_passed_without_inventing_quorum(mon
             db=db, current_user=admin,
         )
         assert view.quorum_met and view.predicted_outcome == "NOT_PASSED"
+        # A staff amendment must be explicitly adopted again before
+        # a final board outcome can use any threshold revision.
+        board_api.configure_proposed_board_rules(
+            assoc.id, HOABoardRulesIn(
+                property_id=prop.id, proposed_quorum_min=1,
+                proposed_approval_min=2,
+            ), db=db, current_user=admin,
+        )
+        with pytest.raises(HTTPException) as stale_rule:
+            outcome_api.record_motion_outcome(
+                assoc.id, plan.id, motion.id,
+                HOAMotionOutcomeIn(
+                    property_id=prop.id, motion_sha256=digest,
+                    rule_adoption_id=adopted.id,
+                    expected_vote_register_sha256=view.vote_register_sha256,
+                ), db=db, current_user=admin,
+            )
+        assert stale_rule.value.status_code == 409
+        updated = rule_api.get_board_rule_adoptions(
+            assoc.id, Response(), property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        adopted = rule_api.adopt_board_rules(
+            assoc.id, HOABoardRuleAdoptIn(
+                property_id=prop.id, expected_proposal_sha256=updated.proposal_sha256,
+            ), db=db, current_user=admin,
+        )
         row = outcome_api.record_motion_outcome(
             assoc.id, plan.id, motion.id,
             HOAMotionOutcomeIn(
