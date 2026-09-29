@@ -24,6 +24,7 @@ from app.models.receipt_line import ReceiptLine
 from app.routers import hoa_member_payments as payments_api
 from app.routers import hoa_member_statements as statement_api
 from app.routers import hoa_annual_budgets as budget_api
+from app.routers import hoa_budget_actuals as budget_actuals_api
 from app.routers import hoa_annual_assessment_increases as increase_api
 from app.models.hoa_annual_assessment_increase import HOAAnnualAssessmentIncrease
 from app.schemas.hoa_annual_assessment_increase import HOAIncreaseCreateIn
@@ -1281,5 +1282,87 @@ def test_annual_increase_rejects_foreign_staff_missing_member_and_revocation(mon
             )
         assert db.query(HOAAnnualAssessmentIncrease).count() == 0
         assert db.query(GLTransaction).count() == 1
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_annual_budget_actuals_include_posted_reversals_and_exclude_foreign_tags(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, member, foreign), (prop, other, outside), assoc, proposal, payer, seat, period, ar, income = _seed(db)
+        expense = GLAccount(
+            organization_id=admin.organization_id,
+            gl_number="ACTUAL-HOA-EXP", name="Test maintenance",
+            account_type="EXPENSE", is_active=True,
+        )
+        db.add(expense); db.commit()
+        draft = budget_api.create_annual_budget(
+            assoc.id, _annual(prop, income, expense),
+            db=db, current_user=admin,
+        )
+        with pytest.raises(HTTPException) as not_approved:
+            budget_actuals_api.annual_budget_actuals(
+                assoc.id, draft.id, Response(), property_id=prop.id,
+                db=db, current_user=admin,
+            )
+        assert not_approved.value.status_code == 409
+        budget_api.decide_annual_budget(
+            assoc.id, draft.id, HOAAnnualBudgetDecisionIn(
+                property_id=prop.id, expected_version=1,
+                decision="APPROVED", decision_note="Synthetic budget adopted",
+            ), db=db, current_user=admin,
+        )
+        # Posted GL fixture: credit income, debit expense, then an
+        # immutable-style correcting reversal. Foreign property/year
+        # rows must not leak into this association property view.
+        for day, tagged_property, values in [
+            (date(2029, 1, 10), prop.id, [(income.id, 0, 75), (expense.id, 45, 0)]),
+            (date(2029, 2, 2), prop.id, [(expense.id, 0, 10), (income.id, 10, 0)]),
+            (date(2029, 3, 3), other.id, [(income.id, 0, 800), (expense.id, 700, 0)]),
+            (date(2030, 1, 1), prop.id, [(income.id, 0, 500), (expense.id, 400, 0)]),
+        ]:
+            txn = GLTransaction(
+                organization_id=admin.organization_id, transaction_date=day,
+                transaction_type="JOURNAL_ENTRY",
+            )
+            db.add(txn); db.flush()
+            for gl_id, debit, credit in values:
+                db.add(GLEntry(
+                    organization_id=admin.organization_id,
+                    transaction_id=txn.id, property_id=tagged_property,
+                    gl_account_id=gl_id, debit=debit, credit=credit,
+                ))
+        db.commit()
+        initial_counts = (db.query(Charge).count(), db.query(GLTransaction).count(),
+                          db.query(Receipt).count(), db.query(AuditLog).count())
+        response = Response()
+        result = budget_actuals_api.annual_budget_actuals(
+            assoc.id, draft.id, response, property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert result["accounting_basis"] == "POSTED_GL_PROPERTY_TAGGED"
+        assert result["association_allocation_verified"] is False
+        assert result["other_property_and_untagged_entries_excluded"] is True
+        by_account = {r["gl_account_id"]: r for r in result["lines"]}
+        assert by_account[income.id]["actual_book"] == Decimal("65.00")
+        assert by_account[expense.id]["actual_book"] == Decimal("35.00")
+        assert by_account[income.id]["variance_actual_minus_budget"] == Decimal("-235.00")
+        assert by_account[expense.id]["variance_actual_minus_budget"] == Decimal("-90.00")
+        for actor, pid in [(manager, prop.id), (member, prop.id), (foreign, prop.id),
+                           (admin, outside.id), (manager, other.id)]:
+            with pytest.raises(HTTPException):
+                budget_actuals_api.annual_budget_actuals(
+                    assoc.id, draft.id, Response(), property_id=pid,
+                    db=db, current_user=actor,
+                )
+        monkeypatch.setattr(budget_api, "permission_allows_user", lambda *a, **k: False)
+        with pytest.raises(HTTPException):
+            budget_actuals_api.annual_budget_actuals(
+                assoc.id, draft.id, Response(), property_id=prop.id,
+                db=db, current_user=admin,
+            )
+        assert (db.query(Charge).count(), db.query(GLTransaction).count(),
+                db.query(Receipt).count(), db.query(AuditLog).count()) == initial_counts
     finally:
         db.rollback(); db.close(); engine.dispose()

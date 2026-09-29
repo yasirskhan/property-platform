@@ -45,6 +45,8 @@ export default function HoaAnnualBudgetsPanel({
   const [note, setNote] = useState("");
   const [deciding, setDeciding] = useState<number | null>(null);
   const [increasing, setIncreasing] = useState<number | null>(null);
+  const [bookActuals, setBookActuals] = useState<number | null>(null);
+  const [actuals, setActuals] = useState<Record<number, {lines: Array<{gl_account_id:number;gl_number:string;gl_name:string;annual_budget:string;actual_book:string;variance_actual_minus_budget:string}>; accounting_basis:string;association_allocation_verified:boolean}> >({});
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -113,6 +115,18 @@ export default function HoaAnnualBudgetsPanel({
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Cannot save annual budget.");
     } finally { setBusy(false); }
+  }
+
+  async function showActuals(item: Budget) {
+    if (bookActuals === item.id) { setBookActuals(null); return; }
+    setError("");
+    try {
+      const report = await apiGet(base + "/" + item.id + "/book-actuals" + query) as {lines: Array<{gl_account_id:number;gl_number:string;gl_name:string;annual_budget:string;actual_book:string;variance_actual_minus_budget:string}>; accounting_basis:string;association_allocation_verified:boolean};
+      setActuals(prior => ({...prior, [item.id]: report}));
+      setBookActuals(item.id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Budget actuals unavailable.");
+    }
   }
 
   async function decide(item: Budget) {
@@ -204,6 +218,18 @@ export default function HoaAnnualBudgetsPanel({
       {item.status !== "DRAFT" && <p role="status">Association board decision: {item.status}
         {" · "}Recorded on {item.decided_on} · {item.decision_method}
         {" · "}{item.decision_note}</p>}
+      {item.status === "APPROVED" && canEdit && <>
+        <button type="button" className="text-blue-700" onClick={() => { void showActuals(item); }}>
+          {bookActuals === item.id ? "Hide budget actuals" : "Posted GL budget actuals"}
+        </button>
+        {bookActuals === item.id && actuals[item.id] && <div className="space-y-1 rounded border p-2">
+          <h5 className="font-semibold">Posted GL budget comparison</h5>
+          <p>Property-tagged posted GL activity, including reversals. This is not an independently allocated HOA-only financial report. Unassigned and other-property GL lines are excluded. Reserve allocations here are budget targets, not transfers.</p>
+          <ol>{actuals[item.id].lines.map(line => <li key={line.gl_account_id}>
+            {line.gl_number} · {line.gl_name} · Budget ${line.annual_budget} · Book actual ${line.actual_book} · Variance ${line.variance_actual_minus_budget}
+          </li>)}</ol>
+        </div>}
+      </>}
       {item.status === "APPROVED" && canEdit && <>
         <button type="button" className="text-blue-700"
           onClick={() => setIncreasing(prior => prior === item.id ? null : item.id)}>
