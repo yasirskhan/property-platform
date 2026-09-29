@@ -7,26 +7,106 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `e6329464cdcaaae21235039ddbc6e4edc6a9fcdd`
-- Source GitHub Actions run **36507547330: SUCCESS, all six jobs**
+- Last VERIFIED **product source**: `0895ea891abba98704bfa777dd0d3f4c75e818e9`
+- Source GitHub Actions run **36509060666: SUCCESS, all six jobs after retry**
   (backend, frontend, platform-admin, security, authenticated E2E,
-  staging-config). Backend: **771 passed, 11 deselected, 18332 warnings
-  in 245.51s**. E2E: **11 passed, 128 warnings in 42.90s**. Lint,
-  TypeScript, build, security and staging: SUCCESS. This applies to
-  verified product source `e6329464`. No local tests run.
+  staging-config). Backend: **773 passed, 11 deselected, 18450 warnings
+  in 227.29s**. E2E retry: **11 passed, 128 warnings in 43.93s**.
+  Lint, TypeScript, build, security and staging: SUCCESS.
+  This applies to verified product source `0895ea89`.
+  First attempt had an intermittent unrelated login timeout in the
+  evidence browser test (10 passed, 1 failed); failed E2E rerun succeeded.
+  No local tests run.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **f4b6d8a0c2e9**. SQLAlchemy expected model tables: **157**.
-  Previous head a5c7e9f1b3d6 / 156. PostgreSQL bootstrap, staging
-  preparation and legacy migration guards passed in CI 36507547330.
+- Alembic head: **c7e9f1a3b5d8**. SQLAlchemy expected model tables: **158**.
+  Previous head f4b6d8a0c2e9 / 157. PostgreSQL bootstrap, staging
+  preparation and legacy migration guards passed in CI 36509060666.
 - CURRENT roadmap work: **Phase 4.7 C2 HOA IN PROGRESS**. Explicit user-directed priority: build generic HOA infrastructure first; independently verified Phase 4.8 C3 commercial reference/report source remains preserved, with no new commercial scope while HOA remains active. Authentic governing/legal sources are absent, so legally operative notices, assessments, fines and reserve postings remain blocked until reviewed. Previous Phase 3.7 reports and 1099 internal preparation retain verified scope.
-  **Latest verified batch: scoped verified-login potential violation recipient binding, UI and browser regression; no statutory notice or fine posted. Previously verified ARC finalization/offline board decisions, atomic fees/follow-up, retryable outbox and reversals remain intact.**
+  **Latest verified batch: immutable HOA case correspondence drafts with scoped recipient/policy/stage snapshots, history and dedicated browser regression; no statutory notice or fine posted. Previously verified ARC finalization/offline board decisions, atomic fees/follow-up, retryable outbox and reversals remain intact.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT task: continue Phase 4.7 HOA violation correspondence and enforcement integration using the now-verified scoped potential-recipient reference, procedure policy and append-only case history. Do not rebuild stage transitions, ARC board decisions or the candidate-recipient UI. Actual statutory notice service, due/cure periods, assessable fines and member receivables require real applicable rules and explicit recipient liability; staff configuration alone does not certify those conditions. Preserve direct authenticated ARC board decisions, atomic fee/GL and work-order/follow-up, offline supporting evidence and retryable notification/reversal behavior. Phase 4.8 stays paused.**
+- **Exact NEXT task: Phase 4.7 HOA violation workflow remains IN PROGRESS. Build the next independent bounded violation batch using VERIFIED staff case stages, append-only transitions, potential recipient and immutable private correspondence history. Scope new action(s) to active same-org/association/property and actual authenticated role; test focused auth, concurrency, audit, finance neutrality and dedicated browser. No new Phase 4.8 work. Official jurisdiction-specific notice/assessed fine/member posting still requires authentic procedure, service and payer authority; staff-only policy text, a contact link and matching login do NOT establish them. Preserve final operational ARC board approval, offline evidence, atomic fees/follow-up, retryable notifications and reversals without restoring a blanket ARC gate.**
+
+## CURRENT SESSION UPDATE — 2026-09-28 HOA PRIVATE CORRESPONDENCE VERIFIED
+
+**Verified product source** `0895ea891abba98704bfa777dd0d3f4c75e818e9`.
+Hosted GitHub Actions **36509060666 SUCCESS all SIX jobs on
+the second attempt**. Backend **773 passed, 11 deselected,
+18450 warnings in 227.29s**; authenticated browser E2E
+**11 passed, 128 warnings in 43.93s**; frontend lint,
+TypeScript and build, platform-admin, security, staging-config
+SUCCESS. The first CI attempt had one unrelated intermittently
+unsuccessful browser-login redirect in preexisting evidence
+upload test (10 E2E passed, one failed) while five other jobs
+succeeded; the same failed job was rerun and all six jobs
+concluded SUCCESS, without modifying product code. A prior
+handoff-only CI 36508308998 also had a different transient
+login redirect in preexisting dues test; it is NOT a verified
+new product source. **TESTS NOT RUN locally**. Alembic
+head `c7e9f1a3b5d8`; **158 model tables**; prior
+`f4b6d8a0c2e9` / 157. Fresh/legacy SQLite bootstrap,
+PostgreSQL smoke, staging bootstrap passed. No frozen `docs/`
+or unrelated parity changes.
+
+New `hoa_violation_correspondence_drafts` table is
+append-only, one immutable case-scoped revision at a time
+(max 50), with unique (case_id,revision), subject/body
+snapshots, policy id/revision, linked potential-recipient
+reference ID plus matching verified member login, case stage,
+tentative dates and preparer/time. The GET/POST
+`/api/hoa/associations/{association_id}/staff-cases/
+{case_id}/correspondence` API strictly reuses existing
+paid HOA+compliance, active organization/association/
+property/observation/case, PROPERTIES.ALL +
+PEOPLE.CONTACTS and ADMIN/OWNER writes, assigned MANAGER
+read-only. POST only in current correspondence stages
+NOTICE_DRAFT, CURE_TRACKING, HEARING_PLANNED and
+FINE_PROPOSED with nonempty current staff policy text,
+a prepared staff case draft date, and a revalidated
+live active potential recipient whose contact email
+still matches the same-org verified User. No statute is
+inferred from staff-configured policy text.
+
+GET returns all old immutable private staff correspondence
+versions with booleans naming CURRENT recipient reference,
+CURRENT policy revision and CURRENT case stage. It catches
+stale/missing authorization references without treating them
+as current service identity; it never silently rewrites
+historical text or invents an effective notice. Duplicate
+exact same scope+snapshot+body+subject POST rejects 409;
+revisions are assigned under a row lock and DB uniqueness
+so concurrent duplicates cannot silently multiply. An
+explicit changed policy can produce a new version.
+Redacted append-only audit stores IDs and revision
+without confidential body. Generic notes reject the
+new table. Payload rejects unknown `send_notice` fields.
+All output explicitly marks STAFF_DRAFT_NOT_SENT,
+legally_served FALSE and fine_assessed FALSE.
+No email, statutory notice, cure service, tenant
+Charge, RentInvoice or GLTransaction is issued.
+Customer case UI can open private correspondence,
+display revisions/staleness, choose existing staff
+policy example text and record a new internal draft.
+Dedicated browser creates one private draft and
+checks financial counters. Two new focused backend
+tests validate missing/foreign/archived recipient,
+scope, manager/tenant/foreign write denial, permission
+revocation, missing staff policy, terminal case,
+duplicate, changed policy revision, stage staleness,
+audit isolation, forbidden generic notes, and zero
+financial mutation.
+
+**Next work:** Continue *violation* functionality, not
+repeat these verified staff preparatory features.
+Member-notice delivery and assessed fines remain blocked
+until actual rules/service/liable-member authority is
+established; do not inherit ARC's specifically removed
+legal-decision gate for HOA ARC. Phase 4.7 remains
+IN PROGRESS and Phase 4.8 remains paused.
 
 ## CURRENT SESSION UPDATE — 2026-09-28 HOA VIOLATION RECIPIENT VERIFIED
 
