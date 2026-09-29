@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from app.core.database import get_db
 from app.models.hoa_meeting_draft import HOAMeetingDraft
 from app.models.user import User
+from app.models.hoa_meeting_minutes import HOAMeetingMinutesApproval
 from app.routers.auth import get_current_user
 from app.routers.hoa_assessments import _scope
 from app.schemas.hoa_meeting_draft import HOAMeetingDraftIn, HOAMeetingDraftOut
@@ -108,6 +109,13 @@ def update_meeting_draft(
         property_id=payload.property_id, write=True,
     )
     row = _row(db, org_id, assoc.id, payload.property_id, draft_id)
+    if db.query(HOAMeetingMinutesApproval.id).filter(
+        HOAMeetingMinutesApproval.organization_id == org_id,
+        HOAMeetingMinutesApproval.association_id == assoc.id,
+        HOAMeetingMinutesApproval.property_id == payload.property_id,
+        HOAMeetingMinutesApproval.meeting_draft_id == draft_id,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Meeting has adopted minutes; no silent plan changes.")
     row.title = payload.title
     row.proposed_on = payload.proposed_on
     row.staff_agenda = payload.staff_agenda
@@ -133,6 +141,13 @@ def archive_meeting_draft(
         property_id=property_id, write=True,
     )
     row = _row(db, org_id, assoc.id, property_id, draft_id)
+    if db.query(HOAMeetingMinutesApproval.id).filter(
+        HOAMeetingMinutesApproval.organization_id == org_id,
+        HOAMeetingMinutesApproval.association_id == assoc.id,
+        HOAMeetingMinutesApproval.property_id == property_id,
+        HOAMeetingMinutesApproval.meeting_draft_id == draft_id,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Meeting with adopted minutes cannot be archived.")
     archive_meeting_workspace(
         db, organization_id=org_id, association_id=assoc.id,
         property_id=property_id, meeting_draft_id=row.id,

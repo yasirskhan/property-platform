@@ -1243,3 +1243,99 @@ def test_hoa_annual_budget_board_adoption_browser_without_finance_posting() -> N
             finally:
                 browser.close()
         assert _financial_counts() == before
+
+
+def test_hoa_authorized_board_minutes_revision_approval_browser() -> None:
+    """Synthetic board member approves exact staff text, not a certified quorum."""
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                          wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                name = "E2E Board Minutes Approved Association"
+                page.get_by_label("Association name").fill(name)
+                page.get_by_role("button", name="Record association").click()
+                association = page.get_by_text(name, exact=True).locator("..").locator("..")
+                expect(association).to_be_visible()
+                db = SessionLocal()
+                try:
+                    assoc = db.query(HOAAssociation).filter(
+                        HOAAssociation.name == name,
+                        HOAAssociation.is_active.is_(True),
+                    ).one()
+                    actor = db.query(User).filter(
+                        User.organization_id == assoc.organization_id,
+                        User.email == EMAIL,
+                    ).one()
+                    actor.is_verified = True
+                    contact = Contact(
+                        organization_id=assoc.organization_id,
+                        display_name="E2E Minutes Board Chair",
+                        email=actor.email, contact_type="PERSON", is_active=True,
+                    )
+                    db.add(contact); db.flush()
+                    link = HOAContactLink(
+                        organization_id=assoc.organization_id,
+                        association_id=assoc.id, property_id=PROPERTY_ID,
+                        contact_id=contact.id, is_active=True,
+                    )
+                    db.add(link); db.flush()
+                    db.add(HOABoardSeat(
+                        organization_id=assoc.organization_id,
+                        association_id=assoc.id, property_id=PROPERTY_ID,
+                        contact_link_id=link.id, proposed_role="CHAIR",
+                        staff_voting_eligible=True, is_active=True,
+                        authorized_user_id=actor.id, authorized_by_id=actor.id,
+                        decision_authorized=True, can_record_offline=True,
+                    ))
+                    db.commit()
+                finally:
+                    db.rollback(); db.close()
+                association.get_by_role("button", name="Meeting plans").click()
+                plans = association.get_by_role(
+                    "heading", name="HOA staff meeting plans",
+                ).locator("..").locator("..")
+                plans.get_by_label("Staff plan title").fill("Synthetic held board meeting")
+                plans.get_by_label("Proposed date (not legal notice)").fill(date.today().isoformat())
+                plans.get_by_role("button", name="Save staff plan").click()
+                expect(plans.get_by_text("Synthetic held board meeting", exact=False)).to_be_visible()
+                plans.get_by_role("button", name="Meeting workspace").click()
+                workspace = plans.get_by_role(
+                    "heading", name="Staff meeting participation and motion preparation",
+                ).locator("..").locator("..")
+                minutes = workspace.get_by_role(
+                    "heading", name="Staff meeting minutes draft",
+                ).locator("..").locator("..")
+                minutes.get_by_label("Staff minutes (not certified)").fill(
+                    "Synthetic board-reviewed meeting text, not production evidence."
+                )
+                minutes.get_by_role("button", name="Save staff minutes").click()
+                expect(minutes.get_by_text(re.compile("Staff minutes saved"))).to_be_visible()
+                minutes.get_by_label("Board minutes approval note").fill(
+                    "I approve the exact text as an authorized association board member."
+                )
+                minutes.get_by_role(
+                    "button", name="Approve this minutes revision as authorized board member",
+                ).click()
+                expect(minutes.get_by_text(
+                    re.compile("board-member approval was recorded", re.IGNORECASE),
+                )).to_be_visible()
+                expect(minutes.get_by_text(
+                    re.compile("No full-board quorum is certified"),
+                )).to_be_visible()
+                expect(minutes.get_by_role("button", name="Save staff minutes")).to_have_count(0)
+                assert _financial_counts() == before
+            finally:
+                browser.close()
+        assert _financial_counts() == before

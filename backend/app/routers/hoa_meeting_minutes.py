@@ -1,12 +1,14 @@
 """Scoped staff-prepared meeting minutes; no legally effective board action."""
 from __future__ import annotations
 
+from hashlib import sha256
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.hoa_meeting_minutes import HOAMeetingMinutesDraft
+from app.models.hoa_meeting_minutes import HOAMeetingMinutesDraft, HOAMeetingMinutesApproval
 from app.models.user import User
 from app.routers.auth import get_current_user
 from app.routers.hoa_assessments import _scope
@@ -18,20 +20,22 @@ router = APIRouter(prefix="/api/hoa/associations", tags=["HOA staff meeting minu
 
 
 def _row(db: Session, org_id: int, assoc_id: int, property_id: int,
-         meeting_id: int) -> HOAMeetingMinutesDraft | None:
-    return db.query(HOAMeetingMinutesDraft).filter(
+         meeting_id: int, lock: bool = False) -> HOAMeetingMinutesDraft | None:
+    query = db.query(HOAMeetingMinutesDraft).filter(
         HOAMeetingMinutesDraft.organization_id == org_id,
         HOAMeetingMinutesDraft.association_id == assoc_id,
         HOAMeetingMinutesDraft.property_id == property_id,
         HOAMeetingMinutesDraft.meeting_draft_id == meeting_id,
-    ).first()
+    )
+    return (query.with_for_update() if lock else query).first()
 
 
 def _out(row: HOAMeetingMinutesDraft) -> HOAMinutesDraftOut:
     return HOAMinutesDraftOut(
         id=row.id, meeting_draft_id=row.meeting_draft_id,
         property_id=row.property_id, staff_minutes=row.staff_minutes,
-        updated_at=row.updated_at,
+        updated_at=row.updated_at, revision=row.revision,
+        content_sha256=sha256(row.staff_minutes.encode("utf-8")).hexdigest(),
     )
 
 
@@ -73,7 +77,12 @@ def save_minutes_draft(
     org, assoc = _scope(db, actor=current_user, association_id=association_id,
                         property_id=payload.property_id, write=True)
     _meeting(db, org, assoc.id, payload.property_id, meeting_id)
-    row = _row(db, org, assoc.id, payload.property_id, meeting_id)
+    row = _row(db, org, assoc.id, payload.property_id, meeting_id, lock=True)
+    if row is not None and db.query(HOAMeetingMinutesApproval.id).filter(
+        HOAMeetingMinutesApproval.minutes_draft_id == row.id,
+        HOAMeetingMinutesApproval.organization_id == org,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Board-approved minutes cannot be edited.")
     if row is not None and not row.is_active:
         raise HTTPException(status_code=409, detail="Archived minutes cannot be resurrected.")
     created = row is None
@@ -85,6 +94,8 @@ def save_minutes_draft(
         )
         db.add(row)
     row.staff_minutes = payload.staff_minutes
+    if not created:
+        row.revision += 1
     row.updated_by_id = current_user.id
     try:
         db.flush()
@@ -109,7 +120,12 @@ def archive_minutes_draft(
     org, assoc = _scope(db, actor=current_user, association_id=association_id,
                         property_id=property_id, write=True)
     _meeting(db, org, assoc.id, property_id, meeting_id)
-    row = _row(db, org, assoc.id, property_id, meeting_id)
+    row = _row(db, org, assoc.id, property_id, meeting_id, lock=True)
+    if row is not None and db.query(HOAMeetingMinutesApproval.id).filter(
+        HOAMeetingMinutesApproval.minutes_draft_id == row.id,
+        HOAMeetingMinutesApproval.organization_id == org,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Board-approved minutes cannot be archived.")
     if row is None or not row.is_active:
         raise HTTPException(status_code=404, detail="Staff minutes draft not found.")
     row.is_active = False

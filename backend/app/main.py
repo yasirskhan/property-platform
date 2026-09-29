@@ -121,6 +121,7 @@ from app.routers import hoa_reserve_execution as hoa_reserve_execution_router
 from app.routers import hoa_board as hoa_board_router
 from app.routers import hoa_ballots as hoa_ballots_router
 from app.routers import hoa_meeting_minutes as hoa_meeting_minutes_router
+from app.routers import hoa_meeting_minutes_board as hoa_meeting_minutes_board_router
 from app.routers import hoa_payer_drafts as hoa_payer_drafts_router
 from app.routers import hoa_planned_occurrences as hoa_planned_occurrences_router
 from app.routers import hoa_issuance_readiness as hoa_issuance_readiness_router
@@ -273,6 +274,7 @@ app.include_router(hoa_reserve_execution_router.router)
 app.include_router(hoa_board_router.router)
 app.include_router(hoa_ballots_router.router)
 app.include_router(hoa_meeting_minutes_router.router)
+app.include_router(hoa_meeting_minutes_board_router.router)
 app.include_router(hoa_payer_drafts_router.router)
 app.include_router(hoa_planned_occurrences_router.router)
 app.include_router(hoa_issuance_readiness_router.router)

@@ -1,12 +1,19 @@
 "use client";
-import { useEffect, useState } from "react";
-import { apiDelete, apiGet, apiPut } from "@/lib/api";
+import { useCallback, useEffect, useState } from "react";
+import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 
 type Minutes = {
   id: number; meeting_draft_id: number; property_id: number;
-  staff_minutes: string; status: "STAFF_DRAFT_UNVERIFIED";
+  staff_minutes: string; revision: number; content_sha256: string;
+  status: "STAFF_DRAFT_UNVERIFIED";
   legal_minutes_effective: false;
   board_approval_certified: false; quorum_certified: false;
+};
+type Approval = {
+  id: number; minutes_revision: number; content_sha256: string;
+  board_seat_id: number; approved_by_user_id: number; approved_at: string;
+  approval_note: string; status: "BOARD_MEMBER_APPROVED";
+  quorum_certified: false; full_board_vote_certified: false;
 };
 
 export default function HoaMinutesDraftPanel({
@@ -18,6 +25,9 @@ export default function HoaMinutesDraftPanel({
     "/meeting-drafts/" + meetingId + "/minutes-draft";
   const [record, setRecord] = useState<Minutes | null>(null);
   const [body, setBody] = useState("");
+  const [boardPreview, setBoardPreview] = useState<Minutes | null>(null);
+  const [approval, setApproval] = useState<Approval | null>(null);
+  const [approvalNote, setApprovalNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -31,6 +41,40 @@ export default function HoaMinutesDraftPanel({
     return () => { active = false; };
   }, [base, propertyId]);
 
+  const loadBoard = useCallback(async () => {
+    try {
+      const [preview, existing] = await Promise.all([
+        apiGet(base.replace("/minutes-draft", "/minutes-board-preview") + "?property_id=" + propertyId) as Promise<Minutes | null>,
+        apiGet(base.replace("/minutes-draft", "/minutes-board-approval") + "?property_id=" + propertyId) as Promise<Approval | null>,
+      ]);
+      setBoardPreview(preview); setApproval(existing);
+    } catch {
+      // Staff without an authorized association board seat may still edit
+      // staff drafts, but must not receive board-only approval data.
+      setBoardPreview(null); setApproval(null);
+    }
+  }, [base, propertyId]);
+
+  useEffect(() => {
+    if (canEdit) void loadBoard();
+    // Review controls re-evaluate when the selected meeting changes.
+  }, [canEdit, loadBoard]);
+
+  async function approve() {
+    if (!boardPreview || !approvalNote.trim() || approval || busy || !canEdit) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const saved = await apiPost(base.replace("/minutes-draft", "/minutes-board-approval"), {
+        property_id: propertyId, minutes_revision: boardPreview.revision,
+        content_sha256: boardPreview.content_sha256, approval_note: approvalNote.trim(),
+      }) as Approval;
+      setApproval(saved);
+      setMessage("Your authorized board-member approval was recorded for this exact minutes revision.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Minutes approval was not recorded.");
+    } finally { setBusy(false); }
+  }
+
   async function save(event: React.FormEvent) {
     event.preventDefault();
     if (!canEdit || !body.trim() || busy) return;
@@ -40,6 +84,8 @@ export default function HoaMinutesDraftPanel({
         property_id: propertyId, staff_minutes: body.trim(),
       }) as Minutes;
       setRecord(row); setBody(row.staff_minutes);
+      setBoardPreview(null); setApproval(null); setApprovalNote("");
+      await loadBoard();
       setMessage("Staff minutes saved. No legal certification or vote was issued.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to save minutes.");
@@ -70,10 +116,28 @@ export default function HoaMinutesDraftPanel({
       </p>
       {error && <p role="alert" className="text-red-700">{error}</p>}
       {message && <p role="status" className="text-green-700">{message}</p>}
+      {approval && <p role="status" className="text-xs font-semibold text-teal-800">
+        Board-member minutes approval recorded · Revision {approval.minutes_revision}
+        {" · "}Approved by user #{approval.approved_by_user_id}. No full-board quorum is certified.
+      </p>}
       {record && <p className="text-xs text-slate-600">
         {record.status.replaceAll("_", " ")} · Legal minutes effective: NO
       </p>}
-      {canEdit ? (
+      {canEdit && boardPreview && !approval && record && <div className="space-y-2 border-t pt-2">
+        <p className="text-xs">Board approval applies only to revision {boardPreview.revision}.
+          It records your decision, not certification of an entire board vote or quorum.</p>
+        <label className="block text-xs">Board approval note
+          <textarea aria-label="Board minutes approval note" maxLength={1500}
+            value={approvalNote} onChange={event => setApprovalNote(event.target.value)}
+            className="mt-1 block w-full rounded border p-2" />
+        </label>
+        <button type="button" disabled={busy || !approvalNote.trim() || body.trim() !== record.staff_minutes}
+          onClick={() => { void approve(); }}
+          className="rounded bg-teal-900 px-3 py-2 text-white disabled:opacity-50">
+          Approve this minutes revision as authorized board member
+        </button>
+      </div>}
+      {canEdit && !approval ? (
         <form onSubmit={(event) => { void save(event); }} className="space-y-2">
           <label className="block text-xs">Staff minutes (not certified)
             <textarea value={body} maxLength={4000} required rows={5}

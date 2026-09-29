@@ -1,3 +1,62 @@
+# AI_HANDOFF.md — 2026-09-29 VERIFIED BUDGET ACTUALS / BOARD MINUTES PROVISIONAL
+
+**READ THE ENTIRE ROOT HANDOFF.** This entry supersedes older NEXT/
+PREPARED labels below. Only repository `yasirskhan/property-platform`
+and branch `chatgpt/checkpoint-005-safety`. Never touch main, create
+another branch, force-push, merge, edit frozen docs/ or start Phase 4.8.
+
+- Latest VERIFIED product source `444f3b61bd0cd5e944b67139c3d1d09691ac8b59`.
+  GitHub Actions [36587564351](https://github.com/yasirskhan/property-platform/actions/runs/36587564351)
+  SUCCESS, all six jobs, on that exact SHA. Backend **794 passed,
+  14 deselected, 19846 warnings in 250.10s**; authenticated browser
+  **14 passed, 206 warnings in 60.23s**; frontend lint/TypeScript/build,
+  platform-admin, security, staging-config PASS. Local tests: TESTS
+  NOT RUN. The prior `ee105536` CI 36580024025 failed one outdated
+  manager-authorization test; `b5b4468d` CI 36581054317 passed
+  backend but failed two browser cases (login navigation timeout
+  and incorrect currency-format assertion). Corrective
+  `444f3b61` passed six jobs. Do not claim earlier red CI passed.
+- Verified Alembic head **e5a7c9d1f3b6**, **167 SQLAlchemy model
+  tables**; no migration was added by the budget-actuals batch.
+  Approved HOA annual budget versus actual posted property-tagged
+  existing central GL is now verified, with read-only budget/actual
+  comparison, source limitations and reversal handling. It is not
+  independently allocated HOA-only financial reporting. Earlier
+  approved-budget recurring assessment increase source
+  `430db13f` and all prior verified HOA functions remain intact.
+- Exact current NEXT Phase 4.7 C board-portal batch: **authorized
+  board-member approval of an exact existing staff minutes revision.**
+  Provisional implementation adds one immutable association-scoped
+  approval row linked to existing minutes and authorized board seat,
+  SHA-256 content hash, revision and stale-edit protection, locks
+  subsequent staff minutes updates/archive and parent meeting
+  update/archive, redacted audit, restricted read/approval routes,
+  a customer UI, focused backend security/regression and dedicated
+  synthetic browser test. It represents this one authenticated
+  member's adoption, NOT independently certified quorum, statutory
+  notice or full-board vote; zero accounting effects.
+- Provisional migration **f6b8d0e2a4c7** follows verified
+  e5a7c9d1f3b6. Expected model count **168**, but verified count
+  remains **167** until CI is green. Source changes are PROVISIONAL,
+  not VERIFIED. The exact files are carried together in the next
+  single provisional feature-branch commit and MUST pass all six
+  GitHub Actions jobs. Correct failures autonomously. After green
+  CI, record exact source SHA, run, positive test counts and actual
+  migration/table count here, then continue an independently
+  actionable original HOA operational batch, prioritizing
+  authenticated board votes/configured quorum or authorized
+  violation notices. Do not stop after green CI.
+- Preserve direct operative ARC APPROVED/DENIED decisions, protected
+  fees/notifications/reversals, member assessments and receipts,
+  member statements, annual budgets/increases, reserve GL book,
+  governing-document delivery, paid $79/month HOA add-on and
+  entitlement. Seven original Phase 4.7 areas remain the goal.
+  Do not introduce blanket platform legal certification, infer
+  member debt from an unverified contact, bypass central GL, send
+  real notices from synthetic CI, or advance Phase 4.8.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 HOA ANNUAL INCREASE VERIFIED / BOARD MINUTES NEXT
 
 **READ THE ENTIRE FILE.** This newest verification supersedes the historical

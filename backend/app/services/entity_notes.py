@@ -30,6 +30,7 @@ _FORBIDDEN_TABLES = {
     "hoa_board_seats",  # Staff-proposed board identity, no generic notes.
     "hoa_ballot_records",
     "hoa_meeting_minutes_drafts",
+    "hoa_meeting_minutes_approvals",
     "hoa_planned_occurrences",  # Joint HOA/proposal/contact scope and immutable planning history.
     "hoa_payer_drafts",  # Joint association/contact compliance scope, not generic notes.  # Scope staff minutes through meeting + property authorization.  # Restrict staff ballots to joint board/motion scope.
     "hoa_board_rule_drafts",  # No generic access to governance thresholds.

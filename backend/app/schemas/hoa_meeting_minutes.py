@@ -24,6 +24,8 @@ class HOAMinutesDraftOut(BaseModel):
     property_id: int
     staff_minutes: str
     updated_at: datetime
+    revision: int = 1
+    content_sha256: str
     status: Literal["STAFF_DRAFT_UNVERIFIED"] = "STAFF_DRAFT_UNVERIFIED"
     legal_minutes_effective: Literal[False] = False
     board_approval_certified: Literal[False] = False
