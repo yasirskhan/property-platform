@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.hoa_planned_occurrence import HOAPlannedOccurrence
+from app.models.hoa_member_assessment import HOAMemberAssessmentCharge
 from app.models.hoa_payer_draft import HOAPayerDraft
 from app.models.user import User
 from app.routers.auth import get_current_user
@@ -166,11 +167,21 @@ def void_occurrence(
     )
     row = _rows(db, org, assoc.id, property_id, proposal.id).filter(
         HOAPlannedOccurrence.id == occurrence_id,
-    ).first()
+    ).with_for_update().first()
     if row is None:
         raise HTTPException(status_code=404, detail="Planning record not found.")
     if row.status != "PLANNED":
         raise HTTPException(status_code=409, detail="Planning record already voided.")
+    # A posted member receivable must never become a voided planning
+    # record. Coordinate with issue_assessment's occurrence row lock.
+    issued = db.query(HOAMemberAssessmentCharge.id).filter(
+        HOAMemberAssessmentCharge.organization_id == org,
+        HOAMemberAssessmentCharge.association_id == assoc.id,
+        HOAMemberAssessmentCharge.property_id == property_id,
+        HOAMemberAssessmentCharge.occurrence_id == row.id,
+    ).first()
+    if issued is not None:
+        raise HTTPException(status_code=409, detail="Issued member assessments cannot be voided.")
     row.status = "VOIDED"
     row.voided_at = datetime.utcnow()
     row.voided_by_id = current_user.id
