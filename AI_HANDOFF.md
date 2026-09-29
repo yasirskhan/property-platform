@@ -1,45 +1,59 @@
-# AI_HANDOFF.md — 2026-09-29 BOARD RULE ADOPTION PROVISIONAL
+# AI_HANDOFF.md — 2026-09-29 BOARD RULE ADOPTION VERIFIED
 
-**Read entire root handoff; this newest entry supersedes older NEXT lines.**
-Repository `yasirskhan/property-platform`, ONLY branch
-`chatgpt/checkpoint-005-safety`. Do not touch main, frozen docs/,
-new branches, force push, PR merges or Phase 4.8.
+**READ THE ENTIRE ROOT HANDOFF.** This latest status supersedes old
+PREPARED/NEXT labels. Only `yasirskhan/property-platform` on existing
+`chatgpt/checkpoint-005-safety`. No main, frozen docs/, new branch,
+force push, merge or Phase 4.8.
 
-- Last VERIFIED PRODUCT source `3bd9f11c828c089dbf36dd0f50f1741b0d395d7f`,
-  six-job GitHub Actions **36597915429 SUCCESS**: **799 backend passed,
-  15 deselected** and **15 browser passed**; frontend lint,
-  TypeScript/build, platform-admin, security, staging PASS.
-  Alembic verified `a7c9e1f3b5d8` / **169 model tables**.
-  Following handoff-only HEAD `6ac64f02676c0e869728daa6654c1d25ee587cf8`
-  also has six green CI jobs (36599268351). No local tests ran.
-- This next source batch is **PROVISIONAL UNTIL SIX GREEN JOBS**:
-  authenticated association member adoption of exactly configured
-  quorum/approval numbers with source SHA-256 and immutable history.
-  It extends current authorized board-seat and HOA entitlement scope,
-  uses the previously verified staff rule configuration and board
-  portal, rejects missing/stale inputs and duplicate records, and
-  does not itself resolve any motion, send notice or post finance.
-  New migration `b8d0f2a4c6e9` after a7c9e1f3b5d8 is PROPOSED,
-  expected model count **170**, NOT VERIFIED until new source CI passes.
-  Dedicated backend tests cover active/foreign/revoked/entitlement
-  access, revision changes, duplicate replay, immutable history,
-  audit and zero finance; the existing authenticated board browser
-  test is extended to adopt configured thresholds.
-- User direction: complete all SEVEN real operational HOA areas,
-  not preparation-only screens. Board records decisions and the
-  platform applies recorded rules without extra blanket platform
-  legal certification. Preserve operative ARC APPROVED/DENIED,
-  existing member accounting, annual budgets, reserve GL,
-  document delivery, violations cases/tasks, and $79/mo HOA entitlement.
-  Do not infer law, payer or completed delivery from draft inputs.
-- After this batch passes six CI jobs, update the VERIFIED source/run/
-  actual backend/browser counts and migration here, then next batch:
-  apply the adopted explicit quorum/approval thresholds to immutable
-  authenticated motion votes, with association decision outcome,
-  idempotency, unauthorized/revoked role checks, historical snapshot,
-  no invented default thresholds, and no automatic GL/notices.
-  If a concrete external prerequisite is unavailable, continue
-  other independently actionable Phase 4.7 work.
+- Last VERIFIED PRODUCT source `199e72b10dafdbe2546f4c1f1aad8f264d677487`.
+  GitHub Actions [36602554783](https://github.com/yasirskhan/property-platform/actions/runs/36602554783)
+  **SUCCESS ALL SIX JOBS** on the exact source. Backend **801 passed,
+  15 deselected, 20281 warnings in 259.35s**; authenticated browser
+  **15 passed, 224 warnings in 66.58s**. Frontend lint, TypeScript,
+  production build, platform-admin, security, staging-config PASS.
+  **TESTS NOT RUN locally**.
+- Verified Alembic `b8d0f2a4c6e9`, **170 model tables** (previous
+  a7c9e1f3b5d8 / 169). PostgreSQL, fresh/legacy schema and staging
+  guards passed in verified source CI.
+- Last VERIFIED Phase 4.7 board batch: current authorized authenticated
+  association board member adopts the organization's explicitly
+  configured quorum/approval proposal revision. New immutable
+  `hoa_board_rule_adoptions` snapshots the two numbers, exact
+  configured revision digest, authorized board seat, actor and time.
+  Missing/incomplete/stale/repeated proposal decisions fail closed
+  or replay idempotently. Reconfiguring staff rules requires new
+  explicit board adoption for the new revision; earlier history
+  stays immutable. Scoped live HOA entitlement, active board seat,
+  property and organization checks, audit, generic notes denylist
+  and zero financial side effects are tested. Dedicated browser
+  covers configuration and direct board adoption. No platform legal
+  certification, default legal threshold, automatic motion outcome,
+  external notice, fee, account movement or third-party approval.
+- Historical PREPARED section below is the prior state of the now
+  VERIFIED source, not unfinished product work.
+- **EXACT NEXT Phase 4.7 board batch:** Explicit authorized motion
+  outcome recording against the CURRENT adopted quorum/approval
+  revision, exact immutable recorded member votes and motion SHA.
+  A board member confirms a final tally on an active meeting; no
+  unconfigured default thresholds, inaccurate quorum, duplicate
+  decision, extra vote after finalization, cross-organization leakage,
+  or altered motion. Preserve immutable source-vote evidence and
+  record the actor, adoption revision, tally and result with audit.
+  Do not automatically issue notices, authorize funds or certify
+  jurisdiction-specific legal compliance. Add focused backend and
+  dedicated authenticated browser tests. After six green CI jobs,
+  update this root handoff and immediately continue the next
+  independent uncompleted HOA feature.
+- User requires SEVEN operational HOA capabilities, not endless
+  draft screens: member dues/receipts/statements, violation
+  notice/cure/fines/hearings, board, ARC, reserve GL, governing
+  documents and annual budget/increases. Preserve completed
+  operative ARC APPROVED/DENIED, real member receivables,
+  verified reserve book, document delivery, internal case
+  follow-ups and $79/month paid HOA entitlement. Specific missing
+  procedural/payer/GL inputs block only that operation; do not
+  invent law, liable member, delivered notice or bank transfer.
+  Phase 4.8 remains PAUSED.
 
 ---
 
