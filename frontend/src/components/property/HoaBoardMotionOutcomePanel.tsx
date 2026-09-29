@@ -69,7 +69,7 @@ export default function HoaBoardMotionOutcomePanel({
       {preview.recorded ? <p role="status" className="font-medium text-teal-900">
         Board motion outcome: {preview.recorded.outcome}. Recorded {preview.recorded.recorded_at}.
         {" "}Quorum {preview.recorded.quorum_min} · Approval {preview.recorded.approval_min}.
-        Voting closed. This records the association's decision, not a legal opinion.
+        Voting closed. This records the association&apos;s decision, not a legal opinion.
       </p> : preview.rule_adoption_id === null ?
         <p>The association must adopt its configured quorum and approval thresholds first.</p> :
         !preview.quorum_met ?
