@@ -1,3 +1,62 @@
+# AI_HANDOFF.md — 2026-09-29 ANNUAL HOA BUDGET PROVISIONAL
+
+**READ THE ENTIRE FILE.** This newest entry supersedes historical
+NEXT/PREPARED sections preserved further down. ONLY repository
+`yasirskhan/property-platform` and existing branch
+`chatgpt/checkpoint-005-safety`. Do NOT modify main or frozen docs/,
+create another branch, force push, merge a PR, or advance Phase 4.8.
+
+- Last VERIFIED product commit:
+  `861191ab1a29b8b88371a5b4415b486a6ad9534e`.
+  GitHub Actions [36563959170](https://github.com/yasirskhan/property-platform/actions/runs/36563959170)
+  **SUCCESS all six jobs on this exact source**. Backend **789 passed,
+  13 deselected, 19448 warnings in 260.28s**; authenticated browser
+  **13 passed, 179 warnings in 59.80s**. Frontend lint/typecheck/build,
+  platform-admin, security and staging PASS. **TESTS NOT RUN locally**.
+  Initial member statement source `540d5e08` CI 36563300346 failed two
+  direct-call tests because an optional FastAPI Query parameter had no
+  plain Python default; `861191ab` corrected it, all six jobs green.
+- Verified Alembic head `c3e5a7b9d1f4` with **165 model tables**.
+  Existing HOA member receipts, board-approved member receivables and
+  association-wide read-only posted member statements are VERIFIED.
+  No new migration was needed for member statements.
+- **IN-FLIGHT NEXT BATCH: HOA ANNUAL OPERATING BUDGET ADOPTION**.
+  This is a NEW provisional backend/frontend/migration/tests batch
+  pending its own GitHub Actions. Association-specific annual income/
+  expense GL budget lines are entered by scoped staff, including a
+  bounded planned reserve allocation. Existing authorized board login
+  directly records immutable APPROVED/DENIED decision (also designated
+  offline recorder/private meeting record), with revision history and
+  soft archival on association unlink. The general property budget is
+  not silently relabeled as HOA. Approval is operative as a board's
+  budget decision, not a member assessment, restricted reserve
+  declaration, automatic GL posting, or bank transfer. Separate member
+  assessment approval, identified payer, GL posting and notices remain
+  their own protected actions. A new migration
+  `d4f6a8c0e2b5` follows verified `c3e5a7b9d1f4` and is EXPECTED to
+  create **166 model tables**. Until six CI jobs pass, VERIFIED counts
+  remain 165, not 166. Tests not yet run for this provisional batch.
+- **Exact next action:** complete review of the prepared annual-budget
+  implementation, commit provisionally through connected GitHub on
+  this branch, run GitHub Actions on that commit, fix CI failures,
+  mark VERIFIED only after six green jobs and report ACTUAL backend/
+  browser test counts. Update this handoff and immediately continue
+  the next actionable Phase 4.7 batch: annual budget-linked assessment
+  increases with individually authorized member notice and posting,
+  or another independently actionable remaining HOA requirement.
+- The seven user-required HOA areas remain: real recurring/special
+  dues, violations/notice/fines/hearings, board portal, operative ARC,
+  reserve funds/GL, governing documents/delivery and annual budget/
+  assessment increases. Preserve direct board APPROVED/DENIED ARC
+  decisions, $79/month HOA add-on, customer feature/permission gates
+  and shared central GL/idempotency/reversal protections. Do not invent
+  member liability or jurisdiction-specific legal process; only block
+  the particular operation missing a concrete prerequisite. No live
+  financial obligations or real notices may be created by CI fixtures.
+  Phase 4.7 IN PROGRESS; Phase 4.8 PAUSED.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 MEMBER PAYMENTS VERIFIED / MEMBER STATEMENTS PROVISIONAL
 
 **Read the entire file; newest state supersedes the older NEXT labels below.**

@@ -1143,3 +1143,84 @@ def test_hoa_authorized_reserve_book_gl_posting_and_reversal_browser() -> None:
                 expect(movement.get_by_text(re.compile("bank transfer", re.IGNORECASE)).first).to_be_visible()
             finally:
                 browser.close()
+
+
+def test_hoa_annual_budget_board_adoption_browser_without_finance_posting() -> None:
+    """Synthetic board adopts an association budget; no dues or reserve GL move."""
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                          wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                name = "E2E Adopted Annual HOA Budget"
+                page.get_by_label("Association name").fill(name)
+                page.get_by_role("button", name="Record association").click()
+                association = page.get_by_text(name, exact=True).locator("..").locator("..")
+                expect(association).to_be_visible()
+                _seed_operational_hoa_assessment(name)
+                db = SessionLocal()
+                try:
+                    assoc = db.query(HOAAssociation).filter(
+                        HOAAssociation.name == name,
+                        HOAAssociation.is_active.is_(True),
+                    ).one()
+                    db.add(GLAccount(
+                        organization_id=assoc.organization_id,
+                        gl_number="E2E-HOA-EXPENSE",
+                        name="Synthetic HOA budget expense",
+                        account_type="EXPENSE", is_active=True,
+                    ))
+                    db.commit()
+                finally:
+                    db.close()
+                association.get_by_role("button", name="Annual HOA budget").click()
+                annual = association.get_by_role(
+                    "heading", name="HOA annual operating budgets",
+                ).locator("..").locator("..")
+                annual.get_by_label("Budget calendar year").fill("2029")
+                annual.get_by_label("Budget purpose").fill("Synthetic adopted HOA budget")
+                annual.get_by_label(
+                    "Planned reserve allocation (included in annual expenses)",
+                ).fill("20.00")
+                annual.get_by_label("HOA annual budget GL account").select_option(
+                    label="E2E-HOA-INCOME · Synthetic HOA income (INCOME)",
+                )
+                annual.get_by_label("Annual budget line amount").fill("300.00")
+                annual.get_by_role("button", name="Add annual budget line").click()
+                annual.get_by_label("HOA annual budget GL account").select_option(
+                    label="E2E-HOA-EXPENSE · Synthetic HOA budget expense (EXPENSE)",
+                )
+                annual.get_by_label("Annual budget line amount").fill("125.00")
+                annual.get_by_role("button", name="Add annual budget line").click()
+                annual.get_by_role("button", name="Create association budget draft").click()
+                expect(annual.get_by_text("2029 · Revision 1 · DRAFT")).to_be_visible()
+                assert _financial_counts() == before
+                annual.get_by_role("button", name="Record annual budget decision").click()
+                annual.get_by_label("Budget board decision").select_option("APPROVED")
+                annual.get_by_label("Budget board decision note").fill(
+                    "Synthetic board adopts the annual budget",
+                )
+                page.once("dialog", lambda dialog: dialog.accept())
+                annual.get_by_role("button", name="Save annual board decision").click()
+                expect(annual.get_by_text("2029 · Revision 1 · APPROVED")).to_be_visible()
+                expect(annual.get_by_text(
+                    re.compile("Association board decision: APPROVED"),
+                )).to_be_visible()
+                expect(annual.get_by_text(
+                    re.compile("Planned reserve allocation: \$20\.00"),
+                )).to_be_visible()
+                assert _financial_counts() == before
+            finally:
+                browser.close()
+        assert _financial_counts() == before

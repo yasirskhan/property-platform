@@ -13,6 +13,7 @@ import HoaCaseWorkflowPanel from "@/components/property/HoaCaseWorkflowPanel";
 import HoaReserveBookPanel from "@/components/property/HoaReserveBookPanel";
 import HoaBoardProposalsPanel from "@/components/property/HoaBoardProposalsPanel";
 import HoaMemberStatementsPanel from "@/components/property/HoaMemberStatementsPanel";
+import HoaAnnualBudgetsPanel from "@/components/property/HoaAnnualBudgetsPanel";
 
 type Association = { id: number; name: string; property_ids: number[]; updated_at: string };
 type PropertyOption = { id: number; name: string; is_active: boolean };
@@ -34,6 +35,7 @@ export default function HoaAssociationsPanel({ propertyId, canEdit }: {
   const [reserveAssociation, setReserveAssociation] = useState<number | null>(null);
   const [boardAssociation, setBoardAssociation] = useState<number | null>(null);
   const [statementsAssociation, setStatementsAssociation] = useState<number | null>(null);
+  const [budgetAssociation, setBudgetAssociation] = useState<number | null>(null);
   const [others, setOthers] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -115,6 +117,7 @@ export default function HoaAssociationsPanel({ propertyId, canEdit }: {
       if (reserveAssociation === row.id) setReserveAssociation(null);
       if (boardAssociation === row.id) setBoardAssociation(null);
       if (statementsAssociation === row.id) setStatementsAssociation(null);
+      if (budgetAssociation === row.id) setBudgetAssociation(null);
       setMessage("Inventory archived. No charges or legal obligations were changed.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Cannot archive association.");
@@ -172,6 +175,8 @@ export default function HoaAssociationsPanel({ propertyId, canEdit }: {
                   className="text-blue-700">Board role proposals</button>
                 {canEdit && <button type="button" onClick={() => setStatementsAssociation((old) => old === row.id ? null : row.id)}
                   className="text-blue-700">Member statements</button>}
+                <button type="button" onClick={() => setBudgetAssociation((old) => old === row.id ? null : row.id)}
+                  className="text-blue-700">Annual HOA budget</button>
               {canEdit && <>
                 <button type="button" disabled={busy} onClick={() => { void changeMembership(row, false); }}
                   className="text-blue-700 disabled:opacity-50">Unlink</button>
@@ -179,6 +184,10 @@ export default function HoaAssociationsPanel({ propertyId, canEdit }: {
                   className="text-red-700 disabled:opacity-50">Archive</button>
               </>}
               </div>
+              {budgetAssociation === row.id && (
+                <HoaAnnualBudgetsPanel associationId={row.id} propertyId={propertyId}
+                  canEdit={canEdit} onClose={() => setBudgetAssociation(null)} />
+              )}
               {statementsAssociation === row.id && (
                 <HoaMemberStatementsPanel associationId={row.id} propertyId={propertyId}
                   onClose={() => setStatementsAssociation(null)} />

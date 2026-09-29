@@ -23,6 +23,13 @@ from app.models.receipt import Receipt
 from app.models.receipt_line import ReceiptLine
 from app.routers import hoa_member_payments as payments_api
 from app.routers import hoa_member_statements as statement_api
+from app.routers import hoa_annual_budgets as budget_api
+from app.models.hoa_annual_budget import HOAAnnualBudget
+from app.schemas.hoa_annual_budget import (
+    HOAAnnualBudgetCreateIn, HOAAnnualBudgetReviseIn,
+    HOAAnnualBudgetDecisionIn,
+)
+from app.models.entity_attachment import EntityAttachment
 from app.schemas.hoa_member_payment import HOAMemberPaymentIn, HOAMemberPaymentReverseIn
 from app.schemas.receipt import ReceiptCreateIn
 from app.services.receipt_posting import reverse_receipt, process_nsf_receipt
@@ -817,5 +824,250 @@ def test_member_statement_detects_inconsistent_accounting_without_mutation():
         assert mismatch.value.status_code == 409
         assert db.query(GLTransaction).count() == 1
         assert db.query(Receipt).count() == 0
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def _annual(prop, income, expense, *, year=2029, reserve="25.00",
+            text="Association operating plan"):
+    return HOAAnnualBudgetCreateIn(
+        property_id=prop.id, calendar_year=year, description=text,
+        lines=[
+            dict(gl_account_id=income.id, annual_amount="300.00"),
+            dict(gl_account_id=expense.id, annual_amount="125.00"),
+        ],
+        reserve_allocation=reserve,
+    )
+
+
+def test_hoa_annual_budget_operational_board_approval_versions_and_snapshots():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, member, foreign), (prop, other, outside), assoc, proposal, payer, seat, period, income_ar, income = _seed(db)
+        expense = GLAccount(
+            organization_id=admin.organization_id, gl_number="HOA-BUDGET-EXP",
+            name="HOA maintenance expense", account_type="EXPENSE", is_active=True,
+        )
+        db.add(expense); db.commit()
+        initial = (db.query(Charge).count(), db.query(GLTransaction).count(),
+                   db.query(Receipt).count(), db.query(RentInvoice).count())
+        options = budget_api.annual_budget_accounts(
+            assoc.id, Response(), property_id=prop.id, db=db, current_user=admin,
+        )
+        assert {x.id for x in options} >= {income.id, expense.id}
+        payload = _annual(prop, income, expense)
+        budget = budget_api.create_annual_budget(
+            assoc.id, payload, db=db, current_user=admin,
+        )
+        assert budget.status == "DRAFT"
+        assert budget.revision == budget.version == 1
+        assert budget.total_income == Decimal("300.00")
+        assert budget.total_expense == Decimal("125.00")
+        assert budget.reserve_allocation == Decimal("25.00")
+        assert budget.member_assessment_issued is False
+        assert budget.reserve_cash_transferred is False
+        duplicate = budget_api.create_annual_budget(
+            assoc.id, payload, db=db, current_user=owner,
+        )
+        assert duplicate.id == budget.id
+        with pytest.raises(HTTPException) as conflict:
+            budget_api.create_annual_budget(
+                assoc.id, _annual(prop, income, expense, text="Different draft"),
+                db=db, current_user=admin,
+            )
+        assert conflict.value.status_code == 409
+        with pytest.raises(ValidationError):
+            HOAAnnualBudgetCreateIn(
+                property_id=prop.id, calendar_year=2029,
+                description="Duplicated GL",
+                lines=[
+                    dict(gl_account_id=expense.id, annual_amount="15.00"),
+                    dict(gl_account_id=expense.id, annual_amount="15.00"),
+                ], reserve_allocation="0.00",
+            )
+        with pytest.raises(HTTPException) as reserve:
+            budget_api.create_annual_budget(
+                assoc.id, _annual(prop, income, expense, reserve="126.00"),
+                db=db, current_user=admin,
+            )
+        assert reserve.value.status_code == 422
+        revised = budget_api.revise_annual_budget(
+            assoc.id, budget.id,
+            HOAAnnualBudgetReviseIn(
+                **_annual(prop, income, expense, reserve="20.00").model_dump(),
+                expected_version=1,
+            ), db=db, current_user=admin,
+        )
+        assert revised.version == 2 and revised.reserve_allocation == Decimal("20.00")
+        with pytest.raises(HTTPException) as stale:
+            budget_api.revise_annual_budget(
+                assoc.id, budget.id,
+                HOAAnnualBudgetReviseIn(
+                    **_annual(prop, income, expense).model_dump(),
+                    expected_version=1,
+                ), db=db, current_user=admin,
+            )
+        assert stale.value.status_code == 409
+        for actor in (owner, manager, member, foreign):
+            with pytest.raises(HTTPException):
+                budget_api.decide_annual_budget(
+                    assoc.id, budget.id,
+                    HOAAnnualBudgetDecisionIn(
+                        property_id=prop.id, expected_version=2,
+                        decision="APPROVED", decision_note="Adopted annual operating budget",
+                    ), db=db, current_user=actor,
+                )
+        approved = budget_api.decide_annual_budget(
+            assoc.id, budget.id,
+            HOAAnnualBudgetDecisionIn(
+                property_id=prop.id, expected_version=2,
+                decision="APPROVED", decision_note="Adopted annual operating budget",
+            ), db=db, current_user=admin,
+        )
+        assert approved.status == "APPROVED" and approved.version == 3
+        assert approved.decision_method == "DIRECT"
+        assert approved.board_seat_id == seat.id
+        assert approved.decided_on == date.today()
+        assert approved.total_income == Decimal("300.00")
+        assert approved.lines[1].annual_amount == Decimal("125.00") or approved.lines[0].annual_amount == Decimal("125.00")
+        with pytest.raises(HTTPException) as immutable:
+            budget_api.revise_annual_budget(
+                assoc.id, budget.id,
+                HOAAnnualBudgetReviseIn(
+                    **_annual(prop, income, expense).model_dump(),
+                    expected_version=3,
+                ), db=db, current_user=owner,
+            )
+        assert immutable.value.status_code == 409
+        later = budget_api.create_annual_budget(
+            assoc.id, _annual(prop, income, expense, text="Board amendment budget"),
+            db=db, current_user=owner,
+        )
+        assert later.id != budget.id and later.revision == 2
+        assert approved.revision == 1
+        denial = budget_api.decide_annual_budget(
+            assoc.id, later.id,
+            HOAAnnualBudgetDecisionIn(
+                property_id=prop.id, expected_version=1,
+                decision="DENIED", decision_note="Association did not adopt amendment",
+            ), db=db, current_user=admin,
+        )
+        assert denial.status == "DENIED"
+        response = Response()
+        history = budget_api.list_annual_budgets(
+            assoc.id, response, property_id=prop.id,
+            calendar_year=2029, db=db, current_user=admin,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert [x.revision for x in history] == [2, 1]
+        assert [x.status for x in history] == ["DENIED", "APPROVED"]
+        assert budget_api.list_annual_budgets(
+            assoc.id, Response(), property_id=prop.id,
+            calendar_year=2030, db=db, current_user=admin,
+        ) == []
+        assert (db.query(Charge).count(), db.query(GLTransaction).count(),
+                db.query(Receipt).count(), db.query(RentInvoice).count()) == initial
+        audit = db.query(AuditLog).filter(AuditLog.entity_type == "hoa_annual_budget").all()
+        assert len(audit) == 5
+        assert all("Association operating plan" not in (x.new_value or "") for x in audit)
+        assert all("300.00" not in (x.new_value or "") for x in audit)
+        with pytest.raises(HTTPException):
+            _model_for_table("hoa_annual_budgets")
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_hoa_annual_budget_offline_scope_archive_and_unauthorized_gl(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, member, foreign), (prop, other, outside), assoc, proposal, payer, seat, period, ar, income = _seed(db)
+        expense = GLAccount(
+            organization_id=admin.organization_id, gl_number="HOA-BUDGET-OPS",
+            name="Annual operations", account_type="EXPENSE", is_active=True,
+        )
+        foreign_expense = GLAccount(
+            organization_id=foreign.organization_id, gl_number="FOREIGN-BUDGET",
+            name="Not a permitted account", account_type="EXPENSE", is_active=True,
+        )
+        db.add_all([expense, foreign_expense]); db.commit()
+        bad_lines = HOAAnnualBudgetCreateIn(
+            property_id=prop.id, calendar_year=2029,
+            description="Unauthorized GL", reserve_allocation="0.00",
+            lines=[dict(gl_account_id=foreign_expense.id, annual_amount="5.00")],
+        )
+        with pytest.raises(HTTPException) as no_foreign_account:
+            budget_api.create_annual_budget(
+                assoc.id, bad_lines, db=db, current_user=admin,
+            )
+        assert no_foreign_account.value.status_code == 404
+        original = _annual(prop, income, expense)
+        for actor, p in ((manager, prop), (member, prop), (foreign, prop),
+                         (admin, outside), (manager, other)):
+            with pytest.raises(HTTPException):
+                budget_api.create_annual_budget(
+                    assoc.id, HOAAnnualBudgetCreateIn(**{
+                        **original.model_dump(), "property_id": p.id,
+                    }), db=db, current_user=actor,
+                )
+        saved = budget_api.create_annual_budget(
+            assoc.id, original, db=db, current_user=admin,
+        )
+        for actor, p in ((member, prop), (foreign, prop), (manager, other),
+                         (admin, outside)):
+            with pytest.raises(HTTPException):
+                budget_api.list_annual_budgets(
+                    assoc.id, Response(), property_id=p.id,
+                    calendar_year=2029, db=db, current_user=actor,
+                )
+        # Verified board login is allowed to read its own budget even
+        # when it does not hold all staff-wide accounting permissions.
+        monkeypatch.setattr(budget_api, "permission_allows_user", lambda *a, **kw: False)
+        assert budget_api.list_annual_budgets(
+            assoc.id, Response(), property_id=prop.id,
+            calendar_year=2029, db=db, current_user=admin,
+        )[0].id == saved.id
+        monkeypatch.setattr(budget_api, "permission_allows_user", lambda *a, **kw: True)
+        private = EntityAttachment(
+            organization_id=admin.organization_id,
+            entity_type="properties", entity_id=prop.id,
+            storage_key="synthetic-annual-board.pdf",
+            original_name="synthetic-annual-board.pdf",
+            content_type="application/pdf", size_bytes=100,
+            is_active=True, share_with_owners=False, share_with_tenants=False,
+        )
+        db.add(private); db.commit()
+        approved = budget_api.decide_annual_budget(
+            assoc.id, saved.id, HOAAnnualBudgetDecisionIn(
+                property_id=prop.id, expected_version=1,
+                decision="APPROVED", decision_note="Offline board adoption recorded",
+                offline_meeting_on=date.today(), decision_maker_seat_id=seat.id,
+                supporting_attachment_id=private.id,
+            ), db=db, current_user=admin,
+        )
+        assert approved.decision_method == "OFFLINE"
+        assert approved.decision_maker_seat_id == seat.id
+        assert approved.status == "APPROVED"
+        hoa.update_association(
+            assoc.id, HOAAssociationIn(
+                name="Recorded Association", property_ids=[other.id],
+            ), db=db, current_user=owner,
+        )
+        assert db.get(HOAAnnualBudget, saved.id).is_active is False
+        hoa.update_association(
+            assoc.id, HOAAssociationIn(
+                name="Recorded Association", property_ids=[prop.id, other.id],
+            ), db=db, current_user=owner,
+        )
+        assert budget_api.list_annual_budgets(
+            assoc.id, Response(), property_id=prop.id,
+            calendar_year=2029, db=db, current_user=admin,
+        ) == []
+        replacement = budget_api.create_annual_budget(
+            assoc.id, original, db=db, current_user=admin,
+        )
+        assert replacement.id != saved.id
+        assert db.get(HOAAnnualBudget, saved.id).status == "APPROVED"
+        assert db.query(GLTransaction).count() == 0
+        assert db.query(Charge).count() == 0
     finally:
         db.rollback(); db.close(); engine.dispose()

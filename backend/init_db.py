@@ -121,6 +121,7 @@ from app.models.hoa_association import HOAAssociation, HOAPropertyMembership, HO
 from app.models.hoa_assessment import HOAAssessmentProposal  # noqa: F401
 from app.models.hoa_member_assessment import HOAAssessmentDecision, HOAMemberAssessmentCharge  # noqa: F401
 from app.models.hoa_member_assessment_payment import HOAMemberAssessmentPayment  # noqa: F401
+from app.models.hoa_annual_budget import HOAAnnualBudget  # noqa: F401
 from app.models.hoa_observation import HOAObservation  # noqa: F401
 from app.models.hoa_meeting_draft import HOAMeetingDraft  # noqa: F401
 from app.models.hoa_meeting_workspace import HOAMeetingParticipation, HOAMotionDraft  # noqa: F401
