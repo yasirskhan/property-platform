@@ -1361,6 +1361,16 @@ def test_hoa_authorized_board_minutes_revision_approval_browser() -> None:
                 expect(page.get_by_text(re.compile("Your authenticated vote: FOR"))).to_be_visible()
                 expect(page.get_by_role("button", name="Record my board vote")).to_have_count(0)
                 expect(page.get_by_text(re.compile("Member choices: 1 FOR"))).to_be_visible()
+                final = page.get_by_role(
+                    "heading", name="Final board motion outcome",
+                ).locator("..").locator("..")
+                expect(final.get_by_text(re.compile("the recorded tally is PASSED"))).to_be_visible()
+                page.once("dialog", lambda dialog: dialog.accept())
+                final.get_by_role("button", name="Record final board motion outcome").click()
+                expect(final.get_by_text(re.compile("Final association board motion outcome recorded"))).to_be_visible()
+                expect(final.get_by_text(re.compile("Board motion outcome: PASSED"))).to_be_visible()
+                expect(final.get_by_role("button", name="Record final board motion outcome")).to_have_count(0)
+                assert _financial_counts() == before
                 page.get_by_text("View recorded member vote register").click()
                 expect(page.get_by_text(re.compile("Board seat #.*FOR"))).to_be_visible()
                 expect(page.get_by_text(re.compile("not a certified resolution"))).to_be_visible()

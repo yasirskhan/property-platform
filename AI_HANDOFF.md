@@ -1,3 +1,43 @@
+# AI_HANDOFF.md — 2026-09-29 BOARD MOTION OUTCOME PROVISIONAL
+
+**Read this entire root file.** Latest verified checkpoint is below;
+historical NEXT labels are superseded. Repository
+`yasirskhan/property-platform`, ONLY existing
+`chatgpt/checkpoint-005-safety`. No main, frozen docs/,
+new branches, force push, merge or Phase 4.8.
+
+- Last VERIFIED PRODUCT source `199e72b10dafdbe2546f4c1f1aad8f264d677487`.
+  GitHub Actions **36602554783 SUCCESS ALL SIX JOBS**;
+  backend **801 passed, 15 deselected, 20281 warnings**;
+  authenticated browser **15 passed, 224 warnings**;
+  frontend lint, TypeScript/build, platform admin, security,
+  staging PASS. **TESTS NOT RUN locally**.
+  Verified Alembic `b8d0f2a4c6e9`, **170 model tables**.
+  Latest handoff-only commit `3823e0dc744eb5b767310aa9f34caa1f1c1f53e4`
+  records that checkpoint; it did not add product behavior.
+- NEXT Phase 4.7 board source batch: **PROVISIONAL ONLY** until
+  its own six green CI jobs: board member explicitly finalizes an
+  exact current motion SHA and immutable per-seat voting register
+  against the association's adopted quorum/approval rule snapshot.
+  Outcome PASSED or NOT_PASSED is recorded with immutable tally,
+  adoption revision, identity and audit. Missing/stale/no quorum
+  fails closed, concurrent changes serialized, additional votes
+  on a finalized motion rejected. No GL, notice or platform law
+  certification. Proposed migration `c9e1f3b5d7a0` after b8d0f2a4c6e9;
+  expected **171 model tables** only if new CI passes.
+  Focused backend plus authenticated HOA board-browser test extended.
+- After full green CI, record verified exact product SHA, run, actual
+  tests and migration here and continue next Phase 4.7 operational
+  HOA batch. Preserve real member charges/receipts/statements,
+  operative ARC direct decisions and protected fees/notifications,
+  reserve GL book, approved budget/increases, governing documents,
+  $79 HOA entitlement, case follow-ups. No invented member
+  liability, external bank movement or statutory delivery.
+  User requires SEVEN actual operational areas, not preparation
+  screens. Do not restore blanket legal-certification gate.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 BOARD RULE ADOPTION VERIFIED
 
 **READ THE ENTIRE ROOT HANDOFF.** This latest status supersedes old

@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.hoa_board_vote import HOABoardVote
+from app.models.hoa_board_motion_outcome import HOABoardMotionOutcome
 from app.models.hoa_meeting_workspace import HOAMotionDraft
 from app.models.user import User
 from app.routers.auth import get_current_user
@@ -126,6 +127,14 @@ def cast_board_vote(
         if prior.motion_sha256 == digest and prior.choice == payload.choice:
             return _out(prior)
         raise HTTPException(status_code=409, detail="Your immutable motion vote is already recorded.")
+    if db.query(HOABoardMotionOutcome.id).filter(
+        HOABoardMotionOutcome.organization_id == org,
+        HOABoardMotionOutcome.association_id == assoc.id,
+        HOABoardMotionOutcome.property_id == payload.property_id,
+        HOABoardMotionOutcome.meeting_draft_id == meeting_id,
+        HOABoardMotionOutcome.motion_draft_id == motion.id,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Finalized board motion does not accept additional votes.")
     row = HOABoardVote(
         organization_id=org, association_id=assoc.id,
         property_id=payload.property_id, meeting_draft_id=meeting_id,

@@ -31,6 +31,7 @@ _FORBIDDEN_TABLES = {
     "hoa_ballot_records",
     "hoa_board_votes",
     "hoa_board_rule_adoptions",
+    "hoa_board_motion_outcomes",
     "hoa_meeting_minutes_drafts",
     "hoa_meeting_minutes_approvals",
     "hoa_planned_occurrences",  # Joint HOA/proposal/contact scope and immutable planning history.

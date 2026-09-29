@@ -23,6 +23,9 @@ from app.models.hoa_meeting_draft import HOAMeetingDraft
 from app.models.hoa_meeting_minutes import HOAMeetingMinutesApproval, HOAMeetingMinutesDraft
 from app.models.hoa_board_vote import HOABoardVote
 from app.models.hoa_board_rule_adoption import HOABoardRuleAdoption
+from app.models.hoa_board_motion_outcome import HOABoardMotionOutcome
+from app.routers import hoa_board_motion_outcomes as outcome_api
+from app.schemas.hoa_board_motion_outcome import HOAMotionOutcomeIn
 from app.routers import hoa_board_rule_adoptions as rule_api
 from app.schemas.hoa_board import HOABoardRulesIn
 from app.schemas.hoa_board_rule_adoption import HOABoardRuleAdoptIn
@@ -979,6 +982,223 @@ def test_board_rule_adoption_rechecks_live_role_entitlement_and_proposal(monkeyp
         with pytest.raises(HTTPException):
             rule_api.adopt_board_rules(assoc.id, payload, db=db, current_user=admin)
         assert db.query(HOABoardRuleAdoption).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_board_records_final_motion_outcome_from_adopted_exact_vote_tally(monkeypatch):
+    from hashlib import sha256
+    db, engine = _db()
+    try:
+        (admin, owner, manager, crew, tenant, foreign), (prop, other, outside), assoc, plan, seat = _minutes_board_setup(db, monkeypatch)
+        motion = api.propose_motion(
+            assoc.id, plan.id, HOAMotionDraftIn(
+                property_id=prop.id, proposed_motion="Association landscaping motion",
+            ), db=db, current_user=owner,
+        )
+        digest = sha256(motion.proposed_motion.encode("utf-8")).hexdigest()
+        no_rules = outcome_api.get_motion_outcome(
+            assoc.id, plan.id, motion.id, Response(), property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        assert no_rules.rule_adoption_id is None
+        with pytest.raises(HTTPException) as unadopted:
+            outcome_api.record_motion_outcome(
+                assoc.id, plan.id, motion.id,
+                HOAMotionOutcomeIn(
+                    property_id=prop.id, motion_sha256=digest,
+                    rule_adoption_id=1,
+                    expected_vote_register_sha256=no_rules.vote_register_sha256,
+                ), db=db, current_user=admin,
+            )
+        assert unadopted.value.status_code == 409
+        board_api.configure_proposed_board_rules(
+            assoc.id, HOABoardRulesIn(
+                property_id=prop.id, proposed_quorum_min=1, proposed_approval_min=1,
+            ), db=db, current_user=admin,
+        )
+        revision = rule_api.get_board_rule_adoptions(
+            assoc.id, Response(), property_id=prop.id, db=db, current_user=admin,
+        )
+        adopted = rule_api.adopt_board_rules(
+            assoc.id, HOABoardRuleAdoptIn(
+                property_id=prop.id, expected_proposal_sha256=revision.proposal_sha256,
+            ), db=db, current_user=admin,
+        )
+        before = (db.query(Charge).count(), db.query(GLEntry).count(),
+                  db.query(GLTransaction).count())
+        empty = outcome_api.get_motion_outcome(
+            assoc.id, plan.id, motion.id, Response(), property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        assert empty.predicted_outcome is None and not empty.quorum_met
+        with pytest.raises(HTTPException):
+            outcome_api.record_motion_outcome(
+                assoc.id, plan.id, motion.id,
+                HOAMotionOutcomeIn(
+                    property_id=prop.id, motion_sha256=digest,
+                    rule_adoption_id=adopted.id,
+                    expected_vote_register_sha256=empty.vote_register_sha256,
+                ), db=db, current_user=admin,
+            )
+        votes_api.cast_board_vote(
+            assoc.id, plan.id, motion.id,
+            HOABoardVoteIn(
+                property_id=prop.id, motion_sha256=digest, choice="FOR",
+            ), db=db, current_user=admin,
+        )
+        fresh = outcome_api.get_motion_outcome(
+            assoc.id, plan.id, motion.id, Response(), property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        assert fresh.quorum_met and fresh.predicted_outcome == "PASSED"
+        assert (fresh.votes_for, fresh.votes_against, fresh.votes_abstain) == (1, 0, 0)
+        with pytest.raises(HTTPException) as stale:
+            outcome_api.record_motion_outcome(
+                assoc.id, plan.id, motion.id,
+                HOAMotionOutcomeIn(
+                    property_id=prop.id, motion_sha256=digest,
+                    rule_adoption_id=adopted.id,
+                    expected_vote_register_sha256=empty.vote_register_sha256,
+                ), db=db, current_user=admin,
+            )
+        assert stale.value.status_code == 409
+        payload = HOAMotionOutcomeIn(
+            property_id=prop.id, motion_sha256=digest,
+            rule_adoption_id=adopted.id,
+            expected_vote_register_sha256=fresh.vote_register_sha256,
+        )
+        for actor, prop_id in ((owner, prop.id), (manager, prop.id),
+                               (foreign, prop.id), (admin, other.id),
+                               (admin, outside.id)):
+            with pytest.raises(HTTPException):
+                outcome_api.record_motion_outcome(
+                    assoc.id, plan.id, motion.id,
+                    HOAMotionOutcomeIn(
+                        property_id=prop_id, motion_sha256=digest,
+                        rule_adoption_id=adopted.id,
+                        expected_vote_register_sha256=fresh.vote_register_sha256,
+                    ), db=db, current_user=actor,
+                )
+        resolved = outcome_api.record_motion_outcome(
+            assoc.id, plan.id, motion.id, payload,
+            db=db, current_user=admin,
+        )
+        assert resolved.outcome == "PASSED"
+        assert resolved.votes_for == 1
+        assert resolved.quorum_min == 1 and resolved.approval_min == 1
+        assert resolved.recorded_by_seat_id == seat.id
+        assert resolved.statutory_compliance_certified is False
+        assert outcome_api.record_motion_outcome(
+            assoc.id, plan.id, motion.id, payload,
+            db=db, current_user=admin,
+        ).id == resolved.id
+        view = outcome_api.get_motion_outcome(
+            assoc.id, plan.id, motion.id, Response(), property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        assert view.recorded.id == resolved.id
+        with pytest.raises(HTTPException):
+            outcome_api.record_motion_outcome(
+                assoc.id, plan.id, motion.id,
+                HOAMotionOutcomeIn(
+                    property_id=prop.id, motion_sha256=digest,
+                    rule_adoption_id=adopted.id,
+                    expected_vote_register_sha256="f" * 64,
+                ), db=db, current_user=admin,
+            )
+        tenant.is_verified = True
+        db.flush()
+        contact = Contact(
+            organization_id=admin.organization_id,
+            display_name="Other board login",
+            email=tenant.email, contact_type="PERSON", is_active=True,
+        )
+        db.add(contact); db.flush()
+        linked = hoa.add_contact_link(
+            assoc.id, HOAContactLinkIn(
+                property_id=prop.id, contact_id=contact.id,
+            ), db=db, current_user=admin,
+        )
+        other_seat = board_api.record_board_seat(
+            assoc.id, HOABoardSeatIn(
+                property_id=prop.id, contact_link_id=linked.id,
+                proposed_role="DIRECTOR", staff_voting_eligible=True,
+            ), db=db, current_user=admin,
+        )
+        board_api.authorize_board_seat(
+            assoc.id, other_seat.id, HOABoardAuthorizationIn(
+                property_id=prop.id, user_id=tenant.id,
+            ), db=db, current_user=admin,
+        )
+        with pytest.raises(HTTPException) as closed:
+            votes_api.cast_board_vote(
+                assoc.id, plan.id, motion.id,
+                HOABoardVoteIn(
+                    property_id=prop.id, motion_sha256=digest, choice="AGAINST",
+                ), db=db, current_user=tenant,
+            )
+        assert closed.value.status_code == 409
+        assert db.query(HOABoardMotionOutcome).count() == 1
+        assert db.query(HOABoardVote).count() == 1
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_board_motion_outcome",
+        ).count() == 1
+        assert (db.query(Charge).count(), db.query(GLEntry).count(),
+                db.query(GLTransaction).count()) == before
+        with pytest.raises(HTTPException):
+            _model_for_table("hoa_board_motion_outcomes")
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_board_motion_outcome_can_record_not_passed_without_inventing_quorum(monkeypatch):
+    from hashlib import sha256
+    db, engine = _db()
+    try:
+        (admin, owner, manager, crew, tenant, foreign), (prop, other, outside), assoc, plan, seat = _minutes_board_setup(db, monkeypatch)
+        motion = api.propose_motion(
+            assoc.id, plan.id, HOAMotionDraftIn(
+                property_id=prop.id, proposed_motion="Association alternative motion",
+            ), db=db, current_user=admin,
+        )
+        board_api.configure_proposed_board_rules(
+            assoc.id, HOABoardRulesIn(
+                property_id=prop.id, proposed_quorum_min=1, proposed_approval_min=1,
+            ), db=db, current_user=admin,
+        )
+        rules = rule_api.get_board_rule_adoptions(
+            assoc.id, Response(), property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        adopted = rule_api.adopt_board_rules(
+            assoc.id, HOABoardRuleAdoptIn(
+                property_id=prop.id, expected_proposal_sha256=rules.proposal_sha256,
+            ), db=db, current_user=admin,
+        )
+        digest = sha256(motion.proposed_motion.encode("utf-8")).hexdigest()
+        votes_api.cast_board_vote(
+            assoc.id, plan.id, motion.id,
+            HOABoardVoteIn(
+                property_id=prop.id, motion_sha256=digest, choice="ABSTAIN",
+            ), db=db, current_user=admin,
+        )
+        view = outcome_api.get_motion_outcome(
+            assoc.id, plan.id, motion.id, Response(), property_id=prop.id,
+            db=db, current_user=admin,
+        )
+        assert view.quorum_met and view.predicted_outcome == "NOT_PASSED"
+        row = outcome_api.record_motion_outcome(
+            assoc.id, plan.id, motion.id,
+            HOAMotionOutcomeIn(
+                property_id=prop.id, motion_sha256=digest,
+                rule_adoption_id=adopted.id,
+                expected_vote_register_sha256=view.vote_register_sha256,
+            ), db=db, current_user=admin,
+        )
+        assert row.outcome == "NOT_PASSED"
+        assert row.votes_abstain == 1 and row.votes_for == 0
         assert db.query(GLTransaction).count() == 0
     finally:
         db.rollback(); db.close(); engine.dispose()

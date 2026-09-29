@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
 import HoaBoardRuleAdoptionPanel from "@/components/property/HoaBoardRuleAdoptionPanel";
+import HoaBoardMotionOutcomePanel from "@/components/property/HoaBoardMotionOutcomePanel";
 
 type Meeting = {
   association_id: number; property_id: number; meeting_id: number;
@@ -200,6 +201,9 @@ export default function HOABoardPortal() {
                 Record my board vote
               </button>
             </div>}
+            <HoaBoardMotionOutcomePanel associationId={meeting.association_id}
+              propertyId={meeting.property_id} meetingId={meeting.meeting_id}
+              motionId={motion.id} voteCount={motion.recorded_votes} />
           </div>)}
           <h3 className="font-medium">Meeting minutes</h3>
           {detail.minutes ? <>
