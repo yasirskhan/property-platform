@@ -175,7 +175,7 @@ export default function HOABoardPortal() {
                   Board seat #{v.board_seat_id}: {v.choice} · {v.voted_at}
                 </li>)}
               </ol>
-            </details>
+            </details>}
             {motion.my_vote ? <p role="status" className="text-teal-800">
               Your authenticated vote: {motion.my_vote.choice}. Recorded {motion.my_vote.voted_at}.
             </p> : <div className="flex flex-wrap items-center gap-2">
