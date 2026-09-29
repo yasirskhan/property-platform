@@ -123,8 +123,10 @@ export default function HoaAppealNotificationPanel({
         <p className="whitespace-pre-wrap">{selected.body}</p>
         <p>The final board outcome and date are appended at send time.</p>
       </div>}
-      {templates.length === 0 && <p>Create an active CUSTOM letter template titled
-        &quot;HOA Appeal: ...&quot; in Reporting Letters before sending.</p>}
+      {templates.length === 0 && <p>Create an active CUSTOM letter template in Reporting Letters.
+        General staff may use a title starting &quot;HOA Appeal:&quot;.
+        Delegated board-only members require an association-scoped title:
+        &quot;HOA Appeal:{associationId}: ...&quot;.</p>}
       <button type="button" disabled={!canEdit || busy || !selectedId}
         className="rounded bg-blue-900 px-3 py-2 text-white disabled:opacity-50"
         onClick={() => { void send(); }}>Authorize and email appeal outcome</button>

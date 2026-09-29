@@ -2930,6 +2930,17 @@ def test_delegated_board_only_final_outcome_email_and_scope_revocation(monkeypat
         )
         admin, owner, manager, tenant, foreign = users
         prop, other, outside = props
+        # Board-only delegates see only the specifically named association
+        # template, not another association's org-scoped template text.
+        template.title = f"HOA Appeal:{assoc.id}: synthetic outcome"
+        private = LetterTemplate(
+            organization_id=admin.organization_id,
+            title=f"HOA Appeal:{assoc.id + 999}: other association private",
+            category="CUSTOM", subject="Confidential other association subject",
+            body="This text must not be exposed to this board delegation.",
+            is_active=True, created_by_id=admin.id,
+        )
+        db.add(private); db.commit()
         link = db.query(HOAContactLink).join(
             Contact, Contact.id == HOAContactLink.contact_id,
         ).filter(
@@ -2981,6 +2992,15 @@ def test_delegated_board_only_final_outcome_email_and_scope_revocation(monkeypat
             db=db, current_user=tenant,
         )
         assert [t.id for t in choices] == [template.id]
+        with pytest.raises(HTTPException) as other_association_template:
+            appeal_notifications.send_appeal_notification(
+                assoc.id, case.id, appeal.id,
+                HOAAppealNotificationIn(
+                    property_id=prop.id, template_id=private.id,
+                    request_key="hoa-board-only-wrong-association-0001",
+                ), db=db, current_user=tenant,
+            )
+        assert other_association_template.value.status_code == 404
         assert appeal_notifications.list_appeal_notifications(
             assoc.id, case.id, appeal.id, Response(), property_id=prop.id,
             db=db, current_user=tenant,

@@ -113,13 +113,32 @@ def _recipient(db, *, org, assoc, prop, case, fine, appeal):
     return link, member
 
 
-def _template(db, org, template_id):
+def _template_prefix(db, actor, association_id, property_id, case_id):
+    """Board-only readers see ONLY association-namespaced letter templates.
+
+    Organization staff have their existing org-wide letter access. Board
+    delegations never confer read access to other association templates.
+    Caller must first pass the scoped staff/board access check.
+    """
+    try:
+        _prerequisites(
+            db, actor=actor, association_id=association_id,
+            property_id=property_id, case_id=case_id, write=False,
+        )
+    except HTTPException as exc:
+        if exc.status_code not in {403, 404}:
+            raise
+        return f"HOA Appeal:{association_id}:"
+    return "HOA Appeal:"
+
+
+def _template(db, org, template_id, *, prefix="HOA Appeal:"):
     template = db.query(LetterTemplate).filter(
         LetterTemplate.id == template_id,
         LetterTemplate.organization_id == org,
         LetterTemplate.is_active.is_(True),
         LetterTemplate.category == "CUSTOM",
-        LetterTemplate.title.ilike("HOA Appeal:%"),
+        LetterTemplate.title.ilike(prefix + "%"),
     ).first()
     if template is None:
         raise HTTPException(status_code=404, detail="Active association appeal letter template not found.")
@@ -188,6 +207,15 @@ def _dispatch(db, *, actor, association_id, property_id, case_id, appeal_id, del
         raise HTTPException(status_code=409, detail="Appeal email attempt is in progress.")
     if row.attempt_count >= MAX_ATTEMPTS:
         raise HTTPException(status_code=409, detail="Appeal email retry limit reached.")
+    delegated_prefix = _template_prefix(
+        db, actor, association_id, property_id, case_id,
+    )
+    if delegated_prefix != "HOA Appeal:":
+        # A board-only delegation may retry only its own association-scoped
+        # template. Never dispatch an unrelated staff-authored body.
+        if row.requested_by_id != actor.id:
+            raise HTTPException(status_code=403, detail="Board-only retry requires original sender.")
+        _template(db, org, row.template_id, prefix=delegated_prefix)
     fine, appeal = _appeal(
         db, org, assoc.id, property_id, case.id, appeal_id,
     )
@@ -247,11 +275,14 @@ def list_appeal_email_templates(
     org, _, _ = _scope(
         db, current_user, association_id, property_id, case_id, write=False,
     )
+    prefix = _template_prefix(
+        db, current_user, association_id, property_id, case_id,
+    )
     templates = db.query(LetterTemplate).filter(
         LetterTemplate.organization_id == org,
         LetterTemplate.is_active.is_(True),
         LetterTemplate.category == "CUSTOM",
-        LetterTemplate.title.ilike("HOA Appeal:%"),
+        LetterTemplate.title.ilike(prefix + "%"),
     ).order_by(LetterTemplate.id).limit(101).all()
     if len(templates) > 100:
         raise HTTPException(status_code=422, detail="Too many appeal email templates.")
@@ -306,7 +337,12 @@ def send_appeal_notification(
         raise HTTPException(status_code=409, detail="Appeal email request key already used.")
     if _delivery(db, org, assoc.id, payload.property_id, case.id, appeal.id):
         raise HTTPException(status_code=409, detail="Appeal outcome already has an email request.")
-    template = _template(db, org, payload.template_id)
+    template = _template(
+        db, org, payload.template_id,
+        prefix=_template_prefix(
+            db, current_user, assoc.id, payload.property_id, case.id,
+        ),
+    )
     subject, body = _render(
         db, template=template, org=org, prop=payload.property_id, appeal=appeal,
     )
