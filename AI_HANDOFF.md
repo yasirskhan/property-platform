@@ -7,29 +7,97 @@ Do not ask Yasir to repeat verified state. Never paste real tax secrets/TINs.
 - Private repository: `yasirskhan/property-platform`
 - ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not edit `main`,
   create a branch, force-push, or merge the draft PR without permission.
-- Last VERIFIED **product source**: `0895ea891abba98704bfa777dd0d3f4c75e818e9`
-- Source GitHub Actions run **36509060666: SUCCESS, all six jobs after retry**
+- Last VERIFIED **product source**: `4546b6abb597609690cc99fae25457892643a4e1`
+- Source GitHub Actions run **36510915584: SUCCESS, all six jobs**
   (backend, frontend, platform-admin, security, authenticated E2E,
-  staging-config). Backend: **773 passed, 11 deselected, 18450 warnings
-  in 227.29s**. E2E retry: **11 passed, 128 warnings in 43.93s**.
+  staging-config). Backend: **775 passed, 11 deselected, 18533 warnings
+  in 241.93s**. E2E **11 passed, 129 warnings in 28.64s**.
   Lint, TypeScript, build, security and staging: SUCCESS.
-  This applies to verified product source `0895ea89`.
-  First attempt had an intermittent unrelated login timeout in the
-  evidence browser test (10 passed, 1 failed); failed E2E rerun succeeded.
-  No local tests run.
+  This applies to verified product source `4546b6ab`.
+  First product commit dd228cbc failed frontend lint only;
+  corrective 4546b6ab passed complete CI. No local tests run.
   This handoff update itself is docs-only; TESTS NOT RUN locally. Verify
   current branch HEAD and latest CI before continuing.
-- Alembic head: **c7e9f1a3b5d8**. SQLAlchemy expected model tables: **158**.
-  Previous head f4b6d8a0c2e9 / 157. PostgreSQL bootstrap, staging
-  preparation and legacy migration guards passed in CI 36509060666.
+- Alembic head: **d8f0a2c4e6b9**. SQLAlchemy expected model tables: **159**.
+  Previous head c7e9f1a3b5d8 / 158. PostgreSQL bootstrap, staging
+  preparation and legacy migration guards passed in CI 36510915584.
 - CURRENT roadmap work: **Phase 4.7 C2 HOA IN PROGRESS**. Explicit user-directed priority: build generic HOA infrastructure first; independently verified Phase 4.8 C3 commercial reference/report source remains preserved, with no new commercial scope while HOA remains active. Authentic governing/legal sources are absent, so legally operative notices, assessments, fines and reserve postings remain blocked until reviewed. Previous Phase 3.7 reports and 1099 internal preparation retain verified scope.
-  **Latest verified batch: immutable HOA case correspondence drafts with scoped recipient/policy/stage snapshots, history and dedicated browser regression; no statutory notice or fine posted. Previously verified ARC finalization/offline board decisions, atomic fees/follow-up, retryable outbox and reversals remain intact.**
+  **Latest verified batch: private scoped violation case evidence links, attachment sharing guards and dedicated browser regression; no statutory notice or fine posted. Previously verified staff correspondence drafts and operative ARC decisions, atomic fees/follow-up, retryable outbox and reversals remain intact.**
 - **1099 Phase 3.7 internal preparation/security is VERIFIED through local preflight,
   NEC/MISC sandbox payload mapping, explicit consent, redacted status/history and
   no-submission guarantees. Actual external sandbox acceptance requires operator
   Avalara subscription/credentials/issuer; production filing/IRS acceptance and
   recipient copies remain NOT IMPLEMENTED and belong to the external provider path.**
-- **Exact NEXT task: Phase 4.7 HOA violation workflow remains IN PROGRESS. Build the next independent bounded violation batch using VERIFIED staff case stages, append-only transitions, potential recipient and immutable private correspondence history. Scope new action(s) to active same-org/association/property and actual authenticated role; test focused auth, concurrency, audit, finance neutrality and dedicated browser. No new Phase 4.8 work. Official jurisdiction-specific notice/assessed fine/member posting still requires authentic procedure, service and payer authority; staff-only policy text, a contact link and matching login do NOT establish them. Preserve final operational ARC board approval, offline evidence, atomic fees/follow-up, retryable notifications and reversals without restoring a blanket ARC gate.**
+- **Exact NEXT task: continue Phase 4.7 HOA violations, preferably a discrete, authorized real-operations batch once applicable procedure, legal service, board authorization and liable member have actual verified records. Existing observation, case stages/history, potential recipient, versioned correspondence drafts and private evidence links are VERIFIED; do not repeat. If binding authority is unavailable, continue only independent generic case management and truthful readiness diagnostics without sending statutory notices or posting fines. Do not restore a legal-effect gate to final ARC decisions. Keep HOA priority and preserve all Phase 4.8 product work without advancing it.**
+
+## CURRENT SESSION UPDATE — 2026-09-28 HOA PRIVATE VIOLATION EVIDENCE VERIFIED
+
+**Verified product source** `4546b6abb597609690cc99fae25457892643a4e1`.
+Initial implementation commit `dd228cbcf2afbacc12f64e29378d71f35cc57f0e`,
+CI `36510450263`: frontend lint FAILED on unescaped
+apostrophe in new UI; backend **775 passed, 11 deselected**,
+security and platform-admin passed, dependent E2E/staging
+skipped. Corrective lint-only commit `4546b6ab`
+succeeded in full **CI 36510915584 six/six jobs**:
+backend **775 passed, 11 deselected, 18533 warnings
+in 241.93s**; browser E2E **11 passed, 129 warnings in
+28.64s**; frontend lint/TypeScript/build, security,
+platform-admin and staging-config all SUCCESS.
+Tests ran on hosted CI; **TESTS NOT RUN locally**.
+Alembic head `d8f0a2c4e6b9`, **159 model tables**
+(previous `c7e9f1a3b5d8` / 158). Fresh/legacy DB
+bootstrap, PostgreSQL and staging schema pass. Existing
+frozen `docs/` and parity files unchanged.
+
+New `hoa_violation_evidence` indexes private existing
+universal property attachments (photo PDF/DOC/DOCX/
+JPG/JPEG/PNG/WEBP; no duplicate file copies) under a
+live same-org/association/property active observation
+and case. GET/POST/DELETE
+`/api/hoa/associations/{association_id}/staff-cases/
+{case_id}/evidence` uses live paid HOA/compliance
+entitlement/release and document attachment gate.
+ADMIN/OWNER create/archive; assigned MANAGER read
+only; tenant, foreign org or unassigned property
+fail closed. Links to already-shared, foreign, inactive
+or wrong-property files are rejected. A case + attachment
+pair has a DB unique constraint, so repeats reject 409
+and archived links never silently resurrect. Closed
+staff cases retain readable private history but cannot
+alter evidence links. Source file archive hides links
+without mutating prior audit. Each link/unlink writes
+a redacted append-only audit; private file names never
+enter the audit payload. General entity notes reject
+the new restricted table.
+
+**Cross-route security:** universal attachments'
+download/list/share/archive gates additionally enforce
+the active HOA association/property restriction for
+linked case files. PATCH cannot change linked evidence
+to `share_with_tenants` or `share_with_owners` true,
+preventing bypass of a private HOA case through
+ordinary property attachment sharing. The new case UI
+lists private property photo/document candidates,
+allows explicit category selection and scoped link,
+shows existing links and guarded download, and
+archives a link without deleting the source file.
+Dedicated HOA browser links a synthetic private
+case photo in disposable E2E and verifies no finance
+mutation. Focused tests cover private versus shared/
+foreign property/foreign org source, active manager
+read, admin/owner write, duplicate and archive,
+closed-case restrictions, feature revocation,
+sharing denial, generic-notes denylist, audit and
+zero Charge/RentInvoice/GL changes.
+
+**No statutory violation notice, hearing adjudication,
+fine assessment, debtor status or GL posting is
+certified by case evidence.** Phase 4.7 remains
+IN PROGRESS. Latest approved operative ARC workflow
+remains directly effective on board decision without
+any separate software legal-effect gate. Phase 4.8
+continues PAUSED. This root handoff update is
+documentation-only, not a new verified product source.
 
 ## CURRENT SESSION UPDATE — 2026-09-28 HOA PRIVATE CORRESPONDENCE VERIFIED
 
