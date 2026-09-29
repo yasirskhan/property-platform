@@ -223,6 +223,11 @@ def delete_entity_attachment(
     role = _role(current_user)
     if role not in {"ADMIN", "OWNER", "MANAGER"} and row.uploaded_by_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not allowed to remove this attachment.")
+    from app.models.hoa_violation_service_record import HOAViolationServiceRecord
+    if db.query(HOAViolationServiceRecord.id).filter(
+        HOAViolationServiceRecord.service_proof_attachment_id == row.id,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Service evidence must remain available for the recorded notice.")
     row.is_active = False
     row.deleted_at = datetime.utcnow()
     append_audit_log(

@@ -1639,6 +1639,11 @@ def test_board_records_real_service_evidence_without_notice_inference_or_finance
                 db=db, current_user=admin,
             )
         assert preserve.value.status_code == 409
+        with pytest.raises(HTTPException) as proof_delete:
+            attachments.delete_entity_attachment(
+                proof.id, db=db, current_user=admin,
+            )
+        assert proof_delete.value.status_code == 409
         audit = db.query(AuditLog).filter(
             AuditLog.entity_type == "hoa_violation_service_record",
         ).all()
