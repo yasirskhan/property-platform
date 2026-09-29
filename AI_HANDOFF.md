@@ -1,3 +1,61 @@
+# AI_HANDOFF.md — 2026-09-29 HOA FINE APPEAL VERIFIED
+
+**READ ENTIRE FILE.** This section supersedes historical PREPARED/NEXT
+entries below. ONLY `yasirskhan/property-platform` branch
+`chatgpt/checkpoint-005-safety`. No main, new branch, force-push,
+frozen docs/, merge or Phase 4.8.
+
+- Last VERIFIED PRODUCT source:
+  `c41ea3e8fad879f0ca825682786433d7066a54ef`. Hosted GitHub Actions
+  **36637242297 SUCCESS ALL SIX JOBS on this source**:
+  backend **816 passed, 15 deselected, 21515 warnings in 293.32s**;
+  authenticated browser **15 passed, 232 warnings in 73.08s**.
+  Frontend lint/TypeScript/build, platform-admin, security and
+  staging-config PASS. **TESTS NOT RUN locally.**
+  Verified Alembic **6f9e2a7d4c1b** / **176 model tables**.
+  Previous head c8e0a2f4b6d9 / 175.
+- VERIFIED current Phase 4.7 violation batch: staff records
+  an association fine appeal against the final board-approved fine;
+  authorized board directly records UPHELD or VACATED with
+  redacted immutable audit and private case-linked evidence.
+  Idempotent request keys, at most one open appeal per fine,
+  same-org/property/association security, and current board seat
+  / paid entitlement checks protect write and read endpoints.
+  OPEN or VACATED appeal prevents NEW fine GL issuance and member
+  receipt allocation. Actual fine receipt/GL reversals remain
+  independent protected accounting actions. A VACATED appeal
+  never silently refunds money, erases original entries, sends
+  correspondence or proves legal service. Customer case UI
+  records outcome and separately displays pending accounting
+  reversal. Dedicated browser covered first appeal UPHELD,
+  a later VACATED appeal, receipt reversal, fine GL reversal,
+  and zero unintended tenant Charge effects.
+- Initial provisional product `89c50a2b` CI 36637162406 was
+  superseded/cancelled. Browser refresh correction
+  `c41ea3e8` is the exact tested and verified product
+  SHA. Do NOT claim cancelled CI passed or staged blobs tested
+  before commits.
+- Exact NEXT independent Phase 4.7 batch: show pending fine
+  appeals in the AUTHENTICATED HOA BOARD PORTAL so a delegated
+  verified board member can decide without organization-wide
+  staff property permissions. Reuse existing `_board_scope`,
+  association/property contact linkage, paid gates and the
+  VERIFIED fine-appeal POST endpoint; do not rebuild appeal
+  storage or issue accounting mutations. Add scoped board
+  listing, portal UI and focused backend + browser coverage.
+  One provisional commit, fix CI and mark verified ONLY when
+  six jobs pass. Then update this handoff and continue further
+  independently actionable HOA functionality.
+- Preserve seven original operational HOA capabilities,
+  direct operative ARC APPROVED/DENIED with fees and retries,
+  real member assessments/receipts/statements, fine receipts,
+  governing delivery, meeting votes/minutes, budgets,
+  reserve booked GL, and $79/month entitlement. No blanket
+  legal-effect gate, no invented deadlines, no financial
+  or legal delivery claims from synthetic CI.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 HOA FINE APPEAL PROVISIONAL
 
 **READ ENTIRE FILE. This newest checkpoint supersedes older NEXT and
