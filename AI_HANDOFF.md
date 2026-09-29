@@ -1,3 +1,73 @@
+# AI_HANDOFF.md — 2026-09-29 HOA BOARD MINUTES VERIFIED / AUTHENTICATED BOARD PORTAL NEXT
+
+**READ ENTIRE REPOSITORY-ROOT FILE.** This newest verified checkpoint supersedes
+all older NEXT/PREPARED entries below, preserved as history.
+
+- Only repository `yasirskhan/property-platform`; only working branch
+  `chatgpt/checkpoint-005-safety`. Do not touch main, create branches,
+  force-push, merge PR, edit frozen docs/, repeat completed work or
+  advance Phase 4.8.
+- Last VERIFIED product source `1cc1d5596304f25bf1460f3d5e33d76564a6b4ce`.
+  Hosted GitHub Actions [36588839813](https://github.com/yasirskhan/property-platform/actions/runs/36588839813)
+  SUCCESS all SIX jobs on this exact source: backend **796 passed,
+  15 deselected, 19964 warnings in 264.76s**; authenticated browser
+  **15 passed, 224 warnings in 64.66s**; frontend lint/TypeScript/
+  production build, platform-admin, security, staging-config PASS.
+  **TESTS NOT RUN locally.** Initial staging/source remained in this
+  exact bounded commit and passed; no earlier CI attributed to this code.
+- Alembic verified head **f6b8d0e2a4c7**, previously
+  e5a7c9d1f3b6; **168 model tables** (was 167). Fresh/legacy/
+  PostgreSQL schema and staging guards passed.
+- Completed Phase 4.7 C board-minutes batch: authenticated authorized
+  association-specific board member may approve exact active staff
+  meeting minutes revision (SHA-256 of body and optimistic version).
+  Immutable approval records active seat and decision maker, dated
+  event and redacted audit. Staff minutes edits/archive and parent
+  meeting edits/archive cannot silently change approved history.
+  Private board-preview, read and approval routes reuse existing
+  paid HOA/active verified login and live seat/contact/member gates.
+  Dedicated synthetic browser passed. Approval represents ONE
+  authorized member's action, not statutory service, certified quorum,
+  formal full-board vote or GL transaction. Parent history preserved.
+- Prior budget-actuals source `444f3b61bd0cd5e944b67139c3d1d09691ac8b59`
+  VERIFIED all six jobs on CI 36587564351: 794 backend passed,
+  14 deselected, 14 browser passed; no new migration.
+  Existing verified ARC operative APPROVED/DENIED with protected fees,
+  notifications and reversals, HOA assessment/receipt posting, member
+  statements, annual budget/increases, reserve GL book, document
+  delivery and $79/month HOA entitlement remain unchanged.
+- **Exact NEXT independently actionable Phase 4.7 C board portal
+  batch:** authenticated board-member dashboard for their own
+  currently authorized association/property meetings, real read-only
+  minutes preview and direct exact-revision approval through the
+  existing verified board approval route. Support board members who
+  are TENANT/other non-organization-admin roles without granting
+  broad PROPERTIES.ALL access. Test paid HOA entitlement, revoked/
+  foreign/inactive seat and member scope, zero financial mutation,
+  login and browser navigation. A new uncommitted candidate blob
+  exists at `backend/app/routers/hoa_board_portal.py` SHA
+  `0b8ee95f3ad8051abe087e61ecbdb7efa2865a3c`;
+  this is NOT committed/tested/verified. Static source, UI,
+  dashboard link and backend test candidate blobs are being
+  assembled separately. No tree or commit exists for next batch.
+  Use one provisional product commit only on designated branch,
+  six GitHub CI jobs; autonomously correct failures, record real
+  counts and new source in handoff, then continue next independent
+  HOA capability such as authenticated votes/quorum or authorized
+  violation notice operations.
+- SEVEN operational HOA areas remain the user's completion scope:
+  recurring/special dues, notices/cure/fines/hearings, board portal,
+  ARC, reserve accounting, governing docs, annual budget/increases.
+  Do not claim the whole phase complete on partial workflows.
+  Board/association authority is recorded, not separately approved
+  by platform; enforce exact applicable steps, identified payer,
+  central GL, audit/reversal and delivery status. Never infer member
+  liability from a contact or send real messages/post obligations in
+  synthetic CI. Individual absent prerequisites block only that
+  operation, not independent development. Phase 4.8 PAUSED.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 VERIFIED BUDGET ACTUALS / BOARD MINUTES PROVISIONAL
 
 **READ THE ENTIRE ROOT HANDOFF.** This entry supersedes older NEXT/
