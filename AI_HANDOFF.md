@@ -1,3 +1,53 @@
+# AI_HANDOFF.md — 2026-09-29 HOA BOARD FINE PROVISIONAL
+
+**Read this ENTIRE root handoff.** This entry supersedes earlier
+NEXT/PREPARED headings. Work only `yasirskhan/property-platform`
+branch `chatgpt/checkpoint-005-safety`. No main, new branch,
+force-push, PR merge, frozen docs/ or Phase 4.8.
+
+- Last VERIFIED PRODUCT source:
+  `195a048194ad44a1fc4ddd5453d03484c407d97b`.
+  GitHub Actions **36615815202 SUCCESS ALL SIX**:
+  backend **808 passed, 15 deselected, 20770 warnings in 211.50s**;
+  authenticated browser **15 passed, 226 warnings in 68.21s**;
+  frontend lint/TypeScript/build, platform-admin, security and staging
+  all PASS. No local tests.
+  Verified Alembic **e1a3c5f7b9d2 / 173 model tables**.
+- NEXT Phase 4.7 violation batch is assembled/provisional:
+  direct association-board fine APPROVED/DENIED and separate
+  accountant-authorized central member GL posting/reversal,
+  with privately evidenced service, configured cure/hearing periods,
+  verified matched liable member, actual hearing date/proof when
+  held, configured cap, immutable board outcome, duplicate controls,
+  GL period locks, provenance and audit. Real fines must be
+  explicitly authorized; a staff proposal/SMTP_ACCEPTED event
+  NEVER becomes liability automatically. General ledger uses
+  existing `post_transaction`, not a second ledger or tenant Charge.
+- One proposed migration `f2b4d6e8a0c3` after e1a3c5f7b9d2;
+  EXPECTED **174 model tables**, but verified head/count remain
+  **e1a3c5f7b9d2 / 173** until this batch passes all SIX CI jobs.
+  Hosted GitHub Actions must run on an actual provisional feature
+  branch commit. Tests are NOT RUN for the proposed fine batch
+  until that run completes. No real notices or financial
+  obligations may be triggered by disposable CI fixtures.
+- Focused tests check board/role/foreign-property/member isolation,
+  service and hearing prerequisite, duplicate request and status,
+  approved GL, reversal, locked period, audit redaction, private
+  hearing proof retention and zero tenant Charge. Existing dedicated
+  synthetic HOA browser extends case to fine board decision, member
+  receivable GL and reversal. Preserve operative ARC direct
+  APPROVED/DENIED, assessments/payments, board meetings/votes,
+  reserve GL, budgets, governing documents and paid $79 add-on.
+- AFTER six CI jobs pass, update this handoff with exact source,
+  backend/browser counts, migration and 174 tables. Next
+  independently actionable Phase 4.7 batch: member fine receipt
+  allocation, reversal protection and an integrated board-case
+  appeal/correction history. Continue remaining seven operational
+  HOA areas without restarting verified features. Block only
+  individual transactions missing concrete prerequisites.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 HOA SERVICE PROOF VERIFIED
 
 **Read the entire file.** This is the newest status; historical

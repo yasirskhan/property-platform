@@ -23,6 +23,12 @@ from app.models.hoa_violation_recipient import HOAViolationRecipientDraft
 from app.models.hoa_violation_correspondence import HOAViolationCorrespondenceDraft
 from app.models.hoa_violation_notice_delivery import HOAViolationNoticeDelivery
 from app.models.hoa_violation_service_record import HOAViolationServiceRecord
+from app.models.hoa_violation_fine import HOAViolationFine
+from app.models.gl_account import GLAccount
+from app.models.gl_entry import GLEntry
+from app.routers import hoa_violation_fines as fine_api
+from app.routers import hoa_member_assessments as member_api
+from app.schemas.hoa_violation_fine import HOAFineDecisionIn, HOAFinePostIn, HOAFineReverseIn
 from app.routers import hoa_violation_service_records as service_api
 from app.schemas.hoa_violation_service_record import HOAServiceRecordIn
 from app.models.gl_transaction import GLTransaction
@@ -1703,6 +1709,331 @@ def test_service_record_denies_stale_policy_recipient_scope_and_nonboard(monkeyp
                 assoc.id, case.id, request, db=db, current_user=admin,
             )
         assert db.query(HOAViolationServiceRecord).count() == 0
+        assert _balances(db) == (0, 0, 0, 0)
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def _record_served_fine_case(db, monkeypatch):
+    users, props, assoc, case, draft, seat, _ = _notice_board(db, monkeypatch)
+    admin, owner, manager, tenant, foreign = users
+    prop = props[0]
+    proof = _service_proof(db, users, prop, assoc, case)
+    service_api.record_service(
+        assoc.id, case.id, _service_payload(prop, draft, tenant, proof),
+        db=db, current_user=admin,
+    )
+    cases.advance_case(
+        assoc.id, case.id, _advance(prop, "CURE_TRACKING"),
+        db=db, current_user=admin,
+    )
+    cases.advance_case(
+        assoc.id, case.id, _advance(prop, "FINE_PROPOSED", proposed_fine="25.00"),
+        db=db, current_user=owner,
+    )
+    return users, props, assoc, case, draft, seat, proof
+
+
+def _fine_decision(prop, member, **changes):
+    values = dict(
+        property_id=prop.id, decision="APPROVED",
+        amount="25.00", member_user_id=member.id,
+        decision_note="The association board adopted the fine after its configured procedure.",
+        hearing_disposition="NO_REQUEST_RECORDED",
+        request_key="hoa-fine-decision-00001",
+    )
+    values.update(changes)
+    return HOAFineDecisionIn(**values)
+
+
+def test_board_adopts_fine_and_accountant_posts_and_reverses_central_gl(monkeypatch):
+    db, engine = _db()
+    try:
+        monkeypatch.setattr(member_api, "permission_allows_user", lambda *a, **kw: True)
+        users, props, assoc, case, draft, seat, proof = _record_served_fine_case(db, monkeypatch)
+        admin, owner, manager, tenant, foreign = users
+        prop = props[0]
+        initial = _balances(db)
+        response = Response()
+        assert fine_api.get_fine(
+            assoc.id, case.id, response, property_id=prop.id,
+            db=db, current_user=admin,
+        ) is None
+        assert response.headers["cache-control"] == "no-store"
+        values = _fine_decision(prop, tenant)
+        fine = fine_api.decide_fine(
+            assoc.id, case.id, values, db=db, current_user=admin,
+        )
+        assert fine.decision == "APPROVED" and fine.status == "APPROVED"
+        assert fine.member_user_id == tenant.id and fine.amount == Decimal("25.00")
+        assert fine.direct_board_decision and fine.tenant_charge_inferred is False
+        assert fine.gl_transaction_id is None and fine.board_seat_id == seat.id
+        assert fine_api.decide_fine(
+            assoc.id, case.id, values, db=db, current_user=admin,
+        ).id == fine.id
+        with pytest.raises(HTTPException) as collision:
+            fine_api.decide_fine(
+                assoc.id, case.id,
+                _fine_decision(prop, tenant, amount="20.00"),
+                db=db, current_user=admin,
+            )
+        assert collision.value.status_code == 409
+        assert _balances(db) == initial
+        ar = GLAccount(
+            organization_id=admin.organization_id, gl_number="HOA-FINE-AR",
+            name="Member fine receivable", account_type="ASSET", is_active=True,
+        )
+        income = GLAccount(
+            organization_id=admin.organization_id, gl_number="HOA-FINE-INCOME",
+            name="HOA fine income", account_type="INCOME", is_active=True,
+        )
+        db.add_all([ar, income]); db.commit()
+        terms = HOAFinePostIn(
+            property_id=prop.id, posting_on=date.today(),
+            receivable_gl_account_id=ar.id, income_gl_account_id=income.id,
+        )
+        with pytest.raises(HTTPException):
+            fine_api.post_fine(
+                assoc.id, case.id,
+                terms.model_copy(update={"income_gl_account_id": ar.id}),
+                db=db, current_user=admin,
+            )
+        assert db.query(GLTransaction).count() == 0
+        posted = fine_api.post_fine(
+            assoc.id, case.id, terms, db=db, current_user=owner,
+        )
+        assert posted.status == "POSTED" and posted.gl_transaction_id is not None
+        entries = db.query(GLEntry).filter(
+            GLEntry.transaction_id == posted.gl_transaction_id,
+        ).all()
+        assert len(entries) == 2
+        assert any(e.gl_account_id == ar.id and e.debit == Decimal("25.00") for e in entries)
+        assert any(e.gl_account_id == income.id and e.credit == Decimal("25.00") for e in entries)
+        again = fine_api.post_fine(
+            assoc.id, case.id, terms, db=db, current_user=admin,
+        )
+        assert again.gl_transaction_id == posted.gl_transaction_id
+        assert db.query(GLTransaction).count() == 1
+        with pytest.raises(HTTPException) as duplicate:
+            fine_api.post_fine(
+                assoc.id, case.id,
+                terms.model_copy(update={"posting_on": date(2026, 9, 20)}),
+                db=db, current_user=admin,
+            )
+        assert duplicate.value.status_code == 409
+        reversed_fine = fine_api.reverse_fine(
+            assoc.id, case.id,
+            HOAFineReverseIn(
+                property_id=prop.id, reversal_on=date.today(),
+                reason="Board-authorized reversal correction",
+            ), db=db, current_user=admin,
+        )
+        assert reversed_fine.status == "REVERSED"
+        assert reversed_fine.reversal_transaction_id is not None
+        assert db.query(GLTransaction).count() == 2
+        assert db.get(GLTransaction, posted.gl_transaction_id).is_reversed
+        with pytest.raises(HTTPException):
+            fine_api.reverse_fine(
+                assoc.id, case.id,
+                HOAFineReverseIn(
+                    property_id=prop.id, reversal_on=date.today(),
+                    reason="Double reversal",
+                ), db=db, current_user=owner,
+            )
+        assert db.query(Charge).count() == db.query(RentInvoice).count() == 0
+        assert db.query(HOAViolationFine).count() == 1
+        audit = db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_violation_fine",
+        ).order_by(AuditLog.id).all()
+        assert len(audit) == 3
+        assert all(values.decision_note not in str(a.new_value) for a in audit)
+        with pytest.raises(HTTPException):
+            _model_for_table("hoa_violation_fines")
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_fine_board_auth_service_policy_hearing_and_member_revocation(monkeypatch):
+    db, engine = _db()
+    try:
+        monkeypatch.setattr(member_api, "permission_allows_user", lambda *a, **kw: True)
+        users, props, assoc, case, draft, seat, proof = _record_served_fine_case(db, monkeypatch)
+        admin, owner, manager, tenant, foreign = users
+        prop, other, outside = props
+        before = _balances(db)
+        payload = _fine_decision(prop, tenant)
+        for actor, property_id in (
+            (owner, prop.id), (manager, prop.id), (tenant, prop.id),
+            (foreign, prop.id), (admin, other.id), (admin, outside.id),
+        ):
+            with pytest.raises(HTTPException):
+                fine_api.decide_fine(
+                    assoc.id, case.id,
+                    payload.model_copy(update={"property_id": property_id}),
+                    db=db, current_user=actor,
+                )
+        with pytest.raises(HTTPException) as stranger:
+            fine_api.decide_fine(
+                assoc.id, case.id,
+                _fine_decision(prop, admin), db=db, current_user=admin,
+            )
+        assert stranger.value.status_code == 409
+        tenant.is_verified = False; db.flush()
+        with pytest.raises(HTTPException):
+            fine_api.decide_fine(
+                assoc.id, case.id, payload, db=db, current_user=admin,
+            )
+        tenant.is_verified = True; db.flush()
+        with pytest.raises(ValidationError):
+            _fine_decision(prop, tenant, amount="-1.00")
+        with pytest.raises(ValidationError):
+            _fine_decision(prop, tenant, hearing_disposition="HEARING_HELD")
+        with pytest.raises(ValidationError):
+            _fine_decision(prop, tenant, decision="DENIED")
+        with pytest.raises(HTTPException) as above_cap:
+            fine_api.decide_fine(
+                assoc.id, case.id,
+                _fine_decision(prop, tenant, amount="26.00"),
+                db=db, current_user=admin,
+            )
+        assert above_cap.value.status_code == 422
+        with pytest.raises(HTTPException) as missing_hearing:
+            fine_api.decide_fine(
+                assoc.id, case.id,
+                _fine_decision(
+                    prop, tenant, hearing_disposition="HEARING_HELD",
+                    hearing_record_attachment_id=987654321,
+                ), db=db, current_user=admin,
+            )
+        assert missing_hearing.value.status_code == 409
+        denial = fine_api.decide_fine(
+            assoc.id, case.id,
+            _fine_decision(
+                prop, tenant, decision="DENIED", amount=None,
+                member_user_id=None, request_key="hoa-fine-denial-00001",
+            ), db=db, current_user=admin,
+        )
+        assert denial.status == "DENIED" and denial.amount is None
+        with pytest.raises(HTTPException):
+            fine_api.post_fine(
+                assoc.id, case.id,
+                HOAFinePostIn(
+                    property_id=prop.id, posting_on=date.today(),
+                    receivable_gl_account_id=1, income_gl_account_id=2,
+                ), db=db, current_user=admin,
+            )
+        assert _balances(db) == before
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_fine_refuses_stale_service_or_policy_and_locked_period(monkeypatch):
+    db, engine = _db()
+    try:
+        monkeypatch.setattr(member_api, "permission_allows_user", lambda *a, **kw: True)
+        users, props, assoc, case, draft, seat, proof = _record_served_fine_case(db, monkeypatch)
+        admin, owner, manager, tenant, foreign = users
+        prop = props[0]
+        fine_api.decide_fine(
+            assoc.id, case.id, _fine_decision(prop, tenant),
+            db=db, current_user=admin,
+        )
+        ar = GLAccount(
+            organization_id=admin.organization_id, gl_number="HOA-FINE-LOCK-AR",
+            name="Fine locked AR", account_type="ASSET", is_active=True,
+        )
+        income = GLAccount(
+            organization_id=admin.organization_id, gl_number="HOA-FINE-LOCK-INCOME",
+            name="Fine locked income", account_type="INCOME", is_active=True,
+        )
+        db.add_all([ar, income]); db.commit()
+        org = db.get(Organization, admin.organization_id)
+        org.locked_through_date = date.today(); db.flush()
+        with pytest.raises(HTTPException) as locked:
+            fine_api.post_fine(
+                assoc.id, case.id,
+                HOAFinePostIn(
+                    property_id=prop.id, posting_on=date.today(),
+                    receivable_gl_account_id=ar.id, income_gl_account_id=income.id,
+                ), db=db, current_user=admin,
+            )
+        assert locked.value.status_code == 409
+        assert db.query(GLTransaction).count() == 0
+        org.locked_through_date = None; db.flush()
+        policies.put_policy(
+            assoc.id, _profile(prop.id, proposed_fine_cap="20.00"),
+            db=db, current_user=admin,
+        )
+        with pytest.raises(HTTPException) as stale:
+            fine_api.post_fine(
+                assoc.id, case.id,
+                HOAFinePostIn(
+                    property_id=prop.id, posting_on=date.today(),
+                    receivable_gl_account_id=ar.id, income_gl_account_id=income.id,
+                ), db=db, current_user=admin,
+            )
+        assert stale.value.status_code == 409
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_recorded_hearing_private_proof_is_retained_and_staff_cannot_rewrite_board_outcome(monkeypatch):
+    db, engine = _db()
+    try:
+        users, props, assoc, case, draft, seat, service_proof = _record_served_fine_case(db, monkeypatch)
+        admin, owner, manager, tenant, foreign = users
+        prop = props[0]
+        hearing = EntityAttachment(
+            organization_id=admin.organization_id,
+            entity_type="properties", entity_id=prop.id,
+            storage_key="synthetic-private-hearing-proof.pdf",
+            original_name="synthetic-private-hearing-proof.pdf",
+            content_type="application/pdf", size_bytes=10,
+            is_active=True, share_with_tenants=False, share_with_owners=False,
+        )
+        db.add(hearing); db.flush()
+        link = HOAViolationEvidence(
+            organization_id=admin.organization_id,
+            association_id=assoc.id, property_id=prop.id,
+            case_id=case.id, attachment_id=hearing.id,
+            evidence_type="DOCUMENT", is_active=True,
+            recorded_by_id=admin.id,
+        )
+        db.add(link); db.commit()
+        approved = fine_api.decide_fine(
+            assoc.id, case.id,
+            _fine_decision(
+                prop, tenant, hearing_disposition="HEARING_HELD",
+                hearing_held_on=date.today(),
+                hearing_record_attachment_id=hearing.id,
+            ), db=db, current_user=admin,
+        )
+        assert approved.status == "APPROVED"
+        assert approved.hearing_record_attachment_id == hearing.id
+        with pytest.raises(HTTPException) as changed:
+            cases.advance_case(
+                assoc.id, case.id,
+                _advance(prop, "HEARING_PLANNED", action_on=date.today()),
+                db=db, current_user=owner,
+            )
+        assert changed.value.status_code == 409
+        monkeypatch.setattr(attachments, "resolve_customer_features",
+            lambda *a, **kw: [SimpleNamespace(
+                key=attachments.ATTACHMENTS_FEATURE_KEY, allowed=True,
+            )])
+        monkeypatch.setattr(attachments, "resolve_note_target", lambda *a, **kw: None)
+        with pytest.raises(HTTPException) as removed:
+            case_evidence.archive_case_evidence(
+                assoc.id, case.id, link.id, property_id=prop.id,
+                db=db, current_user=owner,
+            )
+        assert removed.value.status_code == 409
+        with pytest.raises(HTTPException) as deleted:
+            attachments.delete_entity_attachment(
+                hearing.id, db=db, current_user=admin,
+            )
+        assert deleted.value.status_code == 409
         assert _balances(db) == (0, 0, 0, 0)
     finally:
         db.rollback(); db.close(); engine.dispose()

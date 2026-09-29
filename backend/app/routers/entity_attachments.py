@@ -228,6 +228,11 @@ def delete_entity_attachment(
         HOAViolationServiceRecord.service_proof_attachment_id == row.id,
     ).first() is not None:
         raise HTTPException(status_code=409, detail="Service evidence must remain available for the recorded notice.")
+    from app.models.hoa_violation_fine import HOAViolationFine
+    if db.query(HOAViolationFine.id).filter(
+        HOAViolationFine.hearing_record_attachment_id == row.id,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Board hearing evidence must remain available.")
     row.is_active = False
     row.deleted_at = datetime.utcnow()
     append_audit_log(

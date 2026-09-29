@@ -203,6 +203,15 @@ def archive_case_evidence(
         HOAViolationServiceRecord.service_proof_attachment_id == row.attachment_id,
     ).first() is not None:
         raise HTTPException(status_code=409, detail="Evidenced service proof cannot be archived.")
+    from app.models.hoa_violation_fine import HOAViolationFine
+    if db.query(HOAViolationFine.id).filter(
+        HOAViolationFine.organization_id == org,
+        HOAViolationFine.association_id == assoc.id,
+        HOAViolationFine.property_id == property_id,
+        HOAViolationFine.case_id == case.id,
+        HOAViolationFine.hearing_record_attachment_id == row.attachment_id,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Recorded board hearing proof cannot be archived.")
     row.is_active = False
     row.archived_by_id = current_user.id
     row.archived_at = datetime.utcnow()

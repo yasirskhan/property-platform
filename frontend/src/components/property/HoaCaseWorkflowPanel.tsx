@@ -6,6 +6,7 @@ import HoaCaseRecipientPanel from "@/components/property/HoaCaseRecipientPanel";
 import HoaCaseCorrespondencePanel from "@/components/property/HoaCaseCorrespondencePanel";
 import HoaCaseEvidencePanel from "@/components/property/HoaCaseEvidencePanel";
 import HoaCaseServicePanel from "@/components/property/HoaCaseServicePanel";
+import HoaCaseFinePanel from "@/components/property/HoaCaseFinePanel";
 import HoaCaseTasksPanel from "@/components/property/HoaCaseTasksPanel";
 
 type Observation = { id: number; summary: string; observed_on: string };
@@ -61,6 +62,7 @@ export default function HoaCaseWorkflowPanel({
   const [correspondenceCase, setCorrespondenceCase] = useState<number | null>(null);
   const [evidenceCase, setEvidenceCase] = useState<number | null>(null);
   const [serviceCase, setServiceCase] = useState<number | null>(null);
+  const [fineCase, setFineCase] = useState<number | null>(null);
   const [tasksCase, setTasksCase] = useState<number | null>(null);
   const [history, setHistory] = useState<HistoryEvent[]>([]);
   const [observations, setObservations] = useState<Observation[]>([]);
@@ -168,9 +170,9 @@ export default function HoaCaseWorkflowPanel({
         <button type="button" onClick={onClose} className="text-blue-700">Close</button>
       </div>
       <p className="text-xs text-amber-800">
-        Generic case workflow only. A notice draft is not delivered;
+        Internal case stage only. A notice draft is not delivered;
         a cure target is a tentative planning date; hearing is only
-        planned; fine is proposed, not assessed or collectible.
+        planned; a staff fine proposal is not an assessed or collectible fine.
         Staff resolution is not a legal board determination. State
         rules, recipient identity and governing authority must be
         independently reviewed before any official enforcement.
@@ -212,6 +214,16 @@ export default function HoaCaseWorkflowPanel({
             <HoaCaseTasksPanel associationId={associationId} propertyId={propertyId}
               caseId={row.id} stage={row.stage} canEdit={canEdit}
               onClose={() => setTasksCase(null)} />
+          )}
+          <button type="button" disabled={busy}
+            onClick={() => setFineCase((prior) => prior === row.id ? null : row.id)}
+            className="text-sm text-blue-700 disabled:opacity-50">
+            {fineCase === row.id ? "Hide association fine" : "Association fine"}
+          </button>
+          {fineCase === row.id && (
+            <HoaCaseFinePanel associationId={associationId} propertyId={propertyId}
+              caseId={row.id} stage={row.stage} proposedFine={row.proposed_fine}
+              canEdit={canEdit} onClose={() => setFineCase(null)} />
           )}
           <button type="button" disabled={busy}
             onClick={() => setServiceCase((prior) => prior === row.id ? null : row.id)}

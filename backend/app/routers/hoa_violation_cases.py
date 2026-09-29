@@ -244,6 +244,15 @@ def advance_case(
     )
     if payload.next_stage not in _ALLOWED.get(row.stage, set()):
         raise HTTPException(status_code=409, detail="Invalid staff workflow transition.")
+    if payload.next_stage in {"FINE_PROPOSED", "HEARING_PLANNED"}:
+        from app.models.hoa_violation_fine import HOAViolationFine
+        if db.query(HOAViolationFine.id).filter(
+            HOAViolationFine.organization_id == org_id,
+            HOAViolationFine.association_id == assoc.id,
+            HOAViolationFine.property_id == payload.property_id,
+            HOAViolationFine.case_id == row.id,
+        ).first() is not None:
+            raise HTTPException(status_code=409, detail="Final board fine decision cannot be changed by staff stage edits.")
     if payload.next_stage == "CLOSED":
         outstanding = db.query(HOACaseTask.id).filter(
             HOACaseTask.organization_id == org_id,

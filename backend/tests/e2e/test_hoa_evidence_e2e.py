@@ -363,9 +363,50 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 expect(history.get_by_text(re.compile("Procedure revision 1")).first).to_be_visible()
                 expect(history.get_by_text(re.compile("does not deliver a legal notice"))).to_be_visible()
                 assert _financial_counts() == before
+                # Move the synthetic staff case to a proposed fine. The board
+                # decision is separately recorded, not inferred from the proposal.
+                cases.get_by_role("button", name="Advance internal case").click()
+                cases.get_by_label("Next staff stage").select_option("FINE_PROPOSED")
+                cases.get_by_label("Proposed amount (not assessed)").fill("25.00")
+                cases.get_by_role("button", name="Record staff stage").click()
+                expect(cases.get_by_text(re.compile("Fine proposal \\(unassessed\\)"))).to_be_visible()
+                assert _financial_counts() == before
+                cases.get_by_role("button", name="Association fine").click()
+                fine = cases.get_by_role(
+                    "heading", name="Association violation fine decision and ledger",
+                ).locator("..").locator("..")
+                fine.get_by_label("Approved violation fine").fill("25.00")
+                fine.get_by_label("Board decision explanation").fill(
+                    "Synthetic board approved fine after evidenced service"
+                )
+                page.once("dialog", lambda dialog: dialog.accept())
+                fine.get_by_role(
+                    "button", name="Record final association fine decision",
+                ).click()
+                expect(fine.get_by_text(re.compile("Board decision #.*APPROVED"))).to_be_visible()
+                assert _financial_counts() == before
+                fine.get_by_label("GL posting date").fill(date.today().isoformat())
+                fine.get_by_label("Fine receivable GL").select_option(
+                    label="E2E-CASE-FINE-AR · E2E Case Fine Receivable",
+                )
+                fine.get_by_label("Fine income GL").select_option(
+                    label="E2E-CASE-FINE-INCOME · E2E Case Fine Income",
+                )
+                page.once("dialog", lambda dialog: dialog.accept())
+                fine.get_by_role(
+                    "button", name="Post approved fine to member GL",
+                ).click()
+                expect(fine.get_by_text(re.compile("POSTED"))).to_be_visible()
+                assert _financial_counts() == (before[0], before[1] + 1)
+                fine.get_by_label("Fine reversal date").fill(date.today().isoformat())
+                fine.get_by_label("Fine reversal reason").fill("Synthetic accounting correction")
+                page.once("dialog", lambda dialog: dialog.accept())
+                fine.get_by_role("button", name="Reverse posted fine").click()
+                expect(fine.get_by_text(re.compile("REVERSED"))).to_be_visible()
+                assert _financial_counts() == (before[0], before[1] + 2)
             finally:
                 browser.close()
-        assert _financial_counts() == before
+        assert _financial_counts() == (before[0], before[1] + 2)
 
 
 def test_hoa_staff_meeting_motion_browser_flow_no_official_vote() -> None:
@@ -490,6 +531,18 @@ def _seed_case_recipient(association_name: str) -> None:
             is_active=True, share_with_tenants=False,
             share_with_owners=False,
         ))
+        db.add_all([
+            GLAccount(
+                organization_id=association.organization_id,
+                gl_number="E2E-CASE-FINE-AR", name="E2E Case Fine Receivable",
+                account_type="ASSET", is_active=True,
+            ),
+            GLAccount(
+                organization_id=association.organization_id,
+                gl_number="E2E-CASE-FINE-INCOME", name="E2E Case Fine Income",
+                account_type="INCOME", is_active=True,
+            ),
+        ])
         db.commit()
     finally:
         db.close()
