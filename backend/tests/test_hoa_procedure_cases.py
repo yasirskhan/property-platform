@@ -18,6 +18,7 @@ from app.models.charge import Charge
 from app.models.contact import Contact
 from app.models.entity_attachment import EntityAttachment
 from app.models.hoa_violation_evidence import HOAViolationEvidence
+from app.models.hoa_case_task import HOACaseTask
 from app.models.hoa_violation_recipient import HOAViolationRecipientDraft
 from app.models.hoa_violation_correspondence import HOAViolationCorrespondenceDraft
 from app.models.gl_transaction import GLTransaction
@@ -34,11 +35,13 @@ from app.routers import hoa_violation_cases as cases
 from app.routers import hoa_violation_recipients as recipients
 from app.routers import hoa_violation_correspondence as correspondence
 from app.routers import hoa_violation_evidence as case_evidence
+from app.routers import hoa_case_tasks as case_tasks
 from app.routers import entity_attachments as attachments
 from app.schemas.hoa_association import HOAAssociationIn, HOAContactLinkIn
 from app.schemas.hoa_violation_recipient import HOAViolationRecipientIn
 from app.routers.hoa_violation_correspondence import CorrespondenceIn
 from app.routers.hoa_violation_evidence import EvidenceIn
+from app.schemas.hoa_case_task import HOACaseTaskCreateIn, HOACaseTaskTransitionIn
 from app.schemas.entity_attachment import EntityAttachmentShareUpdate
 from app.schemas.hoa_observation import HOAObservationIn
 from app.schemas.hoa_procedure_policy import HOAProcedurePolicyIn
@@ -1100,5 +1103,209 @@ def test_private_violation_evidence_role_isolation_revocation_and_closed_case(mo
                 evidence_type="DOCUMENT", share_with_tenants=True,
             )
         assert _balances(db) == (0, 0, 0, 0)
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def _staff_task(prop, assigned, request_key="case-followup-0001", **changes):
+    values = dict(
+        property_id=prop.id, request_key=request_key,
+        title="Inspect the reported condition",
+        details="Private staff assignment.",
+        kind="INSPECTION", assigned_user_id=assigned.id,
+        due_on=date(2026, 10, 2),
+    )
+    values.update(changes)
+    return HOACaseTaskCreateIn(**values)
+
+
+def _task_step(prop, next_status, expected_version, note=None):
+    return HOACaseTaskTransitionIn(
+        property_id=prop.id, next_status=next_status,
+        expected_version=expected_version, action_note=note,
+    )
+
+
+def test_case_tasks_verified_assignment_idempotency_and_manager_completion():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, other, outside), assoc, obs = _seed(db)
+        admin.is_verified = True
+        manager.is_verified = True
+        db.flush()
+        case = cases.create_case(
+            assoc.id, HOAViolationCaseIn(property_id=prop.id, observation_id=obs.id),
+            db=db, current_user=owner,
+        )
+        before = _balances(db)
+        response = Response()
+        assignees = case_tasks.list_assignees(
+            assoc.id, case.id, response, property_id=prop.id,
+            db=db, current_user=manager,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert {x.id for x in assignees} == {admin.id, manager.id}
+        payload = _staff_task(prop, manager)
+        created = case_tasks.create_task(
+            assoc.id, case.id, payload, db=db, current_user=admin,
+        )
+        assert created.status == "OPEN" and created.version == 1
+        assert created.internal_only and not created.notice_issued
+        repeated = case_tasks.create_task(
+            assoc.id, case.id, payload, db=db, current_user=owner,
+        )
+        assert repeated.id == created.id
+        assert db.query(HOACaseTask).count() == 1
+        assert len(case_tasks.list_tasks(
+            assoc.id, case.id, Response(), property_id=prop.id,
+            db=db, current_user=manager,
+        )) == 1
+        with pytest.raises(HTTPException) as wrong_key:
+            case_tasks.create_task(
+                assoc.id, case.id,
+                _staff_task(prop, manager, title="Different task"),
+                db=db, current_user=admin,
+            )
+        assert wrong_key.value.status_code == 409
+        assert case_tasks.transition_task(
+            assoc.id, case.id, created.id,
+            _task_step(prop, "IN_PROGRESS", 1),
+            db=db, current_user=manager,
+        ).version == 2
+        with pytest.raises(HTTPException) as stale:
+            case_tasks.transition_task(
+                assoc.id, case.id, created.id,
+                _task_step(prop, "DONE", 1, "Checked"),
+                db=db, current_user=manager,
+            )
+        assert stale.value.status_code == 409
+        with pytest.raises(HTTPException) as note:
+            case_tasks.transition_task(
+                assoc.id, case.id, created.id,
+                _task_step(prop, "DONE", 2),
+                db=db, current_user=manager,
+            )
+        assert note.value.status_code == 422
+        complete = case_tasks.transition_task(
+            assoc.id, case.id, created.id,
+            _task_step(prop, "DONE", 2, "Staff inspection completed"),
+            db=db, current_user=manager,
+        )
+        assert complete.status == "DONE" and complete.version == 3
+        assert complete.completed_at is not None
+        assert complete.result_note == "Staff inspection completed"
+        with pytest.raises(HTTPException) as replay:
+            case_tasks.transition_task(
+                assoc.id, case.id, created.id,
+                _task_step(prop, "DONE", 3, "Second completion"),
+                db=db, current_user=admin,
+            )
+        assert replay.value.status_code == 409
+        events = db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_case_task",
+        ).order_by(AuditLog.id).all()
+        assert len(events) == 3
+        assert all("Staff inspection completed" not in (ev.new_value or "") for ev in events)
+        assert _balances(db) == before
+        with pytest.raises(HTTPException) as generic:
+            _model_for_table("hoa_case_tasks")
+        assert generic.value.status_code == 404
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_case_tasks_property_auth_revocation_and_close_requires_clearance():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, other, outside), assoc, obs = _seed(db)
+        admin.is_verified = True
+        manager.is_verified = True
+        db.flush()
+        case = cases.create_case(
+            assoc.id, HOAViolationCaseIn(property_id=prop.id, observation_id=obs.id),
+            db=db, current_user=owner,
+        )
+        before = _balances(db)
+        task_payload = _staff_task(prop, manager, request_key="case-followup-0002")
+        for actor in (manager, tenant, foreign):
+            with pytest.raises(HTTPException):
+                case_tasks.create_task(
+                    assoc.id, case.id, task_payload, db=db, current_user=actor,
+                )
+        with pytest.raises(HTTPException):
+            case_tasks.create_task(
+                assoc.id, case.id, _staff_task(other, admin),
+                db=db, current_user=owner,
+            )
+        with pytest.raises(HTTPException):
+            case_tasks.create_task(
+                assoc.id, case.id, _staff_task(prop, tenant),
+                db=db, current_user=owner,
+            )
+        manager.is_verified = False
+        db.flush()
+        with pytest.raises(HTTPException) as invalid_assignee:
+            case_tasks.create_task(
+                assoc.id, case.id, task_payload, db=db, current_user=owner,
+            )
+        assert invalid_assignee.value.status_code == 404
+        manager.is_verified = True
+        db.flush()
+        created = case_tasks.create_task(
+            assoc.id, case.id, task_payload, db=db, current_user=admin,
+        )
+        cases.advance_case(
+            assoc.id, case.id, _advance(prop, "RESOLVED", staff_resolution="Review resolved"),
+            db=db, current_user=owner,
+        )
+        with pytest.raises(HTTPException) as incomplete:
+            cases.advance_case(
+                assoc.id, case.id, _advance(prop, "CLOSED"),
+                db=db, current_user=owner,
+            )
+        assert incomplete.value.status_code == 409
+        with pytest.raises(HTTPException) as stranger:
+            case_tasks.transition_task(
+                assoc.id, case.id, created.id,
+                _task_step(prop, "CANCELLED", 1),
+                db=db, current_user=foreign,
+            )
+        assert stranger.value.status_code in {403, 404}
+        with pytest.raises(HTTPException) as unauthorized:
+            case_tasks.transition_task(
+                assoc.id, case.id, created.id,
+                _task_step(prop, "CANCELLED", 1),
+                db=db, current_user=manager,
+            )
+        assert unauthorized.value.status_code == 403
+        cancelled = case_tasks.transition_task(
+            assoc.id, case.id, created.id,
+            _task_step(prop, "CANCELLED", 1, "No longer required"),
+            db=db, current_user=owner,
+        )
+        assert cancelled.status == "CANCELLED" and cancelled.version == 2
+        closed = cases.advance_case(
+            assoc.id, case.id, _advance(prop, "CLOSED"),
+            db=db, current_user=owner,
+        )
+        assert closed.stage == "CLOSED"
+        assert len(case_tasks.list_tasks(
+            assoc.id, case.id, Response(), property_id=prop.id,
+            db=db, current_user=manager,
+        )) == 1
+        with pytest.raises(HTTPException) as terminal:
+            case_tasks.transition_task(
+                assoc.id, case.id, created.id,
+                _task_step(prop, "IN_PROGRESS", 2),
+                db=db, current_user=owner,
+            )
+        assert terminal.value.status_code == 409
+        with pytest.raises(HTTPException) as terminal_create:
+            case_tasks.create_task(
+                assoc.id, case.id, _staff_task(prop, admin, request_key="case-followup-0003"),
+                db=db, current_user=admin,
+            )
+        assert terminal_create.value.status_code == 409
+        assert _balances(db) == before
     finally:
         db.rollback(); db.close(); engine.dispose()

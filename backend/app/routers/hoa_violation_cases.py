@@ -11,6 +11,7 @@ from app.models.hoa_observation import HOAObservation
 from app.models.hoa_procedure_policy import HOAProcedurePolicy
 from app.models.hoa_violation_case import HOAViolationCase
 from app.models.hoa_violation_case_event import HOAViolationCaseEvent
+from app.models.hoa_case_task import HOACaseTask
 from app.models.user import User
 from app.routers.auth import get_current_user
 from app.routers.hoa_assessments import _scope
@@ -243,6 +244,19 @@ def advance_case(
     )
     if payload.next_stage not in _ALLOWED.get(row.stage, set()):
         raise HTTPException(status_code=409, detail="Invalid staff workflow transition.")
+    if payload.next_stage == "CLOSED":
+        outstanding = db.query(HOACaseTask.id).filter(
+            HOACaseTask.organization_id == org_id,
+            HOACaseTask.association_id == assoc.id,
+            HOACaseTask.property_id == payload.property_id,
+            HOACaseTask.case_id == row.id,
+            HOACaseTask.status.in_(("OPEN", "IN_PROGRESS")),
+        ).first()
+        if outstanding is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="Complete or cancel outstanding internal follow-up tasks before closing.",
+            )
     policy = _policy(
         db, org_id=org_id, association_id=assoc.id,
         property_id=payload.property_id,

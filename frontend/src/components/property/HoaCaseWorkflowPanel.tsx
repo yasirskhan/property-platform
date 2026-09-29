@@ -5,6 +5,7 @@ import { apiGet, apiPost } from "@/lib/api";
 import HoaCaseRecipientPanel from "@/components/property/HoaCaseRecipientPanel";
 import HoaCaseCorrespondencePanel from "@/components/property/HoaCaseCorrespondencePanel";
 import HoaCaseEvidencePanel from "@/components/property/HoaCaseEvidencePanel";
+import HoaCaseTasksPanel from "@/components/property/HoaCaseTasksPanel";
 
 type Observation = { id: number; summary: string; observed_on: string };
 type HistoryEvent = {
@@ -58,6 +59,7 @@ export default function HoaCaseWorkflowPanel({
   const [recipientCase, setRecipientCase] = useState<number | null>(null);
   const [correspondenceCase, setCorrespondenceCase] = useState<number | null>(null);
   const [evidenceCase, setEvidenceCase] = useState<number | null>(null);
+  const [tasksCase, setTasksCase] = useState<number | null>(null);
   const [history, setHistory] = useState<HistoryEvent[]>([]);
   const [observations, setObservations] = useState<Observation[]>([]);
   const [selectedObservation, setSelectedObservation] = useState("");
@@ -198,6 +200,16 @@ export default function HoaCaseWorkflowPanel({
             <HoaCaseRecipientPanel associationId={associationId} propertyId={propertyId}
               caseId={row.id} canEdit={canEdit && row.stage !== "CLOSED"}
               onClose={() => setRecipientCase(null)} />
+          )}
+          <button type="button" disabled={busy}
+            onClick={() => setTasksCase((prior) => prior === row.id ? null : row.id)}
+            className="text-sm text-blue-700 disabled:opacity-50">
+            {tasksCase === row.id ? "Hide case follow-ups" : "Case follow-ups"}
+          </button>
+          {tasksCase === row.id && (
+            <HoaCaseTasksPanel associationId={associationId} propertyId={propertyId}
+              caseId={row.id} stage={row.stage} canEdit={canEdit}
+              onClose={() => setTasksCase(null)} />
           )}
           <button type="button" disabled={busy}
             onClick={() => setEvidenceCase((prior) => prior === row.id ? null : row.id)}
