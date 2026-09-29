@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from decimal import Decimal
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
@@ -33,7 +34,7 @@ router = APIRouter(prefix="/api/hoa/associations", tags=["HOA posted member stat
 def member_statements(
     association_id: int, response: Response,
     property_id: int = Query(ge=1),
-    member_user_id: int | None = Query(default=None, ge=1),
+    member_user_id: Annotated[int | None, Query(ge=1)] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
