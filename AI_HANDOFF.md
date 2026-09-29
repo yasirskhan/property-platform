@@ -1,3 +1,140 @@
+# AI_HANDOFF.md — 2026-09-29 VERIFIED PRIVATE APPEAL EVIDENCE / NEXT SESSION
+
+**AUTHORITATIVE CURRENT STATUS.** Read the ENTIRE repo-root file before
+acting. This new section supersedes every older NEXT, PREPARED, BLOCKED,
+CI-running, or provisional label preserved below as history. Verify
+live branch HEAD and CI again, because later sessions may have advanced.
+
+## Repository and verified checkpoint
+- Repository: `yasirskhan/property-platform`.
+- ONLY working branch: `chatgpt/checkpoint-005-safety`.
+- Last VERIFIED PRODUCT commit:
+  `1942b66a4ce36a02e25d62eed19d635f37c01c76`.
+  Hosted GitHub Actions run **36643404274 SUCCESS, all SIX jobs**
+  on this exact commit: backend **818 passed, 15 deselected, 21675
+  warnings in 287.67s**; authenticated browser **15 passed,
+  232 warnings in 61.25s**; frontend lint, TypeScript,
+  production build, platform-admin, security, staging-config PASS.
+  **TESTS NOT RUN locally**. This product verification does not
+  apply to later untested source.
+- Verified Alembic head `6f9e2a7d4c1b`; **176 model tables**.
+  This latest source has NO new migration or table.
+- Current source completed a delegated HOA BOARD fine-appeal
+  PRIVATE supporting-evidence batch: a staff member selects
+  previously linked active private case evidence while recording
+  a fine appeal; the OPEN appeal listing discloses whether private
+  proof is available, not a generic attachment URL. A currently
+  authorized, verified, paid-HOA-gated association/property board
+  member may download only that case-linked evidence through
+  `GET /api/hoa/board/fine-appeals/{appeal_id}/supporting-evidence`.
+  The endpoint rechecks live board seat, associated case/fine,
+  private attachment linkage, document release and storage.
+  The same file is not made accessible to unrelated users,
+  other organizations, owners or tenants. Tests cover revoked
+  access, shared/stale evidence, closed appeal, financial
+  nonmutation and actual synthetic browser navigation/download.
+  Product commit `1942b66a` and CI above verify this batch.
+- The preceding delegated fine-appeal board portal is VERIFIED:
+  source `543d2bbba7e8c6ab29b5ddb39993eaeb8a9cde53`,
+  GitHub Actions `36639458401` **attempt 2 SUCCESS all six**
+  (817 backend passed, 15 browser passed). Attempt 1 had a
+  browser failure; do not misstate it as successful.
+- Older verified source `c41ea3e8` includes association-board
+  UPHELD/VACATED fine appeals, private records, and separate,
+  protected accounting corrections. Never silently erase a
+  posted assessment/fine or refund a receipt merely by recording
+  VACATED. Preserve direct operative ARC APPROVED/DENIED
+  with authorized member fees/notification retries and reversals.
+
+## Exact next independent Phase 4.7 task
+Inspect the current source to determine whether an authorized
+fine-appeal final decision already has customer-configured,
+scoped, retryable outcome notification to the verified recipient.
+If not implemented, complete that BOUNDED operational batch:
+re-use existing central template/communications/outbox infrastructure,
+actual board disposition, verified contact/member, active HOA
+subscription/permissions, association/property/case/fine scope,
+idempotent sending, retry and audit. Clearly distinguish queued,
+transport-accepted, failed and actually delivered statuses; do not
+equate e-mail acceptance with statutory legal service. No new fine,
+charge, GL posting, refund or invented legal deadline; no real
+emails from CI. Add focused backend and dedicated authenticated
+HOA browser coverage. If equivalent functionality is ALREADY
+VERIFIED, do not repeat it: select the next independently
+incomplete operational original Phase 4.7 capability, write its
+exact scope into THIS handoff and implement one batch at a time.
+
+Original required SEVEN areas: real recurring/special member dues
+and receipt allocation; operational violations/service/cure/hearing/
+fine/appeal; board portal/meetings/votes/minutes; operative ARC;
+reserve accounting with protected GL book entries; governing
+document storage/versioning/delivery; annual budget/adoption and
+approved assessment increases. Treat implemented subsets as
+subsets, not a declaration that all seven are finished.
+Keep the $79/month paid HOA add-on and feature entitlements.
+Do not advance Phase 4.8 while independent HOA work remains.
+
+## Exact working method, used successfully in normal Chat
+1. Use the CONNECTED GitHub tools first. Read the entire
+   `AI_HANDOFF.md`, inspect live HEAD, commits and latest run.
+   Historical handoff labels are NOT live source facts.
+2. Inspect affected live files/contracts and existing verified
+   tests. Scope one new backend/frontend/migration/browser batch.
+   Preserve already verified features and unrelated code.
+3. GitHub connector can fetch and create Git blobs, create a tree
+   based on the exact live feature-branch HEAD, create one
+   provisional product commit, and fast-forward UPDATE ONLY
+   `chatgpt/checkpoint-005-safety` using `force=false`.
+   Recheck HEAD before moving the ref. Never switch branches,
+   force-push, merge PRs, touch `main` or frozen `docs/`.
+4. GitHub Actions then tests the ACTUALLY COMMITTED source.
+   Run all required six jobs: backend, frontend,
+   platform-admin, security, staging-config, authenticated E2E.
+   Follow current job logs; fix genuine product/test failures
+   through corrective feature-branch commits. If a transient
+   browser failure is suspected, diagnose and rerun failed
+   jobs, recording which attempt passed. No silent skipping.
+5. Report REAL positive backend and browser test counts and
+   corresponding exact source SHA. If local tests were not
+   run, say `TESTS NOT RUN locally`; never imply uncommitted
+   Git blobs were tested by CI. Provisional is not VERIFIED.
+6. Once SIX green jobs pass for the same product SHA,
+   append/prepend a concise new authoritative checkpoint
+   to this ROOT handoff with source SHA, exact CI run/attempt,
+   actual counts, migration head and table count, completed
+   behavior, limitations and exact next independent batch.
+   Commit the handoff on the same feature branch; the
+   documentation-only commit does not establish new product
+   testing. Preserve history but explicitly supersede older
+   provisional/NEXT labels.
+7. Immediately begin another independently actionable Phase 4.7
+   batch within the SAME active session. A green CI checkpoint
+   is not a request for user approval. Stop only for actual
+   missing user input, an unresolved security issue, or a
+   genuine blocker to all remaining authorized work. No
+   excessive narration, repetitive audits or idle CI polling.
+
+**Environment:** The GitHub connector works directly even if a
+separate terminal cannot resolve github.com or npm. An executable
+local clone is NOT required for this authorized connector-to-Actions
+workflow. Do not falsely claim local npm/test execution, or claim
+GitHub integration is disconnected because terminal DNS failed.
+This chat cannot promise asynchronous work after its active run.
+
+**Safety and product boundaries:** Organizations configure their
+association procedures and identify authorized decision makers;
+the software records those decisions and executes permitted
+workflows, without inserting a blanket platform legal
+certification gate. Enforce the actual configured/required
+procedure, exact member/payee identity, scoped permissions,
+posting locks, balanced central GL, idempotency, immutable audit,
+reversals and accurate communication status. Do not invent law,
+treat a staff draft as a fine, use a tenant Charge as member
+liability, conflate booked GL reserve movements with bank
+transfers, or allow synthetic CI to send real notices, capture
+real money or create customer obligations.
+
+---
 # AI_HANDOFF.md — 2026-09-29 BOARD APPEAL PRIVATE EVIDENCE PROVISIONAL
 
 Read entire handoff; this section supersedes historical NEXT labels.
