@@ -1,50 +1,122 @@
 # AI_HANDOFF.md — Property Platform, 2026-09-29
 
-**READ THE ENTIRE FILE FIRST.** This repository-root handoff is authoritative.
-The 2026-09-28 "NEXT SESSION START HERE" and "PREPARED, UNCOMMITTED"
-sections below are preserved as HISTORY and are superseded by this update.
+**READ THIS WHOLE FILE FIRST.** Latest instructions and verification
+appear at the top; earlier sections are preserved as history. The
+most recent user instruction prioritizes seven fully operational
+Phase 4.7 HOA capabilities before Phase 4.8. Follow real source/CI,
+not historical "NEXT" entries. No real-world messages, financial
+obligations or production changes are authorized merely by CI.
 
-- Private repository: `yasirskhan/property-platform`.
-- ONLY working branch: `chatgpt/checkpoint-005-safety`. Do not touch
-  `main`, create another branch, force-push, merge a PR, modify frozen
-  `docs/`, or advance Phase 4.8.
-- Last VERIFIED **product source**: `ef901b38b53c13c493fa8130ec8df31ee1303d14`.
-  GitHub Actions [run 36521596577](https://github.com/yasirskhan/property-platform/actions/runs/36521596577)
-  **SUCCESS, all SIX jobs**, on this exact product commit.
-  Backend: **777 passed, 11 deselected, 18621 warnings in 217.55s**.
-  Authenticated E2E: **11 passed, 129 warnings in 48.40s**.
-  Frontend lint/TypeScript/production build, platform-admin, security and
-  staging-config PASS. **TESTS NOT RUN locally**; all tests ran on hosted CI.
-- Verified Alembic head **e9a1c3f5b7d0**, up from d8f0a2c4e6b9.
-  Expected SQLAlchemy model tables **160** (was 159). PostgreSQL,
-  fresh/legacy migrations and staging guards passed in the source CI.
-- Phase **4.7 HOA IN PROGRESS**. Last VERIFIED batch is **internal
-  HOA violation case follow-up tasks** for inspections, remediation,
-  staff review and optional assignments. The fifteen previously
-  uncommitted blobs were assembled and committed in the product source
-  above; they are no longer pending or untested.
-- User explicitly authorized GitHub-connector source inspection,
-  provisional commits on this EXISTING branch and GitHub Actions as
-  the actual test environment on 2026-09-29. Earlier instructions below
-  requiring a terminal checkout and local pre-commit tests are superseded
-  for this workflow. Do not claim uncommitted code passed CI.
-- Existing operative ARC board decisions remain direct APPROVED/DENIED
-  with authorized actors, atomic optional member fees, follow-up,
-  retryable notifications and reversal protections. DO NOT reinstate
-  a blanket `legal_decision_effective=false` gate.
-- Do not infer statutory violation notices, fines, member liability,
-  official delivery, dues or reserve GL postings from internal staff
-  tasks or unreviewed rule settings.
+- Repository: `yasirskhan/property-platform`; ONLY branch
+  `chatgpt/checkpoint-005-safety`. No main, new branch, force-push,
+  PR merge or frozen `docs/` edits.
+- Last VERIFIED product source:
+  `bb9e909491106dc4a9a55568ed8e46948e33b163`.
+  GitHub Actions **36525127269 SUCCESS all SIX jobs** on this SHA:
+  backend **780 passed, 11 deselected, 18776 warnings in 254.46s**;
+  authenticated browser E2E **11 passed, 133 warnings in 46.83s**;
+  frontend lint/TypeScript/production build, platform-admin,
+  security and staging-config SUCCESS. Tests ran in GitHub Actions;
+  **TESTS NOT RUN locally**. Prior run 36524867266 was superseded/
+  cancelled after a narrow test-fixture correction, not green.
+- Alembic verified head **f0b2d4e6a8c1** after
+  `e9a1c3f5b7d0`; **161 expected SQLAlchemy model tables**
+  (previous 160). Migration/PostgreSQL/staging checks passed.
+- Phase 4.7 HOA **IN PROGRESS**; completed internal case tasks,
+  directly operative ARC decisions, HOA add-on $79/month catalog
+  and live paid entitlement gates remain preserved. Phase 4.8
+  stays PAUSED.
+- Latest VERIFIED batch: authenticated, association/property-scoped
+  **governing-document email-copy delivery**, version fingerprint,
+  durable idempotent request/outbox, redacted audit and explicitly
+  retryable SMTP transmission. SMTP_ACCEPTED only means accepted by
+  transport, **not actual inbox receipt or legally served**.
+  Console-mode E2E emits TEST_ONLY; no real email or real-world
+  obligations. No GL/Charge/RentInvoice mutations.
+- User has authorized iterative development using connected GitHub
+  Git objects, provisional commits and hosted GitHub Actions on
+  this existing branch. Commit source provisionally, correct CI
+  errors, mark VERIFIED only on six green jobs, update handoff,
+  then continue to the next independently actionable feature.
+  No terminal checkout/npm prerequisite to GitHub editing.
+- Product scope comprises SEVEN original HOA areas:
+  A actual recurring/special dues with verified payer, central GL,
+  payments/adjustments/reversals; B violations, notices, fines,
+  cure/hearings and correction history; C board access,
+  meetings/motions/votes/minutes and offline decisions;
+  D operative ARC application/decision and follow-ups;
+  E reserve fund transfers/studies/accounting/reversals;
+  F governing docs versioning/access/delivery; G annual
+  budgets, approval and assessment changes.
+  Do not conflate drafts with finished operational features.
+- Association decision-maker/organization configures its rules,
+  board authorization and approvals. There is NO blanket
+  platform-operated extra certification or reinstated ARC
+  `legal_decision_effective=false` gate. Specific required
+  authority, payer identity, procedure, GL, locking, idempotency,
+  audit and delivery prerequisites MUST still be enforced.
+  An individual blocked action does not block independent
+  generic HOA work. Never invent law or a liable member.
 
-**Exact NEXT dependency:** Continue Phase 4.7 violations with review
-of actual association declaration/CC&Rs, bylaws/amendments, applicable
-written violation/notice/hearing rules, specific property jurisdiction,
-authorized decisionmakers, legally liable member identity and approved
-fine/GL mapping. Only implement legally operative notice/fine execution
-after those authentic inputs are established. They were NOT established
-by this task batch. Until then, notices, fines and unidentified-member
-charges are BLOCKED. Preserve safe completed internal workflow and do
-not manufacture requirements. Phase 4.8 remains PAUSED.
+**NEXT independent batch:** Continue Phase 4.7 with genuinely
+operational member-ledger assessment issuance/reversal in a narrowly
+bounded increment, reusing the verified direct board-seat
+authorization and central posting contract, current contact/user,
+assessment and planning models. Establish a specific scoped
+association decision record, identifiable verified member,
+immutable approved amount/due date and real balanced posting;
+no tenant-only Charge inference or blanket platform legal gate.
+Run complete applicable CI. Alternatively continue a distinct
+original HOA workflow when a specific dependency blocks this
+increment. Do not repeat completed delivery or tasks.
+
+## CURRENT SESSION UPDATE — 2026-09-29 HOA DOCUMENT EMAIL DELIVERY VERIFIED
+
+Implementation `e7a4e8ab2c940dfe924e45624c016caeff29187c`
+was provisionally committed; test-only correction
+`bb9e909491106dc4a9a55568ed8e46948e33b163` changed the distinct conflicting contact-link
+fixture. Latest product CI 36525127269 passed ALL SIX jobs:
+backend 780 passed/11 deselected, browser 11 passed,
+frontend, platform-admin, security, staging green.
+Previous 36524867266 was cancelled by the correction.
+No local tests. Migration `f0b2d4e6a8c1` adds
+`hoa_document_deliveries` (161 models total). Frozen
+`docs/` and Phase 4.8 untouched.
+
+The new private evidence email workflow accepts only currently
+scoped association/property links and active, private property
+attachments; ADMIN/OWNER with HOA+attachments release and
+PEOPLE.CONTACTS permission may explicitly select a live linked
+Contact with a matching verified active organization User.
+The API is
+`/api/hoa/associations/{id}/governing-evidence/eligible-recipients`,
+`/deliveries`, `/{evidence_id}/deliveries`,
+`/deliveries/{delivery_id}/retry`. Every retry rechecks
+identity, association/property, private source and SHA256
+fingerprint before loading attachment bytes (5 MB bound).
+Unique request-key history is durable; SMTP claim/attempt
+and terminal status are recorded with redacted audit.
+An already-accepted request cannot re-send through replay.
+The existing org/platform SMTP transport is reused; failed
+messages are retryable. TEST_ONLY console never transmits
+attachment bytes and SMTP_ACCEPTED never asserts inbox
+delivery or statutory legal service. UI has explicit
+confirmation, verified recipient selector and scoped history.
+Three new focused backend tests and one expanded dedicated
+HOA browser interaction cover real mocked MIME attachment,
+duplicate request, retry/revoked identity/digest mismatch,
+console transport and zero Charge/GL effects. No statutory
+notice, fine, dues or other financial action implemented here.
+
+**Next:** As above, actual HOA assessment member issuance/reversal
+using current approved board and central GL structures, not
+another generalized readiness screen. Inspect current source
+for proper payer/member-identity and board decision contracts.
+A missing individual association-specific rule or payer
+should pend only that action and never block independent
+source development.
+
+---
 
 ## CURRENT SESSION UPDATE — 2026-09-29 HOA INTERNAL CASE TASKS VERIFIED
 
