@@ -1,3 +1,63 @@
+# AI_HANDOFF.md — 2026-09-29 LATEST VERIFIED CHECKPOINT
+
+**READ ENTIRE FILE FIRST.** This entry supersedes historical NEXT and
+PREPARED sections further below. One feature-branch batch at a time.
+- Repository `yasirskhan/property-platform`. ONLY branch
+  `chatgpt/checkpoint-005-safety`. No main, new branch, force push,
+  merge, frozen `docs/` changes or Phase 4.8.
+- Last VERIFIED PRODUCT source: `951d144aa06283f14b8f4f65b8e951d5706a7ee4`.
+  GitHub Actions [36527708582](https://github.com/yasirskhan/property-platform/actions/runs/36527708582)
+  **SUCCESS ALL SIX JOBS on this exact SHA**. Backend **785 passed,
+  13 deselected, 19090 warnings in 140.43s**; authenticated browser
+  E2E **13 passed, 177 warnings in 51.99s**. Frontend lint,
+  TypeScript, build, platform-admin, security, staging SUCCESS.
+  TESTS NOT RUN locally.
+- Alembic verified head **b2d4f6a8c0e3** after
+  `a1c3e5f7b9d2`; **164 expected model tables** (was 163).
+  Fresh/legacy/PostgreSQL migrations and staging passed.
+- Verified bounded operational reserve BOOK posting: authorized
+  authenticated association board approval/denial for existing
+  scoped movement draft, optionally a designated offline board
+  recorder with private meeting record; separate permitted accountant
+  uses central balanced property-tagged GL TRANSFER on active,
+  distinct same-org cash-like GL accounts and mapped reserve.
+  Idempotent/locked issue, terminal decision, immutable audit and
+  protected GL REVERSAL. Old draft cannot be cancelled once board
+  decides. Customer reserve UI and dedicated synthetic browser cover
+  approval, post and reverse. NO bank API transfer, actual bank
+  disbursement, legal reserve restrictions certification or statutory
+  ownership determination. Never confuse booked GL movement with
+  physical bank movement.
+- The 15 Git blobs and root handoff committed in `951d144aa06283f14b8f4f65b8e951d5706a7ee4`
+  are now TESTED AND VERIFIED. Historical label "PREPARED" below
+  describes their status BEFORE this verified commit; not a pending batch.
+- Earlier verified member-assessment actual charge/GL/reversal:
+  `cee88200f3780f3e1c42a300baf5afb44b4b229f`,
+  CI 36527051274, 783 backend/12 browser, schema 163.
+  Earlier verified governing-document e-mail copy delivery
+  `bb9e9094`, internal violation case tasks `ef901b38`,
+  direct ARC APPROVED/DENIED, paid HOA gate/catalog.
+- Phase 4.7 operational HOA seven areas IN PROGRESS. User requires
+  no blanket extra platform legal certification, and no guessing
+  legal procedure or member liability. Only exact missing inputs block
+  an individual operation. Phase 4.8 PAUSED.
+
+**Exact next independent batch:** Operational HOA member-assessment
+payment allocation and reversal, using the already VERIFIED scoped
+`HOAMemberAssessmentCharge` with explicit verified member, existing
+central GL and existing cash/receipt architecture. Verify actual
+posting/receipt contract before implementation; ensure cash debit and
+member RECEIVABLE credit, atomic account/payments state, posted-date
+locks, duplicate idempotency, overpayment guard, paid-charge reversal
+protection, correct audit, cross-org/property permissions and synthetic
+browser. Do NOT treat a generic tenant receipt/Charge as HOA payment
+or create a parallel general ledger. If a particular external bank or
+processor collection integration is unavailable, explicitly separate
+an offline manually recorded receipt from automated bank capture,
+and continue independently authorized work. One scoped tested batch,
+six green CI jobs, update handoff, continue the next HOA batch.
+
+---
 # AI_HANDOFF.md — 2026-09-29 CURRENT VERIFIED CHECKPOINT
 
 **READ THIS ENTIRE FILE.** The entry below is the newest status. Older
