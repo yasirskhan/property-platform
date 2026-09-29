@@ -1,3 +1,36 @@
+# AI_HANDOFF.md — 2026-09-29 HOA ANNUAL BUDGET VERIFIED
+
+**Latest verified product source** `cedb96d2c6c7301626330e78ef9f2546c50bca25`.
+GitHub Actions **36574549498 SUCCESS ALL SIX JOBS** on that exact SHA.
+Backend **791 passed, 14 deselected, 19603 warnings in 266.41s**;
+authenticated browser **14 passed, 206 warnings in 53.92s**.
+Frontend lint/typecheck/build, platform-admin, security and staging passed.
+**TESTS NOT RUN locally**. Verified Alembic head `d4f6a8c0e2b5`,
+expected **166 model tables**. Earlier annual-budget provisional
+handoff below is HISTORICAL, not a pending task.
+
+**Verified annual budget behavior:** scoped association/year budget
+income/expense GL line snapshots, reserve allocation planning, draft
+revision and authorized board APPROVED/DENIED decisions (including
+authorized offline recording with private record). No separate property
+budget relabeling, no charge or GL post simply for budget approval.
+The previous HOA member statements and receipt posting are preserved.
+
+**Exact NEXT Phase 4.7 operational batch:** annual-budget-linked
+assessment increase workflow. Independently inspect existing approved
+annual budget, assessment board decision, verified payer, central GL
+and delivery contracts. Record association board authority for each
+increase; never imply budget approval itself authorizes a member
+charge. Extend operational issuance/notice only with scoped,
+idempotent, tested posting and recipient protection. If a particular
+notice/procedure requirement lacks configuration, leave that action
+pending, continue other independent implementation.
+Maintain the seven original operational HOA areas. No Phase 4.8,
+new branch, main or frozen docs edits. After next source commit,
+six CI jobs must pass before marking verified.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 ANNUAL HOA BUDGET PROVISIONAL
 
 **READ THE ENTIRE FILE.** This newest entry supersedes historical
