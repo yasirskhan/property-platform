@@ -1,3 +1,37 @@
+# AI_HANDOFF.md — 2026-09-30 VERIFIED PHASE 4.9 RUBs METER READINGS
+
+**AUTHORITATIVE CURRENT CHECKPOINT. Phase 4.9 is IN PROGRESS. Earlier NEXT labels below are historical where superseded.**
+
+- Last VERIFIED PRODUCT source: `8c749f1c05a913a92fc1fc03d33075cb23f9ecdf`.
+- GitHub Actions **36763331835 attempt 1 SUCCESS, all SIX required jobs on this exact SHA**: frontend PASS; backend PASS; security PASS; platform-admin PASS; staging-config PASS; authenticated E2E PASS.
+- Backend: **843 passed, 16 deselected, 22971 warnings in 316.47s**.
+- Authenticated E2E: **16 passed, 256 warnings in 95.95s**.
+- **TESTS NOT RUN locally.**
+- Alembic head: **`e6f8a0c2d4b7`**. Expected SQLAlchemy model tables: **186**.
+- Initial provisional source `a5f8ea4c3bcd62c87535460b1ea65524d423a8fa` had **841 passed, 16 deselected** with only two stale bootstrap/migration table-count snapshots failing after the new table. Corrective `8c749f1c...` changed only those two expected head/table constants and is the verified source.
+
+## Verified Phase 4.9 meter-reading scope
+
+1. Active authorized property staff can record raw meter readings only for an active same-property **SHARED** utility behind the existing `release.properties.rubs` gate and `PROPERTIES.ALL` scope.
+2. Manual readings support property meters or an optional active same-property unit/submeter reference, date, nonnegative value, unit of measure, note and retry-safe request key.
+3. CSV import accepts bounded rows with required meter/date/value/unit-of-measure fields and optional property-unit ID/note, validates the complete batch before insert, rejects cross-property unit references, and supports exact replay without duplicate rows.
+4. Raw readings retain MANUAL/IMPORT source metadata and import batch reference. They are source inputs only.
+5. This batch creates **no allocation formula, tenant charge, owner charge, RentInvoice, utility-provider integration, bank movement or GL posting**. Existing Phase 4.5 bill-period diagnostics remain intact.
+6. Customer RUBs UI can select a shared utility, enter a manual reading, import CSV readings and review recorded raw readings while explicitly stating that allocation and billing remain disabled.
+
+## EXACT NEXT Phase 4.9 batch
+
+Implement **versioned property/shared-utility allocation-rule configuration and finance-neutral allocation preview**.
+
+- Supported rule bases should cover the roadmap categories without inventing data: **SQUARE_FEET** may use current active-unit square feet only when every included unit has an explicit positive value; **OCCUPANCY** and **FIXTURES** require explicit staff-entered per-unit counts/weights because current source does not reliably contain legal occupant counts or fixture counts; allow an explicit **MANUAL_WEIGHT** basis rather than inferring missing inputs.
+- Scope rules to exact organization/property/active SHARED utility; preserve the RUBs release/menu/manager-assignment checks.
+- Store immutable/versioned rule revisions with effective dates/status and an explicit reviewed/authorized flag. A new revision must not silently authorize itself.
+- Preview one complete utility-bill period only after the bill period is valid and non-overlapping for the selected source bill. Compute deterministic per-unit shares and rounded allocation detail with a documented remainder rule. Preview remains **non-posting**.
+- Do **not** infer legal eligibility from property address, lease existence, tenant identity, raw meter readings or a utility bill. Do not create tenant/owner charges, GL, true-up, provider integration or reports in this batch.
+- Add migration/schema/router/customer UI plus focused backend and authenticated browser coverage. One bounded provisional product commit on the existing branch, exact-SHA six-job CI, autonomous repair, then refresh this root handoff and continue Phase 4.9.
+
+---
+
 # AI_HANDOFF.md — 2026-09-30 PHASE 4.8 COMPLETE | VERIFIED
 
 **AUTHORITATIVE FINAL PHASE 4.8 CHECKPOINT. STOP ALL DEVELOPMENT AFTER THIS HANDOFF UNTIL EXPLICIT USER INSTRUCTION.**
