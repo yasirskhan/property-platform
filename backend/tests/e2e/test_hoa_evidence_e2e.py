@@ -1988,5 +1988,5 @@ def test_commercial_private_lease_source_reference_browser_no_finance() -> None:
                 assert after_reverse == (before[0] + 1, before[1], before[2] + 2)
             finally:
                 browser.close()
-        assert _commercial_financial_counts() == before
+        assert _commercial_financial_counts() == (before[0] + 1, before[1], before[2] + 2)
 
