@@ -1,3 +1,64 @@
+# AI_HANDOFF.md — 2026-09-30 VERIFIED PHASE 4.9 RUBs ALLOCATION DETAIL REPORT
+
+## Current verified product checkpoint
+
+- Verified PRODUCT SHA: `bb8916af896053503bd5050c4a68b8e8c5016a02`
+- GitHub Actions run: `36783872990`
+- Final run conclusion: SUCCESS
+- All six required CI jobs passed on this exact product SHA:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **845 passed, 17 deselected, 23030 warnings in 318.69s**
+- Authenticated E2E: **17 passed, 265 warnings in 100.93s**
+- Alembic head remains `8c4e6a0b2d7f`
+- Expected model tables remain **188**
+- No local test result is being substituted for hosted CI.
+
+## Phase 4.9 completed in this verified batch
+
+Implemented the roadmap's **allocation detail per bill period** reporting surface over already-reviewed RUBs allocation snapshots:
+
+- customer RUBs UI can select a reviewed bill-period snapshot and display the preserved bill period, bill ID, rule revision, allocation basis, source bill total, reviewed allocated total, per-unit weight/share/amount, deterministic remainder rule and review timestamp;
+- unit labels are resolved only from the already scoped property allocation context; historical snapshot data itself remains the durable source of allocation amounts;
+- the report is review-only and creates no tenant charge, owner charge, invoice, receipt, bank movement or GL entry;
+- the report reuses the already verified organization/property/active SHARED utility authorization and reviewed-snapshot API rather than adding a parallel unscoped reporting path;
+- authenticated browser coverage now verifies the allocation-detail report is visible after a reviewed snapshot is saved and shows both included units and the reviewed total;
+- no database migration or backend finance behavior changed in this batch.
+
+Implementation commits in this verified batch:
+
+- `d18ef98cf541c93dae66621c5f04d92405b728dd` — customer allocation detail report
+- `bb8916af896053503bd5050c4a68b8e8c5016a02` — authenticated E2E coverage; this is the verified PRODUCT SHA
+
+## Exact next Phase 4.9 work
+
+Continue Phase 4.9 with the remaining roadmap item **RUBs reports**. The planning source lists this separately from allocation detail per bill period, but does not define a tenant-billing or accounting posting contract for it.
+
+Required boundaries for the next bounded batch:
+
+1. Build reports only from already verified RUBs source records and reviewed allocation snapshots.
+2. Keep the report informational/review-only. Do not infer tenant/owner legal chargeability, occupancy, fixture counts, lease liability or payer identity.
+3. Preserve organization/property/active SHARED utility scope, manager assignment, RUBs release gating and current permission checks.
+4. Do not create tenant/owner charges, invoices, receipts, bank movement or GL entries from report generation.
+5. Prefer a reviewed-history summary across periods/units rather than inventing unsupported billing statements or provider data.
+6. Add focused authenticated browser coverage and any backend coverage needed for new report logic.
+7. Verify all six CI jobs on the exact product SHA, repair CI reds autonomously, then refresh this root handoff.
+
+Planning alignment after this checkpoint:
+
+- Meter reading (manual + import): verified.
+- Ratio allocation methods: verified.
+- Allocation detail per bill period: **verified in this batch**.
+- Year-end true-up preview: verified and finance-neutral.
+- RUBs reports: **next**.
+- Utility provider integrations/manual bill entry and tenant/owner charges remain distinct roadmap capabilities; do not silently claim them complete from reporting work.
+
+---
+
 # AI_HANDOFF.md — 2026-09-30 PHASE 4.9 COMPLETE | VERIFIED
 
 ## Final Phase 4.9 product checkpoint
