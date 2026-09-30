@@ -66,6 +66,23 @@ function requestKey(prefix: string) {
   return `${prefix}-${suffix}`;
 }
 
+function moneyToCents(value: string) {
+  const negative = value.trim().startsWith("-");
+  const normalized = value.trim().replace("-", "");
+  const [whole = "0", fraction = ""] = normalized.split(".");
+  const cents =
+    Number(whole || "0") * 100 + Number((fraction + "00").slice(0, 2));
+  return negative ? -cents : cents;
+}
+
+function centsToMoney(value: number) {
+  const negative = value < 0;
+  const absolute = Math.abs(value);
+  const whole = Math.floor(absolute / 100);
+  const cents = String(absolute % 100).padStart(2, "0");
+  return `${negative ? "-" : ""}${whole}.${cents}`;
+}
+
 export default function RubsAllocationPanel({
   propertyId,
   utilityId,
@@ -302,6 +319,21 @@ export default function RubsAllocationPanel({
 
   const reportSnapshot =
     snapshots.find((snapshot) => String(snapshot.id) === reportSnapshotId) ?? null;
+  const reviewedHistoryTotalCents = snapshots.reduce(
+    (total, snapshot) => total + moneyToCents(snapshot.allocated_total),
+    0
+  );
+  const reviewedUnitTotals = Array.from(
+    snapshots.reduce((totals, snapshot) => {
+      snapshot.items.forEach((item) => {
+        totals.set(
+          item.unit_id,
+          (totals.get(item.unit_id) ?? 0) + moneyToCents(item.amount)
+        );
+      });
+      return totals;
+    }, new Map<number, number>())
+  ).sort(([left], [right]) => left - right);
 
   return (
     <div className="space-y-4 rounded-lg border p-4">
@@ -612,6 +644,78 @@ export default function RubsAllocationPanel({
               </div>
             )}
           </>
+        )}
+      </div>
+
+      <div className="space-y-3 rounded border p-3">
+        <div>
+          <h4 className="text-sm font-medium">RUBs reviewed history report</h4>
+          <p className="text-xs text-slate-500">
+            Review-only totals across saved allocation snapshots. This report does
+            not determine payer liability and does not create charges, invoices,
+            receipts, bank movement, or GL entries.
+          </p>
+        </div>
+        {snapshots.length === 0 ? (
+          <p className="text-xs text-slate-500">
+            No reviewed allocation history is available for summary reporting.
+          </p>
+        ) : (
+          <div
+            className="space-y-3"
+            aria-label="RUBs reviewed history report result"
+          >
+            <p className="text-sm font-medium">
+              {snapshots.length} reviewed {snapshots.length === 1 ? "period" : "periods"} ·
+              {" "}Reviewed history total USD {centsToMoney(reviewedHistoryTotalCents)}
+            </p>
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="p-2">Bill period</th>
+                  <th className="p-2">Bill</th>
+                  <th className="p-2">Basis</th>
+                  <th className="p-2">Reviewed allocation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {snapshots.map((snapshot) => (
+                  <tr key={snapshot.id} className="border-b">
+                    <td className="p-2">
+                      {snapshot.billing_period_start} to {snapshot.billing_period_end}
+                    </td>
+                    <td className="p-2">#{snapshot.bill_id}</td>
+                    <td className="p-2">{snapshot.basis}</td>
+                    <td className="p-2">USD {snapshot.allocated_total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div>
+              <h5 className="text-sm font-medium">Per-unit reviewed totals</h5>
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="p-2">Unit</th>
+                    <th className="p-2">Reviewed total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reviewedUnitTotals.map(([unitId, totalCents]) => {
+                    const unit = units.find((row) => row.id === unitId);
+                    return (
+                      <tr key={unitId} className="border-b">
+                        <td className="p-2">
+                          {unit ? unit.unit_number : `ID ${unitId}`}
+                        </td>
+                        <td className="p-2">USD {centsToMoney(totalCents)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
       </div>
 
