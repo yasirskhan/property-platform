@@ -3196,3 +3196,87 @@ def test_delegated_board_only_final_outcome_email_and_scope_revocation(monkeypat
         assert len(sent) == 1 and _balances(db) == before
     finally:
         db.rollback(); db.close(); engine.dispose()
+
+
+def test_delegated_board_portal_lists_and_records_violation_hearing_then_fine(monkeypatch, tmp_path):
+    """Board-only portal stays scoped and finance-neutral through hearing and fine decision."""
+    db, engine = _db()
+    try:
+        monkeypatch.setattr(member_api, "permission_allows_user", lambda *a, **kw: True)
+        monkeypatch.setattr(board_portal, "resolve_customer_features", lambda *a, **kw: [
+            SimpleNamespace(key=k, release_allowed=True,
+                            entitlement_allowed=True, org_config_allowed=True)
+            for k in arc_board.HOA_GATES
+        ])
+        users, props, assoc, case, draft, seat, proof = _record_served_fine_case(
+            db, monkeypatch, record_hearing=False,
+        )
+        admin, owner, manager, tenant, foreign = users
+        prop = props[0]
+        path = tmp_path / "board-private-case-proof.pdf"
+        path.write_bytes(b"private board case proof")
+        monkeypatch.setattr(board_portal, "attachment_path", lambda key: path)
+        before = _balances(db)
+
+        rows = board_portal.my_board_violation_fine_cases(
+            Response(), db=db, current_user=admin,
+        )
+        assert len(rows) == 1
+        row = rows[0]
+        assert row.case_id == case.id and row.member_user_id == tenant.id
+        assert row.proposed_fine == Decimal("25.00")
+        assert row.hearing_record_id is None
+        assert any(item.attachment_id == proof.id for item in row.private_evidence)
+
+        downloaded = board_portal.download_board_violation_evidence(
+            case.id, proof.id, db=db, current_user=admin,
+        )
+        assert str(downloaded.path) == str(path)
+        assert downloaded.headers["cache-control"] == "private, no-store"
+
+        for actor in (owner, manager, tenant, foreign):
+            assert board_portal.my_board_violation_fine_cases(
+                Response(), db=db, current_user=actor,
+            ) == []
+
+        hearing = fine_api.record_hearing(
+            assoc.id, case.id,
+            HOAHearingRecordIn(
+                property_id=prop.id, disposition="NO_REQUEST_RECORDED",
+                request_key="delegated-board-hearing-00001",
+            ), db=db, current_user=admin,
+        )
+        rows = board_portal.my_board_violation_fine_cases(
+            Response(), db=db, current_user=admin,
+        )
+        assert len(rows) == 1
+        assert rows[0].hearing_record_id == hearing.id
+        assert rows[0].hearing_disposition == "NO_REQUEST_RECORDED"
+
+        db.get(HOABoardSeat, seat.id).decision_authorized = False
+        db.flush()
+        assert board_portal.my_board_violation_fine_cases(
+            Response(), db=db, current_user=admin,
+        ) == []
+        with pytest.raises(HTTPException):
+            board_portal.download_board_violation_evidence(
+                case.id, proof.id, db=db, current_user=admin,
+            )
+        db.get(HOABoardSeat, seat.id).decision_authorized = True
+        db.flush()
+
+        decided = fine_api.decide_fine(
+            assoc.id, case.id,
+            _fine_decision(
+                prop, tenant, hearing_record_id=hearing.id,
+                hearing_disposition=hearing.disposition,
+            ), db=db, current_user=admin,
+        )
+        assert decided.status == "APPROVED"
+        assert decided.hearing_record_id == hearing.id
+        assert board_portal.my_board_violation_fine_cases(
+            Response(), db=db, current_user=admin,
+        ) == []
+        assert _balances(db) == before
+    finally:
+        db.rollback(); db.close(); engine.dispose()

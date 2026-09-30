@@ -450,24 +450,49 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 cases.get_by_role("button", name="Record staff stage").click()
                 expect(cases.get_by_text(re.compile("Fine proposal \\(unassessed\\)"))).to_be_visible()
                 assert _financial_counts() == before
+                # The delegated board dashboard, without broad staff-accounting
+                # controls, records the standalone hearing outcome and final fine decision.
+                page.goto(f"{BASE_URL}/dashboard/hoa/board", wait_until="domcontentloaded")
+                board_fines = page.get_by_role(
+                    "heading", name="Board violation hearings and fines",
+                ).locator("..")
+                expect(board_fines.get_by_text(re.compile("Violation case #"))).to_be_visible()
+                with page.expect_download() as board_case_download:
+                    board_fines.get_by_role(
+                        "button", name=re.compile("Download e2e-private-case-photo.png"),
+                    ).click()
+                assert board_case_download.value.path().stat().st_size == 100
+                assert _financial_counts() == before
+                page.once("dialog", lambda dialog: dialog.accept())
+                board_fines.get_by_role("button", name="Record board hearing outcome").click()
+                expect(board_fines.get_by_text(
+                    re.compile("Hearing record #.*NO_REQUEST_RECORDED"),
+                )).to_be_visible()
+                assert _financial_counts() == before
+                board_fines.get_by_label(re.compile("Board violation fine amount")).fill("25.00")
+                board_fines.get_by_label(re.compile("Board violation fine explanation")).fill(
+                    "Synthetic delegated board approved fine after evidenced service"
+                )
+                page.once("dialog", lambda dialog: dialog.accept())
+                board_fines.get_by_role(
+                    "button", name="Record final board fine decision",
+                ).click()
+                expect(board_fines.get_by_text(
+                    re.compile("No proposed fines require action"),
+                )).to_be_visible()
+                assert _financial_counts() == before
+
+                # Staff accounting view sees the already-recorded board decision and
+                # may proceed to the separate appeal intake workflow.
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                          wait_until="domcontentloaded")
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                cases = page.get_by_role("heading", name="Violation procedure cases").locator("..")
                 cases.get_by_role("button", name="Association fine").click()
                 fine = cases.get_by_role(
                     "heading", name="Association violation fine decision and ledger",
                 ).locator("..").locator("..")
-                page.once("dialog", lambda dialog: dialog.accept())
-                fine.get_by_role("button", name="Record hearing outcome").click()
-                expect(fine.get_by_text(re.compile("Hearing record #.*NO_REQUEST_RECORDED"))).to_be_visible()
-                assert _financial_counts() == before
-                fine.get_by_label("Approved violation fine").fill("25.00")
-                fine.get_by_label("Board decision explanation").fill(
-                    "Synthetic board approved fine after evidenced service"
-                )
-                page.once("dialog", lambda dialog: dialog.accept())
-                fine.get_by_role(
-                    "button", name="Record final association fine decision",
-                ).click()
                 expect(fine.get_by_text(re.compile("Board decision #.*APPROVED"))).to_be_visible()
-                assert _financial_counts() == before
                 fine.get_by_role("button", name="Fine appeals", exact=True).click()
                 appeal = fine.get_by_role(
                     "heading", name="Fine appeal and correction history",

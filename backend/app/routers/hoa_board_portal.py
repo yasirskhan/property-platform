@@ -7,11 +7,12 @@ and no vote, charge, notice or unverified contact-to-login inference.
 from __future__ import annotations
 
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
@@ -23,13 +24,19 @@ from app.models.hoa_association import HOAAssociation, HOAContactLink, HOAProper
 from app.models.hoa_board import HOABoardSeat
 from app.models.hoa_meeting_draft import HOAMeetingDraft
 from app.models.hoa_violation_fine_appeal import HOAFineAppeal
+from app.models.hoa_violation_case import HOAViolationCase
+from app.models.hoa_violation_evidence import HOAViolationEvidence
+from app.models.hoa_violation_service_record import HOAViolationServiceRecord
+from app.models.hoa_violation_hearing_record import HOAViolationHearingRecord
 from app.models.hoa_fine_appeal_notification import HOAFineAppealNotification
 from app.models.property import Property
 from app.models.user import Organization, User
 from app.routers.auth import get_current_user
 from app.routers.hoa_arc_board_decisions import HOA_GATES, _board_scope
 from app.routers.hoa_violation_cases import _case
-from app.routers.hoa_violation_fines import _fine, _private_case_proof
+from app.routers.hoa_violation_fines import (
+    _fine, _private_case_proof, _service, _hearing, _current_member,
+)
 from app.routers.hoa_governing_evidence import _attachment, ATTACHMENT_FEATURE
 from app.services.attachment_storage import attachment_path
 from app.services.customer_features import resolve_customer_features
@@ -126,6 +133,188 @@ def my_board_meetings(
         )
         for row in unique.values()
     ]
+
+
+class HOABoardCaseEvidenceOut(BaseModel):
+    attachment_id: int
+    filename: str
+
+
+class HOABoardViolationFineCaseOut(BaseModel):
+    association_id: int
+    property_id: int
+    case_id: int
+    proposed_fine: Decimal
+    member_user_id: int
+    service_record_id: int
+    policy_revision: int
+    cure_earliest_on: date
+    hearing_request_earliest_on: date
+    hearing_record_id: int | None = None
+    hearing_disposition: Literal["NO_REQUEST_RECORDED", "HEARING_HELD"] | None = None
+    hearing_held_on: date | None = None
+    private_evidence: list[HOABoardCaseEvidenceOut] = Field(default_factory=list)
+
+
+@router.get("/my-violation-fine-cases", response_model=list[HOABoardViolationFineCaseOut])
+def my_board_violation_fine_cases(
+    response: Response, db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Only live FINE_PROPOSED cases for the caller's delegated board seats."""
+    actor = current_user
+    if (actor.organization_id is None or not actor.is_active
+        or actor.deleted_at is not None or not actor.is_verified):
+        raise HTTPException(status_code=403, detail="Verified board login required.")
+    rows = db.query(HOAViolationCase).join(
+        HOABoardSeat, and_(
+            HOABoardSeat.organization_id == HOAViolationCase.organization_id,
+            HOABoardSeat.association_id == HOAViolationCase.association_id,
+            HOABoardSeat.property_id == HOAViolationCase.property_id,
+        ),
+    ).join(
+        HOAContactLink, HOAContactLink.id == HOABoardSeat.contact_link_id,
+    ).join(Contact, Contact.id == HOAContactLink.contact_id).join(
+        HOAAssociation, HOAAssociation.id == HOAViolationCase.association_id,
+    ).join(
+        HOAPropertyMembership, and_(
+            HOAPropertyMembership.organization_id == HOAViolationCase.organization_id,
+            HOAPropertyMembership.association_id == HOAViolationCase.association_id,
+            HOAPropertyMembership.property_id == HOAViolationCase.property_id,
+        ),
+    ).join(Property, Property.id == HOAViolationCase.property_id).filter(
+        HOAViolationCase.organization_id == actor.organization_id,
+        HOAViolationCase.stage == "FINE_PROPOSED",
+        HOAViolationCase.is_active.is_(True),
+        HOABoardSeat.organization_id == actor.organization_id,
+        HOABoardSeat.authorized_user_id == actor.id,
+        HOABoardSeat.is_active.is_(True),
+        HOABoardSeat.decision_authorized.is_(True),
+        HOABoardSeat.staff_voting_eligible.is_(True),
+        HOAContactLink.organization_id == actor.organization_id,
+        HOAContactLink.association_id == HOAViolationCase.association_id,
+        HOAContactLink.property_id == HOAViolationCase.property_id,
+        HOAContactLink.is_active.is_(True),
+        Contact.organization_id == actor.organization_id,
+        Contact.is_active.is_(True), Contact.deleted_at.is_(None),
+        func.lower(func.trim(Contact.email)) == actor.email.strip().lower(),
+        HOAAssociation.organization_id == actor.organization_id,
+        HOAAssociation.is_active.is_(True),
+        Property.organization_id == actor.organization_id,
+        Property.is_active.is_(True), Property.deleted_at.is_(None),
+    ).order_by(HOAViolationCase.id).limit(201).all()
+    if len(rows) > 200:
+        raise HTTPException(status_code=422, detail="Board violation case list exceeds 200.")
+    found = []
+    seen = set()
+    for row in rows:
+        if row.id in seen:
+            continue
+        seen.add(row.id)
+        try:
+            org, assoc, _seat = _board_scope(
+                db, actor=actor, association_id=row.association_id,
+                property_id=row.property_id,
+            )
+            case = _case(
+                db, org_id=org, association_id=assoc.id,
+                property_id=row.property_id, case_id=row.id,
+            )
+            service = _service(
+                db, org=org, association_id=assoc.id,
+                property_id=row.property_id, case_id=case.id,
+            )
+            if (service is None or row.proposed_fine is None or _fine(
+                db, org, assoc.id, row.property_id, case.id,
+            ) is not None):
+                continue
+            member = _current_member(
+                db, org=org, association_id=assoc.id,
+                property_id=row.property_id, service=service,
+            )
+        except HTTPException:
+            continue
+        hearing = _hearing(
+            db, org=org, association_id=assoc.id,
+            property_id=row.property_id, case_id=case.id,
+        )
+        proof_rows = db.query(HOAViolationEvidence, EntityAttachment).join(
+            EntityAttachment, EntityAttachment.id == HOAViolationEvidence.attachment_id,
+        ).filter(
+            HOAViolationEvidence.organization_id == org,
+            HOAViolationEvidence.association_id == assoc.id,
+            HOAViolationEvidence.property_id == row.property_id,
+            HOAViolationEvidence.case_id == case.id,
+            HOAViolationEvidence.is_active.is_(True),
+            EntityAttachment.organization_id == org,
+            EntityAttachment.entity_type == "properties",
+            EntityAttachment.entity_id == row.property_id,
+            EntityAttachment.is_active.is_(True),
+            EntityAttachment.deleted_at.is_(None),
+            EntityAttachment.share_with_owners.is_(False),
+            EntityAttachment.share_with_tenants.is_(False),
+        ).order_by(HOAViolationEvidence.id).limit(51).all()
+        if len(proof_rows) > 50:
+            raise HTTPException(status_code=422, detail="Board case evidence list exceeds 50.")
+        found.append(HOABoardViolationFineCaseOut(
+            association_id=assoc.id, property_id=row.property_id, case_id=case.id,
+            proposed_fine=row.proposed_fine, member_user_id=member.id,
+            service_record_id=service.id, policy_revision=service.policy_revision,
+            cure_earliest_on=service.cure_earliest_on,
+            hearing_request_earliest_on=service.hearing_request_earliest_on,
+            hearing_record_id=hearing.id if hearing else None,
+            hearing_disposition=hearing.disposition if hearing else None,
+            hearing_held_on=hearing.held_on if hearing else None,
+            private_evidence=[
+                HOABoardCaseEvidenceOut(
+                    attachment_id=evidence.attachment_id,
+                    filename=attachment.original_name,
+                )
+                for evidence, attachment in proof_rows
+            ],
+        ))
+        if len(found) > 100:
+            raise HTTPException(status_code=422, detail="Board violation case list exceeds 100.")
+    response.headers["Cache-Control"] = "no-store"
+    return found
+
+
+@router.get("/violation-cases/{case_id}/evidence/{attachment_id}")
+def download_board_violation_evidence(
+    case_id: int, attachment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    actor = current_user
+    if actor.organization_id is None or not actor.is_active or actor.deleted_at is not None:
+        raise HTTPException(status_code=403, detail="Verified board login required.")
+    case = db.query(HOAViolationCase).filter(
+        HOAViolationCase.id == case_id,
+        HOAViolationCase.organization_id == actor.organization_id,
+        HOAViolationCase.stage == "FINE_PROPOSED",
+        HOAViolationCase.is_active.is_(True),
+    ).first()
+    if case is None:
+        raise HTTPException(status_code=404, detail="Board violation case not found.")
+    org, assoc, _seat = _board_scope(
+        db, actor=actor, association_id=case.association_id,
+        property_id=case.property_id,
+    )
+    proof = _private_case_proof(
+        db, org=org, association_id=assoc.id, property_id=case.property_id,
+        case_id=case.id, attachment_id=attachment_id,
+    )
+    try:
+        path = attachment_path(proof.storage_key)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Private case evidence unavailable.") from exc
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Private case evidence unavailable.")
+    return FileResponse(
+        path, media_type=proof.content_type or "application/octet-stream",
+        filename=proof.original_name,
+        headers={"Cache-Control": "private, no-store"},
+    )
 
 
 class HOABoardFineAppealOut(BaseModel):

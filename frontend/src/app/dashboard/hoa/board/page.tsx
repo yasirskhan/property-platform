@@ -6,6 +6,7 @@ import HoaBoardRuleAdoptionPanel from "@/components/property/HoaBoardRuleAdoptio
 import HoaBoardMotionOutcomePanel from "@/components/property/HoaBoardMotionOutcomePanel";
 import HoaBoardFineAppealsPanel from "@/components/property/HoaBoardFineAppealsPanel";
 import HoaBoardGoverningDocumentsPanel from "@/components/property/HoaBoardGoverningDocumentsPanel";
+import HoaBoardViolationFineCasesPanel from "@/components/property/HoaBoardViolationFineCasesPanel";
 
 type Meeting = {
   association_id: number; property_id: number; meeting_id: number;
@@ -141,6 +142,7 @@ export default function HOABoardPortal() {
       Approving minutes records your individual decision. This is not certification of
       quorum, a full-board vote, statutory delivery, or any financial transaction.
     </p>
+    <HoaBoardViolationFineCasesPanel />
     <HoaBoardFineAppealsPanel />
     <HoaBoardGoverningDocumentsPanel />
     {loading && <p>Loading authorized meetings…</p>}
