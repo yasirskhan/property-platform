@@ -3212,6 +3212,9 @@ def test_delegated_board_portal_lists_and_records_violation_hearing_then_fine(mo
             db, monkeypatch, record_hearing=False,
         )
         admin, owner, manager, tenant, foreign = users
+        for actor in users:
+            actor.is_verified = True
+        db.commit()
         prop = props[0]
         path = tmp_path / "board-private-case-proof.pdf"
         path.write_bytes(b"private board case proof")
