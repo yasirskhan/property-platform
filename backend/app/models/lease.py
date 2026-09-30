@@ -71,6 +71,20 @@ class Lease(Base):
 
     unit_id = Column(Integer, ForeignKey("units.id"), nullable=False, index=True)
     tenant_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    # Phase 4.10: nullable references distinguish by-the-bed student leases
+    # from ordinary whole-unit leases while preserving the central lease lifecycle.
+    student_bed_id = Column(
+        Integer,
+        ForeignKey("student_beds.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    student_academic_cycle_id = Column(
+        Integer,
+        ForeignKey("student_academic_cycles.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
 
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
