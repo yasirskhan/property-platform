@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
 import CommercialOperatingChargesPanel from "@/components/property/CommercialOperatingChargesPanel";
 import CommercialCAMReconciliationPanel from "@/components/property/CommercialCAMReconciliationPanel";
+import CommercialPercentageRentPanel from "@/components/property/CommercialPercentageRentPanel";
+import CommercialTIAllowancePanel from "@/components/property/CommercialTIAllowancePanel";
 
 type Escalation = { id?: number; starts_on: string; monthly_base_rent: string };
 type OptionRow = {
@@ -149,6 +151,8 @@ export default function CommercialLeaseTermsPanel({
         <>
           <CommercialOperatingChargesPanel propertyId={propertyId} abstractId={abstractId} canEdit={canEdit} />
           <CommercialCAMReconciliationPanel propertyId={propertyId} abstractId={abstractId} canEdit={canEdit} />
+          <CommercialPercentageRentPanel propertyId={propertyId} abstractId={abstractId} canEdit={canEdit} />
+          <CommercialTIAllowancePanel propertyId={propertyId} abstractId={abstractId} canEdit={canEdit} />
         </>
       )}
       {canEdit && sourceAttachmentId && (

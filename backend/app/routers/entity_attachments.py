@@ -198,6 +198,23 @@ def update_entity_attachment_sharing(
         payload.share_with_tenants is True or payload.share_with_owners is True
     ):
         raise HTTPException(status_code=403, detail="Commercial CAM reconciliation evidence must remain private.")
+    from app.models.commercial_percentage_rent import CommercialPercentageRentCharge
+    pct_linked = db.query(CommercialPercentageRentCharge.id).filter(
+        CommercialPercentageRentCharge.evidence_attachment_id == row.id,
+    ).first()
+    if pct_linked is not None and (
+        payload.share_with_tenants is True or payload.share_with_owners is True
+    ):
+        raise HTTPException(status_code=403, detail="Commercial percentage-rent evidence must remain private.")
+    from app.models.commercial_ti_allowance import CommercialTIAllowanceUse
+    ti_linked = db.query(CommercialTIAllowanceUse.id).filter(
+        CommercialTIAllowanceUse.evidence_attachment_id == row.id,
+        CommercialTIAllowanceUse.status == "ACTIVE",
+    ).first()
+    if ti_linked is not None and (
+        payload.share_with_tenants is True or payload.share_with_owners is True
+    ):
+        raise HTTPException(status_code=403, detail="Commercial TI evidence must remain private.")
     if _role(current_user) not in {"ADMIN", "OWNER", "MANAGER"}:
         raise HTTPException(status_code=403, detail="Manager access required.")
     if payload.share_with_tenants is None and payload.share_with_owners is None:
@@ -256,6 +273,17 @@ def delete_entity_attachment(
         CommercialCAMReconciliation.evidence_attachment_id == row.id,
     ).first() is not None:
         raise HTTPException(status_code=409, detail="Commercial CAM reconciliation evidence cannot be removed.")
+    from app.models.commercial_percentage_rent import CommercialPercentageRentCharge
+    if db.query(CommercialPercentageRentCharge.id).filter(
+        CommercialPercentageRentCharge.evidence_attachment_id == row.id,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Commercial percentage-rent evidence cannot be removed.")
+    from app.models.commercial_ti_allowance import CommercialTIAllowanceUse
+    if db.query(CommercialTIAllowanceUse.id).filter(
+        CommercialTIAllowanceUse.evidence_attachment_id == row.id,
+        CommercialTIAllowanceUse.status == "ACTIVE",
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Active Commercial TI evidence cannot be removed.")
     from app.models.hoa_violation_service_record import HOAViolationServiceRecord
     if db.query(HOAViolationServiceRecord.id).filter(
         HOAViolationServiceRecord.service_proof_attachment_id == row.id,

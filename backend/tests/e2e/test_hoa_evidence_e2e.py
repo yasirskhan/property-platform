@@ -28,6 +28,8 @@ from app.models.contact import Contact
 from app.models.entity_attachment import EntityAttachment
 from app.models.commercial_operating_charge import CommercialOperatingCharge
 from app.models.commercial_cam_reconciliation import CommercialCAMReconciliation
+from app.models.commercial_percentage_rent import CommercialPercentageRentCharge
+from app.models.commercial_ti_allowance import CommercialTIAllowanceUse
 from app.models.lease import Lease, LeaseStatus, RentInvoice
 from app.models.property import Property, PropertyType, Unit
 from app.services.attachment_storage import attachment_path
@@ -1879,12 +1881,32 @@ def test_commercial_private_lease_source_reference_browser_no_finance() -> None:
                 share_with_tenants=False, share_with_owners=False,
                 uploaded_by_id=actor.id, is_active=True,
             )
-            db.add_all([receivable, recovery_income, cam_evidence])
+            sales_evidence = EntityAttachment(
+                organization_id=actor.organization_id,
+                entity_type="leases", entity_id=lease.id,
+                storage_key=f"e2e/commercial/{lease.id}/sales-2026.pdf",
+                original_name="e2e-commercial-sales-2026.pdf",
+                content_type="application/pdf", size_bytes=654,
+                share_with_tenants=False, share_with_owners=False,
+                uploaded_by_id=actor.id, is_active=True,
+            )
+            ti_evidence = EntityAttachment(
+                organization_id=actor.organization_id,
+                entity_type="leases", entity_id=lease.id,
+                storage_key=f"e2e/commercial/{lease.id}/ti-invoice.pdf",
+                original_name="e2e-commercial-ti-invoice.pdf",
+                content_type="application/pdf", size_bytes=777,
+                share_with_tenants=False, share_with_owners=False,
+                uploaded_by_id=actor.id, is_active=True,
+            )
+            db.add_all([receivable, recovery_income, cam_evidence, sales_evidence, ti_evidence])
             db.commit()
             property_id = prop.id
             lease_id = lease.id
             source_name = source.original_name
             cam_evidence_name = cam_evidence.original_name
+            sales_evidence_name = sales_evidence.original_name
+            ti_evidence_name = ti_evidence.original_name
             receivable_id = receivable.id
             recovery_income_id = recovery_income.id
         finally:
@@ -2028,7 +2050,66 @@ def test_commercial_private_lease_source_reference_browser_no_finance() -> None:
                 recon.get_by_role("button", name="Reverse CAM reconciliation").click()
                 expect(recon.get_by_text(re.compile(r"2026 · REVERSED"))).to_be_visible()
                 assert _commercial_financial_counts() == (before[0] + 2, before[1], before[2] + 4)
+
+                percentage = terms.get_by_role("heading", name="Percentage rent").locator("..")
+                expect(percentage).to_be_visible()
+                percentage.get_by_label("Percentage rent reporting year").fill("2026")
+                percentage.get_by_label("Tenant gross sales").fill("600000.00")
+                percentage.get_by_label("Private tenant-sales evidence").select_option(
+                    label=f"{sales_evidence_name} · leases"
+                )
+                percentage.get_by_label("Percentage-rent request key").fill("e2e-percentage-rent-2026")
+                percentage.get_by_label("Percentage-rent posting date").fill("2026-09-30")
+                percentage.get_by_label("Percentage-rent due date").fill("2026-10-15")
+                percentage.get_by_label("Percentage-rent receivable GL").select_option(str(receivable_id))
+                percentage.get_by_label("Percentage-rent income GL").select_option(str(recovery_income_id))
+                percentage.get_by_role("button", name="Record percentage rent").click()
+                expect(percentage.get_by_text(re.compile(r"2026 · POSTED"))).to_be_visible()
+                expect(percentage.get_by_text(re.compile(r"Percentage rent due 5000\.00"))).to_be_visible()
+                assert _commercial_financial_counts() == (before[0] + 3, before[1], before[2] + 5)
+
+                db = SessionLocal()
+                try:
+                    pct_row = db.query(CommercialPercentageRentCharge).filter(
+                        CommercialPercentageRentCharge.property_id == property_id,
+                    ).order_by(CommercialPercentageRentCharge.id.desc()).first()
+                    assert pct_row is not None
+                    pct_id = pct_row.id
+                finally:
+                    db.close()
+                percentage.get_by_label(f"Percentage rent reversal date {pct_id}").fill("2026-10-01")
+                percentage.get_by_label(f"Percentage rent reversal reason {pct_id}").fill("Synthetic E2E correction")
+                percentage.get_by_role("button", name="Reverse percentage rent").click()
+                expect(percentage.get_by_text(re.compile(r"2026 · REVERSED"))).to_be_visible()
+                assert _commercial_financial_counts() == (before[0] + 3, before[1], before[2] + 6)
+
+                ti = terms.get_by_role("heading", name="TI allowance tracking").locator("..")
+                expect(ti).to_be_visible()
+                expect(ti.get_by_text(re.compile(r"Allowance 25000\.00.*Remaining 25000\.00"))).to_be_visible()
+                ti.get_by_label("TI incurred date").fill("2026-06-01")
+                ti.get_by_label("TI utilization amount").fill("10000.00")
+                ti.get_by_label("Private TI evidence").select_option(label=f"{ti_evidence_name} · leases")
+                ti.get_by_label("TI request key").fill("e2e-ti-use-2026-001")
+                ti.get_by_label("TI utilization note").fill("Synthetic tenant improvement invoice.")
+                ti.get_by_role("button", name="Record TI utilization").click()
+                expect(ti.get_by_text(re.compile(r"Active utilization 10000\.00.*Remaining 15000\.00"))).to_be_visible()
+                assert _commercial_financial_counts() == (before[0] + 3, before[1], before[2] + 6)
+
+                db = SessionLocal()
+                try:
+                    ti_row = db.query(CommercialTIAllowanceUse).filter(
+                        CommercialTIAllowanceUse.property_id == property_id,
+                    ).order_by(CommercialTIAllowanceUse.id.desc()).first()
+                    assert ti_row is not None
+                    ti_id = ti_row.id
+                finally:
+                    db.close()
+                ti.get_by_label(f"TI void date {ti_id}").fill("2026-06-02")
+                ti.get_by_label(f"TI void reason {ti_id}").fill("Synthetic E2E correction")
+                ti.get_by_role("button", name="Void TI utilization").click()
+                expect(ti.get_by_text(re.compile(r"Active utilization 0\.00.*Remaining 25000\.00"))).to_be_visible()
+                assert _commercial_financial_counts() == (before[0] + 3, before[1], before[2] + 6)
             finally:
                 browser.close()
-        assert _commercial_financial_counts() == (before[0] + 2, before[1], before[2] + 4)
+        assert _commercial_financial_counts() == (before[0] + 3, before[1], before[2] + 6)
 

@@ -138,6 +138,8 @@ from app.routers import hoa_issuance_readiness as hoa_issuance_readiness_router
 from app.routers import commercial_lease_abstracts as commercial_lease_abstracts_router
 from app.routers import commercial_operating_charges as commercial_operating_charges_router
 from app.routers import commercial_cam_reconciliations as commercial_cam_reconciliations_router
+from app.routers import commercial_percentage_rent as commercial_percentage_rent_router
+from app.routers import commercial_ti_allowance as commercial_ti_allowance_router
 from app.routers import affordable_interest as affordable_interest_router
 from app.routers import affordable_evidence as affordable_evidence_router
 from app.routers import affordable_buildings as affordable_buildings_router
@@ -303,6 +305,8 @@ app.include_router(hoa_issuance_readiness_router.router)
 app.include_router(commercial_lease_abstracts_router.router)
 app.include_router(commercial_operating_charges_router.router)
 app.include_router(commercial_cam_reconciliations_router.router)
+app.include_router(commercial_percentage_rent_router.router)
+app.include_router(commercial_ti_allowance_router.router)
 app.include_router(affordable_interest_router.router)
 app.include_router(affordable_evidence_router.router)
 app.include_router(affordable_buildings_router.router)
