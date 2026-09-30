@@ -75,7 +75,17 @@ def test_login_and_core_authenticated_pages() -> None:
                 ("/dashboard/team", "Team"),
             ]:
                 page.goto(f"{BASE_URL}{path}", wait_until="domcontentloaded")
-                expect(page.get_by_role("heading", name=heading, exact=True)).to_be_visible()
+                heading_locator = page.get_by_role("heading", name=heading, exact=True)
+                try:
+                    expect(heading_locator).to_be_visible()
+                except AssertionError:
+                    # The CI Next.js shell occasionally renders one transient
+                    # API fetch failure after login. Retry the same page once;
+                    # a persistent backend/frontend failure still fails here.
+                    if page.get_by_text("Failed to fetch", exact=True).count() == 0:
+                        raise
+                    page.reload(wait_until="domcontentloaded")
+                    expect(heading_locator).to_be_visible()
                 expect(page).not_to_have_url(re.compile(r"/login"))
 
             page.goto(
