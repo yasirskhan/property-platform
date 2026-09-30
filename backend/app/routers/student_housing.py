@@ -191,7 +191,7 @@ def create_academic_cycle(
         entity_type="property",
         entity_id=prop.id,
         action="student_academic_cycle_created",
-        details={"cycle_id": row.id},
+        new_value={"cycle_id": row.id},
     )
     return _cycle_out(row)
 
@@ -228,7 +228,7 @@ def deactivate_academic_cycle(
         entity_type="property",
         entity_id=prop.id,
         action="student_academic_cycle_deactivated",
-        details={"cycle_id": row.id},
+        new_value={"cycle_id": row.id},
     )
 
 
@@ -294,7 +294,7 @@ def create_student_bed(
         entity_type="property",
         entity_id=prop.id,
         action="student_bed_created",
-        details={"bed_id": row.id, "unit_id": row.unit_id},
+        new_value={"bed_id": row.id, "unit_id": row.unit_id},
     )
     return _bed_out(row)
 
@@ -331,5 +331,5 @@ def deactivate_student_bed(
         entity_type="property",
         entity_id=prop.id,
         action="student_bed_deactivated",
-        details={"bed_id": row.id, "unit_id": row.unit_id},
+        new_value={"bed_id": row.id, "unit_id": row.unit_id},
     )
