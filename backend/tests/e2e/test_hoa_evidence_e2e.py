@@ -1828,7 +1828,7 @@ def test_commercial_private_lease_source_reference_browser_no_finance() -> None:
                 organization_id=actor.organization_id,
                 role=UserRole.TENANT,
                 first_name="Commercial", last_name="Tenant",
-                email="e2e-commercial-source-tenant@example.test",
+                email="e2e-commercial-source-tenant@example.com",
                 hashed_password="x", is_active=True,
             )
             db.add_all([prop, tenant])
