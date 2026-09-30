@@ -89,6 +89,11 @@ class PropertyUtility(Base):
     meter_readings = relationship(
         "UtilityMeterReading", back_populates="utility", cascade="all, delete-orphan"
     )
+    allocation_rule_revisions = relationship(
+        "UtilityAllocationRuleRevision",
+        back_populates="utility",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self):
         return f"<PropertyUtility {self.company_name} ({self.utility_type.value})>"
@@ -159,6 +164,41 @@ class UtilityMeterReading(Base):
         return (
             f"<UtilityMeterReading utility={self.utility_id} "
             f"meter={self.meter_identifier} date={self.reading_date}>"
+        )
+
+
+# ------------------------------------------------------------
+# RUBs ALLOCATION RULE REVISION (Phase 4.9 non-posting preview)
+# ------------------------------------------------------------
+class UtilityAllocationRuleRevision(Base):
+    __tablename__ = "utility_allocation_rule_revisions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    utility_id = Column(Integer, ForeignKey("property_utilities.id"), nullable=False, index=True)
+    revision_number = Column(Integer, nullable=False)
+    effective_date = Column(Date, nullable=False, index=True)
+    basis = Column(String(32), nullable=False)
+    unit_inputs_json = Column(Text, nullable=False)
+    request_key = Column(String(96), nullable=False)
+    status = Column(String(16), nullable=False, default="DRAFT")
+    is_authorized = Column(Boolean, nullable=False, default=False)
+    authorization_request_key = Column(String(96), nullable=True)
+    authorized_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    authorized_at = Column(DateTime, nullable=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    utility = relationship("PropertyUtility", back_populates="allocation_rule_revisions")
+
+    __table_args__ = (
+        UniqueConstraint("utility_id", "revision_number", name="uq_utility_allocation_rule_revision"),
+        UniqueConstraint("utility_id", "request_key", name="uq_utility_allocation_rule_request"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<UtilityAllocationRuleRevision utility={self.utility_id} "
+            f"revision={self.revision_number} basis={self.basis}>"
         )
 
 

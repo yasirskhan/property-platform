@@ -138,6 +138,43 @@ class MeterReadingImportResult(BaseModel):
 
 
 # ------------------------------------------------------------
+# RUBs ALLOCATION RULES / PREVIEW
+# ------------------------------------------------------------
+class AllocationUnitInput(BaseModel):
+    unit_id: int = Field(..., gt=0)
+    weight: Optional[Decimal] = Field(default=None, gt=0)
+
+
+class AllocationRuleCreate(BaseModel):
+    basis: str = Field(..., pattern="^(SQUARE_FEET|OCCUPANCY|FIXTURES|MANUAL_WEIGHT)$")
+    effective_date: date
+    units: List[AllocationUnitInput] = Field(..., min_length=1, max_length=500)
+    request_key: str = Field(..., min_length=8, max_length=96)
+
+
+class AllocationRuleAuthorize(BaseModel):
+    request_key: str = Field(..., min_length=8, max_length=96)
+
+
+class AllocationRuleOut(BaseModel):
+    id: int
+    utility_id: int
+    revision_number: int
+    effective_date: date
+    basis: str
+    unit_inputs: List[AllocationUnitInput]
+    status: str
+    is_authorized: bool
+    authorized_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class AllocationPreviewRequest(BaseModel):
+    rule_revision_id: int = Field(..., gt=0)
+    bill_id: int = Field(..., gt=0)
+
+
+# ------------------------------------------------------------
 # TRASH SCHEDULE
 # ------------------------------------------------------------
 class TrashScheduleBase(BaseModel):

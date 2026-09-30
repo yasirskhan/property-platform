@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
+import RubsAllocationPanel from "@/components/property/RubsAllocationPanel";
 
 type Utility = {
   utility_id: number;
@@ -362,6 +363,11 @@ export default function RubsReadinessTab({ propertyId }: { propertyId: number })
                   {readingError}
                 </p>
               )}
+
+              <RubsAllocationPanel
+                propertyId={propertyId}
+                utilityId={selectedUtilityId ?? data.items[0].utility_id}
+              />
 
               <div className="overflow-x-auto rounded-lg border">
                 <table className="w-full text-left text-sm">
