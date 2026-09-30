@@ -331,6 +331,56 @@ class StudentBed(Base):
     )
 
 
+class StudentGuarantor(Base):
+    """Staff-tracked guarantor workflow for a student bed lease.
+
+    This record tracks outreach/document status only. It does not establish
+    legal guaranty validity, signature, collectability, or financial liability.
+    """
+
+    __tablename__ = "student_guarantors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    property_id = Column(
+        Integer,
+        ForeignKey("properties.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    lease_id = Column(
+        Integer,
+        ForeignKey("leases.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    full_name = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=False)
+    phone = Column(String(50), nullable=True)
+    relationship_to_tenant = Column(String(100), nullable=True)
+    status = Column(String(32), nullable=False, default="DRAFT", server_default="DRAFT")
+    requested_at = Column(DateTime, nullable=True)
+    received_at = Column(DateTime, nullable=True)
+    cancelled_at = Column(DateTime, nullable=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
+
+    __table_args__ = (
+        UniqueConstraint("lease_id", "email", name="uq_student_guarantor_lease_email"),
+    )
+
+
 # ------------------------------------------------------------
 # PROPERTY ASSIGNMENT (staff — manager/crew)
 # ------------------------------------------------------------
