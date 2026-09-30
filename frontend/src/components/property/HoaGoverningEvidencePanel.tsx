@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
 import EntityAttachments from "@/components/EntityAttachments";
 import HoaDocumentDeliveryPanel from "@/components/property/HoaDocumentDeliveryPanel";
@@ -14,6 +14,15 @@ type Evidence = {
   evidence_type: string;
   filename: string;
   recorded_at: string;
+  revision: number;
+  supersedes_id: number | null;
+  status: "STAFF_SUPPLIED_UNVERIFIED";
+};
+
+type EvidenceVersion = {
+  id: number; association_id: number; property_id: number;
+  evidence_type: string; revision: number; supersedes_id: number | null;
+  is_active: boolean; filename: string; recorded_at: string;
   status: "STAFF_SUPPLIED_UNVERIFIED";
 };
 
@@ -46,6 +55,10 @@ export default function HoaGoverningEvidencePanel({ associationId, propertyId, c
   const [message, setMessage] = useState("");
   const [showUpload, setShowUpload] = useState(false);
   const [deliveryRef, setDeliveryRef] = useState<number | null>(null);
+  const [replaceRef, setReplaceRef] = useState<number | null>(null);
+  const [replaceAttachment, setReplaceAttachment] = useState("");
+  const replaceRequest = useRef<Record<number, string>>({});
+  const [versions, setVersions] = useState<EvidenceVersion[] | null>(null);
   const base = "/api/hoa/associations/" + associationId + "/governing-evidence";
   const query = "?property_id=" + propertyId;
 
@@ -91,6 +104,42 @@ export default function HoaGoverningEvidencePanel({ associationId, propertyId, c
     } finally { setBusy(false); }
   }
 
+
+  async function loadVersions() {
+    const rows = await apiGet(base + "/versions" + query) as EvidenceVersion[];
+    setVersions(rows);
+  }
+
+  async function replaceVersion(event: React.FormEvent) {
+    event.preventDefault();
+    if (!canEdit || busy || replaceRef === null || !replaceAttachment) return;
+    const current = evidence.find(row => row.id === replaceRef);
+    if (!current || Number(replaceAttachment) === current.attachment_id) return;
+    if (!window.confirm(
+      "Record this private file as the next staff-supplied version? The previous reference " +
+      "will be archived, but its original file and any historical deliveries are retained."
+    )) return;
+    if (!replaceRequest.current[replaceRef]) {
+      replaceRequest.current[replaceRef] = crypto.randomUUID();
+    }
+    setBusy(true); setError(""); setMessage("");
+    try {
+      await apiPost(base + "/" + replaceRef + "/replace", {
+        property_id: propertyId,
+        attachment_id: Number(replaceAttachment),
+        request_key: replaceRequest.current[replaceRef],
+      });
+      delete replaceRequest.current[replaceRef];
+      setReplaceRef(null); setReplaceAttachment("");
+      await reload();
+      if (versions !== null) await loadVersions();
+      setMessage("New private document version recorded; earlier source and delivery history retained.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Document replacement unavailable.");
+      await reload().catch(() => {});
+    } finally { setBusy(false); }
+  }
+
   async function archive(row: Evidence) {
     if (!canEdit || busy || !window.confirm("Archive this staff evidence reference? The original property file is retained.")) return;
     setBusy(true); setError(""); setMessage("");
@@ -127,7 +176,7 @@ export default function HoaGoverningEvidencePanel({ associationId, propertyId, c
             <p className="font-medium break-all">{row.filename}</p>
             <p className="text-xs text-slate-600">
               {CATEGORIES.find((item) => item.key === row.evidence_type)?.label || row.evidence_type}
-              {" · "}STAFF-SUPPLIED / UNVERIFIED
+              {" · "}Version {row.revision} · STAFF-SUPPLIED / UNVERIFIED
             </p>
           </div>
           <div className="flex gap-3 text-sm">
@@ -140,10 +189,60 @@ export default function HoaGoverningEvidencePanel({ associationId, propertyId, c
               onClick={() => setDeliveryRef((old) => old === row.id ? null : row.id)}
               className="text-blue-700 disabled:opacity-50">Email copy</button>}
             {canEdit && <button type="button" disabled={busy}
+              onClick={() => { setReplaceRef(old => old === row.id ? null : row.id); setReplaceAttachment(""); }}
+              className="text-blue-700 disabled:opacity-50">Replace version</button>}
+            {canEdit && <button type="button" disabled={busy}
               onClick={() => { void archive(row); }} className="text-red-700 disabled:opacity-50">Archive link</button>}
           </div>
         </div>
       ))}
+      {canEdit && replaceRef !== null && evidence.some(row => row.id === replaceRef) && (
+        <form onSubmit={(event) => { void replaceVersion(event); }}
+          className="space-y-2 rounded border border-blue-200 bg-blue-50 p-3 text-sm">
+          <h4 className="font-medium">Replace staff document version</h4>
+          <p className="text-xs">
+            Select a DIFFERENT private PDF or Word document already uploaded to this property.
+            The old reference is archived, not deleted. No notice, board adoption,
+            financial posting or legal validity is implied.
+          </p>
+          <label className="block">Replacement private document
+            <select aria-label="Replacement private document" value={replaceAttachment}
+              onChange={(event) => { setReplaceAttachment(event.target.value);
+                if (replaceRef !== null) delete replaceRequest.current[replaceRef]; }}
+              className="mt-1 block w-full rounded border p-2">
+              <option value="">Select replacement file</option>
+              {attachments.filter(item =>
+                item.id !== evidence.find(row => row.id === replaceRef)?.attachment_id
+              ).map(item => <option key={item.id} value={item.id}>
+                {item.original_name} (#{item.id})
+              </option>)}
+            </select>
+          </label>
+          <button type="submit" disabled={busy || !replaceAttachment}
+            className="rounded bg-blue-900 px-3 py-2 text-white disabled:opacity-50">
+            Record next version
+          </button>
+          <button type="button" onClick={() => setReplaceRef(null)}
+            className="ml-3 text-blue-700">Cancel replacement</button>
+        </form>
+      )}
+      <div className="space-y-2 border-t pt-3 text-xs">
+        <button type="button" disabled={busy} className="text-blue-700"
+          onClick={() => { if (versions !== null) setVersions(null);
+            else void loadVersions().catch(cause =>
+              setError(cause instanceof Error ? cause.message : "Version history unavailable.")); }}>
+          {versions === null ? "Show document version history" : "Hide document version history"}
+        </button>
+        {versions !== null && versions.length === 0 && <p>No version history recorded.</p>}
+        {versions?.map(row => <div key={row.id}
+          className="rounded border bg-white p-2">
+          <span className="break-all">{row.filename}</span>
+          {" · "}{row.evidence_type.replaceAll("_", " ")} version {row.revision}
+          {" · "}{row.is_active ? "Current reference" : "Archived reference"}
+          {row.supersedes_id !== null && " · Supersedes #" + row.supersedes_id}
+          {" · "}Staff-supplied / unverified
+        </div>)}
+      </div>
       {canEdit && deliveryRef !== null && evidence.some((row) => row.id === deliveryRef) && (
         <HoaDocumentDeliveryPanel associationId={associationId} propertyId={propertyId}
           evidenceId={deliveryRef} onClose={() => setDeliveryRef(null)} />

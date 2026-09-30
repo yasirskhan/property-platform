@@ -217,13 +217,57 @@ def test_hoa_staff_evidence_upload_link_download_and_archive() -> None:
                 page.get_by_role("button", name="Governing evidence").click()
                 expect(page.get_by_role("heading", name="Governing document evidence")).to_be_visible()
 
+                # Upload a different private source, supersede the original,
+                # and inspect immutable staff-only version metadata.
+                second_name = "e2e-unverified-version-2.pdf"
+                page.get_by_role("button", name="Upload private file").click()
+                page.locator("#entity-attachment-file").set_input_files({
+                    "name": second_name,
+                    "mimeType": "application/pdf",
+                    "buffer": b"%PDF-1.4\\n% E2E replacement fixture, NOT adopted rules\\n%%EOF\\n",
+                })
+                page.get_by_role("button", name="Upload", exact=True).click()
+                expect(page.get_by_role("button", name=second_name, exact=True)).to_be_visible()
+                page.get_by_role("button", name="Refresh files").click()
+                page.get_by_role("button", name="Replace version").click()
+                page.get_by_label("Replacement private document").select_option(index=1)
+                page.once("dialog", lambda dialog: dialog.accept())
+                page.get_by_role("button", name="Record next version").click()
+                expect(page.get_by_text(
+                    re.compile("New private document version recorded"),
+                )).to_be_visible()
+                page.get_by_role("button", name="Show document version history").click()
+                expect(page.get_by_text(
+                    re.compile("Archived reference"),
+                )).to_be_visible()
+                expect(page.get_by_text(
+                    re.compile("Current reference"),
+                )).to_be_visible()
+                assert _financial_counts() == before
+
+                page.goto(f"{BASE_URL}/dashboard/hoa/board", wait_until="domcontentloaded")
+                board_docs = page.get_by_role(
+                    "heading", name="My HOA board documents",
+                ).locator("..")
+                expect(board_docs.get_by_text(second_name, exact=True)).to_be_visible()
+                expect(board_docs.get_by_text(DOCUMENT_NAME, exact=True)).to_have_count(0)
+                with page.expect_download() as current_version:
+                    board_docs.get_by_role("button", name="Download private board document").click()
+                assert current_version.value.suggested_filename == second_name
+                assert current_version.value.path().stat().st_size > 0
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                          wait_until="domcontentloaded")
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                page.get_by_role("button", name="Governing evidence").click()
+                expect(page.get_by_role("heading", name="Governing document evidence")).to_be_visible()
+
                 page.once("dialog", lambda dialog: dialog.accept())
                 page.get_by_role("button", name="Archive link").click()
                 expect(page.get_by_text(re.compile("Reference archived; no legal action"))).to_be_visible()
                 expect(page.get_by_text("No governing documents have been indexed for this property.")).to_be_visible()
                 page.goto(f"{BASE_URL}/dashboard/hoa/board", wait_until="domcontentloaded")
                 expect(page.get_by_role("heading", name="My HOA board documents")).to_be_visible()
-                expect(page.get_by_text(DOCUMENT_NAME, exact=True)).to_have_count(0)
+                expect(page.get_by_text(second_name, exact=True)).to_have_count(0)
                 assert _financial_counts() == before
             finally:
                 browser.close()

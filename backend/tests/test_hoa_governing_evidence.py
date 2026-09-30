@@ -23,6 +23,7 @@ from app.routers import hoa_governing_evidence as api
 from app.routers import entity_attachments as attachments
 from app.schemas.hoa_association import HOAAssociationIn
 from app.schemas.hoa_governing_evidence import HOAEvidenceLinkIn
+from app.schemas.hoa_governing_evidence import HOAEvidenceReplaceIn
 from app.schemas.entity_attachment import EntityAttachmentShareUpdate
 from app.services.entity_notes import _model_for_table
 
@@ -479,5 +480,131 @@ def test_governing_document_console_transport_never_claims_attachment_delivery(m
         )
         assert sent.status == "SMTP_ACCEPTED"
         assert sent.attempt_count == 2 and len(attempted) == 2
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
+
+def test_staff_versioned_private_governing_documents_are_audited_and_idempotent(monkeypatch):
+    """One source is superseded; board view sees only active version, no new money."""
+    db, engine = _db()
+    try:
+        (admin, owner, manager, crew, tenant, foreign), (prop, other, outside), assoc, docs = _seed(db)
+        original = api.link_evidence(
+            assoc.id, _payload(prop, docs[0], evidence_type="BYLAWS"),
+            db=db, current_user=admin,
+        )
+        assert original.revision == 1 and original.supersedes_id is None
+        successor_file = EntityAttachment(
+            organization_id=admin.organization_id,
+            entity_type="properties", entity_id=prop.id,
+            storage_key="staff-bylaws-version-2.pdf",
+            original_name="bylaws-version-2.pdf",
+            content_type="application/pdf", size_bytes=8,
+            share_with_owners=False, share_with_tenants=False, is_active=True,
+        )
+        alternative_file = EntityAttachment(
+            organization_id=admin.organization_id,
+            entity_type="properties", entity_id=prop.id,
+            storage_key="staff-bylaws-version-3.pdf",
+            original_name="bylaws-version-3.pdf",
+            content_type="application/pdf", size_bytes=8,
+            share_with_owners=False, share_with_tenants=False, is_active=True,
+        )
+        db.add_all([successor_file, alternative_file]); db.commit()
+        request = HOAEvidenceReplaceIn(
+            property_id=prop.id, attachment_id=successor_file.id,
+            request_key="synthetic-bylaws-version-request-1",
+        )
+        for actor in (manager, crew, tenant, foreign):
+            with pytest.raises(HTTPException):
+                api.replace_evidence(
+                    assoc.id, original.id, request, db=db, current_user=actor,
+                )
+        with pytest.raises(HTTPException):
+            api.replace_evidence(
+                assoc.id, original.id, HOAEvidenceReplaceIn(
+                    property_id=other.id, attachment_id=successor_file.id,
+                    request_key="synthetic-wrong-property-key",
+                ), db=db, current_user=admin,
+            )
+        assert db.query(HOAGoverningEvidence).count() == 1
+        successor_file.share_with_owners = True
+        db.flush()
+        with pytest.raises(HTTPException) as shared:
+            api.replace_evidence(
+                assoc.id, original.id, request, db=db, current_user=owner,
+            )
+        assert shared.value.status_code == 404
+        successor_file.share_with_owners = False
+        db.flush()
+        replaced = api.replace_evidence(
+            assoc.id, original.id, request, db=db, current_user=owner,
+        )
+        assert replaced.revision == 2 and replaced.supersedes_id == original.id
+        assert replaced.attachment_id == successor_file.id
+        assert db.get(HOAGoverningEvidence, original.id).is_active is False
+        listing = api.list_evidence(
+            assoc.id, Response(), prop.id, db=db, current_user=manager,
+        )
+        assert [row.id for row in listing] == [replaced.id]
+        history_response = Response()
+        history = api.evidence_version_history(
+            assoc.id, history_response, prop.id, db=db, current_user=owner,
+        )
+        assert history_response.headers["cache-control"] == "no-store"
+        assert [row.revision for row in history] == [1, 2]
+        assert [row.is_active for row in history] == [False, True]
+        assert history[1].supersedes_id == original.id
+        assert all(row.status == "STAFF_SUPPLIED_UNVERIFIED" for row in history)
+        audit_count = db.query(AuditLog).count()
+        assert api.replace_evidence(
+            assoc.id, original.id, request, db=db, current_user=owner,
+        ).id == replaced.id
+        assert db.query(AuditLog).count() == audit_count
+        assert db.query(HOAGoverningEvidence).count() == 2
+        with pytest.raises(HTTPException) as collision:
+            api.replace_evidence(
+                assoc.id, original.id, HOAEvidenceReplaceIn(
+                    property_id=prop.id, attachment_id=alternative_file.id,
+                    request_key=request.request_key,
+                ), db=db, current_user=owner,
+            )
+        assert collision.value.status_code == 409
+        with pytest.raises(HTTPException) as archived:
+            api.replace_evidence(
+                assoc.id, original.id, HOAEvidenceReplaceIn(
+                    property_id=prop.id, attachment_id=alternative_file.id,
+                    request_key="synthetic-archived-document-request",
+                ), db=db, current_user=owner,
+            )
+        assert archived.value.status_code == 404
+        third = api.replace_evidence(
+            assoc.id, replaced.id, HOAEvidenceReplaceIn(
+                property_id=prop.id, attachment_id=alternative_file.id,
+                request_key="synthetic-bylaws-version-request-3",
+            ), db=db, current_user=admin,
+        )
+        assert third.revision == 3 and third.supersedes_id == replaced.id
+        assert [row.revision for row in api.evidence_version_history(
+            assoc.id, Response(), prop.id, db=db, current_user=admin,
+        )] == [1, 2, 3]
+        assert [row.id for row in api.list_evidence(
+            assoc.id, Response(), prop.id, db=db, current_user=admin,
+        )] == [third.id]
+        docs[0].is_active = False
+        db.flush()
+        old = api.evidence_version_history(
+            assoc.id, Response(), prop.id, db=db, current_user=admin,
+        )
+        assert old[0].filename == "Private source no longer available"
+        assert old[1].filename == "bylaws-version-2.pdf"
+        assert old[2].filename == "bylaws-version-3.pdf"
+        monkeypatch.setattr(api, "resolve_customer_features", lambda *a, **kw: [])
+        with pytest.raises(HTTPException) as gated:
+            api.evidence_version_history(
+                assoc.id, Response(), prop.id, db=db, current_user=owner,
+            )
+        assert gated.value.status_code == 404
+        assert db.query(Charge).count() == db.query(GLTransaction).count() == 0
     finally:
         db.rollback(); db.close(); engine.dispose()
