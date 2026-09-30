@@ -1,3 +1,14 @@
+# AI_HANDOFF.md — 2026-09-30 VERIFIED COMMERCIAL SOURCE-LINKED TERMS
+
+**AUTHORITATIVE CURRENT CHECKPOINT. Phase 4.8 ONLY.** Earlier NEXT labels below are historical. Do not start Phase 4.9+.
+
+- Last VERIFIED PRODUCT source: `15ab3fcadd7d2a31b700c3c49ebd81913c232d2d`. GitHub Actions **36726538552 SUCCESS, all SIX jobs on this exact SHA**. Backend **829 passed, 16 deselected, 22495 warnings in 299.45s**; authenticated E2E **16 passed, 249 warnings in 89.95s**; frontend, platform-admin, security and staging-config PASS. **TESTS NOT RUN locally**.
+- Verified Phase 4.8 Commercial terms: source-linked, immutable revision history for staff-abstracted base rent, escalations, lease options, co-tenancy summary, CAM/tax/insurance estimates and share, percentage-rent rate/breakpoint and TI allowance. Each revision is `STAFF_ABSTRACTED_UNVERIFIED`, requires a current private exact-lease source, and a separate explicit internal billing authorization. A later revision resets authorization. No charge, invoice or GL posting occurs from abstraction/authorization alone.
+- Alembic head **`a2c4e6f8b0d1`**, **181 model tables**.
+- **NEXT Phase 4.8 batch:** operational CAM/NNN periodic charge posting and reversal using ONLY the current active billing-authorized terms revision, exact commercial lease/property/tenant scope, explicit posting date, approved receivable + income GL inputs, central `post_transaction()`, closed-period protection, idempotency and immutable reversal history. CAM-only and NNN (CAM + tax + insurance) must be distinguishable. Do not infer amounts from old revisions or bypass current source/authorization. Then complete annual CAM reconciliation, percentage rent and TI allowance tracking. STOP after final Phase 4.8 verified checkpoint; do not begin Phase 4.9.
+
+---
+
 # AI_HANDOFF.md — 2026-09-30 VERIFIED COMMERCIAL PRIVATE LEASE SOURCE EVIDENCE
 
 **AUTHORITATIVE CURRENT CHECKPOINT.** Phase 4.8 only. Earlier NEXT labels below are historical. Do not touch main, create a branch, force-push, merge or start Phase 4.9+.
