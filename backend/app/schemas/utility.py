@@ -174,6 +174,48 @@ class AllocationPreviewRequest(BaseModel):
     bill_id: int = Field(..., gt=0)
 
 
+class AllocationSnapshotSave(BaseModel):
+    rule_revision_id: int = Field(..., gt=0)
+    bill_id: int = Field(..., gt=0)
+    request_key: str = Field(..., min_length=8, max_length=96)
+
+
+class AllocationSnapshotItem(BaseModel):
+    unit_id: int
+    weight: Decimal
+    share: Decimal
+    amount: Decimal
+
+
+class AllocationSnapshotOut(BaseModel):
+    id: int
+    utility_id: int
+    bill_id: int
+    rule_revision_id: int
+    billing_period_start: date
+    billing_period_end: date
+    bill_amount: Decimal
+    basis: str
+    unit_inputs: List[AllocationUnitInput]
+    items: List[AllocationSnapshotItem]
+    allocated_total: Decimal
+    remainder_rule: str
+    reviewed_at: datetime
+
+
+class TrueUpUnitWeight(BaseModel):
+    unit_id: int = Field(..., gt=0)
+    weight: Decimal = Field(..., gt=0)
+
+
+class TrueUpPreviewRequest(BaseModel):
+    period_start: date
+    period_end: date
+    snapshot_ids: List[int] = Field(..., min_length=1, max_length=500)
+    actual_total: Decimal = Field(..., ge=0)
+    unit_weights: List[TrueUpUnitWeight] = Field(..., min_length=1, max_length=500)
+
+
 # ------------------------------------------------------------
 # TRASH SCHEDULE
 # ------------------------------------------------------------

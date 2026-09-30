@@ -25,6 +25,7 @@ from app.models.utility import (
     UtilityBill,
     UtilityMeterReading,
     UtilityAllocationRuleRevision,
+    UtilityAllocationSnapshot,
 )
 from app.models.user import User, UserRole
 from app.routers.auth import get_current_user
@@ -38,6 +39,9 @@ from app.schemas.utility import (
     AllocationRuleCreate,
     AllocationRuleOut,
     AllocationPreviewRequest,
+    AllocationSnapshotSave,
+    AllocationSnapshotOut,
+    TrueUpPreviewRequest,
 )
 from app.services.menu_resolver import permission_allows_user
 from app.services.customer_features import resolve_customer_features
@@ -1022,5 +1026,343 @@ def preview_allocation(
         "meaning": (
             "Finance-neutral preview only. Explicit unit selection and weights do not "
             "establish legal eligibility or a tenant/owner payment obligation."
+        ),
+    }
+
+
+
+# ------------------------------------------------------------
+# Phase 4.9 reviewed allocation history and year-end true-up preview
+# ------------------------------------------------------------
+MAX_ALLOCATION_SNAPSHOTS = 500
+RUBS_REMAINDER_RULE = (
+    "Round each raw unit share down to cents, then distribute remaining "
+    "cents by ascending unit ID."
+)
+
+
+def _allocation_snapshot_out(row: UtilityAllocationSnapshot) -> dict[str, object]:
+    return {
+        "id": row.id,
+        "utility_id": row.utility_id,
+        "bill_id": row.bill_id,
+        "rule_revision_id": row.rule_revision_id,
+        "billing_period_start": row.billing_period_start,
+        "billing_period_end": row.billing_period_end,
+        "bill_amount": row.bill_amount,
+        "basis": row.basis,
+        "unit_inputs": json.loads(row.unit_inputs_json),
+        "items": json.loads(row.allocation_items_json),
+        "allocated_total": row.allocated_total,
+        "remainder_rule": row.remainder_rule,
+        "reviewed_at": row.reviewed_at,
+    }
+
+
+def _canonical_preview_items(items: list[dict[str, object]]) -> str:
+    return json.dumps(
+        [
+            {
+                "unit_id": int(item["unit_id"]),
+                "weight": str(item["weight"]),
+                "share": str(item["share"]),
+                "amount": str(item["amount"]),
+            }
+            for item in sorted(items, key=lambda value: int(value["unit_id"]))
+        ],
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def _distribute_explicit_total(
+    amount: Decimal, weights: dict[int, Decimal]
+) -> list[dict[str, object]]:
+    if amount < 0:
+        raise HTTPException(status_code=422, detail="True-up actual total cannot be negative.")
+    if not weights or any(weight <= 0 for weight in weights.values()):
+        raise HTTPException(
+            status_code=422,
+            detail="True-up requires one explicit positive weight for every included unit.",
+        )
+    total_weight = sum(weights.values(), Decimal("0"))
+    details: list[dict[str, object]] = []
+    allocated = Decimal("0")
+    for unit_id in sorted(weights):
+        weight = weights[unit_id]
+        exact = amount * weight / total_weight
+        rounded = exact.quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+        allocated += rounded
+        details.append(
+            {
+                "unit_id": unit_id,
+                "weight": weight,
+                "share": weight / total_weight,
+                "amount": rounded,
+            }
+        )
+    remainder_cents = int(((amount - allocated) * 100).to_integral_value())
+    for index in range(remainder_cents):
+        details[index % len(details)]["amount"] += Decimal("0.01")
+    return details
+
+
+@router.get(
+    "/{property_id}/rubs/utilities/{utility_id}/allocation-snapshots",
+    response_model=list[AllocationSnapshotOut],
+)
+def list_allocation_snapshots(
+    property_id: int,
+    utility_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prop = _rubs_property(db, current_user, property_id)
+    _shared_utility(db, property_id=prop.id, utility_id=utility_id)
+    rows = (
+        db.query(UtilityAllocationSnapshot)
+        .filter(UtilityAllocationSnapshot.utility_id == utility_id)
+        .order_by(
+            UtilityAllocationSnapshot.billing_period_start.desc(),
+            UtilityAllocationSnapshot.id.desc(),
+        )
+        .limit(MAX_ALLOCATION_SNAPSHOTS + 1)
+        .all()
+    )
+    if len(rows) > MAX_ALLOCATION_SNAPSHOTS:
+        raise HTTPException(status_code=422, detail="Too many reviewed RUBs snapshots.")
+    response.headers["Cache-Control"] = "no-store"
+    return [_allocation_snapshot_out(row) for row in rows]
+
+
+@router.post(
+    "/{property_id}/rubs/utilities/{utility_id}/allocation-snapshots",
+    response_model=AllocationSnapshotOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def save_allocation_snapshot(
+    property_id: int,
+    utility_id: int,
+    payload: AllocationSnapshotSave,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prop = _rubs_property(db, current_user, property_id)
+    _shared_utility(db, property_id=prop.id, utility_id=utility_id)
+
+    preview = preview_allocation(
+        property_id,
+        utility_id,
+        AllocationPreviewRequest(
+            rule_revision_id=payload.rule_revision_id,
+            bill_id=payload.bill_id,
+        ),
+        Response(),
+        db=db,
+        current_user=current_user,
+    )
+    rule = (
+        db.query(UtilityAllocationRuleRevision)
+        .filter(
+            UtilityAllocationRuleRevision.id == payload.rule_revision_id,
+            UtilityAllocationRuleRevision.utility_id == utility_id,
+        )
+        .one()
+    )
+    items_json = _canonical_preview_items(preview["items"])
+    unit_inputs_json = json.dumps(
+        json.loads(rule.unit_inputs_json),
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    existing = (
+        db.query(UtilityAllocationSnapshot)
+        .filter(
+            UtilityAllocationSnapshot.utility_id == utility_id,
+            UtilityAllocationSnapshot.request_key == payload.request_key,
+        )
+        .first()
+    )
+    if existing is not None:
+        same = (
+            existing.bill_id == payload.bill_id
+            and existing.rule_revision_id == payload.rule_revision_id
+            and existing.billing_period_start == preview["billing_period_start"]
+            and existing.billing_period_end == preview["billing_period_end"]
+            and Decimal(existing.bill_amount) == Decimal(preview["bill_amount"])
+            and existing.basis == preview["basis"]
+            and existing.unit_inputs_json == unit_inputs_json
+            and existing.allocation_items_json == items_json
+            and Decimal(existing.allocated_total) == Decimal(preview["allocated_total"])
+            and existing.remainder_rule == preview["remainder_rule"]
+        )
+        if not same:
+            raise HTTPException(
+                status_code=409,
+                detail="Allocation-snapshot request key was already used for different data.",
+            )
+        return _allocation_snapshot_out(existing)
+
+    row = UtilityAllocationSnapshot(
+        utility_id=utility_id,
+        bill_id=payload.bill_id,
+        rule_revision_id=payload.rule_revision_id,
+        billing_period_start=preview["billing_period_start"],
+        billing_period_end=preview["billing_period_end"],
+        bill_amount=preview["bill_amount"],
+        basis=preview["basis"],
+        unit_inputs_json=unit_inputs_json,
+        allocation_items_json=items_json,
+        allocated_total=preview["allocated_total"],
+        remainder_rule=preview["remainder_rule"],
+        request_key=payload.request_key,
+        reviewed_by_id=current_user.id,
+        reviewed_at=datetime.utcnow(),
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Allocation snapshot changed concurrently; retry with the same request key.",
+        )
+    db.refresh(row)
+    log_action(
+        db,
+        current_user,
+        entity_type="property",
+        entity_id=prop.id,
+        action="rubs_allocation_snapshot_reviewed",
+        new_value={
+            "utility_id": utility_id,
+            "snapshot_id": row.id,
+            "bill_id": row.bill_id,
+            "rule_revision_id": row.rule_revision_id,
+        },
+    )
+    return _allocation_snapshot_out(row)
+
+
+@router.post("/{property_id}/rubs/utilities/{utility_id}/true-up-preview")
+def preview_year_end_true_up(
+    property_id: int,
+    utility_id: int,
+    payload: TrueUpPreviewRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prop = _rubs_property(db, current_user, property_id)
+    _shared_utility(db, property_id=prop.id, utility_id=utility_id)
+    if payload.period_start > payload.period_end:
+        raise HTTPException(status_code=422, detail="True-up period start must be on or before end.")
+    if len(payload.snapshot_ids) != len(set(payload.snapshot_ids)):
+        raise HTTPException(status_code=422, detail="Reviewed snapshot IDs must be unique.")
+
+    rows = (
+        db.query(UtilityAllocationSnapshot)
+        .filter(
+            UtilityAllocationSnapshot.utility_id == utility_id,
+            UtilityAllocationSnapshot.id.in_(payload.snapshot_ids),
+        )
+        .all()
+    )
+    by_id = {row.id: row for row in rows}
+    if set(by_id) != set(payload.snapshot_ids):
+        raise HTTPException(
+            status_code=422,
+            detail="Every selected reviewed snapshot must belong to this shared utility.",
+        )
+    ordered_rows = sorted(rows, key=lambda row: (row.billing_period_start, row.id))
+    for row in ordered_rows:
+        if (
+            row.billing_period_start < payload.period_start
+            or row.billing_period_end > payload.period_end
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="Every reviewed snapshot must fall within the explicit true-up period.",
+            )
+    for previous, current in zip(ordered_rows, ordered_rows[1:]):
+        if current.billing_period_start <= previous.billing_period_end:
+            raise HTTPException(
+                status_code=422,
+                detail="Selected reviewed allocation snapshots must not overlap.",
+            )
+
+    prior_by_unit: dict[int, Decimal] = {}
+    for row in ordered_rows:
+        for item in json.loads(row.allocation_items_json):
+            unit_id = int(item["unit_id"])
+            prior_by_unit[unit_id] = prior_by_unit.get(unit_id, Decimal("0")) + Decimal(
+                str(item["amount"])
+            )
+    if not prior_by_unit:
+        raise HTTPException(status_code=422, detail="Reviewed snapshots contain no allocation items.")
+
+    weights = {item.unit_id: Decimal(item.weight) for item in payload.unit_weights}
+    if len(weights) != len(payload.unit_weights):
+        raise HTTPException(status_code=422, detail="True-up unit weights must be unique.")
+    if set(weights) != set(prior_by_unit):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "True-up weights must explicitly cover exactly the unit IDs present "
+                "in the selected reviewed snapshots."
+            ),
+        )
+    property_unit_ids = {
+        row[0]
+        for row in db.query(Unit.id)
+        .filter(Unit.id.in_(weights), Unit.property_id == prop.id)
+        .all()
+    }
+    if property_unit_ids != set(weights):
+        raise HTTPException(
+            status_code=422,
+            detail="One or more true-up unit IDs do not belong to this property.",
+        )
+
+    actual_total = Decimal(payload.actual_total).quantize(Decimal("0.01"))
+    targets = _distribute_explicit_total(actual_total, weights)
+    items = []
+    for target in targets:
+        unit_id = int(target["unit_id"])
+        prior_amount = prior_by_unit.get(unit_id, Decimal("0")).quantize(Decimal("0.01"))
+        target_amount = Decimal(target["amount"]).quantize(Decimal("0.01"))
+        items.append(
+            {
+                "unit_id": unit_id,
+                "weight": target["weight"],
+                "share": target["share"],
+                "prior_allocated_amount": prior_amount,
+                "true_up_target_amount": target_amount,
+                "difference": target_amount - prior_amount,
+            }
+        )
+
+    prior_total = sum(prior_by_unit.values(), Decimal("0")).quantize(Decimal("0.01"))
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "property_id": prop.id,
+        "utility_id": utility_id,
+        "period_start": payload.period_start,
+        "period_end": payload.period_end,
+        "snapshot_ids": [row.id for row in ordered_rows],
+        "prior_allocated_total": prior_total,
+        "actual_total": actual_total,
+        "adjustment_total": actual_total - prior_total,
+        "items": items,
+        "remainder_rule": RUBS_REMAINDER_RULE,
+        "posting_created": False,
+        "tenant_charge_created": False,
+        "owner_charge_created": False,
+        "gl_created": False,
+        "meaning": (
+            "Finance-neutral true-up preview only. Reviewed historical allocations and "
+            "explicit staff-entered weights do not establish legal chargeability."
         ),
     }

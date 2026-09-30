@@ -21,10 +21,34 @@ type Rule = {
   is_authorized: boolean;
 };
 type Preview = {
+  bill_id: number;
+  billing_period_start: string;
+  billing_period_end: string;
   bill_amount: string;
   allocated_total: string;
   basis: string;
   items: { unit_id: number; weight: string; share: string; amount: string }[];
+  remainder_rule: string;
+  meaning: string;
+};
+type Snapshot = {
+  id: number;
+  bill_id: number;
+  rule_revision_id: number;
+  billing_period_start: string;
+  billing_period_end: string;
+  allocated_total: string;
+};
+type TrueUpPreview = {
+  prior_allocated_total: string;
+  actual_total: string;
+  adjustment_total: string;
+  items: {
+    unit_id: number;
+    prior_allocated_amount: string;
+    true_up_target_amount: string;
+    difference: string;
+  }[];
   remainder_rule: string;
   meaning: string;
 };
@@ -54,22 +78,33 @@ export default function RubsAllocationPanel({
   const [billId, setBillId] = useState("");
   const [ruleId, setRuleId] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [selectedSnapshots, setSelectedSnapshots] = useState<Record<number, boolean>>({});
+  const [trueUpStart, setTrueUpStart] = useState("");
+  const [trueUpEnd, setTrueUpEnd] = useState("");
+  const [actualTotal, setActualTotal] = useState("");
+  const [trueUpWeights, setTrueUpWeights] = useState<Record<number, string>>({});
+  const [trueUp, setTrueUp] = useState<TrueUpPreview | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function load() {
-    const [context, revisions] = await Promise.all([
+    const [context, revisions, reviewedSnapshots] = await Promise.all([
       apiGet(
         `/api/properties/${propertyId}/rubs/utilities/${utilityId}/allocation-context`
       ) as Promise<{ units: ContextUnit[]; bills: ContextBill[] }>,
       apiGet(
         `/api/properties/${propertyId}/rubs/utilities/${utilityId}/allocation-rules`
       ) as Promise<Rule[]>,
+      apiGet(
+        `/api/properties/${propertyId}/rubs/utilities/${utilityId}/allocation-snapshots`
+      ) as Promise<Snapshot[]>,
     ]);
     setUnits(context.units);
     setBills(context.bills);
     setRules(revisions);
+    setSnapshots(reviewedSnapshots);
     setRuleId(
       (current) =>
         current || String(revisions.find((row) => row.is_authorized)?.id ?? "")
@@ -88,6 +123,13 @@ export default function RubsAllocationPanel({
     setWeights({});
     setRuleId("");
     setBillId("");
+    setSnapshots([]);
+    setSelectedSnapshots({});
+    setTrueUpStart("");
+    setTrueUpEnd("");
+    setActualTotal("");
+    setTrueUpWeights({});
+    setTrueUp(null);
     void load().catch((cause) =>
       setError(
         cause instanceof Error
@@ -152,6 +194,66 @@ export default function RubsAllocationPanel({
         cause instanceof Error
           ? cause.message
           : "Unable to authorize allocation rule."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveReviewedSnapshot() {
+    if (!preview || !ruleId || !billId) return;
+    setSaving(true);
+    setMessage("");
+    setError("");
+    try {
+      const saved = (await apiPost(
+        `/api/properties/${propertyId}/rubs/utilities/${utilityId}/allocation-snapshots`,
+        {
+          rule_revision_id: Number(ruleId),
+          bill_id: Number(billId),
+          request_key: requestKey("rubs-snapshot"),
+        }
+      )) as Snapshot;
+      setMessage(`Reviewed allocation snapshot #${saved.id} saved without posting finance.`);
+      setSelectedSnapshots((current) => ({ ...current, [saved.id]: true }));
+      setTrueUpStart((current) => current || saved.billing_period_start);
+      setTrueUpEnd((current) => current || saved.billing_period_end);
+      await load();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Unable to save reviewed allocation snapshot."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function runTrueUpPreview() {
+    const snapshotIds = snapshots
+      .filter((snapshot) => selectedSnapshots[snapshot.id])
+      .map((snapshot) => snapshot.id);
+    setSaving(true);
+    setTrueUp(null);
+    setMessage("");
+    setError("");
+    try {
+      const result = (await apiPost(
+        `/api/properties/${propertyId}/rubs/utilities/${utilityId}/true-up-preview`,
+        {
+          period_start: trueUpStart,
+          period_end: trueUpEnd,
+          snapshot_ids: snapshotIds,
+          actual_total: actualTotal,
+          unit_weights: units.map((unit) => ({
+            unit_id: unit.id,
+            weight: trueUpWeights[unit.id],
+          })),
+        }
+      )) as TrueUpPreview;
+      setTrueUp(result);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Unable to preview year-end true-up."
       );
     } finally {
       setSaving(false);
@@ -403,8 +505,147 @@ export default function RubsAllocationPanel({
             {preview.remainder_rule}
           </p>
           <p className="text-xs text-slate-500">{preview.meaning}</p>
+          <button
+            type="button"
+            disabled={saving}
+            className="rounded border px-4 py-2 text-sm font-medium disabled:opacity-50"
+            onClick={() => void saveReviewedSnapshot()}
+          >
+            Save reviewed allocation snapshot
+          </button>
         </div>
       )}
+
+      <div className="space-y-3 rounded border p-3">
+        <div>
+          <h4 className="text-sm font-medium">Year-end true-up preview</h4>
+          <p className="text-xs text-slate-500">
+            Select reviewed allocation history, enter the explicit actual total and
+            explicit per-unit true-up weights. This preview does not post charges or GL.
+          </p>
+        </div>
+        {snapshots.length === 0 ? (
+          <p className="text-xs text-slate-500">No reviewed allocation snapshots saved.</p>
+        ) : (
+          snapshots.map((snapshot) => (
+            <label key={snapshot.id} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                aria-label={`Reviewed snapshot ${snapshot.id}`}
+                checked={Boolean(selectedSnapshots[snapshot.id])}
+                onChange={(event) =>
+                  setSelectedSnapshots((current) => ({
+                    ...current,
+                    [snapshot.id]: event.target.checked,
+                  }))
+                }
+              />
+              Snapshot #{snapshot.id}: {snapshot.billing_period_start} to{" "}
+              {snapshot.billing_period_end} · USD {snapshot.allocated_total}
+            </label>
+          ))
+        )}
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className="text-sm">
+            True-up period start
+            <input
+              aria-label="True-up period start"
+              type="date"
+              className="mt-1 w-full rounded border px-3 py-2"
+              value={trueUpStart}
+              onChange={(event) => setTrueUpStart(event.target.value)}
+            />
+          </label>
+          <label className="text-sm">
+            True-up period end
+            <input
+              aria-label="True-up period end"
+              type="date"
+              className="mt-1 w-full rounded border px-3 py-2"
+              value={trueUpEnd}
+              onChange={(event) => setTrueUpEnd(event.target.value)}
+            />
+          </label>
+          <label className="text-sm">
+            Year-end actual total
+            <input
+              aria-label="Year-end actual total"
+              type="number"
+              min="0"
+              step="0.01"
+              className="mt-1 w-full rounded border px-3 py-2"
+              value={actualTotal}
+              onChange={(event) => setActualTotal(event.target.value)}
+            />
+          </label>
+        </div>
+        <div className="space-y-2">
+          {units.map((unit) => (
+            <label key={unit.id} className="block text-xs">
+              True-up weight for unit {unit.unit_number}
+              <input
+                aria-label={`True-up weight for unit ${unit.unit_number}`}
+                type="number"
+                min="0.000001"
+                step="any"
+                className="ml-2 w-28 rounded border px-2 py-1"
+                value={trueUpWeights[unit.id] ?? ""}
+                onChange={(event) =>
+                  setTrueUpWeights((current) => ({
+                    ...current,
+                    [unit.id]: event.target.value,
+                  }))
+                }
+              />
+            </label>
+          ))}
+        </div>
+        <button
+          type="button"
+          disabled={
+            saving ||
+            !trueUpStart ||
+            !trueUpEnd ||
+            actualTotal === "" ||
+            !snapshots.some((snapshot) => selectedSnapshots[snapshot.id]) ||
+            units.some((unit) => !trueUpWeights[unit.id])
+          }
+          className="rounded border px-4 py-2 text-sm font-medium disabled:opacity-50"
+          onClick={() => void runTrueUpPreview()}
+        >
+          Preview year-end true-up
+        </button>
+        {trueUp && (
+          <div className="space-y-2 rounded border p-3">
+            <p className="text-sm font-medium">
+              Finance-neutral true-up: USD {trueUp.prior_allocated_total} prior to USD{" "}
+              {trueUp.actual_total} actual · difference USD {trueUp.adjustment_total}
+            </p>
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="p-2">Unit ID</th>
+                  <th className="p-2">Prior</th>
+                  <th className="p-2">Target</th>
+                  <th className="p-2">Difference</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trueUp.items.map((item) => (
+                  <tr key={item.unit_id} className="border-b">
+                    <td className="p-2">{item.unit_id}</td>
+                    <td className="p-2">USD {item.prior_allocated_amount}</td>
+                    <td className="p-2">USD {item.true_up_target_amount}</td>
+                    <td className="p-2">USD {item.difference}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-xs text-slate-500">{trueUp.remainder_rule}</p>
+            <p className="text-xs text-slate-500">{trueUp.meaning}</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

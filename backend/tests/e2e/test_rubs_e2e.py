@@ -1,4 +1,4 @@
-"""Authenticated RUBs allocation rule and finance-neutral preview browser coverage."""
+"""Authenticated RUBs allocation history and finance-neutral true-up browser coverage."""
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -208,6 +208,31 @@ def test_rubs_allocation_rule_authorize_and_preview_is_non_posting():
                 expect(
                     page.get_by_text(
                         re.compile("Round each raw unit share down")
+                    )
+                ).to_be_visible()
+
+                page.get_by_role(
+                    "button",
+                    name="Save reviewed allocation snapshot",
+                ).click()
+                expect(
+                    page.get_by_text(
+                        re.compile("Reviewed allocation snapshot #")
+                    )
+                ).to_be_visible()
+
+                page.get_by_label("True-up period start").fill("2026-09-01")
+                page.get_by_label("True-up period end").fill("2026-09-30")
+                page.get_by_label("Year-end actual total").fill("110.01")
+                page.get_by_label("True-up weight for unit RUBS-E2E-A").fill("600")
+                page.get_by_label("True-up weight for unit RUBS-E2E-B").fill("400")
+                page.get_by_role(
+                    "button",
+                    name="Preview year-end true-up",
+                ).click()
+                expect(
+                    page.get_by_text(
+                        re.compile("Finance-neutral true-up: USD 100.01 prior to USD 110.01")
                     )
                 ).to_be_visible()
             finally:

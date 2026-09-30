@@ -94,6 +94,11 @@ class PropertyUtility(Base):
         back_populates="utility",
         cascade="all, delete-orphan",
     )
+    allocation_snapshots = relationship(
+        "UtilityAllocationSnapshot",
+        back_populates="utility",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self):
         return f"<PropertyUtility {self.company_name} ({self.utility_type.value})>"
@@ -199,6 +204,51 @@ class UtilityAllocationRuleRevision(Base):
         return (
             f"<UtilityAllocationRuleRevision utility={self.utility_id} "
             f"revision={self.revision_number} basis={self.basis}>"
+        )
+
+
+# ------------------------------------------------------------
+# RUBs REVIEWED ALLOCATION SNAPSHOT (Phase 4.9 historical source)
+# ------------------------------------------------------------
+class UtilityAllocationSnapshot(Base):
+    __tablename__ = "utility_allocation_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    utility_id = Column(Integer, ForeignKey("property_utilities.id"), nullable=False, index=True)
+    bill_id = Column(Integer, ForeignKey("utility_bills.id"), nullable=False, index=True)
+    rule_revision_id = Column(
+        Integer,
+        ForeignKey("utility_allocation_rule_revisions.id"),
+        nullable=False,
+        index=True,
+    )
+    billing_period_start = Column(Date, nullable=False, index=True)
+    billing_period_end = Column(Date, nullable=False, index=True)
+    bill_amount = Column(Numeric(12, 2), nullable=False)
+    basis = Column(String(32), nullable=False)
+    unit_inputs_json = Column(Text, nullable=False)
+    allocation_items_json = Column(Text, nullable=False)
+    allocated_total = Column(Numeric(12, 2), nullable=False)
+    remainder_rule = Column(Text, nullable=False)
+    request_key = Column(String(96), nullable=False)
+    reviewed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    reviewed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    utility = relationship("PropertyUtility", back_populates="allocation_snapshots")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "utility_id",
+            "request_key",
+            name="uq_utility_allocation_snapshot_request",
+        ),
+    )
+
+    def __repr__(self):
+        return (
+            f"<UtilityAllocationSnapshot utility={self.utility_id} "
+            f"bill={self.bill_id} rule={self.rule_revision_id}>"
         )
 
 

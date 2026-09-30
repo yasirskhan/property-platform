@@ -20,6 +20,7 @@ from app.models.utility import (
     PaidBy,
     PropertyUtility,
     UtilityAllocationRuleRevision,
+    UtilityAllocationSnapshot,
     UtilityBill,
     UtilityType,
 )
@@ -29,6 +30,9 @@ from app.schemas.utility import (
     AllocationRuleAuthorize,
     AllocationRuleCreate,
     AllocationUnitInput,
+    AllocationSnapshotSave,
+    TrueUpPreviewRequest,
+    TrueUpUnitWeight,
 )
 
 
@@ -219,6 +223,83 @@ def test_square_feet_rule_requires_authorization_and_preview_is_finance_neutral(
         assert preview["posting_created"] is False
         assert db.query(Charge).count() == 0
         assert db.query(GLTransaction).count() == 0
+
+        snapshot = api.save_allocation_snapshot(
+            prop.id,
+            utility.id,
+            AllocationSnapshotSave(
+                rule_revision_id=draft["id"],
+                bill_id=bill.id,
+                request_key="allocation-snapshot-001",
+            ),
+            db=db,
+            current_user=manager,
+        )
+        replay = api.save_allocation_snapshot(
+            prop.id,
+            utility.id,
+            AllocationSnapshotSave(
+                rule_revision_id=draft["id"],
+                bill_id=bill.id,
+                request_key="allocation-snapshot-001",
+            ),
+            db=db,
+            current_user=manager,
+        )
+        assert replay["id"] == snapshot["id"]
+        assert db.query(UtilityAllocationSnapshot).count() == 1
+
+        true_up = api.preview_year_end_true_up(
+            prop.id,
+            utility.id,
+            TrueUpPreviewRequest(
+                period_start=date(2026, 9, 1),
+                period_end=date(2026, 9, 30),
+                snapshot_ids=[snapshot["id"]],
+                actual_total=Decimal("110.01"),
+                unit_weights=[
+                    TrueUpUnitWeight(unit_id=unit_a.id, weight=Decimal("600")),
+                    TrueUpUnitWeight(unit_id=unit_b.id, weight=Decimal("400")),
+                ],
+            ),
+            Response(),
+            db=db,
+            current_user=admin,
+        )
+        assert true_up["prior_allocated_total"] == Decimal("100.01")
+        assert true_up["actual_total"] == Decimal("110.01")
+        assert true_up["adjustment_total"] == Decimal("10.00")
+        assert [
+            (item["unit_id"], item["difference"]) for item in true_up["items"]
+        ] == [
+            (unit_a.id, Decimal("6.00")),
+            (unit_b.id, Decimal("4.00")),
+        ]
+        assert true_up["posting_created"] is False
+        assert db.query(Charge).count() == 0
+        assert db.query(GLTransaction).count() == 0
+
+        second_bill = UtilityBill(
+            utility_id=utility.id,
+            billing_period_start=date(2026, 10, 1),
+            billing_period_end=date(2026, 10, 31),
+            amount=Decimal("80.00"),
+        )
+        db.add(second_bill)
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.save_allocation_snapshot(
+                prop.id,
+                utility.id,
+                AllocationSnapshotSave(
+                    rule_revision_id=draft["id"],
+                    bill_id=second_bill.id,
+                    request_key="allocation-snapshot-001",
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
 
         second = api.create_allocation_rule(
             prop.id,
