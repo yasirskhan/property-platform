@@ -37,8 +37,12 @@ type Snapshot = {
   rule_revision_id: number;
   billing_period_start: string;
   billing_period_end: string;
+  bill_amount: string;
+  basis: string;
   allocated_total: string;
   items: { unit_id: number; weight: string; share: string; amount: string }[];
+  remainder_rule: string;
+  reviewed_at: string;
 };
 type TrueUpPreview = {
   prior_allocated_total: string;
@@ -80,6 +84,7 @@ export default function RubsAllocationPanel({
   const [ruleId, setRuleId] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [reportSnapshotId, setReportSnapshotId] = useState("");
   const [selectedSnapshots, setSelectedSnapshots] = useState<Record<number, boolean>>({});
   const [trueUpStart, setTrueUpStart] = useState("");
   const [trueUpEnd, setTrueUpEnd] = useState("");
@@ -106,6 +111,11 @@ export default function RubsAllocationPanel({
     setBills(context.bills);
     setRules(revisions);
     setSnapshots(reviewedSnapshots);
+    setReportSnapshotId((current) =>
+      current && reviewedSnapshots.some((row) => String(row.id) === current)
+        ? current
+        : String(reviewedSnapshots[0]?.id ?? "")
+    );
     setRuleId(
       (current) =>
         current || String(revisions.find((row) => row.is_authorized)?.id ?? "")
@@ -125,6 +135,7 @@ export default function RubsAllocationPanel({
     setRuleId("");
     setBillId("");
     setSnapshots([]);
+    setReportSnapshotId("");
     setSelectedSnapshots({});
     setTrueUpStart("");
     setTrueUpEnd("");
@@ -216,6 +227,7 @@ export default function RubsAllocationPanel({
         }
       )) as Snapshot;
       setMessage(`Reviewed allocation snapshot #${saved.id} saved without posting finance.`);
+      setReportSnapshotId(String(saved.id));
       setSelectedSnapshots((current) => ({ ...current, [saved.id]: true }));
       setTrueUpStart((current) => current || saved.billing_period_start);
       setTrueUpEnd((current) => current || saved.billing_period_end);
@@ -287,6 +299,9 @@ export default function RubsAllocationPanel({
       setSaving(false);
     }
   }
+
+  const reportSnapshot =
+    snapshots.find((snapshot) => String(snapshot.id) === reportSnapshotId) ?? null;
 
   return (
     <div className="space-y-4 rounded-lg border p-4">
@@ -522,6 +537,83 @@ export default function RubsAllocationPanel({
           </button>
         </div>
       )}
+
+      <div className="space-y-3 rounded border p-3">
+        <div>
+          <h4 className="text-sm font-medium">RUBs allocation detail report</h4>
+          <p className="text-xs text-slate-500">
+            Reviewed allocation detail per utility bill period. This report reads
+            preserved review history only and does not create charges, invoices, or GL entries.
+          </p>
+        </div>
+        {snapshots.length === 0 ? (
+          <p className="text-xs text-slate-500">
+            No reviewed allocation history is available for reporting.
+          </p>
+        ) : (
+          <>
+            <label className="block text-sm">
+              Report bill period
+              <select
+                aria-label="RUBs report bill period"
+                className="mt-1 w-full rounded border px-3 py-2"
+                value={reportSnapshotId}
+                onChange={(event) => setReportSnapshotId(event.target.value)}
+              >
+                {snapshots.map((snapshot) => (
+                  <option key={snapshot.id} value={snapshot.id}>
+                    {snapshot.billing_period_start} to {snapshot.billing_period_end} · Bill #{snapshot.bill_id}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {reportSnapshot && (
+              <div className="space-y-2" aria-label="RUBs allocation detail report result">
+                <p className="text-sm font-medium">
+                  Bill period {reportSnapshot.billing_period_start} to{" "}
+                  {reportSnapshot.billing_period_end} · Bill #{reportSnapshot.bill_id}
+                </p>
+                <p className="text-xs text-slate-600">
+                  Rule revision #{reportSnapshot.rule_revision_id} · {reportSnapshot.basis} ·
+                  Bill total USD {reportSnapshot.bill_amount} · Reviewed allocated total USD{" "}
+                  {reportSnapshot.allocated_total}
+                </p>
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="p-2">Unit</th>
+                      <th className="p-2">Weight</th>
+                      <th className="p-2">Share</th>
+                      <th className="p-2">Allocated amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportSnapshot.items.map((item) => {
+                      const unit = units.find((row) => row.id === item.unit_id);
+                      return (
+                        <tr key={item.unit_id} className="border-b">
+                          <td className="p-2">
+                            {unit ? unit.unit_number : `ID ${item.unit_id}`}
+                          </td>
+                          <td className="p-2">{item.weight}</td>
+                          <td className="p-2">{item.share}</td>
+                          <td className="p-2">USD {item.amount}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <p className="text-xs text-slate-500">
+                  {reportSnapshot.remainder_rule}
+                </p>
+                <p className="text-xs text-slate-500">
+                  Reviewed snapshot #{reportSnapshot.id} at {reportSnapshot.reviewed_at}.
+                </p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       <div className="space-y-3 rounded border p-3">
         <div>
