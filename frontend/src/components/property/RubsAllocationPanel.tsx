@@ -38,6 +38,7 @@ type Snapshot = {
   billing_period_start: string;
   billing_period_end: string;
   allocated_total: string;
+  items: { unit_id: number; weight: string; share: string; amount: string }[];
 };
 type TrueUpPreview = {
   prior_allocated_total: string;
@@ -229,9 +230,13 @@ export default function RubsAllocationPanel({
   }
 
   async function runTrueUpPreview() {
-    const snapshotIds = snapshots
-      .filter((snapshot) => selectedSnapshots[snapshot.id])
-      .map((snapshot) => snapshot.id);
+    const selectedRows = snapshots.filter(
+      (snapshot) => selectedSnapshots[snapshot.id]
+    );
+    const snapshotIds = selectedRows.map((snapshot) => snapshot.id);
+    const selectedUnitIds = new Set(
+      selectedRows.flatMap((snapshot) => snapshot.items.map((item) => item.unit_id))
+    );
     setSaving(true);
     setTrueUp(null);
     setMessage("");
@@ -244,10 +249,12 @@ export default function RubsAllocationPanel({
           period_end: trueUpEnd,
           snapshot_ids: snapshotIds,
           actual_total: actualTotal,
-          unit_weights: units.map((unit) => ({
-            unit_id: unit.id,
-            weight: trueUpWeights[unit.id],
-          })),
+          unit_weights: units
+            .filter((unit) => selectedUnitIds.has(unit.id))
+            .map((unit) => ({
+              unit_id: unit.id,
+              weight: trueUpWeights[unit.id],
+            })),
         }
       )) as TrueUpPreview;
       setTrueUp(result);
@@ -608,7 +615,15 @@ export default function RubsAllocationPanel({
             !trueUpEnd ||
             actualTotal === "" ||
             !snapshots.some((snapshot) => selectedSnapshots[snapshot.id]) ||
-            units.some((unit) => !trueUpWeights[unit.id])
+            units
+              .filter((unit) =>
+                snapshots
+                  .filter((snapshot) => selectedSnapshots[snapshot.id])
+                  .some((snapshot) =>
+                    snapshot.items.some((item) => item.unit_id === unit.id)
+                  )
+              )
+              .some((unit) => !trueUpWeights[unit.id])
           }
           className="rounded border px-4 py-2 text-sm font-medium disabled:opacity-50"
           onClick={() => void runTrueUpPreview()}
