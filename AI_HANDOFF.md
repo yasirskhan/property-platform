@@ -1,3 +1,39 @@
+# AI_HANDOFF.md — 2026-09-30 VERIFIED PHASE 4.10 BED LEASING + GUARANTOR BACKEND
+
+## Current verified product checkpoint
+
+- Verified PRODUCT SHA: `45ca34c274c41a58a3ff38cc0abf38cefd2d74b3`
+- GitHub Actions run: `36790368127`
+- Final run conclusion: SUCCESS
+- All six required CI jobs passed on this exact product SHA:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **849 passed, 17 deselected, 23214 warnings in 255.43s**
+- Authenticated E2E: **17 passed, 265 warnings in 99.13s**
+- Alembic head: `ae6c8d0f2b4c`
+- Expected model tables: **191**
+
+## Verified Phase 4.10 backend scope
+
+- central `Lease` now carries optional Student Housing bed and academic-cycle references;
+- distinct beds in one unit can use independent standard lease signature/activation/invoice lifecycles;
+- whole-unit leases and same-bed leases fail closed against conflicting DRAFT/PENDING/ACTIVE occupancy;
+- bed leases require exact active same-property bed, academic cycle, active same-organization tenant, and dates inside the selected cycle;
+- guarantor workflow records explicit DRAFT -> REQUESTED -> DOCUMENT_RECEIVED or CANCELLED staff states;
+- guarantor workflow does not send messages, create signatures, establish legal guaranty validity, create Charges, or create GL transactions;
+- open bed leases protect their bed and academic-cycle source records from deactivation;
+- focused regressions prove two-bed coexistence, central RentInvoice generation after standard lease activation, scope controls and zero Charge/GL mutation from Student Housing setup/guarantor actions.
+
+## Exact next Phase 4.10 work
+
+Add the gated customer Student Housing property tab and dedicated authenticated browser coverage for academic cycles, bed inventory, draft by-the-bed lease creation and guarantor status tracking. Verify all six jobs on the exact final product SHA, update this handoff to **PHASE 4.10 COMPLETE | VERIFIED**, identify Phase 4.11 for reference only, then STOP.
+
+---
+
 # AI_HANDOFF.md — 2026-09-30 VERIFIED PHASE 4.10 STUDENT HOUSING FOUNDATION
 
 ## Current verified product checkpoint
