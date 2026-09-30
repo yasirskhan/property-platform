@@ -2002,7 +2002,7 @@ def test_commercial_private_lease_source_reference_browser_no_finance() -> None:
                 expect(recon).to_be_visible()
                 recon.get_by_label("Reconciliation year").fill("2026")
                 recon.get_by_label("Actual CAM total").fill("2000.00")
-                recon.get_by_label("Private CAM evidence").select_option(label=re.compile(cam_evidence_name))
+                recon.get_by_label("Private CAM evidence").select_option(label=cam_evidence_name)
                 recon.get_by_label("CAM reconciliation request key").fill("e2e-cam-recon-2026")
                 recon.get_by_label("CAM reconciliation posting date").fill("2026-09-30")
                 recon.get_by_label("CAM reconciliation due date").fill("2026-10-15")
