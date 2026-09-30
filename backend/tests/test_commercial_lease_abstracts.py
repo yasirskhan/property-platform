@@ -15,7 +15,10 @@ import init_db  # noqa: F401
 from app.core.database import Base
 from app.models.audit_log import AuditLog
 from app.models.charge import Charge
-from app.models.commercial_lease_abstract import CommercialLeaseAbstract
+from app.models.commercial_lease_abstract import (
+    CommercialLeaseAbstract, CommercialLeaseTerms,
+    CommercialRentEscalation, CommercialLeaseOption,
+)
 from app.models.entity_attachment import EntityAttachment
 from app.models.gl_transaction import GLTransaction
 from app.models.lease import Lease, LeaseStatus, RentInvoice
@@ -23,7 +26,11 @@ from app.models.property import Property, PropertyAssignment, PropertyType, Unit
 from app.models.user import Organization, User, UserRole
 from app.routers import affordable_programs, commercial_lease_abstracts as api
 from app.routers import entity_attachments as attachments_api
-from app.schemas.commercial_lease_abstract import CommercialLeaseAbstractIn, CommercialLeaseAbstractUpdate
+from app.schemas.commercial_lease_abstract import (
+    CommercialLeaseAbstractIn, CommercialLeaseAbstractUpdate,
+    CommercialLeaseTermsIn, CommercialRentEscalationIn, CommercialLeaseOptionIn,
+    CommercialBillingAuthorizationIn,
+)
 from app.schemas.entity_attachment import EntityAttachmentShareUpdate
 from app.services.entity_notes import _model_for_table
 
@@ -349,3 +356,169 @@ def test_private_lease_source_is_scoped_unshared_and_removal_protected(monkeypat
         db.rollback()
         db.close()
         engine.dispose()
+
+def test_source_linked_commercial_terms_versioning_and_no_finance():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign, _), props, _, leases = _seed(db)
+        prop = props[0]
+        source = _source(
+            db, org_id=admin.organization_id, lease_id=leases[0].id,
+            uploader_id=admin.id, name="executed-reference-private.pdf",
+        )
+        db.commit()
+        abstract = api.record_abstract(
+            prop.id, _in(leases[0].id, source_attachment_id=source.id),
+            db=db, current_user=admin,
+        )
+        before = (db.query(Charge).count(), db.query(GLTransaction).count(),
+                  db.query(RentInvoice).count())
+        payload = CommercialLeaseTermsIn(
+            source_attachment_id=source.id,
+            effective_on=date(2026, 3, 1),
+            base_rent_monthly=Decimal("2500.00"),
+            cam_estimate_monthly=Decimal("300.00"),
+            property_tax_estimate_monthly=Decimal("125.00"),
+            insurance_estimate_monthly=Decimal("75.00"),
+            cam_share_percent=Decimal("12.5000"),
+            percentage_rent_rate=Decimal("5.0000"),
+            percentage_rent_breakpoint_annual=Decimal("500000.00"),
+            ti_allowance_total=Decimal("25000.00"),
+            co_tenancy_summary="Staff abstract: occupancy condition text from linked source.",
+            escalations=[
+                CommercialRentEscalationIn(
+                    starts_on=date(2027, 1, 1),
+                    monthly_base_rent=Decimal("2625.00"),
+                ),
+            ],
+            options=[
+                CommercialLeaseOptionIn(
+                    option_type="RENEWAL",
+                    exercise_start_on=date(2027, 6, 1),
+                    exercise_end_on=date(2027, 9, 30),
+                    summary="One staff-recorded renewal option reference.",
+                ),
+            ],
+        )
+        first = api.record_lease_terms(
+            prop.id, abstract.id, payload, db=db, current_user=admin,
+        )
+        assert first.revision == 1 and first.is_active is True
+        assert first.source_filename == source.original_name
+        assert first.terms_status == "STAFF_ABSTRACTED_UNVERIFIED"
+        assert first.cam_estimate_monthly == Decimal("300.00")
+        assert first.percentage_rent_rate == Decimal("5.0000")
+        assert len(first.escalations) == 1 and len(first.options) == 1
+        assert first.billing_authorized is False
+        authorized = api.authorize_lease_terms_for_billing(
+            prop.id, abstract.id, first.id,
+            CommercialBillingAuthorizationIn(
+                note="Authorized internally after reviewing the linked private source.",
+            ),
+            db=db, current_user=admin,
+        )
+        assert authorized.billing_authorized is True
+        assert authorized.billing_authorization_note.startswith("Authorized internally")
+        replay = api.authorize_lease_terms_for_billing(
+            prop.id, abstract.id, first.id,
+            CommercialBillingAuthorizationIn(
+                note="Authorized internally after reviewing the linked private source.",
+            ),
+            db=db, current_user=admin,
+        )
+        assert replay.id == first.id
+
+        second = api.record_lease_terms(
+            prop.id, abstract.id,
+            CommercialLeaseTermsIn(
+                source_attachment_id=source.id,
+                effective_on=date(2027, 1, 1),
+                base_rent_monthly=Decimal("2625.00"),
+                cam_estimate_monthly=Decimal("325.00"),
+                property_tax_estimate_monthly=Decimal("130.00"),
+                insurance_estimate_monthly=Decimal("80.00"),
+                cam_share_percent=Decimal("12.5000"),
+                percentage_rent_rate=Decimal("5.0000"),
+                percentage_rent_breakpoint_annual=Decimal("525000.00"),
+                ti_allowance_total=Decimal("25000.00"),
+                co_tenancy_summary="Second source-linked staff abstraction.",
+            ),
+            db=db, current_user=owner,
+        )
+        assert second.revision == 2 and second.is_active is True
+        assert second.billing_authorized is False
+        assert db.query(CommercialLeaseTerms).filter(
+            CommercialLeaseTerms.id == first.id,
+        ).one().is_active is False
+        history_response = Response()
+        history = api.list_lease_terms(
+            prop.id, abstract.id, history_response, db=db, current_user=manager,
+        )
+        assert history_response.headers["cache-control"] == "no-store"
+        assert [row.revision for row in history] == [2, 1]
+        assert db.query(CommercialRentEscalation).count() == 1
+        assert db.query(CommercialLeaseOption).count() == 1
+        assert (db.query(Charge).count(), db.query(GLTransaction).count(),
+                db.query(RentInvoice).count()) == before
+    finally:
+        db.rollback()
+        db.close()
+        engine.dispose()
+
+
+def test_commercial_terms_require_private_exact_source_and_valid_percentage_pair():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign, _), props, _, leases = _seed(db)
+        prop = props[0]
+        private = _source(
+            db, org_id=admin.organization_id, lease_id=leases[0].id,
+            uploader_id=admin.id, name="private.pdf",
+        )
+        shared = _source(
+            db, org_id=admin.organization_id, lease_id=leases[0].id,
+            uploader_id=admin.id, name="shared.pdf", shared=True,
+        )
+        wrong = _source(
+            db, org_id=admin.organization_id, lease_id=leases[1].id,
+            uploader_id=admin.id, name="wrong.pdf",
+        )
+        db.commit()
+        abstract = api.record_abstract(
+            prop.id, _in(leases[0].id, source_attachment_id=private.id),
+            db=db, current_user=admin,
+        )
+        with pytest.raises(ValidationError):
+            CommercialLeaseTermsIn(
+                source_attachment_id=private.id,
+                effective_on=date.today(),
+                percentage_rent_rate=Decimal("4.00"),
+            )
+        for attachment in (shared, wrong):
+            with pytest.raises(HTTPException) as exc:
+                api.record_lease_terms(
+                    prop.id, abstract.id,
+                    CommercialLeaseTermsIn(
+                        source_attachment_id=attachment.id,
+                        effective_on=date(2026, 3, 1),
+                    ),
+                    db=db, current_user=admin,
+                )
+            assert exc.value.status_code == 404
+        with pytest.raises(HTTPException) as denied:
+            api.record_lease_terms(
+                prop.id, abstract.id,
+                CommercialLeaseTermsIn(
+                    source_attachment_id=private.id,
+                    effective_on=date(2026, 3, 1),
+                ),
+                db=db, current_user=manager,
+            )
+        assert denied.value.status_code in {403, 404}
+        assert db.query(CommercialLeaseTerms).count() == 0
+        assert db.query(Charge).count() == db.query(GLTransaction).count() == 0
+    finally:
+        db.rollback()
+        db.close()
+        engine.dispose()
+

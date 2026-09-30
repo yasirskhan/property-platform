@@ -174,16 +174,19 @@ def update_entity_attachment_sharing(
         HOAViolationEvidence.attachment_id == row.id,
         HOAViolationEvidence.is_active.is_(True),
     ).first()
-    from app.models.commercial_lease_abstract import CommercialLeaseAbstract
+    from app.models.commercial_lease_abstract import CommercialLeaseAbstract, CommercialLeaseTerms
     commercial_linked = db.query(CommercialLeaseAbstract.id).filter(
         CommercialLeaseAbstract.source_attachment_id == row.id,
         CommercialLeaseAbstract.is_active.is_(True),
+    ).first()
+    commercial_terms_linked = db.query(CommercialLeaseTerms.id).filter(
+        CommercialLeaseTerms.source_attachment_id == row.id,
     ).first()
     if (linked is not None or arc_linked is not None or case_linked is not None) and (
         payload.share_with_tenants is True or payload.share_with_owners is True
     ):
         raise HTTPException(status_code=403, detail="Indexed HOA private documents cannot be shared.")
-    if commercial_linked is not None and (
+    if (commercial_linked is not None or commercial_terms_linked is not None) and (
         payload.share_with_tenants is True or payload.share_with_owners is True
     ):
         raise HTTPException(status_code=403, detail="Commercial lease source documents must remain private.")
@@ -232,12 +235,14 @@ def delete_entity_attachment(
     role = _role(current_user)
     if role not in {"ADMIN", "OWNER", "MANAGER"} and row.uploaded_by_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not allowed to remove this attachment.")
-    from app.models.commercial_lease_abstract import CommercialLeaseAbstract
+    from app.models.commercial_lease_abstract import CommercialLeaseAbstract, CommercialLeaseTerms
     if db.query(CommercialLeaseAbstract.id).filter(
         CommercialLeaseAbstract.source_attachment_id == row.id,
         CommercialLeaseAbstract.is_active.is_(True),
+    ).first() is not None or db.query(CommercialLeaseTerms.id).filter(
+        CommercialLeaseTerms.source_attachment_id == row.id,
     ).first() is not None:
-        raise HTTPException(status_code=409, detail="Active commercial lease source document cannot be removed.")
+        raise HTTPException(status_code=409, detail="Referenced commercial lease source document cannot be removed.")
     from app.models.hoa_violation_service_record import HOAViolationServiceRecord
     if db.query(HOAViolationServiceRecord.id).filter(
         HOAViolationServiceRecord.service_proof_attachment_id == row.id,

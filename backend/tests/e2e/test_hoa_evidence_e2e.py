@@ -1908,6 +1908,37 @@ def test_commercial_private_lease_source_reference_browser_no_finance() -> None:
                 expect(panel.get_by_role(
                     "button", name="Download private lease source",
                 )).to_be_visible()
+
+                terms = panel.get_by_role("heading", name="Commercial lease terms").locator("..")
+                terms.get_by_label("Terms effective date").fill("2026-03-01")
+                terms.get_by_label("Base rent monthly").fill("2500.00")
+                terms.get_by_label("CAM estimate monthly").fill("300.00")
+                terms.get_by_label("Property tax estimate monthly").fill("125.00")
+                terms.get_by_label("Insurance estimate monthly").fill("75.00")
+                terms.get_by_label("CAM share percent").fill("12.5")
+                terms.get_by_label("Percentage rent rate").fill("5")
+                terms.get_by_label("Annual percentage breakpoint").fill("500000")
+                terms.get_by_label("TI allowance total").fill("25000")
+                terms.get_by_label("Co-tenancy summary").fill(
+                    "Synthetic staff abstraction from the linked private source."
+                )
+                terms.get_by_role("button", name="Add escalation").click()
+                terms.get_by_label("Escalation 1 start").fill("2027-01-01")
+                terms.get_by_label("Escalation 1 monthly rent").fill("2625.00")
+                terms.get_by_role("button", name="Add option").click()
+                terms.get_by_label("Option 1 summary").fill("Synthetic renewal option reference.")
+                terms.get_by_role("button", name="Record terms revision").click()
+                expect(terms.get_by_text(re.compile(r"Revision 1.*CURRENT"))).to_be_visible()
+                expect(terms.get_by_text(re.compile(r"STAFF ABSTRACTED UNVERIFIED"))).to_be_visible()
+                expect(terms.get_by_text(re.compile(r"CAM 300\.00.*Tax 125\.00.*Insurance 75\.00"))).to_be_visible()
+                expect(terms.get_by_text("Billing authorization: NOT AUTHORIZED", exact=True)).to_be_visible()
+                terms.get_by_label("Internal billing authorization note").fill(
+                    "Synthetic internal billing approval after reviewing the linked source."
+                )
+                terms.get_by_role("button", name="Authorize current terms for billing").click()
+                expect(terms.get_by_text(
+                    "Billing authorization: INTERNALLY AUTHORIZED", exact=True,
+                )).to_be_visible()
                 assert _commercial_financial_counts() == before
             finally:
                 browser.close()

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiDelete, apiFetch, apiGet, apiPost, apiPut } from "@/lib/api";
+import CommercialLeaseTermsPanel from "@/components/property/CommercialLeaseTermsPanel";
 
 type Candidate = {
   lease_id: number;
@@ -198,6 +199,12 @@ export default function CommercialLeaseAbstractsPanel({
             Source document: {row.source_filename || "Not linked"}
             {row.source_status ? " · " + row.source_status.replaceAll("_", " ") : ""}
           </div>
+          <CommercialLeaseTermsPanel
+            propertyId={propertyId}
+            abstractId={row.id}
+            sourceAttachmentId={row.source_attachment_id}
+            canEdit={canEdit}
+          />
           {row.source_attachment_id && <button type="button" disabled={busy}
             onClick={() => { void downloadSource(row).catch((cause) =>
               setError(cause instanceof Error ? cause.message : "Source unavailable.")); }}

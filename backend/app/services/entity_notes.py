@@ -47,6 +47,9 @@ _FORBIDDEN_TABLES = {
     "hoa_arc_follow_ups",  # Scoped HOA followup tasks.
     "hoa_arc_notifications",  # Sensitive notification queue.
     "commercial_lease_abstracts",  # Staff-only commencement metadata needs both property and leasing scope.
+    "commercial_lease_terms",  # Versioned private-source terms use dedicated Commercial scope.
+    "commercial_rent_escalations",
+    "commercial_lease_options",
     "hoa_procedure_policies",  # Restricted staff policy/notice templates.
     "hoa_violation_cases",
     "hoa_violation_case_events",

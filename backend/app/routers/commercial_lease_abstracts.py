@@ -10,7 +10,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.commercial_lease_abstract import CommercialLeaseAbstract
+from app.models.commercial_lease_abstract import (
+    CommercialLeaseAbstract, CommercialLeaseTerms,
+    CommercialRentEscalation, CommercialLeaseOption,
+)
 from app.models.entity_attachment import EntityAttachment
 from app.models.lease import Lease
 from app.models.property import Property, PropertyType, Unit
@@ -20,7 +23,9 @@ from app.routers.auth import get_current_user
 from app.schemas.commercial_lease_abstract import (
     CommercialLeaseAbstractIn, CommercialLeaseAbstractOut,
     CommercialLeaseAbstractUpdate, CommercialLeaseCandidateOut,
-    CommercialLeaseSourceOut,
+    CommercialLeaseSourceOut, CommercialLeaseTermsIn,
+    CommercialLeaseTermsOut, CommercialRentEscalationOut,
+    CommercialLeaseOptionOut, CommercialBillingAuthorizationIn,
 )
 from app.services.audit import append_audit_log
 from app.services.menu_resolver import permission_allows_user
@@ -301,3 +306,200 @@ def archive_abstract(
     _audit(db, row=row, actor=current_user, action="archived")
     db.commit()
     return Response(status_code=204)
+
+def _terms_out(db: Session, row: CommercialLeaseTerms) -> CommercialLeaseTermsOut:
+    source = db.query(EntityAttachment).filter(
+        EntityAttachment.id == row.source_attachment_id,
+        EntityAttachment.organization_id == row.organization_id,
+        EntityAttachment.is_active.is_(True),
+        EntityAttachment.deleted_at.is_(None),
+        EntityAttachment.share_with_tenants.is_(False),
+        EntityAttachment.share_with_owners.is_(False),
+    ).first()
+    if source is None:
+        raise HTTPException(status_code=409, detail="Commercial lease term source is no longer private and active.")
+    escalations = db.query(CommercialRentEscalation).filter(
+        CommercialRentEscalation.organization_id == row.organization_id,
+        CommercialRentEscalation.terms_id == row.id,
+    ).order_by(CommercialRentEscalation.starts_on, CommercialRentEscalation.id).all()
+    options = db.query(CommercialLeaseOption).filter(
+        CommercialLeaseOption.organization_id == row.organization_id,
+        CommercialLeaseOption.terms_id == row.id,
+    ).order_by(CommercialLeaseOption.id).all()
+    return CommercialLeaseTermsOut(
+        id=row.id, abstract_id=row.abstract_id, property_id=row.property_id,
+        lease_id=row.lease_id, revision=row.revision,
+        source_attachment_id=row.source_attachment_id,
+        source_filename=source.original_name, effective_on=row.effective_on,
+        base_rent_monthly=row.base_rent_monthly,
+        cam_estimate_monthly=row.cam_estimate_monthly,
+        property_tax_estimate_monthly=row.property_tax_estimate_monthly,
+        insurance_estimate_monthly=row.insurance_estimate_monthly,
+        cam_share_percent=row.cam_share_percent,
+        percentage_rent_rate=row.percentage_rent_rate,
+        percentage_rent_breakpoint_annual=row.percentage_rent_breakpoint_annual,
+        ti_allowance_total=row.ti_allowance_total,
+        co_tenancy_summary=row.co_tenancy_summary,
+        billing_authorized=row.billing_authorized_at is not None,
+        billing_authorized_at=row.billing_authorized_at,
+        billing_authorization_note=row.billing_authorization_note,
+        escalations=[
+            CommercialRentEscalationOut(
+                id=item.id, starts_on=item.starts_on,
+                monthly_base_rent=item.monthly_base_rent,
+            ) for item in escalations
+        ],
+        options=[
+            CommercialLeaseOptionOut(
+                id=item.id, option_type=item.option_type,
+                exercise_start_on=item.exercise_start_on,
+                exercise_end_on=item.exercise_end_on,
+                summary=item.summary,
+            ) for item in options
+        ],
+        is_active=bool(row.is_active), recorded_at=row.created_at,
+    )
+
+
+@router.get("/{property_id}/commercial-lease-abstracts/{item_id}/terms",
+            response_model=list[CommercialLeaseTermsOut])
+def list_lease_terms(
+    property_id: int, item_id: int, response: Response,
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    prop = _property(db, property_id, current_user)
+    abstract = _item(db, prop, item_id)
+    _lease(db, prop, abstract.lease_id)
+    rows = db.query(CommercialLeaseTerms).filter(
+        CommercialLeaseTerms.organization_id == prop.organization_id,
+        CommercialLeaseTerms.property_id == prop.id,
+        CommercialLeaseTerms.lease_id == abstract.lease_id,
+        CommercialLeaseTerms.abstract_id == abstract.id,
+    ).order_by(CommercialLeaseTerms.revision.desc()).limit(101).all()
+    if len(rows) > 100:
+        raise HTTPException(status_code=422, detail="Commercial lease term history exceeds 100 revisions.")
+    response.headers["Cache-Control"] = "no-store"
+    return [_terms_out(db, row) for row in rows]
+
+
+@router.post("/{property_id}/commercial-lease-abstracts/{item_id}/terms",
+             response_model=CommercialLeaseTermsOut, status_code=201)
+def record_lease_terms(
+    property_id: int, item_id: int, payload: CommercialLeaseTermsIn,
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    prop = _property(db, property_id, current_user, write=True)
+    abstract = _item(db, prop, item_id)
+    lease, _unit = _lease(db, prop, abstract.lease_id)
+    source = _source_attachment(
+        db, prop=prop, lease=lease,
+        attachment_id=payload.source_attachment_id, actor=current_user,
+    )
+    latest = db.query(CommercialLeaseTerms).filter(
+        CommercialLeaseTerms.organization_id == prop.organization_id,
+        CommercialLeaseTerms.abstract_id == abstract.id,
+    ).order_by(CommercialLeaseTerms.revision.desc()).with_for_update().first()
+    revision = 1 if latest is None else latest.revision + 1
+    if latest is not None and latest.is_active:
+        latest.is_active = False
+    row = CommercialLeaseTerms(
+        organization_id=prop.organization_id, property_id=prop.id,
+        lease_id=lease.id, abstract_id=abstract.id,
+        source_attachment_id=source.id, revision=revision,
+        effective_on=payload.effective_on,
+        base_rent_monthly=payload.base_rent_monthly,
+        cam_estimate_monthly=payload.cam_estimate_monthly,
+        property_tax_estimate_monthly=payload.property_tax_estimate_monthly,
+        insurance_estimate_monthly=payload.insurance_estimate_monthly,
+        cam_share_percent=payload.cam_share_percent,
+        percentage_rent_rate=payload.percentage_rent_rate,
+        percentage_rent_breakpoint_annual=payload.percentage_rent_breakpoint_annual,
+        ti_allowance_total=payload.ti_allowance_total,
+        co_tenancy_summary=(payload.co_tenancy_summary.strip()
+                            if payload.co_tenancy_summary else None),
+        is_active=True, created_by_id=current_user.id,
+    )
+    db.add(row)
+    db.flush()
+    for item in payload.escalations:
+        db.add(CommercialRentEscalation(
+            organization_id=prop.organization_id, terms_id=row.id,
+            starts_on=item.starts_on, monthly_base_rent=item.monthly_base_rent,
+        ))
+    for item in payload.options:
+        db.add(CommercialLeaseOption(
+            organization_id=prop.organization_id, terms_id=row.id,
+            option_type=item.option_type,
+            exercise_start_on=item.exercise_start_on,
+            exercise_end_on=item.exercise_end_on,
+            summary=item.summary.strip(),
+        ))
+    abstract.source_attachment_id = source.id
+    abstract.updated_by_id = current_user.id
+    db.flush()
+    append_audit_log(
+        db, organization_id=prop.organization_id, user_id=current_user.id,
+        entity_type="commercial_lease_terms", entity_id=row.id,
+        action="revision_recorded",
+        new_value={
+            "property_id": prop.id, "lease_id": lease.id,
+            "abstract_id": abstract.id, "revision": revision,
+            "source_document_linked": True,
+        },
+    )
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Commercial lease term revision conflict.") from exc
+    db.refresh(row)
+    return _terms_out(db, row)
+
+@router.post("/{property_id}/commercial-lease-abstracts/{item_id}/terms/{terms_id}/billing-authorization",
+             response_model=CommercialLeaseTermsOut)
+def authorize_lease_terms_for_billing(
+    property_id: int, item_id: int, terms_id: int,
+    payload: CommercialBillingAuthorizationIn,
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    from datetime import datetime
+    prop = _property(db, property_id, current_user, write=True)
+    if not permission_allows_user(db, user=current_user, menu_key="ACCOUNTING.CHARGES"):
+        raise HTTPException(status_code=403, detail="Accounting charges permission required.")
+    abstract = _item(db, prop, item_id)
+    lease, _unit = _lease(db, prop, abstract.lease_id)
+    row = db.query(CommercialLeaseTerms).filter(
+        CommercialLeaseTerms.id == terms_id,
+        CommercialLeaseTerms.organization_id == prop.organization_id,
+        CommercialLeaseTerms.property_id == prop.id,
+        CommercialLeaseTerms.lease_id == lease.id,
+        CommercialLeaseTerms.abstract_id == abstract.id,
+        CommercialLeaseTerms.is_active.is_(True),
+    ).with_for_update().first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Current commercial lease terms not found.")
+    _source_attachment(
+        db, prop=prop, lease=lease,
+        attachment_id=row.source_attachment_id, actor=current_user,
+    )
+    note = payload.note.strip()
+    if row.billing_authorized_at is not None:
+        if row.billing_authorization_note == note and row.billing_authorized_by_id == current_user.id:
+            return _terms_out(db, row)
+        raise HTTPException(status_code=409, detail="Current terms already have billing authorization.")
+    row.billing_authorized_at = datetime.utcnow()
+    row.billing_authorized_by_id = current_user.id
+    row.billing_authorization_note = note
+    append_audit_log(
+        db, organization_id=prop.organization_id, user_id=current_user.id,
+        entity_type="commercial_lease_terms", entity_id=row.id,
+        action="billing_authorized",
+        new_value={
+            "property_id": prop.id, "lease_id": lease.id,
+            "revision": row.revision, "source_document_linked": True,
+        },
+    )
+    db.commit()
+    db.refresh(row)
+    return _terms_out(db, row)
+
