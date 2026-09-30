@@ -26,6 +26,7 @@ from app.models.gl_transaction import GLTransaction
 from app.models.gl_account import GLAccount
 from app.models.contact import Contact
 from app.models.entity_attachment import EntityAttachment
+from app.models.commercial_operating_charge import CommercialOperatingCharge
 from app.models.lease import Lease, LeaseStatus, RentInvoice
 from app.models.property import Property, PropertyType, Unit
 from app.services.attachment_storage import attachment_path
@@ -1858,10 +1859,23 @@ def test_commercial_private_lease_source_reference_browser_no_finance() -> None:
                 uploaded_by_id=actor.id, is_active=True,
             )
             db.add(source)
+            receivable = GLAccount(
+                organization_id=actor.organization_id,
+                gl_number="1298", name="E2E Commercial Receivable",
+                account_type="ASSET", is_active=True,
+            )
+            recovery_income = GLAccount(
+                organization_id=actor.organization_id,
+                gl_number="4398", name="E2E Commercial Recoveries",
+                account_type="INCOME", is_active=True,
+            )
+            db.add_all([receivable, recovery_income])
             db.commit()
             property_id = prop.id
             lease_id = lease.id
             source_name = source.original_name
+            receivable_id = receivable.id
+            recovery_income_id = recovery_income.id
         finally:
             db.rollback()
             db.close()
@@ -1939,7 +1953,39 @@ def test_commercial_private_lease_source_reference_browser_no_finance() -> None:
                 expect(terms.get_by_text(
                     "Billing authorization: INTERNALLY AUTHORIZED", exact=True,
                 )).to_be_visible()
-                assert _commercial_financial_counts() == before
+
+                operating = terms.get_by_role("heading", name="Commercial CAM / NNN charges").locator("..")
+                expect(operating).to_be_visible()
+                operating.get_by_label("Charge type").select_option("CAM")
+                operating.get_by_label("Request key").fill("e2e-commercial-cam-2026-03")
+                operating.get_by_label("Period start").fill("2026-03-01")
+                operating.get_by_label("Period end").fill("2026-03-31")
+                operating.get_by_label("Posting date").fill("2026-03-01")
+                operating.get_by_label("Due date").fill("2026-03-10")
+                operating.get_by_label("Receivable GL").select_option(str(receivable_id))
+                operating.get_by_label("Commercial income GL").select_option(str(recovery_income_id))
+                operating.get_by_role("button", name="Post Commercial charge").click()
+                expect(operating.get_by_text(re.compile(r"CAM · POSTED"))).to_be_visible()
+                expect(operating.get_by_text(re.compile(r"CAM 300\.00.*Total 300\.00"))).to_be_visible()
+                after_post = _commercial_financial_counts()
+                assert after_post == (before[0] + 1, before[1], before[2] + 1)
+
+                db = SessionLocal()
+                try:
+                    row = db.query(CommercialOperatingCharge).filter(
+                        CommercialOperatingCharge.property_id == property_id,
+                        CommercialOperatingCharge.kind == "CAM",
+                    ).order_by(CommercialOperatingCharge.id.desc()).first()
+                    assert row is not None
+                    row_id = row.id
+                finally:
+                    db.close()
+                operating.get_by_label(f"Reversal date {row_id}").fill("2026-03-02")
+                operating.get_by_label(f"Reversal reason {row_id}").fill("Synthetic E2E duplicate")
+                operating.get_by_role("button", name="Reverse Commercial charge").click()
+                expect(operating.get_by_text(re.compile(r"CAM · REVERSED"))).to_be_visible()
+                after_reverse = _commercial_financial_counts()
+                assert after_reverse == (before[0] + 1, before[1], before[2] + 2)
             finally:
                 browser.close()
         assert _commercial_financial_counts() == before

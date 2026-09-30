@@ -157,6 +157,7 @@ from app.models.hoa_meeting_minutes import HOAMeetingMinutesDraft, HOAMeetingMin
 from app.models.hoa_payer_draft import HOAPayerDraft  # noqa: F401
 from app.models.hoa_planned_occurrence import HOAPlannedOccurrence  # noqa: F401
 from app.models.commercial_lease_abstract import CommercialLeaseAbstract  # noqa: F401
+from app.models.commercial_operating_charge import CommercialOperatingCharge  # noqa: F401
 from app.models.affordable_interest import AffordableInterest  # noqa: F401
 from app.models.affordable_evidence import AffordableEvidence  # noqa: F401
 from app.models.affordable_building import AffordableBuilding  # noqa: F401

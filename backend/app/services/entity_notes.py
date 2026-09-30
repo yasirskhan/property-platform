@@ -50,6 +50,7 @@ _FORBIDDEN_TABLES = {
     "commercial_lease_terms",  # Versioned private-source terms use dedicated Commercial scope.
     "commercial_rent_escalations",
     "commercial_lease_options",
+    "commercial_operating_charges",  # Immutable source-linked Commercial accounting execution.
     "hoa_procedure_policies",  # Restricted staff policy/notice templates.
     "hoa_violation_cases",
     "hoa_violation_case_events",
