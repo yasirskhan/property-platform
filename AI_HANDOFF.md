@@ -1,3 +1,53 @@
+# AI_HANDOFF.md — 2026-09-30 PHASE 4.9 COMPLETE | VERIFIED
+
+## Final Phase 4.9 product checkpoint
+
+- **PHASE 4.9 COMPLETE | VERIFIED**
+- Final VERIFIED PRODUCT SHA: `bb8916af896053503bd5050c4a68b8e8c5016a02`
+- GitHub Actions run: `36783872990`
+- All six required CI jobs passed on this exact product SHA:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **845 passed, 17 deselected, 23030 warnings in 318.69s**
+- Authenticated E2E: **17 passed, 265 warnings in 100.93s**
+- Alembic head remains `8c4e6a0b2d7f`
+- Expected model tables remain **188**
+- No local test result is being substituted for hosted CI.
+
+## Verified Phase 4.9 RUBs scope
+
+1. Manual and bounded CSV meter readings are verified for active same-property SHARED utilities, with explicit source data and no inferred billing obligation.
+2. Versioned allocation-rule revisions support SQUARE_FEET plus explicit OCCUPANCY, FIXTURES and MANUAL_WEIGHT inputs, with separate authorization and deterministic finance-neutral preview.
+3. Reviewed allocation snapshots preserve the exact authorized rule revision, bill period, source amount, included units, weights, shares, rounded amounts and deterministic remainder behavior used at review time.
+4. Snapshot replay is idempotent for identical requests and fails closed for conflicting data; reviewed history blocks destructive utility deletion.
+5. Year-end true-up is implemented as a review-only preview over explicitly selected reviewed snapshots and explicit actual/adjustment weights. It creates no Charge, invoice, receipt, bank movement or GL posting.
+6. The customer RUBs UI supports draft/authorize/preview, reviewed snapshot history, year-end true-up preview and a dedicated **allocation detail per bill period** report surface backed only by preserved reviewed snapshots.
+7. The report shows bill period, bill/rule reference, basis, bill and reviewed totals, unit weights, shares, allocated amounts and the stored deterministic remainder rule. It does not reconstruct missing tenant/legal eligibility or create finance.
+8. Focused backend and authenticated browser coverage verify scope, idempotency, deterministic calculations, reviewed history, report rendering and zero finance mutation.
+
+Planning items now covered:
+- `product.rubs.meter_reading`
+- `product.rubs.allocation_methods`
+- `product.rubs.true_up`
+- `compliance.rubs.reports` — allocation detail per bill period
+
+## Exact next phase
+
+Proceed to **Phase 4.10 — Student Housing**.
+
+Planned Phase 4.10 scope from `docs/PLAN_GAPS.md` and the parity checklist:
+- by-the-bed leases;
+- guarantor workflow;
+- academic-year cycles.
+
+Start with a bounded foundation batch that models explicit academic cycles and bed inventory/scope without changing existing whole-unit lease accounting. Do not infer guarantor liability, student status, occupancy eligibility or financial responsibility. Preserve existing organization/property/unit/lease isolation and central accounting behavior. Add focused backend and authenticated browser coverage, verify all six CI jobs on the exact product SHA, then refresh this handoff.
+
+---
+
 # AI_HANDOFF.md — 2026-09-30 VERIFIED PHASE 4.9 RUBs REVIEWED ALLOCATION HISTORY + TRUE-UP PREVIEW
 
 ## Current verified product checkpoint
