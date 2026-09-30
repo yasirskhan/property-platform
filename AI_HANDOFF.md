@@ -1,3 +1,38 @@
+# AI_HANDOFF.md — 2026-09-30 PHASE 4.8 COMPLETE | VERIFIED
+
+**AUTHORITATIVE FINAL PHASE 4.8 CHECKPOINT. STOP ALL DEVELOPMENT AFTER THIS HANDOFF UNTIL EXPLICIT USER INSTRUCTION.**
+
+- **PHASE 4.8 COMPLETE | VERIFIED**
+- Final VERIFIED PRODUCT SHA: `cd79ae8c953367935d5f78abd71452fa473cff12`.
+- GitHub Actions **36755427547 attempt 1 SUCCESS, all SIX required jobs on this exact product SHA**: frontend PASS; backend PASS; security PASS; platform-admin PASS; staging-config PASS; authenticated E2E PASS.
+- Backend: **841 passed, 16 deselected, 22895 warnings in 223.58s**.
+- Authenticated E2E: **16 passed, 256 warnings in 98.25s**.
+- **TESTS NOT RUN locally.**
+- Final Alembic head: **`d5f7a9c1e3b6`**. Final expected SQLAlchemy model tables: **185**.
+
+## Verified Phase 4.8 Commercial scope
+
+1. Commercial lease references and scoped read-only reporting are verified.
+2. Private same-scope Commercial lease source evidence is linked and protected without claiming execution or legal validity.
+3. Versioned source-linked lease terms are verified for base-rent reference, escalations, lease options, co-tenancy summary, CAM/tax/insurance estimates and shares, percentage-rent rate/breakpoint and TI allowance; a new revision resets internal billing authorization.
+4. Operational CAM and NNN tenant charges post through existing central `Charge` + balanced GL with scoped accounts, current source/authorization checks, idempotency, closed-period protection and unpaid reversal.
+5. Annual CAM reconciliation uses private actual-CAM evidence, current authorized CAM share and posted estimate components; positive, negative and zero true-ups are supported with appropriate central GL/reversal behavior.
+6. Percentage rent uses private tenant-sales evidence plus the current billing-authorized annual breakpoint/rate. Only sales above the breakpoint generate percentage rent; positive amounts create a tenant Charge + balanced central GL, zero creates no finance, and unpaid postings reverse through central GL.
+7. TI allowance utilization uses private scoped evidence and the current authorized allowance, caps aggregate ACTIVE utilization at the source-backed allowance, retains immutable/void history, and creates **no inferred reimbursement, bank movement, Charge, RentInvoice or GL entry**.
+8. Private Commercial source, CAM, percentage-rent and TI evidence remains protected from unsafe sharing/removal when referenced. Commercial operation panels only render when the current authorized terms contain the corresponding clause.
+
+## STOP condition
+
+**Do not make any further product-code changes. Do not start Phase 4.9, Phase 5 or any later phase until the user explicitly instructs a resume.**
+
+Next phase/task for reference only, **NOT STARTED**:
+- **Phase 4.9 — RUBs**
+- First recorded task: **Meter reading (manual + import)**, followed by the remaining RUBs allocation/operational work from the existing roadmap/checklist.
+
+Historical checkpoints below remain for audit only; their NEXT labels are superseded by this final stop instruction.
+
+---
+
 # AI_HANDOFF.md — 2026-09-30 VERIFIED COMMERCIAL CAM RECONCILIATION
 
 **AUTHORITATIVE CURRENT CHECKPOINT. Phase 4.8 ONLY.** Do not start Phase 4.9+.
