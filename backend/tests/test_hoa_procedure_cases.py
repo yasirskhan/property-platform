@@ -27,6 +27,7 @@ from app.models.hoa_violation_fine import HOAViolationFine
 from app.models.hoa_violation_fine_payment import HOAViolationFinePayment
 from app.models.hoa_violation_fine_appeal import HOAFineAppeal
 from app.models.hoa_fine_appeal_notification import HOAFineAppealNotification
+from app.models.hoa_governing_evidence import HOAGoverningEvidence
 from app.models.letter_template import LetterTemplate
 from app.models.hoa_board import HOABoardSeat
 from app.models.hoa_association import HOAContactLink
@@ -2615,7 +2616,7 @@ def test_delegated_board_downloads_only_live_private_appeal_evidence(monkeypatch
                             entitlement_allowed=True, org_config_allowed=True)
             for k in arc_board.HOA_GATES
         ])
-        monkeypatch.setattr(board_portal, "_require_attachment_feature", lambda *a, **kw: None)
+        monkeypatch.setattr(board_portal, "_board_document_gate", lambda *a, **kw: None)
         users, props, assoc, case, draft, seat, proof = _record_served_fine_case(db, monkeypatch)
         admin, owner, manager, tenant, foreign = users
         prop = props[0]
@@ -2672,7 +2673,7 @@ def test_delegated_board_downloads_only_live_private_appeal_evidence(monkeypatch
         assert revoked.value.status_code == 403
         db.get(HOABoardSeat, seat.id).decision_authorized = True
         db.flush()
-        monkeypatch.setattr(board_portal, "_require_attachment_feature",
+        monkeypatch.setattr(board_portal, "_board_document_gate",
                             lambda *a, **kw: (_ for _ in ()).throw(
                                 HTTPException(status_code=404, detail="Document disabled")
                             ))
@@ -2681,7 +2682,7 @@ def test_delegated_board_downloads_only_live_private_appeal_evidence(monkeypatch
                 appeal.id, db=db, current_user=admin,
             )
         assert disabled.value.status_code == 404
-        monkeypatch.setattr(board_portal, "_require_attachment_feature", lambda *a, **kw: None)
+        monkeypatch.setattr(board_portal, "_board_document_gate", lambda *a, **kw: None)
         appeals_api.decide_appeal(
             assoc.id, case.id, appeal.id, _appeal_decision(prop),
             db=db, current_user=admin,
@@ -2716,6 +2717,104 @@ def test_delegated_board_downloads_only_live_private_appeal_evidence(monkeypatch
         assert _balances(db) == before
     finally:
         db.rollback(); db.close(); engine.dispose()
+
+
+def test_board_governing_document_scoped_private_read_and_revocation(monkeypatch, tmp_path):
+    """Delegation permits one private linked file, never generic staff attachments."""
+    db, engine = _db()
+    try:
+        monkeypatch.setattr(member_api, "permission_allows_user", lambda *a, **kw: True)
+        users, props, assoc, case, draft, seat, proof = _record_served_fine_case(db, monkeypatch)
+        admin, owner, manager, tenant, foreign = users
+        prop = props[0]
+        document = EntityAttachment(
+            organization_id=admin.organization_id, entity_type="properties",
+            entity_id=prop.id, storage_key="board-rules-" + str(case.id) + ".pdf",
+            original_name="synthetic-board-rules.pdf", content_type="application/pdf",
+            size_bytes=19, is_active=True, share_with_tenants=False,
+            share_with_owners=False,
+        )
+        db.add(document); db.flush()
+        reference = HOAGoverningEvidence(
+            organization_id=admin.organization_id, association_id=assoc.id,
+            property_id=prop.id, attachment_id=document.id,
+            evidence_type="RULES", is_active=True, created_by_id=admin.id,
+        )
+        db.add(reference); db.flush()
+        file_path = tmp_path / "synthetic-board-rules.pdf"
+        file_path.write_bytes(b"%PDF-1.4 board test")
+        monkeypatch.setattr(board_portal, "attachment_path", lambda key: file_path)
+        def board_features(*args, **kwargs):
+            return [SimpleNamespace(
+                key=key, release_allowed=True, entitlement_allowed=True,
+                org_config_allowed=True, permission_allowed=False, allowed=False,
+            ) for key in (*arc_board.HOA_GATES, "release.documents.attachments")]
+        monkeypatch.setattr(board_portal, "resolve_customer_features", board_features)
+        before = _balances(db)
+        response = Response()
+        rows = board_portal.my_board_governing_documents(
+            response, db=db, current_user=admin,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert len(rows) == 1 and rows[0].id == reference.id
+        assert rows[0].status == "STAFF_SUPPLIED_UNVERIFIED"
+        assert not hasattr(rows[0], "attachment_id")
+        result = board_portal.download_board_governing_document(
+            reference.id, db=db, current_user=admin,
+        )
+        assert str(result.path) == str(file_path)
+        assert result.filename == document.original_name
+        assert result.headers["cache-control"] == "private, no-store"
+        for actor in (owner, manager, tenant, foreign):
+            with pytest.raises(HTTPException):
+                board_portal.download_board_governing_document(
+                    reference.id, db=db, current_user=actor,
+                )
+        document.share_with_owners = True
+        db.flush()
+        assert board_portal.my_board_governing_documents(
+            Response(), db=db, current_user=admin,
+        ) == []
+        with pytest.raises(HTTPException) as shared:
+            board_portal.download_board_governing_document(
+                reference.id, db=db, current_user=admin,
+            )
+        assert shared.value.status_code == 404
+        document.share_with_owners = False
+        db.get(HOABoardSeat, seat.id).decision_authorized = False
+        db.flush()
+        assert board_portal.my_board_governing_documents(
+            Response(), db=db, current_user=admin,
+        ) == []
+        with pytest.raises(HTTPException) as revoked:
+            board_portal.download_board_governing_document(
+                reference.id, db=db, current_user=admin,
+            )
+        assert revoked.value.status_code == 403
+        db.get(HOABoardSeat, seat.id).decision_authorized = True
+        monkeypatch.setattr(board_portal, "resolve_customer_features",
+                            lambda *a, **kw: [x for x in board_features()
+                                               if x.key != "release.documents.attachments"])
+        with pytest.raises(HTTPException) as unavailable:
+            board_portal.download_board_governing_document(
+                reference.id, db=db, current_user=admin,
+            )
+        assert unavailable.value.status_code == 404
+        monkeypatch.setattr(board_portal, "resolve_customer_features", board_features)
+        reference.is_active = False
+        db.flush()
+        assert board_portal.my_board_governing_documents(
+            Response(), db=db, current_user=admin,
+        ) == []
+        with pytest.raises(HTTPException) as archived:
+            board_portal.download_board_governing_document(
+                reference.id, db=db, current_user=admin,
+            )
+        assert archived.value.status_code == 404
+        assert _balances(db) == before
+    finally:
+        db.rollback(); db.close(); engine.dispose()
+
 
 
 def _appeal_notification_setup(db, monkeypatch, *, outcome="UPHELD"):

@@ -6,7 +6,7 @@ and no vote, charge, notice or unverified contact-to-login inference.
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -17,6 +17,8 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.contact import Contact
+from app.models.entity_attachment import EntityAttachment
+from app.models.hoa_governing_evidence import HOAGoverningEvidence
 from app.models.hoa_association import HOAAssociation, HOAContactLink, HOAPropertyMembership
 from app.models.hoa_board import HOABoardSeat
 from app.models.hoa_meeting_draft import HOAMeetingDraft
@@ -28,7 +30,7 @@ from app.routers.auth import get_current_user
 from app.routers.hoa_arc_board_decisions import HOA_GATES, _board_scope
 from app.routers.hoa_violation_cases import _case
 from app.routers.hoa_violation_fines import _fine, _private_case_proof
-from app.routers.hoa_governing_evidence import _require_attachment_feature
+from app.routers.hoa_governing_evidence import _attachment, ATTACHMENT_FEATURE
 from app.services.attachment_storage import attachment_path
 from app.services.customer_features import resolve_customer_features
 
@@ -380,6 +382,142 @@ def my_board_final_fine_appeals(
     return found
 
 
+
+class HOABoardDocumentOut(BaseModel):
+    id: int
+    association_id: int
+    property_id: int
+    evidence_type: str
+    filename: str
+    recorded_at: datetime
+    status: Literal["STAFF_SUPPLIED_UNVERIFIED"] = "STAFF_SUPPLIED_UNVERIFIED"
+
+
+def _board_document_gate(db, actor):
+    """Permit document reads only with the live release/entitlement and board seat.
+
+    Board members need not receive general staff document menu permissions.
+    """
+    decision = next((x for x in resolve_customer_features(db, user=actor)
+                     if x.key == ATTACHMENT_FEATURE), None)
+    if (decision is None or not decision.release_allowed
+        or not decision.entitlement_allowed or not decision.org_config_allowed):
+        raise HTTPException(status_code=404, detail="Board documents unavailable.")
+
+
+@router.get("/my-governing-documents", response_model=list[HOABoardDocumentOut])
+def my_board_governing_documents(
+    response: Response, db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Expose only active private staff-linked association documents to their board."""
+    actor = current_user
+    if (actor.organization_id is None or not actor.is_active
+        or actor.deleted_at is not None or not actor.is_verified):
+        raise HTTPException(status_code=403, detail="Verified board login required.")
+    org = db.query(Organization.id).filter(
+        Organization.id == actor.organization_id, Organization.is_active.is_(True),
+        Organization.deleted_at.is_(None),
+    ).first()
+    if org is None:
+        raise HTTPException(status_code=403, detail="Organization inactive.")
+    grants = {x.key: x for x in resolve_customer_features(db, user=actor)}
+    if any((value := grants.get(key)) is None or not (
+            value.release_allowed and value.entitlement_allowed and value.org_config_allowed)
+           for key in (*HOA_GATES, ATTACHMENT_FEATURE)):
+        raise HTTPException(status_code=404, detail="HOA board documents unavailable.")
+    rows = db.query(HOAGoverningEvidence, EntityAttachment).join(
+        EntityAttachment, EntityAttachment.id == HOAGoverningEvidence.attachment_id,
+    ).join(HOABoardSeat, and_(
+        HOABoardSeat.organization_id == HOAGoverningEvidence.organization_id,
+        HOABoardSeat.association_id == HOAGoverningEvidence.association_id,
+        HOABoardSeat.property_id == HOAGoverningEvidence.property_id,
+    )).join(HOAContactLink, HOAContactLink.id == HOABoardSeat.contact_link_id
+    ).join(Contact, Contact.id == HOAContactLink.contact_id
+    ).join(HOAAssociation, HOAAssociation.id == HOAGoverningEvidence.association_id
+    ).join(HOAPropertyMembership, and_(
+        HOAPropertyMembership.organization_id == HOAGoverningEvidence.organization_id,
+        HOAPropertyMembership.association_id == HOAGoverningEvidence.association_id,
+        HOAPropertyMembership.property_id == HOAGoverningEvidence.property_id,
+    )).join(Property, Property.id == HOAGoverningEvidence.property_id).filter(
+        HOAGoverningEvidence.organization_id == actor.organization_id,
+        HOAGoverningEvidence.is_active.is_(True),
+        HOABoardSeat.authorized_user_id == actor.id,
+        HOABoardSeat.organization_id == actor.organization_id,
+        HOABoardSeat.is_active.is_(True),
+        HOABoardSeat.decision_authorized.is_(True),
+        HOABoardSeat.staff_voting_eligible.is_(True),
+        HOAContactLink.organization_id == actor.organization_id,
+        HOAContactLink.association_id == HOAGoverningEvidence.association_id,
+        HOAContactLink.property_id == HOAGoverningEvidence.property_id,
+        HOAContactLink.is_active.is_(True),
+        Contact.organization_id == actor.organization_id,
+        Contact.is_active.is_(True), Contact.deleted_at.is_(None),
+        func.lower(func.trim(Contact.email)) == actor.email.strip().lower(),
+        HOAAssociation.organization_id == actor.organization_id,
+        HOAAssociation.is_active.is_(True),
+        Property.organization_id == actor.organization_id,
+        Property.is_active.is_(True), Property.deleted_at.is_(None),
+        EntityAttachment.organization_id == actor.organization_id,
+        EntityAttachment.entity_type == "properties",
+        EntityAttachment.entity_id == HOAGoverningEvidence.property_id,
+        EntityAttachment.is_active.is_(True),
+        EntityAttachment.share_with_tenants.is_(False),
+        EntityAttachment.share_with_owners.is_(False),
+    ).distinct().order_by(HOAGoverningEvidence.id).limit(201).all()
+    if len(rows) > 200:
+        raise HTTPException(status_code=422, detail="Board document list exceeds 200.")
+    found = []
+    for ref, attachment in rows:
+        try:
+            _board_scope(db, actor=actor, association_id=ref.association_id,
+                         property_id=ref.property_id)
+            _attachment(db, org_id=actor.organization_id, prop_id=ref.property_id,
+                        attachment_id=attachment.id)
+        except HTTPException:
+            continue
+        found.append(HOABoardDocumentOut(
+            id=ref.id, association_id=ref.association_id,
+            property_id=ref.property_id, evidence_type=ref.evidence_type,
+            filename=attachment.original_name, recorded_at=ref.created_at,
+        ))
+    response.headers["Cache-Control"] = "no-store"
+    return found
+
+
+@router.get("/governing-documents/{reference_id}")
+def download_board_governing_document(
+    reference_id: int, db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    actor = current_user
+    if actor.organization_id is None:
+        raise HTTPException(status_code=403, detail="Verified board login required.")
+    ref = db.query(HOAGoverningEvidence).filter(
+        HOAGoverningEvidence.id == reference_id,
+        HOAGoverningEvidence.organization_id == actor.organization_id,
+        HOAGoverningEvidence.is_active.is_(True),
+    ).first()
+    if ref is None:
+        raise HTTPException(status_code=404, detail="Board document not found.")
+    org, _, _ = _board_scope(
+        db, actor=actor, association_id=ref.association_id, property_id=ref.property_id,
+    )
+    _board_document_gate(db, actor)
+    doc = _attachment(db, org_id=org, prop_id=ref.property_id,
+                      attachment_id=ref.attachment_id)
+    try:
+        file_path = attachment_path(doc.storage_key)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Board document not found.") from exc
+    if not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Board document not found.")
+    return FileResponse(
+        file_path, media_type=doc.content_type or "application/octet-stream",
+        filename=doc.original_name, headers={"Cache-Control": "private, no-store"},
+    )
+
+
 @router.get("/fine-appeals/{appeal_id}/supporting-evidence")
 def download_board_appeal_evidence(
     appeal_id: int, db: Session = Depends(get_db),
@@ -405,7 +543,7 @@ def download_board_appeal_evidence(
         db, actor=actor, association_id=appeal.association_id,
         property_id=appeal.property_id,
     )
-    _require_attachment_feature(db, actor)
+    _board_document_gate(db, actor)
     _case(
         db, org_id=org, association_id=association.id,
         property_id=appeal.property_id, case_id=appeal.case_id,

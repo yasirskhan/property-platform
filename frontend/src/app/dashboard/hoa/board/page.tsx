@@ -5,6 +5,7 @@ import { apiGet, apiPost } from "@/lib/api";
 import HoaBoardRuleAdoptionPanel from "@/components/property/HoaBoardRuleAdoptionPanel";
 import HoaBoardMotionOutcomePanel from "@/components/property/HoaBoardMotionOutcomePanel";
 import HoaBoardFineAppealsPanel from "@/components/property/HoaBoardFineAppealsPanel";
+import HoaBoardGoverningDocumentsPanel from "@/components/property/HoaBoardGoverningDocumentsPanel";
 
 type Meeting = {
   association_id: number; property_id: number; meeting_id: number;
@@ -141,6 +142,7 @@ export default function HOABoardPortal() {
       quorum, a full-board vote, statutory delivery, or any financial transaction.
     </p>
     <HoaBoardFineAppealsPanel />
+    <HoaBoardGoverningDocumentsPanel />
     {loading && <p>Loading authorized meetings…</p>}
     {error && <p role="alert" className="text-red-700">{error}</p>}
     {message && <p role="status" className="text-green-800">{message}</p>}

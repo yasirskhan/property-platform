@@ -196,10 +196,34 @@ def test_hoa_staff_evidence_upload_link_download_and_archive() -> None:
                 assert _financial_counts() == before
                 delivery.get_by_role("button", name="Close delivery").click()
 
+                page.goto(f"{BASE_URL}/dashboard/hoa/board", wait_until="domcontentloaded")
+                board_docs = page.get_by_role(
+                    "heading", name="My HOA board documents",
+                ).locator("..")
+                expect(board_docs.get_by_text(DOCUMENT_NAME, exact=True)).to_be_visible()
+                with page.expect_download() as board_download:
+                    board_docs.get_by_role(
+                        "button", name="Download private board document",
+                    ).click()
+                assert board_download.value.suggested_filename == DOCUMENT_NAME
+                assert board_download.value.path().stat().st_size > 0
+                assert _financial_counts() == before
+
+                page.goto(
+                    f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                    wait_until="domcontentloaded",
+                )
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                page.get_by_role("button", name="Governing evidence").click()
+                expect(page.get_by_role("heading", name="Governing document evidence")).to_be_visible()
+
                 page.once("dialog", lambda dialog: dialog.accept())
                 page.get_by_role("button", name="Archive link").click()
                 expect(page.get_by_text(re.compile("Reference archived; no legal action"))).to_be_visible()
                 expect(page.get_by_text("No governing documents have been indexed for this property.")).to_be_visible()
+                page.goto(f"{BASE_URL}/dashboard/hoa/board", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="My HOA board documents")).to_be_visible()
+                expect(page.get_by_text(DOCUMENT_NAME, exact=True)).to_have_count(0)
                 assert _financial_counts() == before
             finally:
                 browser.close()
@@ -230,10 +254,19 @@ def _seed_governing_delivery_recipient() -> None:
         )
         db.add(contact)
         db.flush()
-        db.add(HOAContactLink(
+        link = HOAContactLink(
             organization_id=association.organization_id,
             association_id=association.id, property_id=PROPERTY_ID,
             contact_id=contact.id, is_active=True,
+        )
+        db.add(link); db.flush()
+        db.add(HOABoardSeat(
+            organization_id=association.organization_id,
+            association_id=association.id, property_id=PROPERTY_ID,
+            contact_link_id=link.id, proposed_role="CHAIR",
+            staff_voting_eligible=True, is_active=True,
+            authorized_user_id=user.id, decision_authorized=True,
+            authorized_by_id=user.id, can_record_offline=True,
         ))
         db.commit()
     finally:
@@ -426,6 +459,13 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 expect(board_appeals.get_by_text(
                     re.compile("Outcome email: NOT REQUESTED"),
                 )).to_be_visible()
+                # Finalization preserves only the same scoped private proof.
+                with page.expect_download() as final_evidence:
+                    board_appeals.get_by_role(
+                        "button", name="Download private appeal evidence",
+                    ).click()
+                assert final_evidence.value.path().stat().st_size == 100
+                assert _financial_counts() == before
                 board_appeals.get_by_role("button", name="Open final outcome email").click()
                 expect(board_appeals.get_by_role(
                     "heading", name="Fine appeal outcome email",
