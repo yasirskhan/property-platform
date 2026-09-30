@@ -1,3 +1,14 @@
+# AI_HANDOFF.md — 2026-09-30 VERIFIED COMMERCIAL CAM RECONCILIATION
+
+**AUTHORITATIVE CURRENT CHECKPOINT. Phase 4.8 ONLY.** Do not start Phase 4.9+.
+
+- Last VERIFIED PRODUCT source: `074f4c0dc8a9852935dc7bcb32825df4b95cde08`. GitHub Actions **36748569619 attempt 2 SUCCESS, all SIX jobs on this exact SHA**. Backend **836 passed, 16 deselected, 22756 warnings in 293.45s**; authenticated E2E **16 passed, 254 warnings in 94.17s**; frontend, platform-admin, security and staging-config PASS. **TESTS NOT RUN locally**. Attempt 1 failed one unrelated HOA reserve browser login/navigation check; the failed E2E job was rerun without product changes and passed.
+- Verified annual Commercial CAM reconciliation: private same-scope evidence + current authorized CAM share are compared against CAM components of active posted Commercial operating charges for the selected year. Positive true-up creates a tenant Charge and balanced central GL posting; negative true-up posts the opposite balanced central GL entry without fabricating a cash refund; zero creates no finance. Unpaid positive true-ups and GL-only negative true-ups reverse through immutable central reversals. Evidence remains private and protected.
+- Alembic head **`c4e6f8a0b2d5`**, **183 model tables**.
+- **FINAL REMAINING Phase 4.8 batch:** percentage rent from private tenant-sales evidence using current billing-authorized rate/breakpoint, with positive/zero posting and unpaid reversal; plus TI allowance utilization tracking against current authorized allowance and private evidence, capped across active utilization with void history and no inferred payout/bank/GL movement. After exact-SHA six-job green, mark **PHASE 4.8 COMPLETE | VERIFIED**, update handoff with final SHA/counts, identify Phase 4.9 for reference only, and STOP all development until explicit user instruction.
+
+---
+
 # AI_HANDOFF.md — 2026-09-30 VERIFIED COMMERCIAL CAM / NNN POSTING
 
 **AUTHORITATIVE CURRENT CHECKPOINT. Phase 4.8 ONLY.** Do not start Phase 4.9+.
