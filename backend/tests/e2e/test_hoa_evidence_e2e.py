@@ -862,10 +862,22 @@ def test_hoa_arc_application_review_browser_records_board_approval() -> None:
                 workflow.get_by_label("Review note / board decision reason").fill(
                     "E2E recorded board approval"
                 )
+                workflow.get_by_label("Optional follow-up").select_option("INSPECTION")
+                workflow.get_by_label("Follow-up instructions").fill(
+                    "Inspect the completed E2E fence and record the site condition."
+                )
                 workflow.get_by_role("button", name="Record board approval").click()
                 expect(workflow.get_by_text(re.compile("Board decision: APPROVED"))).to_be_visible()
                 expect(workflow.get_by_text(re.compile("Direct board record"))).to_be_visible()
                 expect(workflow.get_by_text(re.compile("Applicant notification: NO VERIFIED RECIPIENT"))).to_be_visible()
+                expect(workflow.get_by_text(re.compile("HOA INSPECTION follow-up"))).to_be_visible()
+                workflow.get_by_label("ARC inspection completed date").fill(date.today().isoformat())
+                workflow.get_by_label("ARC inspection completion note").fill(
+                    "E2E staff recorded the completed fence inspection without changing the approval."
+                )
+                workflow.get_by_role("button", name="Record inspection completion").click()
+                expect(workflow.get_by_text(re.compile("inspection completion recorded", re.I))).to_be_visible()
+                expect(workflow.get_by_text(re.compile("COMPLETED"))).to_be_visible()
                 expect(workflow.get_by_role("button", name="Record board approval")).to_have_count(0)
                 assert _financial_counts() == before
             finally:

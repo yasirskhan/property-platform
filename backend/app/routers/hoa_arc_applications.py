@@ -1,6 +1,8 @@
 """HOA ARC application intake and review, with recorded board decision history."""
 from __future__ import annotations
 
+from datetime import date, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -21,7 +23,7 @@ from app.routers.hoa_assessments import _scope
 from app.routers.hoa_governing_evidence import _attachment, _require_attachment_feature
 from app.schemas.hoa_arc_application import (
     HOAARCApplicationDetailOut, HOAARCApplicationIn, HOAARCApplicationOut,
-    HOAARCDecisionOut,
+    HOAARCDecisionOut, HOAARCInspectionCompleteIn,
     HOAARCAttachmentIn,
     HOAARCAttachmentOut, HOAARCReviewEventIn, HOAARCReviewEventOut,
 )
@@ -175,8 +177,13 @@ def _out(db: Session, row: HOAARCApplication) -> HOAARCApplicationOut:
         fee_reversal_transaction_id=fee.reversal_transaction_id if fee else None,
         follow_up_id=follow_up.id if follow_up else None,
         follow_up_kind=follow_up.kind if follow_up else None,
+        follow_up_status=follow_up.status if follow_up else None,
         existing_work_order_id=follow_up.existing_work_order_id if follow_up else None,
         work_order_id=decision.work_order_id,
+        inspection_completed_on=(follow_up.completion_on if follow_up and follow_up.kind == "INSPECTION" else None),
+        inspection_completion_note=(follow_up.completion_note if follow_up and follow_up.kind == "INSPECTION" else None),
+        inspection_completion_attachment_id=(follow_up.completion_attachment_id if follow_up and follow_up.kind == "INSPECTION" else None),
+        inspection_completed_at=(follow_up.completed_at if follow_up and follow_up.kind == "INSPECTION" else None),
         notification_status=notice.status if notice is not None else decision.notification_status,
     ) if decision is not None else None
     return HOAARCApplicationOut(
@@ -258,6 +265,97 @@ def get_application(
         property_id=property_id, application_id=application_id,
     )
     response.headers["Cache-Control"] = "no-store"
+    return _detail(db, row)
+
+@router.post("/{association_id}/arc-applications/{application_id}/inspection-completion",
+             response_model=HOAARCApplicationDetailOut)
+def complete_arc_inspection(
+    association_id: int, application_id: int, payload: HOAARCInspectionCompleteIn,
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    """Record completion of an existing approved ARC inspection follow-up.
+
+    This never changes the board decision, fee, notification or GL. Optional
+    evidence must already be a live private property attachment.
+    """
+    org_id, assoc = _scope(
+        db, actor=current_user, association_id=association_id,
+        property_id=payload.property_id, write=True,
+    )
+    row = _row(
+        db, org_id=org_id, association_id=assoc.id,
+        property_id=payload.property_id, application_id=application_id,
+    )
+    decision = db.query(HOAARCDecision).filter(
+        HOAARCDecision.organization_id == org_id,
+        HOAARCDecision.association_id == assoc.id,
+        HOAARCDecision.property_id == payload.property_id,
+        HOAARCDecision.application_id == row.id,
+        HOAARCDecision.decision == "APPROVED",
+    ).first()
+    if decision is None or row.status != "APPROVED":
+        raise HTTPException(status_code=409, detail="Approved ARC board decision required.")
+    follow_up = db.query(HOAARCFollowUp).filter(
+        HOAARCFollowUp.organization_id == org_id,
+        HOAARCFollowUp.association_id == assoc.id,
+        HOAARCFollowUp.property_id == payload.property_id,
+        HOAARCFollowUp.decision_id == decision.id,
+        HOAARCFollowUp.kind == "INSPECTION",
+    ).with_for_update().first()
+    if follow_up is None:
+        raise HTTPException(status_code=404, detail="ARC inspection follow-up not found.")
+    reused = db.query(HOAARCFollowUp).filter(
+        HOAARCFollowUp.organization_id == org_id,
+        HOAARCFollowUp.completion_request_key == payload.request_key,
+    ).first()
+    if reused is not None:
+        if (reused.id == follow_up.id and reused.status == "COMPLETED"
+            and reused.completion_on == payload.completed_on
+            and reused.completion_note == payload.completion_note
+            and reused.completion_attachment_id == payload.completion_attachment_id):
+            return _detail(db, row)
+        raise HTTPException(status_code=409, detail="Inspection completion request key already used.")
+    if follow_up.status != "OPEN":
+        raise HTTPException(status_code=409, detail="ARC inspection follow-up already completed.")
+    decision_on = decision.decided_on or decision.decided_at.date()
+    if payload.completed_on < decision_on or payload.completed_on > date.today():
+        raise HTTPException(status_code=422, detail="Inspection completion date must follow the board decision and not be future-dated.")
+    if payload.completion_attachment_id is not None:
+        _require_attachment_feature(db, current_user)
+        evidence = db.query(EntityAttachment).filter(
+            EntityAttachment.id == payload.completion_attachment_id,
+            EntityAttachment.organization_id == org_id,
+            EntityAttachment.entity_type == "properties",
+            EntityAttachment.entity_id == payload.property_id,
+            EntityAttachment.is_active.is_(True),
+            EntityAttachment.share_with_tenants.is_(False),
+            EntityAttachment.share_with_owners.is_(False),
+        ).first()
+        if evidence is None:
+            raise HTTPException(status_code=404, detail="Private inspection evidence not found.")
+    follow_up.status = "COMPLETED"
+    follow_up.completion_on = payload.completed_on
+    follow_up.completion_note = payload.completion_note
+    follow_up.completion_attachment_id = payload.completion_attachment_id
+    follow_up.completion_request_key = payload.request_key
+    follow_up.completed_by_user_id = current_user.id
+    follow_up.completed_at = datetime.utcnow()
+    try:
+        append_audit_log(
+            db, organization_id=org_id, user_id=current_user.id,
+            entity_type="hoa_arc_follow_up", entity_id=follow_up.id,
+            action="arc_inspection_completed",
+            new_value={
+                "association_id": assoc.id, "property_id": payload.property_id,
+                "application_id": row.id, "decision_id": decision.id,
+                "completed_on": payload.completed_on.isoformat(),
+                "completion_attachment_id": payload.completion_attachment_id,
+            },
+        )
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Concurrent ARC inspection completion.") from exc
     return _detail(db, row)
 
 

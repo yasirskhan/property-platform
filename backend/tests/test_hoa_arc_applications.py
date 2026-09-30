@@ -45,6 +45,7 @@ from app.routers import hoa_associations as hoa
 from app.schemas.entity_attachment import EntityAttachmentShareUpdate
 from app.schemas.hoa_arc_application import (
     HOAARCApplicationIn, HOAARCAttachmentIn, HOAARCReviewEventIn,
+    HOAARCInspectionCompleteIn,
 )
 from app.schemas.hoa_arc_intake import HOAARCIntakeIn
 from app.schemas.hoa_association import HOAAssociationIn, HOAContactLinkIn
@@ -435,6 +436,82 @@ def test_board_approved_arc_is_final_without_software_legal_effect_flag(monkeypa
     finally:
         db.close()
         engine.dispose()
+
+
+def test_arc_inspection_completion_is_private_idempotent_and_finance_neutral(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (prop, _, _), assoc, links, intake, docs = _seed(db)
+        _board_member(db, assoc, prop, admin)
+        application = _ready_application(db, assoc, prop, intake, links[0], admin)
+        before = _counts(db)
+        detail = board_api.record_board_decision(
+            assoc.id, application.id, HOAARCDecisionIn(
+                property_id=prop.id, decision="APPROVED",
+                decision_note="Approve subject to documented inspection follow-up",
+                follow_up_kind="INSPECTION",
+                follow_up_description="Inspect the completed fence installation and record observations.",
+            ), db=db, current_user=admin,
+        )
+        assert detail.board_decision.follow_up_kind == "INSPECTION"
+        assert detail.board_decision.follow_up_status == "OPEN"
+        follow = db.query(HOAARCFollowUp).one()
+        assert follow.status == "OPEN"
+        payload = HOAARCInspectionCompleteIn(
+            property_id=prop.id, completed_on=date.today(),
+            completion_note="Staff inspected the completed fence and recorded the site condition.",
+            completion_attachment_id=docs[0].id,
+            request_key="arc-inspection-complete-001",
+        )
+        docs[0].share_with_owners = True
+        db.flush()
+        with pytest.raises(HTTPException) as shared:
+            api.complete_arc_inspection(
+                assoc.id, application.id, payload, db=db, current_user=admin,
+            )
+        assert shared.value.status_code == 404
+        docs[0].share_with_owners = False
+        db.flush()
+        with pytest.raises(HTTPException):
+            api.complete_arc_inspection(
+                assoc.id, application.id, payload, db=db, current_user=foreign,
+            )
+        completed = api.complete_arc_inspection(
+            assoc.id, application.id, payload, db=db, current_user=admin,
+        )
+        assert completed.board_decision.decision == "APPROVED"
+        assert completed.board_decision.follow_up_status == "COMPLETED"
+        assert completed.board_decision.inspection_completed_on == date.today()
+        assert completed.board_decision.inspection_completion_attachment_id == docs[0].id
+        assert completed.board_decision.inspection_completion_note.startswith("Staff inspected")
+        assert _counts(db) == before
+        assert db.query(HOAARCDecision).count() == 1
+        assert db.query(HOAARCFollowUp).count() == 1
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_arc_follow_up",
+            AuditLog.action == "arc_inspection_completed",
+        ).count() == 1
+        repeated = api.complete_arc_inspection(
+            assoc.id, application.id, payload, db=db, current_user=admin,
+        )
+        assert repeated.board_decision.follow_up_status == "COMPLETED"
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "hoa_arc_follow_up",
+            AuditLog.action == "arc_inspection_completed",
+        ).count() == 1
+        with pytest.raises(HTTPException) as reused:
+            api.complete_arc_inspection(
+                assoc.id, application.id, HOAARCInspectionCompleteIn(
+                    property_id=prop.id, completed_on=date.today(),
+                    completion_note="Different completion record.",
+                    completion_attachment_id=docs[0].id,
+                    request_key=payload.request_key,
+                ), db=db, current_user=admin,
+            )
+        assert reused.value.status_code == 409
+        assert _counts(db) == before
+    finally:
+        db.rollback(); db.close(); engine.dispose()
 
 
 def test_arc_approved_fee_uses_member_receivable_gl_and_real_work_order(monkeypatch):

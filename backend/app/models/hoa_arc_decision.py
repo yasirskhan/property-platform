@@ -74,9 +74,16 @@ class HOAARCFollowUp(Base):
     description = Column(Text, nullable=False)
     status = Column(String(20), nullable=False, default="OPEN", server_default="OPEN")
     existing_work_order_id = Column(Integer, ForeignKey("work_orders.id", ondelete="SET NULL"), nullable=True)
+    completion_on = Column(Date, nullable=True)
+    completion_note = Column(Text, nullable=True)
+    completion_attachment_id = Column(Integer, ForeignKey("entity_attachments.id", ondelete="RESTRICT"), nullable=True)
+    completion_request_key = Column(String(64), nullable=True)
+    completed_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    completed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     __table_args__ = (
         Index("ix_hoa_arc_follow_up_scope", "organization_id", "association_id", "property_id"),
+        UniqueConstraint("organization_id", "completion_request_key", name="uq_hoa_arc_follow_up_completion_request"),
     )
 
 

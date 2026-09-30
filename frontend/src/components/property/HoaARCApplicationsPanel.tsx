@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
 import {
   listEntityAttachments, type EntityAttachment,
@@ -22,8 +22,10 @@ type BoardDecision = {
   member_charge_id: number | null; member_charge_amount: string | null;
   member_charge_due_on: string | null; fee_gl_transaction_id: number | null;
   fee_reversal_transaction_id: number | null;
-  follow_up_id: number | null; follow_up_kind: string | null;
+  follow_up_id: number | null; follow_up_kind: string | null; follow_up_status: string | null;
   existing_work_order_id: number | null; work_order_id: number | null;
+  inspection_completed_on: string | null; inspection_completion_note: string | null;
+  inspection_completion_attachment_id: number | null; inspection_completed_at: string | null;
 };
 type Application = {
   id: number;
@@ -103,6 +105,10 @@ export default function HoaARCApplicationsPanel({
   const [followUpDescription, setFollowUpDescription] = useState("");
   const [reversalOn, setReversalOn] = useState("");
   const [reversalReason, setReversalReason] = useState("");
+  const [inspectionOn, setInspectionOn] = useState("");
+  const [inspectionNote, setInspectionNote] = useState("");
+  const [inspectionAttachmentId, setInspectionAttachmentId] = useState("");
+  const inspectionRequestKey = useRef("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -252,6 +258,28 @@ export default function HoaARCApplicationsPanel({
     } finally { setBusy(false); }
   }
 
+  async function completeInspection() {
+    if (!application || !canEdit || busy || !inspectionOn || inspectionNote.trim().length < 3) return;
+    if (!inspectionRequestKey.current) inspectionRequestKey.current = window.crypto.randomUUID();
+    setBusy(true); setError(""); setMessage("");
+    try {
+      await apiPost(base + "/" + application.id + "/inspection-completion", {
+        property_id: propertyId,
+        completed_on: inspectionOn,
+        completion_note: inspectionNote.trim(),
+        completion_attachment_id: inspectionAttachmentId ? Number(inspectionAttachmentId) : null,
+        request_key: inspectionRequestKey.current,
+      });
+      inspectionRequestKey.current = "";
+      setInspectionOn(""); setInspectionNote(""); setInspectionAttachmentId("");
+      await reload();
+      setMessage("ARC inspection completion recorded. The board decision and financial records are unchanged.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "ARC inspection completion rejected.");
+      void reload().catch(() => {});
+    } finally { setBusy(false); }
+  }
+
   async function retryNotification() {
     if (!application || !canEdit || busy) return;
     setBusy(true); setError(""); setMessage("");
@@ -388,11 +416,47 @@ export default function HoaARCApplicationsPanel({
                   <p>Fee reversed by GL #{application.board_decision.fee_reversal_transaction_id}.</p>
                 )}
                 {application.board_decision.follow_up_id && (
-                  <p>HOA {application.board_decision.follow_up_kind} follow-up #{application.board_decision.follow_up_id}
-                    {application.board_decision.existing_work_order_id
-                      ? " · Work order #" + application.board_decision.existing_work_order_id
-                      : " · Association follow-up requested"}
-                  </p>
+                  <div className="space-y-2 rounded border bg-slate-50 p-2">
+                    <p>HOA {application.board_decision.follow_up_kind} follow-up #{application.board_decision.follow_up_id}
+                      {" · "}{application.board_decision.follow_up_status || "OPEN"}
+                      {application.board_decision.existing_work_order_id
+                        ? " · Work order #" + application.board_decision.existing_work_order_id
+                        : " · Association follow-up requested"}
+                    </p>
+                    {application.board_decision.follow_up_kind === "INSPECTION" &&
+                      application.board_decision.follow_up_status === "COMPLETED" && <>
+                        <p>Inspection completed {application.board_decision.inspection_completed_on}</p>
+                        <p>{application.board_decision.inspection_completion_note}</p>
+                        {application.board_decision.inspection_completion_attachment_id &&
+                          <p>Private inspection evidence #{application.board_decision.inspection_completion_attachment_id}</p>}
+                      </>}
+                    {canEdit && application.board_decision.follow_up_kind === "INSPECTION" &&
+                      application.board_decision.follow_up_status === "OPEN" && <div className="space-y-2 border-t pt-2">
+                        <label className="block">ARC inspection completed date
+                          <input aria-label="ARC inspection completed date" type="date" value={inspectionOn}
+                            onChange={(event) => setInspectionOn(event.target.value)}
+                            className="mt-1 block rounded border p-2" />
+                        </label>
+                        <label className="block">ARC inspection completion note
+                          <textarea aria-label="ARC inspection completion note" maxLength={1500}
+                            value={inspectionNote} onChange={(event) => setInspectionNote(event.target.value)}
+                            className="mt-1 block w-full rounded border p-2" />
+                        </label>
+                        <label className="block">Private inspection evidence (optional)
+                          <select aria-label="ARC inspection completion evidence" value={inspectionAttachmentId}
+                            onChange={(event) => setInspectionAttachmentId(event.target.value)}
+                            className="mt-1 block rounded border p-2">
+                            <option value="">No additional evidence</option>
+                            {documents.map(item => <option key={item.id} value={item.id}>{item.original_name}</option>)}
+                          </select>
+                        </label>
+                        <button type="button" disabled={busy || !inspectionOn || inspectionNote.trim().length < 3}
+                          onClick={() => { void completeInspection(); }}
+                          className="rounded border border-emerald-700 px-3 py-2 text-emerald-800 disabled:opacity-50">
+                          Record inspection completion
+                        </button>
+                      </div>}
+                  </div>
                 )}
                 {canEdit && application.board_decision.member_charge_id &&
                   !application.board_decision.fee_reversal_transaction_id && (

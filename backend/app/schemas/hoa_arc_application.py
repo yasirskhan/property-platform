@@ -70,6 +70,23 @@ class HOAARCDecisionIn(BaseModel):
         return self
 
 
+class HOAARCInspectionCompleteIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    property_id: int = Field(ge=1)
+    completed_on: date
+    completion_note: str = Field(min_length=3, max_length=1500)
+    completion_attachment_id: int | None = Field(default=None, ge=1)
+    request_key: str = Field(min_length=8, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+
+    @field_validator("completion_note")
+    @classmethod
+    def clean_completion_note(cls, value: str) -> str:
+        result = value.strip()
+        if len(result) < 3:
+            raise ValueError("A substantive inspection completion note is required.")
+        return result
+
+
 class HOAARCDecisionOut(BaseModel):
     id: int
     decision: Literal["APPROVED", "DENIED"]
@@ -87,8 +104,13 @@ class HOAARCDecisionOut(BaseModel):
     fee_reversal_transaction_id: int | None = None
     follow_up_id: int | None = None
     follow_up_kind: str | None = None
+    follow_up_status: str | None = None
     existing_work_order_id: int | None = None
     work_order_id: int | None = None
+    inspection_completed_on: date | None = None
+    inspection_completion_note: str | None = None
+    inspection_completion_attachment_id: int | None = None
+    inspection_completed_at: datetime | None = None
     notification_status: str
 
 
