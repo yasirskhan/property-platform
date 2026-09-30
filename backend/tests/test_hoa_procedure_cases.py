@@ -1931,7 +1931,7 @@ def test_fine_board_auth_service_policy_hearing_and_member_revocation(monkeypatc
             fine_api.decide_fine(
                 assoc.id, case.id,
                 _fine_decision(
-                    prop, tenant, hearing_record_id=hearing_record.id, hearing_disposition="HEARING_HELD",
+                    prop, tenant, hearing_disposition="HEARING_HELD",
                     hearing_held_on=date.today(),
                     hearing_record_attachment_id=987654321,
                 ), db=db, current_user=admin,
