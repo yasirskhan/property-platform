@@ -239,6 +239,99 @@ class Unit(Base):
 
 
 # ------------------------------------------------------------
+# STUDENT HOUSING FOUNDATION
+# ------------------------------------------------------------
+class StudentAcademicCycle(Base):
+    """Explicit property-scoped academic calendar used by student housing.
+
+    A cycle is scheduling metadata only. It does not establish student status,
+    occupancy eligibility, lease liability, rent, or guarantor responsibility.
+    """
+
+    __tablename__ = "student_academic_cycles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    property_id = Column(
+        Integer,
+        ForeignKey("properties.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name = Column(String(120), nullable=False)
+    start_date = Column(Date, nullable=False, index=True)
+    end_date = Column(Date, nullable=False, index=True)
+    is_active = Column(Boolean, nullable=False, default=True, server_default="1")
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "property_id",
+            "name",
+            "start_date",
+            "end_date",
+            name="uq_student_academic_cycle_property_name_dates",
+        ),
+    )
+
+
+class StudentBed(Base):
+    """Explicit rentable-bed inventory within an existing unit.
+
+    Beds are inventory references only until a later verified by-the-bed lease
+    workflow links them to an actual lease.
+    """
+
+    __tablename__ = "student_beds"
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    property_id = Column(
+        Integer,
+        ForeignKey("properties.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    unit_id = Column(
+        Integer,
+        ForeignKey("units.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    bed_label = Column(String(80), nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True, server_default="1")
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
+
+    __table_args__ = (
+        UniqueConstraint("unit_id", "bed_label", name="uq_student_bed_unit_label"),
+    )
+
+
+# ------------------------------------------------------------
 # PROPERTY ASSIGNMENT (staff — manager/crew)
 # ------------------------------------------------------------
 class PropertyAssignment(Base):
