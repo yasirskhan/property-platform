@@ -1,3 +1,15 @@
+# AI_HANDOFF.md — 2026-09-29 VERIFIED DELEGATED FINAL APPEAL PORTAL
+
+**AUTHORITATIVE CURRENT CHECKPOINT.** Later historical sections are preserved below and their NEXT labels are superseded. Check live HEAD and CI before edits.
+
+- Only working branch: `chatgpt/checkpoint-005-safety`. Last VERIFIED PRODUCT commit `2b72eaf080efe3cb3147b6d02c6a586bc7f6d632`; GitHub Actions run **36647708184 attempt 1 SUCCESS**, all SIX jobs: backend **822 passed, 15 deselected, 22032 warnings in 202.05s**; authenticated browser **15 passed, 234 warnings in 67.74s**; frontend, platform-admin, security and staging-config PASS. **TESTS NOT RUN locally**.
+- This product batch includes provisional implementation `ef879582954553d464258a5fa60964295a9ae60a` and corrective association-scoped template/retry commit `2b72eaf080efe3cb3147b6d02c6a586bc7f6d632`. The two earlier workflow runs were CANCELLED; neither is verification. No migration in these two commits: latest verified Alembic **b1d3f5a7c9e2**, **177 model tables**.
+- Authenticated paid-HOA delegated board members can view scoped FINAL UPHELD/VACATED appeal histories and notification states, explicitly send/retry using the existing shared notification outbox and association-scoped HOA appeal templates. Retain the previous OPEN-appeal private evidence portal. Do not infer email delivery or legal service from SMTP acceptance. No ledger or refund side effects; synthetic CI only.
+- NEXT: inspect live source against original Phase 4.7 HOA roadmap and select an independently incomplete OPERATIONAL HOA capability, without repeating verified final-appeal notifications, board history, private evidence, posted dues/fines, ARC, governance, reserve accounting, documents or budget subsets. Preserve $79 paid-HOA gate, org/property/member scope, live board authority, accounting locks, audit, idempotency and reversals. Keep exact next scoped batch in handoff when identified. Phase 4.8 remains out of scope.
+- Workflow: GitHub connector fetch/inspect, bounded blob/tree/commit only on existing branch, non-force ref update, GitHub Actions six jobs on exact commit, autonomously repair failures, update root handoff with real test counts, continue independently. Never touch main, create a branch, force-push, merge PRs or modify frozen docs/. PROVISIONAL means committed but not six-job green; PREPARED means uncommitted; BLOCKED needs an exact dependency.
+
+---
+
 # AI_HANDOFF.md — 2026-09-29 VERIFIED HOA FINE-APPEAL OUTCOME EMAIL
 
 **AUTHORITATIVE CURRENT CHECKPOINT.** This entire leading section supersedes
