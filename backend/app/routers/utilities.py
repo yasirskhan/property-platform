@@ -15,6 +15,7 @@ from app.core.database import get_db
 from app.models.utility import (
     PropertyUtility,
     UtilityBill,
+    UtilityAllocationSnapshot,
     TrashPickupSchedule,
 )
 from app.models.user import User, UserRole
@@ -141,6 +142,20 @@ def delete_utility(
     _require_manage(current_user)
     check_property_access(db, current_user, property_id)
     u = _get_utility(db, property_id, utility_id)
+    has_reviewed_rubs_history = (
+        db.query(UtilityAllocationSnapshot.id)
+        .filter(UtilityAllocationSnapshot.utility_id == utility_id)
+        .first()
+        is not None
+    )
+    if has_reviewed_rubs_history:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Utility has reviewed RUBs allocation history and cannot be deleted. "
+                "Keep the historical source and deactivate the utility instead."
+            ),
+        )
     db.delete(u)
     db.commit()
     log_action(db, current_user, entity_type="property_utility", entity_id=utility_id, action="deleted")

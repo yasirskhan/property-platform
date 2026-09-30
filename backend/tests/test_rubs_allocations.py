@@ -25,6 +25,7 @@ from app.models.utility import (
     UtilityType,
 )
 from app.routers import rubs_readiness as api
+from app.routers import utilities as utilities_api
 from app.schemas.utility import (
     AllocationPreviewRequest,
     AllocationRuleAuthorize,
@@ -248,6 +249,16 @@ def test_square_feet_rule_requires_authorization_and_preview_is_finance_neutral(
         )
         assert replay["id"] == snapshot["id"]
         assert db.query(UtilityAllocationSnapshot).count() == 1
+
+        with pytest.raises(HTTPException) as exc:
+            utilities_api.delete_utility(
+                prop.id,
+                utility.id,
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "reviewed RUBs allocation history" in exc.value.detail
 
         true_up = api.preview_year_end_true_up(
             prop.id,

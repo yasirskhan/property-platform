@@ -24,6 +24,7 @@ from app.models.user import User
 from app.models.utility import (
     PaidBy,
     PropertyUtility,
+    UtilityAllocationSnapshot,
     UtilityBill,
     UtilityType,
 )
@@ -113,6 +114,12 @@ def _rubs_fixture():
     finally:
         db.rollback()
         if utility is not None:
+            (
+                db.query(UtilityAllocationSnapshot)
+                .filter(UtilityAllocationSnapshot.utility_id == utility.id)
+                .delete(synchronize_session=False)
+            )
+            db.flush()
             persisted_utility = db.get(PropertyUtility, utility.id)
             if persisted_utility is not None:
                 db.delete(persisted_utility)
