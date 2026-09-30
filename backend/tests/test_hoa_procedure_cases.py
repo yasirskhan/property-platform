@@ -2703,7 +2703,8 @@ def test_delegated_board_downloads_only_live_private_appeal_evidence(monkeypatch
             board_portal.download_board_appeal_evidence(
                 appeal.id, db=db, current_user=admin,
             )
-        assert unsafe.value.status_code == 404
+        # The existing private-case evidence guard rejects shared proof with 409.
+        assert unsafe.value.status_code == 409
         proof.share_with_owners = False
         db.get(HOABoardSeat, seat.id).decision_authorized = False
         db.flush()
