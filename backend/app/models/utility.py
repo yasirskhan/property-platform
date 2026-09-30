@@ -18,6 +18,7 @@ from sqlalchemy import (
     Numeric,
     Text,
     Enum as SqlEnum,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -85,6 +86,9 @@ class PropertyUtility(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     bills = relationship("UtilityBill", back_populates="utility", cascade="all, delete-orphan")
+    meter_readings = relationship(
+        "UtilityMeterReading", back_populates="utility", cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<PropertyUtility {self.company_name} ({self.utility_type.value})>"
@@ -115,6 +119,47 @@ class UtilityBill(Base):
 
     def __repr__(self):
         return f"<UtilityBill utility={self.utility_id} amount={self.amount}>"
+
+
+# ------------------------------------------------------------
+# UTILITY METER READING (Phase 4.9 RUBs raw input)
+# ------------------------------------------------------------
+class UtilityMeterReading(Base):
+    __tablename__ = "utility_meter_readings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    utility_id = Column(
+        Integer, ForeignKey("property_utilities.id"), nullable=False, index=True
+    )
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=True, index=True)
+
+    meter_identifier = Column(String(120), nullable=False)
+    reading_date = Column(Date, nullable=False, index=True)
+    reading_value = Column(Numeric(18, 6), nullable=False)
+    unit_of_measure = Column(String(32), nullable=False)
+
+    source = Column(String(16), nullable=False)  # MANUAL | IMPORT
+    import_batch_key = Column(String(96), nullable=True, index=True)
+    request_key = Column(String(160), nullable=False)
+    notes = Column(Text, nullable=True)
+
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    utility = relationship("PropertyUtility", back_populates="meter_readings")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "utility_id", "request_key", name="uq_utility_meter_reading_request"
+        ),
+    )
+
+    def __repr__(self):
+        return (
+            f"<UtilityMeterReading utility={self.utility_id} "
+            f"meter={self.meter_identifier} date={self.reading_date}>"
+        )
 
 
 # ------------------------------------------------------------

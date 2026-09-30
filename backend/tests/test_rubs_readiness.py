@@ -11,8 +11,15 @@ import init_db  # noqa: F401
 
 from app.core.database import Base
 from app.models.user import Organization, User, UserRole
-from app.models.property import Property, PropertyAssignment
-from app.models.utility import PropertyUtility, UtilityBill, UtilityType, PaidBy
+from app.models.property import Property, PropertyAssignment, Unit
+from app.models.utility import (
+    PropertyUtility,
+    UtilityBill,
+    UtilityMeterReading,
+    UtilityType,
+    PaidBy,
+)
+from app.schemas.utility import MeterReadingCreate, MeterReadingCSVImport
 from app.models.charge import Charge
 from app.models.gl_transaction import GLTransaction
 from app.routers import rubs_readiness as api
@@ -171,5 +178,108 @@ def test_rubs_invalid_reversed_period_never_counts_as_overlap():
         assert item["periods_duplicate"]==0 and item["periods_overlapping"]==0
         assert result["allocation_available"] is False
         assert result["billing_available"] is False
+    finally:
+        db.close();engine.dispose()
+
+
+
+def test_rubs_manual_meter_reading_is_scoped_idempotent_and_finance_neutral():
+    db,engine=_db()
+    try:
+        (admin,manager,owner,tenant,foreign),(assigned,unassigned,other),shared=_seed(db)
+        unit=Unit(property_id=assigned.id,unit_number="1R",bedrooms=1,bathrooms=1,
+                  monthly_rent=Decimal("1200.00"),is_active=True)
+        db.add(unit);db.commit();db.refresh(unit)
+        payload=MeterReadingCreate(
+            meter_identifier="SUB-1R",
+            reading_date=date(2026,9,30),
+            reading_value=Decimal("1234.500000"),
+            unit_of_measure="gallons",
+            unit_id=unit.id,
+            notes="End of month",
+            request_key="manual-reading-001",
+        )
+        created=api.create_meter_reading(
+            assigned.id,shared.id,payload,db=db,current_user=manager
+        )
+        assert created.source=="MANUAL" and created.unit_id==unit.id
+        replay=api.create_meter_reading(
+            assigned.id,shared.id,payload,db=db,current_user=manager
+        )
+        assert replay.id==created.id
+        listed=api.list_meter_readings(
+            assigned.id,shared.id,Response(),db=db,current_user=owner
+        )
+        assert [row.id for row in listed]==[created.id]
+        conflicting=payload.model_copy(update={"reading_value":Decimal("1235.0")})
+        with pytest.raises(HTTPException) as exc:
+            api.create_meter_reading(
+                assigned.id,shared.id,conflicting,db=db,current_user=manager
+            )
+        assert exc.value.status_code==409
+        assert db.query(UtilityMeterReading).count()==1
+        assert db.query(Charge).count()==0 and db.query(GLTransaction).count()==0
+    finally:
+        db.close();engine.dispose()
+
+
+def test_rubs_csv_meter_import_is_atomic_replay_safe_and_validates_units():
+    db,engine=_db()
+    try:
+        (admin,manager,owner,tenant,foreign),(assigned,unassigned,other),shared=_seed(db)
+        unit=Unit(property_id=assigned.id,unit_number="2R",bedrooms=2,bathrooms=1,
+                  monthly_rent=Decimal("1400.00"),is_active=True)
+        db.add(unit);db.commit();db.refresh(unit)
+        csv_text=(
+            "meter_identifier,reading_date,reading_value,unit_of_measure,unit_id,notes\n"
+            f"MASTER,2026-09-30,9000.25,gallons,,Property master\n"
+            f"SUB-2R,2026-09-30,450.5,gallons,{unit.id},Unit submeter\n"
+        )
+        payload=MeterReadingCSVImport(
+            request_key="import-reading-001",
+            csv_text=csv_text,
+        )
+        first=api.import_meter_readings_csv(
+            assigned.id,shared.id,payload,db=db,current_user=admin
+        )
+        assert first["created"]==2 and first["replayed"]==0 and first["total"]==2
+        replay=api.import_meter_readings_csv(
+            assigned.id,shared.id,payload,db=db,current_user=admin
+        )
+        assert replay["created"]==0 and replay["replayed"]==2
+        assert db.query(UtilityMeterReading).count()==2
+
+        bad=MeterReadingCSVImport(
+            request_key="import-reading-002",
+            csv_text=(
+                "meter_identifier,reading_date,reading_value,unit_of_measure\n"
+                "MASTER,2026-10-31,9100,gallons\n"
+                "MASTER,not-a-date,9200,gallons\n"
+            ),
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.import_meter_readings_csv(
+                assigned.id,shared.id,bad,db=db,current_user=admin
+            )
+        assert exc.value.status_code==422
+        assert db.query(UtilityMeterReading).count()==2
+
+        foreign_unit=Unit(property_id=other.id,unit_number="X",bedrooms=1,bathrooms=1,
+                          monthly_rent=Decimal("1000.00"),is_active=True)
+        db.add(foreign_unit);db.commit();db.refresh(foreign_unit)
+        cross_scope=MeterReadingCSVImport(
+            request_key="import-reading-003",
+            csv_text=(
+                "meter_identifier,reading_date,reading_value,unit_of_measure,unit_id\n"
+                f"FOREIGN,2026-10-31,10,kwh,{foreign_unit.id}\n"
+            ),
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.import_meter_readings_csv(
+                assigned.id,shared.id,cross_scope,db=db,current_user=manager
+            )
+        assert exc.value.status_code==422
+        assert db.query(UtilityMeterReading).count()==2
+        assert db.query(Charge).count()==0 and db.query(GLTransaction).count()==0
     finally:
         db.close();engine.dispose()

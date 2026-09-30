@@ -87,6 +87,57 @@ class UtilityBillOut(UtilityBillBase):
 
 
 # ------------------------------------------------------------
+# RUBs METER READINGS
+# ------------------------------------------------------------
+class MeterReadingCreate(BaseModel):
+    meter_identifier: str = Field(..., min_length=1, max_length=120)
+    reading_date: date
+    reading_value: Decimal = Field(..., ge=0)
+    unit_of_measure: str = Field(..., min_length=1, max_length=32)
+    unit_id: Optional[int] = Field(default=None, gt=0)
+    notes: Optional[str] = Field(default=None, max_length=1000)
+    request_key: str = Field(..., min_length=8, max_length=96)
+
+
+class MeterReadingImportRow(BaseModel):
+    meter_identifier: str = Field(..., min_length=1, max_length=120)
+    reading_date: date
+    reading_value: Decimal = Field(..., ge=0)
+    unit_of_measure: str = Field(..., min_length=1, max_length=32)
+    unit_id: Optional[int] = Field(default=None, gt=0)
+    notes: Optional[str] = Field(default=None, max_length=1000)
+
+
+class MeterReadingCSVImport(BaseModel):
+    request_key: str = Field(..., min_length=8, max_length=96)
+    csv_text: str = Field(..., min_length=1, max_length=1_000_000)
+
+
+class MeterReadingOut(BaseModel):
+    id: int
+    utility_id: int
+    unit_id: Optional[int] = None
+    meter_identifier: str
+    reading_date: date
+    reading_value: Decimal
+    unit_of_measure: str
+    source: str
+    import_batch_key: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MeterReadingImportResult(BaseModel):
+    created: int
+    replayed: int
+    total: int
+    readings: List[MeterReadingOut]
+
+
+# ------------------------------------------------------------
 # TRASH SCHEDULE
 # ------------------------------------------------------------
 class TrashScheduleBase(BaseModel):
