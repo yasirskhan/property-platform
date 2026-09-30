@@ -174,7 +174,7 @@ def test_percentage_rent_posts_excess_only_and_reverses_unpaid():
         reversed_row = api.reverse_percentage_rent(
             prop.id, abstract.id, row.id,
             CommercialPercentageRentReverseIn(
-                reversal_on=date(2026, 10, 1), reason="Correct tenant sales evidence",
+                reversal_on=date(2026, 9, 30), reason="Correct tenant sales evidence",
             ),
             db=db, current_user=admin,
         )
@@ -204,7 +204,7 @@ def test_percentage_rent_zero_below_breakpoint_has_no_money():
             api.reverse_percentage_rent(
                 prop.id, abstract.id, row.id,
                 CommercialPercentageRentReverseIn(
-                    reversal_on=date(2026, 10, 1), reason="No posting exists",
+                    reversal_on=date(2026, 9, 30), reason="No posting exists",
                 ),
                 db=db, current_user=admin,
             )
@@ -260,7 +260,7 @@ def test_percentage_rent_requires_current_terms_private_evidence_and_unique_year
             api.reverse_percentage_rent(
                 prop.id, abstract.id, first.id,
                 CommercialPercentageRentReverseIn(
-                    reversal_on=date(2026, 10, 1), reason="Cannot reverse paid",
+                    reversal_on=date(2026, 9, 30), reason="Cannot reverse paid",
                 ),
                 db=db, current_user=admin,
             )

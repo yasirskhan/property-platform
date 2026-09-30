@@ -2077,7 +2077,7 @@ def test_commercial_private_lease_source_reference_browser_no_finance() -> None:
                     pct_id = pct_row.id
                 finally:
                     db.close()
-                percentage.get_by_label(f"Percentage rent reversal date {pct_id}").fill("2026-10-01")
+                percentage.get_by_label(f"Percentage rent reversal date {pct_id}").fill("2026-09-30")
                 percentage.get_by_label(f"Percentage rent reversal reason {pct_id}").fill("Synthetic E2E correction")
                 percentage.get_by_role("button", name="Reverse percentage rent").click()
                 expect(percentage.get_by_text(re.compile(r"2026 · REVERSED"))).to_be_visible()
