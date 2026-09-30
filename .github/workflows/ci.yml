@@ -276,7 +276,15 @@ jobs:
           done
 
           cd ../backend
-          pytest -q tests/e2e -m e2e
+          if ! pytest -q tests/e2e -m e2e; then
+            echo "=== backend log ==="
+            cat /tmp/property-backend.log || true
+            echo "=== frontend log ==="
+            cat /tmp/property-frontend.log || true
+            echo "=== platform-admin log ==="
+            cat /tmp/platform-admin.log || true
+            exit 1
+          fi
 
   staging-config:
     runs-on: ubuntu-latest
