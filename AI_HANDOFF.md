@@ -1,3 +1,14 @@
+# AI_HANDOFF.md — 2026-09-30 VERIFIED COMMERCIAL PRIVATE LEASE SOURCE EVIDENCE
+
+**AUTHORITATIVE CURRENT CHECKPOINT.** Phase 4.8 only. Earlier NEXT labels below are historical. Do not touch main, create a branch, force-push, merge or start Phase 4.9+.
+
+- Last VERIFIED PRODUCT source: `e7bb66da129a840c49e88db896a39bb4abe14670`. GitHub Actions **36724237778 attempt 2 SUCCESS, all SIX jobs on this exact SHA**. Backend **827 passed, 16 deselected, 22394 warnings in 308.56s**; authenticated E2E **16 passed, 249 warnings in 89.76s**; frontend lint/typecheck/build, platform-admin, security and staging-config PASS. **TESTS NOT RUN locally**. Attempt 1 had one unrelated HOA reserve browser navigation failure; all Commercial source assertions passed. The failed E2E job was rerun without product edits and passed.
+- Verified Phase 4.8 Commercial source evidence: authorized Commercial staff can link exactly one active PRIVATE same-org lease attachment to the active commercial lease abstract, list eligible private lease-source files, show filename/status and download through the existing scoped attachment endpoint. Sharing/deletion is blocked while referenced. The record remains STAFF_LINKED_UNVERIFIED and does not certify execution, parse terms, create rent/CAM/NNN/%-rent/TI obligations, invoice, Charge, RentInvoice or GL activity.
+- Alembic head **`f5a7c9e1b3d8`**, **178 model tables**; migration adds only the source attachment FK to the existing Commercial abstract.
+- **EXACT NEXT Phase 4.8 batch:** versioned source-linked Commercial lease terms for base rent reference, rent escalations, options, co-tenancy, CAM/tax/insurance estimates and shares, percentage-rent rate/breakpoint and TI allowance. A terms revision remains STAFF_ABSTRACTED_UNVERIFIED and creates no money. Add a separate explicit internal billing authorization per current revision; a new revision resets that authorization. Then continue Phase 4.8 CAM/NNN posting, annual reconciliation, percentage rent and TI tracking through existing central accounting. Stop only when all Phase 4.8 items are complete and verified; do not start Phase 4.9.
+
+---
+
 # AI_HANDOFF.md — 2026-09-30 COMMERCIAL RESUME RECONCILED
 
 **AUTHORITATIVE CORRECTION TO THE NEXT TASK.** The Phase 4.7 completion checkpoint immediately below remains valid. Its Commercial "report next" sentence is superseded because live source/history shows that report was already completed and verified before HOA work resumed.
