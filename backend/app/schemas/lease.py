@@ -50,6 +50,8 @@ class LeaseUpdate(BaseModel):
 class LeaseOut(LeaseBase):
     """What the API returns for a lease."""
     id: int
+    student_bed_id: Optional[int] = None
+    student_academic_cycle_id: Optional[int] = None
     status: LeaseStatus
     signed_at: Optional[datetime] = None
     signed_by_tenant: bool
