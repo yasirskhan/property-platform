@@ -1,3 +1,42 @@
+# AI_HANDOFF.md — 2026-09-30 VERIFIED PHASE 4.10 STUDENT HOUSING FOUNDATION
+
+## Current verified product checkpoint
+
+- Verified PRODUCT SHA: `fcb86c2b643119d3c726adeaafe319246dbbd205`
+- GitHub Actions run: `36789087201`
+- Final run conclusion: SUCCESS
+- All six required CI jobs passed on this exact product SHA:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **847 passed, 17 deselected, 23070 warnings in 264.56s**
+- Authenticated E2E: **17 passed, 265 warnings in 80.51s**
+- Alembic head: `9d5f7b1c3e8a`
+- Expected model tables: **190**
+- No local test result is being substituted for hosted CI.
+
+## Verified Phase 4.10 foundation
+
+- explicit organization/property-scoped academic-cycle records;
+- explicit active-unit bed inventory;
+- Student Housing release gating through `release.properties.student_housing`;
+- ADMIN/OWNER writes, assigned MANAGER read-only, cross-organization/property access fails closed;
+- academic cycles and beds are operational metadata only and do not infer student status, occupancy eligibility, rent liability, guarantor liability, Charge, RentInvoice or GL posting.
+
+## Exact next Phase 4.10 work
+
+Complete the remaining Phase 4.10 plan from `docs/PLAN_GAPS.md`:
+
+1. by-the-bed leases, implemented through the existing central `Lease` lifecycle rather than a parallel finance system;
+2. guarantor workflow with explicit staff-tracked states and no fabricated legal acceptance;
+3. customer Student Housing UI and focused authenticated browser coverage;
+4. exact-SHA six-job verification, then mark **PHASE 4.10 COMPLETE | VERIFIED** and STOP before Phase 4.11.
+
+---
+
 # AI_HANDOFF.md — 2026-09-30 VERIFIED PHASE 4.9 RUBs ALLOCATION DETAIL REPORT
 
 ## Current verified product checkpoint
