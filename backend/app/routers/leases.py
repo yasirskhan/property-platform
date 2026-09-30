@@ -25,6 +25,7 @@ from datetime import date, datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.core import auth as auth_logic
@@ -94,6 +95,57 @@ def _check_lease_access(db: Session, user: User, lease: Lease) -> Lease:
     unit, prop = _get_unit_and_property(db, lease.unit_id)
     _check_property_access(db, user, prop)
     return lease
+
+
+def _find_occupancy_conflict(
+    db: Session,
+    *,
+    unit_id: int,
+    student_bed_id: int | None,
+    exclude_lease_id: int | None = None,
+) -> Lease | None:
+    """Return a conflicting open lease for whole-unit or bed occupancy.
+
+    Ordinary whole-unit leases conflict with pending/active leases and any
+    student-bed draft on the unit. Student-bed leases conflict with any
+    whole-unit draft/pending/active lease or a draft/pending/active lease on
+    the same bed. Different beds may proceed independently.
+    """
+    q = db.query(Lease).filter(Lease.unit_id == unit_id)
+    if exclude_lease_id is not None:
+        q = q.filter(Lease.id != exclude_lease_id)
+
+    open_statuses = [
+        LeaseStatus.DRAFT,
+        LeaseStatus.PENDING_SIGNATURE,
+        LeaseStatus.ACTIVE,
+    ]
+    if student_bed_id is None:
+        q = q.filter(
+            or_(
+                Lease.status.in_(
+                    [LeaseStatus.PENDING_SIGNATURE, LeaseStatus.ACTIVE]
+                ),
+                and_(
+                    Lease.student_bed_id.isnot(None),
+                    Lease.status == LeaseStatus.DRAFT,
+                ),
+            )
+        )
+    else:
+        q = q.filter(
+            or_(
+                and_(
+                    Lease.student_bed_id.is_(None),
+                    Lease.status.in_(open_statuses),
+                ),
+                and_(
+                    Lease.student_bed_id == student_bed_id,
+                    Lease.status.in_(open_statuses),
+                ),
+            )
+        )
+    return q.order_by(Lease.id.asc()).first()
 
 
 def _validate_security_deposit_account_choice(
@@ -221,17 +273,18 @@ def create_lease(
         gl_account_id=payload.security_deposit_gl_account_id,
     )
 
-    # Check the unit isn't already actively leased
-    existing = (
-        db.query(Lease)
-        .filter(
-            Lease.unit_id == unit.id,
-            Lease.status.in_([LeaseStatus.ACTIVE, LeaseStatus.PENDING_SIGNATURE]),
-        )
-        .first()
+    # Whole-unit leases must not displace an open bed lease. Ordinary
+    # draft whole-unit leases remain compatible with the pre-Phase-4.10 flow.
+    existing = _find_occupancy_conflict(
+        db,
+        unit_id=unit.id,
+        student_bed_id=None,
     )
     if existing:
-        raise HTTPException(status_code=400, detail="Unit already has an active or pending lease")
+        raise HTTPException(
+            status_code=400,
+            detail="Unit already has a conflicting whole-unit or student-bed lease",
+        )
 
     lease = Lease(**payload.model_dump())
     db.add(lease)
@@ -357,6 +410,18 @@ def send_lease(
     if lease.status != LeaseStatus.DRAFT:
         raise HTTPException(status_code=400, detail=f"Cannot send a lease with status '{lease.status.value}'")
 
+    conflict = _find_occupancy_conflict(
+        db,
+        unit_id=lease.unit_id,
+        student_bed_id=lease.student_bed_id,
+        exclude_lease_id=lease.id,
+    )
+    if conflict:
+        raise HTTPException(
+            status_code=409,
+            detail="Another whole-unit or same-bed lease conflicts with this lease.",
+        )
+
     lease.status = LeaseStatus.PENDING_SIGNATURE
     lease.signed_by_manager = True  # manager sending = countersigning
     db.commit()
@@ -419,6 +484,18 @@ def activate_lease(
 
     if lease.status == LeaseStatus.ACTIVE:
         raise HTTPException(status_code=400, detail="Lease is already active")
+
+    conflict = _find_occupancy_conflict(
+        db,
+        unit_id=lease.unit_id,
+        student_bed_id=lease.student_bed_id,
+        exclude_lease_id=lease.id,
+    )
+    if conflict:
+        raise HTTPException(
+            status_code=409,
+            detail="Another whole-unit or same-bed lease conflicts with this lease.",
+        )
 
     lease.status = LeaseStatus.ACTIVE
     _generate_invoices_for_lease(db, lease)
