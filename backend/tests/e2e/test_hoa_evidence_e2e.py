@@ -8,6 +8,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 import os
 from datetime import date
+from decimal import Decimal
 import re
 
 import pytest
@@ -25,12 +26,14 @@ from app.models.gl_transaction import GLTransaction
 from app.models.gl_account import GLAccount
 from app.models.contact import Contact
 from app.models.entity_attachment import EntityAttachment
+from app.models.lease import Lease, LeaseStatus, RentInvoice
+from app.models.property import Property, PropertyType, Unit
 from app.services.attachment_storage import attachment_path
 from app.models.hoa_association import HOAAssociation, HOAContactLink
 from app.models.hoa_board import HOABoardSeat
 from app.models.release_gate import ReleaseGate, ReleaseStage
 from app.models.billing import Module, Plan, Subscription, SubscriptionItem, SubscriptionStatus
-from app.models.user import User
+from app.models.user import User, UserRole
 
 pytestmark = pytest.mark.e2e
 
@@ -115,10 +118,55 @@ def _temporarily_release_hoa_ui():
         db.close()
 
 
+@contextmanager
+def _temporarily_release_commercial_ui():
+    """Release only disposable Commercial compliance/document gates for E2E."""
+    if os.environ.get("E2E_SEED_ALLOWED", "").lower() != "true":
+        raise RuntimeError("Commercial browser test requires a disposable E2E database")
+    db = SessionLocal()
+    previous = {}
+    try:
+        for key in ("release.properties.compliance", "release.documents.attachments"):
+            gate = db.query(ReleaseGate).filter(ReleaseGate.key == key).one_or_none()
+            if gate is None:
+                gate = ReleaseGate(key=key, stage=ReleaseStage.ALL_ORGS)
+                db.add(gate)
+                db.flush()
+                previous[key] = (gate.id, None)
+            else:
+                previous[key] = (gate.id, gate.stage)
+                gate.stage = ReleaseStage.ALL_ORGS
+        db.commit()
+        yield
+    finally:
+        db.rollback()
+        for identifier, prior_stage in previous.values():
+            gate = db.get(ReleaseGate, identifier)
+            if gate is not None:
+                if prior_stage is None:
+                    db.delete(gate)
+                else:
+                    gate.stage = prior_stage
+        db.commit()
+        db.close()
+
+
 def _financial_counts() -> tuple[int, int]:
     db = SessionLocal()
     try:
         return db.query(Charge).count(), db.query(GLTransaction).count()
+    finally:
+        db.close()
+
+
+def _commercial_financial_counts() -> tuple[int, int, int]:
+    db = SessionLocal()
+    try:
+        return (
+            db.query(Charge).count(),
+            db.query(RentInvoice).count(),
+            db.query(GLTransaction).count(),
+        )
     finally:
         db.close()
 
@@ -1761,3 +1809,107 @@ def test_hoa_authorized_board_minutes_revision_approval_browser() -> None:
             finally:
                 browser.close()
         assert _financial_counts() == before
+
+def test_commercial_private_lease_source_reference_browser_no_finance() -> None:
+    """Link a private lease attachment without making it an operative contract term."""
+    with _temporarily_release_commercial_ui():
+        db = SessionLocal()
+        try:
+            actor = db.query(User).filter(User.email == EMAIL).one()
+            prop = Property(
+                organization_id=actor.organization_id,
+                name="E2E Commercial Source Property",
+                property_type=PropertyType.COMMERCIAL,
+                address_line1="500 Commerce Ave",
+                city="Cleveland", state="OH", zip_code="44113",
+                is_active=True,
+            )
+            tenant = User(
+                organization_id=actor.organization_id,
+                role=UserRole.TENANT,
+                first_name="Commercial", last_name="Tenant",
+                email="e2e-commercial-source-tenant@example.test",
+                hashed_password="x", is_active=True,
+            )
+            db.add_all([prop, tenant])
+            db.flush()
+            unit = Unit(
+                property_id=prop.id, unit_number="COMM-1",
+                monthly_rent=Decimal("2400.00"), is_active=True,
+            )
+            db.add(unit)
+            db.flush()
+            lease = Lease(
+                unit_id=unit.id, tenant_id=tenant.id,
+                start_date=date(2026, 1, 1), end_date=date(2027, 12, 31),
+                monthly_rent=Decimal("2400.00"),
+                security_deposit=Decimal("0.00"),
+                status=LeaseStatus.ACTIVE,
+            )
+            db.add(lease)
+            db.flush()
+            source = EntityAttachment(
+                organization_id=actor.organization_id,
+                entity_type="leases", entity_id=lease.id,
+                storage_key=f"e2e/commercial/{lease.id}/source.pdf",
+                original_name="e2e-commercial-private-lease-source.pdf",
+                content_type="application/pdf", size_bytes=321,
+                share_with_tenants=False, share_with_owners=False,
+                uploaded_by_id=actor.id, is_active=True,
+            )
+            db.add(source)
+            db.commit()
+            property_id = prop.id
+            lease_id = lease.id
+            source_name = source.original_name
+        finally:
+            db.rollback()
+            db.close()
+
+        before = _commercial_financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+
+                page.goto(
+                    f"{BASE_URL}/dashboard/properties/{property_id}",
+                    wait_until="domcontentloaded",
+                )
+                expect(page.get_by_role(
+                    "heading", name="E2E Commercial Source Property",
+                )).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                panel = page.get_by_role(
+                    "heading", name="Commercial lease commencement references",
+                ).locator("..")
+                expect(panel).to_be_visible()
+                panel.get_by_label("Existing recorded lease").select_option(str(lease_id))
+                source_select = panel.get_by_label("Private lease source document (optional)")
+                expect(source_select).to_be_visible()
+                source_select.select_option(label=source_name)
+                panel.get_by_label(
+                    "Staff-recorded rent commencement (optional)",
+                ).fill("2026-03-01")
+                panel.get_by_role("button", name="Record staff reference").click()
+
+                expect(panel.get_by_text(
+                    re.compile(r"Source document: e2e-commercial-private-lease-source\.pdf"),
+                )).to_be_visible()
+                expect(panel.get_by_text(
+                    re.compile(r"STAFF LINKED UNVERIFIED"),
+                )).to_be_visible()
+                expect(panel.get_by_role(
+                    "button", name="Download private lease source",
+                )).to_be_visible()
+                assert _commercial_financial_counts() == before
+            finally:
+                browser.close()
+        assert _commercial_financial_counts() == before
+

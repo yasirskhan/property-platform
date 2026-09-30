@@ -16,12 +16,15 @@ from app.core.database import Base
 from app.models.audit_log import AuditLog
 from app.models.charge import Charge
 from app.models.commercial_lease_abstract import CommercialLeaseAbstract
+from app.models.entity_attachment import EntityAttachment
 from app.models.gl_transaction import GLTransaction
 from app.models.lease import Lease, LeaseStatus, RentInvoice
 from app.models.property import Property, PropertyAssignment, PropertyType, Unit
 from app.models.user import Organization, User, UserRole
 from app.routers import affordable_programs, commercial_lease_abstracts as api
+from app.routers import entity_attachments as attachments_api
 from app.schemas.commercial_lease_abstract import CommercialLeaseAbstractIn, CommercialLeaseAbstractUpdate
+from app.schemas.entity_attachment import EntityAttachmentShareUpdate
 from app.services.entity_notes import _model_for_table
 
 
@@ -33,6 +36,9 @@ def permissions(monkeypatch):
                             key=affordable_programs.FEATURE_KEY, allowed=True,
                         )])
     monkeypatch.setattr(api, "permission_allows_user", lambda *a, **k: True)
+    monkeypatch.setattr(api, "resolve_customer_features", lambda *a, **k: [
+        SimpleNamespace(key=api.ATTACHMENTS_FEATURE_KEY, allowed=True),
+    ])
 
 
 def _db():
@@ -99,6 +105,22 @@ def _seed(db):
         leases.append(lease)
     db.commit()
     return users, props, units, leases
+
+
+
+
+def _source(db, *, org_id: int, lease_id: int, uploader_id: int,
+            name: str = "private-commercial-lease.pdf", shared: bool = False):
+    row = EntityAttachment(
+        organization_id=org_id, entity_type="leases", entity_id=lease_id,
+        storage_key=f"commercial/{org_id}/{lease_id}/{name}",
+        original_name=name, content_type="application/pdf", size_bytes=321,
+        share_with_tenants=shared, share_with_owners=False,
+        uploaded_by_id=uploader_id, is_active=True,
+    )
+    db.add(row)
+    db.flush()
+    return row
 
 
 def _in(lease_id, rent=date(2026, 3, 1), **extras):
@@ -234,6 +256,95 @@ def test_live_assignment_feature_leasing_and_generic_target_guards(monkeypatch):
         assert e.value.status_code == 404
         assert db.query(Charge).count() == db.query(GLTransaction).count() == 0
         assert db.get(CommercialLeaseAbstract, saved.id).is_active is True
+    finally:
+        db.rollback()
+        db.close()
+        engine.dispose()
+
+
+def test_private_lease_source_is_scoped_unshared_and_removal_protected(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign, _), props, _, leases = _seed(db)
+        prop = props[0]
+        source = _source(
+            db, org_id=admin.organization_id, lease_id=leases[0].id,
+            uploader_id=admin.id,
+        )
+        shared = _source(
+            db, org_id=admin.organization_id, lease_id=leases[0].id,
+            uploader_id=admin.id, name="shared.pdf", shared=True,
+        )
+        wrong = _source(
+            db, org_id=admin.organization_id, lease_id=leases[1].id,
+            uploader_id=admin.id, name="other-lease.pdf",
+        )
+        db.commit()
+        before = (db.query(Charge).count(), db.query(GLTransaction).count(),
+                  db.query(RentInvoice).count())
+
+        response = Response()
+        choices = api.list_source_candidates(
+            prop.id, response, lease_id=leases[0].id,
+            db=db, current_user=manager,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert [row.id for row in choices] == [source.id]
+
+        created = api.record_abstract(
+            prop.id, _in(leases[0].id, source_attachment_id=source.id),
+            db=db, current_user=admin,
+        )
+        assert created.source_attachment_id == source.id
+        assert created.source_filename == source.original_name
+        assert created.source_status == "STAFF_LINKED_UNVERIFIED"
+        assert api.list_abstracts(
+            prop.id, Response(), db=db, current_user=manager,
+        )[0].source_filename == source.original_name
+
+        with pytest.raises(HTTPException) as unsafe:
+            api.update_abstract(
+                prop.id, created.id,
+                CommercialLeaseAbstractUpdate(source_attachment_id=shared.id),
+                db=db, current_user=owner,
+            )
+        assert unsafe.value.status_code == 404
+        with pytest.raises(HTTPException) as wrong_lease:
+            api.update_abstract(
+                prop.id, created.id,
+                CommercialLeaseAbstractUpdate(source_attachment_id=wrong.id),
+                db=db, current_user=owner,
+            )
+        assert wrong_lease.value.status_code == 404
+
+        monkeypatch.setattr(
+            attachments_api, "_attachment_for_user",
+            lambda *a, **k: source,
+        )
+        monkeypatch.setattr(
+            attachments_api, "_governing_evidence_scope",
+            lambda *a, **k: None,
+        )
+        with pytest.raises(HTTPException) as sharing:
+            attachments_api.update_entity_attachment_sharing(
+                source.id, EntityAttachmentShareUpdate(share_with_tenants=True),
+                db=db, current_user=admin,
+            )
+        assert sharing.value.status_code == 403
+        with pytest.raises(HTTPException) as deletion:
+            attachments_api.delete_entity_attachment(
+                source.id, db=db, current_user=admin,
+            )
+        assert deletion.value.status_code == 409
+
+        cleared = api.update_abstract(
+            prop.id, created.id,
+            CommercialLeaseAbstractUpdate(source_attachment_id=None),
+            db=db, current_user=admin,
+        )
+        assert cleared.source_attachment_id is None
+        assert (db.query(Charge).count(), db.query(GLTransaction).count(),
+                db.query(RentInvoice).count()) == before
     finally:
         db.rollback()
         db.close()

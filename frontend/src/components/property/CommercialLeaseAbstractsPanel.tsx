@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
+import { apiDelete, apiFetch, apiGet, apiPost, apiPut } from "@/lib/api";
 
 type Candidate = {
   lease_id: number;
@@ -11,10 +11,20 @@ type Candidate = {
   lease_end_on: string;
   lease_status: string;
 };
+type SourceOption = {
+  id: number;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  source_status: "PRIVATE_STAFF_ATTACHMENT";
+};
 type Reference = Candidate & {
   id: number;
   property_id: number;
   rent_commencement_on: string | null;
+  source_attachment_id: number | null;
+  source_filename: string | null;
+  source_status: "STAFF_LINKED_UNVERIFIED" | null;
   reference_status: "STAFF_RECORDED_UNVERIFIED";
 };
 
@@ -30,6 +40,10 @@ export default function CommercialLeaseAbstractsPanel({
   const [selected, setSelected] = useState("");
   const [recordedDate, setRecordedDate] = useState("");
   const [dates, setDates] = useState<Record<number, string>>({});
+  const [sourceOptions, setSourceOptions] = useState<Record<number, SourceOption[]>>({});
+  const [sourceIds, setSourceIds] = useState<Record<number, string>>({});
+  const [newSources, setNewSources] = useState<SourceOption[]>([]);
+  const [newSourceId, setNewSourceId] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -46,6 +60,35 @@ export default function CommercialLeaseAbstractsPanel({
     setDates(Object.fromEntries(saved.map((item) => [
       item.id, item.rent_commencement_on || "",
     ])));
+    setSourceIds(Object.fromEntries(saved.map((item) => [
+      item.id, item.source_attachment_id ? String(item.source_attachment_id) : "",
+    ])));
+  }
+
+  async function loadSources(leaseId: number, forNew = false) {
+    const options = await apiGet(
+      base + "/source-candidates?lease_id=" + leaseId,
+    ) as SourceOption[];
+    if (forNew) setNewSources(options);
+    else setSourceOptions((prior) => ({ ...prior, [leaseId]: options }));
+  }
+
+  async function downloadSource(row: Reference) {
+    if (!row.source_attachment_id) return;
+    const response = await apiFetch(
+      "/api/attachments/download/" + row.source_attachment_id,
+      { method: "GET" },
+    );
+    if (!response.ok) throw new Error("Private lease source document unavailable.");
+    const blob = await response.blob();
+    const href = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = row.source_filename || "commercial-lease-source";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(href);
   }
 
   useEffect(() => {
@@ -62,6 +105,9 @@ export default function CommercialLeaseAbstractsPanel({
       setDates(Object.fromEntries(saved.map((item) => [
         item.id, item.rent_commencement_on || "",
       ])));
+      setSourceIds(Object.fromEntries(saved.map((item) => [
+        item.id, item.source_attachment_id ? String(item.source_attachment_id) : "",
+      ])));
     }).catch((cause) => {
       if (live) setError(cause instanceof Error ? cause.message : "Commercial records unavailable.");
     }).finally(() => { if (live) setLoading(false); });
@@ -77,8 +123,9 @@ export default function CommercialLeaseAbstractsPanel({
       await apiPost(base, {
         lease_id: Number(selected),
         rent_commencement_on: recordedDate || null,
+        source_attachment_id: newSourceId ? Number(newSourceId) : null,
       });
-      setSelected(""); setRecordedDate("");
+      setSelected(""); setRecordedDate(""); setNewSourceId(""); setNewSources([]);
       await reload();
       setMessage("Staff reference recorded. This is not a billing instruction.");
     } catch (cause) {
@@ -95,6 +142,7 @@ export default function CommercialLeaseAbstractsPanel({
     try {
       await apiPut(base + "/" + row.id, {
         rent_commencement_on: dates[row.id] || null,
+        source_attachment_id: sourceIds[row.id] ? Number(sourceIds[row.id]) : null,
       });
       await reload();
       setMessage("Staff-recorded date updated. Lease and invoices remain unchanged.");
@@ -146,6 +194,16 @@ export default function CommercialLeaseAbstractsPanel({
           <div className="text-xs text-slate-600">
             Staff reference: {row.reference_status.replaceAll("_", " ")}
           </div>
+          <div className="text-xs text-slate-600">
+            Source document: {row.source_filename || "Not linked"}
+            {row.source_status ? " · " + row.source_status.replaceAll("_", " ") : ""}
+          </div>
+          {row.source_attachment_id && <button type="button" disabled={busy}
+            onClick={() => { void downloadSource(row).catch((cause) =>
+              setError(cause instanceof Error ? cause.message : "Source unavailable.")); }}
+            className="text-blue-700 disabled:opacity-50">
+            Download private lease source
+          </button>}
           {canEdit ? (
             <div className="flex flex-wrap items-end gap-2">
               <label className="text-xs">Staff-recorded rent commencement
@@ -155,6 +213,21 @@ export default function CommercialLeaseAbstractsPanel({
                   }))}
                   className="mt-1 block rounded border p-2 text-sm" />
               </label>
+              <button type="button" disabled={busy}
+                onClick={() => { void loadSources(row.lease_id).catch((cause) =>
+                  setError(cause instanceof Error ? cause.message : "Source list unavailable.")); }}
+                className="rounded border px-3 py-2 text-blue-700 disabled:opacity-50">
+                Choose private source
+              </button>
+              {sourceOptions[row.lease_id] && <label className="text-xs">Private lease source
+                <select value={sourceIds[row.id] || ""}
+                  onChange={(event) => setSourceIds((prior) => ({ ...prior, [row.id]: event.target.value }))}
+                  className="mt-1 block rounded border p-2 text-sm">
+                  <option value="">No source linked</option>
+                  {sourceOptions[row.lease_id].map((item) =>
+                    <option key={item.id} value={item.id}>{item.filename}</option>)}
+                </select>
+              </label>}
               <button type="button" disabled={busy} onClick={() => { void update(row); }}
                 className="rounded border px-3 py-2 text-blue-700 disabled:opacity-50">Save reference</button>
               <button type="button" disabled={busy} onClick={() => { void archive(row); }}
@@ -171,7 +244,14 @@ export default function CommercialLeaseAbstractsPanel({
         <form onSubmit={(event) => { void create(event); }} className="space-y-2 border-t pt-3">
           <h3 className="text-sm font-semibold">Record a lease reference</h3>
           <label className="block text-sm">Existing recorded lease
-            <select required value={selected} onChange={(event) => setSelected(event.target.value)}
+            <select required value={selected} onChange={(event) => {
+                const value = event.target.value;
+                setSelected(value);
+                setNewSourceId("");
+                setNewSources([]);
+                if (value) void loadSources(Number(value), true).catch((cause) =>
+                  setError(cause instanceof Error ? cause.message : "Source list unavailable."));
+              }}
               className="mt-1 block w-full rounded border p-2">
               <option value="">Select a lease on this commercial property</option>
               {unrecorded.map((item) => (
@@ -181,6 +261,14 @@ export default function CommercialLeaseAbstractsPanel({
               ))}
             </select>
           </label>
+          {selected && <label className="block text-sm">Private lease source document (optional)
+            <select value={newSourceId} onChange={(event) => setNewSourceId(event.target.value)}
+              className="mt-1 block w-full rounded border p-2">
+              <option value="">No private source linked</option>
+              {newSources.map((item) =>
+                <option key={item.id} value={item.id}>{item.filename}</option>)}
+            </select>
+          </label>}
           <label className="block text-sm">Staff-recorded rent commencement (optional)
             <input type="date" value={recordedDate}
               onChange={(event) => setRecordedDate(event.target.value)}
