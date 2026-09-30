@@ -1,3 +1,15 @@
+# AI_HANDOFF.md — 2026-09-30 VERIFIED COMMERCIAL CAM / NNN POSTING
+
+**AUTHORITATIVE CURRENT CHECKPOINT. Phase 4.8 ONLY.** Do not start Phase 4.9+.
+
+- Last VERIFIED PRODUCT source: `c93f2af644d1971afb06ddd2a99f409669e833e5`. GitHub Actions **36736262765 SUCCESS, all SIX jobs on this exact SHA**. Backend **832 passed, 16 deselected, 22605 warnings in 275.17s**; authenticated E2E **16 passed, 253 warnings in 90.10s**; frontend, platform-admin, security and staging-config PASS. **TESTS NOT RUN locally**.
+- Verified operational Commercial CAM/NNN: current active billing-authorized source-linked lease terms may post CAM-only or NNN (CAM + property-tax + insurance estimates) to the exact active Commercial tenant as an existing `Charge` plus balanced central GL receivable/income journal. Explicit period/posting/due dates, scoped ASSET receivable + INCOME accounts, request-key idempotency, current terms/source validation and closed-period protection are enforced. Unpaid postings reverse through a distinct central GL REVERSAL and soft-inactivate the tenant charge; reversal history remains immutable. No RentInvoice mutation.
+- Alembic head **`b3d5f7a9c1e4`**, **182 model tables**.
+- Initial product source `aaab9d223554527fe4f6e5871ba978ac5cc311c3` passed backend and five jobs but the browser test retained the old no-finance assertion. Test-only corrective `c93f2af644d1971afb06ddd2a99f409669e833e5` changed only that stale assertion; no product behavior changed.
+- **NEXT Phase 4.8:** annual CAM reconciliation against source-backed actual CAM, current authorized CAM share and CAM components of active posted estimate charges, with positive/negative/zero true-up and reversal. Then percentage rent and TI allowance. After all Phase 4.8 requirements are exact-SHA six-job green, write final `PHASE 4.8 COMPLETE | VERIFIED` handoff and STOP. Do not implement Phase 4.9.
+
+---
+
 # AI_HANDOFF.md — 2026-09-30 VERIFIED COMMERCIAL SOURCE-LINKED TERMS
 
 **AUTHORITATIVE CURRENT CHECKPOINT. Phase 4.8 ONLY.** Earlier NEXT labels below are historical. Do not start Phase 4.9+.
