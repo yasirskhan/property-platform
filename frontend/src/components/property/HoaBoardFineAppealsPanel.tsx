@@ -14,6 +14,7 @@ type FinalAppeal = {
   association_id: number; property_id: number; case_id: number;
   fine_id: number; appeal_id: number; outcome: "UPHELD" | "VACATED";
   decided_on: string; notification_status: string | null;
+  has_private_evidence: boolean;
 };
 
 export default function HoaBoardFineAppealsPanel() {
@@ -49,7 +50,7 @@ export default function HoaBoardFineAppealsPanel() {
     return () => { live = false; };
   }, []);
 
-  async function downloadEvidence(appeal: Appeal) {
+  async function downloadEvidence(appeal: Appeal | FinalAppeal) {
     if (busy || !appeal.has_private_evidence) return;
     setBusy(true); setError("");
     try {
@@ -164,6 +165,11 @@ export default function HoaBoardFineAppealsPanel() {
       <p className="text-xs">Outcome email: {appeal.notification_status
         ? appeal.notification_status.replaceAll("_", " ")
         : "NOT REQUESTED"}. SMTP acceptance does not prove inbox delivery.</p>
+      {appeal.has_private_evidence && <button type="button" disabled={busy}
+        onClick={() => { void downloadEvidence(appeal); }}
+        className="text-blue-700 disabled:opacity-50">
+        Download private appeal evidence
+      </button>}
       <button type="button" className="text-blue-700"
         onClick={() => setNotificationOpen(
           notificationOpen === appeal.appeal_id ? null : appeal.appeal_id

@@ -272,6 +272,7 @@ class HOABoardFinalFineAppealOut(BaseModel):
     notification_status: Literal[
         "PENDING", "SENDING", "FAILED", "TEST_ONLY", "SMTP_ACCEPTED"
     ] | None = None
+    has_private_evidence: bool = False
 
 
 @router.get("/my-final-fine-appeals",
@@ -354,11 +355,24 @@ def my_board_final_fine_appeals(
             HOAFineAppealNotification.fine_id == fine.id,
             HOAFineAppealNotification.appeal_id == appeal.id,
         ).first()
+        has_evidence = False
+        if appeal.supporting_attachment_id is not None:
+            try:
+                _private_case_proof(
+                    db, org=org_id, association_id=assoc.id,
+                    property_id=appeal.property_id, case_id=appeal.case_id,
+                    attachment_id=appeal.supporting_attachment_id,
+                )
+            except HTTPException:
+                pass
+            else:
+                has_evidence = True
         found.append(HOABoardFinalFineAppealOut(
             association_id=assoc.id, property_id=appeal.property_id,
             case_id=appeal.case_id, fine_id=fine.id, appeal_id=appeal.id,
             outcome=appeal.status, decided_on=appeal.decided_on,
             notification_status=notification.status if notification else None,
+            has_private_evidence=has_evidence,
         ))
         if len(found) > 100:
             raise HTTPException(status_code=422, detail="Board final appeal list exceeds 100.")
@@ -371,7 +385,7 @@ def download_board_appeal_evidence(
     appeal_id: int, db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Download ONLY current private proof of a pending appeal for its board.
+    """Download ONLY current private proof of an open or final appeal for its board.
 
     No staff property permission is granted to the board login; every read
     checks live board delegation, paid HOA and attachment release, parent
@@ -383,10 +397,10 @@ def download_board_appeal_evidence(
     appeal = db.query(HOAFineAppeal).filter(
         HOAFineAppeal.id == appeal_id,
         HOAFineAppeal.organization_id == actor.organization_id,
-        HOAFineAppeal.status == "OPEN",
+        HOAFineAppeal.status.in_(("OPEN", "UPHELD", "VACATED")),
     ).first()
     if appeal is None or appeal.supporting_attachment_id is None:
-        raise HTTPException(status_code=404, detail="Pending appeal evidence not found.")
+        raise HTTPException(status_code=404, detail="Appeal evidence not found.")
     org, association, _ = _board_scope(
         db, actor=actor, association_id=appeal.association_id,
         property_id=appeal.property_id,
@@ -400,7 +414,7 @@ def download_board_appeal_evidence(
         db, org, association.id, appeal.property_id, appeal.case_id,
     )
     if fine is None or fine.id != appeal.fine_id or fine.member_user_id != appeal.member_user_id:
-        raise HTTPException(status_code=404, detail="Pending appeal evidence not found.")
+        raise HTTPException(status_code=404, detail="Appeal evidence not found.")
     proof = _private_case_proof(
         db, org=org, association_id=association.id,
         property_id=appeal.property_id, case_id=appeal.case_id,

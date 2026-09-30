@@ -2686,11 +2686,32 @@ def test_delegated_board_downloads_only_live_private_appeal_evidence(monkeypatch
             assoc.id, case.id, appeal.id, _appeal_decision(prop),
             db=db, current_user=admin,
         )
-        with pytest.raises(HTTPException) as closed:
+        final_rows = board_portal.my_board_final_fine_appeals(
+            Response(), db=db, current_user=admin,
+        )
+        assert len(final_rows) == 1 and final_rows[0].has_private_evidence is True
+        final_file = board_portal.download_board_appeal_evidence(
+            appeal.id, db=db, current_user=admin,
+        )
+        assert str(final_file.path) == str(path)
+        proof.share_with_owners = True
+        db.flush()
+        assert board_portal.my_board_final_fine_appeals(
+            Response(), db=db, current_user=admin,
+        )[0].has_private_evidence is False
+        with pytest.raises(HTTPException) as unsafe:
             board_portal.download_board_appeal_evidence(
                 appeal.id, db=db, current_user=admin,
             )
-        assert closed.value.status_code == 404
+        assert unsafe.value.status_code == 404
+        proof.share_with_owners = False
+        db.get(HOABoardSeat, seat.id).decision_authorized = False
+        db.flush()
+        with pytest.raises(HTTPException) as revoked_final:
+            board_portal.download_board_appeal_evidence(
+                appeal.id, db=db, current_user=admin,
+            )
+        assert revoked_final.value.status_code == 403
         assert _balances(db) == before
     finally:
         db.rollback(); db.close(); engine.dispose()
