@@ -23,6 +23,7 @@ from app.models.hoa_violation_recipient import HOAViolationRecipientDraft
 from app.models.hoa_violation_correspondence import HOAViolationCorrespondenceDraft
 from app.models.hoa_violation_notice_delivery import HOAViolationNoticeDelivery
 from app.models.hoa_violation_service_record import HOAViolationServiceRecord
+from app.models.hoa_violation_hearing_record import HOAViolationHearingRecord
 from app.models.hoa_violation_fine import HOAViolationFine
 from app.models.hoa_violation_fine_payment import HOAViolationFinePayment
 from app.models.hoa_violation_fine_appeal import HOAFineAppeal
@@ -44,7 +45,7 @@ from app.schemas.hoa_appeal_notification import HOAAppealNotificationIn
 from app.routers import hoa_board_portal as board_portal
 from app.schemas.hoa_fine_appeal import HOAFineAppealIn, HOAFineAppealDecisionIn
 from app.routers import hoa_member_assessments as member_api
-from app.schemas.hoa_violation_fine import HOAFineDecisionIn, HOAFinePostIn, HOAFineReverseIn
+from app.schemas.hoa_violation_fine import HOAFineDecisionIn, HOAFinePostIn, HOAFineReverseIn, HOAHearingRecordIn
 from app.schemas.hoa_violation_fine_payment import HOAFinePaymentIn, HOAFinePaymentReverseIn
 from app.schemas.receipt import ReceiptCreateIn
 from app.services.receipt_posting import reverse_receipt, process_nsf_receipt
@@ -1734,7 +1735,7 @@ def test_service_record_denies_stale_policy_recipient_scope_and_nonboard(monkeyp
         db.rollback(); db.close(); engine.dispose()
 
 
-def _record_served_fine_case(db, monkeypatch):
+def _record_served_fine_case(db, monkeypatch, *, record_hearing=True):
     users, props, assoc, case, draft, seat, _ = _notice_board(db, monkeypatch)
     admin, owner, manager, tenant, foreign = users
     prop = props[0]
@@ -1751,6 +1752,14 @@ def _record_served_fine_case(db, monkeypatch):
         assoc.id, case.id, _advance(prop, "FINE_PROPOSED", proposed_fine="25.00"),
         db=db, current_user=owner,
     )
+    if record_hearing:
+        fine_api.record_hearing(
+            assoc.id, case.id,
+            HOAHearingRecordIn(
+                property_id=prop.id, disposition="NO_REQUEST_RECORDED",
+                request_key="hoa-hearing-record-00001",
+            ), db=db, current_user=admin,
+        )
     return users, props, assoc, case, draft, seat, proof
 
 
@@ -1862,6 +1871,7 @@ def test_board_adopts_fine_and_accountant_posts_and_reverses_central_gl(monkeypa
             )
         assert db.query(Charge).count() == db.query(RentInvoice).count() == 0
         assert db.query(HOAViolationFine).count() == 1
+        assert db.query(HOAViolationHearingRecord).count() == 1
         audit = db.query(AuditLog).filter(
             AuditLog.entity_type == "hoa_violation_fine",
         ).order_by(AuditLog.id).all()
@@ -1921,7 +1931,7 @@ def test_fine_board_auth_service_policy_hearing_and_member_revocation(monkeypatc
             fine_api.decide_fine(
                 assoc.id, case.id,
                 _fine_decision(
-                    prop, tenant, hearing_disposition="HEARING_HELD",
+                    prop, tenant, hearing_record_id=hearing_record.id, hearing_disposition="HEARING_HELD",
                     hearing_held_on=date.today(),
                     hearing_record_attachment_id=987654321,
                 ), db=db, current_user=admin,
@@ -2004,7 +2014,7 @@ def test_recorded_hearing_private_proof_is_retained_and_staff_cannot_rewrite_boa
     try:
         # This fixture tests evidence retention, not document feature rollout.
         monkeypatch.setattr(case_evidence, "_require_attachment_feature", lambda *a, **kw: None)
-        users, props, assoc, case, draft, seat, service_proof = _record_served_fine_case(db, monkeypatch)
+        users, props, assoc, case, draft, seat, service_proof = _record_served_fine_case(db, monkeypatch, record_hearing=False)
         admin, owner, manager, tenant, foreign = users
         prop = props[0]
         hearing = EntityAttachment(
@@ -2024,6 +2034,15 @@ def test_recorded_hearing_private_proof_is_retained_and_staff_cannot_rewrite_boa
             recorded_by_id=admin.id,
         )
         db.add(link); db.commit()
+        hearing_record = fine_api.record_hearing(
+            assoc.id, case.id,
+            HOAHearingRecordIn(
+                property_id=prop.id, disposition="HEARING_HELD",
+                held_on=date.today(), record_attachment_id=hearing.id,
+                request_key="hoa-hearing-held-00001",
+            ), db=db, current_user=admin,
+        )
+        assert hearing_record.disposition == "HEARING_HELD"
         approved = fine_api.decide_fine(
             assoc.id, case.id,
             _fine_decision(

@@ -12,6 +12,7 @@ class HOAViolationFine(Base):
     property_id = Column(Integer, ForeignKey("properties.id"), nullable=False)
     case_id = Column(Integer, ForeignKey("hoa_violation_cases.id"), nullable=False, unique=True)
     service_record_id = Column(Integer, ForeignKey("hoa_violation_service_records.id"), nullable=False)
+    hearing_record_id = Column(Integer, ForeignKey("hoa_violation_hearing_records.id"), nullable=True)
     board_seat_id = Column(Integer, ForeignKey("hoa_board_seats.id"), nullable=False)
     board_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     member_user_id = Column(Integer, ForeignKey("users.id"))

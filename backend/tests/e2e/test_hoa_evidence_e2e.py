@@ -454,6 +454,10 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 fine = cases.get_by_role(
                     "heading", name="Association violation fine decision and ledger",
                 ).locator("..").locator("..")
+                page.once("dialog", lambda dialog: dialog.accept())
+                fine.get_by_role("button", name="Record hearing outcome").click()
+                expect(fine.get_by_text(re.compile("Hearing record #.*NO_REQUEST_RECORDED"))).to_be_visible()
+                assert _financial_counts() == before
                 fine.get_by_label("Approved violation fine").fill("25.00")
                 fine.get_by_label("Board decision explanation").fill(
                     "Synthetic board approved fine after evidenced service"

@@ -15,6 +15,8 @@ type Fine = {
 };
 type Service = { id: number; member_user_id: number; cure_earliest_on: string;
   hearing_request_earliest_on: string };
+type Hearing = { id: number; disposition: "NO_REQUEST_RECORDED" | "HEARING_HELD";
+  held_on: string | null; record_attachment_id: number | null; policy_revision: number };
 type Proof = { attachment_id: number; filename: string };
 type GL = { id: number; number: string; name: string; account_type: string };
 
@@ -30,6 +32,7 @@ export default function HoaCaseFinePanel({
   const [fine, setFine] = useState<Fine | null>(null);
   const [appealsOpen, setAppealsOpen] = useState(false);
   const [service, setService] = useState<Service | null>(null);
+  const [hearingRecord, setHearingRecord] = useState<Hearing | null>(null);
   const [proofs, setProofs] = useState<Proof[]>([]);
   const [accounts, setAccounts] = useState<GL[]>([]);
   const [choice, setChoice] = useState<"APPROVED" | "DENIED">("APPROVED");
@@ -47,6 +50,7 @@ export default function HoaCaseFinePanel({
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const requestKey = useRef("");
+  const hearingRequestKey = useRef("");
 
   async function reload() {
     setFine(await apiGet(base + "/fine" + query) as Fine | null);
@@ -57,20 +61,40 @@ export default function HoaCaseFinePanel({
     void Promise.all([
       apiGet(base + "/fine" + query) as Promise<Fine | null>,
       apiGet(base + "/service-record" + query) as Promise<Service | null>,
+      apiGet(base + "/hearing-record" + query) as Promise<Hearing | null>,
       apiGet(base + "/evidence" + query) as Promise<Proof[]>,
       canEdit ? apiGet(root + "/arc-fee-gl-options" + query) as Promise<GL[]> : Promise.resolve([]),
-    ]).then(([record, delivery, files, gl]) => {
+    ]).then(([record, delivery, hearingOutcome, files, gl]) => {
       if (!active) return;
-      setFine(record); setService(delivery); setProofs(files); setAccounts(gl);
+      setFine(record); setService(delivery); setHearingRecord(hearingOutcome); setProofs(files); setAccounts(gl);
     }).catch(cause => {
       if (active) setError(cause instanceof Error ? cause.message : "Fine record unavailable.");
     });
     return () => { active = false; };
   }, [base, root, query, canEdit]);
 
+  async function recordHearing() {
+    if (busy || !canEdit || !service || hearingRecord) return;
+    if (!window.confirm("Record this association hearing outcome as an immutable case event?")) return;
+    if (!hearingRequestKey.current) hearingRequestKey.current = window.crypto.randomUUID();
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const result = await apiPost(base + "/hearing-record", {
+        property_id: propertyId, disposition: hearing,
+        held_on: hearing === "HEARING_HELD" ? hearingOn : null,
+        record_attachment_id: hearing === "HEARING_HELD" ? Number(hearingProof) : null,
+        request_key: hearingRequestKey.current,
+      }) as Hearing;
+      hearingRequestKey.current = ""; setHearingRecord(result);
+      setMessage("Association hearing outcome recorded. No fine or GL entry was created.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Hearing outcome rejected.");
+    } finally { setBusy(false); }
+  }
+
   async function decide(event: React.FormEvent) {
     event.preventDefault();
-    if (busy || !canEdit || !service || !note.trim()) return;
+    if (busy || !canEdit || !service || !hearingRecord || !note.trim()) return;
     if (!window.confirm("Record this final association board fine decision? No money posts until a separately authorized action.")) return;
     if (!requestKey.current) requestKey.current = window.crypto.randomUUID();
     setBusy(true); setError(""); setMessage("");
@@ -79,10 +103,10 @@ export default function HoaCaseFinePanel({
         property_id: propertyId, decision: choice,
         amount: choice === "APPROVED" ? amount : null,
         member_user_id: choice === "APPROVED" ? service.member_user_id : null,
-        decision_note: note.trim(),
-        hearing_disposition: hearing,
-        hearing_held_on: hearing === "HEARING_HELD" ? hearingOn : null,
-        hearing_record_attachment_id: hearing === "HEARING_HELD" ? Number(hearingProof) : null,
+        decision_note: note.trim(), hearing_record_id: hearingRecord.id,
+        hearing_disposition: hearingRecord.disposition,
+        hearing_held_on: hearingRecord.held_on,
+        hearing_record_attachment_id: hearingRecord.record_attachment_id,
         request_key: requestKey.current,
       }) as Fine;
       requestKey.current = ""; setFine(result);
@@ -136,23 +160,8 @@ export default function HoaCaseFinePanel({
       {fine.gl_transaction_id && <p>Central GL #{fine.gl_transaction_id}
         {fine.reversal_transaction_id && " · Reversal GL #" + fine.reversal_transaction_id}</p>}
     </div> : <p>No final association fine decision recorded.</p>}
-    {canEdit && !fine && service && stage === "FINE_PROPOSED" && <form
-      onSubmit={event => { void decide(event); }} className="space-y-2 border-t pt-2">
-      <p>Recorded service #{service.id} · Member #{service.member_user_id}
-        {" · "}Configured cure date {service.cure_earliest_on}
-        {" · "}Hearing-request date {service.hearing_request_earliest_on}</p>
-      <label className="block">Final board decision
-        <select aria-label="Violation board decision" value={choice}
-          onChange={event => setChoice(event.target.value as "APPROVED" | "DENIED")}
-          className="mt-1 block rounded border p-2">
-          <option value="APPROVED">APPROVED</option><option value="DENIED">DENIED</option>
-        </select>
-      </label>
-      {choice === "APPROVED" && <label className="block">Approved fine amount
-        <input type="number" min="0.01" step="0.01" aria-label="Approved violation fine"
-          value={amount} onChange={event => setAmount(event.target.value)}
-          placeholder={proposedFine ?? ""} className="mt-1 block rounded border p-2"/>
-      </label>}
+    {canEdit && !fine && service && stage === "FINE_PROPOSED" && !hearingRecord && <div className="space-y-2 border-t pt-2">
+      <h5 className="font-semibold">Record hearing outcome before the final fine decision</h5>
       <label className="block">Association hearing disposition
         <select aria-label="Violation hearing disposition" value={hearing}
           onChange={event => setHearing(event.target.value as "NO_REQUEST_RECORDED" | "HEARING_HELD")}
@@ -174,12 +183,38 @@ export default function HoaCaseFinePanel({
           {proofs.map(p => <option key={p.attachment_id} value={p.attachment_id}>{p.filename}</option>)}
         </select>
       </label>}
+      <button type="button" disabled={busy || (hearing === "HEARING_HELD" && (!hearingProof || !hearingOn))}
+        onClick={() => { void recordHearing(); }}
+        className="rounded bg-slate-800 px-3 py-2 text-white disabled:opacity-50">
+        Record hearing outcome
+      </button>
+    </div>}
+    {hearingRecord && !fine && <p className="rounded border bg-white p-2">
+      Hearing record #{hearingRecord.id}: {hearingRecord.disposition}
+      {hearingRecord.held_on ? " · " + hearingRecord.held_on : ""}. This event does not create money.
+    </p>}
+    {canEdit && !fine && service && hearingRecord && stage === "FINE_PROPOSED" && <form
+      onSubmit={event => { void decide(event); }} className="space-y-2 border-t pt-2">
+      <p>Recorded service #{service.id} · Member #{service.member_user_id}
+        {" · "}Configured cure date {service.cure_earliest_on}
+        {" · "}Hearing-request date {service.hearing_request_earliest_on}</p>
+      <label className="block">Final board decision
+        <select aria-label="Violation board decision" value={choice}
+          onChange={event => setChoice(event.target.value as "APPROVED" | "DENIED")}
+          className="mt-1 block rounded border p-2">
+          <option value="APPROVED">APPROVED</option><option value="DENIED">DENIED</option>
+        </select>
+      </label>
+      {choice === "APPROVED" && <label className="block">Approved fine amount
+        <input type="number" min="0.01" step="0.01" aria-label="Approved violation fine"
+          value={amount} onChange={event => setAmount(event.target.value)}
+          placeholder={proposedFine ?? ""} className="mt-1 block rounded border p-2"/>
+      </label>}
       <label className="block">Board decision explanation
         <textarea maxLength={1500} value={note} onChange={event => setNote(event.target.value)}
           className="mt-1 block w-full rounded border p-2"/>
       </label>
-      <button type="submit" disabled={busy || !note.trim() || (choice === "APPROVED" && !amount) ||
-        (hearing === "HEARING_HELD" && (!hearingProof || !hearingOn))}
+      <button type="submit" disabled={busy || !hearingRecord || !note.trim() || (choice === "APPROVED" && !amount)}
         className="rounded bg-teal-900 px-3 py-2 text-white disabled:opacity-50">
         Record final association fine decision
       </button>

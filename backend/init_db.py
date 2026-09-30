@@ -138,6 +138,7 @@ from app.models.hoa_violation_recipient import HOAViolationRecipientDraft  # noq
 from app.models.hoa_violation_correspondence import HOAViolationCorrespondenceDraft  # noqa: F401
 from app.models.hoa_violation_notice_delivery import HOAViolationNoticeDelivery  # noqa: F401
 from app.models.hoa_violation_service_record import HOAViolationServiceRecord  # noqa: F401
+from app.models.hoa_violation_hearing_record import HOAViolationHearingRecord  # noqa: F401
 from app.models.hoa_violation_fine import HOAViolationFine  # noqa: F401
 from app.models.hoa_violation_fine_payment import HOAViolationFinePayment  # noqa: F401
 from app.models.hoa_violation_fine_appeal import HOAFineAppeal  # noqa: F401

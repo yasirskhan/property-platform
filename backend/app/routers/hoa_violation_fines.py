@@ -20,6 +20,7 @@ from app.models.gl_entry import GLEntry
 from app.models.gl_transaction import GLTransaction
 from app.models.hoa_violation_evidence import HOAViolationEvidence
 from app.models.hoa_violation_fine import HOAViolationFine
+from app.models.hoa_violation_hearing_record import HOAViolationHearingRecord
 from app.models.hoa_violation_fine_appeal import HOAFineAppeal
 from app.models.hoa_violation_recipient import HOAViolationRecipientDraft
 from app.models.hoa_violation_service_record import HOAViolationServiceRecord
@@ -32,6 +33,7 @@ from app.routers.hoa_violation_recipients import _matched_contact
 from app.schemas.gl_transaction import PostingLine
 from app.schemas.hoa_violation_fine import (
     HOAFineDecisionIn, HOAFineOut, HOAFinePostIn, HOAFineReverseIn,
+    HOAHearingRecordIn, HOAHearingRecordOut,
 )
 from app.services.audit import append_audit_log
 from app.services.gl_posting import PostingError, post_transaction
@@ -58,6 +60,7 @@ def _out(row):
         hearing_held_on=row.hearing_held_on,
         hearing_record_attachment_id=row.hearing_record_attachment_id,
         board_seat_id=row.board_seat_id, service_record_id=row.service_record_id,
+        hearing_record_id=row.hearing_record_id,
         policy_revision=row.policy_revision, decided_on=row.decided_on,
         receivable_gl_account_id=row.receivable_gl_account_id,
         income_gl_account_id=row.income_gl_account_id,
@@ -75,6 +78,26 @@ def _service(db, *, org, association_id, property_id, case_id):
         HOAViolationServiceRecord.property_id == property_id,
         HOAViolationServiceRecord.case_id == case_id,
     ).first()
+
+
+def _hearing(db, *, org, association_id, property_id, case_id, lock=False):
+    query = db.query(HOAViolationHearingRecord).filter(
+        HOAViolationHearingRecord.organization_id == org,
+        HOAViolationHearingRecord.association_id == association_id,
+        HOAViolationHearingRecord.property_id == property_id,
+        HOAViolationHearingRecord.case_id == case_id,
+    )
+    return (query.with_for_update() if lock else query).first()
+
+
+def _hearing_out(row):
+    return HOAHearingRecordOut(
+        id=row.id, case_id=row.case_id, service_record_id=row.service_record_id,
+        policy_revision=row.policy_revision, member_user_id=row.member_user_id,
+        disposition=row.disposition, held_on=row.held_on,
+        record_attachment_id=row.record_attachment_id,
+        board_seat_id=row.board_seat_id, recorded_at=row.recorded_at,
+    )
 
 
 def _current_member(db, *, org, association_id, property_id, service):
@@ -140,6 +163,102 @@ def _procedure(db, *, org, association_id, property_id, case, service):
     return policy
 
 
+@router.get("/{association_id}/staff-cases/{case_id}/hearing-record",
+            response_model=HOAHearingRecordOut | None)
+def get_hearing_record(
+    association_id: int, case_id: int, response: Response,
+    property_id: int = Query(ge=1),
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    org, assoc, _seat = _board_scope(
+        db, actor=current_user, association_id=association_id, property_id=property_id,
+    )
+    case = _case(db, org_id=org, association_id=assoc.id,
+                 property_id=property_id, case_id=case_id)
+    row = _hearing(db, org=org, association_id=assoc.id,
+                   property_id=property_id, case_id=case.id)
+    response.headers["Cache-Control"] = "no-store"
+    return _hearing_out(row) if row is not None else None
+
+
+@router.post("/{association_id}/staff-cases/{case_id}/hearing-record",
+             response_model=HOAHearingRecordOut, status_code=201)
+def record_hearing(
+    association_id: int, case_id: int, payload: HOAHearingRecordIn,
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    org, assoc, seat = _board_scope(
+        db, actor=current_user, association_id=association_id,
+        property_id=payload.property_id,
+    )
+    case = _case(db, org_id=org, association_id=assoc.id,
+                 property_id=payload.property_id, case_id=case_id)
+    service = _service(db, org=org, association_id=assoc.id,
+                       property_id=payload.property_id, case_id=case.id)
+    policy = _procedure(db, org=org, association_id=assoc.id,
+                        property_id=payload.property_id, case=case, service=service)
+    old_key = db.query(HOAViolationHearingRecord).filter(
+        HOAViolationHearingRecord.organization_id == org,
+        HOAViolationHearingRecord.request_key == payload.request_key,
+    ).first()
+    if old_key is not None:
+        if (old_key.association_id == assoc.id
+            and old_key.property_id == payload.property_id
+            and old_key.case_id == case.id
+            and old_key.disposition == payload.disposition
+            and old_key.held_on == payload.held_on
+            and old_key.record_attachment_id == payload.record_attachment_id):
+            return _hearing_out(old_key)
+        raise HTTPException(status_code=409, detail="Hearing request key already used.")
+    if _hearing(db, org=org, association_id=assoc.id,
+                property_id=payload.property_id, case_id=case.id, lock=True) is not None:
+        raise HTTPException(status_code=409, detail="Case hearing outcome already recorded.")
+    member = _current_member(db, org=org, association_id=assoc.id,
+                             property_id=payload.property_id, service=service)
+    today = date.today()
+    if payload.disposition == "NO_REQUEST_RECORDED":
+        if today < service.hearing_request_earliest_on:
+            raise HTTPException(status_code=409, detail="Configured hearing-request opportunity has not elapsed.")
+    else:
+        if payload.held_on < service.served_on or payload.held_on > today:
+            raise HTTPException(status_code=422, detail="Held hearing date must follow service and cannot be future-dated.")
+        _private_case_proof(
+            db, org=org, association_id=assoc.id, property_id=payload.property_id,
+            case_id=case.id, attachment_id=payload.record_attachment_id,
+        )
+    row = HOAViolationHearingRecord(
+        organization_id=org, association_id=assoc.id, property_id=payload.property_id,
+        case_id=case.id, service_record_id=service.id, policy_revision=policy.revision,
+        member_user_id=member.id, board_seat_id=seat.id,
+        disposition=payload.disposition, held_on=payload.held_on,
+        record_attachment_id=payload.record_attachment_id,
+        request_key=payload.request_key, recorded_by_id=current_user.id,
+        recorded_at=datetime.utcnow(),
+    )
+    db.add(row)
+    try:
+        db.flush()
+        append_audit_log(
+            db, organization_id=org, user_id=current_user.id,
+            entity_type="hoa_violation_hearing_record", entity_id=row.id,
+            action="association_hearing_outcome_recorded",
+            new_value={
+                "association_id": assoc.id, "property_id": payload.property_id,
+                "case_id": case.id, "service_record_id": service.id,
+                "policy_revision": policy.revision, "member_user_id": member.id,
+                "board_seat_id": seat.id, "disposition": row.disposition,
+                "held_on": row.held_on.isoformat() if row.held_on else None,
+                "record_attachment_id": row.record_attachment_id,
+            },
+        )
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Concurrent hearing record or duplicate key.") from exc
+    db.refresh(row)
+    return _hearing_out(row)
+
+
 @router.get("/{association_id}/staff-cases/{case_id}/fine",
             response_model=HOAFineOut | None)
 def get_fine(
@@ -183,7 +302,8 @@ def decide_fine(
             and old.amount == payload.amount
             and old.member_user_id == payload.member_user_id
             and old.decision_note == payload.decision_note
-            and old.hearing_disposition == payload.hearing_disposition
+            and (payload.hearing_record_id is None or old.hearing_record_id == payload.hearing_record_id)
+            and (payload.hearing_disposition is None or old.hearing_disposition == payload.hearing_disposition)
             and old.hearing_held_on == payload.hearing_held_on
             and old.hearing_record_attachment_id == payload.hearing_record_attachment_id):
             return _out(old)
@@ -199,18 +319,25 @@ def decide_fine(
     today = date.today()
     if today < service.cure_earliest_on:
         raise HTTPException(status_code=409, detail="Configured cure opportunity has not elapsed.")
-    if payload.hearing_disposition == "NO_REQUEST_RECORDED":
-        if today < service.hearing_request_earliest_on:
-            raise HTTPException(status_code=409, detail="Configured hearing-request opportunity has not elapsed.")
-    else:
-        if (payload.hearing_held_on < service.served_on
-            or payload.hearing_held_on > today):
-            raise HTTPException(status_code=422, detail="Held hearing date must follow service and cannot be future-dated.")
-        _private_case_proof(
-            db, org=org, association_id=assoc.id,
-            property_id=payload.property_id, case_id=case.id,
-            attachment_id=payload.hearing_record_attachment_id,
-        )
+    hearing = _hearing(db, org=org, association_id=assoc.id,
+                       property_id=payload.property_id, case_id=case.id)
+    if hearing is None:
+        raise HTTPException(status_code=409, detail="Standalone hearing outcome must be recorded before final fine decision.")
+    if (hearing.service_record_id != service.id or hearing.policy_revision != policy.revision
+        or hearing.member_user_id != service.member_user_id):
+        raise HTTPException(status_code=409, detail="Hearing record no longer matches current service and procedure.")
+    if payload.hearing_record_id is not None and payload.hearing_record_id != hearing.id:
+        raise HTTPException(status_code=409, detail="Fine decision hearing reference is stale.")
+    if payload.hearing_disposition is not None and payload.hearing_disposition != hearing.disposition:
+        raise HTTPException(status_code=409, detail="Fine decision hearing disposition contradicts recorded hearing.")
+    if payload.hearing_held_on is not None and payload.hearing_held_on != hearing.held_on:
+        raise HTTPException(status_code=409, detail="Fine decision hearing date contradicts recorded hearing.")
+    if payload.hearing_record_attachment_id is not None and payload.hearing_record_attachment_id != hearing.record_attachment_id:
+        raise HTTPException(status_code=409, detail="Fine decision hearing evidence contradicts recorded hearing.")
+    if hearing.disposition == "HEARING_HELD":
+        _private_case_proof(db, org=org, association_id=assoc.id,
+                            property_id=payload.property_id, case_id=case.id,
+                            attachment_id=hearing.record_attachment_id)
     member_id = None
     if payload.decision == "APPROVED":
         member = _current_member(
@@ -231,14 +358,14 @@ def decide_fine(
     row = HOAViolationFine(
         organization_id=org, association_id=assoc.id,
         property_id=payload.property_id, case_id=case.id,
-        service_record_id=service.id, board_seat_id=seat.id,
+        service_record_id=service.id, hearing_record_id=hearing.id, board_seat_id=seat.id,
         board_user_id=current_user.id, member_user_id=member_id,
         contact_link_id=service.contact_link_id if member_id else None,
         decision=payload.decision, status=payload.decision,
         amount=payload.amount, decision_note=payload.decision_note,
-        hearing_disposition=payload.hearing_disposition,
-        hearing_held_on=payload.hearing_held_on,
-        hearing_record_attachment_id=payload.hearing_record_attachment_id,
+        hearing_disposition=hearing.disposition,
+        hearing_held_on=hearing.held_on,
+        hearing_record_attachment_id=hearing.record_attachment_id,
         decided_on=today, request_key=payload.request_key,
         policy_revision=policy.revision,
     )
@@ -253,6 +380,7 @@ def decide_fine(
                 "association_id": assoc.id, "property_id": payload.property_id,
                 "case_id": case.id, "decision": row.decision,
                 "board_seat_id": seat.id, "service_record_id": service.id,
+                "hearing_record_id": hearing.id,
                 "member_user_id": row.member_user_id,
                 "amount": str(row.amount) if row.amount is not None else None,
                 "hearing_disposition": row.hearing_disposition,
