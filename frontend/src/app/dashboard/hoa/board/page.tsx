@@ -30,7 +30,8 @@ type Motion = {
   votes_abstain: number; vote_register: Vote[];
   my_vote: Vote | null;
 };
-type Detail = { minutes: Minutes | null; approval: Approval | null; motions: Motion[] };
+type Attendance = { id: number; contact_name: string; staff_attendance: "PRESENT" | "ABSENT" | "UNCONFIRMED"; status: "STAFF_REPORTED_UNVERIFIED" };
+type Detail = { minutes: Minutes | null; approval: Approval | null; motions: Motion[]; attendance: Attendance[] };
 
 function url(meeting: Meeting) {
   return "/api/hoa/associations/" + meeting.association_id +
@@ -64,12 +65,13 @@ export default function HOABoardPortal() {
     setBusy(true); setError(""); setMessage(""); setNote("");
     try {
       const suffix = "?property_id=" + meeting.property_id;
-      const [minutes, approval, motions] = await Promise.all([
+      const [minutes, approval, motions, attendance] = await Promise.all([
         apiGet(url(meeting) + "/minutes-board-preview" + suffix) as Promise<Minutes | null>,
         apiGet(url(meeting) + "/minutes-board-approval" + suffix) as Promise<Approval | null>,
         apiGet(url(meeting) + "/board-motions" + suffix) as Promise<Motion[]>,
+        apiGet("/api/hoa/board/meetings/" + meeting.meeting_id + "/attendance") as Promise<Attendance[]>,
       ]);
-      setDetails(prior => ({ ...prior, [meeting.meeting_id]: { minutes, approval, motions } }));
+      setDetails(prior => ({ ...prior, [meeting.meeting_id]: { minutes, approval, motions, attendance } }));
       setSelected(meeting.meeting_id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Minutes unavailable.");
@@ -167,6 +169,12 @@ export default function HOABoardPortal() {
         </button>
         {isOpen && detail && <div className="space-y-3 border-t pt-3">
           <HoaBoardRuleAdoptionPanel associationId={meeting.association_id} propertyId={meeting.property_id} />
+          <h3 className="font-medium">Meeting attendance</h3>
+          <p className="text-xs text-slate-600">This roster is staff-reported and is not a certified quorum record.</p>
+          {detail.attendance.length === 0 && <p className="text-xs">No staff-reported attendance is recorded.</p>}
+          {detail.attendance.map(row => <p key={row.id} className="text-sm">
+            {row.contact_name} · {row.staff_attendance} · STAFF REPORTED
+          </p>)}
           <h3 className="font-medium">Board motions</h3>
           <p className="text-xs text-slate-600">
             A motion choice records your individual board vote. No automatic quorum,

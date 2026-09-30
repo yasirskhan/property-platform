@@ -546,6 +546,12 @@ def test_board_portal_meetings_are_authentic_scoped_and_entitled(monkeypatch):
                 proposed_on=date.today(),
             ), db=db, current_user=owner,
         )
+        recorded_attendance = api.record_attendance(
+            assoc.id, first.id, HOAMeetingAttendanceIn(
+                property_id=prop.id, contact_link_id=seat.contact_link_id,
+                staff_attendance="PRESENT",
+            ), db=db, current_user=admin,
+        )
         response = Response()
         visible = portal.my_board_meetings(
             response, db=db, current_user=admin,
@@ -554,6 +560,16 @@ def test_board_portal_meetings_are_authentic_scoped_and_entitled(monkeypatch):
         assert len(visible) == 1 and visible[0].meeting_id == first.id
         assert visible[0].title == "Synthetic planning meeting"
         assert all(x.property_id == prop.id for x in visible)
+        attendance_response = Response()
+        attendance = portal.my_board_meeting_attendance(
+            first.id, attendance_response, db=db, current_user=admin,
+        )
+        assert attendance_response.headers["cache-control"] == "no-store"
+        assert len(attendance) == 1 and attendance[0].id == recorded_attendance.id
+        assert attendance[0].staff_attendance == "PRESENT"
+        assert attendance[0].status == "STAFF_REPORTED_UNVERIFIED"
+        assert "email" not in attendance[0].model_dump()
+        assert "contact_link_id" not in attendance[0].model_dump()
         owner.is_verified = True
         db.flush()
         assert portal.my_board_meetings(
@@ -606,6 +622,11 @@ def test_board_portal_meetings_are_authentic_scoped_and_entitled(monkeypatch):
         assert portal.my_board_meetings(
             Response(), db=db, current_user=admin,
         ) == []
+        with pytest.raises(HTTPException) as revoked_attendance:
+            portal.my_board_meeting_attendance(
+                first.id, Response(), db=db, current_user=admin,
+            )
+        assert revoked_attendance.value.status_code == 403
         monkeypatch.setattr(portal, "resolve_customer_features", lambda *a, **kw: [])
         with pytest.raises(HTTPException) as disabled:
             portal.my_board_meetings(

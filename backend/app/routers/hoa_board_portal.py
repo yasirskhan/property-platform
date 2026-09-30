@@ -23,6 +23,7 @@ from app.models.hoa_governing_evidence import HOAGoverningEvidence
 from app.models.hoa_association import HOAAssociation, HOAContactLink, HOAPropertyMembership
 from app.models.hoa_board import HOABoardSeat
 from app.models.hoa_meeting_draft import HOAMeetingDraft
+from app.models.hoa_meeting_workspace import HOAMeetingParticipation
 from app.models.hoa_violation_fine_appeal import HOAFineAppeal
 from app.models.hoa_violation_case import HOAViolationCase
 from app.models.hoa_violation_evidence import HOAViolationEvidence
@@ -132,6 +133,62 @@ def my_board_meetings(
             staff_agenda=row.staff_agenda,
         )
         for row in unique.values()
+    ]
+
+
+class HOABoardMeetingAttendanceOut(BaseModel):
+    id: int
+    contact_name: str
+    staff_attendance: Literal["PRESENT", "ABSENT", "UNCONFIRMED"]
+    status: Literal["STAFF_REPORTED_UNVERIFIED"] = "STAFF_REPORTED_UNVERIFIED"
+
+
+@router.get("/meetings/{meeting_id}/attendance",
+            response_model=list[HOABoardMeetingAttendanceOut])
+def my_board_meeting_attendance(
+    meeting_id: int, response: Response, db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Read only active staff-reported attendance through a live board seat."""
+    actor = current_user
+    if (actor.organization_id is None or not actor.is_active
+        or actor.deleted_at is not None or not actor.is_verified):
+        raise HTTPException(status_code=403, detail="Verified board login required.")
+    meeting = db.query(HOAMeetingDraft).filter(
+        HOAMeetingDraft.id == meeting_id,
+        HOAMeetingDraft.organization_id == actor.organization_id,
+        HOAMeetingDraft.is_active.is_(True),
+    ).first()
+    if meeting is None:
+        raise HTTPException(status_code=404, detail="Board meeting not found.")
+    org, assoc, _seat = _board_scope(
+        db, actor=actor, association_id=meeting.association_id,
+        property_id=meeting.property_id,
+    )
+    rows = db.query(HOAMeetingParticipation, Contact).join(
+        HOAContactLink, HOAContactLink.id == HOAMeetingParticipation.contact_link_id,
+    ).join(Contact, Contact.id == HOAContactLink.contact_id).filter(
+        HOAMeetingParticipation.organization_id == org,
+        HOAMeetingParticipation.association_id == assoc.id,
+        HOAMeetingParticipation.property_id == meeting.property_id,
+        HOAMeetingParticipation.meeting_draft_id == meeting.id,
+        HOAMeetingParticipation.is_active.is_(True),
+        HOAContactLink.organization_id == org,
+        HOAContactLink.association_id == assoc.id,
+        HOAContactLink.property_id == meeting.property_id,
+        HOAContactLink.is_active.is_(True),
+        Contact.organization_id == org,
+        Contact.is_active.is_(True), Contact.deleted_at.is_(None),
+    ).order_by(HOAMeetingParticipation.id).limit(101).all()
+    if len(rows) > 100:
+        raise HTTPException(status_code=422, detail="Board meeting attendance exceeds 100.")
+    response.headers["Cache-Control"] = "no-store"
+    return [
+        HOABoardMeetingAttendanceOut(
+            id=row.id, contact_name=contact.display_name,
+            staff_attendance=row.staff_attendance,
+        )
+        for row, contact in rows
     ]
 
 

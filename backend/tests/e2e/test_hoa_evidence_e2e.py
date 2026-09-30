@@ -1681,6 +1681,10 @@ def test_hoa_authorized_board_minutes_revision_approval_browser() -> None:
                 )
                 minutes.get_by_role("button", name="Save staff minutes").click()
                 expect(minutes.get_by_text(re.compile("Staff minutes saved"))).to_be_visible()
+                workspace.get_by_label("Staff contact reference").select_option(label="E2E Minutes Board Chair")
+                workspace.get_by_label("Staff-reported attendance").select_option("PRESENT")
+                workspace.get_by_role("button", name="Record staff attendance").click()
+                expect(workspace.get_by_text(re.compile("E2E Minutes Board Chair.*PRESENT.*UNVERIFIED"))).to_be_visible()
                 workspace.get_by_label("Proposed staff motion").fill(
                     "Synthetic member vote on landscaping motion"
                 )
@@ -1701,6 +1705,9 @@ def test_hoa_authorized_board_minutes_revision_approval_browser() -> None:
                 expect(page.get_by_role("heading", name="My HOA board meetings")).to_be_visible()
                 expect(page.get_by_role("button", name="Review board minutes")).to_have_count(1)
                 page.get_by_role("button", name="Review board minutes").click()
+                attendance = page.get_by_role("heading", name="Meeting attendance").locator("..")
+                expect(attendance.get_by_text(re.compile("E2E Minutes Board Chair.*PRESENT.*STAFF REPORTED"))).to_be_visible()
+                expect(attendance.get_by_text(re.compile("not a certified quorum record"))).to_be_visible()
                 threshold = page.get_by_role(
                     "heading", name="Association voting thresholds",
                 ).locator("..").locator("..")
