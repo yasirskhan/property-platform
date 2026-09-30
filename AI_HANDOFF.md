@@ -1,3 +1,73 @@
+# AI_HANDOFF.md — 2026-09-30 VERIFIED PHASE 4.9 RUBs ALLOCATION RULES + PREVIEW
+
+## Current verified product checkpoint
+
+- Verified PRODUCT SHA: `53aba244af09fdaaf269fe0856fe7f4a2091404d`
+- GitHub Actions run: `36769880286`
+- Run attempt: 1
+- All six required CI jobs passed on that exact SHA:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **845 passed, 17 deselected, 23026 warnings in 315.23s**
+- Authenticated E2E: **17 passed, 265 warnings in 101.41s**
+- Alembic head: `7b3d9f1a5c2e`
+- Expected model tables: **187**
+- No local test result is being substituted for hosted CI.
+
+## Phase 4.9 completed in this batch
+
+Implemented versioned RUBs allocation-rule configuration and a finance-neutral allocation preview:
+
+- added immutable versioned allocation-rule content per active same-property SHARED utility;
+- rule revisions have effective dates, explicit DRAFT/AUTHORIZED status and separate authorization action;
+- a new revision never inherits authorization automatically;
+- SQUARE_FEET snapshots current positive square footage for explicitly selected active units;
+- OCCUPANCY, FIXTURES and MANUAL_WEIGHT require explicit positive staff-entered weights;
+- active units must be selected explicitly; tenant/lease/address/meter data is not used to infer legal eligibility;
+- allocation context exposes only the source data needed for staff review;
+- preview accepts one authorized rule revision and one complete valid source utility bill;
+- preview fails closed for missing/reversed periods and overlapping recorded bill periods;
+- deterministic cent handling: floor raw unit shares to cents, then distribute remaining cents in ascending unit-ID order;
+- preview creates no tenant charge, owner charge, invoice, receipt, GL transaction or accounting posting;
+- customer RUBs UI now supports creating draft revisions, explicit authorization and allocation preview;
+- focused backend regressions cover authorization, revisioning, cross-property unit rejection, explicit-weight requirements, deterministic rounding and zero finance mutation;
+- authenticated browser coverage exercises draft -> authorize -> preview and verifies finance counts remain unchanged.
+
+Implementation commits in this verified batch:
+
+- `8cf094224955372aa58fa092c9e84c35cd16bb5f` — versioned RUBs allocation preview
+- `53aba244af09fdaaf269fe0856fe7f4a2091404d` — fail-safe migration correction; this is the verified PRODUCT SHA
+
+## Exact next Phase 4.9 batch
+
+Continue Phase 4.9 with the planned **RUBs year-end true-up** capability, but keep it finance-neutral until its source history is explicit and reviewable.
+
+Required boundaries for the next batch:
+
+1. Add durable, organization/property/shared-utility scoped reviewed allocation snapshots so a completed allocation preview can be preserved as historical source data without creating charges or GL.
+2. Snapshot the exact rule revision, bill period, bill amount, included unit IDs, weights, shares, rounded amounts and deterministic remainder rule used.
+3. Require an explicit staff review/save action. Replaying the same request must be idempotent; different data under the same request key must fail closed.
+4. Do not infer tenant legal eligibility, tenancy dates, occupant counts, fixture counts or chargeability.
+5. Build year-end true-up as a **preview/review calculation first** over explicitly selected reviewed allocation snapshots and explicit adjustment inputs. Do not post tenant/owner charges, invoices or GL in this batch.
+6. Define and display the true-up period, source snapshots, prior allocated total, explicit adjustment/actual total, per-unit differences and deterministic cent handling.
+7. Preserve exact org/property/active SHARED utility scope, existing RUBs gate/menu permission and manager-assignment behavior.
+8. Add migration/model/schema/router/customer UI plus focused backend and authenticated browser coverage.
+9. Prove no Charge/GL mutation in tests.
+10. Use one bounded provisional product batch, verify all six CI jobs on the exact product SHA, repair CI reds autonomously, then refresh this handoff.
+
+Planning source alignment:
+
+- `product.rubs.meter_reading` — Phase 4.9, now implemented.
+- `product.rubs.allocation_methods` — Phase 4.9, now implemented through versioned authorized rule configuration and non-posting preview.
+- `product.rubs.true_up` — Phase 4.9, next planned item.
+- RUBs reports remain separately scheduled; do not expand this batch into general reporting.
+
+---
+
 # AI_HANDOFF.md — 2026-09-30 VERIFIED PHASE 4.9 RUBs METER READINGS
 
 **AUTHORITATIVE CURRENT CHECKPOINT. Phase 4.9 is IN PROGRESS. Earlier NEXT labels below are historical where superseded.**
