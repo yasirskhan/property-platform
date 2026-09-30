@@ -1,3 +1,13 @@
+# AI_HANDOFF.md — 2026-09-30 COMMERCIAL RESUME RECONCILED
+
+**AUTHORITATIVE CORRECTION TO THE NEXT TASK.** The Phase 4.7 completion checkpoint immediately below remains valid. Its Commercial "report next" sentence is superseded because live source/history shows that report was already completed and verified before HOA work resumed.
+
+- Existing VERIFIED Phase 4.8 Commercial lease-reference report source: corrective commit `305eff4d5ff92425f781990c45274cf478f37c83` over implementation `2a41f051abb881b26a57072acde1b36cfc7cade0`. GitHub Actions **36456112573 SUCCESS all SIX jobs** on the corrective source: backend **721 passed, 4 deselected, 15849 warnings in 140.23s**; authenticated E2E **4 passed, 4 warnings in 13.60s**; frontend, platform-admin, security and staging-config PASS. It already provides scoped preview/CSV/email delivery for STAFF_RECORDED_UNVERIFIED commercial lease commencement references. Do not repeat it.
+- Live Commercial abstract still contains only Lease/Unit scope plus optional staff-recorded rent-commencement metadata; it has no scoped private source-document reference. CAM/NNN, reconciliations, percentage rent, escalations/options/co-tenancy and TI remain unsafe to make operative without lease-source evidence and authenticated terms.
+- **EXACT NEXT Phase 4.8 bounded batch: private Commercial lease-source document reference.** Reuse existing `EntityAttachment` bytes for the exact same-org commercial Lease/property and documents release. Allow authorized Commercial staff to link one active PRIVATE lease attachment to an existing active Commercial lease abstract; recheck property + LEASING + attachments gates, exact lease/entity linkage, active/unshared file and tenant/org scope on every read/update. Show source filename/status and allow scoped download through existing attachment API, but label it STAFF_LINKED_UNVERIFIED and do not claim execution, authenticity, legal effect or parsed terms. Prevent generic attachment archival/deletion while an active Commercial abstract depends on it, or otherwise fail closed without orphaning the reference. No CAM/NNN calculation, invoice, Charge, RentInvoice, GL posting, due date, notice or financial mutation. Add migration/schema/router/UI/backend + authenticated browser coverage. One provisional product commit on the existing branch, six-job exact-SHA CI, repair reds, then update handoff and continue.
+
+---
+
 # AI_HANDOFF.md — 2026-09-30 VERIFIED BOARD ATTENDANCE VISIBILITY / PHASE 4.7 OPERATIONAL COMPLETE
 
 **AUTHORITATIVE CURRENT CHECKPOINT.** Earlier NEXT / PROVISIONAL headings below are historical. Verify live HEAD and CI before editing. Only branch `chatgpt/checkpoint-005-safety`; no main, new branch, force-push, PR merge or frozen docs edits.
