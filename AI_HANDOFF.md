@@ -1,3 +1,54 @@
+# AI_HANDOFF.md — 2026-09-30 VERIFIED PHASE 4.9 RUBs REVIEWED ALLOCATION HISTORY + TRUE-UP PREVIEW
+
+## Current verified product checkpoint
+
+- Verified PRODUCT SHA: `4d5a374962427b64cd93c1b75eabce04478bf1d8`
+- GitHub Actions run: `36780722209`
+- Final run conclusion: SUCCESS
+- All six required CI jobs passed on this exact product SHA:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **845 passed, 17 deselected, 23030 warnings in 324.56s**
+- Authenticated E2E: **17 passed, 265 warnings in 64.67s**
+- Alembic head: `8c4e6a0b2d7f`
+- Expected model tables: **188**
+- No local test result is being substituted for hosted CI.
+- First E2E attempt on this SHA had one unrelated HOA reserve browser navigation failure; the RUBs browser flow passed. Re-running the failed jobs without product changes produced the final all-green run above.
+
+## Phase 4.9 completed in this verified batch
+
+Implemented durable reviewed RUBs allocation history and finance-neutral year-end true-up preview:
+
+- a completed non-posting allocation preview can be explicitly saved as a reviewed historical allocation snapshot;
+- snapshots preserve the exact authorized rule revision, bill period, bill amount, included unit IDs, weights, shares, rounded unit amounts and deterministic cent remainder behavior used at review time;
+- snapshot save is explicit and retry-safe: exact replay is idempotent while conflicting data under the same request key fails closed;
+- reviewed history remains scoped to the exact organization/property/active SHARED utility and does not infer legal tenant eligibility, occupancy, fixtures, lease dates or chargeability;
+- year-end true-up preview operates only over explicitly selected reviewed allocation snapshots plus explicit adjustment/actual inputs;
+- true-up output shows the selected period/source snapshots, prior allocated total, explicit actual/adjusted total and deterministic per-unit differences;
+- this batch remains finance-neutral: it creates no tenant charge, owner charge, invoice, receipt, bank movement, GL transaction or accounting posting;
+- customer RUBs UI supports saving reviewed allocation history and previewing the year-end true-up;
+- deleting a utility that has reviewed RUBs allocation history is blocked so historical source records cannot be silently destroyed; staff must retain/deactivate the utility instead;
+- focused backend and authenticated browser coverage verify reviewed snapshot idempotency, true-up calculation, scope controls and zero finance mutation.
+
+## Exact next Phase 4.9 work
+
+Continue Phase 4.9 with the remaining **RUBs reporting/review surface** that is separately scheduled in the roadmap. Before coding, reconcile the exact report requirements against the existing planning/checklist so this does not invent tenant billing, legal eligibility or accounting behavior.
+
+Required boundaries:
+
+1. Reports must read from the already verified RUBs source records and reviewed allocation snapshots; do not reconstruct or infer missing legal/tenant eligibility data.
+2. Keep report output informational/review-only unless a later explicitly authorized roadmap item adds posting.
+3. Preserve organization/property/active SHARED utility scope, manager assignment, RUBs release gating and existing permission checks.
+4. Do not create tenant/owner charges, invoices, receipts, bank movement or GL entries from report generation.
+5. Add focused backend and authenticated browser coverage for whatever report scope is actually present in the roadmap.
+6. Use one bounded product batch, verify all six CI jobs on the exact product SHA, repair CI reds autonomously, then refresh this root handoff.
+
+---
+
 # AI_HANDOFF.md — 2026-09-30 VERIFIED PHASE 4.9 RUBs ALLOCATION RULES + PREVIEW
 
 ## Current verified product checkpoint
