@@ -209,7 +209,6 @@ def update_entity_attachment_sharing(
     from app.models.commercial_ti_allowance import CommercialTIAllowanceUse
     ti_linked = db.query(CommercialTIAllowanceUse.id).filter(
         CommercialTIAllowanceUse.evidence_attachment_id == row.id,
-        CommercialTIAllowanceUse.status == "ACTIVE",
     ).first()
     if ti_linked is not None and (
         payload.share_with_tenants is True or payload.share_with_owners is True
@@ -281,7 +280,6 @@ def delete_entity_attachment(
     from app.models.commercial_ti_allowance import CommercialTIAllowanceUse
     if db.query(CommercialTIAllowanceUse.id).filter(
         CommercialTIAllowanceUse.evidence_attachment_id == row.id,
-        CommercialTIAllowanceUse.status == "ACTIVE",
     ).first() is not None:
         raise HTTPException(status_code=409, detail="Active Commercial TI evidence cannot be removed.")
     from app.models.hoa_violation_service_record import HOAViolationServiceRecord

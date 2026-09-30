@@ -151,9 +151,15 @@ export default function CommercialLeaseTermsPanel({
         <>
           <CommercialOperatingChargesPanel propertyId={propertyId} abstractId={abstractId} canEdit={canEdit} />
           <CommercialCAMReconciliationPanel propertyId={propertyId} abstractId={abstractId} canEdit={canEdit} />
-          <CommercialPercentageRentPanel propertyId={propertyId} abstractId={abstractId} canEdit={canEdit} />
-          <CommercialTIAllowancePanel propertyId={propertyId} abstractId={abstractId} canEdit={canEdit} />
         </>
+      )}
+      {history.some((row) => row.is_active && row.billing_authorized
+        && row.percentage_rent_rate !== null && row.percentage_rent_breakpoint_annual !== null) && (
+        <CommercialPercentageRentPanel propertyId={propertyId} abstractId={abstractId} canEdit={canEdit} />
+      )}
+      {history.some((row) => row.is_active && row.billing_authorized
+        && row.ti_allowance_total !== null) && (
+        <CommercialTIAllowancePanel propertyId={propertyId} abstractId={abstractId} canEdit={canEdit} />
       )}
       {canEdit && sourceAttachmentId && (
         <form onSubmit={(event) => { void save(event); }} className="space-y-2 rounded border p-3">
