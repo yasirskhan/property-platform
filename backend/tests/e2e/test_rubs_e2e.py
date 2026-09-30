@@ -233,18 +233,52 @@ def test_rubs_allocation_rule_authorize_and_preview_is_non_posting():
                         name="RUBs allocation detail report",
                     )
                 ).to_be_visible()
+                detail_report = page.get_by_label(
+                    "RUBs allocation detail report result"
+                )
                 expect(
-                    page.get_by_text(
+                    detail_report.get_by_text(
                         re.compile("Bill period 2026-09-01 to 2026-09-30")
                     )
                 ).to_be_visible()
                 expect(
-                    page.get_by_text(
+                    detail_report.get_by_text(
                         re.compile("Reviewed allocated total USD 100.01")
                     )
                 ).to_be_visible()
-                expect(page.get_by_text("RUBS-E2E-A", exact=True)).to_be_visible()
-                expect(page.get_by_text("RUBS-E2E-B", exact=True)).to_be_visible()
+                expect(
+                    detail_report.get_by_text("RUBS-E2E-A", exact=True)
+                ).to_be_visible()
+                expect(
+                    detail_report.get_by_text("RUBS-E2E-B", exact=True)
+                ).to_be_visible()
+
+                expect(
+                    page.get_by_role(
+                        "heading",
+                        name="RUBs reviewed history report",
+                    )
+                ).to_be_visible()
+                history_report = page.get_by_label(
+                    "RUBs reviewed history report result"
+                )
+                expect(
+                    history_report.get_by_text(
+                        re.compile("1 reviewed period.*Reviewed history total USD 100.01")
+                    )
+                ).to_be_visible()
+                expect(
+                    history_report.get_by_role(
+                        "heading",
+                        name="Per-unit reviewed totals",
+                    )
+                ).to_be_visible()
+                expect(
+                    history_report.get_by_text("RUBS-E2E-A", exact=True)
+                ).to_be_visible()
+                expect(
+                    history_report.get_by_text("RUBS-E2E-B", exact=True)
+                ).to_be_visible()
 
                 page.get_by_label("True-up period start").fill("2026-09-01")
                 page.get_by_label("True-up period end").fill("2026-09-30")
