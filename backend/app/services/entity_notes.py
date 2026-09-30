@@ -51,6 +51,7 @@ _FORBIDDEN_TABLES = {
     "commercial_rent_escalations",
     "commercial_lease_options",
     "commercial_operating_charges",  # Immutable source-linked Commercial accounting execution.
+    "commercial_cam_reconciliations",  # Annual private-evidence CAM true-up.
     "hoa_procedure_policies",  # Restricted staff policy/notice templates.
     "hoa_violation_cases",
     "hoa_violation_case_events",

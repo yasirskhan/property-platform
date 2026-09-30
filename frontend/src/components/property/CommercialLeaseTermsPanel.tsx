@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
 import CommercialOperatingChargesPanel from "@/components/property/CommercialOperatingChargesPanel";
+import CommercialCAMReconciliationPanel from "@/components/property/CommercialCAMReconciliationPanel";
 
 type Escalation = { id?: number; starts_on: string; monthly_base_rent: string };
 type OptionRow = {
@@ -145,7 +146,10 @@ export default function CommercialLeaseTermsPanel({
         <p className="text-sm text-amber-700">Link a private lease source document before recording terms.</p>
       )}
       {history.some((row) => row.is_active && row.billing_authorized) && (
-        <CommercialOperatingChargesPanel propertyId={propertyId} abstractId={abstractId} canEdit={canEdit} />
+        <>
+          <CommercialOperatingChargesPanel propertyId={propertyId} abstractId={abstractId} canEdit={canEdit} />
+          <CommercialCAMReconciliationPanel propertyId={propertyId} abstractId={abstractId} canEdit={canEdit} />
+        </>
       )}
       {canEdit && sourceAttachmentId && (
         <form onSubmit={(event) => { void save(event); }} className="space-y-2 rounded border p-3">

@@ -190,6 +190,14 @@ def update_entity_attachment_sharing(
         payload.share_with_tenants is True or payload.share_with_owners is True
     ):
         raise HTTPException(status_code=403, detail="Commercial lease source documents must remain private.")
+    from app.models.commercial_cam_reconciliation import CommercialCAMReconciliation
+    cam_recon_linked = db.query(CommercialCAMReconciliation.id).filter(
+        CommercialCAMReconciliation.evidence_attachment_id == row.id,
+    ).first()
+    if cam_recon_linked is not None and (
+        payload.share_with_tenants is True or payload.share_with_owners is True
+    ):
+        raise HTTPException(status_code=403, detail="Commercial CAM reconciliation evidence must remain private.")
     if _role(current_user) not in {"ADMIN", "OWNER", "MANAGER"}:
         raise HTTPException(status_code=403, detail="Manager access required.")
     if payload.share_with_tenants is None and payload.share_with_owners is None:
@@ -243,6 +251,11 @@ def delete_entity_attachment(
         CommercialLeaseTerms.source_attachment_id == row.id,
     ).first() is not None:
         raise HTTPException(status_code=409, detail="Referenced commercial lease source document cannot be removed.")
+    from app.models.commercial_cam_reconciliation import CommercialCAMReconciliation
+    if db.query(CommercialCAMReconciliation.id).filter(
+        CommercialCAMReconciliation.evidence_attachment_id == row.id,
+    ).first() is not None:
+        raise HTTPException(status_code=409, detail="Commercial CAM reconciliation evidence cannot be removed.")
     from app.models.hoa_violation_service_record import HOAViolationServiceRecord
     if db.query(HOAViolationServiceRecord.id).filter(
         HOAViolationServiceRecord.service_proof_attachment_id == row.id,

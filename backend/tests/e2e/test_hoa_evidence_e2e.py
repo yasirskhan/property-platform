@@ -27,6 +27,7 @@ from app.models.gl_account import GLAccount
 from app.models.contact import Contact
 from app.models.entity_attachment import EntityAttachment
 from app.models.commercial_operating_charge import CommercialOperatingCharge
+from app.models.commercial_cam_reconciliation import CommercialCAMReconciliation
 from app.models.lease import Lease, LeaseStatus, RentInvoice
 from app.models.property import Property, PropertyType, Unit
 from app.services.attachment_storage import attachment_path
@@ -1869,11 +1870,21 @@ def test_commercial_private_lease_source_reference_browser_no_finance() -> None:
                 gl_number="4398", name="E2E Commercial Recoveries",
                 account_type="INCOME", is_active=True,
             )
-            db.add_all([receivable, recovery_income])
+            cam_evidence = EntityAttachment(
+                organization_id=actor.organization_id,
+                entity_type="properties", entity_id=prop.id,
+                storage_key=f"e2e/commercial/{prop.id}/cam-actual.pdf",
+                original_name="e2e-commercial-cam-actual.pdf",
+                content_type="application/pdf", size_bytes=456,
+                share_with_tenants=False, share_with_owners=False,
+                uploaded_by_id=actor.id, is_active=True,
+            )
+            db.add_all([receivable, recovery_income, cam_evidence])
             db.commit()
             property_id = prop.id
             lease_id = lease.id
             source_name = source.original_name
+            cam_evidence_name = cam_evidence.original_name
             receivable_id = receivable.id
             recovery_income_id = recovery_income.id
         finally:
@@ -1986,7 +1997,38 @@ def test_commercial_private_lease_source_reference_browser_no_finance() -> None:
                 expect(operating.get_by_text(re.compile(r"CAM · REVERSED"))).to_be_visible()
                 after_reverse = _commercial_financial_counts()
                 assert after_reverse == (before[0] + 1, before[1], before[2] + 2)
+
+                recon = terms.get_by_role("heading", name="Annual CAM reconciliation").locator("..")
+                expect(recon).to_be_visible()
+                recon.get_by_label("Reconciliation year").fill("2026")
+                recon.get_by_label("Actual CAM total").fill("2000.00")
+                recon.get_by_label("Private CAM evidence").select_option(label=re.compile(cam_evidence_name))
+                recon.get_by_label("CAM reconciliation request key").fill("e2e-cam-recon-2026")
+                recon.get_by_label("CAM reconciliation posting date").fill("2026-09-30")
+                recon.get_by_label("CAM reconciliation due date").fill("2026-10-15")
+                recon.get_by_label("CAM receivable GL").select_option(str(receivable_id))
+                recon.get_by_label("CAM income GL").select_option(str(recovery_income_id))
+                recon.get_by_role("button", name="Record annual CAM reconciliation").click()
+                expect(recon.get_by_text(re.compile(r"2026 · POSTED"))).to_be_visible()
+                expect(recon.get_by_text(re.compile(r"True-up 250\.00"))).to_be_visible()
+                after_recon = _commercial_financial_counts()
+                assert after_recon == (before[0] + 2, before[1], before[2] + 3)
+
+                db = SessionLocal()
+                try:
+                    recon_row = db.query(CommercialCAMReconciliation).filter(
+                        CommercialCAMReconciliation.property_id == property_id,
+                    ).order_by(CommercialCAMReconciliation.id.desc()).first()
+                    assert recon_row is not None
+                    recon_id = recon_row.id
+                finally:
+                    db.close()
+                recon.get_by_label(f"CAM reversal date {recon_id}").fill("2026-09-30")
+                recon.get_by_label(f"CAM reversal reason {recon_id}").fill("Synthetic E2E correction")
+                recon.get_by_role("button", name="Reverse CAM reconciliation").click()
+                expect(recon.get_by_text(re.compile(r"2026 · REVERSED"))).to_be_visible()
+                assert _commercial_financial_counts() == (before[0] + 2, before[1], before[2] + 4)
             finally:
                 browser.close()
-        assert _commercial_financial_counts() == (before[0] + 1, before[1], before[2] + 2)
+        assert _commercial_financial_counts() == (before[0] + 2, before[1], before[2] + 4)
 
