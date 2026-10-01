@@ -11,7 +11,13 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.property import Property, PropertyAssignment, Unit
-from app.models.short_term_rental import ShortTermRentalChannel, ShortTermRentalNightlyPrice
+from app.models.short_term_rental import (
+    ShortTermRentalChannel,
+    ShortTermRentalNightlyPrice,
+    ShortTermRentalTurnover,
+)
+from app.models.unit_inspection import UnitInspectionRecord
+from app.models.work_order import WorkOrder
 from app.models.user import User, UserRole
 from app.routers.auth import get_current_user
 from app.schemas.short_term_rental import (
@@ -19,6 +25,8 @@ from app.schemas.short_term_rental import (
     ShortTermRentalChannelOut,
     ShortTermRentalNightlyPriceIn,
     ShortTermRentalNightlyPriceOut,
+    ShortTermRentalTurnoverIn,
+    ShortTermRentalTurnoverOut,
 )
 from app.services.audit import append_audit_log
 from app.services.customer_features import resolve_customer_features
@@ -29,6 +37,7 @@ router = APIRouter(prefix="/api/properties", tags=["Short-term rentals"])
 FEATURE_KEY = "release.properties.short_term_rentals"
 MAX_CHANNELS = 100
 MAX_NIGHTLY_PRICES = 2000
+MAX_TURNOVERS = 2000
 
 
 def _property(db: Session, *, property_id: int, actor: User, write: bool) -> Property:
@@ -492,6 +501,265 @@ def archive_nightly_price(
             "property_id": prop.id,
             "unit_id": item.unit_id,
             "night_date": str(item.night_date),
+        },
+    )
+    db.commit()
+    return Response(status_code=204)
+
+
+def _turnover_item(
+    db: Session,
+    *,
+    org_id: int,
+    property_id: int,
+    item_id: int,
+) -> ShortTermRentalTurnover:
+    item = db.query(ShortTermRentalTurnover).filter(
+        ShortTermRentalTurnover.id == item_id,
+        ShortTermRentalTurnover.organization_id == org_id,
+        ShortTermRentalTurnover.property_id == property_id,
+        ShortTermRentalTurnover.is_active.is_(True),
+    ).first()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Recorded turnover schedule not found.")
+    return item
+
+
+def _validate_turnover_links(
+    db: Session,
+    *,
+    property_id: int,
+    unit_id: int,
+    cleaning_work_order_id: int | None,
+    inspection_record_id: int | None,
+) -> None:
+    if cleaning_work_order_id is not None:
+        work_order = db.query(WorkOrder).filter(
+            WorkOrder.id == cleaning_work_order_id,
+            WorkOrder.property_id == property_id,
+            WorkOrder.unit_id == unit_id,
+        ).first()
+        if work_order is None:
+            raise HTTPException(status_code=404, detail="Cleaning work order not found for this unit.")
+    if inspection_record_id is not None:
+        inspection = db.query(UnitInspectionRecord).filter(
+            UnitInspectionRecord.id == inspection_record_id,
+            UnitInspectionRecord.property_id == property_id,
+            UnitInspectionRecord.unit_id == unit_id,
+        ).first()
+        if inspection is None:
+            raise HTTPException(status_code=404, detail="Inspection record not found for this unit.")
+
+
+def _turnover_unique(
+    db: Session,
+    *,
+    org_id: int,
+    property_id: int,
+    unit_id: int,
+    scheduled_start,
+    exclude_id: int | None = None,
+) -> None:
+    query = db.query(ShortTermRentalTurnover.id).filter(
+        ShortTermRentalTurnover.organization_id == org_id,
+        ShortTermRentalTurnover.property_id == property_id,
+        ShortTermRentalTurnover.unit_id == unit_id,
+        ShortTermRentalTurnover.scheduled_start == scheduled_start,
+    )
+    if exclude_id is not None:
+        query = query.filter(ShortTermRentalTurnover.id != exclude_id)
+    if query.first():
+        raise HTTPException(status_code=409, detail="A turnover schedule already exists for this unit and start time.")
+
+
+@router.get(
+    "/{property_id}/short-term-rentals/turnovers",
+    response_model=list[ShortTermRentalTurnoverOut],
+)
+def list_turnovers(
+    property_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prop = _property(db, property_id=property_id, actor=current_user, write=False)
+    rows = db.query(ShortTermRentalTurnover).filter(
+        ShortTermRentalTurnover.organization_id == prop.organization_id,
+        ShortTermRentalTurnover.property_id == prop.id,
+        ShortTermRentalTurnover.is_active.is_(True),
+    ).order_by(
+        ShortTermRentalTurnover.scheduled_start.asc(),
+        ShortTermRentalTurnover.unit_id.asc(),
+        ShortTermRentalTurnover.id.asc(),
+    ).limit(MAX_TURNOVERS + 1).all()
+    if len(rows) > MAX_TURNOVERS:
+        raise HTTPException(status_code=422, detail="Too many recorded turnover schedules.")
+    response.headers["Cache-Control"] = "no-store"
+    return rows
+
+
+@router.post(
+    "/{property_id}/short-term-rentals/turnovers",
+    response_model=ShortTermRentalTurnoverOut,
+    status_code=201,
+)
+def create_turnover(
+    property_id: int,
+    payload: ShortTermRentalTurnoverIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prop = _property(db, property_id=property_id, actor=current_user, write=True)
+    _active_unit(db, property_id=prop.id, unit_id=payload.unit_id)
+    _validate_turnover_links(
+        db,
+        property_id=prop.id,
+        unit_id=payload.unit_id,
+        cleaning_work_order_id=payload.cleaning_work_order_id,
+        inspection_record_id=payload.inspection_record_id,
+    )
+    _turnover_unique(
+        db,
+        org_id=prop.organization_id,
+        property_id=prop.id,
+        unit_id=payload.unit_id,
+        scheduled_start=payload.scheduled_start,
+    )
+    item = ShortTermRentalTurnover(
+        organization_id=prop.organization_id,
+        property_id=prop.id,
+        **payload.model_dump(),
+        created_by_id=current_user.id,
+        updated_by_id=current_user.id,
+    )
+    db.add(item)
+    try:
+        db.flush()
+        append_audit_log(
+            db,
+            organization_id=prop.organization_id,
+            user_id=current_user.id,
+            entity_type="short_term_rental_turnover",
+            entity_id=item.id,
+            action="created",
+            new_value={
+                "property_id": prop.id,
+                "unit_id": item.unit_id,
+                "scheduled_start": item.scheduled_start.isoformat(),
+                "status": item.status,
+                "cleaning_work_order_id": item.cleaning_work_order_id,
+                "inspection_record_id": item.inspection_record_id,
+            },
+        )
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Turnover schedule already exists for this unit and start time.") from exc
+    db.refresh(item)
+    return item
+
+
+@router.put(
+    "/{property_id}/short-term-rentals/turnovers/{item_id}",
+    response_model=ShortTermRentalTurnoverOut,
+)
+def update_turnover(
+    property_id: int,
+    item_id: int,
+    payload: ShortTermRentalTurnoverIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prop = _property(db, property_id=property_id, actor=current_user, write=True)
+    item = _turnover_item(
+        db,
+        org_id=prop.organization_id,
+        property_id=prop.id,
+        item_id=item_id,
+    )
+    _active_unit(db, property_id=prop.id, unit_id=payload.unit_id)
+    _validate_turnover_links(
+        db,
+        property_id=prop.id,
+        unit_id=payload.unit_id,
+        cleaning_work_order_id=payload.cleaning_work_order_id,
+        inspection_record_id=payload.inspection_record_id,
+    )
+    _turnover_unique(
+        db,
+        org_id=prop.organization_id,
+        property_id=prop.id,
+        unit_id=payload.unit_id,
+        scheduled_start=payload.scheduled_start,
+        exclude_id=item.id,
+    )
+    old = {
+        "unit_id": item.unit_id,
+        "scheduled_start": item.scheduled_start.isoformat(),
+        "status": item.status,
+        "cleaning_work_order_id": item.cleaning_work_order_id,
+        "inspection_record_id": item.inspection_record_id,
+    }
+    for key, value in payload.model_dump().items():
+        setattr(item, key, value)
+    item.updated_by_id = current_user.id
+    try:
+        db.flush()
+        append_audit_log(
+            db,
+            organization_id=prop.organization_id,
+            user_id=current_user.id,
+            entity_type="short_term_rental_turnover",
+            entity_id=item.id,
+            action="updated",
+            old_value=old,
+            new_value={
+                "unit_id": item.unit_id,
+                "scheduled_start": item.scheduled_start.isoformat(),
+                "status": item.status,
+                "cleaning_work_order_id": item.cleaning_work_order_id,
+                "inspection_record_id": item.inspection_record_id,
+            },
+        )
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Turnover schedule already exists for this unit and start time.") from exc
+    db.refresh(item)
+    return item
+
+
+@router.delete(
+    "/{property_id}/short-term-rentals/turnovers/{item_id}",
+    status_code=204,
+)
+def archive_turnover(
+    property_id: int,
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prop = _property(db, property_id=property_id, actor=current_user, write=True)
+    item = _turnover_item(
+        db,
+        org_id=prop.organization_id,
+        property_id=prop.id,
+        item_id=item_id,
+    )
+    item.is_active = False
+    item.updated_by_id = current_user.id
+    db.flush()
+    append_audit_log(
+        db,
+        organization_id=prop.organization_id,
+        user_id=current_user.id,
+        entity_type="short_term_rental_turnover",
+        entity_id=item.id,
+        action="archived",
+        new_value={
+            "property_id": prop.id,
+            "unit_id": item.unit_id,
+            "scheduled_start": item.scheduled_start.isoformat(),
         },
     )
     db.commit()
