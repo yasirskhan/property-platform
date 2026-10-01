@@ -1,3 +1,64 @@
+# AI_HANDOFF.md — 2026-10-01 PHASE 4.13 STAGED PROPERTY DRY-RUN BRIDGE VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `f5e2c1fe524fa421f2b5da7153d2a19ca86951d7`.
+- GitHub Actions run: `36931188442` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **882 passed, 21 deselected, 23761 warnings in 383.84s**.
+- Authenticated E2E: **21 passed, 278 warnings in 109.24s**.
+- Alembic head remains `f13c7a9e2b40`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified staged Properties -> existing dry-run bridge
+
+1. A staged `PROPERTIES` upload now has a dedicated dry-run endpoint that reuses the existing verified `dry_run_properties` engine.
+2. Only rows without unresolved `INVALID`, `POSSIBLE_MATCH`, or `REVIEW` dispositions may progress.
+3. Staged normalized rows are converted into the canonical existing property dry-run input; no second property preview engine exists.
+4. The upload normalized fingerprint is included as the dry-run source-context fingerprint, so changed file/mapping state changes the exact dry-run identity.
+5. The run-level `last_dry_run_fingerprint` / exact-preview contract remains authoritative.
+6. The staged dry run is target-non-mutating and creates no customer Property rows.
+7. Existing `ALREADY_MAPPED` rows remain replay-visible and organization/run scope fails closed.
+8. Replaying the identical staged upload/dry run does not duplicate its audit event.
+9. The staged dry-run endpoint is exposed through the existing platform AppFolio migration router.
+10. No AppFolio API connector, accounting-history import, navigation change, or general UX work was added.
+
+Implementation commits in this verified batch:
+- `2110c07caefbe8dcbc128472b5015933b491f9d7` — staged Properties -> existing dry-run bridge and focused regressions.
+- `f5e2c1fe524fa421f2b5da7153d2a19ca86951d7` — corrected replay warning assertion; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Add explicit **safe staged-property match resolution + controlled commit** before moving to Units.
+
+Required boundaries:
+
+1. Reuse the existing `PlatformMigrationRun`, staged upload/rows, `PlatformMigrationItem`, `dry_run_properties` and `commit_properties` architecture; do not create a parallel migration path.
+2. Support explicit operator decisions for unresolved property rows: match to an existing same-organization Property, create new despite a reviewed possible match, or skip.
+3. A match-to-existing decision must create/preserve the durable source-to-target mapping only after exact organization/resource/source validation; never overwrite the target Property.
+4. A create-new decision may override only the reviewed possible-match blocker for that exact staged source row; it must not suppress unrelated validation or identity errors.
+5. A skip decision must be explicit, durable for staging/review, and excluded from target creation.
+6. Every resolution change must be audited and must invalidate the prior run dry-run fingerprint.
+7. The reviewed resolution state must be included in the staged dry-run/commit source-context fingerprint so stale previews cannot commit.
+8. Controlled staged commit must derive its payload from the reviewed staged rows and require the exact latest reviewed dry-run fingerprint; callers must not resubmit arbitrary property records.
+9. Existing durable mappings remain replay-safe; mixed resolved/new rows must not duplicate targets.
+10. Do not automatically overwrite existing customer records or invent missing source data.
+11. Do not add Units, accounting history, or the optional AppFolio API connector in this batch.
+12. Preserve navigation integrity, hidden-menu roadmap, organization isolation, audit, recovery visibility and inactive UX standards.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 PHASE 4.13 CSV/XLSX INGESTION + STAGING VERIFIED
 
 ## Current verified product checkpoint
