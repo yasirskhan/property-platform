@@ -1,6 +1,13 @@
 # NAVIGATION INTEGRITY PLAN
 
-Status: **ACTIVE — authorized after Phase 4.10.**
+Status: **VERIFIED FOUNDATION — CI 36805027238, source a5ee8bc6edb9c494903a000e472fcd55cddc6e6f.**
+
+## Verified checkpoint
+
+The foundation was verified with all six CI jobs green on source
+`a5ee8bc6edb9c494903a000e472fcd55cddc6e6f` (run `36805027238`):
+851 backend tests passed, 19 deselected; 19 authenticated browser tests passed.
+The static navigation check and actual rendered-sidebar traversal are part of CI.
 
 This document is the permanent customer-navigation safety contract. Future
 sessions read the repo-root `AI_HANDOFF.md` first and use this plan only when

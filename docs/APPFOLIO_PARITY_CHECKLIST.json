@@ -8,13 +8,13 @@
       "planned_no_phase": "Planned but no phase assigned yet -- THIS IS A BUG",
       "unplanned": "Not planned at all -- THIS IS A BUG"
     },
-    "last_updated": "2026-09-25",
-    "migration_head": "a3d5f7b9c1e4",
-    "roadmap_section": "PROJECT_MASTER.md Section 82 revised foundation sequence + Section 38 build order",
+    "last_updated": "2026-10-01",
+    "migration_head": "ae6c8d0f2b4c",
+    "roadmap_section": "PROJECT_MASTER.md existing roadmap + docs/UX_STANDARDS.md owner-authorized UX queue",
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
-    "total_items": 628,
-    "built_count": 264,
-    "scheduled_count": 364,
+    "total_items": 647,
+    "built_count": 265,
+    "scheduled_count": 382,
     "in_progress_count": 0
   },
   "items": [
@@ -1550,8 +1550,9 @@
       "id": "reporting.custom_builder",
       "area": "Reporting",
       "feature": "Custom Report Builder",
-      "status": "scheduled",
-      "phase": "3.7"
+      "status": "built",
+      "phase": "3.7",
+      "notes": "Saved report configurations were already implemented and verified; /dashboard/reporting/builder now reuses that existing builder as a real customer route under the verified navigation-integrity batch."
     },
     {
       "id": "settings.general",
@@ -4573,6 +4574,158 @@
       "feature": "FEATURE_REGISTRY current planned page surface completed in Hybrid Capability Gating format",
       "status": "built",
       "phase": "3.4.2"
+    },
+    {
+      "id": "ux.feature_lifecycle",
+      "area": "UX / Modern Platform",
+      "feature": "Feature lifecycle / deprecation / archive controls",
+      "status": "scheduled",
+      "phase": "UX",
+      "notes": "Owner-authorized in docs/UX_STANDARDS.md; not active until the owner explicitly says `start UX work`. Audit live state first and reuse existing architecture."
+    },
+    {
+      "id": "ux.duplicate_property_detection",
+      "area": "UX / Modern Platform",
+      "feature": "Same-organization duplicate property-address warning",
+      "status": "scheduled",
+      "phase": "UX",
+      "notes": "Owner-authorized in docs/UX_STANDARDS.md; not active until the owner explicitly says `start UX work`. Audit live state first and reuse existing architecture."
+    },
+    {
+      "id": "ux.smart_lookup",
+      "area": "UX / Modern Platform",
+      "feature": "Universal scoped Smart Lookup / entity autocomplete",
+      "status": "scheduled",
+      "phase": "UX",
+      "notes": "Owner-authorized in docs/UX_STANDARDS.md; not active until the owner explicitly says `start UX work`. Audit live state first and reuse existing architecture."
+    },
+    {
+      "id": "ux.universal_add",
+      "area": "UX / Modern Platform",
+      "feature": "Permission-aware TopBar Add Functionality / Universal Add",
+      "status": "scheduled",
+      "phase": "UX",
+      "notes": "Owner-authorized in docs/UX_STANDARDS.md; not active until the owner explicitly says `start UX work`. Audit live state first and reuse existing architecture."
+    },
+    {
+      "id": "ux.contextual_help",
+      "area": "UX / Modern Platform",
+      "feature": "Reusable contextual Help / Help & Training system",
+      "status": "scheduled",
+      "phase": "UX",
+      "notes": "Owner-authorized in docs/UX_STANDARDS.md; not active until the owner explicitly says `start UX work`. Audit live state first and reuse existing architecture."
+    },
+    {
+      "id": "ux.whats_new",
+      "area": "UX / Modern Platform",
+      "feature": "What's New feed, announcement targeting and read/dismiss state",
+      "status": "scheduled",
+      "phase": "UX",
+      "notes": "Owner-authorized in docs/UX_STANDARDS.md; not active until the owner explicitly says `start UX work`. Audit live state first and reuse existing architecture."
+    },
+    {
+      "id": "ux.action_center",
+      "area": "UX / Modern Platform",
+      "feature": "Role/assignment-scoped Action Center for work requiring attention",
+      "status": "scheduled",
+      "phase": "UX",
+      "notes": "Owner-authorized in docs/UX_STANDARDS.md; not active until the owner explicitly says `start UX work`. Audit live state first and reuse existing architecture."
+    },
+    {
+      "id": "ux.reporting_visualizations",
+      "area": "UX / Modern Platform",
+      "feature": "Lightweight responsive report charts, KPI summaries and drilldown",
+      "status": "scheduled",
+      "phase": "UX",
+      "notes": "Owner-authorized in docs/UX_STANDARDS.md; not active until the owner explicitly says `start UX work`. Audit live state first and reuse existing architecture."
+    },
+    {
+      "id": "ux.custom_report_visualizations",
+      "area": "UX / Modern Platform",
+      "feature": "Saved Custom Report Builder visualization configuration",
+      "status": "scheduled",
+      "phase": "UX",
+      "notes": "Owner-authorized in docs/UX_STANDARDS.md; not active until the owner explicitly says `start UX work`. Audit live state first and reuse existing architecture."
+    },
+    {
+      "id": "ux.favorites_recent",
+      "area": "UX / Modern Platform",
+      "feature": "Permission-scoped Favorites and Recently Viewed",
+      "status": "scheduled",
+      "phase": "UX",
+      "notes": "Owner-authorized in docs/UX_STANDARDS.md; not active until the owner explicitly says `start UX work`. Audit live state first and reuse existing architecture."
+    },
+    {
+      "id": "ux.breadcrumbs",
+      "area": "UX / Modern Platform",
+      "feature": "Contextual breadcrumbs for deep workflows",
+      "status": "scheduled",
+      "phase": "UX",
+      "notes": "Owner-authorized in docs/UX_STANDARDS.md; not active until the owner explicitly says `start UX work`. Audit live state first and reuse existing architecture."
+    },
+    {
+      "id": "ux.saved_views",
+      "area": "UX / Modern Platform",
+      "feature": "Personal/shared saved views and filters",
+      "status": "scheduled",
+      "phase": "UX",
+      "notes": "Owner-authorized in docs/UX_STANDARDS.md; not active until the owner explicitly says `start UX work`. Audit live state first and reuse existing architecture."
+    },
+    {
+      "id": "ux.role_aware_dashboards",
+      "area": "UX / Modern Platform",
+      "feature": "Role-aware dashboard summaries",
+      "status": "scheduled",
+      "phase": "UX",
+      "notes": "Owner-authorized in docs/UX_STANDARDS.md; not active until the owner explicitly says `start UX work`. Audit live state first and reuse existing architecture."
+    },
+    {
+      "id": "ux.empty_states",
+      "area": "UX / Modern Platform",
+      "feature": "Actionable module/page empty states",
+      "status": "scheduled",
+      "phase": "UX",
+      "notes": "Owner-authorized in docs/UX_STANDARDS.md; not active until the owner explicitly says `start UX work`. Audit live state first and reuse existing architecture."
+    },
+    {
+      "id": "ux.activity_timeline",
+      "area": "UX / Modern Platform",
+      "feature": "Readable record activity timeline over immutable audit data",
+      "status": "scheduled",
+      "phase": "UX",
+      "notes": "Owner-authorized in docs/UX_STANDARDS.md; not active until the owner explicitly says `start UX work`. Audit live state first and reuse existing architecture."
+    },
+    {
+      "id": "ux.accessibility_primitives",
+      "area": "UX / Modern Platform",
+      "feature": "Platform-wide accessible shared UI primitives",
+      "status": "scheduled",
+      "phase": "UX",
+      "notes": "Owner-authorized in docs/UX_STANDARDS.md; not active until the owner explicitly says `start UX work`. Audit live state first and reuse existing architecture."
+    },
+    {
+      "id": "ux.environment_identification",
+      "area": "UX / Modern Platform",
+      "feature": "Visible staging/demo/test environment identification",
+      "status": "scheduled",
+      "phase": "UX",
+      "notes": "Owner-authorized in docs/UX_STANDARDS.md; not active until the owner explicitly says `start UX work`. Audit live state first and reuse existing architecture."
+    },
+    {
+      "id": "ux.route_feature_health",
+      "area": "UX / Modern Platform",
+      "feature": "Platform route/feature health visibility beyond navigation CI",
+      "status": "scheduled",
+      "phase": "UX",
+      "notes": "Owner-authorized in docs/UX_STANDARDS.md; not active until the owner explicitly says `start UX work`. Audit live state first and reuse existing architecture."
+    },
+    {
+      "id": "ux.platform_feature_visibility",
+      "area": "UX / Modern Platform",
+      "feature": "Extended Platform Admin feature/page visibility control center",
+      "status": "scheduled",
+      "phase": "UX",
+      "notes": "Owner-authorized in docs/UX_STANDARDS.md; not active until the owner explicitly says `start UX work`. Audit live state first and reuse existing architecture."
     }
   ]
 }
