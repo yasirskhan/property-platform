@@ -1,3 +1,69 @@
+# AI_HANDOFF.md — 2026-10-01 PHASE 4.13 UNIT DRY-RUN + CONTROLLED COMMIT VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `85ce6fec9eac9ce2ab1b4302b7b6ad27b01e298d`.
+- GitHub Actions run: `36940824955` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **893 passed, 21 deselected, 23942 warnings in 357.98s**.
+- Authenticated E2E: **21 passed, 278 warnings in 111.79s**.
+- Alembic head remains `b24d8c1f4a62`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified staged Unit dry-run + controlled commit
+
+1. Reviewed staged UNITS uploads now have a dedicated dry-run endpoint using the existing run-level exact-fingerprint architecture.
+2. Unit -> Property linkage is resolved only through durable AppFolio PROPERTIES source mappings; display-name-only linkage is not used.
+3. The Unit source-context fingerprint binds the staged upload/review state plus each referenced durable Property mapping target/fingerprint, so changed relationship state makes the prior preview stale.
+4. Unit dry run is target-non-mutating and creates no Unit rows.
+5. The basic verified Unit Directory contract maps only the source Unit Name into target `unit_number`; missing bedrooms/bathrooms/monthly rent are explicitly disclosed as target defaults rather than claimed as AppFolio facts.
+6. Existing durable UNITS mappings replay safely and must point to a Unit under the same mapped Property.
+7. Same-property/same-unit-number target candidates are surfaced as possible matches and **block commit** until explicit Unit resolution is implemented; no automatic overwrite or merge occurs.
+8. Controlled Unit commit accepts only the exact latest staged dry-run fingerprint; callers cannot submit arbitrary Unit records.
+9. Unit creation is atomic, preflights the existing organization unit-plan limit for the full new-unit count, creates durable UNITS source-to-target mappings and replays without duplicates.
+10. A changed Property mapping relationship fingerprint invalidates the old Unit commit preview.
+11. No Property mutation, Owners/Vendors, Tenants, Leases/occupancy, accounting history, AppFolio API connector, navigation change, or general UX work was added.
+
+Implementation commits:
+- `79b1d8b2b4e02b9adda28462f24b45bc46c6d590` — Unit dry-run/commit engine.
+- `e7ffe6d3d4284aa25105ff47f06d1d6e8b8cf110` — Unit migration schemas.
+- `5ba54343c86797bb31edf099a5c1aac0cc02f044` — reviewed staged Unit route bridge.
+- `85ce6fec9eac9ce2ab1b4302b7b6ad27b01e298d` — focused Unit dry-run/commit regressions; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Add explicit **staged Unit match/create/skip resolution** before moving to Owners/Vendors.
+
+Required boundaries:
+
+1. Reuse the existing staged-row resolution/fingerprint/audit pattern; do not create a parallel reconciliation system.
+2. Because the existing `resolution_target_id` is Property-specific, add a correctly typed Unit-resolution target reference rather than storing Unit IDs in the Property FK column.
+3. Support explicit operator decisions for unresolved Unit rows:
+   - MATCH_EXISTING to an active Unit under the already mapped same-organization Property;
+   - CREATE_NEW despite a reviewed same-property possible match;
+   - SKIP.
+4. Never overwrite the matched existing Unit.
+5. CREATE_NEW may override only the exact reviewed same-property unit-match blocker and must not suppress identity/property-link validation errors.
+6. Resolution changes must be durable, audited and invalidate the prior dry-run fingerprint.
+7. Unit resolution state and target identity must participate in the staged relationship fingerprint so stale previews cannot commit.
+8. Controlled commit must use reviewed staged rows only; mixed matched/new/skipped rows must replay without duplicate Units.
+9. Keep organization scope, Property relationship validation, plan-limit enforcement, audit/recovery visibility and exact-fingerprint commit semantics intact.
+10. Do not proceed to Owners/Vendors until Unit reconciliation/commit is verified.
+11. Do not implement AppFolio API transport or general UX work.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 PHASE 4.13 UNIT DIRECTORY INGESTION + STAGING VERIFIED
 
 ## Current verified product checkpoint
