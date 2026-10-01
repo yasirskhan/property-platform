@@ -1236,7 +1236,11 @@ def test_staged_property_dry_run_allows_already_mapped_replay_and_blocks_cross_r
             run.id, upload.id, db=db, current_user=admin
         )
         assert preview.importable == 1
-        assert preview.warning_count == 1
+        assert preview.warning_count == 2
+        assert any(
+            "Possible existing target property match" in warning
+            for warning in preview.rows[0].warnings
+        )
         assert db.query(Property).count() == 1
 
         other_run = api.create_run(
