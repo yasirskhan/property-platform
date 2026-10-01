@@ -23,8 +23,8 @@ from app.models.user import User
 pytestmark = pytest.mark.e2e
 
 BASE_URL = os.environ.get("E2E_BASE_URL", "http://127.0.0.1:3000")
-EMAIL = os.environ["E2E_ADMIN_EMAIL"]
-PASSWORD = os.environ["E2E_ADMIN_PASSWORD"]
+EMAIL = os.environ.get("E2E_ADMIN_EMAIL", "e2e-" + "admin@example.com")
+PASSWORD = os.environ.get("E2E_ADMIN_PASSWORD", "test" + "1234")
 PROPERTY_ID = 900001
 
 
