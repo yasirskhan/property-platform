@@ -61,3 +61,53 @@ class SeniorAgeRestrictionOut(BaseModel):
     notes: str | None
     created_at: datetime
     updated_at: datetime
+
+
+CareResourceType = Literal[
+    "CARE_COORDINATION",
+    "TRANSPORTATION",
+    "MEALS",
+    "SOCIAL_SERVICES",
+    "OTHER",
+]
+
+
+class SeniorCareResourceIn(BaseModel):
+    resource_type: CareResourceType
+    provider_name: str = Field(min_length=1, max_length=180)
+    contact_name: str | None = Field(default=None, max_length=180)
+    phone: str | None = Field(default=None, max_length=60)
+    email: str | None = Field(default=None, max_length=255)
+    reference_url: str | None = Field(default=None, max_length=500)
+    availability_notes: str | None = Field(default=None, max_length=4000)
+
+    @field_validator(
+        "provider_name",
+        "contact_name",
+        "phone",
+        "email",
+        "reference_url",
+        "availability_notes",
+    )
+    @classmethod
+    def trim_resource_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
+
+
+class SeniorCareResourceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    property_id: int
+    resource_type: CareResourceType
+    provider_name: str
+    contact_name: str | None
+    phone: str | None
+    email: str | None
+    reference_url: str | None
+    availability_notes: str | None
+    created_at: datetime
+    updated_at: datetime
