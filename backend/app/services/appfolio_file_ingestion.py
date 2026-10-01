@@ -26,7 +26,7 @@ from app.models.platform_migration import (
     PlatformMigrationStagedRow,
     PlatformMigrationUpload,
 )
-from app.models.property import Property
+from app.models.property import Property, Unit
 
 MAX_FILE_BYTES = 10 * 1024 * 1024
 MAX_ROWS = 10_000
@@ -65,6 +65,33 @@ PROPERTY_REQUIRED = (
     "state",
     "zip_code",
 )
+
+# Verified Unit Directory export columns. These aliases intentionally stay
+# narrower than the target Unit model: staging must not invent AppFolio fields.
+UNIT_ALIASES: dict[str, tuple[str, ...]] = {
+    "source_id": ("Unit ID", "Unit Id", "UnitID"),
+    "source_property_id": ("Property ID", "Property Id", "PropertyID"),
+    "unit_name": ("Unit Name", "Unit"),
+    "property_name": ("Property Name", "Property"),
+    "unit_address": ("Unit Address",),
+    "address_line1": (
+        "Unit Street Address 1",
+        "Unit Address 1",
+        "Unit Street 1",
+    ),
+    "address_line2": (
+        "Unit Street Address 2",
+        "Unit Address 2",
+        "Unit Street 2",
+    ),
+    "city": ("Unit City",),
+    "state": ("Unit State",),
+    "zip_code": ("Unit Zip", "Unit Zip Code"),
+}
+# Unit Name is the only universally required display field in the verified
+# export contract. Stable Unit/Property IDs are optional in AppFolio exports,
+# but missing IDs remain REVIEW blockers for safe later commit.
+UNIT_REQUIRED = ("unit_name",)
 
 
 class AppFolioFileIngestionError(ValueError):
@@ -188,6 +215,26 @@ def _looks_like_properties(headers: list[str]) -> bool:
     return matched == len(PROPERTY_REQUIRED)
 
 
+def _looks_like_units(headers: list[str]) -> bool:
+    normalized = {_normalize_header(header) for header in headers}
+    unit_name = {
+        _normalize_header(alias) for alias in UNIT_ALIASES["unit_name"]
+    }
+    property_ref = {
+        _normalize_header(alias)
+        for field in ("source_property_id", "property_name")
+        for alias in UNIT_ALIASES[field]
+    }
+    address_ref = {
+        _normalize_header(alias)
+        for field in ("unit_address", "address_line1")
+        for alias in UNIT_ALIASES[field]
+    }
+    return bool(normalized & unit_name) and bool(normalized & property_ref) and bool(
+        normalized & address_ref
+    )
+
+
 def _parse_xlsx(content: bytes, requested_sheet: str | None) -> ParsedTable:
     stream = io.BytesIO(content)
     if not zipfile.is_zipfile(stream):
@@ -234,7 +281,9 @@ def _parse_xlsx(content: bytes, requested_sheet: str | None) -> ParsedTable:
             candidates = []
             for name in workbook.sheetnames:
                 headers = _xlsx_sheet_headers(workbook[name])
-                if headers and _looks_like_properties(headers):
+                if headers and (
+                    _looks_like_properties(headers) or _looks_like_units(headers)
+                ):
                     candidates.append(name)
             if len(candidates) != 1:
                 raise AppFolioFileIngestionError(
@@ -301,11 +350,14 @@ def _parse_file(filename: str, content: bytes, sheet_name: str | None) -> Parsed
     raise AppFolioFileIngestionError("Only CSV and XLSX source files are supported.")
 
 
-def _auto_property_mapping(headers: list[str]) -> tuple[dict[str, str], list[str]]:
+def _auto_mapping(
+    headers: list[str],
+    aliases_by_field: dict[str, tuple[str, ...]],
+) -> tuple[dict[str, str], list[str]]:
     by_normalized = {_normalize_header(header): header for header in headers}
     mapping: dict[str, str] = {}
     ambiguous: list[str] = []
-    for field, aliases in PROPERTY_ALIASES.items():
+    for field, aliases in aliases_by_field.items():
         matches = []
         for alias in aliases:
             header = by_normalized.get(_normalize_header(alias))
@@ -325,14 +377,48 @@ def _resolve_mapping(
     explicit_mapping: dict[str, str] | None,
 ) -> tuple[str, dict[str, str], list[str], list[str]]:
     requested = (resource_override or "").strip().upper()
-    if requested and requested != "PROPERTIES":
+    if requested not in {"", "PROPERTIES", "UNITS"}:
         raise AppFolioFileIngestionError(
-            "This foundation currently stages only the verified PROPERTIES resource; other resource mappings follow in dependency order."
+            "This migration stage currently supports only verified PROPERTIES and UNITS resource mappings."
         )
-    auto_mapping, ambiguous = _auto_property_mapping(headers)
+
+    if requested == "PROPERTIES":
+        resource = "PROPERTIES"
+    elif requested == "UNITS":
+        resource = "UNITS"
+    elif _looks_like_properties(headers):
+        resource = "PROPERTIES"
+    elif _looks_like_units(headers):
+        resource = "UNITS"
+    else:
+        resource = "UNKNOWN"
+
+    aliases = (
+        PROPERTY_ALIASES
+        if resource == "PROPERTIES"
+        else UNIT_ALIASES
+        if resource == "UNITS"
+        else {}
+    )
+    required = (
+        PROPERTY_REQUIRED
+        if resource == "PROPERTIES"
+        else UNIT_REQUIRED
+        if resource == "UNITS"
+        else ()
+    )
+    auto_mapping, ambiguous = _auto_mapping(headers, aliases) if aliases else ({}, [])
     mapping = dict(auto_mapping)
+
     if explicit_mapping:
-        unknown_fields = sorted(set(explicit_mapping) - set(PROPERTY_ALIASES))
+        allowed_fields = set(aliases)
+        if not allowed_fields:
+            # A caller must choose a supported resource before using explicit
+            # mapping when automatic report detection cannot determine one.
+            raise AppFolioFileIngestionError(
+                "Choose resource PROPERTIES or UNITS before supplying explicit column mapping."
+            )
+        unknown_fields = sorted(set(explicit_mapping) - allowed_fields)
         if unknown_fields:
             raise AppFolioFileIngestionError(
                 "Unknown explicit mapping fields: " + ", ".join(unknown_fields)
@@ -353,11 +439,8 @@ def _resolve_mapping(
         mapping.update(explicit_mapping)
         ambiguous = [field for field in ambiguous if field not in explicit_mapping]
 
-    detected = "PROPERTIES" if requested == "PROPERTIES" or all(
-        field in mapping for field in PROPERTY_REQUIRED
-    ) else "UNKNOWN"
-    missing_required = [field for field in PROPERTY_REQUIRED if field not in mapping]
-    return detected, mapping, ambiguous, missing_required
+    missing_required = [field for field in required if field not in mapping]
+    return resource, mapping, ambiguous, missing_required
 
 
 def _normalized_source_row(row: dict[str, Any]) -> dict[str, Any]:
@@ -565,15 +648,119 @@ def stage_appfolio_file(
                         )
                     else:
                         disposition = "NEW"
-        else:
-            normalized_data = _normalized_source_row(source_row)
-            errors.append(
-                "Report type could not be detected safely; choose PROPERTIES and supply explicit column mapping."
-            )
+        elif resource == "UNITS":
+            normalized_data = {
+                field: _mapped_value(source_row, mapping, field)
+                for field in UNIT_ALIASES
+                if field in mapping
+            }
+            if ambiguous:
+                errors.append(
+                    "Ambiguous automatic mapping requires explicit mapping for: "
+                    + ", ".join(sorted(ambiguous))
+                )
             if missing_required:
                 errors.append(
                     "Missing required source columns: " + ", ".join(missing_required)
                 )
+
+            unit_name = normalized_data.get("unit_name")
+            if unit_name is None or not str(unit_name).strip():
+                errors.append("unit_name is required.")
+
+            source_id_value = normalized_data.get("source_id")
+            source_id = str(source_id_value).strip() if source_id_value is not None else None
+            if source_id:
+                if source_id in seen_source_ids:
+                    errors.append("Duplicate AppFolio Unit ID in this staged upload.")
+                    duplicates += 1
+                else:
+                    seen_source_ids.add(source_id)
+
+            source_property_value = normalized_data.get("source_property_id")
+            source_property_id = (
+                str(source_property_value).strip()
+                if source_property_value is not None
+                else None
+            )
+
+            mapped_property = None
+            if source_property_id:
+                mapped_property = (
+                    db.query(PlatformMigrationItem)
+                    .filter(
+                        PlatformMigrationItem.run_id == run.id,
+                        PlatformMigrationItem.organization_id == run.organization_id,
+                        PlatformMigrationItem.provider == "APPFOLIO",
+                        PlatformMigrationItem.resource == "PROPERTIES",
+                        PlatformMigrationItem.source_id == source_property_id,
+                    )
+                    .first()
+                )
+                if mapped_property is not None:
+                    target_property = (
+                        db.query(Property)
+                        .filter(
+                            Property.id == mapped_property.target_id,
+                            Property.organization_id == run.organization_id,
+                            Property.is_active.is_(True),
+                            Property.deleted_at.is_(None),
+                        )
+                        .first()
+                    )
+                    if (
+                        mapped_property.target_entity != "PROPERTY"
+                        or target_property is None
+                    ):
+                        errors.append(
+                            "Mapped source Property ID does not resolve to an active same-organization Property."
+                        )
+
+            if errors:
+                disposition = "INVALID"
+                invalid += 1
+            else:
+                valid += 1
+                mapped_unit = None
+                if source_id:
+                    mapped_unit = (
+                        db.query(PlatformMigrationItem)
+                        .filter(
+                            PlatformMigrationItem.run_id == run.id,
+                            PlatformMigrationItem.organization_id == run.organization_id,
+                            PlatformMigrationItem.provider == "APPFOLIO",
+                            PlatformMigrationItem.resource == "UNITS",
+                            PlatformMigrationItem.source_id == source_id,
+                        )
+                        .first()
+                    )
+                if mapped_unit is not None:
+                    disposition = "ALREADY_MAPPED"
+                    warnings.append(
+                        f"Source Unit ID is already mapped to {mapped_unit.target_entity} #{mapped_unit.target_id}."
+                    )
+                elif not source_property_id:
+                    disposition = "REVIEW"
+                    warnings.append(
+                        "Property ID was not supplied; Unit-to-Property linkage must be resolved before dry run or commit."
+                    )
+                elif mapped_property is None:
+                    disposition = "REVIEW"
+                    warnings.append(
+                        f"Source Property ID {source_property_id} has no durable Property mapping in this migration run."
+                    )
+                elif not source_id:
+                    disposition = "REVIEW"
+                    warnings.append(
+                        "Unit ID was not supplied; durable Unit source identity must be resolved before dry run or commit."
+                    )
+                else:
+                    disposition = "NEW"
+        else:
+            normalized_data = _normalized_source_row(source_row)
+            errors.append(
+                "Report type could not be detected safely; choose PROPERTIES or UNITS and supply explicit column mapping."
+            )
             disposition = "INVALID"
             invalid += 1
 
@@ -607,6 +794,25 @@ def stage_appfolio_file(
         "missing_required_columns": missing_required,
         "ambiguous_mapping_fields": sorted(ambiguous),
     }
+    if resource == "UNITS":
+        unit_rows = (
+            db.query(PlatformMigrationStagedRow)
+            .filter(
+                PlatformMigrationStagedRow.upload_id == upload.id,
+                PlatformMigrationStagedRow.resource == "UNITS",
+            )
+            .all()
+        )
+        summary["unresolved_property_links"] = sum(
+            1
+            for row in unit_rows
+            if any("Property" in warning for warning in (row.warnings or []))
+        )
+        summary["missing_unit_source_ids"] = sum(
+            1
+            for row in unit_rows
+            if any("Unit ID was not supplied" in warning for warning in (row.warnings or []))
+        )
     if resource == "UNKNOWN" or missing_required or ambiguous:
         upload.status = "MAPPING_REQUIRED"
     elif invalid:
