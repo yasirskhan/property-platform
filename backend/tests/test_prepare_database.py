@@ -9,8 +9,8 @@ from pathlib import Path
 from sqlalchemy import create_engine, inspect, text
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_HEAD = "ae6c8d0f2b4c"
-EXPECTED_MODEL_TABLES = 191
+EXPECTED_HEAD = "bf7d1e3a5c9f"
+EXPECTED_MODEL_TABLES = 192
 
 
 def run_prepare(db_path: Path) -> subprocess.CompletedProcess[str]:
