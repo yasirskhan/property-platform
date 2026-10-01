@@ -1,3 +1,81 @@
+# AI_HANDOFF.md — 2026-10-01 NAVIGATION + UX PRESERVATION COMPLETE
+
+## Current navigation/UX checkpoint
+
+- Phase **4.10 COMPLETE | VERIFIED** remains the last completed product phase.
+- Navigation integrity foundation source: `a5ee8bc6edb9c494903a000e472fcd55cddc6e6f`.
+- Navigation CI: `36805027238` SUCCESS, all six jobs green.
+- Final UX/documentation source before this handoff update: `9b5cfbf0d5272a7305036e3d04d251cc7d4dde37`.
+- Final UX/documentation CI: `36806165154` SUCCESS, all six jobs green.
+- Permanent navigation contract: `docs/NAVIGATION_INTEGRITY_PLAN.md`.
+- Permanent UX contract: `docs/UX_STANDARDS.md`.
+- UX product implementation is **AUTHORIZED BUT NOT ACTIVE**. Start only when the owner explicitly says `start UX work`.
+- **Do not start Phase 4.11 until the owner explicitly resumes the product roadmap.**
+
+# HIDDEN MENU / UNHIDE ROADMAP
+
+This is the operator-readable roadmap for every menu key currently hidden by
+the navigation-readiness layer in
+`backend/app/constants/menu_keys.py::MENU_ROUTE_BLOCKED_UNTIL`.
+
+These are platform/readiness hides only. A user's role, plan entitlement,
+organization settings, permissions, or personal sidebar preferences can hide
+additional items and are separate from this roadmap.
+
+| Menu key | Customer label / area | Unlock phase or condition |
+|---|---|---|
+| `CALENDAR` | Calendar | Phase 5 — first real calendar/on-call customer surface |
+| `WHATS_NEW` | What's New | UX — only after owner says `start UX work` |
+| `LEASING.LISTINGS` | Listings | Phase 7 |
+| `PROPERTIES.UNITS` | Units | TBD — Unit CRUD exists; dedicated list route is not yet verified |
+| `PROPERTIES.GROUPS` | Property Groups | Phase 3.5 carry-forward; unhide only when the real route/workflow is verified |
+| `PEOPLE.TENANTS` | Tenants | TBD — tenant capability exists; dedicated list route is not yet verified |
+| `PEOPLE.OWNERS` | Owners | TBD — owner capability exists; dedicated list route is not yet verified |
+| `ACCOUNTING.BANK_TRANSFERS` | Bank Transfers | TBD — canonical item; customer route is not yet scheduled |
+| `ACCOUNTING.ONLINE_PAYMENTS` | Online Payments | Phase 8 |
+| `MAINTENANCE` | Maintenance module container | Phase 5 |
+| `MAINTENANCE.WORK_ORDERS` | Work Orders | Phase 5 |
+| `MAINTENANCE.RECURRING` | Recurring Work Orders | Phase 5 |
+| `MAINTENANCE.INSPECTIONS` | Inspections | Phase 5 |
+| `MAINTENANCE.UNIT_TURNS` | Unit Turns | Phase 5 |
+| `MAINTENANCE.PROJECTS` | Projects | Phase 5 |
+| `MAINTENANCE.PURCHASE_ORDERS` | Purchase Orders | Phase 5 |
+| `MAINTENANCE.INVENTORY` | Inventory | Phase 5 |
+| `MAINTENANCE.FIXED_ASSETS` | Fixed Assets | Phase 5 |
+| `MAINTENANCE.SMART` | Smart Maintenance | Phase 5 |
+| `COMMUNICATION` | Communication module container | Phase 6 |
+| `COMMUNICATION.INBOX` | Inbox | Phase 6 |
+| `COMMUNICATION.MESSAGES` | Messages | Phase 6 |
+| `COMMUNICATION.TEMPLATES` | Templates | Phase 6 |
+| `COMMUNICATION.SURVEYS` | Surveys | Phase 6 |
+
+## Unhide rule — mandatory
+
+A future phase must not unhide an item merely because its nominal phase number
+has passed. The same verified batch that removes an item from
+`MENU_ROUTE_BLOCKED_UNTIL` must:
+
+1. ship the real customer route/placement;
+2. preserve backend authorization and organization/property isolation;
+3. pass `backend/check_navigation.py`;
+4. pass applicable backend/frontend tests;
+5. pass the authenticated rendered-sidebar navigation E2E;
+6. update this table and `docs/NAVIGATION_INTEGRITY_PLAN.md` if the contract changed.
+
+If the roadmap still says `TBD`, do not invent a phase. Keep the item hidden
+until an authoritative roadmap decision schedules it.
+
+## Future-session startup
+
+1. Read the entire repo-root `AI_HANDOFF.md`.
+2. Verify live HEAD and CI.
+3. Read `docs/NAVIGATION_INTEGRITY_PLAN.md` only when navigation work is active.
+4. Read `docs/UX_STANDARDS.md` before UX work, but do not implement it unless the owner has explicitly said `start UX work`.
+5. Never repeat verified navigation/UX foundation work.
+6. Do not start Phase 4.11 unless the owner explicitly resumes the normal roadmap.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 PHASE 4.10 COMPLETE | VERIFIED
 
 ## Final Phase 4.10 product checkpoint
