@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint
 
 from app.core.database import Base
 
@@ -38,5 +38,41 @@ class ShortTermRentalChannel(Base):
         Index(
             "ix_short_term_rental_channel_scope",
             "organization_id", "property_id", "is_active",
+        ),
+    )
+
+
+class ShortTermRentalNightlyPrice(Base):
+    """Explicit staff-entered nightly rate for an existing unit.
+
+    This is operational pricing metadata only. It is not synchronized to a
+    provider and does not create a booking, lease, charge, invoice, receipt,
+    payout, or accounting entry.
+    """
+
+    __tablename__ = "short_term_rental_nightly_prices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
+    unit_id = Column(Integer, ForeignKey("units.id", ondelete="CASCADE"), nullable=False, index=True)
+    night_date = Column(Date, nullable=False, index=True)
+    nightly_rate = Column(Numeric(12, 2), nullable=False)
+    minimum_stay_nights = Column(Integer, nullable=False, default=1, server_default="1")
+    notes = Column(Text, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True, server_default="true")
+    created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    updated_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "property_id", "unit_id", "night_date",
+            name="uq_short_term_rental_nightly_price_unit_date",
+        ),
+        Index(
+            "ix_short_term_rental_nightly_price_scope",
+            "organization_id", "property_id", "unit_id", "night_date", "is_active",
         ),
     )
