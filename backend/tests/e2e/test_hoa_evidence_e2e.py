@@ -188,6 +188,7 @@ def test_hoa_staff_evidence_upload_link_download_and_archive() -> None:
                 page.locator('input[type="password"]').fill(PASSWORD)
                 page.get_by_role("button", name="Log In").click()
                 page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
 
                 page.goto(
                     f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
@@ -383,6 +384,7 @@ def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
                 page.locator('input[type="password"]').fill(PASSWORD)
                 page.get_by_role("button", name="Log In").click()
                 page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
                 page.goto(
                     f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
                     wait_until="domcontentloaded",
@@ -734,6 +736,7 @@ def test_hoa_staff_meeting_motion_browser_flow_no_official_vote() -> None:
                 page.locator('input[type="password"]').fill(PASSWORD)
                 page.get_by_role("button", name="Log In").click()
                 page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
                 page.goto(
                     f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
                     wait_until="domcontentloaded",
@@ -881,6 +884,7 @@ def test_hoa_arc_application_review_browser_records_board_approval() -> None:
                 page.locator('input[type="password"]').fill(PASSWORD)
                 page.get_by_role("button", name="Log In").click()
                 page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
                 page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}", wait_until="domcontentloaded")
                 expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
                 page.get_by_role("button", name="Compliance", exact=True).click()
@@ -986,6 +990,7 @@ def test_hoa_board_role_proposals_browser_flow_never_enables_vote() -> None:
                 page.locator('input[type="password"]').fill(PASSWORD)
                 page.get_by_role("button", name="Log In").click()
                 page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
                 page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
                           wait_until="domcontentloaded")
                 expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
@@ -1070,6 +1075,7 @@ def test_hoa_staff_ballot_observations_never_become_legal_votes() -> None:
                 page.locator('input[type="password"]').fill(PASSWORD)
                 page.get_by_role("button", name="Log In").click()
                 page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
                 page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
                           wait_until="domcontentloaded")
                 expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
@@ -1200,6 +1206,7 @@ def test_hoa_operational_member_assessment_browser_posts_and_reverses() -> None:
                 page.locator('input[type="password"]').fill(PASSWORD)
                 page.get_by_role("button", name="Log In").click()
                 page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
                 page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}", wait_until="domcontentloaded")
                 expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
                 page.get_by_role("button", name="Compliance", exact=True).click()
@@ -1320,6 +1327,7 @@ def test_hoa_unissued_dues_history_browser_replay_and_void() -> None:
                 page.locator('input[type="password"]').fill(PASSWORD)
                 page.get_by_role("button", name="Log In").click()
                 page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
                 page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
                           wait_until="domcontentloaded")
                 expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
@@ -1390,6 +1398,7 @@ def test_hoa_reserve_movement_staff_browser_never_posts_transfer() -> None:
                 page.locator('input[type="password"]').fill(PASSWORD)
                 page.get_by_role("button", name="Log In").click()
                 page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
                 page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
                           wait_until="domcontentloaded")
                 expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
@@ -1464,6 +1473,7 @@ def test_hoa_authorized_reserve_book_gl_posting_and_reversal_browser() -> None:
                 page.locator('input[type="password"]').fill(PASSWORD)
                 page.get_by_role("button", name="Log In").click()
                 page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
                 page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
                           wait_until="domcontentloaded")
                 expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
@@ -1570,6 +1580,7 @@ def test_hoa_annual_budget_board_adoption_browser_without_finance_posting() -> N
                 page.locator('input[type="password"]').fill(PASSWORD)
                 page.get_by_role("button", name="Log In").click()
                 page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
                 page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
                           wait_until="domcontentloaded")
                 expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
@@ -1670,6 +1681,7 @@ def test_hoa_authorized_board_minutes_revision_approval_browser() -> None:
                 page.locator('input[type="password"]').fill(PASSWORD)
                 page.get_by_role("button", name="Log In").click()
                 page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
                 page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
                           wait_until="domcontentloaded")
                 expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
@@ -1924,6 +1936,7 @@ def test_commercial_private_lease_source_reference_browser_no_finance() -> None:
                 page.locator('input[type="password"]').fill(PASSWORD)
                 page.get_by_role("button", name="Log In").click()
                 page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
 
                 page.goto(
                     f"{BASE_URL}/dashboard/properties/{property_id}",
