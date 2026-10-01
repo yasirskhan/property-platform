@@ -109,3 +109,46 @@ class AppFolioMigrationItemOut(BaseModel):
     source_fingerprint: str
     created_by_platform_user_id: int | None
     created_at: datetime
+
+
+
+class AppFolioMigrationUploadOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    run_id: int
+    organization_id: int
+    provider: str
+    filename: str
+    file_format: str
+    file_sha256: str
+    normalized_fingerprint: str
+    detected_resource: str
+    sheet_name: str
+    headers: list[str]
+    column_mapping: dict[str, str]
+    validation_summary: dict[str, Any]
+    status: str
+    row_count: int
+    created_by_platform_user_id: int | None
+    created_at: datetime
+    replayed: bool = False
+
+
+class AppFolioMigrationStagedRowOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    upload_id: int
+    run_id: int
+    organization_id: int
+    provider: str
+    resource: str
+    row_number: int
+    source_id: str | None
+    disposition: str
+    row_fingerprint: str
+    normalized_data: dict[str, Any]
+    warnings: list[str]
+    errors: list[str]
+    created_at: datetime

@@ -14,7 +14,12 @@ from app.core.database import Base, engine
 # ---- Import every model here ----
 from app.models.user import User, Organization  # noqa: F401
 from app.models.platform_user import PlatformUser  # noqa: F401
-from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun  # noqa: F401
+from app.models.platform_migration import (  # noqa: F401
+    PlatformMigrationItem,
+    PlatformMigrationRun,
+    PlatformMigrationStagedRow,
+    PlatformMigrationUpload,
+)
 from app.models.release_gate import ReleaseGate, ReleaseGateOrganization  # noqa: F401
 from app.models.job_run import JobRun, JobDeadLetter  # noqa: F401
 from app.models.data_retention_policy import DataRetentionPolicy  # noqa: F401

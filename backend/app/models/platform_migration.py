@@ -58,7 +58,119 @@ class PlatformMigrationRun(Base):
         back_populates="run",
         cascade="all, delete-orphan",
     )
+    uploads = relationship(
+        "PlatformMigrationUpload",
+        back_populates="run",
+        cascade="all, delete-orphan",
+    )
 
+
+class PlatformMigrationUpload(Base):
+    """Metadata for a staged CSV/XLSX source file.
+
+    Raw file bytes are intentionally not persisted. The normalized fingerprint
+    binds the selected sheet, header mapping and normalized staged source data.
+    """
+
+    __tablename__ = "platform_migration_uploads"
+
+    id = Column(Integer, primary_key=True, index=True)
+    run_id = Column(
+        Integer,
+        ForeignKey("platform_migration_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    provider = Column(String(32), nullable=False, index=True)
+    filename = Column(String(255), nullable=False)
+    file_format = Column(String(16), nullable=False)
+    file_sha256 = Column(String(64), nullable=False, index=True)
+    normalized_fingerprint = Column(String(64), nullable=False, index=True)
+    detected_resource = Column(String(32), nullable=False, index=True)
+    sheet_name = Column(String(255), nullable=False)
+    headers = Column(JSON, nullable=False)
+    column_mapping = Column(JSON, nullable=False)
+    validation_summary = Column(JSON, nullable=False)
+    status = Column(String(32), nullable=False, index=True)
+    row_count = Column(Integer, nullable=False, default=0, server_default="0")
+    created_by_platform_user_id = Column(
+        Integer,
+        ForeignKey("platform_users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    run = relationship("PlatformMigrationRun", back_populates="uploads")
+    organization = relationship("Organization")
+    created_by_platform_user = relationship("PlatformUser")
+    rows = relationship(
+        "PlatformMigrationStagedRow",
+        back_populates="upload",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "run_id",
+            "normalized_fingerprint",
+            name="uq_platform_migration_upload_fingerprint",
+        ),
+    )
+
+
+class PlatformMigrationStagedRow(Base):
+    """Normalized staging data only; never a customer business record."""
+
+    __tablename__ = "platform_migration_staged_rows"
+
+    id = Column(Integer, primary_key=True, index=True)
+    upload_id = Column(
+        Integer,
+        ForeignKey("platform_migration_uploads.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    run_id = Column(
+        Integer,
+        ForeignKey("platform_migration_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    provider = Column(String(32), nullable=False, index=True)
+    resource = Column(String(32), nullable=False, index=True)
+    row_number = Column(Integer, nullable=False)
+    source_id = Column(String(255), nullable=True, index=True)
+    disposition = Column(String(32), nullable=False, index=True)
+    row_fingerprint = Column(String(64), nullable=False, index=True)
+    normalized_data = Column(JSON, nullable=False)
+    warnings = Column(JSON, nullable=False)
+    errors = Column(JSON, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    upload = relationship("PlatformMigrationUpload", back_populates="rows")
+    run = relationship("PlatformMigrationRun")
+    organization = relationship("Organization")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "upload_id",
+            "row_number",
+            name="uq_platform_migration_staged_row_number",
+        ),
+    )
 
 
 class PlatformMigrationItem(Base):

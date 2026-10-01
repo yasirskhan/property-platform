@@ -7,12 +7,20 @@ target run and dry-run Property records supplied by a future verified adapter.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+import json
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
+from app.models.platform_migration import (
+    PlatformMigrationItem,
+    PlatformMigrationRun,
+    PlatformMigrationStagedRow,
+    PlatformMigrationUpload,
+)
 from app.models.property import Property
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.user import Organization
@@ -21,6 +29,8 @@ from app.schemas.platform_migration import (
     AppFolioMigrationRunCreateIn,
     AppFolioMigrationItemOut,
     AppFolioMigrationRunOut,
+    AppFolioMigrationStagedRowOut,
+    AppFolioMigrationUploadOut,
     AppFolioPropertyCommitIn,
     AppFolioPropertyCommitOut,
     AppFolioPropertyDryRunIn,
@@ -30,6 +40,11 @@ from app.services.appfolio_migration import (
     AppFolioMigrationError,
     commit_properties,
     dry_run_properties,
+)
+from app.services.appfolio_file_ingestion import (
+    MAX_FILE_BYTES,
+    AppFolioFileIngestionError,
+    stage_appfolio_file,
 )
 from app.services.audit import append_audit_log
 
@@ -389,3 +404,187 @@ def list_appfolio_migration_items(
         )
     response.headers["Cache-Control"] = "no-store"
     return result
+
+
+
+def _upload(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    upload_id: int,
+) -> PlatformMigrationUpload:
+    row = (
+        db.query(PlatformMigrationUpload)
+        .filter(
+            PlatformMigrationUpload.id == upload_id,
+            PlatformMigrationUpload.run_id == run.id,
+            PlatformMigrationUpload.organization_id == run.organization_id,
+            PlatformMigrationUpload.provider == "APPFOLIO",
+        )
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="AppFolio staged upload not found.")
+    return row
+
+
+def _upload_out(row: PlatformMigrationUpload, *, replayed: bool) -> AppFolioMigrationUploadOut:
+    return AppFolioMigrationUploadOut(
+        id=row.id,
+        run_id=row.run_id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        filename=row.filename,
+        file_format=row.file_format,
+        file_sha256=row.file_sha256,
+        normalized_fingerprint=row.normalized_fingerprint,
+        detected_resource=row.detected_resource,
+        sheet_name=row.sheet_name,
+        headers=list(row.headers or []),
+        column_mapping=dict(row.column_mapping or {}),
+        validation_summary=dict(row.validation_summary or {}),
+        status=row.status,
+        row_count=row.row_count,
+        created_by_platform_user_id=row.created_by_platform_user_id,
+        created_at=row.created_at,
+        replayed=replayed,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/uploads",
+    response_model=AppFolioMigrationUploadOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def stage_appfolio_upload(
+    run_id: int,
+    file: UploadFile = File(...),
+    resource: str | None = Form(default=None),
+    sheet_name: str | None = Form(default=None),
+    column_mapping_json: str | None = Form(default=None),
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    filename = Path(file.filename or "").name.strip()
+    if not filename:
+        raise HTTPException(status_code=422, detail="A source filename is required.")
+
+    mapping: dict[str, str] | None = None
+    if column_mapping_json:
+        try:
+            parsed = json.loads(column_mapping_json)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=422, detail="column_mapping_json must be valid JSON.") from exc
+        if not isinstance(parsed, dict) or not all(
+            isinstance(key, str) and isinstance(value, str)
+            for key, value in parsed.items()
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="column_mapping_json must be an object of target fields to source headers.",
+            )
+        mapping = parsed
+
+    content = await file.read(MAX_FILE_BYTES + 1)
+    try:
+        result = stage_appfolio_file(
+            db,
+            run=run,
+            filename=filename,
+            content=content,
+            resource_override=resource,
+            sheet_name=sheet_name,
+            explicit_mapping=mapping,
+            platform_user_id=current_user.id,
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=run.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=run.id,
+                action="appfolio_file_staged",
+                new_value={
+                    "upload_id": result.upload.id,
+                    "filename": result.upload.filename,
+                    "file_format": result.upload.file_format,
+                    "normalized_fingerprint": result.upload.normalized_fingerprint,
+                    "detected_resource": result.upload.detected_resource,
+                    "status": result.upload.status,
+                    "row_count": result.upload.row_count,
+                    "validation_summary": result.upload.validation_summary,
+                    "raw_file_stored": False,
+                    "target_mutation": False,
+                    "provider_credentials_stored": False,
+                },
+            )
+            db.commit()
+            db.refresh(result.upload)
+    except AppFolioFileIngestionError as exc:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Staged upload conflicted with an existing replay.") from exc
+    return _upload_out(result.upload, replayed=result.replayed)
+
+
+@router.get(
+    "/runs/{run_id}/uploads",
+    response_model=list[AppFolioMigrationUploadOut],
+)
+def list_appfolio_uploads(
+    run_id: int,
+    response: Response,
+    limit: int = Query(default=100, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=False)
+    rows = (
+        db.query(PlatformMigrationUpload)
+        .filter(
+            PlatformMigrationUpload.run_id == run.id,
+            PlatformMigrationUpload.organization_id == run.organization_id,
+            PlatformMigrationUpload.provider == "APPFOLIO",
+        )
+        .order_by(PlatformMigrationUpload.created_at.desc(), PlatformMigrationUpload.id.desc())
+        .limit(limit)
+        .all()
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return [_upload_out(row, replayed=False) for row in rows]
+
+
+@router.get(
+    "/runs/{run_id}/uploads/{upload_id}/rows",
+    response_model=list[AppFolioMigrationStagedRowOut],
+)
+def list_appfolio_staged_rows(
+    run_id: int,
+    upload_id: int,
+    response: Response,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=200, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=False)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    rows = (
+        db.query(PlatformMigrationStagedRow)
+        .filter(
+            PlatformMigrationStagedRow.upload_id == upload.id,
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "APPFOLIO",
+        )
+        .order_by(PlatformMigrationStagedRow.row_number.asc(), PlatformMigrationStagedRow.id.asc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return rows

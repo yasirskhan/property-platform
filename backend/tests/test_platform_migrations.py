@@ -637,3 +637,363 @@ def test_appfolio_mapping_visibility_marks_missing_target_without_mutation():
     finally:
         db.close()
         engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 CSV/XLSX ingestion + staging foundation
+# ---------------------------------------------------------------------------
+
+import asyncio
+from io import BytesIO
+import json as _json
+
+from fastapi import UploadFile
+from openpyxl import Workbook
+
+from app.models.platform_migration import PlatformMigrationStagedRow, PlatformMigrationUpload
+
+
+def _upload_file(name: str, content: bytes) -> UploadFile:
+    return UploadFile(filename=name, file=BytesIO(content))
+
+
+def test_appfolio_csv_upload_detects_stages_and_replays_without_target_mutation():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="CSV Stage Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="csv-stage",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        content = (
+            "Property Id,Property Name,Address 1,City,State,Zip,Property Type\n"
+            "AF-CSV-1,Lake CSV,10 Lake Ave,Cleveland,OH,44113,Multi Family\n"
+        ).encode()
+
+        first = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("properties.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert first.detected_resource == "PROPERTIES"
+        assert first.status == "STAGED"
+        assert first.replayed is False
+        assert first.validation_summary == {
+            "total": 1,
+            "valid": 1,
+            "warnings": 0,
+            "invalid": 0,
+            "duplicates": 0,
+            "possible_existing_matches": 0,
+            "missing_required_columns": [],
+            "ambiguous_mapping_fields": [],
+        }
+        assert db.query(Property).count() == 0
+        assert db.query(PlatformMigrationUpload).count() == 1
+        row = db.query(PlatformMigrationStagedRow).one()
+        assert row.source_id == "AF-CSV-1"
+        assert row.disposition == "NEW"
+        assert row.normalized_data["name"] == "Lake CSV"
+
+        audit_before = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "appfolio_file_staged",
+        ).count()
+        replay = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("renamed.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert replay.replayed is True
+        assert replay.id == first.id
+        assert replay.normalized_fingerprint == first.normalized_fingerprint
+        assert db.query(PlatformMigrationUpload).count() == 1
+        assert db.query(PlatformMigrationStagedRow).count() == 1
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "appfolio_file_staged",
+        ).count() == audit_before
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_explicit_mapping_changes_staging_fingerprint_and_clears_old_dry_run():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="Explicit Map Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="explicit-map",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        valid = [_valid_record()]
+        dry = api.dry_run_appfolio_properties(
+            run.id,
+            AppFolioPropertyDryRunIn(records=valid),
+            db=db,
+            current_user=admin,
+        )
+        assert db.get(PlatformMigrationRun, run.id).last_dry_run_fingerprint == dry.fingerprint
+
+        content = (
+            "External Key,Display Label,StreetAddr,Town,Province,Postal\n"
+            "PX-1,Mapped Property,1 Main St,Cleveland,OH,44113\n"
+        ).encode()
+        uncertain = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("uncertain.csv", content),
+                resource="PROPERTIES",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert uncertain.status == "MAPPING_REQUIRED"
+        assert uncertain.validation_summary["invalid"] == 1
+
+        mapping = {
+            "source_id": "External Key",
+            "name": "Display Label",
+            "address_line1": "StreetAddr",
+            "city": "Town",
+            "state": "Province",
+            "zip_code": "Postal",
+        }
+        mapped = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("uncertain.csv", content),
+                resource="PROPERTIES",
+                sheet_name=None,
+                column_mapping_json=_json.dumps(mapping),
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert mapped.status == "STAGED"
+        assert mapped.normalized_fingerprint != uncertain.normalized_fingerprint
+        assert mapped.column_mapping["source_id"] == "External Key"
+        assert db.get(PlatformMigrationRun, run.id).last_dry_run_fingerprint is None
+        assert db.get(PlatformMigrationRun, run.id).status == "STAGED"
+        assert db.query(Property).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_xlsx_is_data_only_and_formula_or_credentials_fail_closed():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_DEV)
+        org = _org(db, name="XLSX Stage Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="xlsx-stage",
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Property Directory"
+        ws.append(["Property Id", "Property Name", "Address 1", "City", "State", "Zip"])
+        ws.append(["X-1", "XLSX Property", "1 Excel Way", "Cleveland", "OH", "44113"])
+        buf = BytesIO()
+        wb.save(buf)
+        staged = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("properties.xlsx", buf.getvalue()),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert staged.file_format == "XLSX"
+        assert staged.sheet_name == "Property Directory"
+        assert staged.status == "STAGED"
+
+        wb2 = Workbook()
+        ws2 = wb2.active
+        ws2.append(["Property Id", "Property Name", "Address 1", "City", "State", "Zip", "Calc"])
+        ws2.append(["X-2", "Formula Property", "2 Excel Way", "Cleveland", "OH", "44113", "=1+1"])
+        buf2 = BytesIO()
+        wb2.save(buf2)
+        with pytest.raises(HTTPException) as exc:
+            asyncio.run(
+                api.stage_appfolio_upload(
+                    run.id,
+                    file=_upload_file("formula.xlsx", buf2.getvalue()),
+                    resource=None,
+                    sheet_name=None,
+                    column_mapping_json=None,
+                    db=db,
+                    current_user=admin,
+                )
+            )
+        assert exc.value.status_code == 422
+        assert "formula" in exc.value.detail.lower()
+
+        secret_csv = (
+            "Property Id,Property Name,Address 1,City,State,Zip,Client Secret\n"
+            "S-1,Secret,3 Secret Way,Cleveland,OH,44113,do-not-store\n"
+        ).encode()
+        with pytest.raises(HTTPException) as exc:
+            asyncio.run(
+                api.stage_appfolio_upload(
+                    run.id,
+                    file=_upload_file("secret.csv", secret_csv),
+                    resource=None,
+                    sheet_name=None,
+                    column_mapping_json=None,
+                    db=db,
+                    current_user=admin,
+                )
+            )
+        assert exc.value.status_code == 422
+        assert "credential" in exc.value.detail.lower()
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_staging_dispositions_existing_mapping_possible_match_and_scope():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        support = _platform_user(db, PlatformUserRole.PLATFORM_SUPPORT)
+        org = _org(db, name="Disposition Org")
+        other_org = _org(db, name="Disposition Other")
+        existing = Property(
+            organization_id=org.id,
+            name="Existing Property",
+            property_type="multi_family",
+            address_line1="10 Match St",
+            city="Cleveland",
+            state="OH",
+            zip_code="44113",
+            country="USA",
+            is_active=True,
+        )
+        db.add(existing)
+        db.commit()
+
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="dispositions",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        db.add(
+            PlatformMigrationItem(
+                run_id=run.id,
+                organization_id=org.id,
+                provider="APPFOLIO",
+                resource="PROPERTIES",
+                source_id="ALREADY-1",
+                target_entity="PROPERTY",
+                target_id=existing.id,
+                source_fingerprint="b" * 64,
+                created_by_platform_user_id=admin.id,
+            )
+        )
+        db.commit()
+
+        content = (
+            "Property Id,Property Name,Address 1,City,State,Zip\n"
+            "ALREADY-1,Previously Imported,1 Old St,Cleveland,OH,44113\n"
+            "MATCH-1,Existing Property,10 Match St,Cleveland,OH,44113\n"
+            "DUP-1,First Duplicate,20 Dup St,Cleveland,OH,44113\n"
+            "DUP-1,Second Duplicate,21 Dup St,Cleveland,OH,44113\n"
+        ).encode()
+        staged = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("dispositions.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        rows = api.list_appfolio_staged_rows(
+            run.id,
+            staged.id,
+            response=Response(),
+            offset=0,
+            limit=200,
+            db=db,
+            current_user=support,
+        )
+        assert [row.disposition for row in rows] == [
+            "ALREADY_MAPPED",
+            "POSSIBLE_MATCH",
+            "NEW",
+            "INVALID",
+        ]
+        assert staged.validation_summary["duplicates"] == 1
+        assert staged.validation_summary["possible_existing_matches"] == 1
+
+        other_run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=other_org.id,
+                source_account_ref="other-scope",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.list_appfolio_staged_rows(
+                other_run.id,
+                staged.id,
+                response=Response(),
+                offset=0,
+                limit=200,
+                db=db,
+                current_user=support,
+            )
+        assert exc.value.status_code == 404
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_upload_endpoint_is_exposed_and_business_targets_unchanged():
+    from app.main import app
+
+    paths = set(app.openapi()["paths"])
+    assert "/api/platform/migrations/appfolio/runs/{run_id}/uploads" in paths
+    assert "/api/platform/migrations/appfolio/runs/{run_id}/uploads/{upload_id}/rows" in paths
