@@ -1,3 +1,53 @@
+# AI_HANDOFF.md — 2026-10-01 PHASE 4.13 APPFOLIO MIGRATION FOUNDATION VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio migration tooling: **IN PROGRESS**.
+- Verified PRODUCT SHA: `d0177f767320867b2e3925043c7b3950eec3924d`.
+- GitHub Actions run: `36885305855`, attempt 2 — SUCCESS.
+- All six required CI jobs passed on this exact product SHA:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **868 passed, 21 deselected, 23584 warnings in 336.53s**.
+- Authenticated E2E: **21 passed, 278 warnings in 120.04s**.
+- Alembic head: `d46f8a0c2e91`.
+- Expected model tables: **198**.
+- Navigation integrity and parity checks passed in hosted CI.
+- Attempt 1 staging-config failed only because Docker frontend `npm ci` hit a transient `ECONNRESET`; the same staging job passed on retry without product-code changes.
+- `docs/NAVIGATION_INTEGRITY_PLAN.md`, the `HIDDEN MENU / UNHIDE ROADMAP`, and inactive `docs/UX_STANDARDS.md` were preserved.
+
+## Verified Phase 4.13 batch 1 — platform AppFolio migration foundation
+
+1. Added provider-labelled platform migration-run metadata scoped to an active target customer organization.
+2. Platform migration records store no provider password, API key, access token, refresh token or raw provider payload.
+3. Platform ADMIN/TECH/DEV may create/write migration runs; SUPPORT is read-only; SALES is denied.
+4. AppFolio property dry-run accepts bounded explicit source records, validates/maps them into the existing Property contract and creates **no target Property rows**.
+5. Dry runs explicitly handle hidden AppFolio records, duplicate source IDs, required fields, bounded field lengths and property-type mapping warnings.
+6. Existing likely target matches are surfaced as warnings rather than silently duplicated.
+7. Dry-run fingerprints are deterministic and replay-safe; an identical replay does not add a second dry-run audit event.
+8. Run creation and first dry-run execution are audit logged without raw payloads or credentials.
+9. Added hand-written Alembic migration `d46f8a0c2e91` and restored model-registry/bootstrap parity at 198 tables.
+10. Focused regressions verify platform-role boundaries, active-target-org scope, no-store reads, replay behavior, no target mutation, existing-target warnings and rejection of credential-like extra fields.
+11. This batch does **not** claim live AppFolio API connectivity. No authenticated customer/provider transport contract or provider credential storage exists yet.
+
+## Exact next Phase 4.13 work
+
+Continue the platform-run **direct AppFolio migration** roadmap without conflating it with the separate customer CSV importer:
+
+1. Verify the current authoritative AppFolio API authentication/transport and resource contracts before implementing any live connector. Do not invent provider endpoints, fields or credential semantics.
+2. If an authenticated provider contract is not available, keep live transport explicitly blocked and continue only with independently verifiable mapping/dry-run work backed by authoritative source schemas.
+3. Preserve the dry-run-before-commit boundary. Do not mutate customer Property/Unit/People/Lease/accounting records merely because a source record validates.
+4. Any later commit step must define explicit conflict/idempotency behavior and preserve organization isolation, audit, accounting immutability and rollback safety.
+5. Keep navigation integrity, hidden-menu roadmap and inactive UX standards unchanged unless a real verified customer route ships under the documented unhide rule.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 PHASE 4.12 COMPLETE | VERIFIED
 
 ## Final Phase 4.12 product checkpoint
