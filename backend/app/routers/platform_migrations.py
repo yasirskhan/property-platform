@@ -23,7 +23,7 @@ from app.models.platform_migration import (
     PlatformMigrationStagedRow,
     PlatformMigrationUpload,
 )
-from app.models.property import Property
+from app.models.property import Property, Unit
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.user import Organization
 from app.routers.platform_auth import get_current_platform_user
@@ -40,6 +40,7 @@ from app.schemas.platform_migration import (
     AppFolioPropertyDryRunIn,
     AppFolioPropertyDryRunOut,
     AppFolioStagedUnitCommitIn,
+    AppFolioStagedUnitResolutionIn,
     AppFolioUnitCommitOut,
     AppFolioUnitDryRunOut,
 )
@@ -499,6 +500,7 @@ def _staged_review_fingerprint(
                 "disposition": row.disposition,
                 "resolution_action": row.resolution_action,
                 "resolution_target_id": row.resolution_target_id,
+                "resolution_target_unit_id": row.resolution_target_unit_id,
             }
             for row in rows
         ],
@@ -616,7 +618,7 @@ def _staged_unit_state(
     *,
     run: PlatformMigrationRun,
     upload: PlatformMigrationUpload,
-) -> tuple[list[dict[str, object]], str]:
+) -> tuple[list[dict[str, object]], dict[str, int], set[str], str]:
     if upload.detected_resource != "UNITS":
         raise HTTPException(
             status_code=409,
@@ -640,13 +642,22 @@ def _staged_unit_state(
     if not rows:
         raise HTTPException(status_code=409, detail="Staged upload has no Unit rows.")
 
-    blocking = [
-        row
-        for row in rows
-        if row.disposition not in {"NEW", "ALREADY_MAPPED"}
-        or bool(row.errors)
-        or row.resolution_action is not None
-    ]
+    blocking: list[PlatformMigrationStagedRow] = []
+    for row in rows:
+        if row.errors or row.disposition == "INVALID":
+            blocking.append(row)
+        elif row.disposition == "POSSIBLE_MATCH" and row.resolution_action not in {
+            "MATCH_EXISTING",
+            "CREATE_NEW",
+            "SKIP",
+        }:
+            blocking.append(row)
+        elif row.disposition == "REVIEW" and row.resolution_action != "SKIP":
+            blocking.append(row)
+        elif row.disposition == "ALREADY_MAPPED" and row.resolution_action is not None:
+            blocking.append(row)
+        elif row.resolution_action == "CREATE_NEW" and row.disposition != "POSSIBLE_MATCH":
+            blocking.append(row)
     if blocking:
         counts: dict[str, int] = {}
         for row in blocking:
@@ -656,14 +667,19 @@ def _staged_unit_state(
             status_code=409,
             detail=(
                 "Staged Unit dry run is blocked by unresolved rows: "
-                f"{detail}. Resolve source identity/property linkage before continuing."
+                f"{detail}. Resolve staged Unit validation/match decisions before continuing."
             ),
         )
 
     records: list[dict[str, object]] = []
+    resolved_existing: dict[str, int] = {}
+    force_create_new: set[str] = set()
     property_links: list[dict[str, object]] = []
     seen_property_sources: set[str] = set()
+
     for row in rows:
+        if row.resolution_action == "SKIP":
+            continue
         data = dict(row.normalized_data or {})
         source_id = row.source_id or data.get("source_id")
         source_property_id = data.get("source_property_id")
@@ -672,6 +688,7 @@ def _staged_unit_state(
                 status_code=409,
                 detail="Staged Unit row lacks durable Unit or Property source identity.",
             )
+        source_key = str(source_id).strip()
         property_source = str(source_property_id).strip()
         mapping = (
             db.query(PlatformMigrationItem)
@@ -691,6 +708,49 @@ def _staged_unit_state(
                     f"Source Property ID {property_source} no longer has a valid durable Property mapping."
                 ),
             )
+        target_property = (
+            db.query(Property)
+            .filter(
+                Property.id == mapping.target_id,
+                Property.organization_id == run.organization_id,
+                Property.is_active.is_(True),
+                Property.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if target_property is None:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Source Property ID {property_source} no longer maps to an active same-organization Property."
+                ),
+            )
+
+        if row.resolution_action == "MATCH_EXISTING":
+            if row.resolution_target_unit_id is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Resolved staged Unit match is missing its Unit target.",
+                )
+            target_unit = (
+                db.query(Unit)
+                .filter(
+                    Unit.id == row.resolution_target_unit_id,
+                    Unit.property_id == target_property.id,
+                    Unit.is_active.is_(True),
+                    Unit.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target_unit is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Resolved staged Unit target is no longer active under the mapped Property.",
+                )
+            resolved_existing[source_key] = target_unit.id
+        elif row.resolution_action == "CREATE_NEW":
+            force_create_new.add(source_key)
+
         if property_source not in seen_property_sources:
             seen_property_sources.add(property_source)
             property_links.append(
@@ -702,7 +762,7 @@ def _staged_unit_state(
             )
         records.append(
             {
-                "Id": str(source_id),
+                "Id": source_key,
                 "PropertyId": property_source,
                 "UnitName": data.get("unit_name"),
                 "UnitAddress": data.get("unit_address"),
@@ -712,6 +772,12 @@ def _staged_unit_state(
                 "State": data.get("state"),
                 "Zip": data.get("zip_code"),
             }
+        )
+
+    if not records:
+        raise HTTPException(
+            status_code=409,
+            detail="No staged Unit rows remain after explicit skip decisions.",
         )
 
     canonical = {
@@ -724,7 +790,7 @@ def _staged_unit_state(
     relationship_fingerprint = hashlib.sha256(
         json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
-    return records, relationship_fingerprint
+    return records, resolved_existing, force_create_new, relationship_fingerprint
 
 
 @router.post(
@@ -813,6 +879,133 @@ def resolve_staged_appfolio_property(
             "resolution_target_id": row.resolution_target_id,
             "raw_source_stored": False,
             "target_mutation": False,
+        },
+    )
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/rows/{staged_row_id}/unit-resolution",
+    response_model=AppFolioMigrationStagedRowOut,
+)
+def resolve_staged_appfolio_unit(
+    run_id: int,
+    upload_id: int,
+    staged_row_id: int,
+    payload: AppFolioStagedUnitResolutionIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    if upload.detected_resource != "UNITS":
+        raise HTTPException(status_code=409, detail="Only staged UNITS rows can be resolved here.")
+    row = _staged_row(
+        db,
+        run=run,
+        upload=upload,
+        staged_row_id=staged_row_id,
+    )
+    if row.resource != "UNITS" or row.errors or row.disposition == "INVALID":
+        raise HTTPException(status_code=409, detail="Invalid staged Unit rows cannot be resolved.")
+    if row.disposition == "ALREADY_MAPPED":
+        raise HTTPException(
+            status_code=409,
+            detail="Already-mapped staged Unit rows are controlled by their durable source mapping.",
+        )
+    if row.disposition == "REVIEW" and payload.action != "SKIP":
+        raise HTTPException(
+            status_code=409,
+            detail="This REVIEW Unit row may only be skipped because durable Unit/Property identity is unresolved.",
+        )
+    if payload.action == "CREATE_NEW" and row.disposition != "POSSIBLE_MATCH":
+        raise HTTPException(
+            status_code=409,
+            detail="CREATE_NEW is only valid for a reviewed same-property Unit POSSIBLE_MATCH row.",
+        )
+    if payload.action == "MATCH_EXISTING" and row.disposition not in {"POSSIBLE_MATCH", "NEW"}:
+        raise HTTPException(
+            status_code=409,
+            detail="This staged Unit row cannot be matched to an existing Unit.",
+        )
+
+    target_unit_id = payload.target_unit_id
+    if payload.action == "MATCH_EXISTING":
+        data = dict(row.normalized_data or {})
+        source_property_id = data.get("source_property_id")
+        if not source_property_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Unit match requires a durable source Property ID.",
+            )
+        property_mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "APPFOLIO",
+                PlatformMigrationItem.resource == "PROPERTIES",
+                PlatformMigrationItem.source_id == str(source_property_id).strip(),
+            )
+            .first()
+        )
+        if property_mapping is None or property_mapping.target_entity != "PROPERTY":
+            raise HTTPException(
+                status_code=409,
+                detail="Unit match requires a valid durable Property mapping.",
+            )
+        target = (
+            db.query(Unit)
+            .join(Property, Property.id == Unit.property_id)
+            .filter(
+                Unit.id == target_unit_id,
+                Unit.property_id == property_mapping.target_id,
+                Unit.is_active.is_(True),
+                Unit.deleted_at.is_(None),
+                Property.organization_id == run.organization_id,
+                Property.is_active.is_(True),
+                Property.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if target is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Existing target Unit not found under the mapped Property.",
+            )
+    else:
+        target_unit_id = None
+
+    if (
+        row.resolution_action == payload.action
+        and row.resolution_target_unit_id == target_unit_id
+    ):
+        return row
+
+    row.resolution_action = payload.action
+    row.resolution_target_unit_id = target_unit_id
+    row.resolution_target_id = None
+    row.resolved_by_platform_user_id = current_user.id
+    row.resolved_at = datetime.utcnow()
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    run.status = "STAGED"
+    append_audit_log(
+        db,
+        platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_staged_row",
+        entity_id=row.id,
+        action="appfolio_unit_resolution_changed",
+        new_value={
+            "upload_id": upload.id,
+            "source_id": row.source_id,
+            "resolution_action": row.resolution_action,
+            "resolution_target_unit_id": row.resolution_target_unit_id,
+            "raw_source_stored": False,
+            "target_overwrite": False,
         },
     )
     db.commit()
@@ -965,7 +1158,7 @@ def dry_run_staged_appfolio_units(
 ):
     run = _run(db, run_id=run_id, current_user=current_user, write=True)
     upload = _upload(db, run=run, upload_id=upload_id)
-    records, relationship_fingerprint = _staged_unit_state(
+    records, resolved_existing, force_create_new, relationship_fingerprint = _staged_unit_state(
         db, run=run, upload=upload
     )
     try:
@@ -974,6 +1167,8 @@ def dry_run_staged_appfolio_units(
             run=run,
             records=records,
             source_context_fingerprint=relationship_fingerprint,
+            resolved_existing_matches=resolved_existing,
+            force_create_new_source_ids=force_create_new,
         )
     except AppFolioMigrationError as exc:
         db.rollback()
@@ -1025,7 +1220,7 @@ def commit_staged_appfolio_units(
 ):
     run = _run(db, run_id=run_id, current_user=current_user, write=True)
     upload = _upload(db, run=run, upload_id=upload_id)
-    records, relationship_fingerprint = _staged_unit_state(
+    records, resolved_existing, force_create_new, relationship_fingerprint = _staged_unit_state(
         db, run=run, upload=upload
     )
     try:
@@ -1036,6 +1231,8 @@ def commit_staged_appfolio_units(
             expected_fingerprint=payload.fingerprint,
             platform_user_id=current_user.id,
             source_context_fingerprint=relationship_fingerprint,
+            resolved_existing_matches=resolved_existing,
+            force_create_new_source_ids=force_create_new,
         )
         if not result.replayed:
             append_audit_log(
@@ -1077,6 +1274,7 @@ def commit_staged_appfolio_units(
         fingerprint=result.fingerprint,
         replayed=result.replayed,
         committed=result.committed,
+        matched_existing=result.matched_existing,
         warning_count=result.warning_count,
         rows=result.rows,
     )
