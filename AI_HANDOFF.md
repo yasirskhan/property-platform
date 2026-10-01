@@ -1,3 +1,64 @@
+# AI_HANDOFF.md — 2026-10-01 PHASE 4.13 STAGED PROPERTY RESOLUTION + CONTROLLED COMMIT VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `d7b80dd2fd165a6cd9961451a5fcf14e3881da0a`.
+- GitHub Actions run: `36934014003` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **886 passed, 21 deselected, 23841 warnings in 384.54s**.
+- Authenticated E2E: **21 passed, 278 warnings in 113.98s**.
+- Alembic head: `b24d8c1f4a62`.
+- Expected model tables: **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified staged-property resolution + controlled commit
+
+1. Reviewed staged Property rows now support explicit `MATCH_EXISTING`, `CREATE_NEW`, and `SKIP` decisions.
+2. Match-to-existing validates the same organization and exact Property target before creating/preserving durable source-to-target mapping; it never overwrites the existing Property.
+3. Create-new overrides only the reviewed possible-match disposition for that exact staged row; unrelated validation remains blocking.
+4. Skip is explicit and durable for staging/review and excluded from target creation.
+5. Resolution changes are audited and invalidate the prior run dry-run fingerprint.
+6. The reviewed row-resolution state participates in the staged source-context fingerprint, so stale previews cannot commit.
+7. Controlled staged commit derives its payload only from reviewed staged rows and requires the exact latest dry-run fingerprint; callers cannot resubmit arbitrary Property records through this endpoint.
+8. Durable existing mappings remain replay-safe; mixed matched/new rows do not duplicate targets.
+9. Migration `b24d8c1f4a62_appfolio_staged_property_resolution.py` adds reviewed-resolution metadata to staged rows. The follow-up compatibility fix uses Alembic batch mode so the legacy SQLite upgrade drill and PostgreSQL both preserve the intended foreign-key/index contract.
+10. No existing customer Property is overwritten automatically and no missing source data is fabricated.
+11. No Unit import, accounting-history import, AppFolio API connector, navigation change, or general UX work was added.
+
+Implementation commits:
+- `7954f2c630f2dd02ba24007b37e8d1d0ae42491f` — staged Property resolution + controlled commit.
+- `d7b80dd2fd165a6cd9961451a5fcf14e3881da0a` — migration-compatibility fix and final verified PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Proceed in dependency order with **Unit Directory CSV/XLSX ingestion and staging only**.
+
+Required boundaries:
+
+1. Reuse the existing `PlatformMigrationRun`, `PlatformMigrationUpload`, `PlatformMigrationStagedRow`, column-mapping, fingerprint, replay/idempotency and audit architecture; do not create a parallel migration system.
+2. Add Unit Directory detection/normalization only from verified AppFolio export columns. The current verified external export contract includes Unit Name, Property, Property Name, optional Property ID, Unit Address, Unit Street Address 1/2, Unit City, Unit State, Unit Zip and optional Unit ID. Do not infer extra source fields from the target Unit model.
+3. Preserve stable source Unit ID and source Property ID when supplied. Unit -> Property linkage must use durable AppFolio source IDs/mappings where available; never link solely by display name when an ID relationship is expected.
+4. The first Units batch is **staging-only**: detect, map, normalize, validate and persist reviewed staging state. Do not create customer Unit rows yet.
+5. Missing/unresolved source Property linkage must mark the Unit row for REVIEW/INVALID and block unsafe later commit.
+6. Existing committed Property source-to-target mappings may be used only to surface deterministic relationship status; do not mutate Properties.
+7. Re-upload/replay must remain idempotent and a changed file/mapping must invalidate the prior dry-run fingerprint.
+8. Do not automatically overwrite existing customer records or invent missing values.
+9. Do not add Owners/Vendors, Tenants, Leases/occupancy, accounting history, maintenance or attachments in this batch.
+10. Do not implement the AppFolio API connector.
+11. Preserve navigation integrity, the hidden-menu roadmap, platform-role boundaries, organization isolation, audit/recovery visibility and inactive UX standards.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 PHASE 4.13 STAGED PROPERTY DRY-RUN BRIDGE VERIFIED
 
 ## Current verified product checkpoint
