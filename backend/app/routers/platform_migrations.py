@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
+from app.models.property import Property
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.user import Organization
 from app.routers.platform_auth import get_current_platform_user
