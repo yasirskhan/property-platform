@@ -14,7 +14,7 @@ from app.core.security import hash_password
 from app.models.audit_log import AuditLog
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
-from app.models.property import Property
+from app.models.property import Property, Unit
 from app.models.user import Organization
 from app.routers import platform_migrations as api
 from app.schemas.platform_migration import (
@@ -1629,3 +1629,240 @@ def test_staged_property_resolution_and_commit_routes_are_exposed():
         "/api/platform/migrations/appfolio/runs/{run_id}/uploads/{upload_id}/properties/commit"
         in paths
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio Unit Directory ingestion + staging
+# ---------------------------------------------------------------------------
+
+def _mapped_property_for_units(db, *, run, org, admin, source_id="AF-PROP-UNIT"):
+    target = Property(
+        organization_id=org.id,
+        name="Mapped Unit Property",
+        property_type="multi_family",
+        address_line1="100 Unit Way",
+        city="Cleveland",
+        state="OH",
+        zip_code="44113",
+        country="USA",
+        is_active=True,
+    )
+    db.add(target)
+    db.flush()
+    db.add(
+        PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="APPFOLIO",
+            resource="PROPERTIES",
+            source_id=source_id,
+            target_entity="PROPERTY",
+            target_id=target.id,
+            source_fingerprint="d" * 64,
+            created_by_platform_user_id=admin.id,
+        )
+    )
+    db.commit()
+    return target
+
+
+def test_appfolio_unit_directory_csv_stages_against_durable_property_mapping_and_replays():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Unit Stage Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="unit-stage",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        target = _mapped_property_for_units(
+            db, run=run, org=org, admin=admin, source_id="PROP-100"
+        )
+        content = (
+            "Unit ID,Unit Name,Property ID,Property Name,Unit Address,"
+            "Unit Street Address 1,Unit Street Address 2,Unit City,Unit State,Unit Zip\n"
+            "UNIT-1,101,PROP-100,Mapped Unit Property,100 Unit Way #101,"
+            "100 Unit Way,,Cleveland,OH,44113\n"
+        ).encode()
+
+        first = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("unit-directory.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert first.detected_resource == "UNITS"
+        assert first.status == "STAGED"
+        assert first.replayed is False
+        assert first.validation_summary["total"] == 1
+        assert first.validation_summary["valid"] == 1
+        assert first.validation_summary["invalid"] == 0
+        assert first.validation_summary["warnings"] == 0
+        assert first.validation_summary["unresolved_property_links"] == 0
+        assert first.validation_summary["missing_unit_source_ids"] == 0
+
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == first.id
+        ).one()
+        assert row.resource == "UNITS"
+        assert row.source_id == "UNIT-1"
+        assert row.disposition == "NEW"
+        assert row.normalized_data["source_property_id"] == "PROP-100"
+        assert row.normalized_data["unit_name"] == "101"
+        assert row.normalized_data["address_line1"] == "100 Unit Way"
+        assert db.query(Unit).count() == 0
+        assert db.get(Property, target.id).name == "Mapped Unit Property"
+
+        replay = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("same-units-renamed.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert replay.replayed is True
+        assert replay.id == first.id
+        assert db.query(PlatformMigrationUpload).filter(
+            PlatformMigrationUpload.run_id == run.id,
+            PlatformMigrationUpload.detected_resource == "UNITS",
+        ).count() == 1
+        assert db.query(Unit).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_unit_directory_missing_or_unresolved_ids_stage_for_review_not_invention():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="Unit Review Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="unit-review",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _mapped_property_for_units(
+            db, run=run, org=org, admin=admin, source_id="PROP-OK"
+        )
+        content = (
+            "Unit ID,Unit Name,Property ID,Property Name,Unit Street Address 1,"
+            "Unit City,Unit State,Unit Zip\n"
+            ",201,PROP-OK,Mapped Unit Property,100 Unit Way,Cleveland,OH,44113\n"
+            "UNIT-UNKNOWN,202,PROP-MISSING,Unknown Property,200 Missing Way,Cleveland,OH,44113\n"
+        ).encode()
+
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("unit-review.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert upload.detected_resource == "UNITS"
+        assert upload.status == "REVIEW_REQUIRED"
+        assert upload.validation_summary["valid"] == 2
+        assert upload.validation_summary["warnings"] == 2
+        assert upload.validation_summary["unresolved_property_links"] == 1
+        assert upload.validation_summary["missing_unit_source_ids"] == 1
+
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+        assert [row.disposition for row in rows] == ["REVIEW", "REVIEW"]
+        assert rows[0].source_id is None
+        assert any("Unit ID was not supplied" in warning for warning in rows[0].warnings)
+        assert rows[1].source_id == "UNIT-UNKNOWN"
+        assert any("has no durable Property mapping" in warning for warning in rows[1].warnings)
+        assert db.query(Unit).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_unit_directory_duplicate_unit_id_is_invalid_and_xlsx_autodetects():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Unit XLSX Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="unit-xlsx",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _mapped_property_for_units(
+            db, run=run, org=org, admin=admin, source_id="PROP-XLSX"
+        )
+
+        workbook = Workbook()
+        ws = workbook.active
+        ws.title = "Unit Directory"
+        ws.append([
+            "Unit ID", "Unit Name", "Property ID", "Property Name",
+            "Unit Street Address 1", "Unit City", "Unit State", "Unit Zip",
+        ])
+        ws.append([
+            "UNIT-X", "A", "PROP-XLSX", "Mapped Unit Property",
+            "100 Unit Way", "Cleveland", "OH", "44113",
+        ])
+        ws.append([
+            "UNIT-X", "B", "PROP-XLSX", "Mapped Unit Property",
+            "100 Unit Way", "Cleveland", "OH", "44113",
+        ])
+        notes = workbook.create_sheet("Notes")
+        notes.append(["Comment"])
+        notes.append(["not a supported migration report"])
+        buffer = BytesIO()
+        workbook.save(buffer)
+        workbook.close()
+
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("unit-directory.xlsx", buffer.getvalue()),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert upload.detected_resource == "UNITS"
+        assert upload.sheet_name == "Unit Directory"
+        assert upload.status == "STAGED_WITH_ERRORS"
+        assert upload.validation_summary["duplicates"] == 1
+        assert upload.validation_summary["invalid"] == 1
+
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+        assert rows[0].disposition == "NEW"
+        assert rows[1].disposition == "INVALID"
+        assert any("Duplicate AppFolio Unit ID" in error for error in rows[1].errors)
+        assert db.query(Unit).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
