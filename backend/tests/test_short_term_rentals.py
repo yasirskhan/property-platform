@@ -1,7 +1,7 @@
 """Phase 4.12 short-term-rental channel references stay scoped and non-integrated."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -16,10 +16,12 @@ from app.models.audit_log import AuditLog
 from app.models.charge import Charge
 from app.models.gl_transaction import GLTransaction
 from app.models.property import Property, PropertyAssignment, Unit
-from app.models.short_term_rental import ShortTermRentalChannel, ShortTermRentalNightlyPrice
+from app.models.short_term_rental import ShortTermRentalChannel, ShortTermRentalNightlyPrice, ShortTermRentalTurnover
+from app.models.unit_inspection import UnitInspectionRecord
+from app.models.work_order import WorkOrder, WorkOrderCategory, WorkOrderPriority, WorkOrderStatus
 from app.models.user import Organization, User, UserRole
 from app.routers import short_term_rentals as api
-from app.schemas.short_term_rental import ShortTermRentalChannelIn, ShortTermRentalNightlyPriceIn
+from app.schemas.short_term_rental import ShortTermRentalChannelIn, ShortTermRentalNightlyPriceIn, ShortTermRentalTurnoverIn
 
 
 def _db():
@@ -327,6 +329,193 @@ def test_nightly_price_duplicate_validation_and_feature_revocation(monkeypatch):
         ])
         with pytest.raises(HTTPException) as exc:
             api.list_nightly_prices(
+                assigned.id, Response(), db=db, current_user=admin
+            )
+        assert exc.value.status_code == 404
+    finally:
+        db.close(); engine.dispose()
+
+
+def _turnover_payload(unit_id: int, **overrides):
+    start = datetime(2026, 10, 20, 11, 0)
+    data = {
+        "unit_id": unit_id,
+        "scheduled_start": start,
+        "scheduled_end": start + timedelta(hours=4),
+        "status": "SCHEDULED",
+        "notes": "Staff-recorded turnover schedule only.",
+    }
+    data.update(overrides)
+    return ShortTermRentalTurnoverIn(**data)
+
+
+def _linked_operations(db, *, prop, unit, actor):
+    work_order = WorkOrder(
+        unit_id=unit.id,
+        property_id=prop.id,
+        tenant_id=actor.id,
+        title="Turnover cleaning",
+        description="Existing maintenance work order reference.",
+        category=WorkOrderCategory.CLEANING,
+        priority=WorkOrderPriority.MEDIUM,
+        status=WorkOrderStatus.SUBMITTED,
+    )
+    inspection = UnitInspectionRecord(
+        organization_id=prop.organization_id,
+        property_id=prop.id,
+        unit_id=unit.id,
+        inspection_date=date(2026, 10, 20),
+        recorded_condition="SATISFACTORY",
+        findings="Existing explicit inspection fact.",
+        recorded_by_id=actor.id,
+    )
+    db.add_all([work_order, inspection])
+    db.commit()
+    return work_order, inspection
+
+
+def test_turnover_schedule_scoped_links_existing_operations_without_mutating_them():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, unassigned, other) = _seed(db)
+        unit = _unit(db, assigned.id, "TURN-101")
+        foreign_unit = _unit(db, other.id, "TURN-FOREIGN")
+        work_order, inspection = _linked_operations(db, prop=assigned, unit=unit, actor=admin)
+        foreign_work_order, foreign_inspection = _linked_operations(
+            db, prop=other, unit=foreign_unit, actor=foreign
+        )
+        original_work_order_status = work_order.status
+        original_inspection_findings = inspection.findings
+
+        created = api.create_turnover(
+            assigned.id,
+            _turnover_payload(
+                unit.id,
+                cleaning_work_order_id=work_order.id,
+                inspection_record_id=inspection.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert created.unit_id == unit.id
+        assert created.status == "SCHEDULED"
+        assert created.cleaning_work_order_id == work_order.id
+        assert created.inspection_record_id == inspection.id
+
+        response = Response()
+        listed = api.list_turnovers(
+            assigned.id, response, db=db, current_user=manager
+        )
+        assert [row.id for row in listed] == [created.id]
+        assert response.headers["cache-control"] == "no-store"
+
+        for bad_payload in (
+            _turnover_payload(
+                unit.id,
+                scheduled_start=datetime(2026, 10, 21, 11, 0),
+                scheduled_end=datetime(2026, 10, 21, 15, 0),
+                cleaning_work_order_id=foreign_work_order.id,
+            ),
+            _turnover_payload(
+                unit.id,
+                scheduled_start=datetime(2026, 10, 22, 11, 0),
+                scheduled_end=datetime(2026, 10, 22, 15, 0),
+                inspection_record_id=foreign_inspection.id,
+            ),
+        ):
+            with pytest.raises(HTTPException) as exc:
+                api.create_turnover(
+                    assigned.id, bad_payload, db=db, current_user=admin
+                )
+            assert exc.value.status_code == 404
+
+        with pytest.raises(HTTPException) as exc:
+            api.create_turnover(
+                assigned.id,
+                _turnover_payload(
+                    unit.id,
+                    scheduled_start=datetime(2026, 10, 23, 11, 0),
+                    scheduled_end=datetime(2026, 10, 23, 15, 0),
+                ),
+                db=db,
+                current_user=manager,
+            )
+        assert exc.value.status_code == 403
+
+        updated = api.update_turnover(
+            assigned.id,
+            created.id,
+            _turnover_payload(
+                unit.id,
+                status="COMPLETED",
+                cleaning_work_order_id=work_order.id,
+                inspection_record_id=inspection.id,
+            ),
+            db=db,
+            current_user=owner,
+        )
+        assert updated.status == "COMPLETED"
+
+        db.refresh(work_order)
+        db.refresh(inspection)
+        assert work_order.status == original_work_order_status
+        assert inspection.findings == original_inspection_findings
+
+        api.archive_turnover(
+            assigned.id, created.id, db=db, current_user=admin
+        )
+        assert api.list_turnovers(
+            assigned.id, Response(), db=db, current_user=admin
+        ) == []
+
+        assert db.query(ShortTermRentalTurnover).count() == 1
+        assert (
+            db.query(AuditLog)
+            .filter(AuditLog.entity_type == "short_term_rental_turnover")
+            .count()
+            == 3
+        )
+        assert db.query(Charge).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_turnover_validation_duplicate_scope_and_feature_revocation(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, _owner, manager, _tenant, _foreign), (assigned, unassigned, _other) = _seed(db)
+        unit = _unit(db, assigned.id, "TURN-201")
+        api.create_turnover(
+            assigned.id, _turnover_payload(unit.id), db=db, current_user=admin
+        )
+
+        with pytest.raises(HTTPException) as exc:
+            api.create_turnover(
+                assigned.id, _turnover_payload(unit.id), db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+
+        with pytest.raises(ValueError):
+            _turnover_payload(
+                unit.id,
+                scheduled_start=datetime(2026, 10, 20, 15, 0),
+                scheduled_end=datetime(2026, 10, 20, 11, 0),
+            )
+        with pytest.raises(ValueError):
+            _turnover_payload(unit.id, status="PROVIDER_CONFIRMED")
+
+        with pytest.raises(HTTPException) as exc:
+            api.list_turnovers(
+                unassigned.id, Response(), db=db, current_user=manager
+            )
+        assert exc.value.status_code == 404
+
+        monkeypatch.setattr(api, "resolve_customer_features", lambda *a, **k: [
+            SimpleNamespace(key=api.FEATURE_KEY, allowed=False),
+        ])
+        with pytest.raises(HTTPException) as exc:
+            api.list_turnovers(
                 assigned.id, Response(), db=db, current_user=admin
             )
         assert exc.value.status_code == 404
