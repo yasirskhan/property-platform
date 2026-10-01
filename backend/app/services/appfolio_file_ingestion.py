@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from openpyxl import load_workbook
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.platform_migration import (
@@ -26,7 +27,7 @@ from app.models.platform_migration import (
     PlatformMigrationStagedRow,
     PlatformMigrationUpload,
 )
-from app.models.property import Property
+from app.models.property import Property, Unit
 
 MAX_FILE_BYTES = 10 * 1024 * 1024
 MAX_ROWS = 10_000
@@ -755,7 +756,42 @@ def stage_appfolio_file(
                         "Unit ID was not supplied; durable Unit source identity must be resolved before dry run or commit."
                     )
                 else:
-                    disposition = "NEW"
+                    exact = (
+                        db.query(Unit)
+                        .filter(
+                            Unit.property_id == target_property.id,
+                            Unit.unit_number == str(unit_name).strip(),
+                            Unit.is_active.is_(True),
+                            Unit.deleted_at.is_(None),
+                        )
+                        .first()
+                    )
+                    candidate = exact
+                    if candidate is None:
+                        candidate = (
+                            db.query(Unit)
+                            .filter(
+                                Unit.property_id == target_property.id,
+                                func.lower(Unit.unit_number)
+                                == str(unit_name).strip().lower(),
+                                Unit.is_active.is_(True),
+                                Unit.deleted_at.is_(None),
+                            )
+                            .first()
+                        )
+                    if candidate is not None:
+                        disposition = "POSSIBLE_MATCH"
+                        possible_matches += 1
+                        match_kind = (
+                            "exact unit-number"
+                            if candidate.unit_number == str(unit_name).strip()
+                            else "case-insensitive unit-number"
+                        )
+                        warnings.append(
+                            f"Possible existing target unit match: local unit #{candidate.id} ({match_kind})."
+                        )
+                    else:
+                        disposition = "NEW"
         else:
             normalized_data = _normalized_source_row(source_row)
             errors.append(
