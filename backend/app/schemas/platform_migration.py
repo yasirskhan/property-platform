@@ -154,6 +154,7 @@ class AppFolioMigrationStagedRowOut(BaseModel):
     errors: list[str]
     resolution_action: str | None = None
     resolution_target_id: int | None = None
+    resolution_target_unit_id: int | None = None
     resolved_by_platform_user_id: int | None = None
     resolved_at: datetime | None = None
     created_at: datetime
@@ -201,6 +202,21 @@ class AppFolioUnitDryRunOut(BaseModel):
     rows: list[AppFolioUnitPreviewRow]
 
 
+class AppFolioStagedUnitResolutionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action: str = Field(pattern=r"^(MATCH_EXISTING|CREATE_NEW|SKIP)$")
+    target_unit_id: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def validate_target(self):
+        if self.action == "MATCH_EXISTING" and self.target_unit_id is None:
+            raise ValueError("target_unit_id is required for MATCH_EXISTING")
+        if self.action != "MATCH_EXISTING" and self.target_unit_id is not None:
+            raise ValueError("target_unit_id is only valid for MATCH_EXISTING")
+        return self
+
+
 class AppFolioStagedUnitCommitIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -219,5 +235,6 @@ class AppFolioUnitCommitOut(BaseModel):
     fingerprint: str
     replayed: bool
     committed: int
+    matched_existing: int = 0
     warning_count: int
     rows: list[AppFolioUnitCommitRow]
