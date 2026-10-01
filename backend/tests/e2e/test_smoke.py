@@ -338,6 +338,11 @@ def test_every_visible_sidebar_destination_resolves() -> None:
             page.locator('input[type="password"]').fill(PASSWORD)
             page.get_by_role("button", name="Log In").click()
             page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+            # Menu resolution is async after the shell route loads. Wait for a
+            # real leaf link before taking the rendered-navigation snapshot.
+            expect(
+                page.locator('aside nav a[href="/dashboard"]')
+            ).to_be_visible(timeout=15_000)
 
             # Expand every currently rendered container, then snapshot the
             # actual links emitted by the resolved menu. We intentionally do
