@@ -1046,9 +1046,19 @@ def test_staged_property_upload_reuses_existing_dry_run_engine_and_binds_source_
 
         stored = db.get(PlatformMigrationRun, run.id)
         assert stored.last_dry_run_fingerprint == preview.fingerprint
+        staged_rows = (
+            db.query(PlatformMigrationStagedRow)
+            .filter(PlatformMigrationStagedRow.upload_id == upload.id)
+            .order_by(PlatformMigrationStagedRow.row_number.asc())
+            .all()
+        )
         assert (
             stored.last_dry_run_summary["source_context_fingerprint"]
-            == upload.normalized_fingerprint
+            == api._staged_review_fingerprint(upload, staged_rows)
+        )
+        assert (
+            stored.last_dry_run_summary["source_context_fingerprint"]
+            != upload.normalized_fingerprint
         )
         assert preview.fingerprint != upload.normalized_fingerprint
 
