@@ -15,10 +15,10 @@ from app.models.audit_log import AuditLog
 from app.models.charge import Charge
 from app.models.gl_transaction import GLTransaction
 from app.models.property import Property, PropertyAssignment
-from app.models.senior_housing import SeniorAgeRestriction
+from app.models.senior_housing import SeniorAgeRestriction, SeniorCareResource
 from app.models.user import Organization, User, UserRole
 from app.routers import senior_housing as api
-from app.schemas.senior_housing import SeniorAgeRestrictionIn
+from app.schemas.senior_housing import SeniorAgeRestrictionIn, SeniorCareResourceIn
 
 
 def _db():
@@ -147,6 +147,113 @@ def test_age_restriction_validation_duplicates_and_revoked_feature(monkeypatch):
         ])
         with pytest.raises(HTTPException) as exc:
             api.list_age_restrictions(assigned.id, Response(), db=db, current_user=admin)
+        assert exc.value.status_code == 404
+    finally:
+        db.close(); engine.dispose()
+
+
+
+def _care_payload(**overrides):
+    data = {
+        "resource_type": "CARE_COORDINATION",
+        "provider_name": "Community Resource Desk",
+        "contact_name": "Program Contact",
+        "phone": "216-555-0100",
+        "email": "resources@example.com",
+        "reference_url": "https://example.com/resources",
+        "availability_notes": "Staff-recorded public resource directory entry.",
+    }
+    data.update(overrides)
+    return SeniorCareResourceIn(**data)
+
+
+def test_care_resource_directory_scoped_audited_and_not_resident_specific():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, unassigned, other) = _seed(db)
+        created = api.create_care_resource(
+            assigned.id, _care_payload(), db=db, current_user=admin
+        )
+        assert created.resource_type == "CARE_COORDINATION"
+        assert created.provider_name == "Community Resource Desk"
+
+        response = Response()
+        listed = api.list_care_resources(
+            assigned.id, response, db=db, current_user=manager
+        )
+        assert [row.id for row in listed] == [created.id]
+        assert response.headers["cache-control"] == "no-store"
+
+        for actor, prop in ((manager, unassigned), (manager, other), (foreign, assigned)):
+            with pytest.raises(HTTPException) as exc:
+                api.list_care_resources(prop.id, Response(), db=db, current_user=actor)
+            assert exc.value.status_code == 404
+
+        for actor in (manager, tenant):
+            with pytest.raises(HTTPException) as exc:
+                api.create_care_resource(
+                    assigned.id,
+                    _care_payload(provider_name=f"No write {actor.role.value}"),
+                    db=db,
+                    current_user=actor,
+                )
+            assert exc.value.status_code == 403
+
+        updated = api.update_care_resource(
+            assigned.id,
+            created.id,
+            _care_payload(resource_type="TRANSPORTATION", provider_name="Senior Transit"),
+            db=db,
+            current_user=owner,
+        )
+        assert updated.resource_type == "TRANSPORTATION"
+
+        api.archive_care_resource(
+            assigned.id, created.id, db=db, current_user=admin
+        )
+        assert api.list_care_resources(
+            assigned.id, Response(), db=db, current_user=admin
+        ) == []
+
+        assert db.query(SeniorCareResource).count() == 1
+        assert (
+            db.query(AuditLog)
+            .filter(AuditLog.entity_type == "senior_care_resource")
+            .count()
+            == 3
+        )
+        assert db.query(Charge).count() == 0
+        assert db.query(GLTransaction).count() == 0
+        columns = set(SeniorCareResource.__table__.columns.keys())
+        for prohibited in (
+            "resident_id",
+            "tenant_id",
+            "diagnosis",
+            "medical_notes",
+            "treatment_plan",
+            "eligible",
+        ):
+            assert prohibited not in columns
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_care_resource_duplicate_and_feature_revocation(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, _owner, _manager, _tenant, _foreign), (assigned, _unassigned, _other) = _seed(db)
+        api.create_care_resource(assigned.id, _care_payload(), db=db, current_user=admin)
+        with pytest.raises(HTTPException) as exc:
+            api.create_care_resource(assigned.id, _care_payload(), db=db, current_user=admin)
+        assert exc.value.status_code == 409
+
+        monkeypatch.setattr(
+            api,
+            "resolve_customer_features",
+            lambda *a, **k: [SimpleNamespace(key=api.FEATURE_KEY, allowed=False)],
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.list_care_resources(assigned.id, Response(), db=db, current_user=admin)
         assert exc.value.status_code == 404
     finally:
         db.close(); engine.dispose()
