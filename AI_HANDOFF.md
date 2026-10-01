@@ -1,3 +1,53 @@
+# AI_HANDOFF.md — 2026-10-01 PHASE 4.13 APPFOLIO PROPERTY COMMIT VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio migration tooling: **IN PROGRESS**.
+- Verified PRODUCT SHA: `70c4c31d750a476ba7e20e7841e79d2eca40f4ad`.
+- GitHub Actions run: `36892418691` — SUCCESS.
+- All six required CI jobs passed on this exact product SHA:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **871 passed, 21 deselected, 23617 warnings in 337.92s**.
+- Authenticated E2E: **21 passed, 278 warnings in 118.18s**.
+- Alembic head: `e57c9b1d3f20`.
+- Expected model tables: **199**.
+- Navigation integrity, planning parity and committed-secret checks passed in hosted CI.
+- `docs/NAVIGATION_INTEGRITY_PLAN.md`, the `HIDDEN MENU / UNHIDE ROADMAP`, and inactive `docs/UX_STANDARDS.md` were preserved.
+
+## Verified Phase 4.13 batch 2 — replay-safe AppFolio property commit
+
+1. Registered the existing platform AppFolio migration router in the running FastAPI application; the previously tested endpoints are now actually exposed.
+2. Added durable `platform_migration_items` source-to-target mappings keyed by migration run, resource and AppFolio source ID.
+3. Property commit requires the exact payload fingerprint from the latest dry run. Changed/stale payloads fail closed.
+4. Commit is atomic for the importable property set and blocks any dry run that still contains invalid rows.
+5. Possible existing-target property matches block commit rather than silently creating duplicates; no automatic merge decision is made.
+6. A successful commit creates only the already-previewed target Property fields and records source ID -> target Property ID mappings.
+7. Identical commit replay returns the existing target mappings and creates no duplicate Property or duplicate commit audit event.
+8. Missing/inconsistent/partial prior mappings fail closed for manual review.
+9. Commit audit metadata records counts, fingerprint and target IDs only; provider credentials and raw source payload are not stored.
+10. Migration `e57c9b1d3f20` adds the mapping table and model/bootstrap parity is restored at 199 tables.
+11. Focused regressions cover exact-fingerprint enforcement, commit/replay behavior, target-conflict blocking, route exposure, credential-field rejection and migration parity.
+12. First CI `36891558535` exposed two focused test defects: replay conflict detection occurred before own-source mapping recognition, and the route assertion inspected a wrapper lacking `.path`. Scoped correction `70c4c31d750a476ba7e20e7841e79d2eca40f4ad` fixed both; final CI is green.
+13. Live AppFolio transport remains explicitly **NOT IMPLEMENTED**. Public AppFolio material confirms API availability by product plan, but no authenticated customer-specific transport/resource contract has been supplied to this repository; do not invent credentials, endpoints or source fields.
+
+## Exact next Phase 4.13 work
+
+1. Continue to seek authoritative AppFolio authentication/resource contracts before implementing any live connector or new resource mapper.
+2. Do **not** invent Unit/People/Lease/accounting source fields from target models.
+3. Independently actionable while transport/resource schemas remain unavailable: add read-only source-mapping/recovery visibility for committed migration items so platform operators can verify exactly which provider source IDs map to which target records without raw source payloads.
+4. Preserve platform-role boundaries, active target organization checks, no-store reads, audit integrity and organization isolation.
+5. Keep the dry-run-before-commit boundary; do not broaden property commit into automatic merge or overwrite behavior.
+6. Preserve navigation integrity, hidden-menu roadmap and inactive UX standards.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 PHASE 4.13 APPFOLIO MIGRATION FOUNDATION VERIFIED
 
 ## Current verified product checkpoint
