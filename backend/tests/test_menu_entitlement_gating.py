@@ -66,14 +66,17 @@ def test_core_menu_does_not_require_subscription() -> None:
     db, engine = _session()
     try:
         _, admin = _admin(db, slug="menu-core")
-        module = Module(key="maintenance", name="Maintenance", is_core=True)
+        # Use a route-ready core module here. Maintenance is intentionally
+        # fail-closed by navigation readiness until its Phase 5 pages ship;
+        # this regression is about entitlement behavior, not route readiness.
+        module = Module(key="reporting", name="Reporting", is_core=True)
         db.add(module)
         db.flush()
-        db.add(ModuleFeature(module_id=module.id, feature_key="MAINTENANCE"))
+        db.add(ModuleFeature(module_id=module.id, feature_key="REPORTING"))
         db.commit()
 
         keys = {item["key"] for item in resolve_menu_for_user(db, admin)}
-        assert "MAINTENANCE" in keys
+        assert "REPORTING" in keys
     finally:
         db.close()
         engine.dispose()
