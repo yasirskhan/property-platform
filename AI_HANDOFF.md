@@ -1,3 +1,59 @@
+# AI_HANDOFF.md — 2026-10-01 PHASE 4.12 COMPLETE | VERIFIED
+
+## Final Phase 4.12 product checkpoint
+
+- **PHASE 4.12 COMPLETE | VERIFIED**
+- Phase 4.11 — Senior Housing remains **COMPLETE | VERIFIED**.
+- Final VERIFIED PRODUCT SHA: `a418d713a9859a2c91ff6589c29ccb61ddd8637a`.
+- GitHub Actions run: `36871808980` — SUCCESS.
+- All six required CI jobs passed on this exact product SHA:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **864 passed, 21 deselected, 23552 warnings in 332.37s**.
+- Authenticated E2E: **21 passed, 278 warnings in 120.60s**.
+- Alembic head: `c35e7a9b1d4f`.
+- Expected model tables: **197**.
+- Navigation integrity and planning parity passed in hosted CI.
+- `docs/NAVIGATION_INTEGRITY_PLAN.md`, the `HIDDEN MENU / UNHIDE ROADMAP`, and inactive `docs/UX_STANDARDS.md` were preserved.
+
+## Verified Phase 4.12 Short-term Rentals scope
+
+1. Hidden release gate `release.properties.short_term_rentals` controls the property surface independently of menu-route readiness.
+2. Staff-recorded Airbnb/Vrbo references preserve provider, staff label, external listing reference, public URL and notes only; no credentials or live provider connection is claimed.
+3. Dated nightly pricing is explicit local operational metadata per property/unit/date with minimum-stay notes; no provider pricing synchronization or accounting posting is represented.
+4. Turnover schedules are explicit property/unit time windows with operational status and optional references to already-existing same-unit work-order and inspection records.
+5. Turnover records never create, advance, close or otherwise mutate referenced maintenance/inspection workflows.
+6. ADMIN/OWNER may write; assigned MANAGER is read-only; cross-organization, unassigned-property and foreign-unit access fails closed.
+7. Short-term-rental CRUD mutations are audit logged; reads are `no-store`; setup creates no booking, lease, Charge, invoice, receipt, payout or GL entry.
+8. The customer property page exposes a gated **Short-term Rentals** tab covering:
+   - Airbnb/Vrbo channel references;
+   - local nightly pricing;
+   - turnover scheduling.
+9. Dedicated authenticated browser coverage verifies one complete customer flow through all three surfaces.
+10. No hidden sidebar item was added or unhidden, and no navigation/UX contract changed.
+
+Final customer UI/E2E commits:
+- `4fd70baf982d9a1e62505d215866566f8de8a2aa` — Short-term Rentals property UI.
+- `6f2f5220c7ce5f3ed6de67769156ab3030e3af19` — gated property-tab integration.
+- `aa813a8ef5c00c76c2c0f951be07ae114d1145c9` — dedicated authenticated browser coverage.
+- `a418d713a9859a2c91ff6589c29ccb61ddd8637a` — E2E import-safety correction; final VERIFIED PRODUCT SHA.
+
+## Exact next phase
+
+Proceed to **Phase 4.13 — AppFolio migration tooling** from `docs/PLAN_GAPS.md`.
+
+Before implementation:
+- reconcile any existing CSV/import/migration primitives;
+- distinguish platform-run direct AppFolio migration from already-planned customer CSV import;
+- do not claim live AppFolio API connectivity without an actual authenticated provider contract;
+- begin with the smallest independently verifiable migration foundation.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 PHASE 4.12 TURNOVER SCHEDULING VERIFIED
 
 ## Current verified product checkpoint
