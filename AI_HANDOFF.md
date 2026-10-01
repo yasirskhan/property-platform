@@ -1,3 +1,50 @@
+# AI_HANDOFF.md — 2026-10-01 PHASE 4.11 SENIOR HOUSING AGE-RESTRICTION FOUNDATION VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **IN PROGRESS**
+- Verified PRODUCT SHA: `436b503551a6b45965a5487930f68989ef464d83`
+- GitHub Actions run: `36814348487` — SUCCESS
+- All six required CI jobs passed on this exact product SHA:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **853 passed, 19 deselected, 23270 warnings in 256.10s**
+- Authenticated E2E: **19 passed, 271 warnings in 104.89s**
+- Alembic head: `bf7d1e3a5c9f`
+- Expected model tables: **192**
+- Navigation integrity and parity checks passed in hosted CI.
+- `docs/NAVIGATION_INTEGRITY_PLAN.md`, the `HIDDEN MENU / UNHIDE ROADMAP`, and inactive `docs/UX_STANDARDS.md` were not changed.
+
+## Verified Phase 4.11 batch 1 — age-restriction foundation
+
+- Added hidden release gate `release.properties.senior_housing`.
+- Added property/organization-scoped `SeniorAgeRestriction` records for explicit staff-entered:
+  - restriction type (`AGE_55_PLUS`, `AGE_62_PLUS`, or `OTHER_RECORDED`);
+  - recorded minimum age;
+  - staff label;
+  - recorded authority/reference identifier;
+  - effective dates and notes.
+- ADMIN/OWNER may write; assigned MANAGER is read-only; other roles fail closed.
+- Cross-organization and unassigned-property access fails closed.
+- CRUD mutations are audit logged.
+- Records are operational references only. They do **not** infer resident eligibility, certify HOPA/Fair Housing compliance, establish HUD status, create Charges, or create GL postings.
+- Focused regressions verify scope, validation, duplicate protection, feature revocation, audit logging, no-store reads, and zero Charge/GL mutation.
+
+## Exact next Phase 4.11 work
+
+Continue the authoritative Phase 4.11 roadmap from `docs/PLAN_GAPS.md`:
+
+1. **Care coordination placeholders** — property-scoped operational resource/workflow placeholders only; do not store or infer resident diagnoses, medical eligibility, treatment plans, or legal care obligations.
+2. **HUD 202/811** — explicit staff-recorded program/reference facts and readiness evidence only; do not certify HUD eligibility, funding, occupancy, or subsidy status without authoritative evidence.
+3. Customer Senior Housing surface + authenticated browser coverage after the backend contracts are verified.
+4. Final exact-SHA six-job verification, then mark **PHASE 4.11 COMPLETE | VERIFIED** before moving to Phase 4.12.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 NAVIGATION / UX / HIDDEN-MENU CHECKPOINT VERIFIED
 
 ## Final verified checkpoint
