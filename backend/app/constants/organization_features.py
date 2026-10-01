@@ -75,6 +75,7 @@ FEATURE_DEFINITIONS: dict[str, dict[str, object]] = {
     "release.properties.rubs": {"label": "RUBs tab", "entitlement": "rubs", "org_configurable": True, "permission": "PROPERTIES.ALL"},
     "release.properties.student_housing": {"label": "Student housing", "entitlement": "core", "org_configurable": True, "permission": "PROPERTIES.ALL"},
     "release.properties.senior_housing": {"label": "Senior housing", "entitlement": "core", "org_configurable": True, "permission": "PROPERTIES.ALL"},
+    "release.properties.short_term_rentals": {"label": "Short-term rentals", "entitlement": "core", "org_configurable": True, "permission": "PROPERTIES.ALL"},
     "release.properties.staff": {"label": "Staff tab", "entitlement": "core", "org_configurable": True, "permission": "PROPERTIES.ALL"},
     "release.properties.statement_settings": {"label": "Statement Settings", "entitlement": "owner_statements", "org_configurable": True, "permission": "PROPERTIES.ALL"},
     "release.reporting.export": {"label": "Export CSV / Excel", "entitlement": "core", "org_configurable": True, "permission": "REPORTING.ALL"},
