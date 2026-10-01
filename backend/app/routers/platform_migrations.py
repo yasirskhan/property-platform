@@ -39,11 +39,16 @@ from app.schemas.platform_migration import (
     AppFolioPropertyCommitOut,
     AppFolioPropertyDryRunIn,
     AppFolioPropertyDryRunOut,
+    AppFolioStagedUnitCommitIn,
+    AppFolioUnitCommitOut,
+    AppFolioUnitDryRunOut,
 )
 from app.services.appfolio_migration import (
     AppFolioMigrationError,
     commit_properties,
+    commit_units,
     dry_run_properties,
+    dry_run_units,
 )
 from app.services.appfolio_file_ingestion import (
     MAX_FILE_BYTES,
@@ -606,6 +611,122 @@ def _staged_property_state(
     )
 
 
+def _staged_unit_state(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    upload: PlatformMigrationUpload,
+) -> tuple[list[dict[str, object]], str]:
+    if upload.detected_resource != "UNITS":
+        raise HTTPException(
+            status_code=409,
+            detail="Staged upload must be resolved to UNITS before Unit dry run.",
+        )
+    rows = (
+        db.query(PlatformMigrationStagedRow)
+        .filter(
+            PlatformMigrationStagedRow.upload_id == upload.id,
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "APPFOLIO",
+            PlatformMigrationStagedRow.resource == "UNITS",
+        )
+        .order_by(
+            PlatformMigrationStagedRow.row_number.asc(),
+            PlatformMigrationStagedRow.id.asc(),
+        )
+        .all()
+    )
+    if not rows:
+        raise HTTPException(status_code=409, detail="Staged upload has no Unit rows.")
+
+    blocking = [
+        row
+        for row in rows
+        if row.disposition not in {"NEW", "ALREADY_MAPPED"}
+        or bool(row.errors)
+        or row.resolution_action is not None
+    ]
+    if blocking:
+        counts: dict[str, int] = {}
+        for row in blocking:
+            counts[row.disposition] = counts.get(row.disposition, 0) + 1
+        detail = ", ".join(f"{key}={counts[key]}" for key in sorted(counts))
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Staged Unit dry run is blocked by unresolved rows: "
+                f"{detail}. Resolve source identity/property linkage before continuing."
+            ),
+        )
+
+    records: list[dict[str, object]] = []
+    property_links: list[dict[str, object]] = []
+    seen_property_sources: set[str] = set()
+    for row in rows:
+        data = dict(row.normalized_data or {})
+        source_id = row.source_id or data.get("source_id")
+        source_property_id = data.get("source_property_id")
+        if not source_id or not source_property_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Staged Unit row lacks durable Unit or Property source identity.",
+            )
+        property_source = str(source_property_id).strip()
+        mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "APPFOLIO",
+                PlatformMigrationItem.resource == "PROPERTIES",
+                PlatformMigrationItem.source_id == property_source,
+            )
+            .first()
+        )
+        if mapping is None or mapping.target_entity != "PROPERTY":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Source Property ID {property_source} no longer has a valid durable Property mapping."
+                ),
+            )
+        if property_source not in seen_property_sources:
+            seen_property_sources.add(property_source)
+            property_links.append(
+                {
+                    "source_property_id": property_source,
+                    "target_property_id": mapping.target_id,
+                    "source_fingerprint": mapping.source_fingerprint,
+                }
+            )
+        records.append(
+            {
+                "Id": str(source_id),
+                "PropertyId": property_source,
+                "UnitName": data.get("unit_name"),
+                "UnitAddress": data.get("unit_address"),
+                "Address1": data.get("address_line1"),
+                "Address2": data.get("address_line2"),
+                "City": data.get("city"),
+                "State": data.get("state"),
+                "Zip": data.get("zip_code"),
+            }
+        )
+
+    canonical = {
+        "staged_review_fingerprint": _staged_review_fingerprint(upload, rows),
+        "property_links": sorted(
+            property_links,
+            key=lambda item: str(item["source_property_id"]),
+        ),
+    }
+    relationship_fingerprint = hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return records, relationship_fingerprint
+
+
 @router.post(
     "/runs/{run_id}/uploads/{upload_id}/rows/{staged_row_id}/resolution",
     response_model=AppFolioMigrationStagedRowOut,
@@ -827,6 +948,135 @@ def commit_staged_appfolio_properties(
         committed=result.committed,
         matched_existing=result.matched_existing,
         skipped_hidden=result.skipped_hidden,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/units/dry-run",
+    response_model=AppFolioUnitDryRunOut,
+)
+def dry_run_staged_appfolio_units(
+    run_id: int,
+    upload_id: int,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    records, relationship_fingerprint = _staged_unit_state(
+        db, run=run, upload=upload
+    )
+    try:
+        result = dry_run_units(
+            db,
+            run=run,
+            records=records,
+            source_context_fingerprint=relationship_fingerprint,
+        )
+    except AppFolioMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=run.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=run.id,
+            action="appfolio_staged_units_dry_run",
+            new_value={
+                "upload_id": upload.id,
+                "source_context_fingerprint": relationship_fingerprint,
+                "dry_run_fingerprint": result.fingerprint,
+                **result.summary,
+                "raw_file_stored": False,
+                "target_mutation": False,
+            },
+        )
+        db.commit()
+        db.refresh(run)
+    return AppFolioUnitDryRunOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        importable=result.importable,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/units/commit",
+    response_model=AppFolioUnitCommitOut,
+)
+def commit_staged_appfolio_units(
+    run_id: int,
+    upload_id: int,
+    payload: AppFolioStagedUnitCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    records, relationship_fingerprint = _staged_unit_state(
+        db, run=run, upload=upload
+    )
+    try:
+        result = commit_units(
+            db,
+            run=run,
+            records=records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            source_context_fingerprint=relationship_fingerprint,
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=run.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=run.id,
+                action="appfolio_staged_units_committed",
+                new_value={
+                    "upload_id": upload.id,
+                    "source_context_fingerprint": relationship_fingerprint,
+                    "fingerprint": result.fingerprint,
+                    "committed": result.committed,
+                    "warning_count": result.warning_count,
+                    "target_unit_ids": [
+                        item["target_unit_id"] for item in result.rows
+                    ],
+                    "raw_file_stored": False,
+                    "provider_credentials_stored": False,
+                },
+            )
+            db.commit()
+            db.refresh(run)
+    except AppFolioMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Unit commit conflicted with an existing target or migration mapping.",
+        ) from exc
+
+    return AppFolioUnitCommitOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        committed=result.committed,
         warning_count=result.warning_count,
         rows=result.rows,
     )
