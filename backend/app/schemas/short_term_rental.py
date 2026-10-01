@@ -1,7 +1,8 @@
 """Phase 4.12 short-term-rental channel reference schemas."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -35,6 +36,36 @@ class ShortTermRentalChannelOut(BaseModel):
     label: str
     external_listing_id: str | None
     public_listing_url: str | None
+    notes: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ShortTermRentalNightlyPriceIn(BaseModel):
+    unit_id: int = Field(gt=0)
+    night_date: date
+    nightly_rate: Decimal = Field(ge=Decimal("0.00"), max_digits=12, decimal_places=2)
+    minimum_stay_nights: int = Field(default=1, ge=1, le=365)
+    notes: str | None = Field(default=None, max_length=4000)
+
+    @field_validator("notes")
+    @classmethod
+    def trim_price_notes(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
+
+
+class ShortTermRentalNightlyPriceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    property_id: int
+    unit_id: int
+    night_date: date
+    nightly_rate: Decimal
+    minimum_stay_nights: int
     notes: str | None
     created_at: datetime
     updated_at: datetime
