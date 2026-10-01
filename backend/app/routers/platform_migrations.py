@@ -315,6 +315,24 @@ def list_appfolio_migration_items(
 ):
     """Read durable source-to-target mappings without exposing raw provider payloads."""
     row = _run(db, run_id=run_id, current_user=current_user, write=False)
+
+    # Durable mappings are bound to the run's original organization/provider
+    # scope. If that relationship is ever inconsistent, fail closed instead of
+    # returning an empty list that could hide or appear to rebind mappings.
+    inconsistent_mapping = (
+        db.query(PlatformMigrationItem.id)
+        .filter(
+            PlatformMigrationItem.run_id == row.id,
+            (
+                (PlatformMigrationItem.organization_id != row.organization_id)
+                | (PlatformMigrationItem.provider != "APPFOLIO")
+            ),
+        )
+        .first()
+    )
+    if inconsistent_mapping is not None:
+        raise HTTPException(status_code=404, detail="AppFolio migration run not found.")
+
     query = db.query(PlatformMigrationItem).filter(
         PlatformMigrationItem.run_id == row.id,
         PlatformMigrationItem.organization_id == row.organization_id,
