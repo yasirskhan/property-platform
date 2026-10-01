@@ -158,6 +158,20 @@ class PlatformMigrationStagedRow(Base):
     normalized_data = Column(JSON, nullable=False)
     warnings = Column(JSON, nullable=False)
     errors = Column(JSON, nullable=False)
+    resolution_action = Column(String(32), nullable=True, index=True)
+    resolution_target_id = Column(
+        Integer,
+        ForeignKey("properties.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    resolved_by_platform_user_id = Column(
+        Integer,
+        ForeignKey("platform_users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    resolved_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     upload = relationship("PlatformMigrationUpload", back_populates="rows")

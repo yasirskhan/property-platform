@@ -7,7 +7,9 @@ target run and dry-run Property records supplied by a future verified adapter.
 """
 from __future__ import annotations
 
+import hashlib
 import json
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
@@ -31,6 +33,8 @@ from app.schemas.platform_migration import (
     AppFolioMigrationRunOut,
     AppFolioMigrationStagedRowOut,
     AppFolioMigrationUploadOut,
+    AppFolioStagedPropertyCommitIn,
+    AppFolioStagedRowResolutionIn,
     AppFolioPropertyCommitIn,
     AppFolioPropertyCommitOut,
     AppFolioPropertyDryRunIn,
@@ -309,6 +313,7 @@ def commit_appfolio_properties(
         fingerprint=result.fingerprint,
         replayed=result.replayed,
         committed=result.committed,
+        matched_existing=result.matched_existing,
         skipped_hidden=result.skipped_hidden,
         warning_count=result.warning_count,
         rows=result.rows,
@@ -451,12 +456,59 @@ def _upload_out(row: PlatformMigrationUpload, *, replayed: bool) -> AppFolioMigr
     )
 
 
-def _staged_property_records(
+def _staged_row(
     db: Session,
     *,
     run: PlatformMigrationRun,
     upload: PlatformMigrationUpload,
-) -> list[dict[str, object]]:
+    staged_row_id: int,
+) -> PlatformMigrationStagedRow:
+    row = (
+        db.query(PlatformMigrationStagedRow)
+        .filter(
+            PlatformMigrationStagedRow.id == staged_row_id,
+            PlatformMigrationStagedRow.upload_id == upload.id,
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "APPFOLIO",
+        )
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="AppFolio staged row not found.")
+    return row
+
+
+def _staged_review_fingerprint(
+    upload: PlatformMigrationUpload,
+    rows: list[PlatformMigrationStagedRow],
+) -> str:
+    canonical = {
+        "upload_normalized_fingerprint": upload.normalized_fingerprint,
+        "rows": [
+            {
+                "id": row.id,
+                "row_number": row.row_number,
+                "source_id": row.source_id,
+                "row_fingerprint": row.row_fingerprint,
+                "disposition": row.disposition,
+                "resolution_action": row.resolution_action,
+                "resolution_target_id": row.resolution_target_id,
+            }
+            for row in rows
+        ],
+    }
+    return hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def _staged_property_state(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    upload: PlatformMigrationUpload,
+) -> tuple[list[dict[str, object]], dict[str, int], set[str], str]:
     if upload.detected_resource != "PROPERTIES":
         raise HTTPException(
             status_code=409,
@@ -479,18 +531,23 @@ def _staged_property_records(
     if not rows:
         raise HTTPException(status_code=409, detail="Staged upload has no property rows.")
 
-    blocking = [
-        row
-        for row in rows
-        if row.disposition in {"INVALID", "POSSIBLE_MATCH", "REVIEW"}
-    ]
+    blocking: list[PlatformMigrationStagedRow] = []
+    for row in rows:
+        if row.disposition == "INVALID":
+            blocking.append(row)
+        elif row.disposition == "POSSIBLE_MATCH" and row.resolution_action not in {
+            "MATCH_EXISTING",
+            "CREATE_NEW",
+            "SKIP",
+        }:
+            blocking.append(row)
+        elif row.disposition == "REVIEW" and row.resolution_action != "SKIP":
+            blocking.append(row)
     if blocking:
         counts: dict[str, int] = {}
         for row in blocking:
             counts[row.disposition] = counts.get(row.disposition, 0) + 1
-        detail = ", ".join(
-            f"{key}={counts[key]}" for key in sorted(counts)
-        )
+        detail = ", ".join(f"{key}={counts[key]}" for key in sorted(counts))
         raise HTTPException(
             status_code=409,
             detail=(
@@ -500,11 +557,32 @@ def _staged_property_records(
         )
 
     records: list[dict[str, object]] = []
+    resolved_existing: dict[str, int] = {}
+    force_create_new: set[str] = set()
+
     for row in rows:
+        if row.resolution_action == "SKIP":
+            continue
         data = dict(row.normalized_data or {})
+        source_id = row.source_id or data.get("source_id")
+        if row.resolution_action == "MATCH_EXISTING":
+            if not source_id or row.resolution_target_id is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Resolved staged property match is incomplete.",
+                )
+            resolved_existing[str(source_id)] = int(row.resolution_target_id)
+        elif row.resolution_action == "CREATE_NEW":
+            if not source_id:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Resolved staged property create-new row lacks a source ID.",
+                )
+            force_create_new.add(str(source_id))
+
         records.append(
             {
-                "Id": row.source_id or data.get("source_id"),
+                "Id": source_id,
                 "Name": data.get("name"),
                 "Address1": data.get("address_line1"),
                 "Address2": data.get("address_line2"),
@@ -515,7 +593,110 @@ def _staged_property_records(
                 "HiddenAt": data.get("hidden_at"),
             }
         )
-    return records
+    if not records:
+        raise HTTPException(
+            status_code=409,
+            detail="No staged property rows remain after explicit skip decisions.",
+        )
+    return (
+        records,
+        resolved_existing,
+        force_create_new,
+        _staged_review_fingerprint(upload, rows),
+    )
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/rows/{staged_row_id}/resolution",
+    response_model=AppFolioMigrationStagedRowOut,
+)
+def resolve_staged_appfolio_property(
+    run_id: int,
+    upload_id: int,
+    staged_row_id: int,
+    payload: AppFolioStagedRowResolutionIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    if upload.detected_resource != "PROPERTIES":
+        raise HTTPException(status_code=409, detail="Only staged PROPERTIES rows can be resolved here.")
+    row = _staged_row(
+        db,
+        run=run,
+        upload=upload,
+        staged_row_id=staged_row_id,
+    )
+    if row.resource != "PROPERTIES" or row.errors:
+        raise HTTPException(status_code=409, detail="Invalid staged property rows cannot be resolved.")
+    if row.disposition == "ALREADY_MAPPED":
+        raise HTTPException(
+            status_code=409,
+            detail="Already-mapped staged rows are controlled by their durable source mapping.",
+        )
+    if row.disposition == "REVIEW" and payload.action != "SKIP":
+        raise HTTPException(
+            status_code=409,
+            detail="This REVIEW row may only be skipped in the current property migration batch.",
+        )
+    if payload.action == "CREATE_NEW" and row.disposition != "POSSIBLE_MATCH":
+        raise HTTPException(
+            status_code=409,
+            detail="CREATE_NEW resolution is only valid for a reviewed POSSIBLE_MATCH row.",
+        )
+
+    target_id = payload.target_property_id
+    if payload.action == "MATCH_EXISTING":
+        if row.disposition not in {"POSSIBLE_MATCH", "NEW"}:
+            raise HTTPException(status_code=409, detail="This staged row cannot be matched to an existing property.")
+        target = (
+            db.query(Property)
+            .filter(
+                Property.id == target_id,
+                Property.organization_id == run.organization_id,
+                Property.is_active.is_(True),
+                Property.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if target is None:
+            raise HTTPException(status_code=404, detail="Existing target property not found.")
+    else:
+        target_id = None
+
+    if (
+        row.resolution_action == payload.action
+        and row.resolution_target_id == target_id
+    ):
+        return row
+
+    row.resolution_action = payload.action
+    row.resolution_target_id = target_id
+    row.resolved_by_platform_user_id = current_user.id
+    row.resolved_at = datetime.utcnow()
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    run.status = "STAGED"
+    append_audit_log(
+        db,
+        platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_staged_row",
+        entity_id=row.id,
+        action="appfolio_property_resolution_changed",
+        new_value={
+            "upload_id": upload.id,
+            "source_id": row.source_id,
+            "resolution_action": row.resolution_action,
+            "resolution_target_id": row.resolution_target_id,
+            "raw_source_stored": False,
+            "target_mutation": False,
+        },
+    )
+    db.commit()
+    db.refresh(row)
+    return row
 
 
 @router.post(
@@ -530,13 +711,15 @@ def dry_run_staged_appfolio_properties(
 ):
     run = _run(db, run_id=run_id, current_user=current_user, write=True)
     upload = _upload(db, run=run, upload_id=upload_id)
-    records = _staged_property_records(db, run=run, upload=upload)
+    records, resolved_existing, force_create_new, review_fingerprint = _staged_property_state(
+        db, run=run, upload=upload
+    )
     result = dry_run_properties(
         db,
         run=run,
         include_hidden=False,
         records=records,
-        source_context_fingerprint=upload.normalized_fingerprint,
+        source_context_fingerprint=review_fingerprint,
     )
     if not result.replayed:
         append_audit_log(
@@ -548,7 +731,7 @@ def dry_run_staged_appfolio_properties(
             action="appfolio_staged_properties_dry_run",
             new_value={
                 "upload_id": upload.id,
-                "source_context_fingerprint": upload.normalized_fingerprint,
+                "source_context_fingerprint": review_fingerprint,
                 "dry_run_fingerprint": result.fingerprint,
                 **result.summary,
                 "raw_file_stored": False,
@@ -567,6 +750,83 @@ def dry_run_staged_appfolio_properties(
         importable=result.importable,
         skipped_hidden=result.skipped_hidden,
         invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/properties/commit",
+    response_model=AppFolioPropertyCommitOut,
+)
+def commit_staged_appfolio_properties(
+    run_id: int,
+    upload_id: int,
+    payload: AppFolioStagedPropertyCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    records, resolved_existing, force_create_new, review_fingerprint = _staged_property_state(
+        db, run=run, upload=upload
+    )
+    try:
+        result = commit_properties(
+            db,
+            run=run,
+            include_hidden=False,
+            records=records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            source_context_fingerprint=review_fingerprint,
+            resolved_existing_matches=resolved_existing,
+            force_create_new_source_ids=force_create_new,
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=run.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=run.id,
+                action="appfolio_staged_properties_committed",
+                new_value={
+                    "upload_id": upload.id,
+                    "review_fingerprint": review_fingerprint,
+                    "dry_run_fingerprint": result.fingerprint,
+                    "committed": result.committed,
+                    "matched_existing": result.matched_existing,
+                    "skipped_hidden": result.skipped_hidden,
+                    "warning_count": result.warning_count,
+                    "target_property_ids": [
+                        item["target_property_id"] for item in result.rows
+                    ],
+                    "raw_source_stored": False,
+                    "target_overwrite": False,
+                },
+            )
+        db.commit()
+        db.refresh(run)
+    except AppFolioMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Controlled staged property commit conflicted with migration state.",
+        ) from exc
+
+    return AppFolioPropertyCommitOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        committed=result.committed,
+        matched_existing=result.matched_existing,
+        skipped_hidden=result.skipped_hidden,
         warning_count=result.warning_count,
         rows=result.rows,
     )

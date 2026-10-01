@@ -345,6 +345,7 @@ class PropertyCommitResult:
     fingerprint: str
     replayed: bool
     committed: int
+    matched_existing: int
     skipped_hidden: int
     warning_count: int
     rows: list[dict[str, Any]]
@@ -359,8 +360,22 @@ def commit_properties(
     expected_fingerprint: str,
     platform_user_id: int,
     source_context_fingerprint: str | None = None,
+    resolved_existing_matches: dict[str, int] | None = None,
+    force_create_new_source_ids: set[str] | None = None,
 ) -> PropertyCommitResult:
-    """Atomically create only the exact property payload that was dry-run."""
+    """Atomically apply the exact reviewed property dry run.
+
+    Existing durable mappings replay safely. Explicit staged MATCH_EXISTING
+    decisions create migration metadata only; CREATE_NEW decisions may override
+    only the exact possible-match warning for their reviewed source row.
+    """
+    resolved_existing_matches = {
+        str(source_id): int(target_id)
+        for source_id, target_id in (resolved_existing_matches or {}).items()
+    }
+    force_create_new_source_ids = {
+        str(source_id) for source_id in (force_create_new_source_ids or set())
+    }
     fingerprint = _fingerprint(
         organization_id=run.organization_id,
         source_account_ref=run.source_account_ref,
@@ -391,6 +406,17 @@ def commit_properties(
 
     importable_rows = [row for row in preview.rows if row["importable"]]
     source_ids = [str(row["source_id"]) for row in importable_rows]
+    source_id_set = set(source_ids)
+    resolution_ids = set(resolved_existing_matches) | force_create_new_source_ids
+    if resolution_ids - source_id_set:
+        raise AppFolioMigrationError(
+            "Property resolution state does not match the reviewed dry-run rows."
+        )
+    if set(resolved_existing_matches) & force_create_new_source_ids:
+        raise AppFolioMigrationError(
+            "A property source row cannot both match existing and create new."
+        )
+
     mappings = (
         db.query(PlatformMigrationItem)
         .filter(
@@ -405,24 +431,25 @@ def commit_properties(
         if source_ids
         else []
     )
+    by_source = {item.source_id: item for item in mappings}
 
-    if mappings:
-        if len(mappings) != len(source_ids):
-            raise AppFolioMigrationError(
-                "Property commit has a partial prior mapping and requires manual review."
-            )
-        by_source = {item.source_id: item for item in mappings}
-        rows: list[dict[str, Any]] = []
-        for source_id in source_ids:
-            item = by_source.get(source_id)
-            if item is None or item.target_entity != "PROPERTY":
+    result_rows: list[dict[str, Any]] = []
+    committed = 0
+    matched_existing = 0
+    changed = False
+
+    for preview_row in importable_rows:
+        source_id = str(preview_row["source_id"])
+        prior = by_source.get(source_id)
+        if prior is not None:
+            if prior.target_entity != "PROPERTY":
                 raise AppFolioMigrationError(
                     "Property commit mapping is inconsistent and requires manual review."
                 )
             target = (
                 db.query(Property)
                 .filter(
-                    Property.id == item.target_id,
+                    Property.id == prior.target_id,
                     Property.organization_id == run.organization_id,
                 )
                 .first()
@@ -431,41 +458,68 @@ def commit_properties(
                 raise AppFolioMigrationError(
                     "A previously committed target property is missing; manual review required."
                 )
-            rows.append(
+            result_rows.append(
                 {
                     "source_id": source_id,
                     "target_property_id": target.id,
                     "replayed": True,
                 }
             )
-        return PropertyCommitResult(
-            fingerprint=fingerprint,
-            replayed=True,
-            committed=0,
-            skipped_hidden=preview.skipped_hidden,
-            warning_count=preview.warning_count,
-            rows=rows,
-        )
+            continue
 
-    conflicts = [
-        row
-        for row in preview.rows
-        if any(
+        resolved_target_id = resolved_existing_matches.get(source_id)
+        if resolved_target_id is not None:
+            target = (
+                db.query(Property)
+                .filter(
+                    Property.id == resolved_target_id,
+                    Property.organization_id == run.organization_id,
+                    Property.is_active.is_(True),
+                    Property.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target is None:
+                raise AppFolioMigrationError(
+                    "Resolved existing property target is no longer available."
+                )
+            db.add(
+                PlatformMigrationItem(
+                    run_id=run.id,
+                    organization_id=run.organization_id,
+                    provider="APPFOLIO",
+                    resource="PROPERTIES",
+                    source_id=source_id,
+                    target_entity="PROPERTY",
+                    target_id=target.id,
+                    source_fingerprint=fingerprint,
+                    created_by_platform_user_id=platform_user_id,
+                )
+            )
+            result_rows.append(
+                {
+                    "source_id": source_id,
+                    "target_property_id": target.id,
+                    "replayed": False,
+                }
+            )
+            matched_existing += 1
+            changed = True
+            continue
+
+        has_possible_match = any(
             warning.startswith("Possible existing target property match:")
-            for warning in row["warnings"]
+            for warning in preview_row["warnings"]
         )
-    ]
-    if conflicts:
-        raise AppFolioMigrationError(
-            "Property commit is blocked by possible existing target matches; "
-            "resolve those conflicts before committing."
-        )
+        if has_possible_match and source_id not in force_create_new_source_ids:
+            raise AppFolioMigrationError(
+                "Property commit is blocked by possible existing target matches; "
+                "resolve those conflicts before committing."
+            )
 
-    committed_rows: list[dict[str, Any]] = []
-    for row in importable_rows:
         target = Property(
             organization_id=run.organization_id,
-            **row["mapped"],
+            **preview_row["mapped"],
         )
         db.add(target)
         db.flush()
@@ -475,28 +529,33 @@ def commit_properties(
                 organization_id=run.organization_id,
                 provider="APPFOLIO",
                 resource="PROPERTIES",
-                source_id=str(row["source_id"]),
+                source_id=source_id,
                 target_entity="PROPERTY",
                 target_id=target.id,
                 source_fingerprint=fingerprint,
                 created_by_platform_user_id=platform_user_id,
             )
         )
-        committed_rows.append(
+        result_rows.append(
             {
-                "source_id": str(row["source_id"]),
+                "source_id": source_id,
                 "target_property_id": target.id,
                 "replayed": False,
             }
         )
+        committed += 1
+        changed = True
 
-    run.status = "PROPERTIES_COMMITTED"
-    db.flush()
+    if changed:
+        run.status = "PROPERTIES_COMMITTED"
+        db.flush()
+
     return PropertyCommitResult(
         fingerprint=fingerprint,
-        replayed=False,
-        committed=len(committed_rows),
+        replayed=not changed,
+        committed=committed,
+        matched_existing=matched_existing,
         skipped_hidden=preview.skipped_hidden,
         warning_count=preview.warning_count,
-        rows=committed_rows,
+        rows=result_rows,
     )

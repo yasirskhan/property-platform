@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import DBAPIError
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_HEAD = "f13c7a9e2b40"
+EXPECTED_HEAD = "b24d8c1f4a62"
 EXPECTED_MODEL_TABLES = 201
 
 

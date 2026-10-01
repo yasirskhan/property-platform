@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class AppFolioMigrationRunCreateIn(BaseModel):
@@ -89,6 +89,7 @@ class AppFolioPropertyCommitOut(BaseModel):
     fingerprint: str
     replayed: bool
     committed: int
+    matched_existing: int = 0
     skipped_hidden: int
     warning_count: int
     rows: list[AppFolioPropertyCommitRow]
@@ -151,4 +152,29 @@ class AppFolioMigrationStagedRowOut(BaseModel):
     normalized_data: dict[str, Any]
     warnings: list[str]
     errors: list[str]
+    resolution_action: str | None = None
+    resolution_target_id: int | None = None
+    resolved_by_platform_user_id: int | None = None
+    resolved_at: datetime | None = None
     created_at: datetime
+
+
+class AppFolioStagedRowResolutionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action: str = Field(pattern=r"^(MATCH_EXISTING|CREATE_NEW|SKIP)$")
+    target_property_id: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def validate_target(self):
+        if self.action == "MATCH_EXISTING" and self.target_property_id is None:
+            raise ValueError("target_property_id is required for MATCH_EXISTING")
+        if self.action != "MATCH_EXISTING" and self.target_property_id is not None:
+            raise ValueError("target_property_id is only valid for MATCH_EXISTING")
+        return self
+
+
+class AppFolioStagedPropertyCommitIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")

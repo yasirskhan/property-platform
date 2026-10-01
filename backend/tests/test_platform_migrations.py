@@ -21,6 +21,8 @@ from app.schemas.platform_migration import (
     AppFolioMigrationRunCreateIn,
     AppFolioPropertyCommitIn,
     AppFolioPropertyDryRunIn,
+    AppFolioStagedPropertyCommitIn,
+    AppFolioStagedRowResolutionIn,
 )
 
 
@@ -1266,4 +1268,354 @@ def test_staged_property_dry_run_route_is_exposed():
     assert (
         "/api/platform/migrations/appfolio/runs/{run_id}/uploads/{upload_id}/properties/dry-run"
         in set(app.openapi()["paths"])
+    )
+
+
+def test_staged_property_resolution_match_existing_and_controlled_commit_is_replay_safe():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Resolution Match Org")
+        existing = Property(
+            organization_id=org.id,
+            name="Existing Match",
+            property_type="multi_family",
+            address_line1="10 Match Way",
+            city="Cleveland",
+            state="OH",
+            zip_code="44113",
+            country="USA",
+            is_active=True,
+        )
+        db.add(existing)
+        db.commit()
+        original_name = existing.name
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="resolution-match",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        content = (
+            "Property Id,Property Name,Address 1,City,State,Zip\n"
+            "MATCH-RES,Existing Match,10 Match Way,Cleveland,OH,44113\n"
+            "NEW-RES,New Property,20 New Way,Cleveland,OH,44113\n"
+        ).encode()
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("resolution.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        rows = api.list_appfolio_staged_rows(
+            run.id, upload.id, response=Response(), offset=0, limit=200,
+            db=db, current_user=admin,
+        )
+        match_row = next(row for row in rows if row.source_id == "MATCH-RES")
+        assert match_row.disposition == "POSSIBLE_MATCH"
+
+        with pytest.raises(HTTPException):
+            api.dry_run_staged_appfolio_properties(
+                run.id, upload.id, db=db, current_user=admin
+            )
+
+        resolved = api.resolve_staged_appfolio_property(
+            run.id,
+            upload.id,
+            match_row.id,
+            AppFolioStagedRowResolutionIn(
+                action="MATCH_EXISTING",
+                target_property_id=existing.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert resolved.resolution_action == "MATCH_EXISTING"
+        assert resolved.resolution_target_id == existing.id
+
+        preview = api.dry_run_staged_appfolio_properties(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert preview.total == 2 and preview.importable == 2
+        committed = api.commit_staged_appfolio_properties(
+            run.id,
+            upload.id,
+            AppFolioStagedPropertyCommitIn(fingerprint=preview.fingerprint),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.committed == 1
+        assert committed.matched_existing == 1
+        assert committed.replayed is False
+        assert db.query(Property).filter(Property.organization_id == org.id).count() == 2
+        assert db.get(Property, existing.id).name == original_name
+        mappings = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "PROPERTIES",
+        ).all()
+        assert {item.source_id for item in mappings} == {"MATCH-RES", "NEW-RES"}
+        assert next(item for item in mappings if item.source_id == "MATCH-RES").target_id == existing.id
+
+        replay = api.commit_staged_appfolio_properties(
+            run.id,
+            upload.id,
+            AppFolioStagedPropertyCommitIn(fingerprint=preview.fingerprint),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert replay.committed == 0
+        assert replay.matched_existing == 0
+        assert db.query(Property).filter(Property.organization_id == org.id).count() == 2
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_staged_property_create_new_resolution_binds_fingerprint_and_old_preview_goes_stale():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="Resolution Create Org")
+        existing = Property(
+            organization_id=org.id,
+            name="Reviewed Possible",
+            property_type="multi_family",
+            address_line1="30 Review Rd",
+            city="Cleveland",
+            state="OH",
+            zip_code="44113",
+            country="USA",
+            is_active=True,
+        )
+        db.add(existing)
+        db.commit()
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="resolution-create",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        content = (
+            "Property Id,Property Name,Address 1,City,State,Zip\n"
+            "CREATE-RES,Reviewed Possible,30 Review Rd,Cleveland,OH,44113\n"
+        ).encode()
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("create-new.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        api.resolve_staged_appfolio_property(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedRowResolutionIn(action="CREATE_NEW"),
+            db=db,
+            current_user=admin,
+        )
+        preview_create = api.dry_run_staged_appfolio_properties(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert any(
+            "Possible existing target property match" in warning
+            for warning in preview_create.rows[0].warnings
+        )
+
+        api.resolve_staged_appfolio_property(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedRowResolutionIn(
+                action="MATCH_EXISTING",
+                target_property_id=existing.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert db.get(PlatformMigrationRun, run.id).last_dry_run_fingerprint is None
+        with pytest.raises(HTTPException) as exc:
+            api.commit_staged_appfolio_properties(
+                run.id,
+                upload.id,
+                AppFolioStagedPropertyCommitIn(fingerprint=preview_create.fingerprint),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        preview_match = api.dry_run_staged_appfolio_properties(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert preview_match.fingerprint != preview_create.fingerprint
+        matched = api.commit_staged_appfolio_properties(
+            run.id,
+            upload.id,
+            AppFolioStagedPropertyCommitIn(fingerprint=preview_match.fingerprint),
+            db=db,
+            current_user=admin,
+        )
+        assert matched.committed == 0 and matched.matched_existing == 1
+        assert db.query(Property).filter(Property.organization_id == org.id).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_staged_property_create_new_and_skip_are_explicit_and_scoped():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        support = _platform_user(db, PlatformUserRole.PLATFORM_SUPPORT)
+        org = _org(db, name="Resolution Scope Org")
+        other = _org(db, name="Resolution Scope Other")
+        existing = Property(
+            organization_id=org.id,
+            name="Possible Create",
+            property_type="multi_family",
+            address_line1="40 Create St",
+            city="Cleveland",
+            state="OH",
+            zip_code="44113",
+            country="USA",
+            is_active=True,
+        )
+        foreign = Property(
+            organization_id=other.id,
+            name="Foreign",
+            property_type="multi_family",
+            address_line1="99 Foreign St",
+            city="Cleveland",
+            state="OH",
+            zip_code="44113",
+            country="USA",
+            is_active=True,
+        )
+        db.add_all([existing, foreign])
+        db.commit()
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="resolution-scope",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        content = (
+            "Property Id,Property Name,Address 1,City,State,Zip,Hidden At\n"
+            "CREATE-NEW,Possible Create,40 Create St,Cleveland,OH,44113,\n"
+            "SKIP-HIDDEN,Hidden Source,50 Hidden St,Cleveland,OH,44113,2026-01-01\n"
+        ).encode()
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("scope.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+
+        with pytest.raises(HTTPException) as exc:
+            api.resolve_staged_appfolio_property(
+                run.id,
+                upload.id,
+                rows[0].id,
+                AppFolioStagedRowResolutionIn(
+                    action="MATCH_EXISTING",
+                    target_property_id=foreign.id,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 404
+
+        with pytest.raises(HTTPException) as exc:
+            api.resolve_staged_appfolio_property(
+                run.id,
+                upload.id,
+                rows[0].id,
+                AppFolioStagedRowResolutionIn(action="CREATE_NEW"),
+                db=db,
+                current_user=support,
+            )
+        assert exc.value.status_code == 403
+
+        api.resolve_staged_appfolio_property(
+            run.id,
+            upload.id,
+            rows[0].id,
+            AppFolioStagedRowResolutionIn(action="CREATE_NEW"),
+            db=db,
+            current_user=admin,
+        )
+        api.resolve_staged_appfolio_property(
+            run.id,
+            upload.id,
+            rows[1].id,
+            AppFolioStagedRowResolutionIn(action="SKIP"),
+            db=db,
+            current_user=admin,
+        )
+        preview = api.dry_run_staged_appfolio_properties(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert preview.total == 1 and preview.rows[0].source_id == "CREATE-NEW"
+        committed = api.commit_staged_appfolio_properties(
+            run.id,
+            upload.id,
+            AppFolioStagedPropertyCommitIn(fingerprint=preview.fingerprint),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.committed == 1
+        assert db.query(Property).filter(Property.organization_id == org.id).count() == 2
+        assert db.query(Property).filter(
+            Property.organization_id == org.id,
+            Property.name == "Hidden Source",
+        ).count() == 0
+
+        resolution_audits = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_staged_row",
+            AuditLog.action == "appfolio_property_resolution_changed",
+        ).count()
+        assert resolution_audits == 2
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_staged_property_resolution_and_commit_routes_are_exposed():
+    from app.main import app
+
+    paths = set(app.openapi()["paths"])
+    assert (
+        "/api/platform/migrations/appfolio/runs/{run_id}/uploads/{upload_id}/rows/{staged_row_id}/resolution"
+        in paths
+    )
+    assert (
+        "/api/platform/migrations/appfolio/runs/{run_id}/uploads/{upload_id}/properties/commit"
+        in paths
     )
