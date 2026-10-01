@@ -1,3 +1,47 @@
+# AI_HANDOFF.md — 2026-10-01 PHASE 4.12 NIGHTLY PRICING VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **IN PROGRESS**.
+- Verified PRODUCT SHA: `f946f69c122bfd0943a6530cc8c0dadc2a945926`.
+- GitHub Actions run: `36827997620` — SUCCESS.
+- All six required CI jobs passed on this exact product SHA:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **862 passed, 20 deselected, 23488 warnings in 337.21s**.
+- Authenticated E2E: **20 passed, 274 warnings in 110.68s**.
+- Alembic head: `b24d6f8a0c3e`.
+- Expected model tables: **196**.
+- Navigation integrity and planning parity passed in hosted CI.
+- `docs/NAVIGATION_INTEGRITY_PLAN.md`, the `HIDDEN MENU / UNHIDE ROADMAP`, and inactive `docs/UX_STANDARDS.md` were not changed.
+
+## Verified Phase 4.12 batch 2 — staff-entered nightly pricing
+
+- Added property/unit-scoped `ShortTermRentalNightlyPrice` records for explicit dated nightly rates.
+- Nightly pricing is independent of Airbnb/Vrbo provider records and contains no provider credential or synchronization claim.
+- Records support unit, night date, nightly rate, minimum stay and notes.
+- ADMIN/OWNER may write; assigned MANAGER is read-only; other roles fail closed.
+- Cross-organization, unassigned-property and foreign/inactive-unit access fails closed.
+- Duplicate unit/date records fail closed.
+- CRUD mutations are audit logged and reads are `no-store`.
+- Pricing records create no booking, lease, Charge, invoice, receipt, payout or GL transaction.
+- Focused regressions verify scope, feature revocation, validation, duplicate protection, audit logging and zero Charge/GL mutation.
+
+## Exact next Phase 4.12 work
+
+Continue the authoritative `docs/PLAN_GAPS.md` scope:
+
+1. **Turnover scheduling** — reconcile the existing work-order/inspection primitives and add the smallest property/unit-scoped short-term-rental turnover contract without fabricating reservation/channel synchronization.
+2. Add the gated customer Short-term Rentals surface and dedicated authenticated browser coverage after backend contracts are verified.
+3. Final exact-SHA six-job verification, then mark **PHASE 4.12 COMPLETE | VERIFIED** before Phase 4.13.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 PHASE 4.12 SHORT-TERM RENTAL CHANNEL FOUNDATION VERIFIED
 
 ## Current verified product checkpoint
