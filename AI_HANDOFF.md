@@ -1,3 +1,70 @@
+# AI_HANDOFF.md — 2026-10-01 PHASE 4.13 UNIT DIRECTORY INGESTION + STAGING VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `270dc810b3627b8fcc28b90482c946c22b10ea63`.
+- GitHub Actions run: `36939396996` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **889 passed, 21 deselected, 23885 warnings in 355.35s**.
+- Authenticated E2E: **21 passed, 278 warnings in 113.39s**.
+- Alembic head remains `b24d8c1f4a62`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Unit Directory ingestion/staging scope
+
+1. The shared AppFolio CSV/XLSX ingestion service now recognizes verified Unit Directory exports in addition to Properties.
+2. Recognized Unit fields are intentionally limited to the verified export contract: Unit ID, Unit Name, Property ID, Property Name, Unit Address, Unit Street Address 1/2, Unit City, Unit State and Unit Zip. No target-model-only fields are inferred.
+3. Unit Directory detection works for CSV and XLSX, including safe single-supported-sheet auto-selection inside multi-sheet workbooks.
+4. Stable Unit ID and Property ID are preserved when supplied.
+5. Unit rows use the existing durable Property source-to-target mapping for relationship validation. They are marked NEW only when the referenced source Property ID resolves to an active same-organization Property mapping.
+6. Missing Unit ID, missing Property ID, or an unresolved source Property mapping stages the row as REVIEW rather than fabricating identity/linkage.
+7. Duplicate Unit source IDs in the same upload fail the affected row as INVALID.
+8. A corrupted/wrong-scope durable Property mapping fails closed.
+9. Existing durable UNITS mapping is surfaced as ALREADY_MAPPED when present.
+10. Equivalent re-upload/replay remains idempotent and creates no duplicate upload/staged rows.
+11. This batch is staging-only. It creates **zero customer Unit rows** and does not mutate Properties.
+12. No Owners/Vendors, Tenants, Leases/occupancy, accounting history, AppFolio API connector, navigation change, or general UX work was added.
+
+Implementation commits:
+- `9041313593db8a6dc8f7da6b803526f546d68b9e` — Unit Directory detect/map/normalize/stage support.
+- `c1870088b84c1f48ede189e949bc4674f1a6447f` — cleanup.
+- `270dc810b3627b8fcc28b90482c946c22b10ea63` — focused Unit staging regressions; final VERIFIED PRODUCT SHA.
+
+Source-schema evidence used for this bounded batch:
+- AppFolio Unit Directory export instructions documenting Unit Name, Property, Property Name, optional Property ID, Unit Address, Unit Street Address 1/2, Unit City, Unit State, Unit Zip and optional Unit ID.
+- No unsupported bedrooms/rent/marketing fields were required or invented in this batch.
+
+## Exact next Phase 4.13 product batch
+
+Add a **Unit staged dry-run bridge + controlled commit** only after reconciling the existing target Unit contract against the verified source fields.
+
+Required boundaries:
+
+1. Reuse the existing run, upload, staged-row, durable mapping, exact-fingerprint dry-run/commit and recovery architecture; do not create a parallel migration system.
+2. Unit -> Property must resolve through the durable source Property mapping; never link solely by display name.
+3. Derive Unit creation only from fields actually present in the verified Unit Directory contract. If the target Unit contract requires information that the verified source does not provide and has no safe default, block the affected row rather than inventing data.
+4. A Unit dry run must be target-non-mutating and bind the staged upload/mapping/relationship state into the exact preview fingerprint.
+5. Existing durable UNITS mappings must replay safely without duplicate Unit creation.
+6. Potential same-property existing Unit matches must be surfaced for explicit review; never overwrite automatically.
+7. Controlled commit must require the exact latest reviewed fingerprint and derive its payload from staged rows, not arbitrary caller-supplied Unit records.
+8. Any future match/create/skip Unit resolution must be explicit, audited and fingerprint-invalidating.
+9. Do not proceed to Owners/Vendors until the Unit commit boundary is verified.
+10. Do not implement AppFolio API transport or general UX work.
+11. Preserve navigation integrity, hidden-menu roadmap, organization isolation, audit/idempotency and recovery visibility.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 PHASE 4.13 STAGED PROPERTY RESOLUTION + CONTROLLED COMMIT VERIFIED
 
 ## Current verified product checkpoint
