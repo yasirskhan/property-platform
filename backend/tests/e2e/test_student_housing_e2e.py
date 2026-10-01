@@ -158,7 +158,11 @@ def test_student_housing_property_tab_end_to_end():
                 page.get_by_label("Academic cycle end date").fill("2027-05-15")
                 page.get_by_role("button", name="Create academic cycle").click()
                 expect(page.get_by_text("Academic cycle created.")).to_be_visible()
-                expect(page.get_by_text("E2E Academic Year", exact=True)).to_be_visible()
+                expect(
+                    page.get_by_label("Academic cycle list").get_by_text(
+                        "E2E Academic Year", exact=True
+                    )
+                ).to_be_visible()
 
                 page.get_by_label("Student bed unit").select_option(label="STUDENT-E2E-101")
                 page.get_by_label("Student bed label").fill("Bed E2E-A")
