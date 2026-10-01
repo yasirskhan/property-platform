@@ -1,3 +1,48 @@
+# AI_HANDOFF.md — 2026-10-01 PHASE 4.13 APPFOLIO MAPPING VISIBILITY VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio migration tooling: **IN PROGRESS**.
+- Verified PRODUCT SHA: `87614632efd2aa5ddb7d641d49d6846c4f74a7fc`.
+- GitHub Actions run: `36903338715` — SUCCESS.
+- All six required CI jobs passed on this exact product SHA:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **873 passed, 21 deselected, 23646 warnings in 303.24s**.
+- Authenticated E2E: **21 passed, 278 warnings in 111.35s**.
+- Alembic head remains `e57c9b1d3f20`.
+- Expected model tables remain **199**.
+- Navigation integrity, planning parity and committed-secret checks passed.
+- `docs/NAVIGATION_INTEGRITY_PLAN.md`, the `HIDDEN MENU / UNHIDE ROADMAP`, and inactive `docs/UX_STANDARDS.md` remain unchanged.
+
+## Verified Phase 4.13 batch 3 — read-only source mapping / recovery visibility
+
+1. Platform operators with authorized read roles can list durable AppFolio source-to-target migration mappings for a run without exposing raw provider payloads or credentials.
+2. Reads are bounded, support optional resource filtering, and return `Cache-Control: no-store`.
+3. Property mappings resolve only same-organization target Property records; missing target records are surfaced as `target_exists=false` rather than repaired or recreated.
+4. Mapping reads are read-only and create no customer Property, accounting, audit-repair, or provider-side mutations.
+5. PLATFORM_SUPPORT remains read-only; PLATFORM_SALES is denied.
+6. Mapping organization/provider scope is validated against the migration run. Inconsistent durable mappings fail closed instead of silently returning an empty list or appearing to rebind to another organization.
+7. The initial source commit `0f37fd8445f8f333bd3fe544a88eb41b1ce0b61d` failed hosted backend tests because the router omitted the `Property` import.
+8. Scoped correction `272b732e9e840205c3dbfe60d2fe86edc27aa6a3` restored the target lookup, then CI exposed the intended fail-closed scope regression.
+9. Final correction `87614632efd2aa5ddb7d641d49d6846c4f74a7fc` rejects migration-run/mapping organization or provider inconsistencies; this is the verified PRODUCT SHA.
+
+## Exact next Phase 4.13 work
+
+1. Live AppFolio transport remains **BLOCKED pending an authoritative authenticated provider contract**. Do not invent credentials, endpoints, resource fields, pagination, rate-limit semantics or source schemas.
+2. Do not invent Unit, People, Lease or accounting mappings from target models.
+3. If authoritative AppFolio authentication/resource documentation becomes available, reconcile it against the verified run/dry-run/commit/mapping contracts before implementing transport.
+4. Preserve the dry-run-before-commit boundary, source-to-target mapping idempotency, organization isolation, audit integrity and customer accounting immutability.
+5. Preserve navigation integrity, the hidden-menu roadmap and inactive UX standards.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 PHASE 4.13 APPFOLIO PROPERTY COMMIT VERIFIED
 
 ## Current verified product checkpoint
