@@ -12,13 +12,14 @@ import init_db  # noqa: F401
 from app.core.database import Base
 from app.core.security import hash_password
 from app.models.audit_log import AuditLog
-from app.models.platform_migration import PlatformMigrationRun
+from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.property import Property
 from app.models.user import Organization
 from app.routers import platform_migrations as api
 from app.schemas.platform_migration import (
     AppFolioMigrationRunCreateIn,
+    AppFolioPropertyCommitIn,
     AppFolioPropertyDryRunIn,
 )
 
@@ -287,3 +288,201 @@ def test_appfolio_schemas_reject_credentials_and_raw_transport_fields():
             records=[_valid_record()],
             access_token="secret",
         )
+
+
+
+def test_appfolio_property_commit_is_atomic_mapped_and_replay_safe():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db)
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="portfolio-commit",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        records = [
+            _valid_record(),
+            _valid_record(
+                Id="AF-200",
+                Name="River Apartments",
+                Address1="20 River Rd",
+                Address2=None,
+            ),
+            _valid_record(Id="AF-HIDDEN", HiddenAt="2026-09-01"),
+        ]
+        dry = api.dry_run_appfolio_properties(
+            run.id,
+            AppFolioPropertyDryRunIn(records=records),
+            db=db,
+            current_user=admin,
+        )
+        assert dry.importable == 2
+        assert dry.skipped_hidden == 1
+        before_commit_audit = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "appfolio_properties_committed",
+        ).count()
+
+        committed = api.commit_appfolio_properties(
+            run.id,
+            AppFolioPropertyCommitIn(
+                records=records,
+                fingerprint=dry.fingerprint,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.replayed is False
+        assert committed.committed == 2
+        assert committed.skipped_hidden == 1
+        assert db.query(Property).filter(Property.organization_id == org.id).count() == 2
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "PROPERTIES",
+        ).count() == 2
+        assert db.get(PlatformMigrationRun, run.id).status == "PROPERTIES_COMMITTED"
+        assert all(row.replayed is False for row in committed.rows)
+
+        after_first_audit = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "appfolio_properties_committed",
+        ).count()
+        assert after_first_audit == before_commit_audit + 1
+
+        replay = api.commit_appfolio_properties(
+            run.id,
+            AppFolioPropertyCommitIn(
+                records=records,
+                fingerprint=dry.fingerprint,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert replay.committed == 0
+        assert db.query(Property).filter(Property.organization_id == org.id).count() == 2
+        assert all(row.replayed is True for row in replay.rows)
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "appfolio_properties_committed",
+        ).count() == after_first_audit
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_property_commit_blocks_changed_invalid_and_existing_targets():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db)
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="portfolio-blocks",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        valid = [_valid_record()]
+        dry = api.dry_run_appfolio_properties(
+            run.id,
+            AppFolioPropertyDryRunIn(records=valid),
+            db=db,
+            current_user=admin,
+        )
+
+        changed = [_valid_record(Name="Changed after preview")]
+        with pytest.raises(HTTPException) as exc:
+            api.commit_appfolio_properties(
+                run.id,
+                AppFolioPropertyCommitIn(
+                    records=changed,
+                    fingerprint=dry.fingerprint,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(Property).count() == 0
+
+        invalid = [_valid_record(Name="")]
+        invalid_dry = api.dry_run_appfolio_properties(
+            run.id,
+            AppFolioPropertyDryRunIn(records=invalid),
+            db=db,
+            current_user=admin,
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.commit_appfolio_properties(
+                run.id,
+                AppFolioPropertyCommitIn(
+                    records=invalid,
+                    fingerprint=invalid_dry.fingerprint,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(Property).count() == 0
+
+        existing = Property(
+            organization_id=org.id,
+            name="Lake Apartments",
+            property_type="multi_family",
+            address_line1="10 Lake Ave",
+            address_line2="Suite 1",
+            city="Cleveland",
+            state="OH",
+            zip_code="44113",
+            country="USA",
+            is_active=True,
+        )
+        db.add(existing)
+        db.commit()
+        conflict_dry = api.dry_run_appfolio_properties(
+            run.id,
+            AppFolioPropertyDryRunIn(records=valid),
+            db=db,
+            current_user=admin,
+        )
+        assert conflict_dry.warning_count == 1
+        with pytest.raises(HTTPException) as exc:
+            api.commit_appfolio_properties(
+                run.id,
+                AppFolioPropertyCommitIn(
+                    records=valid,
+                    fingerprint=conflict_dry.fingerprint,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(Property).count() == 1
+        assert db.query(PlatformMigrationItem).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_commit_schema_rejects_credentials_and_router_is_exposed():
+    with pytest.raises(ValidationError):
+        AppFolioPropertyCommitIn(
+            records=[_valid_record()],
+            fingerprint="0" * 64,
+            access_token="secret",
+        )
+
+    from app.main import app
+
+    paths = {route.path for route in app.routes}
+    assert "/api/platform/migrations/appfolio/runs" in paths
+    assert "/api/platform/migrations/appfolio/runs/{run_id}/properties/dry-run" in paths
+    assert "/api/platform/migrations/appfolio/runs/{run_id}/properties/commit" in paths
