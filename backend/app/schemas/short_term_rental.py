@@ -69,3 +69,48 @@ class ShortTermRentalNightlyPriceOut(BaseModel):
     notes: str | None
     created_at: datetime
     updated_at: datetime
+
+
+TurnoverStatus = Literal["SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]
+
+
+class ShortTermRentalTurnoverIn(BaseModel):
+    unit_id: int = Field(gt=0)
+    scheduled_start: datetime
+    scheduled_end: datetime
+    status: TurnoverStatus = "SCHEDULED"
+    cleaning_work_order_id: int | None = Field(default=None, gt=0)
+    inspection_record_id: int | None = Field(default=None, gt=0)
+    notes: str | None = Field(default=None, max_length=4000)
+
+    @field_validator("notes")
+    @classmethod
+    def trim_turnover_notes(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
+
+    @field_validator("scheduled_end")
+    @classmethod
+    def validate_turnover_window(cls, value: datetime, info):
+        start = info.data.get("scheduled_start")
+        if start is not None and value <= start:
+            raise ValueError("Turnover end must be after the start.")
+        return value
+
+
+class ShortTermRentalTurnoverOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    property_id: int
+    unit_id: int
+    scheduled_start: datetime
+    scheduled_end: datetime
+    status: TurnoverStatus
+    cleaning_work_order_id: int | None
+    inspection_record_id: int | None
+    notes: str | None
+    created_at: datetime
+    updated_at: datetime
