@@ -1,3 +1,54 @@
+# AI_HANDOFF.md — 2026-10-01 PHASE 4.11 COMPLETE | VERIFIED
+
+## Final Phase 4.11 product checkpoint
+
+- **PHASE 4.11 COMPLETE | VERIFIED**
+- Final VERIFIED PRODUCT SHA: `d8211d003bcd8d58f4514e3c53b4e6932f8df1f8`
+- GitHub Actions run: `36818243408` — SUCCESS
+- All six required CI jobs passed on this exact product SHA:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **857 passed, 20 deselected, 23375 warnings in 316.32s**
+- Authenticated E2E: **20 passed, 274 warnings in 111.44s**
+- Alembic head: `d19f3a5c7e2b`
+- Expected model tables: **194**
+- Navigation integrity and parity checks passed in hosted CI.
+- `docs/NAVIGATION_INTEGRITY_PLAN.md`, the `HIDDEN MENU / UNHIDE ROADMAP`, and inactive `docs/UX_STANDARDS.md` were preserved.
+
+## Verified Phase 4.11 Senior Housing scope
+
+1. Staff-recorded, property/organization-scoped age-restriction references support 55+, 62+ and other recorded restriction types without inferring resident eligibility or certifying Fair Housing/HOPA compliance.
+2. Care-coordination placeholders are a property-level resource/contact directory only and contain no resident linkage, diagnosis, medical notes, treatment plan, medical eligibility or legal-care determination.
+3. HUD 202/811 records preserve explicit staff references and evidence-readiness states only. They do not certify HUD eligibility, funding, subsidy, occupancy, resident qualification or payment status.
+4. ADMIN/OWNER may write; assigned MANAGER is read-only; cross-organization and unassigned-property access fails closed.
+5. Senior Housing CRUD mutations are audit logged and create no Charge or GL transaction.
+6. The customer property page exposes a gated **Senior Housing** tab behind `release.properties.senior_housing` covering:
+   - age-restriction references;
+   - care-resource directory entries;
+   - HUD 202/811 readiness references.
+7. Dedicated authenticated browser coverage verifies one complete customer flow through all three surfaces and their non-certifying disclosures.
+8. The release gate remains separate from menu-route readiness; no hidden sidebar item or navigation contract was changed.
+
+Final UI/E2E commit:
+- `d8211d003bcd8d58f4514e3c53b4e6932f8df1f8` — final VERIFIED PRODUCT SHA.
+
+## Exact next phase
+
+Proceed to **Phase 4.12 — Short-term Rentals** from `docs/PLAN_GAPS.md`.
+
+Authoritative planned scope:
+- Airbnb / Vrbo integration;
+- nightly pricing;
+- turnover scheduling.
+
+Before implementing, reconcile live source for any existing short-term-rental/channel/calendar/pricing/turnover primitives and begin with the smallest independently verifiable foundation. Do not fabricate external channel connectivity or booking synchronization without an actual provider contract.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 PHASE 4.11 SENIOR HOUSING HUD 202/811 BACKEND VERIFIED
 
 ## Current verified product checkpoint
