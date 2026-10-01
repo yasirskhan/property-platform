@@ -1,3 +1,59 @@
+# AI_HANDOFF.md — 2026-10-01 PHASE 4.10 COMPLETE | VERIFIED
+
+## Final Phase 4.10 product checkpoint
+
+- **PHASE 4.10 COMPLETE | VERIFIED**
+- Final VERIFIED PRODUCT SHA: `e4707a1e3ac695737dadc914d133667a929fca44`
+- GitHub Actions run: `36798336118`
+- Final run conclusion: SUCCESS
+- All six required CI jobs passed on this exact product SHA:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **849 passed, 18 deselected, 23214 warnings in 225.13s**
+- Authenticated E2E: **18 passed, 271 warnings in 106.57s**
+- Alembic head: `ae6c8d0f2b4c`
+- Expected model tables: **191**
+- No local test result is being substituted for hosted CI.
+
+## Verified Phase 4.10 Student Housing scope
+
+1. Property-scoped academic-year cycles are implemented behind `release.properties.student_housing`.
+2. Active-unit bed inventory is explicit and organization/property scoped.
+3. Central `Lease` supports optional Student Housing bed and academic-cycle references; no parallel rent/accounting system was created.
+4. Distinct beds in one unit can have independent standard lease signature, activation, invoice and payment lifecycles.
+5. Whole-unit and same-bed DRAFT/PENDING/ACTIVE occupancy conflicts fail closed.
+6. Bed leases require an active same-property bed, active same-property academic cycle, active same-organization tenant, and dates contained within the selected academic cycle.
+7. Open bed leases protect their bed and academic-cycle source records from deactivation.
+8. Guarantor workflow supports explicit DRAFT -> REQUESTED -> DOCUMENT_RECEIVED or CANCELLED operational states. These states do not establish legal guaranty validity, signature, collectability or financial responsibility.
+9. Student Housing setup and guarantor workflow create no Charge or GL transaction.
+10. The customer property page now exposes a gated **Student Housing** tab with:
+    - academic-cycle creation/listing;
+    - bed inventory creation/listing;
+    - draft by-the-bed lease creation/listing;
+    - guarantor workflow creation and status transitions.
+11. ADMIN/OWNER writes and assigned MANAGER read-only behavior remain enforced through the verified property/feature scope.
+12. Dedicated authenticated browser coverage verifies the customer flow from academic cycle -> bed -> draft bed lease -> guarantor requested -> guarantor document received.
+
+Final UI/E2E commits:
+- `b3c63c83b0695c92ee7ef308c42fe63d508966c3` — Student Housing property UI.
+- `635194771c43da5d4ca16e15300931c123a43ffc` — gated property-tab integration.
+- `79606280a3a1244328c085fce15c9761ef85c87e` — authenticated Student Housing browser coverage.
+- `e4707a1e3ac695737dadc914d133667a929fca44` — scoped E2E locator; final VERIFIED PRODUCT SHA.
+
+## STOP POINT
+
+Development is intentionally stopped after Phase 4.10.
+
+**Do not begin Phase 4.11 or make further product-code changes until the user explicitly tells a future session to resume.**
+
+For reference only, the next roadmap phase is **Phase 4.11 — Senior Housing**, described in `docs/PLAN_GAPS.md` as age-restricted compliance, care-coordination placeholders, and HUD 202/811 work. This is not started.
+
+---
+
 # AI_HANDOFF.md — 2026-09-30 VERIFIED PHASE 4.10 BED LEASING + GUARANTOR BACKEND
 
 ## Current verified product checkpoint
