@@ -1,3 +1,45 @@
+# AI_HANDOFF.md — 2026-10-01 PHASE 4.11 SENIOR HOUSING CARE-RESOURCE FOUNDATION VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **IN PROGRESS**
+- Verified PRODUCT SHA: `bcdb6b920d448d9bcf26a3d8e9aba2601f8bbcc7`
+- GitHub Actions run: `36815663334` — SUCCESS
+- All six required CI jobs passed on this exact product SHA:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **855 passed, 19 deselected, 23322 warnings in 195.49s**
+- Authenticated E2E: **19 passed, 271 warnings in 107.56s**
+- Alembic head: `c08e2f4a6d1b`
+- Expected model tables: **193**
+- Navigation integrity and parity checks passed in hosted CI.
+- `docs/NAVIGATION_INTEGRITY_PLAN.md`, the `HIDDEN MENU / UNHIDE ROADMAP`, and inactive `docs/UX_STANDARDS.md` were not changed.
+
+## Verified Phase 4.11 batch 2 — care coordination placeholders
+
+- Added property/organization-scoped `SeniorCareResource` records as a staff-maintained service/contact directory only.
+- Supported recorded resource types: care coordination, transportation, meals, social services, and other.
+- Records may contain provider/contact name, phone, email, reference URL and availability notes.
+- ADMIN/OWNER may write; assigned MANAGER is read-only; other roles fail closed.
+- Cross-organization and unassigned-property access fails closed.
+- CRUD mutations are audit logged.
+- Care-resource records are intentionally not resident-specific and contain no resident/tenant linkage, diagnosis, medical notes, treatment plan, eligibility field, or legal-care determination.
+- Focused regressions verify scope, duplicate protection, feature revocation, audit logging, no-store reads and zero Charge/GL mutation.
+
+## Exact next Phase 4.11 work
+
+Continue the authoritative Phase 4.11 roadmap from `docs/PLAN_GAPS.md`:
+
+1. **HUD 202/811** — explicit staff-recorded program/reference facts and readiness evidence only; do not certify HUD eligibility, funding, occupancy or subsidy status without authoritative evidence.
+2. Customer Senior Housing surface + authenticated browser coverage after the backend contracts are verified.
+3. Final exact-SHA six-job verification, then mark **PHASE 4.11 COMPLETE | VERIFIED** before moving to Phase 4.12.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 PHASE 4.11 SENIOR HOUSING AGE-RESTRICTION FOUNDATION VERIFIED
 
 ## Current verified product checkpoint
