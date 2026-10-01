@@ -92,3 +92,20 @@ class AppFolioPropertyCommitOut(BaseModel):
     skipped_hidden: int
     warning_count: int
     rows: list[AppFolioPropertyCommitRow]
+
+
+
+class AppFolioMigrationItemOut(BaseModel):
+    id: int
+    run_id: int
+    organization_id: int
+    provider: str
+    resource: str
+    source_id: str
+    target_entity: str
+    target_id: int
+    target_exists: bool
+    target_label: str | None
+    source_fingerprint: str
+    created_by_platform_user_id: int | None
+    created_at: datetime

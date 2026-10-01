@@ -486,3 +486,154 @@ def test_appfolio_commit_schema_rejects_credentials_and_router_is_exposed():
     assert "/api/platform/migrations/appfolio/runs" in paths
     assert "/api/platform/migrations/appfolio/runs/{run_id}/properties/dry-run" in paths
     assert "/api/platform/migrations/appfolio/runs/{run_id}/properties/commit" in paths
+
+
+
+def test_appfolio_mapping_visibility_is_read_only_scoped_and_no_store():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        support = _platform_user(db, PlatformUserRole.PLATFORM_SUPPORT)
+        sales = _platform_user(db, PlatformUserRole.PLATFORM_SALES)
+        org = _org(db)
+        other_org = _org(db, name="Other Migration Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="portfolio-visibility",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        records = [_valid_record()]
+        dry = api.dry_run_appfolio_properties(
+            run.id,
+            AppFolioPropertyDryRunIn(records=records),
+            db=db,
+            current_user=admin,
+        )
+        committed = api.commit_appfolio_properties(
+            run.id,
+            AppFolioPropertyCommitIn(
+                records=records,
+                fingerprint=dry.fingerprint,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.committed == 1
+        target_id = committed.rows[0].target_property_id
+
+        response = Response()
+        rows = api.list_appfolio_migration_items(
+            run.id,
+            response=response,
+            resource=None,
+            limit=200,
+            db=db,
+            current_user=support,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert len(rows) == 1
+        assert rows[0].source_id == "AF-100"
+        assert rows[0].target_entity == "PROPERTY"
+        assert rows[0].target_id == target_id
+        assert rows[0].target_exists is True
+        assert rows[0].target_label == "Lake Apartments"
+        assert rows[0].source_fingerprint == dry.fingerprint
+
+        filtered = api.list_appfolio_migration_items(
+            run.id,
+            response=Response(),
+            resource="properties",
+            limit=200,
+            db=db,
+            current_user=support,
+        )
+        assert [row.id for row in filtered] == [rows[0].id]
+
+        assert api.list_appfolio_migration_items(
+            run.id,
+            response=Response(),
+            resource="UNITS",
+            limit=200,
+            db=db,
+            current_user=support,
+        ) == []
+
+        with pytest.raises(HTTPException) as exc:
+            api.list_appfolio_migration_items(
+                run.id,
+                response=Response(),
+                resource=None,
+                limit=200,
+                db=db,
+                current_user=sales,
+            )
+        assert exc.value.status_code == 403
+
+        # A mapping cannot leak or rebind to another organization even if a
+        # same numeric target id is otherwise meaningful there.
+        db.get(PlatformMigrationRun, run.id).organization_id = other_org.id
+        db.flush()
+        with pytest.raises(HTTPException) as exc:
+            api.list_appfolio_migration_items(
+                run.id,
+                response=Response(),
+                resource=None,
+                limit=200,
+                db=db,
+                current_user=support,
+            )
+        assert exc.value.status_code == 404
+
+        assert db.query(PlatformMigrationItem).count() == 1
+        assert db.query(Property).count() == 1
+    finally:
+        db.rollback()
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_mapping_visibility_marks_missing_target_without_mutation():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db)
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="portfolio-recovery",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        item = PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="APPFOLIO",
+            resource="PROPERTIES",
+            source_id="AF-MISSING",
+            target_entity="PROPERTY",
+            target_id=999999,
+            source_fingerprint="a" * 64,
+            created_by_platform_user_id=admin.id,
+        )
+        db.add(item)
+        db.commit()
+
+        rows = api.list_appfolio_migration_items(
+            run.id,
+            response=Response(),
+            resource="PROPERTIES",
+            limit=200,
+            db=db,
+            current_user=admin,
+        )
+        assert len(rows) == 1
+        assert rows[0].target_exists is False
+        assert rows[0].target_label is None
+        assert db.query(Property).count() == 0
+    finally:
+        db.close()
+        engine.dispose()

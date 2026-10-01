@@ -12,12 +12,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.platform_migration import PlatformMigrationRun
+from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.user import Organization
 from app.routers.platform_auth import get_current_platform_user
 from app.schemas.platform_migration import (
     AppFolioMigrationRunCreateIn,
+    AppFolioMigrationItemOut,
     AppFolioMigrationRunOut,
     AppFolioPropertyCommitIn,
     AppFolioPropertyCommitOut,
@@ -296,3 +297,76 @@ def commit_appfolio_properties(
         warning_count=result.warning_count,
         rows=result.rows,
     )
+
+
+
+@router.get(
+    "/runs/{run_id}/items",
+    response_model=list[AppFolioMigrationItemOut],
+)
+def list_appfolio_migration_items(
+    run_id: int,
+    response: Response,
+    resource: str | None = Query(default=None, max_length=32),
+    limit: int = Query(default=200, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Read durable source-to-target mappings without exposing raw provider payloads."""
+    row = _run(db, run_id=run_id, current_user=current_user, write=False)
+    query = db.query(PlatformMigrationItem).filter(
+        PlatformMigrationItem.run_id == row.id,
+        PlatformMigrationItem.organization_id == row.organization_id,
+        PlatformMigrationItem.provider == "APPFOLIO",
+    )
+    if resource is not None:
+        normalized_resource = resource.strip().upper()
+        if not normalized_resource:
+            raise HTTPException(status_code=422, detail="resource cannot be blank.")
+        query = query.filter(PlatformMigrationItem.resource == normalized_resource)
+
+    items = (
+        query.order_by(
+            PlatformMigrationItem.resource.asc(),
+            PlatformMigrationItem.source_id.asc(),
+            PlatformMigrationItem.id.asc(),
+        )
+        .limit(limit)
+        .all()
+    )
+
+    result = []
+    for item in items:
+        target_exists = False
+        target_label = None
+        if item.target_entity == "PROPERTY":
+            target = (
+                db.query(Property)
+                .filter(
+                    Property.id == item.target_id,
+                    Property.organization_id == row.organization_id,
+                )
+                .first()
+            )
+            if target is not None:
+                target_exists = True
+                target_label = target.name
+        result.append(
+            AppFolioMigrationItemOut(
+                id=item.id,
+                run_id=item.run_id,
+                organization_id=item.organization_id,
+                provider=item.provider,
+                resource=item.resource,
+                source_id=item.source_id,
+                target_entity=item.target_entity,
+                target_id=item.target_id,
+                target_exists=target_exists,
+                target_label=target_label,
+                source_fingerprint=item.source_fingerprint,
+                created_by_platform_user_id=item.created_by_platform_user_id,
+                created_at=item.created_at,
+            )
+        )
+    response.headers["Cache-Control"] = "no-store"
+    return result
