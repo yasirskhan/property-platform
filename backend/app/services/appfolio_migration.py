@@ -163,6 +163,8 @@ def dry_run_properties(
 ) -> PropertyDryRunResult:
     if run.provider != "APPFOLIO":
         raise AppFolioMigrationError("Migration run is not an AppFolio run.")
+    resolved_existing_matches = dict(resolved_existing_matches or {})
+    force_create_new_source_ids = set(force_create_new_source_ids or set())
     if not records:
         raise AppFolioMigrationError("At least one AppFolio property record is required.")
 
@@ -607,6 +609,8 @@ def dry_run_units(
     run: PlatformMigrationRun,
     records: list[dict[str, Any]],
     source_context_fingerprint: str | None,
+    resolved_existing_matches: dict[str, int] | None = None,
+    force_create_new_source_ids: set[str] | None = None,
 ) -> UnitDryRunResult:
     if run.provider != "APPFOLIO":
         raise AppFolioMigrationError("Migration run is not an AppFolio run.")
@@ -746,6 +750,34 @@ def dry_run_units(
             row_warnings.append(
                 f"Source Unit ID is already mapped to local unit #{prior_target.id}; commit replay will not create a duplicate."
             )
+        elif source_id in resolved_existing_matches:
+            resolved_target = (
+                db.query(Unit)
+                .join(Property, Property.id == Unit.property_id)
+                .filter(
+                    Unit.id == resolved_existing_matches[source_id],
+                    Unit.property_id == target_property.id,
+                    Unit.is_active.is_(True),
+                    Unit.deleted_at.is_(None),
+                    Property.organization_id == run.organization_id,
+                )
+                .first()
+            )
+            if resolved_target is None:
+                rows.append(
+                    {
+                        "source_id": source_id,
+                        "importable": False,
+                        "reason": "Resolved existing Unit target is missing or no longer belongs to the mapped Property.",
+                        "mapped": None,
+                        "warnings": [],
+                    }
+                )
+                invalid += 1
+                continue
+            row_warnings.append(
+                f"Explicitly matched existing target unit #{resolved_target.id}; commit will create the durable source mapping without overwriting the Unit."
+            )
         else:
             existing = (
                 db.query(Unit)
@@ -753,12 +785,17 @@ def dry_run_units(
                     Unit.property_id == target_property.id,
                     Unit.unit_number == unit_number,
                     Unit.is_active.is_(True),
+                    Unit.deleted_at.is_(None),
                 )
                 .first()
             )
-            if existing is not None:
+            if existing is not None and source_id not in force_create_new_source_ids:
                 row_warnings.append(
                     f"Possible existing target unit match: local unit #{existing.id}; explicit match resolution is required before commit."
+                )
+            elif existing is not None:
+                row_warnings.append(
+                    f"Explicit CREATE_NEW resolution will create a new Unit despite reviewed same-property match #{existing.id}; the existing Unit will not be changed."
                 )
 
         # The verified basic Unit Directory source contract does not require
@@ -814,6 +851,7 @@ class UnitCommitResult:
     fingerprint: str
     replayed: bool
     committed: int
+    matched_existing: int
     warning_count: int
     rows: list[dict[str, Any]]
 
@@ -826,6 +864,8 @@ def commit_units(
     expected_fingerprint: str,
     platform_user_id: int,
     source_context_fingerprint: str | None,
+    resolved_existing_matches: dict[str, int] | None = None,
+    force_create_new_source_ids: set[str] | None = None,
 ) -> UnitCommitResult:
     fingerprint = _unit_fingerprint(
         organization_id=run.organization_id,
@@ -842,11 +882,15 @@ def commit_units(
             "Commit requires the exact latest successful Unit dry run."
         )
 
+    resolved_existing_matches = dict(resolved_existing_matches or {})
+    force_create_new_source_ids = set(force_create_new_source_ids or set())
     preview = dry_run_units(
         db,
         run=run,
         records=records,
         source_context_fingerprint=source_context_fingerprint,
+        resolved_existing_matches=resolved_existing_matches,
+        force_create_new_source_ids=force_create_new_source_ids,
     )
     if preview.invalid:
         raise AppFolioMigrationError(
@@ -875,13 +919,15 @@ def commit_units(
         source_id = str(row["source_id"])
         if source_id in by_source:
             continue
+        if source_id in resolved_existing_matches:
+            continue
         if any(
             warning.startswith("Possible existing target unit match:")
             for warning in row["warnings"]
-        ):
+        ) and source_id not in force_create_new_source_ids:
             raise AppFolioMigrationError(
                 "Unit commit is blocked by possible existing target matches; "
-                "explicit Unit match resolution must be implemented before committing those rows."
+                "explicit Unit match/create/skip resolution is required before committing those rows."
             )
         new_rows.append(row)
 
@@ -897,6 +943,7 @@ def commit_units(
 
     result_rows: list[dict[str, Any]] = []
     committed = 0
+    matched_existing = 0
     changed = False
 
     for row in importable_rows:
@@ -931,6 +978,48 @@ def commit_units(
                     "replayed": True,
                 }
             )
+            continue
+
+        resolved_target_id = resolved_existing_matches.get(source_id)
+        if resolved_target_id is not None:
+            target = (
+                db.query(Unit)
+                .join(Property, Property.id == Unit.property_id)
+                .filter(
+                    Unit.id == resolved_target_id,
+                    Unit.property_id == int(mapped["property_id"]),
+                    Unit.is_active.is_(True),
+                    Unit.deleted_at.is_(None),
+                    Property.organization_id == run.organization_id,
+                )
+                .first()
+            )
+            if target is None:
+                raise AppFolioMigrationError(
+                    "Resolved existing Unit target is missing or relationship-inconsistent; manual review required."
+                )
+            db.add(
+                PlatformMigrationItem(
+                    run_id=run.id,
+                    organization_id=run.organization_id,
+                    provider="APPFOLIO",
+                    resource="UNITS",
+                    source_id=source_id,
+                    target_entity="UNIT",
+                    target_id=target.id,
+                    source_fingerprint=fingerprint,
+                    created_by_platform_user_id=platform_user_id,
+                )
+            )
+            result_rows.append(
+                {
+                    "source_id": source_id,
+                    "target_unit_id": target.id,
+                    "replayed": False,
+                }
+            )
+            matched_existing += 1
+            changed = True
             continue
 
         target = Unit(
@@ -970,6 +1059,7 @@ def commit_units(
         fingerprint=fingerprint,
         replayed=not changed,
         committed=committed,
+        matched_existing=matched_existing,
         warning_count=preview.warning_count,
         rows=result_rows,
     )
