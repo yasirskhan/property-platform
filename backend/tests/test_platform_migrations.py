@@ -24,6 +24,7 @@ from app.schemas.platform_migration import (
     AppFolioStagedPropertyCommitIn,
     AppFolioStagedRowResolutionIn,
     AppFolioStagedUnitCommitIn,
+    AppFolioStagedUnitResolutionIn,
 )
 
 
@@ -1972,7 +1973,7 @@ def test_staged_unit_dry_run_is_non_mutating_and_commit_replays_without_duplicat
         engine.dispose()
 
 
-def test_staged_unit_commit_blocks_possible_existing_same_property_unit():
+def test_staged_unit_match_existing_resolution_is_explicit_non_overwriting_and_replay_safe():
     db, engine = _session()
     try:
         admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
@@ -2000,16 +2001,143 @@ def test_staged_unit_commit_blocks_possible_existing_same_property_unit():
         db.commit()
 
         upload = _stage_safe_unit_upload(db, api_user=admin, run=run)
+        staged = api.list_staged_appfolio_rows(
+            run.id,
+            upload.id,
+            Response(),
+            disposition=None,
+            limit=200,
+            db=db,
+            current_user=admin,
+        )
+        assert len(staged) == 1
+        assert staged[0].disposition == "POSSIBLE_MATCH"
+
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_units(
+                run.id, upload.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+        assert "POSSIBLE_MATCH=1" in exc.value.detail
+
+        resolved = api.resolve_staged_appfolio_unit(
+            run.id,
+            upload.id,
+            staged[0].id,
+            AppFolioStagedUnitResolutionIn(
+                action="MATCH_EXISTING",
+                target_unit_id=existing.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert resolved.resolution_action == "MATCH_EXISTING"
+        assert resolved.resolution_target_unit_id == existing.id
+
         preview = api.dry_run_staged_appfolio_units(
             run.id, upload.id, db=db, current_user=admin
         )
         assert preview.importable == 1
         assert any(
-            warning.startswith("Possible existing target unit match:")
+            warning.startswith("Explicitly matched existing target unit")
             for warning in preview.rows[0].warnings
         )
 
-        with pytest.raises(HTTPException) as exc:
+        before_number = existing.unit_number
+        committed = api.commit_staged_appfolio_units(
+            run.id,
+            upload.id,
+            AppFolioStagedUnitCommitIn(fingerprint=preview.fingerprint),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.committed == 0
+        assert committed.matched_existing == 1
+        assert db.get(Unit, existing.id).unit_number == before_number
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "UNITS",
+            PlatformMigrationItem.source_id == "UNIT-COMMIT-1",
+        ).one()
+        assert mapping.target_id == existing.id
+
+        replay = api.commit_staged_appfolio_units(
+            run.id,
+            upload.id,
+            AppFolioStagedUnitCommitIn(fingerprint=preview.fingerprint),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert replay.committed == 0
+        assert replay.matched_existing == 0
+        assert db.query(Unit).filter(Unit.property_id == target_property.id).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_staged_unit_create_new_and_skip_resolution_invalidate_preview_and_do_not_overwrite():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Unit Resolution Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="unit-resolution",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        target_property = _mapped_property_for_units(
+            db,
+            run=run,
+            org=org,
+            admin=admin,
+            source_id="PROP-UNIT-COMMIT",
+        )
+        existing = Unit(property_id=target_property.id, unit_number="301")
+        db.add(existing)
+        db.commit()
+
+        upload = _stage_safe_unit_upload(db, api_user=admin, run=run)
+        staged = api.list_staged_appfolio_rows(
+            run.id,
+            upload.id,
+            Response(),
+            disposition=None,
+            limit=200,
+            db=db,
+            current_user=admin,
+        )
+        row = staged[0]
+
+        api.resolve_staged_appfolio_unit(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedUnitResolutionIn(action="CREATE_NEW"),
+            db=db,
+            current_user=admin,
+        )
+        preview = api.dry_run_staged_appfolio_units(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert any(
+            warning.startswith("Explicit CREATE_NEW resolution")
+            for warning in preview.rows[0].warnings
+        )
+
+        api.resolve_staged_appfolio_unit(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedUnitResolutionIn(action="SKIP"),
+            db=db,
+            current_user=admin,
+        )
+        with pytest.raises(HTTPException) as stale:
             api.commit_staged_appfolio_units(
                 run.id,
                 upload.id,
@@ -2017,13 +2145,38 @@ def test_staged_unit_commit_blocks_possible_existing_same_property_unit():
                 db=db,
                 current_user=admin,
             )
-        assert exc.value.status_code == 409
-        assert "possible existing target matches" in exc.value.detail
-        assert db.query(Unit).filter(Unit.property_id == target_property.id).count() == 1
-        assert db.query(PlatformMigrationItem).filter(
-            PlatformMigrationItem.run_id == run.id,
-            PlatformMigrationItem.resource == "UNITS",
-        ).count() == 0
+        assert stale.value.status_code == 409
+        assert "No staged Unit rows remain" in stale.value.detail
+
+        api.resolve_staged_appfolio_unit(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedUnitResolutionIn(action="CREATE_NEW"),
+            db=db,
+            current_user=admin,
+        )
+        fresh = api.dry_run_staged_appfolio_units(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        committed = api.commit_staged_appfolio_units(
+            run.id,
+            upload.id,
+            AppFolioStagedUnitCommitIn(fingerprint=fresh.fingerprint),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.committed == 1
+        assert committed.matched_existing == 0
+        assert db.get(Unit, existing.id).unit_number == "301"
+        assert db.query(Unit).filter(Unit.property_id == target_property.id).count() == 2
+
+        resolution_audit = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_staged_row",
+            AuditLog.entity_id == row.id,
+            AuditLog.action == "appfolio_unit_resolution_changed",
+        ).count()
+        assert resolution_audit == 3
     finally:
         db.close()
         engine.dispose()
