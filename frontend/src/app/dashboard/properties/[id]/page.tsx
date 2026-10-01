@@ -6,6 +6,7 @@ import Link from "next/link";
 import { apiGet, apiDelete } from "@/lib/api";
 import UtilitiesTab from "@/components/property/UtilitiesTab";
 import RubsReadinessTab from "@/components/property/RubsReadinessTab";
+import StudentHousingTab from "@/components/property/StudentHousingTab";
 import AffordableProgramsTab from "@/components/property/AffordableProgramsTab";
 import HoaAssociationsPanel from "@/components/property/HoaAssociationsPanel";
 import CommercialLeaseAbstractsPanel from "@/components/property/CommercialLeaseAbstractsPanel";
@@ -221,6 +222,8 @@ export default function PropertyDetailPage() {
           <Flag name="release.properties.fixed_assets"><button type="button" disabled>Fixed Assets</button></Flag>
           <Flag name="release.properties.rubs"><button type="button" onClick={() => setTab("rubs")}
               className={`whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 transition ${tab === "rubs" ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-900"}`}>RUBs</button></Flag>
+          <Flag name="release.properties.student_housing"><button type="button" onClick={() => setTab("student-housing")}
+              className={`whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 transition ${tab === "student-housing" ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-900"}`}>Student Housing</button></Flag>
           <Flag name="release.properties.compliance"><button type="button" onClick={() => setTab("compliance")}
             className={`whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 transition ${tab === "compliance" ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-900"}`}>Compliance</button></Flag>
           <Flag name="release.documents.attachments">
@@ -273,6 +276,7 @@ export default function PropertyDetailPage() {
         <UtilitiesTab propertyId={propertyId} canEdit={canManage} />
       )}
       {tab === "rubs" && <Flag name="release.properties.rubs"><RubsReadinessTab propertyId={propertyId} /></Flag>}
+      {tab === "student-housing" && <Flag name="release.properties.student_housing"><StudentHousingTab propertyId={propertyId} canEdit={canEditProperty} /></Flag>}
       {tab === "compliance" && <Flag name="release.properties.compliance"><div className="space-y-5"><Flag name="release.properties.hoa"><HoaAssociationsPanel propertyId={propertyId} canEdit={canEditProperty} /></Flag><AffordableProgramsTab propertyId={propertyId} canEdit={canEditProperty} />{property.property_type === "commercial" && <CommercialLeaseAbstractsPanel propertyId={propertyId} canEdit={canEditProperty} />}</div></Flag>}
       {tab === "insurance" && (
         <InsuranceTab propertyId={propertyId} canEdit={canDelete} />
@@ -301,6 +305,7 @@ export default function PropertyDetailPage() {
         tab !== "policies" &&
         tab !== "utilities" &&
         tab !== "rubs" &&
+        tab !== "student-housing" &&
         tab !== "compliance" &&
         tab !== "insurance" &&
         tab !== "expenses" &&
