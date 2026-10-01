@@ -325,3 +325,42 @@ def test_login_and_core_authenticated_pages() -> None:
             ).to_be_visible()
         finally:
             browser.close()
+
+
+def test_every_visible_sidebar_destination_resolves() -> None:
+    """The rendered, resolved customer menu must never expose a 404."""
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page()
+        try:
+            page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+            page.locator('input[type="email"]').fill(EMAIL)
+            page.locator('input[type="password"]').fill(PASSWORD)
+            page.get_by_role("button", name="Log In").click()
+            page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+
+            # Expand every currently rendered container, then snapshot the
+            # actual links emitted by the resolved menu. We intentionally do
+            # not derive destinations from source constants in this browser test.
+            expanders = page.locator("aside nav button[aria-expanded]")
+            for index in range(expanders.count()):
+                button = expanders.nth(index)
+                if button.get_attribute("aria-expanded") == "false":
+                    button.click()
+
+            hrefs = page.locator("aside nav a").evaluate_all(
+                "(nodes) => nodes.map((node) => node.getAttribute('href')).filter(Boolean)"
+            )
+            destinations = sorted(set(str(href) for href in hrefs))
+            assert "/dashboard" in destinations
+            assert destinations, "Resolved sidebar did not expose any navigable destinations"
+
+            for href in destinations:
+                response = page.goto(f"{BASE_URL}{href}", wait_until="domcontentloaded")
+                assert response is not None
+                assert response.status < 400, f"Sidebar destination {href} returned {response.status}"
+                expect(
+                    page.get_by_text(re.compile(r"This page could not be found", re.I))
+                ).to_have_count(0)
+        finally:
+            browser.close()

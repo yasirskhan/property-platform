@@ -91,6 +91,50 @@ MENU_KEYS = [
 ]
 
 
+# Navigation-route readiness is a presentation safety layer, not authorization.
+# Keys stay canonical for permissions/preferences, but a sidebar destination is
+# fail-closed until its customer route is implemented and verified. Future
+# roadmap batches remove entries from this map as their routes ship.
+#
+# The value is the roadmap phase/event that may unlock the item. "TBD" means
+# the current authoritative plan has no explicit phase; do not invent one.
+MENU_ROUTE_BLOCKED_UNTIL = {
+    # Standalone top-level destinations.
+    "CALENDAR": "Phase 5 (first real calendar/on-call surface)",
+    "WHATS_NEW": "UX (owner-authorized, not active)",
+
+    # Leasing / Properties / People.
+    "LEASING.LISTINGS": "Phase 7",
+    "PROPERTIES.UNITS": "TBD (unit CRUD exists; dedicated list route not verified)",
+    "PROPERTIES.GROUPS": "Phase 3.5 carry-forward",
+    "PEOPLE.TENANTS": "TBD (tenant capability exists; dedicated list route not verified)",
+    "PEOPLE.OWNERS": "TBD (owner capability exists; dedicated list route not verified)",
+
+    # Accounting.
+    "ACCOUNTING.BANK_TRANSFERS": "TBD (canonical item; customer route not yet scheduled)",
+    "ACCOUNTING.ONLINE_PAYMENTS": "Phase 8",
+
+    # Maintenance module remains hidden until its customer routes ship.
+    "MAINTENANCE": "Phase 5",
+    "MAINTENANCE.WORK_ORDERS": "Phase 5",
+    "MAINTENANCE.RECURRING": "Phase 5",
+    "MAINTENANCE.INSPECTIONS": "Phase 5",
+    "MAINTENANCE.UNIT_TURNS": "Phase 5",
+    "MAINTENANCE.PROJECTS": "Phase 5",
+    "MAINTENANCE.PURCHASE_ORDERS": "Phase 5",
+    "MAINTENANCE.INVENTORY": "Phase 5",
+    "MAINTENANCE.FIXED_ASSETS": "Phase 5",
+    "MAINTENANCE.SMART": "Phase 5",
+
+    # Communication module remains hidden until Messaging ships.
+    "COMMUNICATION": "Phase 6",
+    "COMMUNICATION.INBOX": "Phase 6",
+    "COMMUNICATION.MESSAGES": "Phase 6",
+    "COMMUNICATION.TEMPLATES": "Phase 6",
+    "COMMUNICATION.SURVEYS": "Phase 6",
+}
+
+
 # Every role the system knows about. Stored uppercase in the DB.
 ROLES = [
     "ADMIN",

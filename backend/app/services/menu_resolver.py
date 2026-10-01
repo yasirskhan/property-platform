@@ -3,7 +3,10 @@
 # ------------------------------------------------------------
 # The single source of truth for "what should this user see?"
 #
-# 4-layer resolution (every layer must pass for an item to show):
+# Route-readiness is evaluated first as a presentation safety guard. It can
+# only hide unfinished destinations; it never grants authorization.
+#
+# 4-layer authorization/presentation resolution (every layer must pass):
 #
 #   Layer 1: Plan gating        -> billing catalog + subscription entitlements
 #   Layer 2: Role gating        -> menu_permissions table
@@ -32,7 +35,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from sqlalchemy.orm import Session
 
-from app.constants.menu_keys import MENU_KEYS, DEFAULT_MATRIX
+from app.constants.menu_keys import MENU_KEYS, MENU_ROUTE_BLOCKED_UNTIL, DEFAULT_MATRIX
 from app.models.menu_permission import MenuPermission
 from app.models.user_permission import UserPermission
 from app.models.sidebar_preference import SidebarPreference
@@ -208,6 +211,13 @@ def resolve_menu_for_user(
     effective: Dict[str, bool] = {}
 
     for key in MENU_KEYS:
+        # Route-readiness is fail-closed. Canonical keys may exist years before
+        # their customer pages; keeping them out of the resolved menu prevents
+        # visible 404s without weakening permissions or inventing placeholders.
+        if key in MENU_ROUTE_BLOCKED_UNTIL:
+            effective[key] = False
+            continue
+
         release_key = MENU_RELEASE_GATES.get(key)
         if release_key and not release_gate_allows_org(
             db,
@@ -247,6 +257,21 @@ def resolve_menu_for_user(
         parent = _parent_of(key)
         if parent is not None and not effective.get(parent, False):
             effective[key] = False
+
+    # ---- Empty-container rule ----
+    # A top-level canonical container with no visible children must not fall
+    # through to the frontend as a leaf link. This matters when an entire
+    # future module (for example Maintenance or Communication) is not ready.
+    canonical_children: Dict[str, List[str]] = {}
+    for key in MENU_KEYS:
+        parent = _parent_of(key)
+        if parent is not None:
+            canonical_children.setdefault(parent, []).append(key)
+    for parent, children in canonical_children.items():
+        if effective.get(parent, False) and not any(
+            effective.get(child, False) for child in children
+        ):
+            effective[parent] = False
 
     # ---- Build ordered list ----
     # Personal order first (any keys there), then the remaining keys
