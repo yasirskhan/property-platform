@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.property import Property, PropertyAssignment
-from app.models.senior_housing import SeniorAgeRestriction, SeniorCareResource
+from app.models.senior_housing import SeniorAgeRestriction, SeniorCareResource, SeniorHUDProgram
 from app.models.user import User, UserRole
 from app.routers.auth import get_current_user
 from app.schemas.senior_housing import (
@@ -19,6 +19,8 @@ from app.schemas.senior_housing import (
     SeniorAgeRestrictionOut,
     SeniorCareResourceIn,
     SeniorCareResourceOut,
+    SeniorHUDProgramIn,
+    SeniorHUDProgramOut,
 )
 from app.services.audit import append_audit_log
 from app.services.customer_features import resolve_customer_features
@@ -29,6 +31,7 @@ router = APIRouter(prefix="/api/properties", tags=["Senior housing"])
 FEATURE_KEY = "release.properties.senior_housing"
 MAX_RESTRICTIONS = 100
 MAX_CARE_RESOURCES = 200
+MAX_HUD_PROGRAMS = 100
 
 
 def _property(db: Session, *, property_id: int, actor: User, write: bool) -> Property:
@@ -398,6 +401,209 @@ def archive_care_resource(
             "property_id": prop.id,
             "resource_type": item.resource_type,
             "provider_name": item.provider_name,
+        },
+    )
+    db.commit()
+    return Response(status_code=204)
+
+
+
+def _hud_item(db: Session, *, org_id: int, property_id: int, item_id: int) -> SeniorHUDProgram:
+    item = db.query(SeniorHUDProgram).filter(
+        SeniorHUDProgram.id == item_id,
+        SeniorHUDProgram.organization_id == org_id,
+        SeniorHUDProgram.property_id == property_id,
+        SeniorHUDProgram.is_active.is_(True),
+    ).first()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Recorded HUD 202/811 program not found.")
+    return item
+
+
+def _hud_unique(
+    db: Session,
+    *,
+    org_id: int,
+    property_id: int,
+    program_type: str,
+    label: str,
+    exclude_id: int | None = None,
+) -> None:
+    query = db.query(SeniorHUDProgram.id).filter(
+        SeniorHUDProgram.organization_id == org_id,
+        SeniorHUDProgram.property_id == property_id,
+        SeniorHUDProgram.program_type == program_type,
+        SeniorHUDProgram.label == label,
+    )
+    if exclude_id is not None:
+        query = query.filter(SeniorHUDProgram.id != exclude_id)
+    if query.first():
+        raise HTTPException(status_code=409, detail="HUD program record already exists on this property.")
+
+
+@router.get(
+    "/{property_id}/senior-housing/hud-programs",
+    response_model=list[SeniorHUDProgramOut],
+)
+def list_hud_programs(
+    property_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prop = _property(db, property_id=property_id, actor=current_user, write=False)
+    rows = db.query(SeniorHUDProgram).filter(
+        SeniorHUDProgram.organization_id == prop.organization_id,
+        SeniorHUDProgram.property_id == prop.id,
+        SeniorHUDProgram.is_active.is_(True),
+    ).order_by(
+        SeniorHUDProgram.program_type.asc(),
+        SeniorHUDProgram.label.asc(),
+        SeniorHUDProgram.id.asc(),
+    ).limit(MAX_HUD_PROGRAMS + 1).all()
+    if len(rows) > MAX_HUD_PROGRAMS:
+        raise HTTPException(status_code=422, detail="Too many recorded HUD 202/811 programs.")
+    response.headers["Cache-Control"] = "no-store"
+    return rows
+
+
+@router.post(
+    "/{property_id}/senior-housing/hud-programs",
+    response_model=SeniorHUDProgramOut,
+    status_code=201,
+)
+def create_hud_program(
+    property_id: int,
+    payload: SeniorHUDProgramIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prop = _property(db, property_id=property_id, actor=current_user, write=True)
+    _hud_unique(
+        db,
+        org_id=prop.organization_id,
+        property_id=prop.id,
+        program_type=payload.program_type,
+        label=payload.label,
+    )
+    item = SeniorHUDProgram(
+        organization_id=prop.organization_id,
+        property_id=prop.id,
+        **payload.model_dump(),
+        created_by_id=current_user.id,
+        updated_by_id=current_user.id,
+    )
+    db.add(item)
+    try:
+        db.flush()
+        append_audit_log(
+            db,
+            organization_id=prop.organization_id,
+            user_id=current_user.id,
+            entity_type="senior_hud_program",
+            entity_id=item.id,
+            action="created",
+            new_value={
+                "property_id": prop.id,
+                "program_type": item.program_type,
+                "readiness_status": item.readiness_status,
+            },
+        )
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="HUD program record already exists on this property.") from exc
+    db.refresh(item)
+    return item
+
+
+@router.put(
+    "/{property_id}/senior-housing/hud-programs/{item_id}",
+    response_model=SeniorHUDProgramOut,
+)
+def update_hud_program(
+    property_id: int,
+    item_id: int,
+    payload: SeniorHUDProgramIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prop = _property(db, property_id=property_id, actor=current_user, write=True)
+    item = _hud_item(
+        db,
+        org_id=prop.organization_id,
+        property_id=prop.id,
+        item_id=item_id,
+    )
+    _hud_unique(
+        db,
+        org_id=prop.organization_id,
+        property_id=prop.id,
+        program_type=payload.program_type,
+        label=payload.label,
+        exclude_id=item.id,
+    )
+    old = {
+        "program_type": item.program_type,
+        "readiness_status": item.readiness_status,
+    }
+    for key, value in payload.model_dump().items():
+        setattr(item, key, value)
+    item.updated_by_id = current_user.id
+    try:
+        db.flush()
+        append_audit_log(
+            db,
+            organization_id=prop.organization_id,
+            user_id=current_user.id,
+            entity_type="senior_hud_program",
+            entity_id=item.id,
+            action="updated",
+            old_value=old,
+            new_value={
+                "program_type": item.program_type,
+                "readiness_status": item.readiness_status,
+            },
+        )
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="HUD program record already exists on this property.") from exc
+    db.refresh(item)
+    return item
+
+
+@router.delete(
+    "/{property_id}/senior-housing/hud-programs/{item_id}",
+    status_code=204,
+)
+def archive_hud_program(
+    property_id: int,
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prop = _property(db, property_id=property_id, actor=current_user, write=True)
+    item = _hud_item(
+        db,
+        org_id=prop.organization_id,
+        property_id=prop.id,
+        item_id=item_id,
+    )
+    item.is_active = False
+    item.updated_by_id = current_user.id
+    db.flush()
+    append_audit_log(
+        db,
+        organization_id=prop.organization_id,
+        user_id=current_user.id,
+        entity_type="senior_hud_program",
+        entity_id=item.id,
+        action="archived",
+        new_value={
+            "property_id": prop.id,
+            "program_type": item.program_type,
+            "readiness_status": item.readiness_status,
         },
     )
     db.commit()

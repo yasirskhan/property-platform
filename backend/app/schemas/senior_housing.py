@@ -111,3 +111,63 @@ class SeniorCareResourceOut(BaseModel):
     availability_notes: str | None
     created_at: datetime
     updated_at: datetime
+
+
+HUDProgramType = Literal["HUD_202", "HUD_811"]
+HUDReadinessStatus = Literal["REFERENCE_ONLY", "EVIDENCE_PENDING", "EVIDENCE_RECORDED"]
+
+
+class SeniorHUDProgramIn(BaseModel):
+    program_type: HUDProgramType
+    label: str = Field(min_length=1, max_length=120)
+    recorded_authority: str | None = Field(default=None, max_length=180)
+    reference_identifier: str | None = Field(default=None, max_length=180)
+    readiness_status: HUDReadinessStatus = "REFERENCE_ONLY"
+    evidence_reference: str | None = Field(default=None, max_length=255)
+    evidence_date: date | None = None
+    effective_start: date | None = None
+    effective_end: date | None = None
+    notes: str | None = Field(default=None, max_length=4000)
+
+    @field_validator(
+        "label",
+        "recorded_authority",
+        "reference_identifier",
+        "evidence_reference",
+        "notes",
+    )
+    @classmethod
+    def trim_hud_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
+
+    @model_validator(mode="after")
+    def validate_hud_record(self):
+        if not self.label:
+            raise ValueError("HUD program label is required")
+        if self.effective_start and self.effective_end and self.effective_end < self.effective_start:
+            raise ValueError("Effective end precedes start")
+        if self.readiness_status == "EVIDENCE_RECORDED" and not self.evidence_reference:
+            raise ValueError("Recorded evidence requires an evidence reference")
+        return self
+
+
+class SeniorHUDProgramOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    property_id: int
+    program_type: HUDProgramType
+    label: str
+    recorded_authority: str | None
+    reference_identifier: str | None
+    readiness_status: HUDReadinessStatus
+    evidence_reference: str | None
+    evidence_date: date | None
+    effective_start: date | None
+    effective_end: date | None
+    notes: str | None
+    created_at: datetime
+    updated_at: datetime

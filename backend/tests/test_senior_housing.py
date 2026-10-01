@@ -15,10 +15,10 @@ from app.models.audit_log import AuditLog
 from app.models.charge import Charge
 from app.models.gl_transaction import GLTransaction
 from app.models.property import Property, PropertyAssignment
-from app.models.senior_housing import SeniorAgeRestriction, SeniorCareResource
+from app.models.senior_housing import SeniorAgeRestriction, SeniorCareResource, SeniorHUDProgram
 from app.models.user import Organization, User, UserRole
 from app.routers import senior_housing as api
-from app.schemas.senior_housing import SeniorAgeRestrictionIn, SeniorCareResourceIn
+from app.schemas.senior_housing import SeniorAgeRestrictionIn, SeniorCareResourceIn, SeniorHUDProgramIn
 
 
 def _db():
@@ -254,6 +254,133 @@ def test_care_resource_duplicate_and_feature_revocation(monkeypatch):
         )
         with pytest.raises(HTTPException) as exc:
             api.list_care_resources(assigned.id, Response(), db=db, current_user=admin)
+        assert exc.value.status_code == 404
+    finally:
+        db.close(); engine.dispose()
+
+
+
+def _hud_payload(**overrides):
+    data = {
+        "program_type": "HUD_202",
+        "label": "Recorded HUD 202 reference",
+        "recorded_authority": "HUD field office reference",
+        "reference_identifier": "202-REF-001",
+        "readiness_status": "EVIDENCE_PENDING",
+        "effective_start": date(2026, 1, 1),
+        "notes": "Staff-recorded reference only; not a HUD certification.",
+    }
+    data.update(overrides)
+    return SeniorHUDProgramIn(**data)
+
+
+def test_hud_program_registry_scoped_audited_and_non_certifying():
+    db, engine = _db()
+    try:
+        (admin, owner, manager, tenant, foreign), (assigned, unassigned, other) = _seed(db)
+        created = api.create_hud_program(
+            assigned.id, _hud_payload(), db=db, current_user=admin
+        )
+        assert created.program_type == "HUD_202"
+        assert created.readiness_status == "EVIDENCE_PENDING"
+
+        response = Response()
+        listed = api.list_hud_programs(
+            assigned.id, response, db=db, current_user=manager
+        )
+        assert [row.id for row in listed] == [created.id]
+        assert response.headers["cache-control"] == "no-store"
+
+        for actor, prop in ((manager, unassigned), (manager, other), (foreign, assigned)):
+            with pytest.raises(HTTPException) as exc:
+                api.list_hud_programs(prop.id, Response(), db=db, current_user=actor)
+            assert exc.value.status_code == 404
+
+        for actor in (manager, tenant):
+            with pytest.raises(HTTPException) as exc:
+                api.create_hud_program(
+                    assigned.id,
+                    _hud_payload(label=f"No write {actor.role.value}"),
+                    db=db,
+                    current_user=actor,
+                )
+            assert exc.value.status_code == 403
+
+        updated = api.update_hud_program(
+            assigned.id,
+            created.id,
+            _hud_payload(
+                program_type="HUD_811",
+                label="Recorded HUD 811 reference",
+                readiness_status="EVIDENCE_RECORDED",
+                evidence_reference="Staff file index 811-A",
+                evidence_date=date(2026, 9, 1),
+            ),
+            db=db,
+            current_user=owner,
+        )
+        assert updated.program_type == "HUD_811"
+        assert updated.readiness_status == "EVIDENCE_RECORDED"
+
+        api.archive_hud_program(
+            assigned.id, created.id, db=db, current_user=admin
+        )
+        assert api.list_hud_programs(
+            assigned.id, Response(), db=db, current_user=admin
+        ) == []
+
+        assert db.query(SeniorHUDProgram).count() == 1
+        assert (
+            db.query(AuditLog)
+            .filter(AuditLog.entity_type == "senior_hud_program")
+            .count()
+            == 3
+        )
+        assert db.query(Charge).count() == 0
+        assert db.query(GLTransaction).count() == 0
+        columns = set(SeniorHUDProgram.__table__.columns.keys())
+        for prohibited in (
+            "resident_id",
+            "tenant_id",
+            "eligible",
+            "certified",
+            "funding_amount",
+            "subsidy_amount",
+            "hap_amount",
+            "occupancy_approved",
+        ):
+            assert prohibited not in columns
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_hud_program_validation_duplicate_and_feature_revocation(monkeypatch):
+    db, engine = _db()
+    try:
+        (admin, _owner, _manager, _tenant, _foreign), (assigned, _unassigned, _other) = _seed(db)
+        api.create_hud_program(assigned.id, _hud_payload(), db=db, current_user=admin)
+        with pytest.raises(HTTPException) as exc:
+            api.create_hud_program(assigned.id, _hud_payload(), db=db, current_user=admin)
+        assert exc.value.status_code == 409
+
+        with pytest.raises(ValueError):
+            _hud_payload(
+                readiness_status="EVIDENCE_RECORDED",
+                evidence_reference=None,
+            )
+        with pytest.raises(ValueError):
+            _hud_payload(
+                effective_start=date(2026, 10, 1),
+                effective_end=date(2026, 9, 1),
+            )
+
+        monkeypatch.setattr(
+            api,
+            "resolve_customer_features",
+            lambda *a, **k: [SimpleNamespace(key=api.FEATURE_KEY, allowed=False)],
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.list_hud_programs(assigned.id, Response(), db=db, current_user=admin)
         assert exc.value.status_code == 404
     finally:
         db.close(); engine.dispose()

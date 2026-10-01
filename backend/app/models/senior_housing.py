@@ -79,3 +79,48 @@ class SeniorCareResource(Base):
             "is_active",
         ),
     )
+
+
+class SeniorHUDProgram(Base):
+    """Staff-recorded HUD 202/811 program/reference readiness facts.
+
+    This record does not certify HUD eligibility, funding, subsidy, occupancy,
+    resident qualification, or payment status.
+    """
+
+    __tablename__ = "senior_hud_programs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
+    program_type = Column(String(16), nullable=False)
+    label = Column(String(120), nullable=False)
+    recorded_authority = Column(String(180), nullable=True)
+    reference_identifier = Column(String(180), nullable=True)
+    readiness_status = Column(String(32), nullable=False, default="REFERENCE_ONLY", server_default="REFERENCE_ONLY")
+    evidence_reference = Column(String(255), nullable=True)
+    evidence_date = Column(Date, nullable=True)
+    effective_start = Column(Date, nullable=True)
+    effective_end = Column(Date, nullable=True)
+    notes = Column(Text, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True, server_default="true")
+    created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    updated_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id",
+            "property_id",
+            "program_type",
+            "label",
+            name="uq_senior_hud_program_property_type_label",
+        ),
+        Index(
+            "ix_senior_hud_program_scope",
+            "organization_id",
+            "property_id",
+            "is_active",
+        ),
+    )
