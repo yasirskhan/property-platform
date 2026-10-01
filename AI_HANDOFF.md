@@ -1,3 +1,23 @@
+# AI_HANDOFF.md — 2026-10-01 APPFOLIO API RESEARCH PRESERVED
+
+## AppFolio API reference for later testing
+
+- New permanent reference: `docs/APPFOLIO_API_RESEARCH.md`.
+- It preserves the official AppFolio Stack API resource/field inventory,
+  AppFolio partner page, the mirrored Reports API v2 documentation, and
+  third-party AppFolio API implementations for future interoperability testing.
+- Source quality is explicitly labeled; mirrored/unofficial material is **not**
+  treated as a production provider contract.
+- The intended primary migration path may use customer CSV/XLSX exports.
+- The optional API path remains available for later testing when a legitimate
+  AppFolio test account/authenticated contract is available.
+- Do not store API keys, Client Secrets, cookies, access tokens, or raw provider
+  credentials in the repository or migration records.
+- This documentation-only checkpoint does not change Phase 4.13 product
+  behavior, navigation, hidden-menu rules, or inactive UX standards.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 PHASE 4.13 APPFOLIO MAPPING VISIBILITY VERIFIED
 
 ## Current verified product checkpoint
