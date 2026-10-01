@@ -1,3 +1,50 @@
+# AI_HANDOFF.md — 2026-10-01 PHASE 4.12 TURNOVER SCHEDULING VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **IN PROGRESS**.
+- Verified PRODUCT SHA: `ce2dca976170e415b0356456c9779144a355c1ea`.
+- GitHub Actions run: `36869468385` — SUCCESS.
+- All six required CI jobs passed on this exact product SHA:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **864 passed, 20 deselected, 23552 warnings in 346.18s**.
+- Authenticated E2E: **20 passed, 274 warnings in 111.11s**.
+- Alembic head: `c35e7a9b1d4f`.
+- Expected model tables: **197**.
+- Navigation integrity and planning parity passed in hosted CI.
+- `docs/NAVIGATION_INTEGRITY_PLAN.md`, the `HIDDEN MENU / UNHIDE ROADMAP`, and inactive `docs/UX_STANDARDS.md` were not changed.
+
+## Verified Phase 4.12 batch 3 — turnover scheduling
+
+- Added property/unit-scoped `ShortTermRentalTurnover` schedule records with explicit start/end timestamps and operational status.
+- Turnovers may reference an already-existing cleaning work order and/or explicit unit-inspection record for the same property/unit.
+- Turnover records never create, advance, close, or otherwise mutate work orders or inspection records.
+- No reservation ID, booking ID, guest identity, provider calendar event or provider synchronization is represented.
+- ADMIN/OWNER may write; assigned MANAGER is read-only; other roles fail closed.
+- Cross-organization, unassigned-property, foreign-unit and mismatched work-order/inspection links fail closed.
+- Duplicate unit/start schedules fail closed; invalid schedule windows/statuses are rejected.
+- CRUD mutations are audit logged and reads are `no-store`.
+- Turnover scheduling creates no Charge or GL transaction.
+- Existing Phase 5 maintenance/navigation behavior remains untouched.
+
+## Exact next Phase 4.12 work
+
+1. Add the gated customer **Short-term Rentals** property surface covering:
+   - staff-recorded Airbnb/Vrbo channel references;
+   - dated nightly pricing;
+   - turnover scheduling with optional existing work-order/inspection references.
+2. Add dedicated authenticated browser coverage for the customer flow.
+3. Verify all six jobs on the exact final product SHA.
+4. Update this handoff to **PHASE 4.12 COMPLETE | VERIFIED** before Phase 4.13.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 PHASE 4.12 NIGHTLY PRICING VERIFIED
 
 ## Current verified product checkpoint
