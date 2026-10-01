@@ -1,3 +1,36 @@
+# AI_HANDOFF.md — 2026-10-01 NAVIGATION / UX / HIDDEN-MENU CHECKPOINT VERIFIED
+
+## Final verified checkpoint
+
+- Navigation/UX/handoff checkpoint: **VERIFIED**.
+- Verified source SHA: `de45d2c1b5d0d0309312e35708820ad490c84932`.
+- GitHub Actions run: `36810461972` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **851 passed, 19 deselected, 23218 warnings in 223.35s**.
+- Authenticated E2E: **19 passed, 271 warnings in 83.30s**.
+- `backend/check_navigation.py`: PASS.
+- The complete `HIDDEN MENU / UNHIDE ROADMAP` remains directly below the current navigation/UX checkpoint.
+- The roadmap contains every key currently present in `backend/app/constants/menu_keys.py::MENU_ROUTE_BLOCKED_UNTIL`; no missing or extra roadmap keys were found.
+- The first attempt of CI run `36807227573` exposed an existing authenticated HOA E2E navigation race. A retry failed at the same transition in a different HOA test, confirming the shared test synchronization defect.
+- Scoped fix `de45d2c1b5d0d0309312e35708820ad490c84932` makes the 13 affected HOA browser flows wait for the authenticated dashboard identity to render before navigating to a property. No product behavior, menu readiness rule, navigation contract, or UX implementation changed.
+
+## STOP POINT
+
+- Phase **4.10 COMPLETE | VERIFIED** remains the last completed product phase.
+- **Do not start Phase 4.11 / Senior Housing.**
+- `docs/UX_STANDARDS.md` is owner-authorized but **NOT ACTIVE**. Do not implement UX work until the owner explicitly says `start UX work`.
+- `docs/NAVIGATION_INTEGRITY_PLAN.md` remains the permanent navigation safety contract; do not recreate or repeat verified navigation work.
+- Future menu items may be unhidden only under the mandatory rule in the `HIDDEN MENU / UNHIDE ROADMAP`.
+- Development stops at this checkpoint until the owner gives the next instruction.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 NAVIGATION + UX PRESERVATION COMPLETE
 
 ## Current navigation/UX checkpoint
