@@ -26,7 +26,7 @@ from app.models.platform_migration import (
     PlatformMigrationStagedRow,
     PlatformMigrationUpload,
 )
-from app.models.property import Property, Unit
+from app.models.property import Property
 
 MAX_FILE_BYTES = 10 * 1024 * 1024
 MAX_ROWS = 10_000
