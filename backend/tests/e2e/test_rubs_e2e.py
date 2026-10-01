@@ -160,11 +160,13 @@ def test_rubs_allocation_rule_authorize_and_preview_is_non_posting():
                 page.locator('input[type="password"]').fill(PASSWORD)
                 page.get_by_role("button", name="Log In").click()
                 page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
 
                 page.goto(
                     f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
                     wait_until="domcontentloaded",
                 )
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
                 page.get_by_role("button", name="RUBs", exact=True).click()
                 expect(
                     page.get_by_role(
