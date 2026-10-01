@@ -178,3 +178,46 @@ class AppFolioStagedPropertyCommitIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class AppFolioUnitPreviewRow(BaseModel):
+    source_id: str | None
+    importable: bool
+    reason: str | None
+    mapped: dict[str, Any] | None
+    warnings: list[str] = Field(default_factory=list)
+
+
+class AppFolioUnitDryRunOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    fingerprint: str
+    replayed: bool
+    total: int
+    importable: int
+    invalid: int
+    warning_count: int
+    rows: list[AppFolioUnitPreviewRow]
+
+
+class AppFolioStagedUnitCommitIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class AppFolioUnitCommitRow(BaseModel):
+    source_id: str
+    target_unit_id: int
+    replayed: bool
+
+
+class AppFolioUnitCommitOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    fingerprint: str
+    replayed: bool
+    committed: int
+    warning_count: int
+    rows: list[AppFolioUnitCommitRow]
