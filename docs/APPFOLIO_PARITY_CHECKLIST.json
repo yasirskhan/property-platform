@@ -14,8 +14,8 @@
     "canonical_note": "Feature/roadmap inventory and phase coverage. check_parity.py verifies planning consistency; automated tests are required for behavioral verification.",
     "total_items": 647,
     "built_count": 265,
-    "scheduled_count": 382,
-    "in_progress_count": 0
+    "scheduled_count": 381,
+    "in_progress_count": 1
   },
   "items": [
     {
@@ -4190,9 +4190,10 @@
     {
       "id": "migration.appfolio_direct",
       "area": "Migration",
-      "feature": "Direct API migration from AppFolio",
-      "status": "scheduled",
-      "phase": "4.13"
+      "feature": "AppFolio migration (CSV/XLSX primary; optional verified API adapter later)",
+      "status": "in_progress",
+      "phase": "4.13",
+      "notes": "Legacy id retained for compatibility. Primary Phase 4.13 path is AppFolio CSV/XLSX export ingestion through shared staging/dry-run/replay-safe commit; API transport is optional later and must feed the same safeguards."
     },
     {
       "id": "migration.buildium_direct",

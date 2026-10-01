@@ -1,3 +1,89 @@
+# AI_HANDOFF.md — 2026-10-01 PHASE 4.13 CSV/XLSX MIGRATION DIRECTION AUTHORIZED
+
+## Owner decision — authoritative Phase 4.13 direction
+
+Phase 4.13 is **not blocked by AppFolio API access**.
+
+The primary supported AppFolio migration path is now:
+
+`AppFolio CSV/XLSX exports -> upload -> detect -> map -> stage -> validate ->
+review -> reconcile -> dry run -> controlled commit`
+
+Permanent implementation contract:
+`docs/APPFOLIO_MIGRATION_IMPORT_PLAN.md`.
+
+API research remains preserved at:
+`docs/APPFOLIO_API_RESEARCH.md`.
+
+The AppFolio API is an optional later transport/testing adapter only. It must
+feed the same migration staging/dry-run/reconciliation/commit contracts and
+must not use undocumented browser/session endpoints as production transport.
+
+## Current verified base before the next product batch
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio migration tooling: **IN PROGRESS**.
+- Latest verified PRODUCT SHA remains
+  `87614632efd2aa5ddb7d641d49d6846c4f74a7fc`.
+- Latest verified product CI remains `36903338715` SUCCESS.
+- Backend/PostgreSQL at that product checkpoint: **873 passed, 21 deselected**.
+- Authenticated E2E: **21 passed**.
+- Later handoff/docs checkpoint `d6d3e43b6d924407a465a95b9965ef4649349c40`
+  also passed all six jobs in CI `36904752581`.
+- API-research documentation checkpoint
+  `d716d8c5afff78d08722f1b8ccdf4be357bbc1c2` passed all six jobs in
+  CI `36923805971`.
+- Alembic remains `e57c9b1d3f20`; expected tables remain **199**.
+- Navigation integrity and the hidden-menu roadmap remain unchanged.
+- UX remains **AUTHORIZED BUT NOT ACTIVE**.
+
+## Exact next Phase 4.13 product batch
+
+Build the **shared CSV/XLSX file-ingestion + staging foundation** by extending
+the existing verified platform migration architecture.
+
+First bounded product batch must focus on:
+
+1. bounded CSV and XLSX ingestion;
+2. data-only parsing; never execute spreadsheet formulas/macros;
+3. report/file detection foundation;
+4. header normalization and known aliases;
+5. explicit column mapping when uncertain;
+6. staging/preview only — upload itself must not mutate customer business data;
+7. validation counts for valid/warning/invalid/duplicate/missing-column rows;
+8. stable AppFolio source-ID preservation;
+9. deterministic normalized-source fingerprint;
+10. replay/re-upload idempotency;
+11. organization isolation and audit;
+12. safe file/row/workbook limits.
+
+Do **not** begin accounting history import in this first batch.
+Do **not** implement the optional AppFolio API connector in this first batch.
+Do **not** create a parallel migration system.
+Reuse the existing migration run, dry-run, exact-fingerprint commit,
+source-to-target mapping and recovery architecture.
+
+After the shared ingestion foundation is verified, continue resource mappings
+in dependency order defined by `docs/APPFOLIO_MIGRATION_IMPORT_PLAN.md`.
+
+## Non-negotiable migration rules
+
+- Never automatically overwrite existing customer records.
+- Never invent missing business data.
+- Possible matches require explicit review/resolution.
+- Missing required source data blocks the affected row/resource.
+- Deterministic normalization is allowed; ambiguity goes to review.
+- Stable provider/source IDs are preferred over name-only relationships.
+- Any staging/mapping/correction change invalidates the prior dry-run fingerprint.
+- Financial history cannot be called complete until required control totals
+  reconcile.
+- Never fabricate a balancing journal entry to force reconciliation.
+- Preserve organization isolation, audit, accounting safeguards, idempotency
+  and recovery visibility.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 APPFOLIO API RESEARCH PRESERVED
 
 ## AppFolio API reference for later testing

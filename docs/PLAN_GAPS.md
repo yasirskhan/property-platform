@@ -258,22 +258,36 @@ Each gets its own sub-phase with its own section in the master doc.
 
 ## C6. Migration tooling
 
-**Decision:** Two-sided.
+**Decision:** Two-sided, with export/import as the primary safe path.
 
 **Org side (customer-run):**
-- CSV importer with column mapping, dry run, commit
+- Generic CSV importer with column mapping, dry run, commit
 - Standard templates for properties, units, tenants, owners, leases,
   charges, payments, GL history
 - **Phase 4.**
 
-**Our side (platform-run):**
-- Direct API migration from AppFolio — **Phase 4.13**
-- Direct API migration from Buildium — **Phase 4.14**
-- Direct API migration from Yardi — **Phase 4.15**
-- Direct API migration from RentManager — **Phase 4.16**
-- Direct API migration from DoorLoop — **Phase 4.17**
+**Provider migration side (platform-run):**
+- AppFolio export migration — **Phase 4.13**:
+  - CSV/XLSX upload is the primary supported migration transport;
+  - report/file detection, column mapping, staging, validation and coverage;
+  - stable source-ID linking across files;
+  - possible-match review rather than automatic overwrite;
+  - exact-fingerprint dry run before controlled commit;
+  - accounting reconciliation before financial history is committed;
+  - missing/ambiguous data is surfaced for review, never invented.
+- AppFolio API transport is an **optional later adapter/testing path** feeding
+  the same staging/dry-run/commit pipeline. It must not block Phase 4.13 and
+  must not use undocumented browser/session endpoints as production transport.
+- Direct/API-assisted Buildium migration — **Phase 4.14**
+- Direct/API-assisted Yardi migration — **Phase 4.15**
+- Direct/API-assisted RentManager migration — **Phase 4.16**
+- Direct/API-assisted DoorLoop migration — **Phase 4.17**
 
-**Cost:** 1–2 sessions per competitor.
+Detailed Phase 4.13 contract:
+`docs/APPFOLIO_MIGRATION_IMPORT_PLAN.md`.
+
+**Cost:** Phase 4.13 continues in bounded verified batches; later provider
+adapters remain separately estimated.
 
 ## C7. Trust account interest
 
