@@ -20,7 +20,8 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
-from app.models.property import Property, PropertyType
+from app.models.property import Property, PropertyType, Unit
+from app.services.plan_limits import PlanUnitLimitExceeded, require_unit_capacity
 
 
 class AppFolioMigrationError(ValueError):
@@ -556,6 +557,419 @@ def commit_properties(
         committed=committed,
         matched_existing=matched_existing,
         skipped_hidden=preview.skipped_hidden,
+        warning_count=preview.warning_count,
+        rows=result_rows,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Unit Directory staged dry run / controlled commit
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class UnitDryRunResult:
+    fingerprint: str
+    replayed: bool
+    total: int
+    importable: int
+    invalid: int
+    warning_count: int
+    rows: list[dict[str, Any]]
+    summary: dict[str, Any]
+
+
+def _unit_fingerprint(
+    *,
+    organization_id: int,
+    source_account_ref: str,
+    records: list[dict[str, Any]],
+    source_context_fingerprint: str | None,
+) -> str:
+    canonical = json.dumps(
+        {
+            "provider": "APPFOLIO",
+            "resource": "UNITS",
+            "organization_id": organization_id,
+            "source_account_ref": source_account_ref,
+            "source_context_fingerprint": source_context_fingerprint,
+            "records": records,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def dry_run_units(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    records: list[dict[str, Any]],
+    source_context_fingerprint: str | None,
+) -> UnitDryRunResult:
+    if run.provider != "APPFOLIO":
+        raise AppFolioMigrationError("Migration run is not an AppFolio run.")
+    if not records:
+        raise AppFolioMigrationError("At least one staged AppFolio Unit record is required.")
+
+    fingerprint = _unit_fingerprint(
+        organization_id=run.organization_id,
+        source_account_ref=run.source_account_ref,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    replayed = run.last_dry_run_fingerprint == fingerprint
+
+    rows: list[dict[str, Any]] = []
+    seen_source_ids: set[str] = set()
+    importable = 0
+    invalid = 0
+    warning_count = 0
+
+    for record in records:
+        source_id = _clean_text(_value(record, "Id", "UnitId", "Unit ID"))
+        property_source_id = _clean_text(
+            _value(record, "PropertyId", "Property ID")
+        )
+        unit_number = _clean_text(_value(record, "UnitName", "Unit Name", "Unit"))
+        row_warnings: list[str] = []
+
+        reasons: list[str] = []
+        if source_id is None:
+            reasons.append("AppFolio Unit ID is required for controlled commit.")
+        elif source_id in seen_source_ids:
+            reasons.append("Duplicate AppFolio Unit ID in this dry run.")
+        else:
+            seen_source_ids.add(source_id)
+        if property_source_id is None:
+            reasons.append("AppFolio Property ID is required for Unit linkage.")
+        if unit_number is None:
+            reasons.append("Unit Name is required.")
+        elif len(unit_number) > 50:
+            reasons.append("Unit Name exceeds the 50-character target unit-number limit.")
+
+        property_mapping = None
+        target_property = None
+        if property_source_id is not None:
+            property_mapping = (
+                db.query(PlatformMigrationItem)
+                .filter(
+                    PlatformMigrationItem.run_id == run.id,
+                    PlatformMigrationItem.organization_id == run.organization_id,
+                    PlatformMigrationItem.provider == "APPFOLIO",
+                    PlatformMigrationItem.resource == "PROPERTIES",
+                    PlatformMigrationItem.source_id == property_source_id,
+                )
+                .first()
+            )
+            if property_mapping is None:
+                reasons.append(
+                    "Referenced AppFolio Property ID has no durable Property mapping."
+                )
+            elif property_mapping.target_entity != "PROPERTY":
+                reasons.append("Referenced Property mapping is inconsistent.")
+            else:
+                target_property = (
+                    db.query(Property)
+                    .filter(
+                        Property.id == property_mapping.target_id,
+                        Property.organization_id == run.organization_id,
+                        Property.is_active.is_(True),
+                        Property.deleted_at.is_(None),
+                    )
+                    .first()
+                )
+                if target_property is None:
+                    reasons.append(
+                        "Referenced Property mapping target is not an active same-organization Property."
+                    )
+
+        if reasons:
+            rows.append(
+                {
+                    "source_id": source_id,
+                    "importable": False,
+                    "reason": " ".join(reasons),
+                    "mapped": None,
+                    "warnings": [],
+                }
+            )
+            invalid += 1
+            continue
+
+        prior = (
+            db.query(PlatformMigrationItem)
+            .filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "APPFOLIO",
+                PlatformMigrationItem.resource == "UNITS",
+                PlatformMigrationItem.source_id == source_id,
+            )
+            .first()
+        )
+        if prior is not None:
+            if prior.target_entity != "UNIT":
+                rows.append(
+                    {
+                        "source_id": source_id,
+                        "importable": False,
+                        "reason": "Existing Unit source mapping is inconsistent.",
+                        "mapped": None,
+                        "warnings": [],
+                    }
+                )
+                invalid += 1
+                continue
+            prior_target = (
+                db.query(Unit)
+                .join(Property, Property.id == Unit.property_id)
+                .filter(
+                    Unit.id == prior.target_id,
+                    Property.organization_id == run.organization_id,
+                )
+                .first()
+            )
+            if prior_target is None or prior_target.property_id != target_property.id:
+                rows.append(
+                    {
+                        "source_id": source_id,
+                        "importable": False,
+                        "reason": "Previously mapped Unit target is missing or belongs to a different mapped Property.",
+                        "mapped": None,
+                        "warnings": [],
+                    }
+                )
+                invalid += 1
+                continue
+            row_warnings.append(
+                f"Source Unit ID is already mapped to local unit #{prior_target.id}; commit replay will not create a duplicate."
+            )
+        else:
+            existing = (
+                db.query(Unit)
+                .filter(
+                    Unit.property_id == target_property.id,
+                    Unit.unit_number == unit_number,
+                    Unit.is_active.is_(True),
+                )
+                .first()
+            )
+            if existing is not None:
+                row_warnings.append(
+                    f"Possible existing target unit match: local unit #{existing.id}; explicit match resolution is required before commit."
+                )
+
+        # The verified basic Unit Directory source contract does not require
+        # layout/rent fields. Existing Unit defaults may therefore apply, but
+        # they are disclosed as target defaults rather than AppFolio facts.
+        row_warnings.append(
+            "Bedrooms, bathrooms and monthly rent are not sourced by this basic Unit Directory contract; target Unit defaults apply unless a later verified source supplies them."
+        )
+        mapped = {
+            "property_id": target_property.id,
+            "unit_number": unit_number,
+            "source_property_id": property_source_id,
+        }
+        rows.append(
+            {
+                "source_id": source_id,
+                "importable": True,
+                "reason": None,
+                "mapped": mapped,
+                "warnings": row_warnings,
+            }
+        )
+        importable += 1
+        warning_count += len(row_warnings)
+
+    summary = {
+        "resource": "UNITS",
+        "source_context_fingerprint": source_context_fingerprint,
+        "total": len(records),
+        "importable": importable,
+        "invalid": invalid,
+        "warning_count": warning_count,
+    }
+    if not replayed:
+        run.last_dry_run_fingerprint = fingerprint
+        run.last_dry_run_summary = summary
+        run.status = "DRY_RUN_READY"
+
+    return UnitDryRunResult(
+        fingerprint=fingerprint,
+        replayed=replayed,
+        total=len(records),
+        importable=importable,
+        invalid=invalid,
+        warning_count=warning_count,
+        rows=rows,
+        summary=summary,
+    )
+
+
+@dataclass(frozen=True)
+class UnitCommitResult:
+    fingerprint: str
+    replayed: bool
+    committed: int
+    warning_count: int
+    rows: list[dict[str, Any]]
+
+
+def commit_units(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    records: list[dict[str, Any]],
+    expected_fingerprint: str,
+    platform_user_id: int,
+    source_context_fingerprint: str | None,
+) -> UnitCommitResult:
+    fingerprint = _unit_fingerprint(
+        organization_id=run.organization_id,
+        source_account_ref=run.source_account_ref,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    if expected_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit payload does not match the supplied Unit dry-run fingerprint."
+        )
+    if run.last_dry_run_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit requires the exact latest successful Unit dry run."
+        )
+
+    preview = dry_run_units(
+        db,
+        run=run,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    if preview.invalid:
+        raise AppFolioMigrationError(
+            "Unit commit is blocked while the dry run contains invalid records."
+        )
+
+    importable_rows = [row for row in preview.rows if row["importable"]]
+    source_ids = [str(row["source_id"]) for row in importable_rows]
+    mappings = (
+        db.query(PlatformMigrationItem)
+        .filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "APPFOLIO",
+            PlatformMigrationItem.resource == "UNITS",
+            PlatformMigrationItem.source_id.in_(source_ids),
+        )
+        .all()
+        if source_ids
+        else []
+    )
+    by_source = {item.source_id: item for item in mappings}
+
+    new_rows = []
+    for row in importable_rows:
+        source_id = str(row["source_id"])
+        if source_id in by_source:
+            continue
+        if any(
+            warning.startswith("Possible existing target unit match:")
+            for warning in row["warnings"]
+        ):
+            raise AppFolioMigrationError(
+                "Unit commit is blocked by possible existing target matches; "
+                "explicit Unit match resolution must be implemented before committing those rows."
+            )
+        new_rows.append(row)
+
+    if new_rows:
+        try:
+            require_unit_capacity(
+                db,
+                organization_id=run.organization_id,
+                additional_units=len(new_rows),
+            )
+        except PlanUnitLimitExceeded as exc:
+            raise AppFolioMigrationError(f"PLAN_UNIT_LIMIT_REACHED: {exc}") from exc
+
+    result_rows: list[dict[str, Any]] = []
+    committed = 0
+    changed = False
+
+    for row in importable_rows:
+        source_id = str(row["source_id"])
+        mapped = dict(row["mapped"] or {})
+        prior = by_source.get(source_id)
+        if prior is not None:
+            if prior.target_entity != "UNIT":
+                raise AppFolioMigrationError(
+                    "Unit commit mapping is inconsistent and requires manual review."
+                )
+            target = (
+                db.query(Unit)
+                .join(Property, Property.id == Unit.property_id)
+                .filter(
+                    Unit.id == prior.target_id,
+                    Property.organization_id == run.organization_id,
+                )
+                .first()
+            )
+            if (
+                target is None
+                or target.property_id != int(mapped["property_id"])
+            ):
+                raise AppFolioMigrationError(
+                    "A previously committed target Unit is missing or relationship-inconsistent; manual review required."
+                )
+            result_rows.append(
+                {
+                    "source_id": source_id,
+                    "target_unit_id": target.id,
+                    "replayed": True,
+                }
+            )
+            continue
+
+        target = Unit(
+            property_id=int(mapped["property_id"]),
+            unit_number=str(mapped["unit_number"]),
+        )
+        db.add(target)
+        db.flush()
+        db.add(
+            PlatformMigrationItem(
+                run_id=run.id,
+                organization_id=run.organization_id,
+                provider="APPFOLIO",
+                resource="UNITS",
+                source_id=source_id,
+                target_entity="UNIT",
+                target_id=target.id,
+                source_fingerprint=fingerprint,
+                created_by_platform_user_id=platform_user_id,
+            )
+        )
+        result_rows.append(
+            {
+                "source_id": source_id,
+                "target_unit_id": target.id,
+                "replayed": False,
+            }
+        )
+        committed += 1
+        changed = True
+
+    if changed:
+        run.status = "UNITS_COMMITTED"
+        db.flush()
+
+    return UnitCommitResult(
+        fingerprint=fingerprint,
+        replayed=not changed,
+        committed=committed,
         warning_count=preview.warning_count,
         rows=result_rows,
     )
