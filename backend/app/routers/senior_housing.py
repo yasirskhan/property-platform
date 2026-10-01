@@ -11,10 +11,15 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.property import Property, PropertyAssignment
-from app.models.senior_housing import SeniorAgeRestriction
+from app.models.senior_housing import SeniorAgeRestriction, SeniorCareResource
 from app.models.user import User, UserRole
 from app.routers.auth import get_current_user
-from app.schemas.senior_housing import SeniorAgeRestrictionIn, SeniorAgeRestrictionOut
+from app.schemas.senior_housing import (
+    SeniorAgeRestrictionIn,
+    SeniorAgeRestrictionOut,
+    SeniorCareResourceIn,
+    SeniorCareResourceOut,
+)
 from app.services.audit import append_audit_log
 from app.services.customer_features import resolve_customer_features
 from app.services.menu_resolver import permission_allows_user
@@ -23,6 +28,7 @@ from app.services.menu_resolver import permission_allows_user
 router = APIRouter(prefix="/api/properties", tags=["Senior housing"])
 FEATURE_KEY = "release.properties.senior_housing"
 MAX_RESTRICTIONS = 100
+MAX_CARE_RESOURCES = 200
 
 
 def _property(db: Session, *, property_id: int, actor: User, write: bool) -> Property:
@@ -193,6 +199,206 @@ def archive_age_restriction(
         entity_id=item.id,
         action="archived",
         new_value={"property_id": prop.id, "restriction_type": item.restriction_type},
+    )
+    db.commit()
+    return Response(status_code=204)
+
+
+
+def _care_item(db: Session, *, org_id: int, property_id: int, item_id: int) -> SeniorCareResource:
+    item = db.query(SeniorCareResource).filter(
+        SeniorCareResource.id == item_id,
+        SeniorCareResource.organization_id == org_id,
+        SeniorCareResource.property_id == property_id,
+        SeniorCareResource.is_active.is_(True),
+    ).first()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Recorded care resource not found.")
+    return item
+
+
+def _care_unique(
+    db: Session,
+    *,
+    org_id: int,
+    property_id: int,
+    resource_type: str,
+    provider_name: str,
+    exclude_id: int | None = None,
+) -> None:
+    query = db.query(SeniorCareResource.id).filter(
+        SeniorCareResource.organization_id == org_id,
+        SeniorCareResource.property_id == property_id,
+        SeniorCareResource.resource_type == resource_type,
+        SeniorCareResource.provider_name == provider_name,
+    )
+    if exclude_id is not None:
+        query = query.filter(SeniorCareResource.id != exclude_id)
+    if query.first():
+        raise HTTPException(status_code=409, detail="Care resource is already recorded for this property.")
+
+
+@router.get(
+    "/{property_id}/senior-housing/care-resources",
+    response_model=list[SeniorCareResourceOut],
+)
+def list_care_resources(
+    property_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prop = _property(db, property_id=property_id, actor=current_user, write=False)
+    rows = db.query(SeniorCareResource).filter(
+        SeniorCareResource.organization_id == prop.organization_id,
+        SeniorCareResource.property_id == prop.id,
+        SeniorCareResource.is_active.is_(True),
+    ).order_by(
+        SeniorCareResource.resource_type.asc(),
+        SeniorCareResource.provider_name.asc(),
+        SeniorCareResource.id.asc(),
+    ).limit(MAX_CARE_RESOURCES + 1).all()
+    if len(rows) > MAX_CARE_RESOURCES:
+        raise HTTPException(status_code=422, detail="Too many recorded care resources.")
+    response.headers["Cache-Control"] = "no-store"
+    return rows
+
+
+@router.post(
+    "/{property_id}/senior-housing/care-resources",
+    response_model=SeniorCareResourceOut,
+    status_code=201,
+)
+def create_care_resource(
+    property_id: int,
+    payload: SeniorCareResourceIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prop = _property(db, property_id=property_id, actor=current_user, write=True)
+    _care_unique(
+        db,
+        org_id=prop.organization_id,
+        property_id=prop.id,
+        resource_type=payload.resource_type,
+        provider_name=payload.provider_name,
+    )
+    item = SeniorCareResource(
+        organization_id=prop.organization_id,
+        property_id=prop.id,
+        **payload.model_dump(),
+        created_by_id=current_user.id,
+        updated_by_id=current_user.id,
+    )
+    db.add(item)
+    try:
+        db.flush()
+        append_audit_log(
+            db,
+            organization_id=prop.organization_id,
+            user_id=current_user.id,
+            entity_type="senior_care_resource",
+            entity_id=item.id,
+            action="created",
+            new_value={
+                "property_id": prop.id,
+                "resource_type": item.resource_type,
+                "provider_name": item.provider_name,
+            },
+        )
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Care resource is already recorded for this property.") from exc
+    db.refresh(item)
+    return item
+
+
+@router.put(
+    "/{property_id}/senior-housing/care-resources/{item_id}",
+    response_model=SeniorCareResourceOut,
+)
+def update_care_resource(
+    property_id: int,
+    item_id: int,
+    payload: SeniorCareResourceIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prop = _property(db, property_id=property_id, actor=current_user, write=True)
+    item = _care_item(
+        db,
+        org_id=prop.organization_id,
+        property_id=prop.id,
+        item_id=item_id,
+    )
+    _care_unique(
+        db,
+        org_id=prop.organization_id,
+        property_id=prop.id,
+        resource_type=payload.resource_type,
+        provider_name=payload.provider_name,
+        exclude_id=item.id,
+    )
+    old = {"resource_type": item.resource_type, "provider_name": item.provider_name}
+    for key, value in payload.model_dump().items():
+        setattr(item, key, value)
+    item.updated_by_id = current_user.id
+    try:
+        db.flush()
+        append_audit_log(
+            db,
+            organization_id=prop.organization_id,
+            user_id=current_user.id,
+            entity_type="senior_care_resource",
+            entity_id=item.id,
+            action="updated",
+            old_value=old,
+            new_value={
+                "resource_type": item.resource_type,
+                "provider_name": item.provider_name,
+            },
+        )
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Care resource is already recorded for this property.") from exc
+    db.refresh(item)
+    return item
+
+
+@router.delete(
+    "/{property_id}/senior-housing/care-resources/{item_id}",
+    status_code=204,
+)
+def archive_care_resource(
+    property_id: int,
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prop = _property(db, property_id=property_id, actor=current_user, write=True)
+    item = _care_item(
+        db,
+        org_id=prop.organization_id,
+        property_id=prop.id,
+        item_id=item_id,
+    )
+    item.is_active = False
+    item.updated_by_id = current_user.id
+    db.flush()
+    append_audit_log(
+        db,
+        organization_id=prop.organization_id,
+        user_id=current_user.id,
+        entity_type="senior_care_resource",
+        entity_id=item.id,
+        action="archived",
+        new_value={
+            "property_id": prop.id,
+            "resource_type": item.resource_type,
+            "provider_name": item.provider_name,
+        },
     )
     db.commit()
     return Response(status_code=204)
