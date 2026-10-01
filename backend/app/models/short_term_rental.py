@@ -76,3 +76,42 @@ class ShortTermRentalNightlyPrice(Base):
             "organization_id", "property_id", "unit_id", "night_date", "is_active",
         ),
     )
+
+
+class ShortTermRentalTurnover(Base):
+    """Staff-recorded turnover schedule for an existing unit.
+
+    A turnover may reference an existing cleaning work order and/or an existing
+    inspection record. Those references are informational only: this record
+    never creates, advances, closes, or otherwise mutates either workflow and
+    is not linked to an external reservation or provider calendar.
+    """
+
+    __tablename__ = "short_term_rental_turnovers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
+    unit_id = Column(Integer, ForeignKey("units.id", ondelete="CASCADE"), nullable=False, index=True)
+    scheduled_start = Column(DateTime, nullable=False, index=True)
+    scheduled_end = Column(DateTime, nullable=False, index=True)
+    status = Column(String(24), nullable=False, default="SCHEDULED", server_default="SCHEDULED")
+    cleaning_work_order_id = Column(Integer, ForeignKey("work_orders.id", ondelete="SET NULL"), nullable=True, index=True)
+    inspection_record_id = Column(Integer, ForeignKey("unit_inspection_records.id", ondelete="SET NULL"), nullable=True, index=True)
+    notes = Column(Text, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True, server_default="true")
+    created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    updated_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "property_id", "unit_id", "scheduled_start",
+            name="uq_short_term_rental_turnover_unit_start",
+        ),
+        Index(
+            "ix_short_term_rental_turnover_scope",
+            "organization_id", "property_id", "unit_id", "scheduled_start", "is_active",
+        ),
+    )
