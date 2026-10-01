@@ -1,3 +1,73 @@
+# AI_HANDOFF.md — 2026-10-01 PHASE 4.13 CSV/XLSX INGESTION + STAGING VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `f7fea81f1952a716cb97e50f4b2f888e88c3a54e`.
+- GitHub Actions run: `36928650807` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **878 passed, 21 deselected, 23708 warnings in 385.20s**.
+- Authenticated E2E: **21 passed, 278 warnings in 100.62s**.
+- Alembic head: `f13c7a9e2b40`.
+- Expected model tables: **201**.
+- Navigation integrity and the hidden-menu roadmap remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified shared ingestion/staging foundation
+
+The first active batch of `docs/APPFOLIO_MIGRATION_IMPORT_PLAN.md` is verified:
+
+1. CSV and XLSX source files are accepted through the existing platform AppFolio migration run.
+2. File size, row count, column count, workbook sheet count, archive entry count and XLSX expanded-size limits fail closed.
+3. XLSX is parsed as data only; formula cells and macro-enabled content are rejected and never evaluated/executed.
+4. Raw uploaded file bytes are not retained in migration tables.
+5. Credential/session-like source columns are rejected; API keys, Client Secrets, tokens, passwords and browser cookies are not stored.
+6. Property-directory detection uses only the already verified AppFolio property schema/aliases. Other resource mappings are not invented.
+7. Known high-confidence aliases auto-map; uncertain headers require explicit operator mapping.
+8. Every upload is attached to the existing `PlatformMigrationRun`; no parallel migration system was created.
+9. Staging persists normalized rows only in `PlatformMigrationUpload` / `PlatformMigrationStagedRow` with dispositions including NEW, POSSIBLE_MATCH, ALREADY_MAPPED, REVIEW and INVALID.
+10. Validation summary exposes total, valid, warning, invalid, duplicate, possible-existing-match and missing/ambiguous-column counts.
+11. Stable AppFolio property source IDs are preserved when supplied.
+12. Normalized-source fingerprints bind organization/run, selected sheet, mapping and normalized source rows.
+13. Equivalent re-upload/replay is idempotent and does not create duplicate upload/row/audit records.
+14. A genuinely new staging or mapping state invalidates the prior run dry-run fingerprint.
+15. Existing durable source-to-target mappings are surfaced as ALREADY_MAPPED; likely local matches are warnings/POSSIBLE_MATCH and are never overwritten automatically.
+16. Upload/staging creates no Property or other customer business record.
+17. Staging and row reads preserve platform role scope, target-organization scope, no-store responses and audit without raw source payloads.
+
+Migration:
+- `f13c7a9e2b40_appfolio_file_staging.py`
+- adds `platform_migration_uploads` and `platform_migration_staged_rows`.
+
+## Exact next Phase 4.13 product batch
+
+Continue dependency order with **Properties** by connecting a reviewed staged
+`PROPERTIES` upload to the existing verified AppFolio property dry-run
+contract.
+
+Required boundaries:
+
+1. Reuse `dry_run_properties` and the existing run-level exact-fingerprint model; do not invent a second dry-run engine.
+2. Convert only syntactically valid staged property rows into the canonical existing property dry-run input.
+3. INVALID rows and unresolved POSSIBLE_MATCH/REVIEW conditions must block unsafe progression rather than be silently ignored.
+4. ALREADY_MAPPED rows remain replay-safe and must not create new targets.
+5. The staged normalized fingerprint/mapping must be bound into the dry-run identity so a changed file or mapping makes the prior preview stale.
+6. The dry run remains target-non-mutating.
+7. Do not add accounting-history import.
+8. Do not implement the optional AppFolio API connector.
+9. Preserve organization isolation, audit, source-to-target mapping, recovery visibility, navigation integrity and inactive UX standards.
+10. After the staged-property dry-run bridge is verified, add explicit safe match-resolution / controlled-commit behavior as its own bounded batch before moving to Units.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 PHASE 4.13 CSV/XLSX MIGRATION DIRECTION AUTHORIZED
 
 ## Owner decision — authoritative Phase 4.13 direction
