@@ -63,3 +63,32 @@ class AppFolioPropertyDryRunOut(BaseModel):
     invalid: int
     warning_count: int
     rows: list[AppFolioPropertyPreviewRow]
+
+
+
+class AppFolioPropertyCommitIn(BaseModel):
+    """Commit only the exact property payload that was previously dry-run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    include_hidden: bool = False
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    records: list[dict[str, Any]] = Field(min_length=1, max_length=500)
+
+
+class AppFolioPropertyCommitRow(BaseModel):
+    source_id: str
+    target_property_id: int
+    replayed: bool
+
+
+class AppFolioPropertyCommitOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    fingerprint: str
+    replayed: bool
+    committed: int
+    skipped_hidden: int
+    warning_count: int
+    rows: list[AppFolioPropertyCommitRow]

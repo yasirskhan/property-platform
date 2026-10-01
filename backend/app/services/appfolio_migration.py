@@ -19,7 +19,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.models.platform_migration import PlatformMigrationRun
+from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.property import Property, PropertyType
 
 
@@ -331,4 +331,164 @@ def dry_run_properties(
         warning_count=warning_count,
         rows=rows,
         summary=summary,
+    )
+
+
+
+@dataclass(frozen=True)
+class PropertyCommitResult:
+    fingerprint: str
+    replayed: bool
+    committed: int
+    skipped_hidden: int
+    warning_count: int
+    rows: list[dict[str, Any]]
+
+
+def commit_properties(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    include_hidden: bool,
+    records: list[dict[str, Any]],
+    expected_fingerprint: str,
+    platform_user_id: int,
+) -> PropertyCommitResult:
+    """Atomically create only the exact property payload that was dry-run."""
+    fingerprint = _fingerprint(
+        organization_id=run.organization_id,
+        source_account_ref=run.source_account_ref,
+        include_hidden=include_hidden,
+        records=records,
+    )
+    if expected_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit payload does not match the supplied dry-run fingerprint."
+        )
+    if run.last_dry_run_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit requires the exact latest successful property dry run."
+        )
+
+    preview = dry_run_properties(
+        db,
+        run=run,
+        include_hidden=include_hidden,
+        records=records,
+    )
+    if preview.invalid:
+        raise AppFolioMigrationError(
+            "Property commit is blocked while the dry run contains invalid records."
+        )
+
+    conflicts = [
+        row
+        for row in preview.rows
+        if any(
+            warning.startswith("Possible existing target property match:")
+            for warning in row["warnings"]
+        )
+    ]
+    if conflicts:
+        raise AppFolioMigrationError(
+            "Property commit is blocked by possible existing target matches; "
+            "resolve those conflicts before committing."
+        )
+
+    importable_rows = [row for row in preview.rows if row["importable"]]
+    source_ids = [str(row["source_id"]) for row in importable_rows]
+    mappings = (
+        db.query(PlatformMigrationItem)
+        .filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "APPFOLIO",
+            PlatformMigrationItem.resource == "PROPERTIES",
+            PlatformMigrationItem.source_id.in_(source_ids),
+        )
+        .order_by(PlatformMigrationItem.id.asc())
+        .all()
+        if source_ids
+        else []
+    )
+
+    if mappings:
+        if len(mappings) != len(source_ids):
+            raise AppFolioMigrationError(
+                "Property commit has a partial prior mapping and requires manual review."
+            )
+        by_source = {item.source_id: item for item in mappings}
+        rows: list[dict[str, Any]] = []
+        for source_id in source_ids:
+            item = by_source.get(source_id)
+            if item is None or item.target_entity != "PROPERTY":
+                raise AppFolioMigrationError(
+                    "Property commit mapping is inconsistent and requires manual review."
+                )
+            target = (
+                db.query(Property)
+                .filter(
+                    Property.id == item.target_id,
+                    Property.organization_id == run.organization_id,
+                )
+                .first()
+            )
+            if target is None:
+                raise AppFolioMigrationError(
+                    "A previously committed target property is missing; manual review required."
+                )
+            rows.append(
+                {
+                    "source_id": source_id,
+                    "target_property_id": target.id,
+                    "replayed": True,
+                }
+            )
+        return PropertyCommitResult(
+            fingerprint=fingerprint,
+            replayed=True,
+            committed=0,
+            skipped_hidden=preview.skipped_hidden,
+            warning_count=preview.warning_count,
+            rows=rows,
+        )
+
+    committed_rows: list[dict[str, Any]] = []
+    for row in importable_rows:
+        target = Property(
+            organization_id=run.organization_id,
+            **row["mapped"],
+        )
+        db.add(target)
+        db.flush()
+        db.add(
+            PlatformMigrationItem(
+                run_id=run.id,
+                organization_id=run.organization_id,
+                provider="APPFOLIO",
+                resource="PROPERTIES",
+                source_id=str(row["source_id"]),
+                target_entity="PROPERTY",
+                target_id=target.id,
+                source_fingerprint=fingerprint,
+                created_by_platform_user_id=platform_user_id,
+            )
+        )
+        committed_rows.append(
+            {
+                "source_id": str(row["source_id"]),
+                "target_property_id": target.id,
+                "replayed": False,
+            }
+        )
+
+    run.status = "PROPERTIES_COMMITTED"
+    db.flush()
+    return PropertyCommitResult(
+        fingerprint=fingerprint,
+        replayed=False,
+        committed=len(committed_rows),
+        skipped_hidden=preview.skipped_hidden,
+        warning_count=preview.warning_count,
+        rows=committed_rows,
     )
