@@ -1,3 +1,49 @@
+# AI_HANDOFF.md — 2026-10-01 PHASE 4.12 SHORT-TERM RENTAL CHANNEL FOUNDATION VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **IN PROGRESS**.
+- Verified PRODUCT SHA: `2f7238f1db61eb9550f1d2da8899cc42f672c99b`.
+- GitHub Actions run: `36826674455` — SUCCESS.
+- All six required CI jobs passed on this exact product SHA:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **860 passed, 20 deselected, 23430 warnings in 284.73s**.
+- Authenticated E2E: **20 passed, 274 warnings in 115.95s**.
+- Alembic head: `a13c5e7f9b2d`.
+- Expected model tables: **195**.
+- Navigation integrity and planning parity passed in hosted CI.
+- `docs/NAVIGATION_INTEGRITY_PLAN.md`, the `HIDDEN MENU / UNHIDE ROADMAP`, and inactive `docs/UX_STANDARDS.md` were not changed.
+
+## Verified Phase 4.12 batch 1 — Airbnb / Vrbo channel-reference foundation
+
+- Added hidden release gate `release.properties.short_term_rentals`.
+- Added property/organization-scoped `ShortTermRentalChannel` records for explicit staff-entered Airbnb or Vrbo listing references.
+- Records may contain provider, staff label, external listing identifier, public listing URL and notes.
+- ADMIN/OWNER may write; assigned MANAGER is read-only; other roles fail closed.
+- Cross-organization and unassigned-property access fails closed.
+- CRUD mutations are audit logged and reads are `no-store`.
+- Duplicate provider/label references fail closed.
+- Channel references contain no access token, refresh token, API key, password, reservation/booking linkage, payout amount or nightly rate.
+- This batch does **not** claim live Airbnb/Vrbo API connectivity, OAuth authorization, scraping, reservation/calendar synchronization, payouts or pricing synchronization.
+- Focused regressions verify scope, feature revocation, duplicate handling, audit logging, schema boundaries and zero Charge/GL mutation.
+
+## Exact next Phase 4.12 work
+
+Continue the authoritative `docs/PLAN_GAPS.md` scope:
+
+1. **Nightly pricing** — add explicit property/unit/channel-independent staff pricing rules or dated nightly-price records without claiming provider synchronization or creating accounting entries.
+2. **Turnover scheduling** — follow as a separate verified batch; reconcile existing work-order/inspection primitives before implementation.
+3. Add the gated customer Short-term Rentals surface and dedicated authenticated browser coverage after backend contracts are verified.
+4. Final exact-SHA six-job verification, then mark **PHASE 4.12 COMPLETE | VERIFIED** before Phase 4.13.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 PHASE 4.11 COMPLETE | VERIFIED
 
 ## Final Phase 4.11 product checkpoint
