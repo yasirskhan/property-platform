@@ -93,6 +93,7 @@ from app.routers import prospects as prospects_router
 from app.routers import guest_cards as guest_cards_router
 from app.routers import rubs_readiness as rubs_readiness_router
 from app.routers import student_housing as student_housing_router
+from app.routers import senior_housing as senior_housing_router
 from app.routers import affordable_programs as affordable_programs_router
 from app.routers import hoa_associations as hoa_associations_router
 from app.routers import hoa_assessments as hoa_assessments_router
@@ -261,6 +262,7 @@ app.include_router(prospects_router.router)
 app.include_router(guest_cards_router.router)
 app.include_router(rubs_readiness_router.router)
 app.include_router(student_housing_router.router)
+app.include_router(senior_housing_router.router)
 app.include_router(affordable_programs_router.router)
 app.include_router(hoa_associations_router.router)
 app.include_router(hoa_assessments_router.router)
