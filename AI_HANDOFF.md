@@ -1,3 +1,47 @@
+# AI_HANDOFF.md — 2026-10-01 PHASE 4.11 SENIOR HOUSING HUD 202/811 BACKEND VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **IN PROGRESS**
+- Verified PRODUCT SHA: `902cb23a8bb30dc725a06fc0818cee88fd2f3a8b`
+- GitHub Actions run: `36817150514` — SUCCESS
+- All six required CI jobs passed on this exact product SHA:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **857 passed, 19 deselected, 23374 warnings in 339.11s**
+- Authenticated E2E: **19 passed, 271 warnings in 109.57s**
+- Alembic head: `d19f3a5c7e2b`
+- Expected model tables: **194**
+- Navigation integrity and parity checks passed in hosted CI.
+- `docs/NAVIGATION_INTEGRITY_PLAN.md`, the `HIDDEN MENU / UNHIDE ROADMAP`, and inactive `docs/UX_STANDARDS.md` were not changed.
+
+## Verified Phase 4.11 batch 3 — HUD 202/811 recorded readiness facts
+
+- Added property/organization-scoped `SeniorHUDProgram` records for explicit HUD 202 or HUD 811 staff references.
+- Records support staff label, recorded authority/reference identifier, readiness status, evidence reference/date, effective dates and notes.
+- Readiness states are limited to `REFERENCE_ONLY`, `EVIDENCE_PENDING`, and `EVIDENCE_RECORDED`; evidence-recorded state requires an explicit evidence reference.
+- ADMIN/OWNER may write; assigned MANAGER is read-only; other roles fail closed.
+- Cross-organization and unassigned-property access fails closed.
+- CRUD mutations are audit logged.
+- Records do **not** certify HUD eligibility, funding, subsidy, occupancy, resident qualification or payment status and contain no resident/tenant linkage or funding/subsidy amount fields.
+- Focused regressions verify scope, validation, duplicate protection, feature revocation, audit logging, no-store reads and zero Charge/GL mutation.
+
+## Exact next Phase 4.11 work
+
+1. Add the gated customer **Senior Housing** property surface covering the three verified backend contracts:
+   - age-restriction records;
+   - care-resource directory placeholders;
+   - HUD 202/811 readiness references.
+2. Add dedicated authenticated browser coverage.
+3. Verify all six jobs on the exact final product SHA.
+4. Update this handoff to **PHASE 4.11 COMPLETE | VERIFIED** before moving to Phase 4.12.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 PHASE 4.11 SENIOR HOUSING CARE-RESOURCE FOUNDATION VERIFIED
 
 ## Current verified product checkpoint
