@@ -997,3 +997,269 @@ def test_appfolio_upload_endpoint_is_exposed_and_business_targets_unchanged():
     paths = set(app.openapi()["paths"])
     assert "/api/platform/migrations/appfolio/runs/{run_id}/uploads" in paths
     assert "/api/platform/migrations/appfolio/runs/{run_id}/uploads/{upload_id}/rows" in paths
+
+
+
+def test_staged_property_upload_reuses_existing_dry_run_engine_and_binds_source_fingerprint():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Staged Dry Run Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="staged-dry-run",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        content = (
+            "Property Id,Property Name,Address 1,City,State,Zip,Property Type\n"
+            "STAGE-1,Staged One,100 Stage St,Cleveland,OH,44113,Multi Family\n"
+        ).encode()
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("properties.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        before = db.query(Property).count()
+        preview = api.dry_run_staged_appfolio_properties(
+            run.id,
+            upload.id,
+            db=db,
+            current_user=admin,
+        )
+        assert preview.total == 1
+        assert preview.importable == 1
+        assert preview.invalid == 0
+        assert preview.replayed is False
+        assert preview.rows[0].source_id == "STAGE-1"
+        assert db.query(Property).count() == before
+
+        stored = db.get(PlatformMigrationRun, run.id)
+        assert stored.last_dry_run_fingerprint == preview.fingerprint
+        assert (
+            stored.last_dry_run_summary["source_context_fingerprint"]
+            == upload.normalized_fingerprint
+        )
+        assert preview.fingerprint != upload.normalized_fingerprint
+
+        audit_before = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "appfolio_staged_properties_dry_run",
+        ).count()
+        replay = api.dry_run_staged_appfolio_properties(
+            run.id,
+            upload.id,
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert replay.fingerprint == preview.fingerprint
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "appfolio_staged_properties_dry_run",
+        ).count() == audit_before
+        assert db.query(Property).count() == before
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_staged_property_dry_run_blocks_invalid_possible_match_and_review_rows():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="Staged Block Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="staged-block",
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        invalid_content = (
+            "Property Id,Property Name,Address 1,City,State,Zip\n"
+            "BAD-1,,1 Bad St,Cleveland,OH,44113\n"
+        ).encode()
+        invalid_upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("invalid.csv", invalid_content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_properties(
+                run.id, invalid_upload.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+        assert "INVALID=1" in exc.value.detail
+
+        existing = Property(
+            organization_id=org.id,
+            name="Existing Stage",
+            property_type="multi_family",
+            address_line1="2 Match St",
+            city="Cleveland",
+            state="OH",
+            zip_code="44113",
+            country="USA",
+            is_active=True,
+        )
+        db.add(existing)
+        db.commit()
+        match_content = (
+            "Property Id,Property Name,Address 1,City,State,Zip\n"
+            "MATCH-STAGE,Existing Stage,2 Match St,Cleveland,OH,44113\n"
+        ).encode()
+        match_upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("match.csv", match_content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_properties(
+                run.id, match_upload.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+        assert "POSSIBLE_MATCH=1" in exc.value.detail
+
+        review_content = (
+            "Property Id,Property Name,Address 1,City,State,Zip,Hidden At\n"
+            "HIDDEN-STAGE,Hidden Stage,3 Hide St,Cleveland,OH,44113,2026-01-01\n"
+        ).encode()
+        review_upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("review.csv", review_content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_properties(
+                run.id, review_upload.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+        assert "REVIEW=1" in exc.value.detail
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_staged_property_dry_run_allows_already_mapped_replay_and_blocks_cross_run_upload():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Staged Replay Org")
+        other_org = _org(db, name="Staged Replay Other")
+        target = Property(
+            organization_id=org.id,
+            name="Mapped Target",
+            property_type="multi_family",
+            address_line1="10 Target St",
+            city="Cleveland",
+            state="OH",
+            zip_code="44113",
+            country="USA",
+            is_active=True,
+        )
+        db.add(target)
+        db.commit()
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="staged-replay",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        db.add(
+            PlatformMigrationItem(
+                run_id=run.id,
+                organization_id=org.id,
+                provider="APPFOLIO",
+                resource="PROPERTIES",
+                source_id="MAPPED-1",
+                target_entity="PROPERTY",
+                target_id=target.id,
+                source_fingerprint="c" * 64,
+                created_by_platform_user_id=admin.id,
+            )
+        )
+        db.commit()
+        content = (
+            "Property Id,Property Name,Address 1,City,State,Zip\n"
+            "MAPPED-1,Mapped Target,10 Target St,Cleveland,OH,44113\n"
+        ).encode()
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("mapped.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        staged_row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        assert staged_row.disposition == "ALREADY_MAPPED"
+
+        preview = api.dry_run_staged_appfolio_properties(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert preview.importable == 1
+        assert preview.warning_count == 1
+        assert db.query(Property).count() == 1
+
+        other_run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=other_org.id,
+                source_account_ref="other",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_properties(
+                other_run.id, upload.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 404
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_staged_property_dry_run_route_is_exposed():
+    from app.main import app
+    assert (
+        "/api/platform/migrations/appfolio/runs/{run_id}/uploads/{upload_id}/properties/dry-run"
+        in set(app.openapi()["paths"])
+    )

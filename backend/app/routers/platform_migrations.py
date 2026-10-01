@@ -451,6 +451,127 @@ def _upload_out(row: PlatformMigrationUpload, *, replayed: bool) -> AppFolioMigr
     )
 
 
+def _staged_property_records(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    upload: PlatformMigrationUpload,
+) -> list[dict[str, object]]:
+    if upload.detected_resource != "PROPERTIES":
+        raise HTTPException(
+            status_code=409,
+            detail="Staged upload must be resolved to PROPERTIES before property dry run.",
+        )
+    rows = (
+        db.query(PlatformMigrationStagedRow)
+        .filter(
+            PlatformMigrationStagedRow.upload_id == upload.id,
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "APPFOLIO",
+        )
+        .order_by(
+            PlatformMigrationStagedRow.row_number.asc(),
+            PlatformMigrationStagedRow.id.asc(),
+        )
+        .all()
+    )
+    if not rows:
+        raise HTTPException(status_code=409, detail="Staged upload has no property rows.")
+
+    blocking = [
+        row
+        for row in rows
+        if row.disposition in {"INVALID", "POSSIBLE_MATCH", "REVIEW"}
+    ]
+    if blocking:
+        counts: dict[str, int] = {}
+        for row in blocking:
+            counts[row.disposition] = counts.get(row.disposition, 0) + 1
+        detail = ", ".join(
+            f"{key}={counts[key]}" for key in sorted(counts)
+        )
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Staged property dry run is blocked by unresolved rows: "
+                f"{detail}. Resolve staged validation/match decisions before continuing."
+            ),
+        )
+
+    records: list[dict[str, object]] = []
+    for row in rows:
+        data = dict(row.normalized_data or {})
+        records.append(
+            {
+                "Id": row.source_id or data.get("source_id"),
+                "Name": data.get("name"),
+                "Address1": data.get("address_line1"),
+                "Address2": data.get("address_line2"),
+                "City": data.get("city"),
+                "State": data.get("state"),
+                "Zip": data.get("zip_code"),
+                "PropertyType": data.get("property_type"),
+                "HiddenAt": data.get("hidden_at"),
+            }
+        )
+    return records
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/properties/dry-run",
+    response_model=AppFolioPropertyDryRunOut,
+)
+def dry_run_staged_appfolio_properties(
+    run_id: int,
+    upload_id: int,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    records = _staged_property_records(db, run=run, upload=upload)
+    result = dry_run_properties(
+        db,
+        run=run,
+        include_hidden=False,
+        records=records,
+        source_context_fingerprint=upload.normalized_fingerprint,
+    )
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=run.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=run.id,
+            action="appfolio_staged_properties_dry_run",
+            new_value={
+                "upload_id": upload.id,
+                "source_context_fingerprint": upload.normalized_fingerprint,
+                "dry_run_fingerprint": result.fingerprint,
+                **result.summary,
+                "raw_file_stored": False,
+                "target_mutation": False,
+            },
+        )
+        db.commit()
+        db.refresh(run)
+    return AppFolioPropertyDryRunOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        importable=result.importable,
+        skipped_hidden=result.skipped_hidden,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
 @router.post(
     "/runs/{run_id}/uploads",
     response_model=AppFolioMigrationUploadOut,

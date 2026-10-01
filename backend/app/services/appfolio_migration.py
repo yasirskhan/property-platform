@@ -134,6 +134,7 @@ def _fingerprint(
     source_account_ref: str,
     include_hidden: bool,
     records: list[dict[str, Any]],
+    source_context_fingerprint: str | None = None,
 ) -> str:
     canonical = json.dumps(
         {
@@ -141,6 +142,7 @@ def _fingerprint(
             "organization_id": organization_id,
             "source_account_ref": source_account_ref,
             "include_hidden": include_hidden,
+            "source_context_fingerprint": source_context_fingerprint,
             "records": records,
         },
         sort_keys=True,
@@ -156,6 +158,7 @@ def dry_run_properties(
     run: PlatformMigrationRun,
     include_hidden: bool,
     records: list[dict[str, Any]],
+    source_context_fingerprint: str | None = None,
 ) -> PropertyDryRunResult:
     if run.provider != "APPFOLIO":
         raise AppFolioMigrationError("Migration run is not an AppFolio run.")
@@ -167,6 +170,7 @@ def dry_run_properties(
         source_account_ref=run.source_account_ref,
         include_hidden=include_hidden,
         records=records,
+        source_context_fingerprint=source_context_fingerprint,
     )
     replayed = run.last_dry_run_fingerprint == fingerprint
 
@@ -309,6 +313,7 @@ def dry_run_properties(
 
     summary = {
         "resource": "PROPERTIES",
+        "source_context_fingerprint": source_context_fingerprint,
         "total": len(records),
         "importable": importable,
         "skipped_hidden": skipped_hidden,
@@ -353,6 +358,7 @@ def commit_properties(
     records: list[dict[str, Any]],
     expected_fingerprint: str,
     platform_user_id: int,
+    source_context_fingerprint: str | None = None,
 ) -> PropertyCommitResult:
     """Atomically create only the exact property payload that was dry-run."""
     fingerprint = _fingerprint(
@@ -360,6 +366,7 @@ def commit_properties(
         source_account_ref=run.source_account_ref,
         include_hidden=include_hidden,
         records=records,
+        source_context_fingerprint=source_context_fingerprint,
     )
     if expected_fingerprint != fingerprint:
         raise AppFolioMigrationError(
@@ -375,6 +382,7 @@ def commit_properties(
         run=run,
         include_hidden=include_hidden,
         records=records,
+        source_context_fingerprint=source_context_fingerprint,
     )
     if preview.invalid:
         raise AppFolioMigrationError(
