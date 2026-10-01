@@ -23,6 +23,7 @@ from app.schemas.platform_migration import (
     AppFolioPropertyDryRunIn,
     AppFolioStagedPropertyCommitIn,
     AppFolioStagedRowResolutionIn,
+    AppFolioStagedUnitCommitIn,
 )
 
 
@@ -1866,3 +1867,230 @@ def test_appfolio_unit_directory_duplicate_unit_id_is_invalid_and_xlsx_autodetec
     finally:
         db.close()
         engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 staged Unit dry run + controlled commit
+# ---------------------------------------------------------------------------
+
+def _stage_safe_unit_upload(db, *, api_user, run, property_source_id="PROP-UNIT-COMMIT", unit_id="UNIT-COMMIT-1", unit_name="301"):
+    content = (
+        "Unit ID,Unit Name,Property ID,Property Name,Unit Street Address 1,"
+        "Unit City,Unit State,Unit Zip\n"
+        f"{unit_id},{unit_name},{property_source_id},Mapped Unit Property,"
+        "100 Unit Way,Cleveland,OH,44113\n"
+    ).encode()
+    return asyncio.run(
+        api.stage_appfolio_upload(
+            run.id,
+            file=_upload_file("units-safe.csv", content),
+            resource=None,
+            sheet_name=None,
+            column_mapping_json=None,
+            db=db,
+            current_user=api_user,
+        )
+    )
+
+
+def test_staged_unit_dry_run_is_non_mutating_and_commit_replays_without_duplicates():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Unit Commit Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="unit-commit",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        target_property = _mapped_property_for_units(
+            db,
+            run=run,
+            org=org,
+            admin=admin,
+            source_id="PROP-UNIT-COMMIT",
+        )
+        upload = _stage_safe_unit_upload(db, api_user=admin, run=run)
+
+        before = db.query(Unit).count()
+        preview = api.dry_run_staged_appfolio_units(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert preview.total == 1
+        assert preview.importable == 1
+        assert preview.invalid == 0
+        assert preview.replayed is False
+        assert preview.rows[0].mapped["property_id"] == target_property.id
+        assert preview.rows[0].mapped["unit_number"] == "301"
+        assert any("target Unit defaults apply" in warning for warning in preview.rows[0].warnings)
+        assert db.query(Unit).count() == before
+
+        committed = api.commit_staged_appfolio_units(
+            run.id,
+            upload.id,
+            AppFolioStagedUnitCommitIn(fingerprint=preview.fingerprint),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.committed == 1
+        assert committed.replayed is False
+        unit = db.query(Unit).filter(
+            Unit.property_id == target_property.id,
+            Unit.unit_number == "301",
+        ).one()
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "UNITS",
+            PlatformMigrationItem.source_id == "UNIT-COMMIT-1",
+        ).one()
+        assert mapping.target_entity == "UNIT"
+        assert mapping.target_id == unit.id
+
+        replay = api.commit_staged_appfolio_units(
+            run.id,
+            upload.id,
+            AppFolioStagedUnitCommitIn(fingerprint=preview.fingerprint),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert replay.committed == 0
+        assert replay.rows[0].target_unit_id == unit.id
+        assert db.query(Unit).filter(Unit.property_id == target_property.id).count() == 1
+
+        audit_count = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "appfolio_staged_units_committed",
+        ).count()
+        assert audit_count == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_staged_unit_commit_blocks_possible_existing_same_property_unit():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="Unit Existing Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="unit-existing",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        target_property = _mapped_property_for_units(
+            db,
+            run=run,
+            org=org,
+            admin=admin,
+            source_id="PROP-UNIT-COMMIT",
+        )
+        existing = Unit(
+            property_id=target_property.id,
+            unit_number="301",
+        )
+        db.add(existing)
+        db.commit()
+
+        upload = _stage_safe_unit_upload(db, api_user=admin, run=run)
+        preview = api.dry_run_staged_appfolio_units(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert preview.importable == 1
+        assert any(
+            warning.startswith("Possible existing target unit match:")
+            for warning in preview.rows[0].warnings
+        )
+
+        with pytest.raises(HTTPException) as exc:
+            api.commit_staged_appfolio_units(
+                run.id,
+                upload.id,
+                AppFolioStagedUnitCommitIn(fingerprint=preview.fingerprint),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "possible existing target matches" in exc.value.detail
+        assert db.query(Unit).filter(Unit.property_id == target_property.id).count() == 1
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "UNITS",
+        ).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_staged_unit_commit_fails_when_property_relationship_fingerprint_changes():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Unit Relationship Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="unit-relationship",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _mapped_property_for_units(
+            db,
+            run=run,
+            org=org,
+            admin=admin,
+            source_id="PROP-UNIT-COMMIT",
+        )
+        upload = _stage_safe_unit_upload(db, api_user=admin, run=run)
+        preview = api.dry_run_staged_appfolio_units(
+            run.id, upload.id, db=db, current_user=admin
+        )
+
+        property_mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "PROPERTIES",
+            PlatformMigrationItem.source_id == "PROP-UNIT-COMMIT",
+        ).one()
+        property_mapping.source_fingerprint = "e" * 64
+        db.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            api.commit_staged_appfolio_units(
+                run.id,
+                upload.id,
+                AppFolioStagedUnitCommitIn(fingerprint=preview.fingerprint),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(Unit).count() == 0
+
+        refreshed = api.dry_run_staged_appfolio_units(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert refreshed.fingerprint != preview.fingerprint
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_staged_unit_dry_run_and_commit_routes_are_exposed():
+    from app.main import app
+
+    paths = set(app.openapi()["paths"])
+    assert (
+        "/api/platform/migrations/appfolio/runs/{run_id}/uploads/{upload_id}/units/dry-run"
+        in paths
+    )
+    assert (
+        "/api/platform/migrations/appfolio/runs/{run_id}/uploads/{upload_id}/units/commit"
+        in paths
+    )
