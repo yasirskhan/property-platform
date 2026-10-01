@@ -482,7 +482,7 @@ def test_appfolio_commit_schema_rejects_credentials_and_router_is_exposed():
 
     from app.main import app
 
-    paths = {route.path for route in app.routes}
+    paths = set(app.openapi()["paths"])
     assert "/api/platform/migrations/appfolio/runs" in paths
     assert "/api/platform/migrations/appfolio/runs/{run_id}/properties/dry-run" in paths
     assert "/api/platform/migrations/appfolio/runs/{run_id}/properties/commit" in paths

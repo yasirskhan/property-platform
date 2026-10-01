@@ -381,20 +381,6 @@ def commit_properties(
             "Property commit is blocked while the dry run contains invalid records."
         )
 
-    conflicts = [
-        row
-        for row in preview.rows
-        if any(
-            warning.startswith("Possible existing target property match:")
-            for warning in row["warnings"]
-        )
-    ]
-    if conflicts:
-        raise AppFolioMigrationError(
-            "Property commit is blocked by possible existing target matches; "
-            "resolve those conflicts before committing."
-        )
-
     importable_rows = [row for row in preview.rows if row["importable"]]
     source_ids = [str(row["source_id"]) for row in importable_rows]
     mappings = (
@@ -451,6 +437,20 @@ def commit_properties(
             skipped_hidden=preview.skipped_hidden,
             warning_count=preview.warning_count,
             rows=rows,
+        )
+
+    conflicts = [
+        row
+        for row in preview.rows
+        if any(
+            warning.startswith("Possible existing target property match:")
+            for warning in row["warnings"]
+        )
+    ]
+    if conflicts:
+        raise AppFolioMigrationError(
+            "Property commit is blocked by possible existing target matches; "
+            "resolve those conflicts before committing."
         )
 
     committed_rows: list[dict[str, Any]] = []
