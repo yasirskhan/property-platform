@@ -1,3 +1,56 @@
+# AI_HANDOFF.md — 2026-10-02 PHASE 4.13 VENDOR DRY-RUN + CONTROLLED COMMIT VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `3dd5ee328eea0a03818254a3c7ca654848e7af11`.
+- GitHub Actions run: `36956646373` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **905 passed, 21 deselected, 24157 warnings in 341.20s**.
+- Authenticated E2E: **21 passed, 278 warnings in 115.46s**.
+- Alembic head remains `d46f1a7c9e20`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified staged Vendor dry-run + controlled commit
+
+1. Reviewed staged VENDORS rows feed the existing exact-fingerprint migration architecture; callers cannot submit arbitrary Vendor payloads.
+2. Durable VENDORS mappings replay safely and do not overwrite the mapped target.
+3. Explicit MATCH_EXISTING resolutions map only to active same-organization Vendor targets and never mutate them.
+4. Explicit CREATE_NEW may create only a new same-organization Vendor after the reviewed staged state is bound into the dry-run fingerprint.
+5. Target creation maps only semantically supported Vendor Directory fields: company name and exact business email.
+6. Address, plural phone values, Send 1099 and compliance-expiration values remain staging/source-only and are explicitly disclosed as omitted from target mutation.
+7. SKIP rows are excluded; invalid/review/unresolved possible-match rows block dry run.
+8. Controlled commit requires the exact latest dry-run fingerprint, persists durable VENDORS mappings and replays without duplicate Vendor creation.
+9. Resolution/fingerprint changes invalidate stale commit attempts.
+10. No Owner creation, Tenant, Lease/occupancy, accounting-history, AppFolio API connector, navigation or general UX work was added.
+
+## Exact next Phase 4.13 product batch
+
+Add **staged Owner dry-run + controlled mapping commit** using the same exact-fingerprint architecture.
+
+Required boundaries:
+
+1. Derive input only from reviewed OWNERS staged rows; never accept arbitrary caller-supplied Owner records.
+2. Existing durable OWNERS mappings and explicit MATCH_EXISTING resolutions must replay safely and never overwrite the target OWNER user.
+3. `CREATE_NEW` remains unsupported for commit because the verified Owner Directory supplies a display name but not safe first/last identity and credential semantics for a login-backed OWNER user. Do not split names or invent credentials.
+4. SKIP rows are excluded. Missing durable source ID, invalid/review/unresolved possible-match rows block dry run unless explicitly skipped where already permitted.
+5. Dry run must be target-non-mutating and bind staged review/resolution state into the exact fingerprint.
+6. Controlled commit may persist only durable OWNERS source mappings to verified existing OWNER users; it must not create or update customer User records.
+7. Preserve organization scope, audit, idempotency, recovery visibility, navigation integrity and inactive UX standards.
+8. Do not proceed to Tenant Directory until this Owner commit dependency is verified.
+
+---
+
 # AI_HANDOFF.md — 2026-10-02 PHASE 4.13 OWNER/VENDOR RECONCILIATION VERIFIED
 
 ## Current verified product checkpoint
