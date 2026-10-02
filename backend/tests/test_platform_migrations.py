@@ -2097,11 +2097,11 @@ def test_staged_unit_create_new_and_skip_resolution_invalidate_preview_and_do_no
             admin=admin,
             source_id="PROP-UNIT-COMMIT",
         )
-        existing = Unit(property_id=target_property.id, unit_number="301")
+        existing = Unit(property_id=target_property.id, unit_number="ABC")
         db.add(existing)
         db.commit()
 
-        upload = _stage_safe_unit_upload(db, api_user=admin, run=run)
+        upload = _stage_safe_unit_upload(db, api_user=admin, run=run, unit_name="abc")
         staged = api.list_appfolio_staged_rows(
             run.id,
             upload.id,
@@ -2168,7 +2168,7 @@ def test_staged_unit_create_new_and_skip_resolution_invalidate_preview_and_do_no
         )
         assert committed.committed == 1
         assert committed.matched_existing == 0
-        assert db.get(Unit, existing.id).unit_number == "301"
+        assert db.get(Unit, existing.id).unit_number == "ABC"
         assert db.query(Unit).filter(Unit.property_id == target_property.id).count() == 2
 
         resolution_audit = db.query(AuditLog).filter(
