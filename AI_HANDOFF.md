@@ -1,3 +1,61 @@
+# AI_HANDOFF.md — 2026-10-02 PHASE 4.13 TENANT DIRECTORY INGESTION + STAGING VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `bfa48605b37211547183ce6cdab02eaa9e96b0de`.
+- GitHub Actions run: `36968555302` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **911 passed, 21 deselected, 24279 warnings in 299.42s**.
+- Authenticated E2E: **21 passed, 278 warnings in 114.29s**.
+- Alembic head remains `d46f1a7c9e20`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Tenant Directory ingestion/staging scope
+
+1. Shared AppFolio CSV/XLSX ingestion now recognizes the verified Tenant Directory source contract.
+2. Preserved source fields are limited to verified export columns: Tenant ID/name/contact/address, Property ID/name/address, Unit ID/name, move-in/out and Lease From/To.
+3. Tenant Directory detection requires stable Tenant, Unit and Property source-ID columns for automatic report identification; explicit resource mapping remains available through the shared ingestion architecture.
+4. Stable AppFolio Tenant ID, Unit ID and Property ID are preserved when supplied; none are synthesized from names, email or phone.
+5. Unit/Property relationships are checked only through existing durable source-to-target mappings.
+6. Consistent mapped Unit/Property references remain review context only; staging does not create occupancy or lease liability.
+7. Missing Tenant/Unit/Property source identity or unresolved durable relationships remain REVIEW rather than fabricated.
+8. Exact single-source email may surface a conservative same-organization active TENANT possible match; no automatic matching or overwrite occurs.
+9. Existing durable TENANTS mapping is surfaced as ALREADY_MAPPED.
+10. Duplicate Tenant source IDs fail the affected staged row.
+11. Move-in/out and Lease From/To values remain source evidence only; no Lease, occupancy event, Charge, Receipt or GL record is created.
+12. CSV/XLSX replay remains idempotent and creates no duplicate staged upload/rows.
+13. This verified batch creates or updates **zero** customer Tenant users, leases, occupancy, charges, receipts or GL records.
+14. No AppFolio API transport, navigation change or general UX work was added.
+
+## Exact next Phase 4.13 product batch
+
+Add **explicit staged Tenant reconciliation only** using the shared staged-row resolution/fingerprint/audit architecture.
+
+Required boundaries:
+
+1. Add a correctly typed Tenant-user resolution target; do not reuse Property/Unit/Owner/Vendor target columns.
+2. Support explicit MATCH_EXISTING to an active same-organization `UserRole.TENANT`, CREATE_NEW only for a reviewed POSSIBLE_MATCH, and SKIP.
+3. Rows without durable Tenant source identity, unresolved Unit/Property relationships or other REVIEW state may only be skipped; do not synthesize identity or occupancy.
+4. Never overwrite or mutate a matched existing Tenant user.
+5. Resolution changes must be durable, audited and invalidate the prior dry-run fingerprint.
+6. Tenant resolution state/target identity must participate in the shared staged-review fingerprint.
+7. This batch remains reconciliation-only: create/update **zero** Tenant users, leases, occupancy, charges, receipts or GL records.
+8. Preserve organization isolation, durable Property/Unit relationship context, idempotency/recovery visibility, navigation integrity and inactive UX standards.
+9. Do not implement Tenant dry-run/commit, Lease/occupancy commit, accounting-history migration or AppFolio API transport in this batch.
+
+---
+
 # AI_HANDOFF.md — 2026-10-02 PHASE 4.13 OWNER CONTROLLED MAPPING COMMIT VERIFIED
 
 ## Current verified product checkpoint
