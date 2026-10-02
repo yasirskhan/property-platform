@@ -27,6 +27,7 @@ from app.schemas.platform_migration import (
     AppFolioStagedUnitCommitIn,
     AppFolioStagedUnitResolutionIn,
     AppFolioStagedOwnerResolutionIn,
+    AppFolioStagedOwnerCommitIn,
     AppFolioStagedVendorResolutionIn,
     AppFolioStagedVendorCommitIn,
 )
@@ -3166,6 +3167,256 @@ def test_appfolio_vendor_commit_rejects_stale_fingerprint_after_resolution_chang
             PlatformMigrationItem.run_id == run.id,
             PlatformMigrationItem.resource == "VENDORS",
         ).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_owner_staged_dry_run_commit_maps_existing_without_user_or_ownership_mutation():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Owner Commit Org")
+        existing = User(
+            organization_id=org.id,
+            role=UserRole.OWNER,
+            email="owner.commit@example.com",
+            first_name="Existing",
+            last_name="Owner",
+            hashed_password="x",
+            is_active=True,
+        )
+        db.add(existing)
+        db.commit()
+        original_name = (existing.first_name, existing.last_name, existing.email)
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="owner-commit",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "owner-directory.csv",
+                    (
+                        "Owner ID,Name,Phone Numbers,Email,Properties Owned,Properties Owned IDs\n"
+                        "OWNER-100,Source Display Name,216-555-0100,"
+                        "owner.commit@example.com,Lake House,PROP-100\n"
+                    ).encode(),
+                ),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        assert row.disposition == "POSSIBLE_MATCH"
+
+        api.resolve_staged_appfolio_owner(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedOwnerResolutionIn(
+                action="MATCH_EXISTING",
+                target_owner_user_id=existing.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        before_users = db.query(User).count()
+        before_property_owners = db.query(PropertyOwner).count()
+        preview = api.dry_run_staged_appfolio_owners(
+            run.id,
+            upload.id,
+            db=db,
+            current_user=admin,
+        )
+        assert preview.total == 1
+        assert preview.importable == 1
+        assert preview.invalid == 0
+        assert db.query(User).count() == before_users
+        assert db.query(PropertyOwner).count() == before_property_owners
+        assert any(
+            "target profile fields will not be overwritten" in warning
+            for warning in preview.rows[0].warnings
+        )
+        assert any(
+            "property ownership" in warning
+            for warning in preview.rows[0].warnings
+        )
+
+        committed = api.commit_staged_appfolio_owners(
+            run.id,
+            upload.id,
+            AppFolioStagedOwnerCommitIn(fingerprint=preview.fingerprint),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.mapped_existing == 1
+        assert committed.replayed is False
+        assert db.query(User).count() == before_users
+        assert db.query(PropertyOwner).count() == before_property_owners
+        db.refresh(existing)
+        assert (existing.first_name, existing.last_name, existing.email) == original_name
+
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "OWNERS",
+            PlatformMigrationItem.source_id == "OWNER-100",
+        ).one()
+        assert mapping.target_entity == "OWNER_USER"
+        assert mapping.target_id == existing.id
+
+        replay_preview = api.dry_run_staged_appfolio_owners(
+            run.id,
+            upload.id,
+            db=db,
+            current_user=admin,
+        )
+        replay = api.commit_staged_appfolio_owners(
+            run.id,
+            upload.id,
+            AppFolioStagedOwnerCommitIn(fingerprint=replay_preview.fingerprint),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert replay.mapped_existing == 0
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "OWNERS",
+        ).count() == 1
+        assert db.query(User).count() == before_users
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_owner_controlled_commit_blocks_create_new_and_stale_resolution():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Owner Commit Guard Org")
+        first = User(
+            organization_id=org.id,
+            role=UserRole.OWNER,
+            email="owner.guard@example.com",
+            first_name="First",
+            last_name="Owner",
+            hashed_password="x",
+            is_active=True,
+        )
+        second = User(
+            organization_id=org.id,
+            role=UserRole.OWNER,
+            email="second.owner.guard@example.com",
+            first_name="Second",
+            last_name="Owner",
+            hashed_password="x",
+            is_active=True,
+        )
+        db.add_all([first, second])
+        db.commit()
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="owner-commit-guard",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "owner-directory.csv",
+                    (
+                        "Owner ID,Name,Phone Numbers,Email,Properties Owned,Properties Owned IDs\n"
+                        "OWNER-GUARD,Guard Owner,216-555-0101,"
+                        "owner.guard@example.com,Lake House,PROP-100\n"
+                    ).encode(),
+                ),
+                resource="OWNERS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+
+        api.resolve_staged_appfolio_owner(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedOwnerResolutionIn(action="CREATE_NEW"),
+            db=db,
+            current_user=admin,
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_owners(
+                run.id,
+                upload.id,
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "CREATE_NEW is intentionally unsupported" in str(exc.value.detail)
+        assert db.query(User).count() == 2
+
+        api.resolve_staged_appfolio_owner(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedOwnerResolutionIn(
+                action="MATCH_EXISTING",
+                target_owner_user_id=first.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        preview = api.dry_run_staged_appfolio_owners(
+            run.id,
+            upload.id,
+            db=db,
+            current_user=admin,
+        )
+        api.resolve_staged_appfolio_owner(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedOwnerResolutionIn(
+                action="MATCH_EXISTING",
+                target_owner_user_id=second.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.commit_staged_appfolio_owners(
+                run.id,
+                upload.id,
+                AppFolioStagedOwnerCommitIn(fingerprint=preview.fingerprint),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "OWNERS",
+        ).count() == 0
+        assert db.query(User).count() == 2
     finally:
         db.close()
         engine.dispose()
