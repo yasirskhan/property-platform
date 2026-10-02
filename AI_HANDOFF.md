@@ -1,3 +1,63 @@
+# AI_HANDOFF.md — 2026-10-02 PHASE 4.13 GENERAL LEDGER RELATIONSHIP RECONCILIATION VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `40368c4a3e6fbcbb42b0c3bab08c3455864b6db2`.
+- GitHub Actions run: `37059481037` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **936 passed, 21 deselected, 24741 warnings in 231.04s**.
+- Authenticated E2E: **21 passed, 278 warnings in 75.98s**.
+- Alembic head remains `0a7c4e9f2b61`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified staged General Ledger relationship reconciliation
+
+1. Resolution operates only on already-staged `GENERAL_LEDGER` rows.
+2. `ACCEPT_RELATIONSHIP` requires durable source `LineItemId` identity; missing identity may only be explicitly SKIPped.
+3. Source GL Account identity is revalidated only through the durable `GL_ACCOUNTS -> GL_ACCOUNT` mapping and an active, nondeleted, same-organization target GLAccount.
+4. Supplied PropertyId/UnitId relationships are revalidated only through durable source mappings; Unit->Property consistency fails closed.
+5. Accepted review state snapshots only already-verified typed target GLAccount/Property/Unit IDs on the staged row.
+6. INVALID rows remain non-resolvable; unresolved REVIEW rows may be SKIPped.
+7. Resolution changes participate in the shared staged-review fingerprint and invalidate prior run dry-run state.
+8. Repeating the identical accepted resolution is idempotent and does not duplicate audit activity.
+9. The batch creates or updates zero GLTransaction, GLEntry, journal entry, Receipt, Bill, Charge, GLAccount, AccountingKeyAccount or accounting-balance records.
+10. No AppFolio API transport, navigation change or general UX work was added.
+
+Implementation commits:
+- `1ebb7b5f0395c91490f64805f636b2715482ecbf` — General Ledger reconciliation schema.
+- `7d0b3c61e24ba6473d01338c80046e929919ba63` — staged relationship resolver.
+- `40368c4a3e6fbcbb42b0c3bab08c3455864b6db2` — focused regressions; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Add **General Ledger staged accounting-history dry-run only** using the existing exact-fingerprint staged-review architecture.
+
+Required boundaries:
+
+1. Operate only on already-staged `GENERAL_LEDGER` rows from the verified upload pipeline.
+2. Include only explicit `ACCEPT_RELATIONSHIP` rows with stable source `LineItemId`; SKIP rows remain excluded and unresolved/INVALID rows block readiness.
+3. Revalidate current durable GL Account/Property/Unit mappings and the snapped typed target IDs before dry-run.
+4. Preserve source date, debit, credit, description, reference, remarks, transaction type and transaction ID as review evidence only.
+5. Do not create, update, balance, net or post GLTransaction, GLEntry, journal entry, Receipt, Bill, Charge, GLAccount, AccountingKeyAccount or customer balances.
+6. Do not infer accounting basis, balancing entries, opening balances, payer/payee identity, reconciliation completion, transaction grouping or target posting semantics.
+7. Dry-run output must bind the exact shared staged-review fingerprint and current source fingerprints; changed source/review state makes later use stale.
+8. A dry-run containing no accepted ledger rows is not commit-ready.
+9. Add focused safety/idempotency/staleness tests.
+10. Accounting-history controlled commit remains a separate later batch; AppFolio API transport and general UX remain out of scope.
+
+---
+
 # AI_HANDOFF.md — 2026-10-02 PHASE 4.13 GENERAL LEDGER STAGING VERIFIED
 
 ## Current verified product checkpoint
