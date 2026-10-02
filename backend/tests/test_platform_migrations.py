@@ -3841,8 +3841,8 @@ def test_appfolio_tenant_possible_match_resolution_is_typed_scoped_and_non_mutat
                     "tenant-directory.csv",
                     (
                         "Tenant ID,Tenant Name,Email,Property ID,Property Name,Unit ID,Unit\n"
-                        "TENANT-R1,Source Tenant,tenant.resolve@example.com,PROP-TENANT,"
-                        "Tenant Stage Property,UNIT-TENANT,101\n"
+                        "TENANT-R1,Source Tenant,tenant.resolve@example.com,PROP-TENANT-1,"
+                        "Tenant Stage Property,UNIT-TENANT-1,101\n"
                     ).encode(),
                 ),
                 resource="TENANTS",
