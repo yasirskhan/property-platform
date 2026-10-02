@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.models.gl_account import GLAccount
 from app.models.platform_migration import (
     PlatformMigrationItem,
     PlatformMigrationRun,
@@ -49,6 +50,7 @@ from app.schemas.platform_migration import (
     AppFolioStagedVendorResolutionIn,
     AppFolioStagedTenantResolutionIn,
     AppFolioStagedLeaseOccupancyResolutionIn,
+    AppFolioStagedGLAccountResolutionIn,
     AppFolioStagedTenantCommitIn,
     AppFolioTenantCommitOut,
     AppFolioTenantDryRunOut,
@@ -524,6 +526,7 @@ def _staged_review_fingerprint(
                 "resolution_target_owner_user_id": row.resolution_target_owner_user_id,
                 "resolution_target_vendor_id": row.resolution_target_vendor_id,
                 "resolution_target_tenant_user_id": row.resolution_target_tenant_user_id,
+                "resolution_target_gl_account_id": row.resolution_target_gl_account_id,
             }
             for row in rows
         ],
@@ -1549,6 +1552,7 @@ def resolve_staged_appfolio_owner(
     row.resolution_target_unit_id = None
     row.resolution_target_vendor_id = None
     row.resolution_target_tenant_user_id = None
+    row.resolution_target_gl_account_id = None
     row.resolved_by_platform_user_id = current_user.id
     row.resolved_at = datetime.utcnow()
     run.last_dry_run_fingerprint = None
@@ -1843,6 +1847,7 @@ def resolve_staged_appfolio_lease_occupancy(
     row.resolution_target_tenant_user_id = target_tenant_user_id
     row.resolution_target_owner_user_id = None
     row.resolution_target_vendor_id = None
+    row.resolution_target_gl_account_id = None
     row.resolved_by_platform_user_id = current_user.id
     row.resolved_at = datetime.utcnow()
     run.last_dry_run_fingerprint = None
@@ -1867,6 +1872,112 @@ def resolve_staged_appfolio_lease_occupancy(
             "accepted_for_later_commit": row.resolution_action == "ACCEPT_RELATIONSHIP",
             "customer_lease_mutation": False,
             "accounting_mutation": False,
+        },
+    )
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/rows/{staged_row_id}/gl-account-resolution",
+    response_model=AppFolioMigrationStagedRowOut,
+)
+def resolve_staged_appfolio_gl_account(
+    run_id: int,
+    upload_id: int,
+    staged_row_id: int,
+    payload: AppFolioStagedGLAccountResolutionIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    if upload.detected_resource != "GL_ACCOUNTS":
+        raise HTTPException(
+            status_code=409,
+            detail="Only staged GL_ACCOUNTS rows can be resolved here.",
+        )
+    row = _staged_row(db, run=run, upload=upload, staged_row_id=staged_row_id)
+    if row.resource != "GL_ACCOUNTS" or row.errors or row.disposition == "INVALID":
+        raise HTTPException(
+            status_code=409,
+            detail="Invalid staged GL Account rows cannot be resolved.",
+        )
+    if row.disposition == "ALREADY_MAPPED":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Already-mapped staged GL Account rows are controlled by their "
+                "durable source mapping."
+            ),
+        )
+    if not row.source_id and payload.action != "SKIP":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "GL Account rows without a durable source GL Account ID may only "
+                "be skipped."
+            ),
+        )
+
+    target_gl_account_id = payload.target_gl_account_id
+    if payload.action == "MATCH_EXISTING":
+        target = (
+            db.query(GLAccount)
+            .filter(
+                GLAccount.id == target_gl_account_id,
+                GLAccount.organization_id == run.organization_id,
+                GLAccount.is_active.is_(True),
+                GLAccount.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if target is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Existing target GL Account not found in this organization.",
+            )
+    else:
+        target_gl_account_id = None
+
+    if (
+        row.resolution_action == payload.action
+        and row.resolution_target_gl_account_id == target_gl_account_id
+    ):
+        return row
+
+    row.resolution_action = payload.action
+    row.resolution_target_gl_account_id = target_gl_account_id
+    row.resolution_target_id = None
+    row.resolution_target_unit_id = None
+    row.resolution_target_owner_user_id = None
+    row.resolution_target_vendor_id = None
+    row.resolution_target_tenant_user_id = None
+    row.resolved_by_platform_user_id = current_user.id
+    row.resolved_at = datetime.utcnow()
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    run.status = "STAGED"
+    append_audit_log(
+        db,
+        platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_staged_row",
+        entity_id=row.id,
+        action="appfolio_gl_account_resolution_changed",
+        new_value={
+            "upload_id": upload.id,
+            "source_id": row.source_id,
+            "source_account_number": (row.normalized_data or {}).get("account_number"),
+            "source_account_name": (row.normalized_data or {}).get("account_name"),
+            "source_account_type": (row.normalized_data or {}).get("account_type"),
+            "resolution_action": row.resolution_action,
+            "resolution_target_gl_account_id": row.resolution_target_gl_account_id,
+            "target_overwrite": False,
+            "target_classification_translation": False,
+            "key_account_mutation": False,
+            "accounting_history_mutation": False,
         },
     )
     db.commit()
@@ -1945,6 +2056,7 @@ def resolve_staged_appfolio_vendor(
     row.resolution_target_unit_id = None
     row.resolution_target_owner_user_id = None
     row.resolution_target_tenant_user_id = None
+    row.resolution_target_gl_account_id = None
     row.resolved_by_platform_user_id = current_user.id
     row.resolved_at = datetime.utcnow()
     run.last_dry_run_fingerprint = None
