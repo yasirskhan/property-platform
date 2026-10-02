@@ -28,6 +28,7 @@ from app.models.platform_migration import (
     PlatformMigrationUpload,
 )
 from app.models.property import Property, Unit
+from app.models.user import User, UserRole
 
 MAX_FILE_BYTES = 10 * 1024 * 1024
 MAX_ROWS = 10_000
@@ -93,6 +94,26 @@ UNIT_ALIASES: dict[str, tuple[str, ...]] = {
 # export contract. Stable Unit/Property IDs are optional in AppFolio exports,
 # but missing IDs remain REVIEW blockers for safe later commit.
 UNIT_REQUIRED = ("unit_name",)
+
+# Verified Owner Directory export contract. Name, Phone Numbers, Email,
+# Properties Owned and Properties Owned IDs are documented report columns.
+# A stable Owner ID is not guaranteed by the export, but preserve it when
+# supplied rather than synthesizing source identity from contact data.
+OWNER_ALIASES: dict[str, tuple[str, ...]] = {
+    "source_id": ("Owner ID", "Owner Id", "OwnerID", "Id"),
+    "name": ("Name", "Owner", "Owner Name"),
+    "phone_numbers": ("Phone Numbers", "Phone Number", "Phone"),
+    "email": ("Email", "Email Address", "Owner Email"),
+    "properties_owned": ("Properties Owned",),
+    "properties_owned_ids": (
+        "Properties Owned IDs",
+        "Properties Owned Ids",
+        "Properties Owned ID",
+        "Property IDs",
+        "Property Ids",
+    ),
+}
+OWNER_REQUIRED = ("name",)
 
 
 class AppFolioFileIngestionError(ValueError):
@@ -236,6 +257,20 @@ def _looks_like_units(headers: list[str]) -> bool:
     )
 
 
+def _looks_like_owners(headers: list[str]) -> bool:
+    normalized = {_normalize_header(header) for header in headers}
+    name_aliases = {_normalize_header(alias) for alias in OWNER_ALIASES["name"]}
+    email_aliases = {_normalize_header(alias) for alias in OWNER_ALIASES["email"]}
+    property_id_aliases = {
+        _normalize_header(alias) for alias in OWNER_ALIASES["properties_owned_ids"]
+    }
+    return (
+        bool(normalized & name_aliases)
+        and bool(normalized & email_aliases)
+        and bool(normalized & property_id_aliases)
+    )
+
+
 def _parse_xlsx(content: bytes, requested_sheet: str | None) -> ParsedTable:
     stream = io.BytesIO(content)
     if not zipfile.is_zipfile(stream):
@@ -283,7 +318,9 @@ def _parse_xlsx(content: bytes, requested_sheet: str | None) -> ParsedTable:
             for name in workbook.sheetnames:
                 headers = _xlsx_sheet_headers(workbook[name])
                 if headers and (
-                    _looks_like_properties(headers) or _looks_like_units(headers)
+                    _looks_like_properties(headers)
+                    or _looks_like_units(headers)
+                    or _looks_like_owners(headers)
                 ):
                     candidates.append(name)
             if len(candidates) != 1:
@@ -378,19 +415,23 @@ def _resolve_mapping(
     explicit_mapping: dict[str, str] | None,
 ) -> tuple[str, dict[str, str], list[str], list[str]]:
     requested = (resource_override or "").strip().upper()
-    if requested not in {"", "PROPERTIES", "UNITS"}:
+    if requested not in {"", "PROPERTIES", "UNITS", "OWNERS"}:
         raise AppFolioFileIngestionError(
-            "This migration stage currently supports only verified PROPERTIES and UNITS resource mappings."
+            "This migration stage currently supports only verified PROPERTIES, UNITS and OWNERS resource mappings."
         )
 
     if requested == "PROPERTIES":
         resource = "PROPERTIES"
     elif requested == "UNITS":
         resource = "UNITS"
+    elif requested == "OWNERS":
+        resource = "OWNERS"
     elif _looks_like_properties(headers):
         resource = "PROPERTIES"
     elif _looks_like_units(headers):
         resource = "UNITS"
+    elif _looks_like_owners(headers):
+        resource = "OWNERS"
     else:
         resource = "UNKNOWN"
 
@@ -399,6 +440,8 @@ def _resolve_mapping(
         if resource == "PROPERTIES"
         else UNIT_ALIASES
         if resource == "UNITS"
+        else OWNER_ALIASES
+        if resource == "OWNERS"
         else {}
     )
     required = (
@@ -406,6 +449,8 @@ def _resolve_mapping(
         if resource == "PROPERTIES"
         else UNIT_REQUIRED
         if resource == "UNITS"
+        else OWNER_REQUIRED
+        if resource == "OWNERS"
         else ()
     )
     auto_mapping, ambiguous = _auto_mapping(headers, aliases) if aliases else ({}, [])
@@ -417,7 +462,7 @@ def _resolve_mapping(
             # A caller must choose a supported resource before using explicit
             # mapping when automatic report detection cannot determine one.
             raise AppFolioFileIngestionError(
-                "Choose resource PROPERTIES or UNITS before supplying explicit column mapping."
+                "Choose resource PROPERTIES, UNITS or OWNERS before supplying explicit column mapping."
             )
         unknown_fields = sorted(set(explicit_mapping) - allowed_fields)
         if unknown_fields:
@@ -792,10 +837,113 @@ def stage_appfolio_file(
                         )
                     else:
                         disposition = "NEW"
+        elif resource == "OWNERS":
+            normalized_data = {
+                field: _mapped_value(source_row, mapping, field)
+                for field in OWNER_ALIASES
+                if field in mapping
+            }
+            if ambiguous:
+                errors.append(
+                    "Ambiguous automatic mapping requires explicit mapping for: "
+                    + ", ".join(sorted(ambiguous))
+                )
+            if missing_required:
+                errors.append(
+                    "Missing required source columns: " + ", ".join(missing_required)
+                )
+
+            owner_name = normalized_data.get("name")
+            if owner_name is None or not str(owner_name).strip():
+                errors.append("name is required.")
+
+            source_id_value = normalized_data.get("source_id")
+            source_id = str(source_id_value).strip() if source_id_value is not None else None
+            if source_id:
+                if source_id in seen_source_ids:
+                    errors.append("Duplicate AppFolio Owner ID in this staged upload.")
+                    duplicates += 1
+                else:
+                    seen_source_ids.add(source_id)
+
+            email_value = normalized_data.get("email")
+            email = str(email_value).strip() if email_value is not None else None
+            property_ids_value = normalized_data.get("properties_owned_ids")
+            property_ids = (
+                str(property_ids_value).strip()
+                if property_ids_value is not None
+                else None
+            )
+
+            if errors:
+                disposition = "INVALID"
+                invalid += 1
+            else:
+                valid += 1
+                mapped_owner = None
+                if source_id:
+                    mapped_owner = (
+                        db.query(PlatformMigrationItem)
+                        .filter(
+                            PlatformMigrationItem.run_id == run.id,
+                            PlatformMigrationItem.organization_id == run.organization_id,
+                            PlatformMigrationItem.provider == "APPFOLIO",
+                            PlatformMigrationItem.resource == "OWNERS",
+                            PlatformMigrationItem.source_id == source_id,
+                        )
+                        .first()
+                    )
+
+                if mapped_owner is not None:
+                    disposition = "ALREADY_MAPPED"
+                    warnings.append(
+                        f"Source Owner ID is already mapped to {mapped_owner.target_entity} #{mapped_owner.target_id}."
+                    )
+                else:
+                    review_required = False
+                    if not source_id:
+                        review_required = True
+                        warnings.append(
+                            "Owner ID was not supplied; durable Owner source identity must be resolved before dry run or commit."
+                        )
+                    if not email:
+                        review_required = True
+                        warnings.append(
+                            "Owner email was not supplied; target owner identity/contact mapping requires explicit review."
+                        )
+                    if not property_ids:
+                        review_required = True
+                        warnings.append(
+                            "Properties Owned IDs were not supplied; owner-to-property relationships require explicit review."
+                        )
+
+                    candidate = None
+                    if email:
+                        candidate = (
+                            db.query(User)
+                            .filter(
+                                User.organization_id == run.organization_id,
+                                User.role == UserRole.OWNER,
+                                User.is_active.is_(True),
+                                User.deleted_at.is_(None),
+                                func.lower(User.email) == email.lower(),
+                            )
+                            .first()
+                        )
+                    if candidate is not None:
+                        possible_matches += 1
+                        warnings.append(
+                            f"Possible existing target owner match by exact email: local owner #{candidate.id}."
+                        )
+                        disposition = "REVIEW" if review_required else "POSSIBLE_MATCH"
+                    elif review_required:
+                        disposition = "REVIEW"
+                    else:
+                        disposition = "NEW"
         else:
             normalized_data = _normalized_source_row(source_row)
             errors.append(
-                "Report type could not be detected safely; choose PROPERTIES or UNITS and supply explicit column mapping."
+                "Report type could not be detected safely; choose PROPERTIES, UNITS or OWNERS and supply explicit column mapping."
             )
             disposition = "INVALID"
             invalid += 1
@@ -848,6 +996,30 @@ def stage_appfolio_file(
             1
             for row in unit_rows
             if any("Unit ID was not supplied" in warning for warning in (row.warnings or []))
+        )
+    if resource == "OWNERS":
+        owner_rows = (
+            db.query(PlatformMigrationStagedRow)
+            .filter(
+                PlatformMigrationStagedRow.upload_id == upload.id,
+                PlatformMigrationStagedRow.resource == "OWNERS",
+            )
+            .all()
+        )
+        summary["missing_owner_source_ids"] = sum(
+            1
+            for row in owner_rows
+            if any("Owner ID was not supplied" in warning for warning in (row.warnings or []))
+        )
+        summary["missing_owner_emails"] = sum(
+            1
+            for row in owner_rows
+            if any("Owner email was not supplied" in warning for warning in (row.warnings or []))
+        )
+        summary["missing_owner_property_ids"] = sum(
+            1
+            for row in owner_rows
+            if any("Properties Owned IDs were not supplied" in warning for warning in (row.warnings or []))
         )
     if resource == "UNKNOWN" or missing_required or ambiguous:
         upload.status = "MAPPING_REQUIRED"

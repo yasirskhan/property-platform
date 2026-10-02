@@ -15,7 +15,7 @@ from app.models.audit_log import AuditLog
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.property import Property, Unit
-from app.models.user import Organization
+from app.models.user import Organization, User, UserRole
 from app.routers import platform_migrations as api
 from app.schemas.platform_migration import (
     AppFolioMigrationRunCreateIn,
@@ -2247,3 +2247,222 @@ def test_staged_unit_dry_run_and_commit_routes_are_exposed():
         "/api/platform/migrations/appfolio/runs/{run_id}/uploads/{upload_id}/units/commit"
         in paths
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio Owner Directory ingestion + staging
+# ---------------------------------------------------------------------------
+
+def test_appfolio_owner_directory_csv_stages_verified_fields_and_replays_without_customer_mutation():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Owner Stage Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="owner-stage",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        content = (
+            "Owner ID,Name,Phone Numbers,Email,Properties Owned,Properties Owned IDs\n"
+            "OWNER-1,Jane Owner,216-555-0100,jane.owner@example.com,Lake Apartments,PROP-100\n"
+        ).encode()
+
+        before_users = db.query(User).count()
+        first = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("owner-directory.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert first.detected_resource == "OWNERS"
+        assert first.status == "STAGED"
+        assert first.replayed is False
+        assert first.validation_summary["total"] == 1
+        assert first.validation_summary["valid"] == 1
+        assert first.validation_summary["invalid"] == 0
+        assert first.validation_summary["warnings"] == 0
+        assert first.validation_summary["missing_owner_source_ids"] == 0
+        assert first.validation_summary["missing_owner_emails"] == 0
+        assert first.validation_summary["missing_owner_property_ids"] == 0
+
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == first.id
+        ).one()
+        assert row.resource == "OWNERS"
+        assert row.source_id == "OWNER-1"
+        assert row.disposition == "NEW"
+        assert row.normalized_data == {
+            "source_id": "OWNER-1",
+            "name": "Jane Owner",
+            "phone_numbers": "216-555-0100",
+            "email": "jane.owner@example.com",
+            "properties_owned": "Lake Apartments",
+            "properties_owned_ids": "PROP-100",
+        }
+        assert db.query(User).count() == before_users
+
+        replay = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("renamed-owner-directory.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert replay.replayed is True
+        assert replay.id == first.id
+        assert db.query(PlatformMigrationUpload).filter(
+            PlatformMigrationUpload.run_id == run.id,
+            PlatformMigrationUpload.detected_resource == "OWNERS",
+        ).count() == 1
+        assert db.query(User).count() == before_users
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_owner_directory_missing_identity_or_relationship_stages_review_and_exact_email_is_possible_match():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="Owner Review Org")
+        existing = User(
+            organization_id=org.id,
+            role=UserRole.OWNER,
+            email="existing.owner@example.com",
+            first_name="Existing",
+            last_name="Owner",
+            hashed_password="x",
+            is_active=True,
+        )
+        db.add(existing)
+        db.commit()
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="owner-review",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        content = (
+            "Owner ID,Name,Phone Numbers,Email,Properties Owned,Properties Owned IDs\n"
+            "OWNER-MATCH,Existing Owner,216-555-0101,existing.owner@example.com,Lake Apartments,PROP-100\n"
+            ",Missing Stable Id,216-555-0102,missing.id@example.com,Lake Apartments,PROP-100\n"
+            "OWNER-NOEMAIL,No Email,216-555-0103,,Lake Apartments,PROP-100\n"
+            "OWNER-NOPROP,No Property Refs,216-555-0104,noprop@example.com,,\n"
+        ).encode()
+
+        before_users = db.query(User).count()
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("owner-review.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert upload.detected_resource == "OWNERS"
+        assert upload.status == "REVIEW_REQUIRED"
+        assert upload.validation_summary["valid"] == 4
+        assert upload.validation_summary["warnings"] == 4
+        assert upload.validation_summary["possible_existing_matches"] == 1
+        assert upload.validation_summary["missing_owner_source_ids"] == 1
+        assert upload.validation_summary["missing_owner_emails"] == 1
+        assert upload.validation_summary["missing_owner_property_ids"] == 1
+
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+        assert [row.disposition for row in rows] == [
+            "POSSIBLE_MATCH", "REVIEW", "REVIEW", "REVIEW"
+        ]
+        assert any("exact email" in warning for warning in rows[0].warnings)
+        assert any("Owner ID was not supplied" in warning for warning in rows[1].warnings)
+        assert any("Owner email was not supplied" in warning for warning in rows[2].warnings)
+        assert any("Properties Owned IDs were not supplied" in warning for warning in rows[3].warnings)
+        assert db.query(User).count() == before_users
+        assert db.get(User, existing.id).email == "existing.owner@example.com"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_owner_directory_duplicate_source_id_invalid_and_multisheet_xlsx_autodetects():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Owner XLSX Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="owner-xlsx",
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        workbook = Workbook()
+        ws = workbook.active
+        ws.title = "Owner Directory"
+        ws.append([
+            "Owner ID", "Name", "Phone Numbers", "Email",
+            "Properties Owned", "Properties Owned IDs",
+        ])
+        ws.append([
+            "OWNER-X", "Owner One", "216-555-0105", "owner.one@example.com",
+            "Lake Apartments", "PROP-100",
+        ])
+        ws.append([
+            "OWNER-X", "Owner Duplicate", "216-555-0106", "owner.two@example.com",
+            "River Apartments", "PROP-200",
+        ])
+        notes = workbook.create_sheet("Notes")
+        notes.append(["Comment"])
+        notes.append(["not a supported migration report"])
+        buffer = BytesIO()
+        workbook.save(buffer)
+        workbook.close()
+
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("owner-directory.xlsx", buffer.getvalue()),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert upload.detected_resource == "OWNERS"
+        assert upload.sheet_name == "Owner Directory"
+        assert upload.status == "STAGED_WITH_ERRORS"
+        assert upload.validation_summary["duplicates"] == 1
+        assert upload.validation_summary["invalid"] == 1
+
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+        assert rows[0].disposition == "NEW"
+        assert rows[1].disposition == "INVALID"
+        assert any("Duplicate AppFolio Owner ID" in error for error in rows[1].errors)
+        assert db.query(User).filter(User.role == UserRole.OWNER).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
