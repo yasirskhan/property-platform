@@ -29,6 +29,7 @@ from app.models.platform_migration import (
 )
 from app.models.property import Property, Unit
 from app.models.user import User, UserRole
+from app.models.vendor import Vendor
 
 MAX_FILE_BYTES = 10 * 1024 * 1024
 MAX_ROWS = 10_000
@@ -114,6 +115,38 @@ OWNER_ALIASES: dict[str, tuple[str, ...]] = {
     ),
 }
 OWNER_REQUIRED = ("name",)
+
+# Verified Vendor Directory export contract. These fields remain source/staging
+# facts only; 1099/compliance-expiration values are not tax/legal certification.
+VENDOR_ALIASES: dict[str, tuple[str, ...]] = {
+    "source_id": ("Vendor ID", "Vendor Id", "VendorID", "Id"),
+    "company_name": ("Company Name", "Vendor", "Vendor Name"),
+    "address": ("Address", "Vendor Address"),
+    "phone_numbers": ("Phone Numbers", "Phone Number", "Phone"),
+    "email": ("Email", "Email Address", "Vendor Email"),
+    "send_1099": ("Send 1099?", "Send 1099", "Send1099"),
+    "liability_insurance_expiration": (
+        "Liability Insurance Expiration",
+        "Liability Insurance Expiration Date",
+    ),
+    "workers_comp_expiration": (
+        "Workers Comp Expiration",
+        "Workers Compensation Expiration",
+    ),
+    "epa_certification_expiration": (
+        "EPA Certification Expiration",
+        "EPA Certification Expiration Date",
+    ),
+    "state_license_expiration": (
+        "State License Expiration",
+        "State License Expiration Date",
+    ),
+    "contract_expiration": ("Contract Expiration", "Contract Expiration Date"),
+    "contact_name": ("Contact Name",),
+    "contact_phone_numbers": ("Contact Phone Numbers", "Contact Phone"),
+    "contact_email": ("Contact Email",),
+}
+VENDOR_REQUIRED = ("company_name",)
 
 
 class AppFolioFileIngestionError(ValueError):
@@ -271,6 +304,22 @@ def _looks_like_owners(headers: list[str]) -> bool:
     )
 
 
+def _looks_like_vendors(headers: list[str]) -> bool:
+    normalized = {_normalize_header(header) for header in headers}
+    company_aliases = {
+        _normalize_header(alias) for alias in VENDOR_ALIASES["company_name"]
+    }
+    email_aliases = {_normalize_header(alias) for alias in VENDOR_ALIASES["email"]}
+    send_1099_aliases = {
+        _normalize_header(alias) for alias in VENDOR_ALIASES["send_1099"]
+    }
+    return (
+        bool(normalized & company_aliases)
+        and bool(normalized & email_aliases)
+        and bool(normalized & send_1099_aliases)
+    )
+
+
 def _parse_xlsx(content: bytes, requested_sheet: str | None) -> ParsedTable:
     stream = io.BytesIO(content)
     if not zipfile.is_zipfile(stream):
@@ -321,6 +370,7 @@ def _parse_xlsx(content: bytes, requested_sheet: str | None) -> ParsedTable:
                     _looks_like_properties(headers)
                     or _looks_like_units(headers)
                     or _looks_like_owners(headers)
+                    or _looks_like_vendors(headers)
                 ):
                     candidates.append(name)
             if len(candidates) != 1:
@@ -415,9 +465,9 @@ def _resolve_mapping(
     explicit_mapping: dict[str, str] | None,
 ) -> tuple[str, dict[str, str], list[str], list[str]]:
     requested = (resource_override or "").strip().upper()
-    if requested not in {"", "PROPERTIES", "UNITS", "OWNERS"}:
+    if requested not in {"", "PROPERTIES", "UNITS", "OWNERS", "VENDORS"}:
         raise AppFolioFileIngestionError(
-            "This migration stage currently supports only verified PROPERTIES, UNITS and OWNERS resource mappings."
+            "This migration stage currently supports only verified PROPERTIES, UNITS, OWNERS and VENDORS resource mappings."
         )
 
     if requested == "PROPERTIES":
@@ -426,12 +476,16 @@ def _resolve_mapping(
         resource = "UNITS"
     elif requested == "OWNERS":
         resource = "OWNERS"
+    elif requested == "VENDORS":
+        resource = "VENDORS"
     elif _looks_like_properties(headers):
         resource = "PROPERTIES"
     elif _looks_like_units(headers):
         resource = "UNITS"
     elif _looks_like_owners(headers):
         resource = "OWNERS"
+    elif _looks_like_vendors(headers):
+        resource = "VENDORS"
     else:
         resource = "UNKNOWN"
 
@@ -442,6 +496,8 @@ def _resolve_mapping(
         if resource == "UNITS"
         else OWNER_ALIASES
         if resource == "OWNERS"
+        else VENDOR_ALIASES
+        if resource == "VENDORS"
         else {}
     )
     required = (
@@ -451,6 +507,8 @@ def _resolve_mapping(
         if resource == "UNITS"
         else OWNER_REQUIRED
         if resource == "OWNERS"
+        else VENDOR_REQUIRED
+        if resource == "VENDORS"
         else ()
     )
     auto_mapping, ambiguous = _auto_mapping(headers, aliases) if aliases else ({}, [])
@@ -462,7 +520,7 @@ def _resolve_mapping(
             # A caller must choose a supported resource before using explicit
             # mapping when automatic report detection cannot determine one.
             raise AppFolioFileIngestionError(
-                "Choose resource PROPERTIES, UNITS or OWNERS before supplying explicit column mapping."
+                "Choose resource PROPERTIES, UNITS, OWNERS or VENDORS before supplying explicit column mapping."
             )
         unknown_fields = sorted(set(explicit_mapping) - allowed_fields)
         if unknown_fields:
@@ -940,10 +998,110 @@ def stage_appfolio_file(
                         disposition = "REVIEW"
                     else:
                         disposition = "NEW"
+        elif resource == "VENDORS":
+            normalized_data = {
+                field: _mapped_value(source_row, mapping, field)
+                for field in VENDOR_ALIASES
+                if field in mapping
+            }
+            if ambiguous:
+                errors.append(
+                    "Ambiguous automatic mapping requires explicit mapping for: "
+                    + ", ".join(sorted(ambiguous))
+                )
+            if missing_required:
+                errors.append(
+                    "Missing required source columns: " + ", ".join(missing_required)
+                )
+
+            company_value = normalized_data.get("company_name")
+            company_name = (
+                str(company_value).strip() if company_value is not None else None
+            )
+            if not company_name:
+                errors.append("company_name is required.")
+
+            source_id_value = normalized_data.get("source_id")
+            source_id = str(source_id_value).strip() if source_id_value is not None else None
+            if source_id:
+                if source_id in seen_source_ids:
+                    errors.append("Duplicate AppFolio Vendor ID in this staged upload.")
+                    duplicates += 1
+                else:
+                    seen_source_ids.add(source_id)
+
+            email_value = normalized_data.get("email")
+            email = str(email_value).strip() if email_value is not None else None
+
+            if errors:
+                disposition = "INVALID"
+                invalid += 1
+            else:
+                valid += 1
+                mapped_vendor = None
+                if source_id:
+                    mapped_vendor = (
+                        db.query(PlatformMigrationItem)
+                        .filter(
+                            PlatformMigrationItem.run_id == run.id,
+                            PlatformMigrationItem.organization_id == run.organization_id,
+                            PlatformMigrationItem.provider == "APPFOLIO",
+                            PlatformMigrationItem.resource == "VENDORS",
+                            PlatformMigrationItem.source_id == source_id,
+                        )
+                        .first()
+                    )
+
+                if mapped_vendor is not None:
+                    disposition = "ALREADY_MAPPED"
+                    warnings.append(
+                        f"Source Vendor ID is already mapped to {mapped_vendor.target_entity} #{mapped_vendor.target_id}."
+                    )
+                else:
+                    review_required = False
+                    if not source_id:
+                        review_required = True
+                        warnings.append(
+                            "Vendor ID was not supplied; durable Vendor source identity must be resolved before dry run or commit."
+                        )
+
+                    candidate = None
+                    if email:
+                        candidate = (
+                            db.query(Vendor)
+                            .filter(
+                                Vendor.organization_id == run.organization_id,
+                                Vendor.is_active.is_(True),
+                                Vendor.deleted_at.is_(None),
+                                func.lower(Vendor.business_email) == email.lower(),
+                            )
+                            .first()
+                        )
+                    if candidate is None and company_name:
+                        candidate = (
+                            db.query(Vendor)
+                            .filter(
+                                Vendor.organization_id == run.organization_id,
+                                Vendor.is_active.is_(True),
+                                Vendor.deleted_at.is_(None),
+                                func.lower(Vendor.company_name) == company_name.lower(),
+                            )
+                            .first()
+                        )
+                    if candidate is not None:
+                        possible_matches += 1
+                        warnings.append(
+                            f"Possible existing target vendor match: local vendor #{candidate.id}; explicit review is required before any future commit."
+                        )
+                        disposition = "REVIEW" if review_required else "POSSIBLE_MATCH"
+                    elif review_required:
+                        disposition = "REVIEW"
+                    else:
+                        disposition = "NEW"
         else:
             normalized_data = _normalized_source_row(source_row)
             errors.append(
-                "Report type could not be detected safely; choose PROPERTIES, UNITS or OWNERS and supply explicit column mapping."
+                "Report type could not be detected safely; choose PROPERTIES, UNITS, OWNERS or VENDORS and supply explicit column mapping."
             )
             disposition = "INVALID"
             invalid += 1
@@ -1020,6 +1178,20 @@ def stage_appfolio_file(
             1
             for row in owner_rows
             if any("Properties Owned IDs were not supplied" in warning for warning in (row.warnings or []))
+        )
+    if resource == "VENDORS":
+        vendor_rows = (
+            db.query(PlatformMigrationStagedRow)
+            .filter(
+                PlatformMigrationStagedRow.upload_id == upload.id,
+                PlatformMigrationStagedRow.resource == "VENDORS",
+            )
+            .all()
+        )
+        summary["missing_vendor_source_ids"] = sum(
+            1
+            for row in vendor_rows
+            if any("Vendor ID was not supplied" in warning for warning in (row.warnings or []))
         )
     if resource == "UNKNOWN" or missing_required or ambiguous:
         upload.status = "MAPPING_REQUIRED"

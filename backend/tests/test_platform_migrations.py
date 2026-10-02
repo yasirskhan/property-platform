@@ -16,6 +16,7 @@ from app.models.platform_migration import PlatformMigrationItem, PlatformMigrati
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.property import Property, Unit
 from app.models.user import Organization, User, UserRole
+from app.models.vendor import Vendor
 from app.routers import platform_migrations as api
 from app.schemas.platform_migration import (
     AppFolioMigrationRunCreateIn,
@@ -2463,6 +2464,205 @@ def test_appfolio_owner_directory_duplicate_source_id_invalid_and_multisheet_xls
         assert rows[1].disposition == "INVALID"
         assert any("Duplicate AppFolio Owner ID" in error for error in rows[1].errors)
         assert db.query(User).filter(User.role == UserRole.OWNER).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio Vendor Directory ingestion + staging
+# ---------------------------------------------------------------------------
+
+def test_appfolio_vendor_directory_csv_stages_verified_fields_and_replays_without_vendor_mutation():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Vendor Stage Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="vendor-stage",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        content = (
+            "Vendor ID,Company Name,Address,Phone Numbers,Email,Send 1099?,"
+            "Liability Insurance Expiration,Workers Comp Expiration,"
+            "EPA Certification Expiration,State License Expiration,Contract Expiration\n"
+            "VENDOR-1,ABC Plumbing,10 Trade St Cleveland OH 44113,216-555-0100,"
+            "service@abc.example,Yes,2027-01-31,2027-02-28,2027-03-31,2027-04-30,2027-12-31\n"
+        ).encode()
+
+        before = db.query(Vendor).count()
+        first = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("vendor-directory.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert first.detected_resource == "VENDORS"
+        assert first.status == "STAGED"
+        assert first.validation_summary["valid"] == 1
+        assert first.validation_summary["invalid"] == 0
+        assert first.validation_summary["warnings"] == 0
+        assert first.validation_summary["missing_vendor_source_ids"] == 0
+
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == first.id
+        ).one()
+        assert row.source_id == "VENDOR-1"
+        assert row.disposition == "NEW"
+        assert row.normalized_data["company_name"] == "ABC Plumbing"
+        assert row.normalized_data["email"] == "service@abc.example"
+        assert row.normalized_data["send_1099"] == "Yes"
+        assert row.normalized_data["liability_insurance_expiration"] == "2027-01-31"
+        assert row.normalized_data["workers_comp_expiration"] == "2027-02-28"
+        assert row.normalized_data["epa_certification_expiration"] == "2027-03-31"
+        assert row.normalized_data["state_license_expiration"] == "2027-04-30"
+        assert row.normalized_data["contract_expiration"] == "2027-12-31"
+        assert db.query(Vendor).count() == before
+
+        replay = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("vendor-directory-renamed.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert replay.replayed is True
+        assert replay.id == first.id
+        assert db.query(Vendor).count() == before
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_vendor_directory_missing_source_id_and_existing_target_are_reviewed_not_overwritten():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="Vendor Review Org")
+        existing = Vendor(
+            organization_id=org.id,
+            company_name="Existing Vendor",
+            business_email="existing.vendor@example.com",
+            is_active=True,
+        )
+        db.add(existing)
+        db.commit()
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="vendor-review",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        content = (
+            "Vendor ID,Company Name,Address,Phone Numbers,Email,Send 1099?\n"
+            "V-MATCH,Existing Vendor,20 Match St,216-555-0111,existing.vendor@example.com,No\n"
+            ",Missing Source Id,30 Review St,216-555-0112,new.vendor@example.com,No\n"
+        ).encode()
+
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("vendor-review.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert upload.detected_resource == "VENDORS"
+        assert upload.status == "REVIEW_REQUIRED"
+        assert upload.validation_summary["possible_existing_matches"] == 1
+        assert upload.validation_summary["missing_vendor_source_ids"] == 1
+
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+        assert [row.disposition for row in rows] == ["POSSIBLE_MATCH", "REVIEW"]
+        assert any("Possible existing target vendor match" in w for w in rows[0].warnings)
+        assert any("Vendor ID was not supplied" in w for w in rows[1].warnings)
+        assert db.query(Vendor).count() == 1
+        assert db.get(Vendor, existing.id).company_name == "Existing Vendor"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_vendor_directory_duplicate_source_id_invalid_and_xlsx_autodetects():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Vendor XLSX Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="vendor-xlsx",
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        workbook = Workbook()
+        ws = workbook.active
+        ws.title = "Vendor Directory"
+        ws.append([
+            "Vendor ID", "Company Name", "Address", "Phone Numbers", "Email",
+            "Send 1099?", "Liability Insurance Expiration",
+        ])
+        ws.append([
+            "VENDOR-X", "Vendor One", "1 Vendor St", "216-555-0201",
+            "one@vendor.example", "Yes", "2027-01-31",
+        ])
+        ws.append([
+            "VENDOR-X", "Vendor Duplicate", "2 Vendor St", "216-555-0202",
+            "two@vendor.example", "No", "2027-02-28",
+        ])
+        notes = workbook.create_sheet("Notes")
+        notes.append(["Comment"])
+        notes.append(["not a supported migration report"])
+        buffer = BytesIO()
+        workbook.save(buffer)
+        workbook.close()
+
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("vendor-directory.xlsx", buffer.getvalue()),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert upload.detected_resource == "VENDORS"
+        assert upload.sheet_name == "Vendor Directory"
+        assert upload.status == "STAGED_WITH_ERRORS"
+        assert upload.validation_summary["duplicates"] == 1
+        assert upload.validation_summary["invalid"] == 1
+
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+        assert rows[0].disposition == "NEW"
+        assert rows[1].disposition == "INVALID"
+        assert any("Duplicate AppFolio Vendor ID" in e for e in rows[1].errors)
+        assert db.query(Vendor).count() == 0
     finally:
         db.close()
         engine.dispose()
