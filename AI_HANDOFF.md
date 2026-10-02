@@ -1,3 +1,58 @@
+# AI_HANDOFF.md — 2026-10-02 PHASE 4.13 OWNER DIRECTORY STAGING VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `5efbfcf0c517b04df9550474c232576cada53552`.
+- GitHub Actions run: `36948279666` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **897 passed, 21 deselected, 24018 warnings in 388.04s**.
+- Authenticated E2E: **21 passed, 278 warnings in 111.62s**.
+- Alembic head remains `c35e9d2a7b14`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified AppFolio Owner Directory ingestion/staging
+
+1. Shared CSV/XLSX ingestion now recognizes a conservative verified Owner Directory export contract: Name, Phone Numbers, Email, Properties Owned and Properties Owned IDs, plus optional stable Owner ID when supplied.
+2. Owner source fields remain staging/source data only. The batch does not split display names into target first/last names or invent target-only fields.
+3. Missing stable Owner ID, missing email, or missing Properties Owned IDs remains explicit REVIEW rather than synthesizing identity or relationships.
+4. Duplicate supplied Owner IDs in the same upload are INVALID.
+5. Existing durable OWNERS source mappings replay as ALREADY_MAPPED.
+6. Exact same-organization active target OWNER email is surfaced only as POSSIBLE_MATCH/review context; it is never automatically matched or overwritten.
+7. CSV replay remains idempotent and multi-sheet XLSX can safely auto-select a unique Owner Directory sheet.
+8. No customer User/Owner row is created or modified by staging.
+9. No Vendor, Tenant, Lease/occupancy, accounting-history, AppFolio API connector, navigation change, or general UX work was added.
+
+Implementation commit:
+- `5efbfcf0c517b04df9550474c232576cada53552` — Owner Directory detect/map/normalize/stage support plus focused regressions; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Add **Vendor Directory CSV/XLSX ingestion and staging only** using the same shared staging architecture.
+
+Required boundaries:
+
+1. Map only fields supported by verified AppFolio Vendor Directory/export evidence; do not infer target-only fields.
+2. Preserve optional stable Vendor ID when supplied; if durable source identity is absent, keep the row in REVIEW rather than synthesizing an ID.
+3. Keep the first Vendor batch staging-only: no customer Vendor creation/update.
+4. Surface same-organization possible target matches conservatively; never auto-overwrite.
+5. Preserve export values such as company/name, address, phone, email, Send 1099 indicator and documented compliance-expiration fields as source data only; do not turn them into tax/compliance certification.
+6. Reuse the existing upload/detection/mapping/staging/fingerprint/replay/audit/recovery architecture.
+7. Do not proceed to Tenants until Owners/Vendors staging and reconciliation dependencies are verified.
+8. Do not implement AppFolio API transport or general UX work.
+
+---
+
 # AI_HANDOFF.md — 2026-10-02 PHASE 4.13 UNIT RECONCILIATION VERIFIED
 
 ## Current verified product checkpoint
