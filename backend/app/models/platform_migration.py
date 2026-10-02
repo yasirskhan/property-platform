@@ -183,6 +183,12 @@ class PlatformMigrationStagedRow(Base):
         nullable=True,
         index=True,
     )
+    resolution_target_tenant_user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     resolved_by_platform_user_id = Column(
         Integer,
         ForeignKey("platform_users.id", ondelete="SET NULL"),

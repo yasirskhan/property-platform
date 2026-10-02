@@ -47,6 +47,7 @@ from app.schemas.platform_migration import (
     AppFolioOwnerCommitOut,
     AppFolioOwnerDryRunOut,
     AppFolioStagedVendorResolutionIn,
+    AppFolioStagedTenantResolutionIn,
     AppFolioUnitCommitOut,
     AppFolioUnitDryRunOut,
     AppFolioStagedVendorCommitIn,
@@ -516,6 +517,7 @@ def _staged_review_fingerprint(
                 "resolution_target_unit_id": row.resolution_target_unit_id,
                 "resolution_target_owner_user_id": row.resolution_target_owner_user_id,
                 "resolution_target_vendor_id": row.resolution_target_vendor_id,
+                "resolution_target_tenant_user_id": row.resolution_target_tenant_user_id,
             }
             for row in rows
         ],
@@ -1334,6 +1336,7 @@ def resolve_staged_appfolio_owner(
     row.resolution_target_id = None
     row.resolution_target_unit_id = None
     row.resolution_target_vendor_id = None
+    row.resolution_target_tenant_user_id = None
     row.resolved_by_platform_user_id = current_user.id
     row.resolved_at = datetime.utcnow()
     run.last_dry_run_fingerprint = None
@@ -1353,6 +1356,112 @@ def resolve_staged_appfolio_owner(
             "resolution_target_owner_user_id": row.resolution_target_owner_user_id,
             "raw_source_stored": False,
             "target_overwrite": False,
+        },
+    )
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/rows/{staged_row_id}/tenant-resolution",
+    response_model=AppFolioMigrationStagedRowOut,
+)
+def resolve_staged_appfolio_tenant(
+    run_id: int,
+    upload_id: int,
+    staged_row_id: int,
+    payload: AppFolioStagedTenantResolutionIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    if upload.detected_resource != "TENANTS":
+        raise HTTPException(status_code=409, detail="Only staged TENANTS rows can be resolved here.")
+    row = _staged_row(db, run=run, upload=upload, staged_row_id=staged_row_id)
+    if row.resource != "TENANTS" or row.errors or row.disposition == "INVALID":
+        raise HTTPException(status_code=409, detail="Invalid staged Tenant rows cannot be resolved.")
+    if row.disposition == "ALREADY_MAPPED":
+        raise HTTPException(
+            status_code=409,
+            detail="Already-mapped staged Tenant rows are controlled by their durable source mapping.",
+        )
+    if not row.source_id and payload.action != "SKIP":
+        raise HTTPException(
+            status_code=409,
+            detail="Tenant rows without a durable source Tenant ID may only be skipped.",
+        )
+    if row.disposition == "REVIEW" and payload.action != "SKIP":
+        raise HTTPException(
+            status_code=409,
+            detail="This REVIEW Tenant row may only be skipped until durable Tenant/Unit/Property identity is resolved.",
+        )
+    if payload.action == "CREATE_NEW" and row.disposition != "POSSIBLE_MATCH":
+        raise HTTPException(
+            status_code=409,
+            detail="CREATE_NEW is only valid for a reviewed Tenant POSSIBLE_MATCH row.",
+        )
+    if payload.action == "MATCH_EXISTING" and row.disposition not in {"POSSIBLE_MATCH", "NEW"}:
+        raise HTTPException(
+            status_code=409,
+            detail="This staged Tenant row cannot be matched to an existing Tenant.",
+        )
+
+    target_tenant_user_id = payload.target_tenant_user_id
+    if payload.action == "MATCH_EXISTING":
+        target = (
+            db.query(User)
+            .filter(
+                User.id == target_tenant_user_id,
+                User.organization_id == run.organization_id,
+                User.role == UserRole.TENANT,
+                User.is_active.is_(True),
+                User.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if target is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Existing target Tenant not found in this organization.",
+            )
+    else:
+        target_tenant_user_id = None
+
+    if (
+        row.resolution_action == payload.action
+        and row.resolution_target_tenant_user_id == target_tenant_user_id
+    ):
+        return row
+
+    row.resolution_action = payload.action
+    row.resolution_target_tenant_user_id = target_tenant_user_id
+    row.resolution_target_id = None
+    row.resolution_target_unit_id = None
+    row.resolution_target_owner_user_id = None
+    row.resolution_target_vendor_id = None
+    row.resolved_by_platform_user_id = current_user.id
+    row.resolved_at = datetime.utcnow()
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    run.status = "STAGED"
+    append_audit_log(
+        db,
+        platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_staged_row",
+        entity_id=row.id,
+        action="appfolio_tenant_resolution_changed",
+        new_value={
+            "upload_id": upload.id,
+            "source_id": row.source_id,
+            "resolution_action": row.resolution_action,
+            "resolution_target_tenant_user_id": row.resolution_target_tenant_user_id,
+            "raw_source_stored": False,
+            "target_overwrite": False,
+            "tenant_user_creation": False,
+            "lease_or_occupancy_mutation": False,
         },
     )
     db.commit()
@@ -1430,6 +1539,7 @@ def resolve_staged_appfolio_vendor(
     row.resolution_target_id = None
     row.resolution_target_unit_id = None
     row.resolution_target_owner_user_id = None
+    row.resolution_target_tenant_user_id = None
     row.resolved_by_platform_user_id = current_user.id
     row.resolved_at = datetime.utcnow()
     run.last_dry_run_fingerprint = None

@@ -32,6 +32,7 @@ from app.schemas.platform_migration import (
     AppFolioStagedOwnerResolutionIn,
     AppFolioStagedOwnerCommitIn,
     AppFolioStagedVendorResolutionIn,
+    AppFolioStagedTenantResolutionIn,
     AppFolioStagedVendorCommitIn,
 )
 
@@ -3789,6 +3790,216 @@ def test_appfolio_tenant_directory_xlsx_auto_detection_and_replay():
         )
         assert replay.replayed is True
         assert replay.id == first.id
+    finally:
+        db.close()
+        engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio Tenant staged reconciliation
+# ---------------------------------------------------------------------------
+
+def test_appfolio_tenant_possible_match_resolution_is_typed_scoped_and_non_mutating():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Tenant Resolve Org")
+        foreign_org = _org(db, name="Tenant Resolve Foreign")
+        existing = User(
+            organization_id=org.id,
+            role=UserRole.TENANT,
+            email="tenant.resolve@example.com",
+            first_name="Existing",
+            last_name="Tenant",
+            hashed_password="x",
+            is_active=True,
+        )
+        foreign = User(
+            organization_id=foreign_org.id,
+            role=UserRole.TENANT,
+            email="foreign.tenant.resolve@example.com",
+            first_name="Foreign",
+            last_name="Tenant",
+            hashed_password="x",
+            is_active=True,
+        )
+        db.add_all([existing, foreign])
+        db.commit()
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="tenant-resolve",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _seed_tenant_source_relationship_mappings(db, run=run, org=org)
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "tenant-directory.csv",
+                    (
+                        "Tenant ID,Tenant Name,Email,Property ID,Property Name,Unit ID,Unit\n"
+                        "TENANT-R1,Source Tenant,tenant.resolve@example.com,PROP-TENANT,"
+                        "Tenant Stage Property,UNIT-TENANT,101\n"
+                    ).encode(),
+                ),
+                resource="TENANTS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        assert row.disposition == "POSSIBLE_MATCH"
+        before = api._staged_review_fingerprint(upload, [row])
+        original = (existing.first_name, existing.last_name, existing.email)
+
+        with pytest.raises(HTTPException) as exc:
+            api.resolve_staged_appfolio_tenant(
+                run.id,
+                upload.id,
+                row.id,
+                AppFolioStagedTenantResolutionIn(
+                    action="MATCH_EXISTING",
+                    target_tenant_user_id=foreign.id,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 404
+
+        run.last_dry_run_fingerprint = "a" * 64
+        run.last_dry_run_summary = {"old": True}
+        db.commit()
+        resolved = api.resolve_staged_appfolio_tenant(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedTenantResolutionIn(
+                action="MATCH_EXISTING",
+                target_tenant_user_id=existing.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert resolved.resolution_action == "MATCH_EXISTING"
+        assert resolved.resolution_target_tenant_user_id == existing.id
+        assert resolved.resolution_target_id is None
+        assert resolved.resolution_target_unit_id is None
+        assert resolved.resolution_target_owner_user_id is None
+        assert resolved.resolution_target_vendor_id is None
+        assert (existing.first_name, existing.last_name, existing.email) == original
+        db.refresh(run)
+        assert run.last_dry_run_fingerprint is None
+        assert run.last_dry_run_summary is None
+        assert api._staged_review_fingerprint(upload, [resolved]) != before
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_staged_row",
+            AuditLog.entity_id == row.id,
+            AuditLog.action == "appfolio_tenant_resolution_changed",
+        ).count() == 1
+
+        changed = api.resolve_staged_appfolio_tenant(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedTenantResolutionIn(action="CREATE_NEW"),
+            db=db,
+            current_user=admin,
+        )
+        assert changed.resolution_action == "CREATE_NEW"
+        assert changed.resolution_target_tenant_user_id is None
+        assert db.query(User).filter(User.organization_id == org.id, User.role == UserRole.TENANT).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_tenant_review_rows_may_only_skip_and_create_no_customer_records():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Tenant Review Resolve")
+        existing = User(
+            organization_id=org.id,
+            role=UserRole.TENANT,
+            email="tenant.review@example.com",
+            first_name="Review",
+            last_name="Tenant",
+            hashed_password="x",
+            is_active=True,
+        )
+        db.add(existing)
+        db.commit()
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="tenant-review-resolve",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "tenant-review.csv",
+                    (
+                        "Tenant ID,Tenant Name,Email,Property ID,Property Name,Unit ID,Unit\n"
+                        "TENANT-REVIEW,Needs Relationship,tenant.review@example.com,PROP-MISSING,"
+                        "Unknown Property,UNIT-MISSING,999\n"
+                    ).encode(),
+                ),
+                resource="TENANTS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        assert row.disposition == "REVIEW"
+
+        for payload in (
+            AppFolioStagedTenantResolutionIn(
+                action="MATCH_EXISTING",
+                target_tenant_user_id=existing.id,
+            ),
+            AppFolioStagedTenantResolutionIn(action="CREATE_NEW"),
+        ):
+            with pytest.raises(HTTPException) as exc:
+                api.resolve_staged_appfolio_tenant(
+                    run.id,
+                    upload.id,
+                    row.id,
+                    payload,
+                    db=db,
+                    current_user=admin,
+                )
+            assert exc.value.status_code == 409
+
+        before_users = db.query(User).count()
+        skipped = api.resolve_staged_appfolio_tenant(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedTenantResolutionIn(action="SKIP"),
+            db=db,
+            current_user=admin,
+        )
+        assert skipped.resolution_action == "SKIP"
+        assert skipped.resolution_target_tenant_user_id is None
+        assert db.query(User).count() == before_users
+        assert db.query(Lease).count() == 0
+        assert db.query(Charge).count() == 0
+        assert db.query(GLTransaction).count() == 0
     finally:
         db.close()
         engine.dispose()
