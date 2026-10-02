@@ -51,6 +51,9 @@ from app.schemas.platform_migration import (
     AppFolioStagedTenantResolutionIn,
     AppFolioStagedLeaseOccupancyResolutionIn,
     AppFolioStagedGLAccountResolutionIn,
+    AppFolioStagedGLAccountCommitIn,
+    AppFolioGLAccountCommitOut,
+    AppFolioGLAccountDryRunOut,
     AppFolioStagedTenantCommitIn,
     AppFolioTenantCommitOut,
     AppFolioTenantDryRunOut,
@@ -67,11 +70,13 @@ from app.services.appfolio_migration import (
     commit_owners,
     commit_tenants,
     commit_vendors,
+    commit_gl_accounts,
     dry_run_properties,
     dry_run_units,
     dry_run_owners,
     dry_run_tenants,
     dry_run_vendors,
+    dry_run_gl_accounts,
 )
 from app.services.appfolio_file_ingestion import (
     MAX_FILE_BYTES,
@@ -1135,6 +1140,130 @@ def _staged_tenant_state(
         json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
     return records, resolved_existing, relationship_fingerprint
+
+
+def _staged_gl_account_state(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    upload: PlatformMigrationUpload,
+) -> tuple[list[dict[str, object]], dict[str, int], str]:
+    if upload.detected_resource != "GL_ACCOUNTS":
+        raise HTTPException(
+            status_code=409,
+            detail="Staged upload must be resolved to GL_ACCOUNTS before GL Account dry run.",
+        )
+    rows = (
+        db.query(PlatformMigrationStagedRow)
+        .filter(
+            PlatformMigrationStagedRow.upload_id == upload.id,
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "APPFOLIO",
+            PlatformMigrationStagedRow.resource == "GL_ACCOUNTS",
+        )
+        .order_by(
+            PlatformMigrationStagedRow.row_number.asc(),
+            PlatformMigrationStagedRow.id.asc(),
+        )
+        .all()
+    )
+    if not rows:
+        raise HTTPException(status_code=409, detail="Staged upload has no GL Account rows.")
+
+    blocking: list[PlatformMigrationStagedRow] = []
+    for row in rows:
+        if row.errors or row.disposition == "INVALID":
+            blocking.append(row)
+        elif row.disposition == "REVIEW" and row.resolution_action not in {
+            "MATCH_EXISTING",
+            "SKIP",
+        }:
+            blocking.append(row)
+        elif row.disposition == "ALREADY_MAPPED" and row.resolution_action is not None:
+            blocking.append(row)
+        elif row.disposition not in {"REVIEW", "ALREADY_MAPPED"}:
+            blocking.append(row)
+    if blocking:
+        counts: dict[str, int] = {}
+        for row in blocking:
+            counts[row.disposition] = counts.get(row.disposition, 0) + 1
+        detail = ", ".join(f"{key}={counts[key]}" for key in sorted(counts))
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Staged GL Account dry run is blocked by unresolved rows: "
+                f"{detail}. Match an existing active GL Account or skip each REVIEW row."
+            ),
+        )
+
+    records: list[dict[str, object]] = []
+    resolved_existing: dict[str, int] = {}
+    for row in rows:
+        if row.resolution_action == "SKIP":
+            continue
+        data = dict(row.normalized_data or {})
+        source_id = row.source_id or data.get("source_id")
+        account_number = data.get("account_number")
+        account_name = data.get("account_name")
+        source_type = data.get("account_type")
+        if not source_id or not account_number or not account_name or not source_type:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Staged GL Account row lacks stable source ID, Number, Name or Type; "
+                    "unsafe rows must be skipped before dry run."
+                ),
+            )
+        source_key = str(source_id).strip()
+
+        if row.resolution_action == "MATCH_EXISTING":
+            if row.resolution_target_gl_account_id is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Resolved staged GL Account match is missing its target.",
+                )
+            target = (
+                db.query(GLAccount)
+                .filter(
+                    GLAccount.id == row.resolution_target_gl_account_id,
+                    GLAccount.organization_id == run.organization_id,
+                    GLAccount.is_active.is_(True),
+                    GLAccount.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Resolved staged GL Account target is no longer active in "
+                        "this organization."
+                    ),
+                )
+            resolved_existing[source_key] = target.id
+
+        records.append(
+            {
+                "GL Account ID": source_key,
+                "Number": account_number,
+                "Name": account_name,
+                "Type": source_type,
+                "FundAccount": data.get("fund_account"),
+                "IsCorporateAccount": data.get("is_corporate_account"),
+                "OffsetAccountId": data.get("offset_account_id"),
+                "ParentGlAccountId": data.get("parent_gl_account_id"),
+                "PropertyIds": data.get("property_ids"),
+                "LastUpdatedAt": data.get("last_updated_at"),
+            }
+        )
+
+    if not records:
+        raise HTTPException(
+            status_code=409,
+            detail="No staged GL Account rows remain after explicit skip decisions.",
+        )
+    return records, resolved_existing, _staged_review_fingerprint(upload, rows)
 
 
 def _staged_vendor_state(
@@ -2613,6 +2742,150 @@ def commit_staged_appfolio_tenants(
         ) from exc
 
     return AppFolioTenantCommitOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        mapped_existing=result.mapped_existing,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/gl-accounts/dry-run",
+    response_model=AppFolioGLAccountDryRunOut,
+)
+def dry_run_staged_appfolio_gl_accounts(
+    run_id: int,
+    upload_id: int,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    records, resolved_existing, review_fingerprint = _staged_gl_account_state(
+        db, run=run, upload=upload
+    )
+    try:
+        result = dry_run_gl_accounts(
+            db,
+            run=run,
+            records=records,
+            source_context_fingerprint=review_fingerprint,
+            resolved_existing_matches=resolved_existing,
+        )
+    except AppFolioMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=run.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=run.id,
+            action="appfolio_staged_gl_accounts_dry_run",
+            new_value={
+                "upload_id": upload.id,
+                "source_context_fingerprint": review_fingerprint,
+                "dry_run_fingerprint": result.fingerprint,
+                **result.summary,
+                "raw_file_stored": False,
+                "target_mutation": False,
+                "gl_account_creation": False,
+                "gl_account_update": False,
+                "classification_translation": False,
+                "key_account_mutation": False,
+                "accounting_history_mutation": False,
+            },
+        )
+        db.commit()
+        db.refresh(run)
+    return AppFolioGLAccountDryRunOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        importable=result.importable,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/gl-accounts/commit",
+    response_model=AppFolioGLAccountCommitOut,
+)
+def commit_staged_appfolio_gl_accounts(
+    run_id: int,
+    upload_id: int,
+    payload: AppFolioStagedGLAccountCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    records, resolved_existing, review_fingerprint = _staged_gl_account_state(
+        db, run=run, upload=upload
+    )
+    try:
+        result = commit_gl_accounts(
+            db,
+            run=run,
+            records=records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            source_context_fingerprint=review_fingerprint,
+            resolved_existing_matches=resolved_existing,
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=run.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=run.id,
+                action="appfolio_staged_gl_accounts_committed",
+                new_value={
+                    "upload_id": upload.id,
+                    "source_context_fingerprint": review_fingerprint,
+                    "fingerprint": result.fingerprint,
+                    "mapped_existing": result.mapped_existing,
+                    "warning_count": result.warning_count,
+                    "target_gl_account_ids": [
+                        item["target_gl_account_id"] for item in result.rows
+                    ],
+                    "raw_file_stored": False,
+                    "target_overwrite": False,
+                    "gl_account_creation": False,
+                    "gl_account_update": False,
+                    "classification_translation": False,
+                    "key_account_mutation": False,
+                    "accounting_history_mutation": False,
+                    "provider_credentials_stored": False,
+                },
+            )
+        db.commit()
+        db.refresh(run)
+    except AppFolioMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "GL Account mapping commit conflicted with an existing target or "
+                "migration mapping."
+            ),
+        ) from exc
+
+    return AppFolioGLAccountCommitOut(
         run_id=run.id,
         organization_id=run.organization_id,
         provider=run.provider,
