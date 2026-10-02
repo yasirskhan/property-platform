@@ -2001,7 +2001,7 @@ def test_staged_unit_match_existing_resolution_is_explicit_non_overwriting_and_r
         db.commit()
 
         upload = _stage_safe_unit_upload(db, api_user=admin, run=run)
-        staged = api.list_staged_appfolio_rows(
+        staged = api.list_appfolio_staged_rows(
             run.id,
             upload.id,
             Response(),
@@ -2102,7 +2102,7 @@ def test_staged_unit_create_new_and_skip_resolution_invalidate_preview_and_do_no
         db.commit()
 
         upload = _stage_safe_unit_upload(db, api_user=admin, run=run)
-        staged = api.list_staged_appfolio_rows(
+        staged = api.list_appfolio_staged_rows(
             run.id,
             upload.id,
             Response(),
