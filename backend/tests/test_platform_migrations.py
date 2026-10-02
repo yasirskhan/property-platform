@@ -6255,3 +6255,239 @@ def test_appfolio_general_ledger_dry_run_blocks_unresolved_or_stale_relationship
     finally:
         db.close()
         engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio General Ledger commit-readiness analysis
+# ---------------------------------------------------------------------------
+
+def test_appfolio_general_ledger_commit_readiness_groups_supplied_transaction_ids_and_replays():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="General Ledger Readiness Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="general-ledger-readiness",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        prop, unit, income = _seed_general_ledger_source_mappings(
+            db, run=run, org=org
+        )
+        cash = GLAccount(
+            organization_id=org.id,
+            gl_number="1000",
+            name="Operating Cash",
+            account_type="ASSET",
+            is_active=True,
+        )
+        db.add(cash)
+        db.flush()
+        db.add(
+            PlatformMigrationItem(
+                run_id=run.id,
+                organization_id=org.id,
+                provider="APPFOLIO",
+                resource="GL_ACCOUNTS",
+                source_id="GL-1000",
+                target_entity="GL_ACCOUNT",
+                target_id=cash.id,
+                source_fingerprint="seed-GL_ACCOUNTS-GL-1000",
+            )
+        )
+        db.commit()
+
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "general-ledger-readiness.csv",
+                    (
+                        "LineItemId,TransactionId,GlAccountId,PropertyId,UnitId,Date,Debit,Credit,"
+                        "Description,Reference,Remarks,TransactionType\n"
+                        "LINE-RDY-1,TX-RDY-1,GL-1000,PROP-GL-1,UNIT-GL-1,2026-04-05,"
+                        "1350.00,0.00,Cash side,RDY-1,source evidence,Receipt\n"
+                        "LINE-RDY-2,TX-RDY-1,GL-4100,PROP-GL-1,UNIT-GL-1,2026-04-05,"
+                        "0.00,1350.00,Income side,RDY-1,source evidence,Receipt\n"
+                    ).encode(),
+                ),
+                resource="GENERAL_LEDGER",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+        for row in rows:
+            api.resolve_staged_appfolio_general_ledger(
+                run.id,
+                upload.id,
+                row.id,
+                AppFolioStagedGeneralLedgerResolutionIn(action="ACCEPT_RELATIONSHIP"),
+                db=db,
+                current_user=admin,
+            )
+
+        dry = api.dry_run_staged_appfolio_general_ledger(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        before_gl = db.query(GLTransaction).count()
+        before_accounts = db.query(GLAccount).count()
+        before_charges = db.query(Charge).count()
+
+        first = api.analyze_staged_appfolio_general_ledger_commit_readiness(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert first.replayed is False
+        assert first.dry_run_fingerprint == dry.fingerprint
+        assert first.group_count == 1
+        assert first.line_count == 2
+        group = first.groups[0]
+        assert group.transaction_id == "TX-RDY-1"
+        assert group.line_count == 2
+        assert group.debit_total == "1350.00"
+        assert group.credit_total == "1350.00"
+        assert group.balanced is True
+        assert {line.source_id for line in group.lines} == {"LINE-RDY-1", "LINE-RDY-2"}
+        assert {line.resolved_targets["property_id"] for line in group.lines} == {prop.id}
+        assert {line.resolved_targets["unit_id"] for line in group.lines} == {unit.id}
+        assert {line.resolved_targets["gl_account_id"] for line in group.lines} == {
+            cash.id,
+            income.id,
+        }
+
+        db.refresh(run)
+        assert run.last_dry_run_fingerprint == dry.fingerprint
+        assert run.last_dry_run_summary["ledger_commit_ready"] is True
+        assert (
+            run.last_dry_run_summary["ledger_commit_readiness_fingerprint"]
+            == first.readiness_fingerprint
+        )
+        audit_count = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "appfolio_staged_general_ledger_commit_readiness",
+        ).count()
+        assert audit_count == 1
+
+        replay = api.analyze_staged_appfolio_general_ledger_commit_readiness(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert replay.replayed is True
+        assert replay.readiness_fingerprint == first.readiness_fingerprint
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "appfolio_staged_general_ledger_commit_readiness",
+        ).count() == audit_count
+        assert db.query(GLTransaction).count() == before_gl
+        assert db.query(GLAccount).count() == before_accounts
+        assert db.query(Charge).count() == before_charges
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_general_ledger_commit_readiness_blocks_missing_transaction_id_or_unbalanced_group():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="General Ledger Readiness Guard Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="general-ledger-readiness-guard",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _seed_general_ledger_source_mappings(db, run=run, org=org)
+
+        missing_tx = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "general-ledger-no-transaction.csv",
+                    (
+                        "LineItemId,TransactionId,GlAccountId,Date,Debit,Credit\n"
+                        "LINE-NOTX-1,,GL-4100,2026-04-06,10.00,10.00\n"
+                    ).encode(),
+                ),
+                resource="GENERAL_LEDGER",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == missing_tx.id
+        ).one()
+        api.resolve_staged_appfolio_general_ledger(
+            run.id,
+            missing_tx.id,
+            row.id,
+            AppFolioStagedGeneralLedgerResolutionIn(action="ACCEPT_RELATIONSHIP"),
+            db=db,
+            current_user=admin,
+        )
+        api.dry_run_staged_appfolio_general_ledger(
+            run.id, missing_tx.id, db=db, current_user=admin
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.analyze_staged_appfolio_general_ledger_commit_readiness(
+                run.id, missing_tx.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+        assert "TransactionId" in exc.value.detail
+
+        unbalanced = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "general-ledger-unbalanced.csv",
+                    (
+                        "LineItemId,TransactionId,GlAccountId,Date,Debit,Credit\n"
+                        "LINE-UNBAL-1,TX-UNBAL-1,GL-4100,2026-04-07,25.00,0.00\n"
+                        "LINE-UNBAL-2,TX-UNBAL-1,GL-4100,2026-04-07,0.00,20.00\n"
+                    ).encode(),
+                ),
+                resource="GENERAL_LEDGER",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == unbalanced.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+        for staged in rows:
+            api.resolve_staged_appfolio_general_ledger(
+                run.id,
+                unbalanced.id,
+                staged.id,
+                AppFolioStagedGeneralLedgerResolutionIn(action="ACCEPT_RELATIONSHIP"),
+                db=db,
+                current_user=admin,
+            )
+        api.dry_run_staged_appfolio_general_ledger(
+            run.id, unbalanced.id, db=db, current_user=admin
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.analyze_staged_appfolio_general_ledger_commit_readiness(
+                run.id, unbalanced.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+        assert "not balanced" in exc.value.detail
+        assert db.query(GLTransaction).count() == 0
+        assert db.query(Charge).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
