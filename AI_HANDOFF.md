@@ -1,3 +1,62 @@
+# AI_HANDOFF.md — 2026-10-02 PHASE 4.13 TENANT DRY-RUN + CONTROLLED MAPPING COMMIT VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `5b18d175a758707ff26ca31df872add06c0413a5`.
+- GitHub Actions run: `36981372838` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **916 passed, 21 deselected, 24374 warnings in 392.46s**.
+- Authenticated E2E: **21 passed, 278 warnings in 112.00s**.
+- Alembic head remains `f58a2c4d6e91`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified staged Tenant dry-run + controlled mapping commit
+
+1. Reviewed staged TENANTS rows now feed a dedicated dry-run endpoint; callers cannot submit arbitrary Tenant records.
+2. Tenant dry run/commit reuses the existing migration-run exact-fingerprint architecture and durable `PlatformMigrationItem` source mappings.
+3. Existing durable TENANTS mappings replay safely only when the target remains an active same-organization `UserRole.TENANT`.
+4. Explicit MATCH_EXISTING resolutions map only to an active same-organization TENANT user and never overwrite that user.
+5. Tenant `CREATE_NEW` is intentionally unsupported for controlled commit because the verified Tenant Directory lacks safe first/last identity and credential semantics for a login-backed account.
+6. SKIP rows are excluded; unresolved NEW/POSSIBLE_MATCH/REVIEW/INVALID rows block dry run unless safely resolved/skipped.
+7. The exact fingerprint binds staged review state plus the referenced durable Property and Unit mapping IDs/source fingerprints. A changed relationship mapping makes the prior commit preview stale.
+8. Controlled commit persists only a durable `TENANTS -> TENANT_USER` source mapping. It creates or updates **zero** customer User records.
+9. Move-in/out and Lease From/To remain source evidence only. No Lease, occupancy event, Charge, Receipt or GL record is created.
+10. Commit replay is idempotent and does not duplicate Tenant mappings.
+11. Migration audit records explicitly disclose no target overwrite, no Tenant-user creation/update, no Lease/occupancy mutation and no accounting mutation.
+12. No AppFolio API transport, navigation change or general UX work was added.
+
+Implementation commit:
+- `5b18d175a758707ff26ca31df872add06c0413a5` — Tenant staged dry run, relationship-bound fingerprint, controlled existing-user mapping commit and focused regressions; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Proceed in the documented dependency order to **Lease / occupancy source-schema verification and staging support**.
+
+Required boundaries:
+
+1. Reuse the shared CSV/XLSX upload, detection, column-mapping, staging, validation, fingerprint, replay/idempotency, audit and recovery architecture.
+2. Do not create a parallel migration system and do not implement AppFolio API transport.
+3. First verify a reliable AppFolio Rent Roll / lease-occupancy export contract before adding automatic field aliases; do not invent source columns from our target Lease model.
+4. Preserve stable Tenant, Unit and Property source IDs where the verified export supplies them; relationships must resolve through durable source mappings, never display-name-only matching.
+5. This first Lease/occupancy batch is **staging/reconciliation only**. Do not create or update Lease, RentInvoice, Payment, Charge, Receipt or GL records.
+6. Treat contract dates, move-in/out, rent/deposit and occupancy fields as source evidence only until a later controlled commit contract is independently verified.
+7. Missing/contradictory Tenant/Unit/Property source identities remain REVIEW/INVALID rather than fabricated.
+8. Preserve organization isolation, audit/idempotency, recovery visibility, navigation integrity, the hidden-menu roadmap and inactive UX standards.
+9. Do not begin accounting-history migration until Lease/occupancy staging and its dependency/reconciliation rules are verified.
+
+---
+
 # AI_HANDOFF.md — 2026-10-02 PHASE 4.13 TENANT STAGED RECONCILIATION VERIFIED
 
 ## Current verified product checkpoint
