@@ -51,6 +51,7 @@ from app.schemas.platform_migration import (
     AppFolioStagedTenantResolutionIn,
     AppFolioStagedLeaseOccupancyResolutionIn,
     AppFolioStagedGLAccountResolutionIn,
+    AppFolioStagedGeneralLedgerResolutionIn,
     AppFolioStagedGLAccountCommitIn,
     AppFolioGLAccountCommitOut,
     AppFolioGLAccountDryRunOut,
@@ -2001,6 +2002,226 @@ def resolve_staged_appfolio_lease_occupancy(
             "accepted_for_later_commit": row.resolution_action == "ACCEPT_RELATIONSHIP",
             "customer_lease_mutation": False,
             "accounting_mutation": False,
+        },
+    )
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/rows/{staged_row_id}/general-ledger-resolution",
+    response_model=AppFolioMigrationStagedRowOut,
+)
+def resolve_staged_appfolio_general_ledger(
+    run_id: int,
+    upload_id: int,
+    staged_row_id: int,
+    payload: AppFolioStagedGeneralLedgerResolutionIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    if upload.detected_resource != "GENERAL_LEDGER":
+        raise HTTPException(
+            status_code=409,
+            detail="Only staged GENERAL_LEDGER rows can be resolved here.",
+        )
+    row = _staged_row(db, run=run, upload=upload, staged_row_id=staged_row_id)
+    if row.resource != "GENERAL_LEDGER" or row.errors or row.disposition == "INVALID":
+        raise HTTPException(
+            status_code=409,
+            detail="Invalid staged General Ledger rows cannot be resolved.",
+        )
+    if not row.source_id and payload.action != "SKIP":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "General Ledger rows without a durable LineItemId may only be skipped."
+            ),
+        )
+
+    target_gl_account_id = None
+    target_property_id = None
+    target_unit_id = None
+
+    if payload.action == "ACCEPT_RELATIONSHIP":
+        data = dict(row.normalized_data or {})
+        source_gl_account_id = str(data.get("source_gl_account_id") or "").strip()
+        source_property_id = str(data.get("source_property_id") or "").strip()
+        source_unit_id = str(data.get("source_unit_id") or "").strip()
+        if not source_gl_account_id:
+            raise HTTPException(
+                status_code=409,
+                detail="General Ledger relationship requires a source GL Account ID.",
+            )
+
+        gl_mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "APPFOLIO",
+                PlatformMigrationItem.resource == "GL_ACCOUNTS",
+                PlatformMigrationItem.source_id == source_gl_account_id,
+            )
+            .first()
+        )
+        if gl_mapping is None or gl_mapping.target_entity != "GL_ACCOUNT":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "General Ledger relationship cannot be accepted until the "
+                    "source GL Account has a durable GL_ACCOUNT mapping."
+                ),
+            )
+        target_gl = (
+            db.query(GLAccount)
+            .filter(
+                GLAccount.id == gl_mapping.target_id,
+                GLAccount.organization_id == run.organization_id,
+                GLAccount.is_active.is_(True),
+                GLAccount.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if target_gl is None:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Mapped General Ledger GL Account is no longer active in this "
+                    "organization."
+                ),
+            )
+        target_gl_account_id = target_gl.id
+
+        target_property = None
+        if source_property_id:
+            property_mapping = (
+                db.query(PlatformMigrationItem)
+                .filter(
+                    PlatformMigrationItem.run_id == run.id,
+                    PlatformMigrationItem.organization_id == run.organization_id,
+                    PlatformMigrationItem.provider == "APPFOLIO",
+                    PlatformMigrationItem.resource == "PROPERTIES",
+                    PlatformMigrationItem.source_id == source_property_id,
+                )
+                .first()
+            )
+            if property_mapping is None or property_mapping.target_entity != "PROPERTY":
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Supplied General Ledger PropertyId must have a durable "
+                        "PROPERTY mapping before acceptance."
+                    ),
+                )
+            target_property = (
+                db.query(Property)
+                .filter(
+                    Property.id == property_mapping.target_id,
+                    Property.organization_id == run.organization_id,
+                    Property.is_active.is_(True),
+                    Property.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target_property is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Mapped General Ledger Property is no longer active.",
+                )
+            target_property_id = target_property.id
+
+        if source_unit_id:
+            unit_mapping = (
+                db.query(PlatformMigrationItem)
+                .filter(
+                    PlatformMigrationItem.run_id == run.id,
+                    PlatformMigrationItem.organization_id == run.organization_id,
+                    PlatformMigrationItem.provider == "APPFOLIO",
+                    PlatformMigrationItem.resource == "UNITS",
+                    PlatformMigrationItem.source_id == source_unit_id,
+                )
+                .first()
+            )
+            if unit_mapping is None or unit_mapping.target_entity != "UNIT":
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Supplied General Ledger UnitId must have a durable UNIT "
+                        "mapping before acceptance."
+                    ),
+                )
+            target_unit = (
+                db.query(Unit)
+                .join(Property, Property.id == Unit.property_id)
+                .filter(
+                    Unit.id == unit_mapping.target_id,
+                    Unit.is_active.is_(True),
+                    Unit.deleted_at.is_(None),
+                    Property.organization_id == run.organization_id,
+                    Property.is_active.is_(True),
+                    Property.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target_unit is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Mapped General Ledger Unit is no longer active.",
+                )
+            if target_property is not None and target_unit.property_id != target_property.id:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Mapped General Ledger Unit and Property no longer resolve "
+                        "to the same target Property."
+                    ),
+                )
+            target_unit_id = target_unit.id
+
+    if (
+        row.resolution_action == payload.action
+        and row.resolution_target_gl_account_id == target_gl_account_id
+        and row.resolution_target_id == target_property_id
+        and row.resolution_target_unit_id == target_unit_id
+    ):
+        return row
+
+    row.resolution_action = payload.action
+    row.resolution_target_gl_account_id = target_gl_account_id
+    row.resolution_target_id = target_property_id
+    row.resolution_target_unit_id = target_unit_id
+    row.resolution_target_owner_user_id = None
+    row.resolution_target_vendor_id = None
+    row.resolution_target_tenant_user_id = None
+    row.resolved_by_platform_user_id = current_user.id
+    row.resolved_at = datetime.utcnow()
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    run.status = "STAGED"
+    append_audit_log(
+        db,
+        platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_staged_row",
+        entity_id=row.id,
+        action="appfolio_general_ledger_resolution_changed",
+        new_value={
+            "upload_id": upload.id,
+            "source_line_item_id": row.source_id,
+            "source_gl_account_id": (row.normalized_data or {}).get("source_gl_account_id"),
+            "source_property_id": (row.normalized_data or {}).get("source_property_id"),
+            "source_unit_id": (row.normalized_data or {}).get("source_unit_id"),
+            "resolution_action": row.resolution_action,
+            "resolution_target_gl_account_id": row.resolution_target_gl_account_id,
+            "resolution_target_id": row.resolution_target_id,
+            "resolution_target_unit_id": row.resolution_target_unit_id,
+            "accepted_for_later_commit": row.resolution_action == "ACCEPT_RELATIONSHIP",
+            "target_accounting_mutation": False,
+            "accounting_history_mutation": False,
         },
     )
     db.commit()
