@@ -1,3 +1,64 @@
+# AI_HANDOFF.md — 2026-10-02 PHASE 4.13 GENERAL LEDGER STAGING VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `cd556c6c959457dfde93f6a3c93359557e3ef3ed`.
+- GitHub Actions run: `37057756577` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **933 passed, 21 deselected, 24679 warnings in 392.18s**.
+- Authenticated E2E: **21 passed, 278 warnings in 113.36s**.
+- Alembic head remains `0a7c4e9f2b61`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified General Ledger CSV/XLSX ingestion + staging
+
+1. Shared ingestion now supports `GENERAL_LEDGER` using the verified AppFolio General Ledger Details source attributes only.
+2. Automatic detection requires `GlAccountId`, `Date`, `Debit` and `Credit`; source fields remain source evidence rather than target accounting semantics.
+3. Supplied `LineItemId` is preserved as stable row identity and duplicate supplied line IDs fail closed.
+4. Missing `LineItemId` remains REVIEW; no identity is synthesized from transaction ID, dates, descriptions, references, row fingerprints or amounts.
+5. Source GL Account relationships are checked only through durable `GL_ACCOUNTS -> GL_ACCOUNT` mappings and active same-organization targets.
+6. Supplied Property/Unit IDs are checked only through existing durable source mappings; display names are not used as relationship keys.
+7. Debit/credit source values must be numeric but are not posted, balanced, netted or translated into target entries.
+8. Every valid ledger row remains REVIEW-only; accounting-history reconciliation and commit remain separate future batches.
+9. CSV/XLSX replay is normalized-fingerprint idempotent.
+10. The batch creates or updates zero GLTransaction, GLEntry, journal entry, Receipt, Bill, Charge, GLAccount, AccountingKeyAccount or accounting-balance records.
+
+Implementation commits:
+- `e7bc64e769f94f6393b5c6fcc627b79e319cb67c` — General Ledger staging contract in shared ingestion.
+- `db95a09a0e437689d5319fe90d8d87418e4d14c7` — focused CSV/XLSX/replay/safety regressions.
+- `890524ad3235f7e1fb7eea688efc844111aad21b` — plan/source-contract documentation.
+- `cd556c6c959457dfde93f6a3c93359557e3ef3ed` — regression expectation correction; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Add **staged General Ledger relationship reconciliation only** using the shared staged-row resolution/fingerprint/audit architecture.
+
+Required boundaries:
+
+1. Reconcile only already-staged `GENERAL_LEDGER` rows; never accept arbitrary ledger payloads.
+2. Require a stable source `LineItemId` before any row can be accepted for later accounting-history commit; rows without it may only be SKIPped.
+3. Add/allow an explicit `ACCEPT_RELATIONSHIP` review action only when the current durable `GL_ACCOUNTS` mapping resolves to an active same-organization GLAccount.
+4. If PropertyId/UnitId are supplied, revalidate their durable mappings and Unit->Property consistency; unresolved supplied relationships cannot be accepted.
+5. Snapshot only typed target relationship IDs already available on the staged row; do not create GL/accounting records.
+6. Resolution changes must be audited, participate in the shared staged-review fingerprint and invalidate prior run dry-run state.
+7. Repeating the identical accepted relationship must be idempotent.
+8. INVALID rows remain non-resolvable; REVIEW rows that cannot be safely accepted may be explicitly SKIPped.
+9. Create/update zero GLTransaction, GLEntry, journal entry, Receipt, Bill, Charge, GLAccount, AccountingKeyAccount or balance records.
+10. Do not implement accounting-history dry-run/controlled commit, AppFolio API transport or general UX work in this batch.
+
+---
+
 # AI_HANDOFF.md — 2026-10-02 PHASE 4.13 GL ACCOUNT CONTROLLED MAPPING COMMIT VERIFIED
 
 ## Current verified product checkpoint
