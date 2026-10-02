@@ -28,6 +28,7 @@ from app.schemas.platform_migration import (
     AppFolioStagedUnitResolutionIn,
     AppFolioStagedOwnerResolutionIn,
     AppFolioStagedVendorResolutionIn,
+    AppFolioStagedVendorCommitIn,
 )
 
 
@@ -2954,6 +2955,217 @@ def test_appfolio_vendor_possible_match_resolution_is_typed_scoped_and_non_mutat
             AuditLog.entity_id == row.id,
             AuditLog.action == "appfolio_vendor_resolution_changed",
         ).count() == 2
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_vendor_staged_dry_run_commit_match_create_replay_and_staging_only_fields():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Vendor Commit Org")
+        existing = Vendor(
+            organization_id=org.id,
+            company_name="Existing Electric",
+            business_email="existing.electric@example.com",
+            phone="do-not-overwrite",
+            is_active=True,
+        )
+        db.add(existing)
+        db.commit()
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="vendor-commit",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "vendor-directory.csv",
+                    (
+                        "Vendor ID,Company Name,Address,Phone Numbers,Email,Send 1099?,"
+                        "Liability Insurance Expiration,Workers Comp Expiration\n"
+                        "VENDOR-MATCH,Existing Electric,20 Old St,216-555-0300,"
+                        "existing.electric@example.com,Yes,2027-01-31,2027-02-28\n"
+                        "VENDOR-NEW,New Roofing,30 New St,216-555-0400,"
+                        "new.roofing@example.com,No,2028-01-31,2028-02-28\n"
+                    ).encode(),
+                ),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+        assert [row.disposition for row in rows] == ["POSSIBLE_MATCH", "NEW"]
+
+        api.resolve_staged_appfolio_vendor(
+            run.id,
+            upload.id,
+            rows[0].id,
+            AppFolioStagedVendorResolutionIn(
+                action="MATCH_EXISTING",
+                target_vendor_id=existing.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        before_count = db.query(Vendor).count()
+        preview = api.dry_run_staged_appfolio_vendors(
+            run.id,
+            upload.id,
+            db=db,
+            current_user=admin,
+        )
+        assert preview.total == 2
+        assert preview.importable == 2
+        assert preview.invalid == 0
+        assert db.query(Vendor).count() == before_count
+        assert any(
+            "target fields will not be overwritten" in warning
+            for warning in preview.rows[0].warnings
+        )
+        assert any(
+            "Staging-only source values" in warning
+            for warning in preview.rows[1].warnings
+        )
+
+        committed = api.commit_staged_appfolio_vendors(
+            run.id,
+            upload.id,
+            AppFolioStagedVendorCommitIn(fingerprint=preview.fingerprint),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.committed == 1
+        assert committed.matched_existing == 1
+        assert db.query(Vendor).count() == before_count + 1
+        assert db.get(Vendor, existing.id).phone == "do-not-overwrite"
+
+        new_vendor = db.query(Vendor).filter(
+            Vendor.organization_id == org.id,
+            Vendor.company_name == "New Roofing",
+        ).one()
+        assert new_vendor.business_email == "new.roofing@example.com"
+        assert new_vendor.phone is None
+        assert new_vendor.address_line1 is None
+        mappings = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "VENDORS",
+        ).order_by(PlatformMigrationItem.source_id).all()
+        assert [(m.source_id, m.target_entity) for m in mappings] == [
+            ("VENDOR-MATCH", "VENDOR"),
+            ("VENDOR-NEW", "VENDOR"),
+        ]
+
+        replay_preview = api.dry_run_staged_appfolio_vendors(
+            run.id,
+            upload.id,
+            db=db,
+            current_user=admin,
+        )
+        replay = api.commit_staged_appfolio_vendors(
+            run.id,
+            upload.id,
+            AppFolioStagedVendorCommitIn(fingerprint=replay_preview.fingerprint),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert replay.committed == 0
+        assert replay.matched_existing == 0
+        assert db.query(Vendor).count() == before_count + 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_vendor_commit_rejects_stale_fingerprint_after_resolution_change():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Vendor Stale Org")
+        existing = Vendor(
+            organization_id=org.id,
+            company_name="Stale HVAC",
+            business_email="stale.hvac@example.com",
+            is_active=True,
+        )
+        db.add(existing)
+        db.commit()
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="vendor-stale",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "vendor-directory.csv",
+                    (
+                        "Vendor ID,Company Name,Email,Send 1099?\n"
+                        "VENDOR-S,Stale HVAC,stale.hvac@example.com,Yes\n"
+                    ).encode(),
+                ),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        api.resolve_staged_appfolio_vendor(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedVendorResolutionIn(action="CREATE_NEW"),
+            db=db,
+            current_user=admin,
+        )
+        preview = api.dry_run_staged_appfolio_vendors(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        api.resolve_staged_appfolio_vendor(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedVendorResolutionIn(
+                action="MATCH_EXISTING",
+                target_vendor_id=existing.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.commit_staged_appfolio_vendors(
+                run.id,
+                upload.id,
+                AppFolioStagedVendorCommitIn(fingerprint=preview.fingerprint),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "VENDORS",
+        ).count() == 0
     finally:
         db.close()
         engine.dispose()
