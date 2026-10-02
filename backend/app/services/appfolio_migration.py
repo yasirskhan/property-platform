@@ -789,13 +789,24 @@ def dry_run_units(
                 )
                 .first()
             )
-            if existing is not None and source_id not in force_create_new_source_ids:
+            if existing is not None and source_id in force_create_new_source_ids:
+                rows.append(
+                    {
+                        "source_id": source_id,
+                        "importable": False,
+                        "reason": (
+                            "CREATE_NEW cannot create an exact duplicate property/unit-number target; "
+                            "choose MATCH_EXISTING or SKIP. No source data will be renamed or invented."
+                        ),
+                        "mapped": None,
+                        "warnings": [],
+                    }
+                )
+                invalid += 1
+                continue
+            if existing is not None:
                 row_warnings.append(
                     f"Possible existing target unit match: local unit #{existing.id}; explicit match resolution is required before commit."
-                )
-            elif existing is not None:
-                row_warnings.append(
-                    f"Explicit CREATE_NEW resolution will create a new Unit despite reviewed same-property match #{existing.id}; the existing Unit will not be changed."
                 )
 
         # The verified basic Unit Directory source contract does not require
