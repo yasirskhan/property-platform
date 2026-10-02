@@ -331,6 +331,49 @@ class AppFolioOwnerCommitOut(BaseModel):
     rows: list[AppFolioOwnerCommitRow]
 
 
+class AppFolioTenantPreviewRow(BaseModel):
+    source_id: str | None
+    importable: bool
+    reason: str | None
+    mapped: dict[str, Any] | None
+    warnings: list[str] = Field(default_factory=list)
+
+
+class AppFolioTenantDryRunOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    fingerprint: str
+    replayed: bool
+    total: int
+    importable: int
+    invalid: int
+    warning_count: int
+    rows: list[AppFolioTenantPreviewRow]
+
+
+class AppFolioStagedTenantCommitIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class AppFolioTenantCommitRow(BaseModel):
+    source_id: str
+    target_tenant_user_id: int
+    replayed: bool
+
+
+class AppFolioTenantCommitOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    fingerprint: str
+    replayed: bool
+    mapped_existing: int
+    warning_count: int
+    rows: list[AppFolioTenantCommitRow]
+
+
 class AppFolioVendorPreviewRow(BaseModel):
     source_id: str | None
     importable: bool

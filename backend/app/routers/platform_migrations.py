@@ -48,6 +48,9 @@ from app.schemas.platform_migration import (
     AppFolioOwnerDryRunOut,
     AppFolioStagedVendorResolutionIn,
     AppFolioStagedTenantResolutionIn,
+    AppFolioStagedTenantCommitIn,
+    AppFolioTenantCommitOut,
+    AppFolioTenantDryRunOut,
     AppFolioUnitCommitOut,
     AppFolioUnitDryRunOut,
     AppFolioStagedVendorCommitIn,
@@ -59,10 +62,12 @@ from app.services.appfolio_migration import (
     commit_properties,
     commit_units,
     commit_owners,
+    commit_tenants,
     commit_vendors,
     dry_run_properties,
     dry_run_units,
     dry_run_owners,
+    dry_run_tenants,
     dry_run_vendors,
 )
 from app.services.appfolio_file_ingestion import (
@@ -920,6 +925,212 @@ def _staged_owner_state(
             detail="No staged Owner rows remain after explicit skip decisions.",
         )
     return records, resolved_existing, _staged_review_fingerprint(upload, rows)
+
+
+def _staged_tenant_state(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    upload: PlatformMigrationUpload,
+) -> tuple[list[dict[str, object]], dict[str, int], str]:
+    if upload.detected_resource != "TENANTS":
+        raise HTTPException(
+            status_code=409,
+            detail="Staged upload must be resolved to TENANTS before Tenant dry run.",
+        )
+    rows = (
+        db.query(PlatformMigrationStagedRow)
+        .filter(
+            PlatformMigrationStagedRow.upload_id == upload.id,
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "APPFOLIO",
+            PlatformMigrationStagedRow.resource == "TENANTS",
+        )
+        .order_by(
+            PlatformMigrationStagedRow.row_number.asc(),
+            PlatformMigrationStagedRow.id.asc(),
+        )
+        .all()
+    )
+    if not rows:
+        raise HTTPException(status_code=409, detail="Staged upload has no Tenant rows.")
+
+    blocking: list[PlatformMigrationStagedRow] = []
+    for row in rows:
+        if row.errors or row.disposition == "INVALID":
+            blocking.append(row)
+        elif row.disposition == "REVIEW" and row.resolution_action != "SKIP":
+            blocking.append(row)
+        elif row.disposition in {"POSSIBLE_MATCH", "NEW"} and row.resolution_action not in {
+            "MATCH_EXISTING", "SKIP",
+        }:
+            blocking.append(row)
+        elif row.disposition == "ALREADY_MAPPED" and row.resolution_action is not None:
+            blocking.append(row)
+        elif row.resolution_action == "CREATE_NEW":
+            blocking.append(row)
+    if blocking:
+        counts: dict[str, int] = {}
+        for row in blocking:
+            counts[row.disposition] = counts.get(row.disposition, 0) + 1
+        detail = ", ".join(f"{key}={counts[key]}" for key in sorted(counts))
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Staged Tenant dry run is blocked by unresolved rows: "
+                f"{detail}. Tenant CREATE_NEW is intentionally unsupported; "
+                "match an existing TENANT user or skip the staged row."
+            ),
+        )
+
+    records: list[dict[str, object]] = []
+    resolved_existing: dict[str, int] = {}
+    property_links: dict[str, dict[str, object]] = {}
+    unit_links: dict[str, dict[str, object]] = {}
+
+    for row in rows:
+        if row.resolution_action == "SKIP":
+            continue
+        data = dict(row.normalized_data or {})
+        source_id = row.source_id or data.get("source_id")
+        source_property_id = data.get("source_property_id")
+        source_unit_id = data.get("source_unit_id")
+        tenant_name = data.get("tenant_name")
+        if not source_id or not source_property_id or not source_unit_id or not tenant_name:
+            raise HTTPException(
+                status_code=409,
+                detail="Staged Tenant row lacks durable Tenant/Property/Unit identity or display name.",
+            )
+        source_key = str(source_id).strip()
+        property_source = str(source_property_id).strip()
+        unit_source = str(source_unit_id).strip()
+
+        property_mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "APPFOLIO",
+                PlatformMigrationItem.resource == "PROPERTIES",
+                PlatformMigrationItem.source_id == property_source,
+            )
+            .first()
+        )
+        unit_mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "APPFOLIO",
+                PlatformMigrationItem.resource == "UNITS",
+                PlatformMigrationItem.source_id == unit_source,
+            )
+            .first()
+        )
+        if property_mapping is None or property_mapping.target_entity != "PROPERTY":
+            raise HTTPException(
+                status_code=409,
+                detail=f"Source Property ID {property_source} no longer has a valid durable Property mapping.",
+            )
+        if unit_mapping is None or unit_mapping.target_entity != "UNIT":
+            raise HTTPException(
+                status_code=409,
+                detail=f"Source Unit ID {unit_source} no longer has a valid durable Unit mapping.",
+            )
+        target_property = (
+            db.query(Property)
+            .filter(
+                Property.id == property_mapping.target_id,
+                Property.organization_id == run.organization_id,
+                Property.is_active.is_(True),
+                Property.deleted_at.is_(None),
+            )
+            .first()
+        )
+        target_unit = (
+            db.query(Unit)
+            .filter(
+                Unit.id == unit_mapping.target_id,
+                Unit.property_id == property_mapping.target_id,
+                Unit.is_active.is_(True),
+                Unit.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if target_property is None or target_unit is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Tenant source relationship no longer resolves to an active same-organization Unit/Property pair.",
+            )
+
+        if row.resolution_action == "MATCH_EXISTING":
+            if row.resolution_target_tenant_user_id is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Resolved staged Tenant match is missing its TENANT-user target.",
+                )
+            target_tenant = (
+                db.query(User)
+                .filter(
+                    User.id == row.resolution_target_tenant_user_id,
+                    User.organization_id == run.organization_id,
+                    User.role == UserRole.TENANT,
+                    User.is_active.is_(True),
+                    User.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target_tenant is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Resolved staged Tenant target is no longer an active TENANT in this organization.",
+                )
+            resolved_existing[source_key] = target_tenant.id
+
+        property_links[property_source] = {
+            "source_property_id": property_source,
+            "target_property_id": property_mapping.target_id,
+            "source_fingerprint": property_mapping.source_fingerprint,
+        }
+        unit_links[unit_source] = {
+            "source_unit_id": unit_source,
+            "target_unit_id": unit_mapping.target_id,
+            "target_property_id": target_unit.property_id,
+            "source_fingerprint": unit_mapping.source_fingerprint,
+        }
+        records.append({
+            "Tenant ID": source_key,
+            "Tenant": tenant_name,
+            "Phone Numbers": data.get("phone_numbers"),
+            "Emails": data.get("emails"),
+            "Property ID": property_source,
+            "Unit ID": unit_source,
+            "Move-in": data.get("move_in"),
+            "Move-out": data.get("move_out"),
+            "Lease From": data.get("lease_from"),
+            "Lease To": data.get("lease_to"),
+        })
+
+    if not records:
+        raise HTTPException(
+            status_code=409,
+            detail="No staged Tenant rows remain after explicit skip decisions.",
+        )
+
+    canonical = {
+        "staged_review_fingerprint": _staged_review_fingerprint(upload, rows),
+        "property_links": sorted(
+            property_links.values(), key=lambda item: str(item["source_property_id"])
+        ),
+        "unit_links": sorted(
+            unit_links.values(), key=lambda item: str(item["source_unit_id"])
+        ),
+    }
+    relationship_fingerprint = hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return records, resolved_existing, relationship_fingerprint
 
 
 def _staged_vendor_state(
@@ -1957,6 +2168,145 @@ def commit_staged_appfolio_owners(
         ) from exc
 
     return AppFolioOwnerCommitOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        mapped_existing=result.mapped_existing,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/tenants/dry-run",
+    response_model=AppFolioTenantDryRunOut,
+)
+def dry_run_staged_appfolio_tenants(
+    run_id: int,
+    upload_id: int,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    records, resolved_existing, relationship_fingerprint = _staged_tenant_state(
+        db, run=run, upload=upload
+    )
+    try:
+        result = dry_run_tenants(
+            db,
+            run=run,
+            records=records,
+            source_context_fingerprint=relationship_fingerprint,
+            resolved_existing_matches=resolved_existing,
+        )
+    except AppFolioMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=run.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=run.id,
+            action="appfolio_staged_tenants_dry_run",
+            new_value={
+                "upload_id": upload.id,
+                "source_context_fingerprint": relationship_fingerprint,
+                "dry_run_fingerprint": result.fingerprint,
+                **result.summary,
+                "raw_file_stored": False,
+                "target_mutation": False,
+                "tenant_user_creation": False,
+                "tenant_user_update": False,
+                "lease_or_occupancy_mutation": False,
+                "accounting_mutation": False,
+            },
+        )
+        db.commit()
+        db.refresh(run)
+    return AppFolioTenantDryRunOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        importable=result.importable,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/tenants/commit",
+    response_model=AppFolioTenantCommitOut,
+)
+def commit_staged_appfolio_tenants(
+    run_id: int,
+    upload_id: int,
+    payload: AppFolioStagedTenantCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    records, resolved_existing, relationship_fingerprint = _staged_tenant_state(
+        db, run=run, upload=upload
+    )
+    try:
+        result = commit_tenants(
+            db,
+            run=run,
+            records=records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            source_context_fingerprint=relationship_fingerprint,
+            resolved_existing_matches=resolved_existing,
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=run.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=run.id,
+                action="appfolio_staged_tenants_committed",
+                new_value={
+                    "upload_id": upload.id,
+                    "source_context_fingerprint": relationship_fingerprint,
+                    "fingerprint": result.fingerprint,
+                    "mapped_existing": result.mapped_existing,
+                    "warning_count": result.warning_count,
+                    "target_tenant_user_ids": [
+                        item["target_tenant_user_id"] for item in result.rows
+                    ],
+                    "raw_file_stored": False,
+                    "target_overwrite": False,
+                    "tenant_user_creation": False,
+                    "tenant_user_update": False,
+                    "lease_or_occupancy_mutation": False,
+                    "accounting_mutation": False,
+                    "provider_credentials_stored": False,
+                },
+            )
+        db.commit()
+        db.refresh(run)
+    except AppFolioMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Tenant mapping commit conflicted with an existing target or migration mapping.",
+        ) from exc
+
+    return AppFolioTenantCommitOut(
         run_id=run.id,
         organization_id=run.organization_id,
         provider=run.provider,

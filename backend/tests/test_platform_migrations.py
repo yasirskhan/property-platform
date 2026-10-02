@@ -33,6 +33,7 @@ from app.schemas.platform_migration import (
     AppFolioStagedOwnerCommitIn,
     AppFolioStagedVendorResolutionIn,
     AppFolioStagedTenantResolutionIn,
+    AppFolioStagedTenantCommitIn,
     AppFolioStagedVendorCommitIn,
 )
 
@@ -4003,3 +4004,242 @@ def test_appfolio_tenant_review_rows_may_only_skip_and_create_no_customer_record
     finally:
         db.close()
         engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio Tenant staged dry run + controlled mapping commit
+# ---------------------------------------------------------------------------
+
+def test_staged_tenant_dry_run_and_controlled_mapping_commit_is_replay_safe_and_non_mutating():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Tenant Commit Org")
+        existing = User(
+            organization_id=org.id,
+            role=UserRole.TENANT,
+            email="tenant.commit@example.com",
+            first_name="Existing",
+            last_name="Tenant",
+            hashed_password="x",
+            is_active=True,
+        )
+        db.add(existing)
+        db.commit()
+        original = (existing.first_name, existing.last_name, existing.email)
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="tenant-controlled-commit",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _seed_tenant_source_relationship_mappings(db, run=run, org=org)
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "tenant-commit.csv",
+                    (
+                        "Tenant ID,Tenant Name,Email,Property ID,Property Name,Unit ID,Unit,"
+                        "Move-in,Lease From,Lease To\n"
+                        "TENANT-C1,Source Display Name,tenant.commit@example.com,PROP-TENANT-1,"
+                        "Tenant Stage Property,UNIT-TENANT-1,101,2026-01-01,2026-01-01,2026-12-31\n"
+                    ).encode(),
+                ),
+                resource="TENANTS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        assert row.disposition == "POSSIBLE_MATCH"
+        api.resolve_staged_appfolio_tenant(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedTenantResolutionIn(
+                action="MATCH_EXISTING",
+                target_tenant_user_id=existing.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        before_users = db.query(User).count()
+        before_leases = db.query(Lease).count()
+        before_charges = db.query(Charge).count()
+        before_gl = db.query(GLTransaction).count()
+        preview = api.dry_run_staged_appfolio_tenants(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert preview.total == 1
+        assert preview.importable == 1
+        assert preview.invalid == 0
+        assert preview.rows[0].mapped == {"target_tenant_user_id": existing.id}
+        assert db.query(User).count() == before_users
+
+        committed = api.commit_staged_appfolio_tenants(
+            run.id,
+            upload.id,
+            AppFolioStagedTenantCommitIn(fingerprint=preview.fingerprint),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.mapped_existing == 1
+        assert committed.replayed is False
+        assert committed.rows[0].target_tenant_user_id == existing.id
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "TENANTS",
+            PlatformMigrationItem.source_id == "TENANT-C1",
+        ).one()
+        assert mapping.target_entity == "TENANT_USER"
+        assert mapping.target_id == existing.id
+        db.refresh(existing)
+        assert (existing.first_name, existing.last_name, existing.email) == original
+        assert db.query(User).count() == before_users
+        assert db.query(Lease).count() == before_leases
+        assert db.query(Charge).count() == before_charges
+        assert db.query(GLTransaction).count() == before_gl
+
+        replay = api.commit_staged_appfolio_tenants(
+            run.id,
+            upload.id,
+            AppFolioStagedTenantCommitIn(fingerprint=preview.fingerprint),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert replay.mapped_existing == 0
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "TENANTS",
+            PlatformMigrationItem.source_id == "TENANT-C1",
+        ).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_staged_tenant_dry_run_rejects_create_new_and_relationship_mapping_change_stales_commit():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Tenant Fingerprint Org")
+        existing = User(
+            organization_id=org.id,
+            role=UserRole.TENANT,
+            email="tenant.fingerprint@example.com",
+            first_name="Existing",
+            last_name="Fingerprint",
+            hashed_password="x",
+            is_active=True,
+        )
+        db.add(existing)
+        db.commit()
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="tenant-fingerprint",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _seed_tenant_source_relationship_mappings(db, run=run, org=org)
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "tenant-fingerprint.csv",
+                    (
+                        "Tenant ID,Tenant Name,Email,Property ID,Property Name,Unit ID,Unit\n"
+                        "TENANT-F1,Source Fingerprint,tenant.fingerprint@example.com,PROP-TENANT-1,"
+                        "Tenant Stage Property,UNIT-TENANT-1,101\n"
+                    ).encode(),
+                ),
+                resource="TENANTS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        assert row.disposition == "POSSIBLE_MATCH"
+
+        api.resolve_staged_appfolio_tenant(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedTenantResolutionIn(action="CREATE_NEW"),
+            db=db,
+            current_user=admin,
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_tenants(
+                run.id, upload.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+        assert "CREATE_NEW is intentionally unsupported" in exc.value.detail
+
+        api.resolve_staged_appfolio_tenant(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedTenantResolutionIn(
+                action="MATCH_EXISTING",
+                target_tenant_user_id=existing.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        preview = api.dry_run_staged_appfolio_tenants(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        unit_mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "UNITS",
+            PlatformMigrationItem.source_id == "UNIT-TENANT-1",
+        ).one()
+        unit_mapping.source_fingerprint = "9" * 64
+        db.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            api.commit_staged_appfolio_tenants(
+                run.id,
+                upload.id,
+                AppFolioStagedTenantCommitIn(fingerprint=preview.fingerprint),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "does not match the supplied Tenant dry-run fingerprint" in exc.value.detail
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "TENANTS",
+        ).count() == 0
+        assert db.query(Lease).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_staged_tenant_dry_run_and_commit_routes_are_exposed():
+    from app.main import app
+    paths = set(app.openapi()["paths"])
+    assert (
+        "/api/platform/migrations/appfolio/runs/{run_id}/uploads/{upload_id}/tenants/dry-run"
+        in paths
+    )
+    assert (
+        "/api/platform/migrations/appfolio/runs/{run_id}/uploads/{upload_id}/tenants/commit"
+        in paths
+    )
