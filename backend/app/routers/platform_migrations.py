@@ -43,6 +43,9 @@ from app.schemas.platform_migration import (
     AppFolioStagedUnitCommitIn,
     AppFolioStagedUnitResolutionIn,
     AppFolioStagedOwnerResolutionIn,
+    AppFolioStagedOwnerCommitIn,
+    AppFolioOwnerCommitOut,
+    AppFolioOwnerDryRunOut,
     AppFolioStagedVendorResolutionIn,
     AppFolioUnitCommitOut,
     AppFolioUnitDryRunOut,
@@ -54,9 +57,11 @@ from app.services.appfolio_migration import (
     AppFolioMigrationError,
     commit_properties,
     commit_units,
+    commit_owners,
     commit_vendors,
     dry_run_properties,
     dry_run_units,
+    dry_run_owners,
     dry_run_vendors,
 )
 from app.services.appfolio_file_ingestion import (
@@ -801,6 +806,118 @@ def _staged_unit_state(
         json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
     return records, resolved_existing, force_create_new, relationship_fingerprint
+
+
+def _staged_owner_state(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    upload: PlatformMigrationUpload,
+) -> tuple[list[dict[str, object]], dict[str, int], str]:
+    if upload.detected_resource != "OWNERS":
+        raise HTTPException(
+            status_code=409,
+            detail="Staged upload must be resolved to OWNERS before Owner dry run.",
+        )
+    rows = (
+        db.query(PlatformMigrationStagedRow)
+        .filter(
+            PlatformMigrationStagedRow.upload_id == upload.id,
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "APPFOLIO",
+            PlatformMigrationStagedRow.resource == "OWNERS",
+        )
+        .order_by(
+            PlatformMigrationStagedRow.row_number.asc(),
+            PlatformMigrationStagedRow.id.asc(),
+        )
+        .all()
+    )
+    if not rows:
+        raise HTTPException(status_code=409, detail="Staged upload has no Owner rows.")
+
+    blocking: list[PlatformMigrationStagedRow] = []
+    for row in rows:
+        if row.errors or row.disposition == "INVALID":
+            blocking.append(row)
+        elif row.disposition == "REVIEW" and row.resolution_action != "SKIP":
+            blocking.append(row)
+        elif row.disposition in {"POSSIBLE_MATCH", "NEW"} and row.resolution_action not in {
+            "MATCH_EXISTING", "SKIP",
+        }:
+            blocking.append(row)
+        elif row.disposition == "ALREADY_MAPPED" and row.resolution_action is not None:
+            blocking.append(row)
+        elif row.resolution_action == "CREATE_NEW":
+            blocking.append(row)
+    if blocking:
+        counts: dict[str, int] = {}
+        for row in blocking:
+            counts[row.disposition] = counts.get(row.disposition, 0) + 1
+        detail = ", ".join(f"{key}={counts[key]}" for key in sorted(counts))
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Staged Owner dry run is blocked by unresolved rows: "
+                f"{detail}. Owner CREATE_NEW is intentionally unsupported; "
+                "match an existing OWNER user or skip the staged row."
+            ),
+        )
+
+    records: list[dict[str, object]] = []
+    resolved_existing: dict[str, int] = {}
+    for row in rows:
+        if row.resolution_action == "SKIP":
+            continue
+        data = dict(row.normalized_data or {})
+        source_id = row.source_id or data.get("source_id")
+        owner_name = data.get("name")
+        if not source_id or not owner_name:
+            raise HTTPException(
+                status_code=409,
+                detail="Staged Owner row lacks durable Owner source identity or display name.",
+            )
+        source_key = str(source_id).strip()
+        if row.resolution_action == "MATCH_EXISTING":
+            if row.resolution_target_owner_user_id is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Resolved staged Owner match is missing its OWNER-user target.",
+                )
+            target = (
+                db.query(User)
+                .filter(
+                    User.id == row.resolution_target_owner_user_id,
+                    User.organization_id == run.organization_id,
+                    User.role == UserRole.OWNER,
+                    User.is_active.is_(True),
+                    User.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Resolved staged Owner target is no longer an active OWNER in this organization.",
+                )
+            resolved_existing[source_key] = target.id
+
+        records.append({
+            "Owner ID": source_key,
+            "Name": owner_name,
+            "Phone Numbers": data.get("phone_numbers"),
+            "Email": data.get("email"),
+            "Properties Owned": data.get("properties_owned"),
+            "Properties Owned IDs": data.get("properties_owned_ids"),
+        })
+
+    if not records:
+        raise HTTPException(
+            status_code=409,
+            detail="No staged Owner rows remain after explicit skip decisions.",
+        )
+    return records, resolved_existing, _staged_review_fingerprint(upload, rows)
 
 
 def _staged_vendor_state(
@@ -1601,6 +1718,141 @@ def commit_staged_appfolio_units(
         replayed=result.replayed,
         committed=result.committed,
         matched_existing=result.matched_existing,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/owners/dry-run",
+    response_model=AppFolioOwnerDryRunOut,
+)
+def dry_run_staged_appfolio_owners(
+    run_id: int,
+    upload_id: int,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    records, resolved_existing, review_fingerprint = _staged_owner_state(
+        db, run=run, upload=upload
+    )
+    try:
+        result = dry_run_owners(
+            db,
+            run=run,
+            records=records,
+            source_context_fingerprint=review_fingerprint,
+            resolved_existing_matches=resolved_existing,
+        )
+    except AppFolioMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=run.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=run.id,
+            action="appfolio_staged_owners_dry_run",
+            new_value={
+                "upload_id": upload.id,
+                "source_context_fingerprint": review_fingerprint,
+                "dry_run_fingerprint": result.fingerprint,
+                **result.summary,
+                "raw_file_stored": False,
+                "target_mutation": False,
+                "owner_user_creation": False,
+                "property_ownership_mutation": False,
+            },
+        )
+        db.commit()
+        db.refresh(run)
+    return AppFolioOwnerDryRunOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        importable=result.importable,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/owners/commit",
+    response_model=AppFolioOwnerCommitOut,
+)
+def commit_staged_appfolio_owners(
+    run_id: int,
+    upload_id: int,
+    payload: AppFolioStagedOwnerCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    records, resolved_existing, review_fingerprint = _staged_owner_state(
+        db, run=run, upload=upload
+    )
+    try:
+        result = commit_owners(
+            db,
+            run=run,
+            records=records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            source_context_fingerprint=review_fingerprint,
+            resolved_existing_matches=resolved_existing,
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=run.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=run.id,
+                action="appfolio_staged_owners_committed",
+                new_value={
+                    "upload_id": upload.id,
+                    "source_context_fingerprint": review_fingerprint,
+                    "fingerprint": result.fingerprint,
+                    "mapped_existing": result.mapped_existing,
+                    "warning_count": result.warning_count,
+                    "target_owner_user_ids": [
+                        item["target_owner_user_id"] for item in result.rows
+                    ],
+                    "raw_file_stored": False,
+                    "target_overwrite": False,
+                    "owner_user_creation": False,
+                    "property_ownership_mutation": False,
+                    "provider_credentials_stored": False,
+                },
+            )
+        db.commit()
+        db.refresh(run)
+    except AppFolioMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Owner mapping commit conflicted with an existing target or migration mapping.",
+        ) from exc
+
+    return AppFolioOwnerCommitOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        mapped_existing=result.mapped_existing,
         warning_count=result.warning_count,
         rows=result.rows,
     )
