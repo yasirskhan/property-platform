@@ -270,3 +270,47 @@ class AppFolioUnitCommitOut(BaseModel):
     matched_existing: int = 0
     warning_count: int
     rows: list[AppFolioUnitCommitRow]
+
+
+class AppFolioVendorPreviewRow(BaseModel):
+    source_id: str | None
+    importable: bool
+    reason: str | None
+    mapped: dict[str, Any] | None
+    warnings: list[str] = Field(default_factory=list)
+
+
+class AppFolioVendorDryRunOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    fingerprint: str
+    replayed: bool
+    total: int
+    importable: int
+    invalid: int
+    warning_count: int
+    rows: list[AppFolioVendorPreviewRow]
+
+
+class AppFolioStagedVendorCommitIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class AppFolioVendorCommitRow(BaseModel):
+    source_id: str
+    target_vendor_id: int
+    replayed: bool
+
+
+class AppFolioVendorCommitOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    fingerprint: str
+    replayed: bool
+    committed: int
+    matched_existing: int = 0
+    warning_count: int
+    rows: list[AppFolioVendorCommitRow]
