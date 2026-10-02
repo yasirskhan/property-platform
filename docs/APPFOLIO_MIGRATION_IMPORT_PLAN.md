@@ -231,6 +231,53 @@ This reconciliation/commit contract is intentionally mapping-only:
 Only after this mapping contract is independently verified may Phase 4.13 begin
 General Ledger/history source ingestion and accounting reconciliation.
 
+## 4.13 General Ledger/history ingestion + staging
+
+The first accounting-history batch uses the shared `GENERAL_LEDGER` resource
+and existing CSV/XLSX upload/detection/mapping/staging architecture.
+
+The source contract is limited to the currently published AppFolio General
+Ledger Details attributes:
+
+- `Credit`
+- `Date`
+- `Debit`
+- `Description`
+- `GlAccountId`
+- `LineItemId`
+- `PropertyId`
+- `Reference`
+- `Remarks`
+- `TransactionId`
+- `TransactionType`
+- `UnitId`
+
+Safety boundaries for this staging batch:
+
+1. `GlAccountId`, `Date`, `Debit` and `Credit` are required source fields
+   for automatic General Ledger detection.
+2. `LineItemId` is preserved as durable row identity when supplied. It is never
+   synthesized from transaction ID, date, description, reference, amounts or row
+   fingerprint.
+3. Duplicate supplied `LineItemId` values in one staged upload are invalid.
+4. A source GL Account relationship is considered resolved only through the
+   existing durable `GL_ACCOUNTS -> GL_ACCOUNT` mapping and an active,
+   nondeleted same-organization target account.
+5. Supplied Property/Unit source IDs are checked only through existing durable
+   source mappings; unresolved optional relationships remain review context and
+   are never linked by display name.
+6. Debit, credit, date, description, reference, remarks and transaction type
+   remain source evidence only. This stage does not choose accounting basis,
+   calculate balances, infer payee/payer identity or fabricate balancing entries.
+7. Every valid row remains REVIEW-only until a separate accounting-history
+   reconciliation/dry-run/controlled-commit contract is independently verified.
+8. This batch creates or updates zero `GLTransaction`, `GLEntry`, journal
+   entry, Receipt, Bill, Charge, GLAccount, AccountingKeyAccount or accounting
+   balance records.
+9. CSV/XLSX replay remains normalized-fingerprint idempotent; raw source bytes
+   are not persisted.
+10. No AppFolio API transport or general UX work is added.
+
 ## 5. File/report detection and column mapping
 
 The same AppFolio concept may arrive under different header spellings or export
