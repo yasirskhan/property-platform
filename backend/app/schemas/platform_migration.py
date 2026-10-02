@@ -467,6 +467,36 @@ class AppFolioGeneralLedgerDryRunOut(BaseModel):
     rows: list[AppFolioGeneralLedgerPreviewRow]
 
 
+class AppFolioGeneralLedgerReadinessLine(BaseModel):
+    source_id: str
+    transaction_id: str
+    posted_date: str
+    debit: str
+    credit: str
+    resolved_targets: dict[str, int | None]
+
+
+class AppFolioGeneralLedgerReadinessGroup(BaseModel):
+    transaction_id: str
+    line_count: int
+    debit_total: str
+    credit_total: str
+    balanced: bool
+    lines: list[AppFolioGeneralLedgerReadinessLine]
+
+
+class AppFolioGeneralLedgerCommitReadinessOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    dry_run_fingerprint: str
+    readiness_fingerprint: str
+    replayed: bool
+    group_count: int
+    line_count: int
+    groups: list[AppFolioGeneralLedgerReadinessGroup]
+
+
 class AppFolioVendorPreviewRow(BaseModel):
     source_id: str | None
     importable: bool
