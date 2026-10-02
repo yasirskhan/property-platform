@@ -17,10 +17,12 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.property import Property, PropertyType, Unit
+from app.models.vendor import Vendor
 from app.services.plan_limits import PlanUnitLimitExceeded, require_unit_capacity
 
 
@@ -1071,6 +1073,481 @@ def commit_units(
         db.flush()
 
     return UnitCommitResult(
+        fingerprint=fingerprint,
+        replayed=not changed,
+        committed=committed,
+        matched_existing=matched_existing,
+        warning_count=preview.warning_count,
+        rows=result_rows,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Vendor Directory staged dry run / controlled commit
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class VendorDryRunResult:
+    fingerprint: str
+    replayed: bool
+    total: int
+    importable: int
+    invalid: int
+    warning_count: int
+    rows: list[dict[str, Any]]
+    summary: dict[str, Any]
+
+
+def _vendor_fingerprint(
+    *,
+    organization_id: int,
+    source_account_ref: str,
+    records: list[dict[str, Any]],
+    source_context_fingerprint: str | None,
+) -> str:
+    canonical = json.dumps(
+        {
+            "provider": "APPFOLIO",
+            "resource": "VENDORS",
+            "organization_id": organization_id,
+            "source_account_ref": source_account_ref,
+            "source_context_fingerprint": source_context_fingerprint,
+            "records": records,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _vendor_candidate(
+    db: Session,
+    *,
+    organization_id: int,
+    company_name: str,
+    business_email: str | None,
+) -> Vendor | None:
+    if business_email:
+        row = (
+            db.query(Vendor)
+            .filter(
+                Vendor.organization_id == organization_id,
+                Vendor.is_active.is_(True),
+                Vendor.deleted_at.is_(None),
+                func.lower(Vendor.business_email) == business_email.lower(),
+            )
+            .order_by(Vendor.id.asc())
+            .first()
+        )
+        if row is not None:
+            return row
+    return (
+        db.query(Vendor)
+        .filter(
+            Vendor.organization_id == organization_id,
+            Vendor.is_active.is_(True),
+            Vendor.deleted_at.is_(None),
+            func.lower(Vendor.company_name) == company_name.lower(),
+        )
+        .order_by(Vendor.id.asc())
+        .first()
+    )
+
+
+def dry_run_vendors(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    records: list[dict[str, Any]],
+    source_context_fingerprint: str | None,
+    resolved_existing_matches: dict[str, int] | None = None,
+    force_create_new_source_ids: set[str] | None = None,
+) -> VendorDryRunResult:
+    if run.provider != "APPFOLIO":
+        raise AppFolioMigrationError("Migration run is not an AppFolio run.")
+    if not records:
+        raise AppFolioMigrationError("At least one staged AppFolio Vendor record is required.")
+
+    resolved_existing_matches = {
+        str(source_id): int(target_id)
+        for source_id, target_id in (resolved_existing_matches or {}).items()
+    }
+    force_create_new_source_ids = {
+        str(source_id) for source_id in (force_create_new_source_ids or set())
+    }
+    fingerprint = _vendor_fingerprint(
+        organization_id=run.organization_id,
+        source_account_ref=run.source_account_ref,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    replayed = run.last_dry_run_fingerprint == fingerprint
+
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    importable = 0
+    invalid = 0
+    warning_count = 0
+
+    for record in records:
+        source_id = _clean_text(_value(record, "Vendor ID", "VendorId", "Id"))
+        company_name = _clean_text(_value(record, "Company Name", "Vendor Name", "Vendor"))
+        business_email = _clean_text(_value(record, "Email", "Email Address"))
+        reasons: list[str] = []
+        warnings: list[str] = []
+
+        if source_id is None:
+            reasons.append("AppFolio Vendor ID is required for controlled commit.")
+        elif source_id in seen:
+            reasons.append("Duplicate AppFolio Vendor ID in this dry run.")
+        else:
+            seen.add(source_id)
+        if company_name is None:
+            reasons.append("Vendor Company Name is required.")
+        elif len(company_name) > 255:
+            reasons.append("Vendor Company Name exceeds the 255-character target limit.")
+        if business_email and len(business_email) > 255:
+            reasons.append("Vendor Email exceeds the 255-character target limit.")
+
+        if reasons:
+            rows.append({
+                "source_id": source_id,
+                "importable": False,
+                "reason": " ".join(reasons),
+                "mapped": None,
+                "warnings": [],
+            })
+            invalid += 1
+            continue
+
+        prior = (
+            db.query(PlatformMigrationItem)
+            .filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "APPFOLIO",
+                PlatformMigrationItem.resource == "VENDORS",
+                PlatformMigrationItem.source_id == source_id,
+            )
+            .first()
+        )
+        if prior is not None:
+            if prior.target_entity != "VENDOR":
+                reasons.append("Existing Vendor source mapping is inconsistent.")
+            else:
+                target = (
+                    db.query(Vendor)
+                    .filter(
+                        Vendor.id == prior.target_id,
+                        Vendor.organization_id == run.organization_id,
+                        Vendor.is_active.is_(True),
+                        Vendor.deleted_at.is_(None),
+                    )
+                    .first()
+                )
+                if target is None:
+                    reasons.append("Previously mapped Vendor target is missing or inactive.")
+                else:
+                    warnings.append(
+                        f"Source Vendor ID is already mapped to local vendor #{target.id}; commit replay will not create a duplicate."
+                    )
+        elif source_id in resolved_existing_matches:
+            target = (
+                db.query(Vendor)
+                .filter(
+                    Vendor.id == resolved_existing_matches[source_id],
+                    Vendor.organization_id == run.organization_id,
+                    Vendor.is_active.is_(True),
+                    Vendor.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target is None:
+                reasons.append("Resolved existing Vendor target is missing or inactive.")
+            else:
+                warnings.append(
+                    f"Reviewed source Vendor ID will map to existing local vendor #{target.id}; target fields will not be overwritten."
+                )
+        else:
+            candidate = _vendor_candidate(
+                db,
+                organization_id=run.organization_id,
+                company_name=company_name,
+                business_email=business_email,
+            )
+            if candidate is not None and source_id not in force_create_new_source_ids:
+                reasons.append(
+                    "Possible existing target Vendor now exists; explicit staged resolution is required before commit."
+                )
+
+        if reasons:
+            rows.append({
+                "source_id": source_id,
+                "importable": False,
+                "reason": " ".join(reasons),
+                "mapped": None,
+                "warnings": warnings,
+            })
+            invalid += 1
+            warning_count += len(warnings)
+            continue
+
+        source_only_fields = [
+            name for name, aliases in (
+                ("formatted address", ("Address", "Vendor Address")),
+                ("plural phone values", ("Phone Numbers", "Phone Number", "Phone")),
+                ("Send 1099 indicator", ("Send 1099?", "Send 1099", "Send1099")),
+                ("liability insurance expiration", ("Liability Insurance Expiration",)),
+                ("workers comp expiration", ("Workers Comp Expiration",)),
+                ("EPA certification expiration", ("EPA Certification Expiration",)),
+                ("state license expiration", ("State License Expiration",)),
+                ("contract expiration", ("Contract Expiration",)),
+            )
+            if any(_clean_text(_value(record, alias)) for alias in aliases)
+        ]
+        if source_only_fields:
+            warnings.append(
+                "Staging-only source values are preserved but not applied to the target Vendor: "
+                + ", ".join(source_only_fields)
+                + "."
+            )
+
+        mapped = {
+            "company_name": company_name,
+            "business_email": business_email,
+        }
+        rows.append({
+            "source_id": source_id,
+            "importable": True,
+            "reason": None,
+            "mapped": mapped,
+            "warnings": warnings,
+        })
+        importable += 1
+        warning_count += len(warnings)
+
+    summary = {
+        "total": len(records),
+        "importable": importable,
+        "invalid": invalid,
+        "warning_count": warning_count,
+        "resource": "VENDORS",
+        "target_mutation": False,
+    }
+    if not replayed:
+        run.last_dry_run_fingerprint = fingerprint
+        run.last_dry_run_summary = summary
+        run.status = "DRY_RUN_READY"
+
+    return VendorDryRunResult(
+        fingerprint=fingerprint,
+        replayed=replayed,
+        total=len(records),
+        importable=importable,
+        invalid=invalid,
+        warning_count=warning_count,
+        rows=rows,
+        summary=summary,
+    )
+
+
+@dataclass(frozen=True)
+class VendorCommitResult:
+    fingerprint: str
+    replayed: bool
+    committed: int
+    matched_existing: int
+    warning_count: int
+    rows: list[dict[str, Any]]
+
+
+def commit_vendors(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    records: list[dict[str, Any]],
+    expected_fingerprint: str,
+    platform_user_id: int,
+    source_context_fingerprint: str | None,
+    resolved_existing_matches: dict[str, int] | None = None,
+    force_create_new_source_ids: set[str] | None = None,
+) -> VendorCommitResult:
+    fingerprint = _vendor_fingerprint(
+        organization_id=run.organization_id,
+        source_account_ref=run.source_account_ref,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    if expected_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit payload does not match the supplied Vendor dry-run fingerprint."
+        )
+    if run.last_dry_run_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit requires the exact latest successful Vendor dry run."
+        )
+
+    resolved_existing_matches = {
+        str(source_id): int(target_id)
+        for source_id, target_id in (resolved_existing_matches or {}).items()
+    }
+    force_create_new_source_ids = {
+        str(source_id) for source_id in (force_create_new_source_ids or set())
+    }
+    preview = dry_run_vendors(
+        db,
+        run=run,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+        resolved_existing_matches=resolved_existing_matches,
+        force_create_new_source_ids=force_create_new_source_ids,
+    )
+    if preview.invalid:
+        raise AppFolioMigrationError(
+            "Vendor commit is blocked while the dry run contains invalid or unresolved records."
+        )
+
+    importable_rows = [row for row in preview.rows if row["importable"]]
+    source_ids = [str(row["source_id"]) for row in importable_rows]
+    source_id_set = set(source_ids)
+    resolution_ids = set(resolved_existing_matches) | force_create_new_source_ids
+    if resolution_ids - source_id_set:
+        raise AppFolioMigrationError(
+            "Vendor resolution state does not match the reviewed dry-run rows."
+        )
+    if set(resolved_existing_matches) & force_create_new_source_ids:
+        raise AppFolioMigrationError(
+            "A Vendor source row cannot both match existing and create new."
+        )
+
+    mappings = (
+        db.query(PlatformMigrationItem)
+        .filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "APPFOLIO",
+            PlatformMigrationItem.resource == "VENDORS",
+            PlatformMigrationItem.source_id.in_(source_ids),
+        )
+        .all()
+        if source_ids else []
+    )
+    by_source = {item.source_id: item for item in mappings}
+
+    result_rows: list[dict[str, Any]] = []
+    committed = 0
+    matched_existing = 0
+    changed = False
+
+    for row in importable_rows:
+        source_id = str(row["source_id"])
+        prior = by_source.get(source_id)
+        if prior is not None:
+            if prior.target_entity != "VENDOR":
+                raise AppFolioMigrationError(
+                    "Vendor commit mapping is inconsistent and requires manual review."
+                )
+            target = (
+                db.query(Vendor)
+                .filter(
+                    Vendor.id == prior.target_id,
+                    Vendor.organization_id == run.organization_id,
+                    Vendor.is_active.is_(True),
+                    Vendor.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target is None:
+                raise AppFolioMigrationError(
+                    "A previously committed target Vendor is missing or inactive; manual review required."
+                )
+            result_rows.append({
+                "source_id": source_id,
+                "target_vendor_id": target.id,
+                "replayed": True,
+            })
+            continue
+
+        resolved_target_id = resolved_existing_matches.get(source_id)
+        if resolved_target_id is not None:
+            target = (
+                db.query(Vendor)
+                .filter(
+                    Vendor.id == resolved_target_id,
+                    Vendor.organization_id == run.organization_id,
+                    Vendor.is_active.is_(True),
+                    Vendor.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target is None:
+                raise AppFolioMigrationError(
+                    "Resolved existing Vendor target is no longer available."
+                )
+            db.add(PlatformMigrationItem(
+                run_id=run.id,
+                organization_id=run.organization_id,
+                provider="APPFOLIO",
+                resource="VENDORS",
+                source_id=source_id,
+                target_entity="VENDOR",
+                target_id=target.id,
+                source_fingerprint=fingerprint,
+                created_by_platform_user_id=platform_user_id,
+            ))
+            result_rows.append({
+                "source_id": source_id,
+                "target_vendor_id": target.id,
+                "replayed": False,
+            })
+            matched_existing += 1
+            changed = True
+            continue
+
+        mapped = row["mapped"] or {}
+        candidate = _vendor_candidate(
+            db,
+            organization_id=run.organization_id,
+            company_name=str(mapped["company_name"]),
+            business_email=mapped.get("business_email"),
+        )
+        if candidate is not None and source_id not in force_create_new_source_ids:
+            raise AppFolioMigrationError(
+                "Vendor commit is blocked by a possible existing target; explicit staged resolution is required."
+            )
+
+        target = Vendor(
+            organization_id=run.organization_id,
+            company_name=str(mapped["company_name"]),
+            business_email=mapped.get("business_email"),
+        )
+        db.add(target)
+        db.flush()
+        db.add(PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=run.organization_id,
+            provider="APPFOLIO",
+            resource="VENDORS",
+            source_id=source_id,
+            target_entity="VENDOR",
+            target_id=target.id,
+            source_fingerprint=fingerprint,
+            created_by_platform_user_id=platform_user_id,
+        ))
+        result_rows.append({
+            "source_id": source_id,
+            "target_vendor_id": target.id,
+            "replayed": False,
+        })
+        committed += 1
+        changed = True
+
+    if changed:
+        run.status = "VENDORS_COMMITTED"
+        db.flush()
+
+    return VendorCommitResult(
         fingerprint=fingerprint,
         replayed=not changed,
         committed=committed,
