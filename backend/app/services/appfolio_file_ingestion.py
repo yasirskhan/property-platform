@@ -201,6 +201,29 @@ VENDOR_ALIASES: dict[str, tuple[str, ...]] = {
 }
 VENDOR_REQUIRED = ("company_name",)
 
+# Verified AppFolio General Ledger Accounts source contract. The current
+# published AppFolio Stack resource exposes Number, Name, Type, FundAccount,
+# IsCorporateAccount, OffsetAccountId, ParentGlAccountId, PropertyIds and
+# LastUpdatedAt. A report export may also expose a stable GL Account ID; preserve
+# it when supplied, but never synthesize source identity from account name.
+GL_ACCOUNT_ALIASES: dict[str, tuple[str, ...]] = {
+    "source_id": ("GL Account ID", "GL Account Id", "GlAccountId", "gl_account_id"),
+    "account_number": ("Number", "Account Number", "GL Number", "GL Account Number"),
+    "account_name": ("Name", "Account Name", "GL Account Name"),
+    "account_type": ("Type", "Account Type"),
+    "fund_account": ("FundAccount", "Fund Account"),
+    "is_corporate_account": ("IsCorporateAccount", "Is Corporate Account"),
+    "offset_account_id": ("OffsetAccountId", "Offset Account ID", "Offset Account Id"),
+    "parent_gl_account_id": (
+        "ParentGlAccountId",
+        "Parent GL Account ID",
+        "Parent GL Account Id",
+    ),
+    "property_ids": ("PropertyIds", "Property IDs", "Property Ids"),
+    "last_updated_at": ("LastUpdatedAt", "Last Updated At"),
+}
+GL_ACCOUNT_REQUIRED = ("account_number", "account_name", "account_type")
+
 
 class AppFolioFileIngestionError(ValueError):
     pass
@@ -402,6 +425,18 @@ def _looks_like_vendors(headers: list[str]) -> bool:
     )
 
 
+def _looks_like_gl_accounts(headers: list[str]) -> bool:
+    normalized = {_normalize_header(header) for header in headers}
+    return all(
+        normalized
+        & {
+            _normalize_header(alias)
+            for alias in GL_ACCOUNT_ALIASES[field]
+        }
+        for field in GL_ACCOUNT_REQUIRED
+    )
+
+
 def _parse_xlsx(content: bytes, requested_sheet: str | None) -> ParsedTable:
     stream = io.BytesIO(content)
     if not zipfile.is_zipfile(stream):
@@ -454,6 +489,7 @@ def _parse_xlsx(content: bytes, requested_sheet: str | None) -> ParsedTable:
                     or _looks_like_tenants(headers)
                     or _looks_like_owners(headers)
                     or _looks_like_vendors(headers)
+                    or _looks_like_gl_accounts(headers)
                 ):
                     candidates.append(name)
             if len(candidates) != 1:
@@ -548,9 +584,9 @@ def _resolve_mapping(
     explicit_mapping: dict[str, str] | None,
 ) -> tuple[str, dict[str, str], list[str], list[str]]:
     requested = (resource_override or "").strip().upper()
-    if requested not in {"", "PROPERTIES", "UNITS", "TENANTS", "LEASE_OCCUPANCY", "OWNERS", "VENDORS"}:
+    if requested not in {"", "PROPERTIES", "UNITS", "TENANTS", "LEASE_OCCUPANCY", "OWNERS", "VENDORS", "GL_ACCOUNTS"}:
         raise AppFolioFileIngestionError(
-            "This migration stage currently supports only verified PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS and VENDORS resource mappings."
+            "This migration stage currently supports only verified PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS and GL_ACCOUNTS resource mappings."
         )
 
     if requested == "PROPERTIES":
@@ -565,6 +601,8 @@ def _resolve_mapping(
         resource = "OWNERS"
     elif requested == "VENDORS":
         resource = "VENDORS"
+    elif requested == "GL_ACCOUNTS":
+        resource = "GL_ACCOUNTS"
     elif _looks_like_properties(headers):
         resource = "PROPERTIES"
     elif _looks_like_units(headers):
@@ -575,6 +613,8 @@ def _resolve_mapping(
         resource = "OWNERS"
     elif _looks_like_vendors(headers):
         resource = "VENDORS"
+    elif _looks_like_gl_accounts(headers):
+        resource = "GL_ACCOUNTS"
     else:
         resource = "UNKNOWN"
 
@@ -591,6 +631,8 @@ def _resolve_mapping(
         if resource == "OWNERS"
         else VENDOR_ALIASES
         if resource == "VENDORS"
+        else GL_ACCOUNT_ALIASES
+        if resource == "GL_ACCOUNTS"
         else {}
     )
     required = (
@@ -606,6 +648,8 @@ def _resolve_mapping(
         if resource == "OWNERS"
         else VENDOR_REQUIRED
         if resource == "VENDORS"
+        else GL_ACCOUNT_REQUIRED
+        if resource == "GL_ACCOUNTS"
         else ()
     )
     auto_mapping, ambiguous = _auto_mapping(headers, aliases) if aliases else ({}, [])
@@ -617,7 +661,7 @@ def _resolve_mapping(
             # A caller must choose a supported resource before using explicit
             # mapping when automatic report detection cannot determine one.
             raise AppFolioFileIngestionError(
-                "Choose resource PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS or VENDORS before supplying explicit column mapping."
+                "Choose resource PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS or GL_ACCOUNTS before supplying explicit column mapping."
             )
         unknown_fields = sorted(set(explicit_mapping) - allowed_fields)
         if unknown_fields:
@@ -764,6 +808,7 @@ def stage_appfolio_file(
     possible_matches = 0
     seen_source_ids: set[str] = set()
     seen_lease_occupancy_keys: set[tuple[str, str, str, str, str, str, str]] = set()
+    seen_gl_account_keys: set[tuple[str, str, str]] = set()
 
     for row_number, source_row in parsed.rows:
         errors: list[str] = []
@@ -1581,10 +1626,109 @@ def stage_appfolio_file(
                         disposition = "REVIEW"
                     else:
                         disposition = "NEW"
+        elif resource == "GL_ACCOUNTS":
+            normalized_data = {
+                field: _mapped_value(source_row, mapping, field)
+                for field in GL_ACCOUNT_ALIASES
+                if field in mapping
+            }
+            if ambiguous:
+                errors.append(
+                    "Ambiguous automatic mapping requires explicit mapping for: "
+                    + ", ".join(sorted(ambiguous))
+                )
+            if missing_required:
+                errors.append(
+                    "Missing required source columns: " + ", ".join(missing_required)
+                )
+
+            account_number_value = normalized_data.get("account_number")
+            account_name_value = normalized_data.get("account_name")
+            account_type_value = normalized_data.get("account_type")
+            account_number = (
+                str(account_number_value).strip()
+                if account_number_value is not None
+                else None
+            )
+            account_name = (
+                str(account_name_value).strip()
+                if account_name_value is not None
+                else None
+            )
+            account_type = (
+                str(account_type_value).strip()
+                if account_type_value is not None
+                else None
+            )
+            if not account_number:
+                errors.append("account_number is required.")
+            if not account_name:
+                errors.append("account_name is required.")
+            if not account_type:
+                errors.append("account_type is required.")
+
+            source_id_value = normalized_data.get("source_id")
+            source_id = (
+                str(source_id_value).strip()
+                if source_id_value is not None
+                else None
+            )
+            if source_id:
+                if source_id in seen_source_ids:
+                    errors.append("Duplicate AppFolio GL Account ID in this staged upload.")
+                    duplicates += 1
+                else:
+                    seen_source_ids.add(source_id)
+
+            if account_number and account_name and account_type:
+                duplicate_key = (account_number, account_name, account_type)
+                if duplicate_key in seen_gl_account_keys:
+                    errors.append(
+                        "Duplicate AppFolio GL account number/name/type row in this staged upload."
+                    )
+                    duplicates += 1
+                else:
+                    seen_gl_account_keys.add(duplicate_key)
+
+            if errors:
+                disposition = "INVALID"
+                invalid += 1
+            else:
+                valid += 1
+                mapped_item = None
+                if source_id:
+                    mapped_item = (
+                        db.query(PlatformMigrationItem)
+                        .filter(
+                            PlatformMigrationItem.run_id == run.id,
+                            PlatformMigrationItem.organization_id == run.organization_id,
+                            PlatformMigrationItem.provider == "APPFOLIO",
+                            PlatformMigrationItem.resource == "GL_ACCOUNTS",
+                            PlatformMigrationItem.source_id == source_id,
+                        )
+                        .first()
+                    )
+                if mapped_item is not None:
+                    disposition = "ALREADY_MAPPED"
+                    warnings.append(
+                        f"Source GL Account ID is already mapped to {mapped_item.target_entity} #{mapped_item.target_id}."
+                    )
+                else:
+                    disposition = "REVIEW"
+                    if not source_id:
+                        warnings.append(
+                            "A stable GL Account ID was not supplied; the source account number/code is preserved but is not promoted to durable source identity automatically."
+                        )
+                    warnings.append(
+                        "AppFolio account Type/FundAccount/corporate/parent/offset/property fields are preserved as source evidence only; no target GL classification or key-account semantics are inferred."
+                    )
+                    warnings.append(
+                        "This staging batch creates or updates no GLAccount, key-account configuration, journal entry, GL transaction or accounting balance."
+                    )
         else:
             normalized_data = _normalized_source_row(source_row)
             errors.append(
-                "Report type could not be detected safely; choose PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS or VENDORS and supply explicit column mapping."
+                "Report type could not be detected safely; choose PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS or GL_ACCOUNTS and supply explicit column mapping."
             )
             disposition = "INVALID"
             invalid += 1
@@ -1737,6 +1881,26 @@ def stage_appfolio_file(
             for row in vendor_rows
             if any("Vendor ID was not supplied" in warning for warning in (row.warnings or []))
         )
+    if resource == "GL_ACCOUNTS":
+        gl_rows = (
+            db.query(PlatformMigrationStagedRow)
+            .filter(
+                PlatformMigrationStagedRow.upload_id == upload.id,
+                PlatformMigrationStagedRow.resource == "GL_ACCOUNTS",
+            )
+            .all()
+        )
+        summary["gl_account_rows"] = len(gl_rows)
+        summary["missing_gl_account_source_ids"] = sum(
+            1
+            for row in gl_rows
+            if any(
+                "stable GL Account ID was not supplied" in warning
+                for warning in (row.warnings or [])
+            )
+        )
+        summary["gl_account_target_mutation"] = False
+        summary["accounting_history_mutation"] = False
     if resource == "UNKNOWN" or missing_required or ambiguous:
         upload.status = "MAPPING_REQUIRED"
     elif invalid:
