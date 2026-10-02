@@ -1,3 +1,59 @@
+# AI_HANDOFF.md — 2026-10-02 PHASE 4.13 LEASE/OCCUPANCY STAGING VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `92367ffd08b0f789bac4dff835ef8efee4e3262b`.
+- GitHub Actions run: `36983384744` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **919 passed, 21 deselected, 24442 warnings in 400.52s**.
+- Authenticated E2E: **21 passed, 278 warnings in 115.07s**.
+- Alembic head remains `f58a2c4d6e91`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Lease / occupancy source staging
+
+1. Shared CSV/XLSX ingestion supports explicit `LEASE_OCCUPANCY` staging without creating a parallel migration system.
+2. `LEASE_OCCUPANCY` is intentionally explicit-only; Tenant Directory auto-detection remains unchanged.
+3. The verified staging contract preserves stable Tenant, Property and Unit source IDs plus source-only tenant name, status, rent, deposit, move-in/out and lease-from/to evidence.
+4. Relationship readiness resolves only through durable `TENANTS`, `PROPERTIES` and `UNITS` source mappings. Display names, labels, addresses and dates never substitute for source identity.
+5. Missing relationship IDs or missing durable mappings remain REVIEW; contradictory Unit/Property target relationships become INVALID.
+6. Duplicate relationship rows in one upload are rejected conservatively.
+7. Rent, deposit, status and date values remain source evidence only and do not establish occupancy, rent liability, security-deposit receipt or accounting balances.
+8. The batch creates or updates **zero** Lease, RentInvoice, Payment, Charge, Receipt or GL records.
+9. CSV replay remains idempotent and preserves the existing upload/fingerprint/audit/recovery architecture.
+10. No AppFolio API transport, navigation change or general UX work was added.
+
+Implementation commit:
+- `92367ffd08b0f789bac4dff835ef8efee4e3262b` — Lease/occupancy explicit staging contract, source evidence, relationship guards, plan documentation and focused regressions; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Add **staged Lease/occupancy reconciliation only** using the existing staged-row review architecture.
+
+Required boundaries:
+
+1. Reconcile only already-staged `LEASE_OCCUPANCY` rows; never accept arbitrary caller-supplied lease records.
+2. Reuse durable Tenant, Unit and Property source mappings as the only relationship authority.
+3. Allow only explicit review actions needed to mark a relationship as accepted-for-later-commit or SKIP; do not create a Lease in this batch.
+4. Do not infer missing Tenant/Unit/Property identity, occupancy, lease status, rent liability, deposit receipt, credentials or accounting history.
+5. REVIEW rows with missing/unresolved durable identities may only remain unresolved or be explicitly skipped; contradictory/INVALID rows must not become commit-ready.
+6. Any reconciliation change must be audited, invalidate prior migration dry-run fingerprints/summaries, and bind into the shared staged-review fingerprint.
+7. Preserve organization scope, replay/idempotency, recovery visibility, navigation integrity, hidden-menu roadmap and inactive UX standards.
+8. Do not begin Lease controlled commit or accounting-history migration until this reconciliation dependency is independently verified.
+
+---
+
 # AI_HANDOFF.md — 2026-10-02 PHASE 4.13 TENANT DRY-RUN + CONTROLLED MAPPING COMMIT VERIFIED
 
 ## Current verified product checkpoint
