@@ -1,3 +1,66 @@
+# AI_HANDOFF.md — 2026-10-02 PHASE 4.13 OWNER CONTROLLED MAPPING COMMIT VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `62c87526e358baa56152afa32c781f2967323015`.
+- GitHub Actions run: `36967232988` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **907 passed, 21 deselected, 24201 warnings in 400.80s**.
+- Authenticated E2E: **21 passed, 278 warnings in 118.34s**.
+- Alembic head remains `d46f1a7c9e20`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified staged Owner dry-run + controlled mapping commit
+
+1. Reviewed staged OWNERS rows now use the existing exact-fingerprint dry-run/controlled-commit architecture.
+2. Commit input is derived only from staged Owner rows; arbitrary caller-supplied Owner records are not accepted.
+3. Existing durable OWNERS mappings replay safely and must resolve to an active same-organization `UserRole.OWNER`.
+4. Explicit MATCH_EXISTING creates only a durable AppFolio OWNERS -> existing `OWNER_USER` source mapping.
+5. Existing target Owner profile fields are never overwritten or mutated.
+6. Property ownership rows and `Property.owner_id` are not created or changed by this batch.
+7. `CREATE_NEW` is intentionally blocked because the verified Owner Directory export does not provide safe first/last identity and credential semantics for a login-backed OWNER account.
+8. SKIP remains supported; REVIEW/unresolved NEW/POSSIBLE_MATCH/invalid rows block dry run unless safely resolved or skipped.
+9. Source display name, phone, email and property lists/IDs remain staging/review evidence and are explicitly disclosed as non-mutating.
+10. Resolution/review state participates in the exact fingerprint; stale previews cannot commit.
+11. Replay does not duplicate durable source mappings or customer Users.
+12. No Tenant, Lease/occupancy, accounting-history, AppFolio API connector, navigation or general UX work was added.
+
+Implementation commits in this verified batch:
+- `0265c0d4c2989174f589fc99591d990dc29b9066` — Owner mapping commit engine.
+- `c064ad40b4be49d78b90254103bd697b591e4a51` — Owner dry-run/commit schemas.
+- `dcd4abfeaa800292267ed5d22ac24e4cbe043654` — staged Owner route wiring.
+- `57ac3bea33960d83b6d414dcab56af2610f8f51a`, `62c87526e358baa56152afa32c781f2967323015` — focused Owner mapping regressions and test import correction; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Proceed to **Tenant Directory CSV/XLSX ingestion and staging only** using the existing shared migration staging architecture.
+
+Required boundaries:
+
+1. Verify the supported AppFolio Tenant Directory/export source columns before mapping them.
+2. Reuse the current CSV/XLSX upload, detection, explicit/automatic mapping, staging, validation, replay/idempotency, audit and recovery architecture.
+3. Preserve stable AppFolio Tenant ID and Unit/Property source references when supplied; do not synthesize source IDs from names, email or phone.
+4. First Tenant batch is staging-only: create/update **zero** customer Tenant users, leases, occupancy, charges, receipts or GL records.
+5. Resolve relationships only as review context through durable source IDs/mappings; do not infer occupancy or lease liability from display names.
+6. Surface possible same-organization target matches conservatively and require later explicit reconciliation; never overwrite automatically.
+7. Missing durable tenant identity or relationship references remain REVIEW/INVALID rather than fabricated.
+8. Preserve exact source values not yet safe for target semantics as staging-only fields with disclosure.
+9. Do not implement Lease/occupancy commit, accounting-history migration, AppFolio API transport or general UX work in this batch.
+10. Keep navigation integrity, hidden-menu roadmap, organization isolation, audit/idempotency and recovery visibility unchanged.
+
+---
+
 # AI_HANDOFF.md — 2026-10-02 PHASE 4.13 VENDOR DRY-RUN + CONTROLLED COMMIT VERIFIED
 
 ## Current verified product checkpoint
