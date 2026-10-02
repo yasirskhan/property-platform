@@ -18,6 +18,7 @@ from app.models.property import Property, PropertyOwner, Unit
 from app.models.lease import Lease
 from app.models.charge import Charge
 from app.models.gl_transaction import GLTransaction
+from app.models.gl_account import GLAccount
 from app.models.user import Organization, User, UserRole
 from app.models.vendor import Vendor
 from app.routers import platform_migrations as api
@@ -4744,6 +4745,237 @@ def test_appfolio_lease_occupancy_reconciliation_revalidates_mapping_dependencie
             )
         assert exc.value.status_code == 409
         assert db.query(Lease).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio GL Accounts source-schema verification + staging
+# ---------------------------------------------------------------------------
+
+def test_appfolio_gl_accounts_csv_stages_verified_source_fields_without_accounting_mutation():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="GL Account Stage Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="gl-account-stage",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        before_accounts = db.query(GLAccount).count()
+        before_transactions = db.query(GLTransaction).count()
+
+        content = (
+            "GL Account ID,Number,Name,Type,FundAccount,IsCorporateAccount,"
+            "OffsetAccountId,ParentGlAccountId,PropertyIds,LastUpdatedAt\n"
+            "GL-4100,4100,Rent Income,Income,Operating,false,,,PROP-1,2026-09-30T12:00:00Z\n"
+        ).encode()
+
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("chart-of-accounts.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert upload.detected_resource == "GL_ACCOUNTS"
+        assert upload.status == "REVIEW_REQUIRED"
+        assert upload.validation_summary["gl_account_rows"] == 1
+        assert upload.validation_summary["missing_gl_account_source_ids"] == 0
+        assert upload.validation_summary["gl_account_target_mutation"] is False
+        assert upload.validation_summary["accounting_history_mutation"] is False
+
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        assert row.resource == "GL_ACCOUNTS"
+        assert row.source_id == "GL-4100"
+        assert row.disposition == "REVIEW"
+        assert row.normalized_data == {
+            "source_id": "GL-4100",
+            "account_number": "4100",
+            "account_name": "Rent Income",
+            "account_type": "Income",
+            "fund_account": "Operating",
+            "is_corporate_account": "false",
+            "offset_account_id": None,
+            "parent_gl_account_id": None,
+            "property_ids": "PROP-1",
+            "last_updated_at": "2026-09-30T12:00:00Z",
+        }
+        assert any(
+            "preserved as source evidence only" in warning
+            for warning in row.warnings
+        )
+        assert any(
+            "creates or updates no GLAccount" in warning
+            for warning in row.warnings
+        )
+        assert db.query(GLAccount).count() == before_accounts
+        assert db.query(GLTransaction).count() == before_transactions
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_gl_accounts_missing_source_id_remains_review_and_duplicate_source_id_is_invalid():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="GL Account Review Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="gl-account-review",
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        no_id = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "chart-no-id.csv",
+                    (
+                        "Number,Name,Type,FundAccount\n"
+                        "1000,Operating Cash,Cash,Operating\n"
+                    ).encode(),
+                ),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == no_id.id
+        ).one()
+        assert no_id.detected_resource == "GL_ACCOUNTS"
+        assert row.source_id is None
+        assert row.disposition == "REVIEW"
+        assert no_id.validation_summary["missing_gl_account_source_ids"] == 1
+        assert any(
+            "not promoted to durable source identity automatically" in warning
+            for warning in row.warnings
+        )
+
+        duplicate = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "chart-duplicate.csv",
+                    (
+                        "GL Account ID,Number,Name,Type\n"
+                        "GL-1,1000,Operating Cash,Cash\n"
+                        "GL-1,1100,Savings Cash,Cash\n"
+                    ).encode(),
+                ),
+                resource="GL_ACCOUNTS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == duplicate.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+        assert rows[0].disposition == "REVIEW"
+        assert rows[1].disposition == "INVALID"
+        assert any(
+            "Duplicate AppFolio GL Account ID" in error
+            for error in rows[1].errors
+        )
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_gl_accounts_xlsx_multisheet_autodetects_and_replays():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="GL Account XLSX Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="gl-account-xlsx",
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        workbook = Workbook()
+        ws = workbook.active
+        ws.title = "Chart of Accounts"
+        ws.append([
+            "GL Account ID", "Number", "Name", "Type",
+            "Fund Account", "Is Corporate Account",
+        ])
+        ws.append([
+            "GL-6100", "6100", "Repairs", "Expense",
+            "Operating", False,
+        ])
+        notes = workbook.create_sheet("Notes")
+        notes.append(["Comment"])
+        notes.append(["not a supported migration report"])
+        buffer = BytesIO()
+        workbook.save(buffer)
+        workbook.close()
+
+        first = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("chart.xlsx", buffer.getvalue()),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert first.detected_resource == "GL_ACCOUNTS"
+        assert first.file_format == "XLSX"
+        assert first.sheet_name == "Chart of Accounts"
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == first.id
+        ).one()
+        assert row.source_id == "GL-6100"
+        assert row.normalized_data["account_number"] == "6100"
+        assert row.normalized_data["account_name"] == "Repairs"
+        assert row.normalized_data["account_type"] == "Expense"
+
+        replay = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("chart-copy.xlsx", buffer.getvalue()),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert replay.replayed is True
+        assert replay.id == first.id
+        assert db.query(PlatformMigrationUpload).filter(
+            PlatformMigrationUpload.run_id == run.id,
+            PlatformMigrationUpload.detected_resource == "GL_ACCOUNTS",
+        ).count() == 1
+        assert db.query(GLAccount).count() == 0
+        assert db.query(GLTransaction).count() == 0
     finally:
         db.close()
         engine.dispose()
