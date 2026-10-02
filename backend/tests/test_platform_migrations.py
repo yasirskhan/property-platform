@@ -15,6 +15,9 @@ from app.models.audit_log import AuditLog
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.property import Property, PropertyOwner, Unit
+from app.models.lease import Lease
+from app.models.charge import Charge
+from app.models.gl_transaction import GLTransaction
 from app.models.user import Organization, User, UserRole
 from app.models.vendor import Vendor
 from app.routers import platform_migrations as api
@@ -3417,6 +3420,375 @@ def test_appfolio_owner_controlled_commit_blocks_create_new_and_stale_resolution
             PlatformMigrationItem.resource == "OWNERS",
         ).count() == 0
         assert db.query(User).count() == 2
+    finally:
+        db.close()
+        engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio Tenant Directory ingestion + staging
+# ---------------------------------------------------------------------------
+
+def _seed_tenant_source_relationship_mappings(db, *, run, org):
+    prop = Property(
+        organization_id=org.id,
+        name="Tenant Stage Property",
+        address_line1="100 Tenant Ave",
+        city="Cleveland",
+        state="OH",
+        zip_code="44113",
+        is_active=True,
+    )
+    db.add(prop)
+    db.flush()
+    unit = Unit(
+        property_id=prop.id,
+        unit_number="101",
+        bedrooms=1,
+        bathrooms=1,
+        monthly_rent=1000,
+        is_active=True,
+    )
+    db.add(unit)
+    db.flush()
+    db.add_all([
+        PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="APPFOLIO",
+            resource="PROPERTIES",
+            source_id="PROP-TENANT-1",
+            target_entity="PROPERTY",
+            target_id=prop.id,
+            source_fingerprint="1" * 64,
+        ),
+        PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="APPFOLIO",
+            resource="UNITS",
+            source_id="UNIT-TENANT-1",
+            target_entity="UNIT",
+            target_id=unit.id,
+            source_fingerprint="2" * 64,
+        ),
+    ])
+    db.commit()
+    return prop, unit
+
+
+def test_appfolio_tenant_directory_csv_stages_verified_fields_relationship_context_and_replays_without_customer_mutation():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Tenant Stage Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="tenant-stage",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _seed_tenant_source_relationship_mappings(db, run=run, org=org)
+
+        before_users = db.query(User).count()
+        before_leases = db.query(Lease).count()
+        before_charges = db.query(Charge).count()
+        before_gl = db.query(GLTransaction).count()
+        content = (
+            "Tenant ID,Tenant,Phone Numbers,Emails,Tenant Street Address 1,"
+            "Tenant Street Address 2,Tenant City,Tenant State,Tenant Zip,"
+            "Property Name,Property ID,Property Address,Unit,Unit ID,"
+            "Move-in,Move-out,Lease From,Lease To\n"
+            "TENANT-1,Jane Tenant,216-555-0200,jane.tenant.source@example.com,"
+            "5 Tenant St,,Cleveland,OH,44113,Tenant Stage Property,PROP-TENANT-1,"
+            "100 Tenant Ave,101,UNIT-TENANT-1,2026-01-01,,2026-01-01,2026-12-31\n"
+        ).encode()
+
+        first = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("tenant-directory.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert first.detected_resource == "TENANTS"
+        assert first.status == "REVIEW_REQUIRED"
+        assert first.validation_summary["valid"] == 1
+        assert first.validation_summary["invalid"] == 0
+        assert first.validation_summary["missing_tenant_source_ids"] == 0
+        assert first.validation_summary["missing_tenant_unit_ids"] == 0
+        assert first.validation_summary["missing_tenant_property_ids"] == 0
+
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == first.id
+        ).one()
+        assert row.resource == "TENANTS"
+        assert row.source_id == "TENANT-1"
+        assert row.disposition == "NEW"
+        assert row.normalized_data["tenant_name"] == "Jane Tenant"
+        assert row.normalized_data["source_property_id"] == "PROP-TENANT-1"
+        assert row.normalized_data["source_unit_id"] == "UNIT-TENANT-1"
+        assert row.normalized_data["move_in"] == "2026-01-01"
+        assert row.normalized_data["lease_to"] == "2026-12-31"
+        assert any("does not establish occupancy" in warning for warning in row.warnings)
+        assert any("no occupancy event is created" in warning for warning in row.warnings)
+        assert any("no Lease record is created" in warning for warning in row.warnings)
+
+        assert db.query(User).count() == before_users
+        assert db.query(Lease).count() == before_leases
+        assert db.query(Charge).count() == before_charges
+        assert db.query(GLTransaction).count() == before_gl
+
+        replay = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("tenant-directory-renamed.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert replay.replayed is True
+        assert replay.id == first.id
+        assert db.query(PlatformMigrationUpload).filter(
+            PlatformMigrationUpload.run_id == run.id,
+            PlatformMigrationUpload.detected_resource == "TENANTS",
+        ).count() == 1
+        assert db.query(User).count() == before_users
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_tenant_directory_missing_identity_relationships_and_exact_single_email_are_reviewed_not_overwritten():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="Tenant Review Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="tenant-review",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _seed_tenant_source_relationship_mappings(db, run=run, org=org)
+        existing = User(
+            organization_id=org.id,
+            role=UserRole.TENANT,
+            email="existing.tenant@example.com",
+            first_name="Existing",
+            last_name="Tenant",
+            hashed_password="x",
+            is_active=True,
+        )
+        db.add(existing)
+        db.commit()
+        original_name = (existing.first_name, existing.last_name, existing.email)
+
+        content = (
+            "Tenant ID,Tenant,Phone Numbers,Emails,Property Name,Property ID,Unit,Unit ID\n"
+            "TENANT-MATCH,Existing Source Name,216-555-0201,existing.tenant@example.com,"
+            "Tenant Stage Property,PROP-TENANT-1,101,UNIT-TENANT-1\n"
+            ",Missing Stable ID,216-555-0202,missing.id@example.com,"
+            "Tenant Stage Property,PROP-TENANT-1,101,UNIT-TENANT-1\n"
+            "TENANT-NOREF,No Refs,216-555-0203,norefs@example.com,Tenant Stage Property,,101,\n"
+            "TENANT-MULTIEMAIL,Multi Email,216-555-0204,"
+            "existing.tenant@example.com;other@example.com,"
+            "Tenant Stage Property,PROP-TENANT-1,101,UNIT-TENANT-1\n"
+        ).encode()
+
+        before_users = db.query(User).count()
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("tenant-review.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+
+        assert upload.detected_resource == "TENANTS"
+        assert upload.status == "REVIEW_REQUIRED"
+        assert [row.disposition for row in rows] == [
+            "POSSIBLE_MATCH", "REVIEW", "REVIEW", "NEW"
+        ]
+        assert upload.validation_summary["possible_existing_matches"] == 1
+        assert upload.validation_summary["missing_tenant_source_ids"] == 1
+        assert upload.validation_summary["missing_tenant_unit_ids"] == 1
+        assert upload.validation_summary["missing_tenant_property_ids"] == 1
+        assert any(
+            "exact source email" in warning for warning in rows[0].warnings
+        )
+        assert not any(
+            "Possible existing target tenant match" in warning
+            for warning in rows[3].warnings
+        )
+        db.refresh(existing)
+        assert (existing.first_name, existing.last_name, existing.email) == original_name
+        assert db.query(User).count() == before_users
+        assert db.query(Lease).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_tenant_directory_duplicate_id_and_contradictory_mapped_unit_property_fail_closed():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Tenant Guard Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="tenant-guard",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        prop, unit = _seed_tenant_source_relationship_mappings(db, run=run, org=org)
+        other_prop = Property(
+            organization_id=org.id,
+            name="Other Tenant Property",
+            address_line1="200 Other Ave",
+            city="Cleveland",
+            state="OH",
+            zip_code="44113",
+            is_active=True,
+        )
+        db.add(other_prop)
+        db.flush()
+        db.add(
+            PlatformMigrationItem(
+                run_id=run.id,
+                organization_id=org.id,
+                provider="APPFOLIO",
+                resource="PROPERTIES",
+                source_id="PROP-TENANT-2",
+                target_entity="PROPERTY",
+                target_id=other_prop.id,
+                source_fingerprint="3" * 64,
+            )
+        )
+        db.commit()
+
+        content = (
+            "Tenant ID,Tenant,Emails,Property ID,Unit ID\n"
+            "TENANT-DUP,One Tenant,one@example.com,PROP-TENANT-1,UNIT-TENANT-1\n"
+            "TENANT-DUP,Duplicate Tenant,two@example.com,PROP-TENANT-1,UNIT-TENANT-1\n"
+            "TENANT-MISMATCH,Mismatch Tenant,three@example.com,PROP-TENANT-2,UNIT-TENANT-1\n"
+        ).encode()
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("tenant-guard.csv", content),
+                resource="TENANTS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+        assert rows[0].disposition == "NEW"
+        assert rows[1].disposition == "INVALID"
+        assert any("Duplicate AppFolio Tenant ID" in error for error in rows[1].errors)
+        assert rows[2].disposition == "INVALID"
+        assert any(
+            "resolve to different target Properties" in error
+            for error in rows[2].errors
+        )
+        assert upload.validation_summary["duplicates"] == 1
+        assert upload.validation_summary["invalid"] == 2
+        assert db.query(User).filter(User.role == UserRole.TENANT).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_tenant_directory_xlsx_auto_detection_and_replay():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Tenant XLSX Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="tenant-xlsx",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _seed_tenant_source_relationship_mappings(db, run=run, org=org)
+
+        workbook = Workbook()
+        ws = workbook.active
+        ws.title = "Instructions"
+        ws.append(["Read me"])
+        tenant_ws = workbook.create_sheet("Tenant Directory")
+        tenant_ws.append([
+            "Tenant ID", "Tenant", "Emails", "Property ID", "Unit ID",
+            "Move-in", "Lease From", "Lease To"
+        ])
+        tenant_ws.append([
+            "TENANT-XLSX-1", "XLSX Tenant", "xlsx.tenant@example.com",
+            "PROP-TENANT-1", "UNIT-TENANT-1",
+            "2026-02-01", "2026-02-01", "2027-01-31"
+        ])
+        buffer = BytesIO()
+        workbook.save(buffer)
+        workbook.close()
+        content = buffer.getvalue()
+
+        first = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("tenant-directory.xlsx", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert first.detected_resource == "TENANTS"
+        assert first.sheet_name == "Tenant Directory"
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == first.id
+        ).one()
+        assert row.source_id == "TENANT-XLSX-1"
+        assert row.disposition == "NEW"
+
+        replay = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("tenant-directory-copy.xlsx", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert replay.replayed is True
+        assert replay.id == first.id
     finally:
         db.close()
         engine.dispose()
