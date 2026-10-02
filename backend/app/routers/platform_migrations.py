@@ -3233,6 +3233,73 @@ def commit_staged_appfolio_tenants(
 
 
 @router.post(
+    "/runs/{run_id}/uploads/{upload_id}/general-ledger/dry-run",
+    response_model=AppFolioGeneralLedgerDryRunOut,
+)
+def dry_run_staged_appfolio_general_ledger(
+    run_id: int,
+    upload_id: int,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    rows, fingerprint, counts = _staged_general_ledger_dry_run_state(
+        db, run=run, upload=upload
+    )
+    replayed = run.last_dry_run_fingerprint == fingerprint
+    summary = {
+        **counts,
+        "resource": "GENERAL_LEDGER",
+        "review_only": True,
+        "target_mutation": False,
+        "accounting_history_mutation": False,
+        "transaction_grouping_inferred": False,
+        "balancing_entries_inferred": False,
+        "payer_payee_inferred": False,
+    }
+    if not replayed:
+        run.last_dry_run_fingerprint = fingerprint
+        run.last_dry_run_summary = summary
+        run.status = "DRY_RUN_READY"
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=run.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=run.id,
+            action="appfolio_staged_general_ledger_dry_run",
+            new_value={
+                "upload_id": upload.id,
+                "dry_run_fingerprint": fingerprint,
+                **summary,
+                "raw_file_stored": False,
+                "gl_transaction_mutation": False,
+                "gl_entry_mutation": False,
+                "journal_entry_mutation": False,
+                "receipt_bill_charge_mutation": False,
+                "gl_account_mutation": False,
+                "key_account_mutation": False,
+            },
+        )
+        db.commit()
+        db.refresh(run)
+
+    return AppFolioGeneralLedgerDryRunOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        fingerprint=fingerprint,
+        replayed=replayed,
+        total=counts["total"],
+        importable=counts["importable"],
+        invalid=counts["invalid"],
+        warning_count=counts["warning_count"],
+        rows=rows,
+    )
+
+
+@router.post(
     "/runs/{run_id}/uploads/{upload_id}/gl-accounts/dry-run",
     response_model=AppFolioGLAccountDryRunOut,
 )
