@@ -1,3 +1,68 @@
+# AI_HANDOFF.md — 2026-10-02 PHASE 4.13 LEASE/OCCUPANCY RECONCILIATION VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `adc689c2a89a26d79f19889e5ae5f609e55c7174`.
+- GitHub Actions run: `37029331351` — SUCCESS after authenticated E2E retry.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **922 passed, 21 deselected, 24499 warnings in 411.26s**.
+- Authenticated E2E retry: **21 passed, 278 warnings in 117.06s**.
+- Alembic head remains `f58a2c4d6e91`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+- The first E2E attempt failed on an unrelated existing Short-term Rentals tab click timeout; rerunning the failed job passed without source changes.
+
+## Verified staged Lease / occupancy reconciliation
+
+1. Reconciliation operates only on already-staged `LEASE_OCCUPANCY` rows; callers cannot submit arbitrary Lease records or target IDs.
+2. `ACCEPT_RELATIONSHIP` revalidates durable TENANTS, PROPERTIES and UNITS mappings and requires active same-organization target entities of the expected types.
+3. Accepted relationships snapshot the verified target Property, Unit and Tenant user IDs into the existing typed staged-row resolution fields.
+4. The accepted review state participates in the shared staged-review fingerprint; changing reconciliation state changes the fingerprint.
+5. Missing or unresolved durable relationship identity cannot be accepted; such REVIEW rows may be explicitly SKIPped.
+6. INVALID/contradictory rows remain non-resolvable and cannot become commit-ready.
+7. Unit/Property consistency is revalidated at reconciliation time; stale or type-changed source mappings fail closed.
+8. Resolution changes invalidate the run's prior dry-run fingerprint/summary and are audited.
+9. Repeating the identical accepted resolution is idempotent and does not duplicate audit activity.
+10. The batch creates or updates **zero** Lease, RentInvoice, Payment, Charge, Receipt or GL records.
+11. No AppFolio API transport, navigation change or general UX work was added.
+
+Implementation commit:
+- `adc689c2a89a26d79f19889e5ae5f609e55c7174` — Lease/occupancy reconciliation schema/route, durable dependency validation, fingerprint binding, plan update and focused regressions; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Proceed to **GL Accounts CSV/XLSX source-schema verification and staging support** using the existing shared migration architecture.
+
+Reason for dependency transition:
+
+- the verified Lease/occupancy source contract does not guarantee a stable AppFolio Lease/occupancy source ID;
+- creating a durable Lease mapping key from names, dates, labels, row fingerprints or another synthesized value would invent source identity and violate the migration plan;
+- therefore Lease target creation remains intentionally deferred until a reliable source identity/commit contract is independently verified;
+- the documented dependency order permits continuing to GL Accounts after Lease/occupancy staging/reconciliation is safely preserved.
+
+Required boundaries:
+
+1. Verify a reliable AppFolio Chart of Accounts / GL Accounts export contract before adding automatic aliases.
+2. Reuse shared CSV/XLSX upload, detection, mapping, staging, validation, fingerprint, replay/idempotency, audit and recovery architecture.
+3. Preserve stable source account IDs/codes where the verified export supplies them; do not infer account identity from display name alone.
+4. First GL Accounts batch is staging/reconciliation only: do not create/update GLAccount, key-account configuration, journal entries, transactions, balances or accounting history.
+5. Preserve source account number/code, name, type/classification and any verified active/hidden/source-only fields without translating them into unsupported target semantics.
+6. Missing or contradictory source identity/classification remains REVIEW/INVALID; never fabricate account codes or financial classifications.
+7. Preserve organization scope, navigation integrity, hidden-menu roadmap and inactive UX standards.
+8. Do not begin accounting-history/balance migration until GL Account staging and reconciliation are independently verified.
+
+---
+
 # AI_HANDOFF.md — 2026-10-02 PHASE 4.13 LEASE/OCCUPANCY STAGING VERIFIED
 
 ## Current verified product checkpoint
