@@ -36,6 +36,7 @@ from app.schemas.platform_migration import (
     AppFolioStagedTenantResolutionIn,
     AppFolioStagedLeaseOccupancyResolutionIn,
     AppFolioStagedGLAccountResolutionIn,
+    AppFolioStagedGLAccountCommitIn,
     AppFolioStagedTenantCommitIn,
     AppFolioStagedVendorCommitIn,
 )
@@ -5252,6 +5253,326 @@ def test_appfolio_gl_account_reconciliation_rejects_cross_org_inactive_and_inval
                 current_user=admin,
             )
         assert exc.value.status_code == 409
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio GL Account staged dry run + controlled mapping commit
+# ---------------------------------------------------------------------------
+
+def test_staged_gl_account_dry_run_and_mapping_commit_is_exact_replay_safe_and_non_mutating():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="GL Mapping Commit Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="gl-mapping-commit",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        target = GLAccount(
+            organization_id=org.id,
+            gl_number="4100",
+            name="Local Rent Income",
+            account_type="INCOME",
+            is_active=True,
+        )
+        db.add(target)
+        db.commit()
+        db.refresh(target)
+
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "gl-mapping.csv",
+                    (
+                        "GL Account ID,Number,Name,Type,FundAccount\n"
+                        "GL-COMMIT-4100,4100,Rent Income,Income,Operating\n"
+                    ).encode(),
+                ),
+                resource="GL_ACCOUNTS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        api.resolve_staged_appfolio_gl_account(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedGLAccountResolutionIn(
+                action="MATCH_EXISTING",
+                target_gl_account_id=target.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        before_accounts = db.query(GLAccount).count()
+        before_transactions = db.query(GLTransaction).count()
+        before_target = (
+            db.get(GLAccount, target.id).gl_number,
+            db.get(GLAccount, target.id).name,
+            db.get(GLAccount, target.id).account_type,
+        )
+
+        preview = api.dry_run_staged_appfolio_gl_accounts(
+            run.id,
+            upload.id,
+            db=db,
+            current_user=admin,
+        )
+        assert preview.total == 1
+        assert preview.importable == 1
+        assert preview.invalid == 0
+        assert preview.rows[0].mapped == {"target_gl_account_id": target.id}
+        assert db.query(GLAccount).count() == before_accounts
+        assert db.query(GLTransaction).count() == before_transactions
+
+        committed = api.commit_staged_appfolio_gl_accounts(
+            run.id,
+            upload.id,
+            AppFolioStagedGLAccountCommitIn(fingerprint=preview.fingerprint),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.mapped_existing == 1
+        assert committed.replayed is False
+        assert committed.rows[0].target_gl_account_id == target.id
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "GL_ACCOUNTS",
+            PlatformMigrationItem.source_id == "GL-COMMIT-4100",
+        ).one()
+        assert mapping.target_entity == "GL_ACCOUNT"
+        assert mapping.target_id == target.id
+
+        replay = api.commit_staged_appfolio_gl_accounts(
+            run.id,
+            upload.id,
+            AppFolioStagedGLAccountCommitIn(fingerprint=preview.fingerprint),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert replay.mapped_existing == 0
+        assert replay.rows[0].replayed is True
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "GL_ACCOUNTS",
+            PlatformMigrationItem.source_id == "GL-COMMIT-4100",
+        ).count() == 1
+        assert db.query(GLAccount).count() == before_accounts
+        assert db.query(GLTransaction).count() == before_transactions
+        assert (
+            db.get(GLAccount, target.id).gl_number,
+            db.get(GLAccount, target.id).name,
+            db.get(GLAccount, target.id).account_type,
+        ) == before_target
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_staged_gl_account_commit_rejects_stale_resolution_fingerprint():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="GL Stale Mapping Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="gl-stale",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        first = GLAccount(
+            organization_id=org.id,
+            gl_number="6100",
+            name="Repairs One",
+            account_type="EXPENSE",
+            is_active=True,
+        )
+        second = GLAccount(
+            organization_id=org.id,
+            gl_number="6110",
+            name="Repairs Two",
+            account_type="EXPENSE",
+            is_active=True,
+        )
+        db.add_all([first, second])
+        db.commit()
+
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "gl-stale.csv",
+                    (
+                        "GL Account ID,Number,Name,Type\n"
+                        "GL-STALE-6100,6100,Repairs,Expense\n"
+                    ).encode(),
+                ),
+                resource="GL_ACCOUNTS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        api.resolve_staged_appfolio_gl_account(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedGLAccountResolutionIn(
+                action="MATCH_EXISTING",
+                target_gl_account_id=first.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        preview = api.dry_run_staged_appfolio_gl_accounts(
+            run.id,
+            upload.id,
+            db=db,
+            current_user=admin,
+        )
+
+        api.resolve_staged_appfolio_gl_account(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedGLAccountResolutionIn(
+                action="MATCH_EXISTING",
+                target_gl_account_id=second.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.commit_staged_appfolio_gl_accounts(
+                run.id,
+                upload.id,
+                AppFolioStagedGLAccountCommitIn(
+                    fingerprint=preview.fingerprint
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "GL_ACCOUNTS",
+        ).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_staged_gl_account_dry_run_revalidates_target_and_skip_only_rows_do_not_commit():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="GL Revalidate Mapping Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="gl-revalidate",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        target = GLAccount(
+            organization_id=org.id,
+            gl_number="1000",
+            name="Operating Cash",
+            account_type="ASSET",
+            is_active=True,
+        )
+        db.add(target)
+        db.commit()
+
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "gl-revalidate.csv",
+                    (
+                        "GL Account ID,Number,Name,Type\n"
+                        "GL-VALID-1000,1000,Operating Cash,Cash\n"
+                    ).encode(),
+                ),
+                resource="GL_ACCOUNTS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        api.resolve_staged_appfolio_gl_account(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedGLAccountResolutionIn(
+                action="MATCH_EXISTING",
+                target_gl_account_id=target.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        target.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_gl_accounts(
+                run.id,
+                upload.id,
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        target.is_active = True
+        db.commit()
+        api.resolve_staged_appfolio_gl_account(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedGLAccountResolutionIn(action="SKIP"),
+            db=db,
+            current_user=admin,
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_gl_accounts(
+                run.id,
+                upload.id,
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "No staged GL Account rows remain" in exc.value.detail
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "GL_ACCOUNTS",
+        ).count() == 0
         assert db.query(GLTransaction).count() == 0
     finally:
         db.close()
