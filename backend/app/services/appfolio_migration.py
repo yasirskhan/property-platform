@@ -20,6 +20,7 @@ from typing import Any
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.models.gl_account import GLAccount
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.property import Property, PropertyType, Unit
 from app.models.vendor import Vendor
@@ -1808,6 +1809,389 @@ def commit_tenants(
         db.flush()
 
     return TenantCommitResult(
+        fingerprint=fingerprint,
+        replayed=not changed,
+        mapped_existing=mapped_existing,
+        warning_count=preview.warning_count,
+        rows=result_rows,
+    )
+
+
+# ---------------------------------------------------------------------------
+# GL Account staged dry run / controlled existing-account mapping commit
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class GLAccountDryRunResult:
+    fingerprint: str
+    replayed: bool
+    total: int
+    importable: int
+    invalid: int
+    warning_count: int
+    rows: list[dict[str, Any]]
+    summary: dict[str, Any]
+
+
+def _gl_account_fingerprint(
+    *,
+    organization_id: int,
+    source_account_ref: str,
+    records: list[dict[str, Any]],
+    source_context_fingerprint: str | None,
+) -> str:
+    canonical = json.dumps(
+        {
+            "provider": "APPFOLIO",
+            "resource": "GL_ACCOUNTS",
+            "organization_id": organization_id,
+            "source_account_ref": source_account_ref,
+            "source_context_fingerprint": source_context_fingerprint,
+            "records": records,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def dry_run_gl_accounts(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    records: list[dict[str, Any]],
+    source_context_fingerprint: str | None,
+    resolved_existing_matches: dict[str, int] | None = None,
+) -> GLAccountDryRunResult:
+    if run.provider != "APPFOLIO":
+        raise AppFolioMigrationError("Migration run is not an AppFolio run.")
+    if not records:
+        raise AppFolioMigrationError(
+            "At least one staged AppFolio GL Account record is required."
+        )
+
+    resolved_existing_matches = {
+        str(source_id): int(target_id)
+        for source_id, target_id in (resolved_existing_matches or {}).items()
+    }
+    fingerprint = _gl_account_fingerprint(
+        organization_id=run.organization_id,
+        source_account_ref=run.source_account_ref,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    replayed = run.last_dry_run_fingerprint == fingerprint
+
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    importable = 0
+    invalid = 0
+    warning_count = 0
+
+    for record in records:
+        source_id = _clean_text(
+            _value(record, "GL Account ID", "GlAccountId", "Id")
+        )
+        account_number = _clean_text(
+            _value(record, "Number", "Account Number", "GL Number")
+        )
+        account_name = _clean_text(
+            _value(record, "Name", "Account Name", "GL Account Name")
+        )
+        source_type = _clean_text(_value(record, "Type", "Account Type"))
+        reasons: list[str] = []
+        warnings: list[str] = []
+        target: GLAccount | None = None
+
+        if source_id is None:
+            reasons.append(
+                "Stable AppFolio GL Account ID is required for controlled mapping commit."
+            )
+        elif source_id in seen:
+            reasons.append("Duplicate AppFolio GL Account ID in this dry run.")
+        else:
+            seen.add(source_id)
+        if account_number is None:
+            reasons.append("AppFolio GL Account Number is required.")
+        if account_name is None:
+            reasons.append("AppFolio GL Account Name is required.")
+        if source_type is None:
+            reasons.append("AppFolio GL Account Type is required.")
+
+        if not reasons and source_id is not None:
+            prior = (
+                db.query(PlatformMigrationItem)
+                .filter(
+                    PlatformMigrationItem.run_id == run.id,
+                    PlatformMigrationItem.organization_id == run.organization_id,
+                    PlatformMigrationItem.provider == "APPFOLIO",
+                    PlatformMigrationItem.resource == "GL_ACCOUNTS",
+                    PlatformMigrationItem.source_id == source_id,
+                )
+                .first()
+            )
+            if prior is not None:
+                if prior.target_entity != "GL_ACCOUNT":
+                    reasons.append("Existing GL Account source mapping is inconsistent.")
+                else:
+                    target = (
+                        db.query(GLAccount)
+                        .filter(
+                            GLAccount.id == prior.target_id,
+                            GLAccount.organization_id == run.organization_id,
+                            GLAccount.is_active.is_(True),
+                            GLAccount.deleted_at.is_(None),
+                        )
+                        .first()
+                    )
+                    if target is None:
+                        reasons.append(
+                            "Previously mapped GL Account target is missing or inactive."
+                        )
+                    else:
+                        warnings.append(
+                            f"Source GL Account ID is already mapped to local GL Account #{target.id}; commit replay will not mutate that account."
+                        )
+            elif source_id in resolved_existing_matches:
+                target = (
+                    db.query(GLAccount)
+                    .filter(
+                        GLAccount.id == resolved_existing_matches[source_id],
+                        GLAccount.organization_id == run.organization_id,
+                        GLAccount.is_active.is_(True),
+                        GLAccount.deleted_at.is_(None),
+                    )
+                    .first()
+                )
+                if target is None:
+                    reasons.append(
+                        "Resolved existing GL Account target is missing or inactive."
+                    )
+                else:
+                    warnings.append(
+                        f"Reviewed source GL Account ID will map to existing local GL Account #{target.id}; number, name and account type will not be overwritten."
+                    )
+            else:
+                reasons.append(
+                    "GL Account controlled commit requires an existing durable mapping or explicit MATCH_EXISTING resolution. Automatic account creation/classification is not supported in this batch."
+                )
+
+        if reasons:
+            rows.append(
+                {
+                    "source_id": source_id,
+                    "importable": False,
+                    "reason": " ".join(reasons),
+                    "mapped": None,
+                    "warnings": warnings,
+                }
+            )
+            invalid += 1
+            warning_count += len(warnings)
+            continue
+
+        warnings.append(
+            "AppFolio Type/FundAccount and related source fields remain source evidence only; this mapping does not translate target GL classification, key-account roles, posting behavior or accounting history."
+        )
+        rows.append(
+            {
+                "source_id": source_id,
+                "importable": True,
+                "reason": None,
+                "mapped": {
+                    "target_gl_account_id": target.id if target is not None else None
+                },
+                "warnings": warnings,
+            }
+        )
+        importable += 1
+        warning_count += len(warnings)
+
+    summary = {
+        "total": len(records),
+        "importable": importable,
+        "invalid": invalid,
+        "warning_count": warning_count,
+        "resource": "GL_ACCOUNTS",
+        "target_mutation": False,
+        "gl_account_creation": False,
+        "gl_account_update": False,
+        "classification_translation": False,
+        "key_account_mutation": False,
+        "accounting_history_mutation": False,
+    }
+    if not replayed:
+        run.last_dry_run_fingerprint = fingerprint
+        run.last_dry_run_summary = summary
+        run.status = "DRY_RUN_READY"
+
+    return GLAccountDryRunResult(
+        fingerprint=fingerprint,
+        replayed=replayed,
+        total=len(records),
+        importable=importable,
+        invalid=invalid,
+        warning_count=warning_count,
+        rows=rows,
+        summary=summary,
+    )
+
+
+@dataclass(frozen=True)
+class GLAccountCommitResult:
+    fingerprint: str
+    replayed: bool
+    mapped_existing: int
+    warning_count: int
+    rows: list[dict[str, Any]]
+
+
+def commit_gl_accounts(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    records: list[dict[str, Any]],
+    expected_fingerprint: str,
+    platform_user_id: int,
+    source_context_fingerprint: str | None,
+    resolved_existing_matches: dict[str, int] | None = None,
+) -> GLAccountCommitResult:
+    fingerprint = _gl_account_fingerprint(
+        organization_id=run.organization_id,
+        source_account_ref=run.source_account_ref,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    if expected_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit payload does not match the supplied GL Account dry-run fingerprint."
+        )
+    if run.last_dry_run_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit requires the exact latest successful GL Account dry run."
+        )
+
+    resolved_existing_matches = {
+        str(source_id): int(target_id)
+        for source_id, target_id in (resolved_existing_matches or {}).items()
+    }
+    preview = dry_run_gl_accounts(
+        db,
+        run=run,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+        resolved_existing_matches=resolved_existing_matches,
+    )
+    if preview.invalid:
+        raise AppFolioMigrationError(
+            "GL Account commit is blocked while the dry run contains invalid or unresolved records."
+        )
+
+    importable_rows = [row for row in preview.rows if row["importable"]]
+    source_ids = [str(row["source_id"]) for row in importable_rows]
+    if set(resolved_existing_matches) - set(source_ids):
+        raise AppFolioMigrationError(
+            "GL Account resolution state does not match the reviewed dry-run rows."
+        )
+
+    mappings = (
+        db.query(PlatformMigrationItem)
+        .filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "APPFOLIO",
+            PlatformMigrationItem.resource == "GL_ACCOUNTS",
+            PlatformMigrationItem.source_id.in_(source_ids),
+        )
+        .all()
+        if source_ids
+        else []
+    )
+    by_source = {item.source_id: item for item in mappings}
+
+    result_rows: list[dict[str, Any]] = []
+    mapped_existing = 0
+    changed = False
+
+    for row in importable_rows:
+        source_id = str(row["source_id"])
+        prior = by_source.get(source_id)
+        if prior is not None:
+            if prior.target_entity != "GL_ACCOUNT":
+                raise AppFolioMigrationError(
+                    "GL Account commit mapping is inconsistent and requires manual review."
+                )
+            target = (
+                db.query(GLAccount)
+                .filter(
+                    GLAccount.id == prior.target_id,
+                    GLAccount.organization_id == run.organization_id,
+                    GLAccount.is_active.is_(True),
+                    GLAccount.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target is None:
+                raise AppFolioMigrationError(
+                    "A previously committed target GL Account is missing or inactive; manual review required."
+                )
+            result_rows.append(
+                {
+                    "source_id": source_id,
+                    "target_gl_account_id": target.id,
+                    "replayed": True,
+                }
+            )
+            continue
+
+        resolved_target_id = resolved_existing_matches.get(source_id)
+        if resolved_target_id is None:
+            raise AppFolioMigrationError(
+                "GL Account commit cannot create GL Accounts; resolve the staged row to an existing active GL Account or skip it."
+            )
+        target = (
+            db.query(GLAccount)
+            .filter(
+                GLAccount.id == resolved_target_id,
+                GLAccount.organization_id == run.organization_id,
+                GLAccount.is_active.is_(True),
+                GLAccount.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if target is None:
+            raise AppFolioMigrationError(
+                "Resolved existing GL Account is no longer available."
+            )
+        db.add(
+            PlatformMigrationItem(
+                run_id=run.id,
+                organization_id=run.organization_id,
+                provider="APPFOLIO",
+                resource="GL_ACCOUNTS",
+                source_id=source_id,
+                target_entity="GL_ACCOUNT",
+                target_id=target.id,
+                source_fingerprint=fingerprint,
+                created_by_platform_user_id=platform_user_id,
+            )
+        )
+        result_rows.append(
+            {
+                "source_id": source_id,
+                "target_gl_account_id": target.id,
+                "replayed": False,
+            }
+        )
+        mapped_existing += 1
+        changed = True
+
+    if changed:
+        run.status = "GL_ACCOUNTS_MAPPED"
+        db.flush()
+
+    return GLAccountCommitResult(
         fingerprint=fingerprint,
         replayed=not changed,
         mapped_existing=mapped_existing,
