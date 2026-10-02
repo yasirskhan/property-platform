@@ -1,3 +1,62 @@
+# AI_HANDOFF.md — 2026-10-02 PHASE 4.13 GENERAL LEDGER COMMIT-READINESS VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `391ade053318218e20e088eb6b8752ed09986c09`.
+- GitHub Actions run: `37063743424` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **940 passed, 21 deselected, 24856 warnings in 225.33s**.
+- Authenticated E2E: **21 passed, 278 warnings in 92.22s**.
+- Alembic head remains `0a7c4e9f2b61`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified General Ledger accounting-history commit-readiness
+
+1. Readiness analysis consumes only the exact accepted staged rows behind the latest successful General Ledger dry-run fingerprint.
+2. Source rows are grouped only by supplied stable `TransactionId`; missing transaction IDs fail closed.
+3. Every retained transaction group must balance exactly from supplied source debit/credit evidence; unbalanced groups fail closed.
+4. Already-verified active same-organization GL Account and any supplied Property/Unit relationships remain required through the dry-run revalidation path.
+5. The readiness fingerprint binds the exact dry-run fingerprint plus deterministic transaction-group composition and source evidence.
+6. Identical readiness replay is idempotent and audited once.
+7. The batch does not fabricate balancing entries, opening balances, target transaction types, payer/payee identity, references or posting semantics.
+8. The batch creates or updates zero GLTransaction, GLEntry, journal entry, Receipt, Bill, Charge, GLAccount, AccountingKeyAccount or balance records.
+
+Implementation commits:
+- `2c510beaa59ff9a2ddeb5506c9d30d227cff4fbd` — commit-readiness response schema.
+- `814eb34b102457eb0075eb0355b3285d8a2862a6` — balanced source-transaction readiness analysis.
+- `391ade053318218e20e088eb6b8752ed09986c09` — focused grouping/idempotency/fail-closed regressions; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product dependency
+
+Before any controlled General Ledger accounting-history commit, reconcile the verified readiness contract against the target `GLTransaction` / `GLEntry` posting model and existing journal/posting invariants.
+
+Proceed with a controlled accounting-history commit only if the live source proves a deterministic mapping that does not invent:
+- target transaction type/status semantics;
+- target business/posting date semantics beyond supplied source date;
+- description/reference ownership;
+- property/unit allocation rules;
+- payer/payee identity;
+- balancing lines;
+- opening balances;
+- reversal linkage.
+
+If those semantics are not already defined by the existing target accounting model, treat that as a real source/contract blocker and continue to the next independently safe migration resource rather than inventing accounting history.
+
+AppFolio API transport and general UX remain out of scope.
+
+---
+
 # AI_HANDOFF.md — 2026-10-02 PHASE 4.13 GENERAL LEDGER STAGED DRY RUN VERIFIED
 
 ## Current verified product checkpoint
