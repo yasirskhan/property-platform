@@ -1,3 +1,75 @@
+# AI_HANDOFF.md — 2026-10-02 PHASE 4.13 OWNER/VENDOR RECONCILIATION VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `e6c99f57a93b28fb71ea4951821793daff05b3d3`.
+- GitHub Actions run: `36955400826` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **903 passed, 21 deselected, 24113 warnings in 389.34s**.
+- Authenticated E2E: **21 passed, 278 warnings in 113.37s**.
+- Alembic head: `d46f1a7c9e20`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified AppFolio Vendor Directory ingestion/staging
+
+- Product SHA `bfcd04fa887857250d0dd73646886fa0c007d0f2`.
+- CI run `36949458698` SUCCESS; backend **900 passed, 21 deselected**; authenticated E2E **21 passed**.
+- Shared CSV/XLSX staging recognizes the verified Vendor Directory source contract, preserves optional stable Vendor ID and source-only 1099/compliance-expiration values, supports conservative existing-target candidates, duplicate-source rejection, XLSX detection and replay/idempotency.
+- Vendor staging creates or updates **zero** customer Vendor rows.
+
+## Verified Owner/Vendor staged reconciliation foundation
+
+1. Staged Owner and Vendor rows now have correctly typed reconciliation targets:
+   - `resolution_target_owner_user_id` -> existing customer `users` OWNER row;
+   - `resolution_target_vendor_id` -> existing customer `vendors` row.
+2. The Property and Unit resolution foreign-key columns are not reused for Owner/Vendor IDs.
+3. Stable-source-ID Owner/Vendor rows may be explicitly `MATCH_EXISTING`, `CREATE_NEW` (only from reviewed POSSIBLE_MATCH), or `SKIP`.
+4. REVIEW rows with missing durable Owner/Vendor source identity may only be skipped; source identity is never synthesized from name/email.
+5. Owner matches require active, undeleted same-organization `UserRole.OWNER`.
+6. Vendor matches require active, undeleted same-organization Vendor.
+7. Cross-organization or inactive target probes fail closed.
+8. Resolution never overwrites or mutates the matched customer Owner/Vendor.
+9. Resolution changes are audited, clear the prior run dry-run fingerprint/summary, and participate in the shared staged-review fingerprint.
+10. Existing `ALREADY_MAPPED` rows remain controlled by their durable source mapping.
+11. No Tenant, Lease/occupancy, accounting-history, AppFolio API connector, navigation, hidden-menu or general UX work was added.
+
+Implementation commits in this verified batch:
+- `f86aa2cfbb9be16b87431adc2b1a63c195e03aa5` — typed Owner/Vendor target columns.
+- `20b746166b47cf75b7aa1d42edbce49d9860476f` — migration `d46f1a7c9e20`.
+- `a86e0e318a9cc9302f16f92111dffe9784499a2b` — resolution schemas.
+- `4660860bd9731213068a7279b447e547929cb55f` — scoped Owner/Vendor resolution endpoints and fingerprint binding.
+- `e6c99f57a93b28fb71ea4951821793daff05b3d3` — focused reconciliation regressions; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Add **staged Vendor dry-run + controlled commit** using the existing exact-fingerprint migration architecture.
+
+Required boundaries:
+
+1. Derive commit input only from reviewed VENDORS staged rows; never accept arbitrary caller-supplied Vendor records.
+2. Existing durable VENDORS mappings and explicit MATCH_EXISTING resolutions must replay safely and never overwrite the target Vendor.
+3. CREATE_NEW may create only a new same-organization Vendor company after exact dry-run review.
+4. Map only target fields that are semantically supported by the verified Vendor Directory source contract. Company name and exact business email are safe; do not reinterpret plural phone values, formatted address, Send 1099, insurance/license/EPA/contract expirations as target certification.
+5. Source-only values remain preserved in staging; commit omission must be disclosed rather than silently invented or converted.
+6. SKIP rows are excluded. INVALID/REVIEW/unresolved POSSIBLE_MATCH rows block dry run.
+7. Dry run is target-non-mutating and binds staged review/resolution state into the exact fingerprint.
+8. Controlled commit must require the exact latest fingerprint, persist durable VENDORS source mappings, and replay without duplicate Vendor creation.
+9. Preserve organization scope, audit, idempotency, recovery visibility, navigation integrity and inactive UX standards.
+10. Do not start Tenant Directory until the Owner/Vendor commit dependency is safe. Owner CREATE_NEW remains intentionally unresolved because the verified Owner Directory supplies a display Name while the current login-backed OWNER target requires separate first/last identity and credential semantics; do not invent those fields.
+
+---
+
 # AI_HANDOFF.md — 2026-10-02 PHASE 4.13 OWNER DIRECTORY STAGING VERIFIED
 
 ## Current verified product checkpoint
