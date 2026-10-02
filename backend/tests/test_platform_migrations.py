@@ -35,6 +35,7 @@ from app.schemas.platform_migration import (
     AppFolioStagedVendorResolutionIn,
     AppFolioStagedTenantResolutionIn,
     AppFolioStagedLeaseOccupancyResolutionIn,
+    AppFolioStagedGLAccountResolutionIn,
     AppFolioStagedTenantCommitIn,
     AppFolioStagedVendorCommitIn,
 )
@@ -4975,6 +4976,282 @@ def test_appfolio_gl_accounts_xlsx_multisheet_autodetects_and_replays():
             PlatformMigrationUpload.detected_resource == "GL_ACCOUNTS",
         ).count() == 1
         assert db.query(GLAccount).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio GL Account staged reconciliation
+# ---------------------------------------------------------------------------
+
+def test_appfolio_gl_account_reconciliation_matches_existing_without_accounting_mutation():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="GL Resolve Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="gl-resolve",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        target = GLAccount(
+            organization_id=org.id,
+            gl_number="4100",
+            name="Existing Rent Income",
+            account_type="INCOME",
+            is_active=True,
+        )
+        db.add(target)
+        db.commit()
+        db.refresh(target)
+
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "gl-resolve.csv",
+                    (
+                        "GL Account ID,Number,Name,Type,FundAccount\n"
+                        "GL-4100,4100,Rent Income,Income,Operating\n"
+                    ).encode(),
+                ),
+                resource="GL_ACCOUNTS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        assert row.disposition == "REVIEW"
+        before_fingerprint = api._staged_review_fingerprint(upload, [row])
+        before_accounts = db.query(GLAccount).count()
+        before_transactions = db.query(GLTransaction).count()
+
+        run.last_dry_run_fingerprint = "a" * 64
+        run.last_dry_run_summary = {"old": True}
+        db.commit()
+
+        resolved = api.resolve_staged_appfolio_gl_account(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedGLAccountResolutionIn(
+                action="MATCH_EXISTING",
+                target_gl_account_id=target.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert resolved.resolution_action == "MATCH_EXISTING"
+        assert resolved.resolution_target_gl_account_id == target.id
+        assert resolved.resolution_target_id is None
+        assert resolved.resolution_target_unit_id is None
+        assert resolved.resolution_target_owner_user_id is None
+        assert resolved.resolution_target_vendor_id is None
+        assert resolved.resolution_target_tenant_user_id is None
+        assert api._staged_review_fingerprint(upload, [resolved]) != before_fingerprint
+
+        db.refresh(run)
+        assert run.last_dry_run_fingerprint is None
+        assert run.last_dry_run_summary is None
+        assert run.status == "STAGED"
+        assert db.query(GLAccount).count() == before_accounts
+        assert db.query(GLTransaction).count() == before_transactions
+        assert db.get(GLAccount, target.id).gl_number == "4100"
+        assert db.get(GLAccount, target.id).account_type == "INCOME"
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_staged_row",
+            AuditLog.entity_id == row.id,
+            AuditLog.action == "appfolio_gl_account_resolution_changed",
+        ).count() == 1
+
+        replay = api.resolve_staged_appfolio_gl_account(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedGLAccountResolutionIn(
+                action="MATCH_EXISTING",
+                target_gl_account_id=target.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.id == row.id
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_staged_row",
+            AuditLog.entity_id == row.id,
+            AuditLog.action == "appfolio_gl_account_resolution_changed",
+        ).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_gl_account_missing_source_id_may_only_be_skipped():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="GL Missing ID Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="gl-missing-id",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        target = GLAccount(
+            organization_id=org.id,
+            gl_number="1000",
+            name="Operating Cash",
+            account_type="ASSET",
+            is_active=True,
+        )
+        db.add(target)
+        db.commit()
+
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "gl-no-id.csv",
+                    (
+                        "Number,Name,Type\n"
+                        "1000,Operating Cash,Cash\n"
+                    ).encode(),
+                ),
+                resource="GL_ACCOUNTS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        assert row.source_id is None
+        assert row.disposition == "REVIEW"
+
+        with pytest.raises(HTTPException) as exc:
+            api.resolve_staged_appfolio_gl_account(
+                run.id,
+                upload.id,
+                row.id,
+                AppFolioStagedGLAccountResolutionIn(
+                    action="MATCH_EXISTING",
+                    target_gl_account_id=target.id,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        skipped = api.resolve_staged_appfolio_gl_account(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedGLAccountResolutionIn(action="SKIP"),
+            db=db,
+            current_user=admin,
+        )
+        assert skipped.resolution_action == "SKIP"
+        assert skipped.resolution_target_gl_account_id is None
+        assert db.query(GLAccount).count() == 1
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_gl_account_reconciliation_rejects_cross_org_inactive_and_invalid_rows():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="GL Scope Org")
+        other = _org(db, name="GL Foreign Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="gl-scope",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        local = GLAccount(
+            organization_id=org.id,
+            gl_number="6100",
+            name="Repairs",
+            account_type="EXPENSE",
+            is_active=False,
+        )
+        foreign = GLAccount(
+            organization_id=other.id,
+            gl_number="6100",
+            name="Foreign Repairs",
+            account_type="EXPENSE",
+            is_active=True,
+        )
+        db.add_all([local, foreign])
+        db.commit()
+
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "gl-scope.csv",
+                    (
+                        "GL Account ID,Number,Name,Type\n"
+                        "GL-6100,6100,Repairs,Expense\n"
+                    ).encode(),
+                ),
+                resource="GL_ACCOUNTS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+
+        for target_id in (local.id, foreign.id):
+            with pytest.raises(HTTPException) as exc:
+                api.resolve_staged_appfolio_gl_account(
+                    run.id,
+                    upload.id,
+                    row.id,
+                    AppFolioStagedGLAccountResolutionIn(
+                        action="MATCH_EXISTING",
+                        target_gl_account_id=target_id,
+                    ),
+                    db=db,
+                    current_user=admin,
+                )
+            assert exc.value.status_code == 404
+
+        row.errors = ["contradictory source classification"]
+        row.disposition = "INVALID"
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.resolve_staged_appfolio_gl_account(
+                run.id,
+                upload.id,
+                row.id,
+                AppFolioStagedGLAccountResolutionIn(action="SKIP"),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
         assert db.query(GLTransaction).count() == 0
     finally:
         db.close()
