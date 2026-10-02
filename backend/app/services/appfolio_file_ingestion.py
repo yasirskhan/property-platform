@@ -122,6 +122,32 @@ TENANT_ALIASES: dict[str, tuple[str, ...]] = {
 }
 TENANT_REQUIRED = ("tenant_name",)
 
+# Lease/occupancy staging is explicit-only. Stable relationship identities come
+# from the already verified Tenant Directory export contract. Rent Roll fields
+# may supplement those identities as source evidence, but names/addresses are
+# never used as relationship keys.
+LEASE_OCCUPANCY_ALIASES: dict[str, tuple[str, ...]] = {
+    "source_tenant_id": ("Tenant ID", "Tenant Id", "TenantID"),
+    "tenant_name": ("Tenant", "Tenant Name"),
+    "source_property_id": ("Property ID", "Property Id", "PropertyID"),
+    "property_name": ("Property Name", "Property"),
+    "source_unit_id": ("Unit ID", "Unit Id", "UnitID"),
+    "unit_name": ("Unit", "Unit Name"),
+    "status": ("Status",),
+    "rent": ("Rent",),
+    "deposit": ("Deposit", "Security Deposit"),
+    "move_in": ("Move-in", "Move In", "Move-in Date"),
+    "move_out": ("Move-out", "Move Out", "Move-out Date"),
+    "lease_from": ("Lease From", "Lease Start"),
+    "lease_to": ("Lease To", "Lease End"),
+}
+LEASE_OCCUPANCY_REQUIRED = (
+    "source_tenant_id",
+    "tenant_name",
+    "source_property_id",
+    "source_unit_id",
+)
+
 
 # Verified Owner Directory export contract. Name, Phone Numbers, Email,
 # Properties Owned and Properties Owned IDs are documented report columns.
@@ -522,9 +548,9 @@ def _resolve_mapping(
     explicit_mapping: dict[str, str] | None,
 ) -> tuple[str, dict[str, str], list[str], list[str]]:
     requested = (resource_override or "").strip().upper()
-    if requested not in {"", "PROPERTIES", "UNITS", "TENANTS", "OWNERS", "VENDORS"}:
+    if requested not in {"", "PROPERTIES", "UNITS", "TENANTS", "LEASE_OCCUPANCY", "OWNERS", "VENDORS"}:
         raise AppFolioFileIngestionError(
-            "This migration stage currently supports only verified PROPERTIES, UNITS, TENANTS, OWNERS and VENDORS resource mappings."
+            "This migration stage currently supports only verified PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS and VENDORS resource mappings."
         )
 
     if requested == "PROPERTIES":
@@ -533,6 +559,8 @@ def _resolve_mapping(
         resource = "UNITS"
     elif requested == "TENANTS":
         resource = "TENANTS"
+    elif requested == "LEASE_OCCUPANCY":
+        resource = "LEASE_OCCUPANCY"
     elif requested == "OWNERS":
         resource = "OWNERS"
     elif requested == "VENDORS":
@@ -557,6 +585,8 @@ def _resolve_mapping(
         if resource == "UNITS"
         else TENANT_ALIASES
         if resource == "TENANTS"
+        else LEASE_OCCUPANCY_ALIASES
+        if resource == "LEASE_OCCUPANCY"
         else OWNER_ALIASES
         if resource == "OWNERS"
         else VENDOR_ALIASES
@@ -570,6 +600,8 @@ def _resolve_mapping(
         if resource == "UNITS"
         else TENANT_REQUIRED
         if resource == "TENANTS"
+        else LEASE_OCCUPANCY_REQUIRED
+        if resource == "LEASE_OCCUPANCY"
         else OWNER_REQUIRED
         if resource == "OWNERS"
         else VENDOR_REQUIRED
@@ -585,7 +617,7 @@ def _resolve_mapping(
             # A caller must choose a supported resource before using explicit
             # mapping when automatic report detection cannot determine one.
             raise AppFolioFileIngestionError(
-                "Choose resource PROPERTIES, UNITS, TENANTS, OWNERS or VENDORS before supplying explicit column mapping."
+                "Choose resource PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS or VENDORS before supplying explicit column mapping."
             )
         unknown_fields = sorted(set(explicit_mapping) - allowed_fields)
         if unknown_fields:
@@ -731,6 +763,7 @@ def stage_appfolio_file(
     duplicates = 0
     possible_matches = 0
     seen_source_ids: set[str] = set()
+    seen_lease_occupancy_keys: set[tuple[str, str, str, str, str, str, str]] = set()
 
     for row_number, source_row in parsed.rows:
         errors: list[str] = []
@@ -1168,6 +1201,183 @@ def stage_appfolio_file(
                         warnings.append(
                             "Lease From/To values are preserved as source evidence only; no Lease record is created."
                         )
+        elif resource == "LEASE_OCCUPANCY":
+            normalized_data = {
+                field: _mapped_value(source_row, mapping, field)
+                for field in LEASE_OCCUPANCY_ALIASES
+                if field in mapping
+            }
+            if ambiguous:
+                errors.append(
+                    "Ambiguous automatic mapping requires explicit mapping for: "
+                    + ", ".join(sorted(ambiguous))
+                )
+            if missing_required:
+                errors.append(
+                    "Missing required source columns: " + ", ".join(missing_required)
+                )
+
+            tenant_source = _clean_cell(normalized_data.get("source_tenant_id"))
+            property_source = _clean_cell(normalized_data.get("source_property_id"))
+            unit_source = _clean_cell(normalized_data.get("source_unit_id"))
+            tenant_name = _clean_cell(normalized_data.get("tenant_name"))
+
+            if not tenant_name:
+                errors.append("tenant_name is required.")
+
+            missing_identity = False
+            for value, label in (
+                (tenant_source, "Tenant ID"),
+                (property_source, "Property ID"),
+                (unit_source, "Unit ID"),
+            ):
+                if not value:
+                    missing_identity = True
+                    warnings.append(
+                        f"{label} was not supplied; Lease/occupancy relationship identity remains review-only."
+                    )
+
+            if tenant_source and property_source and unit_source:
+                duplicate_key = (
+                    str(tenant_source),
+                    str(property_source),
+                    str(unit_source),
+                    str(normalized_data.get("lease_from") or ""),
+                    str(normalized_data.get("lease_to") or ""),
+                    str(normalized_data.get("move_in") or ""),
+                    str(normalized_data.get("move_out") or ""),
+                )
+                if duplicate_key in seen_lease_occupancy_keys:
+                    errors.append("Duplicate Lease/occupancy source relationship row in this staged upload.")
+                    duplicates += 1
+                else:
+                    seen_lease_occupancy_keys.add(duplicate_key)
+
+            tenant_mapping = None
+            target_tenant = None
+            if tenant_source:
+                tenant_mapping = (
+                    db.query(PlatformMigrationItem)
+                    .filter(
+                        PlatformMigrationItem.run_id == run.id,
+                        PlatformMigrationItem.organization_id == run.organization_id,
+                        PlatformMigrationItem.provider == "APPFOLIO",
+                        PlatformMigrationItem.resource == "TENANTS",
+                        PlatformMigrationItem.source_id == str(tenant_source),
+                    )
+                    .first()
+                )
+                if tenant_mapping is not None:
+                    if tenant_mapping.target_entity != "TENANT_USER":
+                        errors.append("Mapped source Tenant ID has an inconsistent target type.")
+                    else:
+                        target_tenant = (
+                            db.query(User)
+                            .filter(
+                                User.id == tenant_mapping.target_id,
+                                User.organization_id == run.organization_id,
+                                User.role == UserRole.TENANT,
+                                User.is_active.is_(True),
+                                User.deleted_at.is_(None),
+                            )
+                            .first()
+                        )
+                        if target_tenant is None:
+                            errors.append("Mapped source Tenant ID does not resolve to an active same-organization TENANT user.")
+
+            property_mapping = None
+            target_property = None
+            if property_source:
+                property_mapping = (
+                    db.query(PlatformMigrationItem)
+                    .filter(
+                        PlatformMigrationItem.run_id == run.id,
+                        PlatformMigrationItem.organization_id == run.organization_id,
+                        PlatformMigrationItem.provider == "APPFOLIO",
+                        PlatformMigrationItem.resource == "PROPERTIES",
+                        PlatformMigrationItem.source_id == str(property_source),
+                    )
+                    .first()
+                )
+                if property_mapping is not None:
+                    if property_mapping.target_entity != "PROPERTY":
+                        errors.append("Mapped source Property ID has an inconsistent target type.")
+                    else:
+                        target_property = (
+                            db.query(Property)
+                            .filter(
+                                Property.id == property_mapping.target_id,
+                                Property.organization_id == run.organization_id,
+                                Property.is_active.is_(True),
+                                Property.deleted_at.is_(None),
+                            )
+                            .first()
+                        )
+                        if target_property is None:
+                            errors.append("Mapped source Property ID does not resolve to an active same-organization Property.")
+
+            unit_mapping = None
+            target_unit = None
+            if unit_source:
+                unit_mapping = (
+                    db.query(PlatformMigrationItem)
+                    .filter(
+                        PlatformMigrationItem.run_id == run.id,
+                        PlatformMigrationItem.organization_id == run.organization_id,
+                        PlatformMigrationItem.provider == "APPFOLIO",
+                        PlatformMigrationItem.resource == "UNITS",
+                        PlatformMigrationItem.source_id == str(unit_source),
+                    )
+                    .first()
+                )
+                if unit_mapping is not None:
+                    if unit_mapping.target_entity != "UNIT":
+                        errors.append("Mapped source Unit ID has an inconsistent target type.")
+                    else:
+                        target_unit = (
+                            db.query(Unit)
+                            .join(Property, Property.id == Unit.property_id)
+                            .filter(
+                                Unit.id == unit_mapping.target_id,
+                                Unit.is_active.is_(True),
+                                Unit.deleted_at.is_(None),
+                                Property.organization_id == run.organization_id,
+                                Property.is_active.is_(True),
+                                Property.deleted_at.is_(None),
+                            )
+                            .first()
+                        )
+                        if target_unit is None:
+                            errors.append("Mapped source Unit ID does not resolve to an active same-organization Unit.")
+
+            if target_unit is not None and target_property is not None and target_unit.property_id != target_property.id:
+                errors.append("Mapped Lease/occupancy Unit and Property source IDs resolve to different target Properties.")
+
+            if errors:
+                disposition = "INVALID"
+                invalid += 1
+            else:
+                valid += 1
+                unresolved = missing_identity
+                if tenant_source and tenant_mapping is None:
+                    unresolved = True
+                    warnings.append("Source Tenant ID has no durable TENANTS mapping yet; relationship remains review-only.")
+                if property_source and property_mapping is None:
+                    unresolved = True
+                    warnings.append("Source Property ID has no durable PROPERTIES mapping yet; relationship remains review-only.")
+                if unit_source and unit_mapping is None:
+                    unresolved = True
+                    warnings.append("Source Unit ID has no durable UNITS mapping yet; relationship remains review-only.")
+
+                if not unresolved and target_tenant and target_property and target_unit:
+                    warnings.append(
+                        "Tenant/Unit/Property source relationships resolve through durable mappings for review, but no Lease or occupancy record is created."
+                    )
+                warnings.append(
+                    "Lease/move dates, status, rent and deposit are preserved as source evidence only; they do not establish occupancy, rent liability, security-deposit receipt or accounting balances."
+                )
+                disposition = "REVIEW"
+
         elif resource == "OWNERS":
             normalized_data = {
                 field: _mapped_value(source_row, mapping, field)
@@ -1374,7 +1584,7 @@ def stage_appfolio_file(
         else:
             normalized_data = _normalized_source_row(source_row)
             errors.append(
-                "Report type could not be detected safely; choose PROPERTIES, UNITS, TENANTS, OWNERS or VENDORS and supply explicit column mapping."
+                "Report type could not be detected safely; choose PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS or VENDORS and supply explicit column mapping."
             )
             disposition = "INVALID"
             invalid += 1
@@ -1484,6 +1694,35 @@ def stage_appfolio_file(
                 for warning in (row.warnings or [])
             )
         )
+    if resource == "LEASE_OCCUPANCY":
+        lease_rows = (
+            db.query(PlatformMigrationStagedRow)
+            .filter(
+                PlatformMigrationStagedRow.upload_id == upload.id,
+                PlatformMigrationStagedRow.resource == "LEASE_OCCUPANCY",
+            )
+            .all()
+        )
+        summary["lease_occupancy_rows"] = len(lease_rows)
+        summary["relationships_ready_for_review"] = sum(
+            1
+            for row in lease_rows
+            if row.disposition == "REVIEW"
+            and any(
+                "resolve through durable mappings for review" in warning
+                for warning in (row.warnings or [])
+            )
+        )
+        summary["unresolved_lease_occupancy_relationships"] = sum(
+            1
+            for row in lease_rows
+            if any(
+                "relationship remains review-only" in warning
+                for warning in (row.warnings or [])
+            )
+        )
+        summary["customer_lease_mutation"] = False
+        summary["accounting_mutation"] = False
     if resource == "VENDORS":
         vendor_rows = (
             db.query(PlatformMigrationStagedRow)

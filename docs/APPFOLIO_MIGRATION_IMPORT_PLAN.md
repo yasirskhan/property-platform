@@ -121,6 +121,30 @@ Attachments/Documents`
 Resource mappings must be based on verified source schemas, not invented from
 our target models.
 
+## 4.13 Lease / occupancy staging contract
+
+The first Lease/occupancy batch uses an explicit `LEASE_OCCUPANCY` resource
+selection. It is intentionally **not auto-detected as Rent Roll**.
+
+Reason:
+
+- the verified Tenant Directory contract supplies stable Tenant, Unit and
+  Property source IDs plus Move-in, Move-out, Lease From and Lease To;
+- AppFolio Rent Roll references commonly include Unit, Tenant, Status, Rent,
+  Deposit, Lease Start and Lease End, but stable relationship IDs are not
+  guaranteed by the public report descriptions;
+- names, addresses, unit labels and dates therefore must never substitute for
+  durable source IDs.
+
+Rent, Deposit and Status may be preserved as supplementary source evidence when
+present or explicitly mapped. They are not proof of rent liability, deposit
+receipt, occupancy, receivable balances or GL history.
+
+This first Lease/occupancy batch is staging/reconciliation only. It creates no
+Lease, RentInvoice, Payment, Charge, Receipt or GL record. A later controlled
+commit requires its own independently verified source and reconciliation
+contract.
+
 ## 5. File/report detection and column mapping
 
 The same AppFolio concept may arrive under different header spellings or export

@@ -4243,3 +4243,257 @@ def test_staged_tenant_dry_run_and_commit_routes_are_exposed():
         "/api/platform/migrations/appfolio/runs/{run_id}/uploads/{upload_id}/tenants/commit"
         in paths
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio Lease / occupancy staging foundation
+# ---------------------------------------------------------------------------
+
+def _seed_lease_occupancy_source_mappings(db, *, run, org):
+    prop, unit = _seed_tenant_source_relationship_mappings(db, run=run, org=org)
+    tenant = User(
+        organization_id=org.id,
+        role=UserRole.TENANT,
+        email="lease.occupancy.tenant@example.com",
+        first_name="Lease",
+        last_name="Occupancy",
+        hashed_password="x",
+        is_active=True,
+    )
+    db.add(tenant)
+    db.flush()
+    db.add(
+        PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="APPFOLIO",
+            resource="TENANTS",
+            source_id="TENANT-LEASE-1",
+            target_entity="TENANT_USER",
+            target_id=tenant.id,
+            source_fingerprint="4" * 64,
+        )
+    )
+    db.commit()
+    return prop, unit, tenant
+
+
+def test_appfolio_lease_occupancy_explicit_csv_stages_relationship_evidence_without_customer_mutation():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Lease Occupancy Stage Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="lease-occupancy-stage",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _seed_lease_occupancy_source_mappings(db, run=run, org=org)
+
+        before_users = db.query(User).count()
+        before_leases = db.query(Lease).count()
+        before_charges = db.query(Charge).count()
+        before_gl = db.query(GLTransaction).count()
+        content = (
+            "Tenant ID,Tenant,Property ID,Property Name,Unit ID,Unit,Status,Rent,Deposit,"
+            "Move-in,Move-out,Lease From,Lease To\n"
+            "TENANT-LEASE-1,Lease Occupancy,PROP-TENANT-1,Tenant Stage Property,"
+            "UNIT-TENANT-1,101,Current,1250.00,500.00,2026-01-01,,2026-01-01,2026-12-31\n"
+        ).encode()
+
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("lease-occupancy.csv", content),
+                resource="LEASE_OCCUPANCY",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert upload.detected_resource == "LEASE_OCCUPANCY"
+        assert upload.status == "REVIEW_REQUIRED"
+        assert upload.validation_summary["lease_occupancy_rows"] == 1
+        assert upload.validation_summary["relationships_ready_for_review"] == 1
+        assert upload.validation_summary["unresolved_lease_occupancy_relationships"] == 0
+        assert upload.validation_summary["customer_lease_mutation"] is False
+        assert upload.validation_summary["accounting_mutation"] is False
+
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        assert row.resource == "LEASE_OCCUPANCY"
+        assert row.source_id is None
+        assert row.disposition == "REVIEW"
+        assert row.normalized_data["source_tenant_id"] == "TENANT-LEASE-1"
+        assert row.normalized_data["source_property_id"] == "PROP-TENANT-1"
+        assert row.normalized_data["source_unit_id"] == "UNIT-TENANT-1"
+        assert row.normalized_data["status"] == "Current"
+        assert row.normalized_data["rent"] == "1250.00"
+        assert row.normalized_data["deposit"] == "500.00"
+        assert row.normalized_data["lease_from"] == "2026-01-01"
+        assert any("no Lease or occupancy record is created" in w for w in row.warnings)
+        assert any("source evidence only" in w for w in row.warnings)
+
+        assert db.query(User).count() == before_users
+        assert db.query(Lease).count() == before_leases
+        assert db.query(Charge).count() == before_charges
+        assert db.query(GLTransaction).count() == before_gl
+
+        replay = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("lease-occupancy-copy.csv", content),
+                resource="LEASE_OCCUPANCY",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert replay.replayed is True
+        assert replay.id == upload.id
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_tenant_directory_still_auto_detects_tenants_while_lease_occupancy_is_explicit_only():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Lease Detection Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="lease-detection",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _seed_lease_occupancy_source_mappings(db, run=run, org=org)
+        content = (
+            "Tenant ID,Tenant,Property ID,Unit ID,Lease From,Lease To\n"
+            "TENANT-LEASE-1,Lease Occupancy,PROP-TENANT-1,UNIT-TENANT-1,"
+            "2026-01-01,2026-12-31\n"
+        ).encode()
+
+        automatic = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("tenant-directory.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert automatic.detected_resource == "TENANTS"
+
+        explicit = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("lease-evidence.csv", content),
+                resource="LEASE_OCCUPANCY",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert explicit.detected_resource == "LEASE_OCCUPANCY"
+        assert explicit.id != automatic.id
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_lease_occupancy_missing_or_contradictory_relationships_fail_closed_without_lease_creation():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Lease Relationship Guard Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="lease-relationship-guard",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _, unit, _ = _seed_lease_occupancy_source_mappings(db, run=run, org=org)
+
+        unresolved_content = (
+            "Tenant ID,Tenant,Property ID,Unit ID,Lease From,Lease To\n"
+            "TENANT-MISSING,Missing Mapping,PROP-MISSING,UNIT-MISSING,2026-01-01,2026-12-31\n"
+        ).encode()
+        unresolved = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("lease-unresolved.csv", unresolved_content),
+                resource="LEASE_OCCUPANCY",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        unresolved_row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == unresolved.id
+        ).one()
+        assert unresolved_row.disposition == "REVIEW"
+        assert unresolved.validation_summary["unresolved_lease_occupancy_relationships"] == 1
+
+        other_prop = Property(
+            organization_id=org.id,
+            name="Lease Other Property",
+            address_line1="200 Lease Other St",
+            city="Cleveland",
+            state="OH",
+            zip_code="44113",
+            is_active=True,
+        )
+        db.add(other_prop)
+        db.flush()
+        property_mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "PROPERTIES",
+            PlatformMigrationItem.source_id == "PROP-TENANT-1",
+        ).one()
+        property_mapping.target_id = other_prop.id
+        db.commit()
+
+        contradictory_content = (
+            "Tenant ID,Tenant,Property ID,Unit ID,Lease From,Lease To\n"
+            "TENANT-LEASE-1,Lease Occupancy,PROP-TENANT-1,UNIT-TENANT-1,"
+            "2026-01-01,2026-12-31\n"
+        ).encode()
+        contradictory = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("lease-contradictory.csv", contradictory_content),
+                resource="LEASE_OCCUPANCY",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        contradictory_row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == contradictory.id
+        ).one()
+        assert contradictory_row.disposition == "INVALID"
+        assert any(
+            "resolve to different target Properties" in error
+            for error in contradictory_row.errors
+        )
+        assert db.query(Lease).count() == 0
+        assert unit.property_id != other_prop.id
+    finally:
+        db.close()
+        engine.dispose()
