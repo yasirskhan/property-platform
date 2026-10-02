@@ -145,6 +145,21 @@ Lease, RentInvoice, Payment, Charge, Receipt or GL record. A later controlled
 commit requires its own independently verified source and reconciliation
 contract.
 
+### Lease / occupancy staged reconciliation
+
+A staged `LEASE_OCCUPANCY` row may be explicitly marked
+`ACCEPT_RELATIONSHIP` only after the current durable TENANTS, PROPERTIES and
+UNITS source mappings are revalidated to active same-organization targets and
+the mapped Unit still belongs to the mapped Property. The accepted review state
+snapshots those three target IDs into the existing typed staged-row resolution
+fields so the shared staged-review fingerprint binds the reviewed relationship.
+
+Rows with missing or unresolved durable relationship identity cannot be
+accepted; they may remain unresolved or be explicitly `SKIP`ped. INVALID rows
+remain non-resolvable. Acceptance is review metadata for a later independently
+verified controlled-commit contract only: it does not create or update Lease,
+RentInvoice, Payment, Charge, Receipt, GL, occupancy or security-deposit records.
+
 ## 5. File/report detection and column mapping
 
 The same AppFolio concept may arrive under different header spellings or export

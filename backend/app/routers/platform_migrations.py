@@ -48,6 +48,7 @@ from app.schemas.platform_migration import (
     AppFolioOwnerDryRunOut,
     AppFolioStagedVendorResolutionIn,
     AppFolioStagedTenantResolutionIn,
+    AppFolioStagedLeaseOccupancyResolutionIn,
     AppFolioStagedTenantCommitIn,
     AppFolioTenantCommitOut,
     AppFolioTenantDryRunOut,
@@ -1673,6 +1674,199 @@ def resolve_staged_appfolio_tenant(
             "target_overwrite": False,
             "tenant_user_creation": False,
             "lease_or_occupancy_mutation": False,
+        },
+    )
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/rows/{staged_row_id}/lease-occupancy-resolution",
+    response_model=AppFolioMigrationStagedRowOut,
+)
+def resolve_staged_appfolio_lease_occupancy(
+    run_id: int,
+    upload_id: int,
+    staged_row_id: int,
+    payload: AppFolioStagedLeaseOccupancyResolutionIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    if upload.detected_resource != "LEASE_OCCUPANCY":
+        raise HTTPException(
+            status_code=409,
+            detail="Only staged LEASE_OCCUPANCY rows can be resolved here.",
+        )
+    row = _staged_row(db, run=run, upload=upload, staged_row_id=staged_row_id)
+    if row.resource != "LEASE_OCCUPANCY" or row.errors or row.disposition == "INVALID":
+        raise HTTPException(
+            status_code=409,
+            detail="Invalid staged Lease/occupancy rows cannot be resolved.",
+        )
+
+    target_property_id = None
+    target_unit_id = None
+    target_tenant_user_id = None
+
+    if payload.action == "ACCEPT_RELATIONSHIP":
+        data = dict(row.normalized_data or {})
+        tenant_source = str(data.get("source_tenant_id") or "").strip()
+        property_source = str(data.get("source_property_id") or "").strip()
+        unit_source = str(data.get("source_unit_id") or "").strip()
+        if not tenant_source or not property_source or not unit_source:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Lease/occupancy relationship cannot be accepted until durable "
+                    "Tenant, Property and Unit source IDs are all present."
+                ),
+            )
+
+        tenant_mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "APPFOLIO",
+                PlatformMigrationItem.resource == "TENANTS",
+                PlatformMigrationItem.source_id == tenant_source,
+            )
+            .first()
+        )
+        property_mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "APPFOLIO",
+                PlatformMigrationItem.resource == "PROPERTIES",
+                PlatformMigrationItem.source_id == property_source,
+            )
+            .first()
+        )
+        unit_mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "APPFOLIO",
+                PlatformMigrationItem.resource == "UNITS",
+                PlatformMigrationItem.source_id == unit_source,
+            )
+            .first()
+        )
+        if (
+            tenant_mapping is None
+            or tenant_mapping.target_entity != "TENANT_USER"
+            or property_mapping is None
+            or property_mapping.target_entity != "PROPERTY"
+            or unit_mapping is None
+            or unit_mapping.target_entity != "UNIT"
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Lease/occupancy relationship cannot be accepted until all "
+                    "durable source mappings resolve with the expected target types."
+                ),
+            )
+
+        target_tenant = (
+            db.query(User)
+            .filter(
+                User.id == tenant_mapping.target_id,
+                User.organization_id == run.organization_id,
+                User.role == UserRole.TENANT,
+                User.is_active.is_(True),
+                User.deleted_at.is_(None),
+            )
+            .first()
+        )
+        target_property = (
+            db.query(Property)
+            .filter(
+                Property.id == property_mapping.target_id,
+                Property.organization_id == run.organization_id,
+                Property.is_active.is_(True),
+                Property.deleted_at.is_(None),
+            )
+            .first()
+        )
+        target_unit = (
+            db.query(Unit)
+            .join(Property, Property.id == Unit.property_id)
+            .filter(
+                Unit.id == unit_mapping.target_id,
+                Unit.is_active.is_(True),
+                Unit.deleted_at.is_(None),
+                Property.organization_id == run.organization_id,
+                Property.is_active.is_(True),
+                Property.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if target_tenant is None or target_property is None or target_unit is None:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Lease/occupancy relationship targets are no longer active in "
+                    "the migration organization."
+                ),
+            )
+        if target_unit.property_id != target_property.id:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Mapped Lease/occupancy Unit and Property no longer resolve "
+                    "to the same target Property."
+                ),
+            )
+
+        target_property_id = target_property.id
+        target_unit_id = target_unit.id
+        target_tenant_user_id = target_tenant.id
+
+    if (
+        row.resolution_action == payload.action
+        and row.resolution_target_id == target_property_id
+        and row.resolution_target_unit_id == target_unit_id
+        and row.resolution_target_tenant_user_id == target_tenant_user_id
+    ):
+        return row
+
+    row.resolution_action = payload.action
+    row.resolution_target_id = target_property_id
+    row.resolution_target_unit_id = target_unit_id
+    row.resolution_target_tenant_user_id = target_tenant_user_id
+    row.resolution_target_owner_user_id = None
+    row.resolution_target_vendor_id = None
+    row.resolved_by_platform_user_id = current_user.id
+    row.resolved_at = datetime.utcnow()
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    run.status = "STAGED"
+    append_audit_log(
+        db,
+        platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_staged_row",
+        entity_id=row.id,
+        action="appfolio_lease_occupancy_resolution_changed",
+        new_value={
+            "upload_id": upload.id,
+            "source_tenant_id": (row.normalized_data or {}).get("source_tenant_id"),
+            "source_property_id": (row.normalized_data or {}).get("source_property_id"),
+            "source_unit_id": (row.normalized_data or {}).get("source_unit_id"),
+            "resolution_action": row.resolution_action,
+            "resolution_target_id": row.resolution_target_id,
+            "resolution_target_unit_id": row.resolution_target_unit_id,
+            "resolution_target_tenant_user_id": row.resolution_target_tenant_user_id,
+            "accepted_for_later_commit": row.resolution_action == "ACCEPT_RELATIONSHIP",
+            "customer_lease_mutation": False,
+            "accounting_mutation": False,
         },
     )
     db.commit()
