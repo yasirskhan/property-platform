@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
@@ -56,6 +57,7 @@ from app.schemas.platform_migration import (
     AppFolioGLAccountCommitOut,
     AppFolioGLAccountDryRunOut,
     AppFolioGeneralLedgerDryRunOut,
+    AppFolioGeneralLedgerCommitReadinessOut,
     AppFolioStagedTenantCommitIn,
     AppFolioTenantCommitOut,
     AppFolioTenantDryRunOut,
@@ -1523,6 +1525,120 @@ def _staged_general_ledger_dry_run_state(
         "skipped": skipped,
     }
     return previews, fingerprint, counts
+
+
+def _general_ledger_commit_readiness_state(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    upload: PlatformMigrationUpload,
+) -> tuple[list[dict[str, object]], str, str]:
+    previews, dry_run_fingerprint, _counts = _staged_general_ledger_dry_run_state(
+        db, run=run, upload=upload
+    )
+    if run.last_dry_run_fingerprint != dry_run_fingerprint:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "General Ledger commit readiness requires the exact latest staged "
+                "dry-run fingerprint."
+            ),
+        )
+
+    grouped: dict[str, list[dict[str, object]]] = {}
+    for preview in previews:
+        evidence = dict(preview["source_evidence"])
+        transaction_id = str(evidence.get("transaction_id") or "").strip()
+        if not transaction_id:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "General Ledger rows without supplied TransactionId cannot be "
+                    "commit-ready."
+                ),
+            )
+        grouped.setdefault(transaction_id, []).append(preview)
+
+    groups: list[dict[str, object]] = []
+    canonical_groups: list[dict[str, object]] = []
+    for transaction_id in sorted(grouped):
+        debit_total = Decimal("0")
+        credit_total = Decimal("0")
+        lines: list[dict[str, object]] = []
+        canonical_lines: list[dict[str, object]] = []
+        for preview in sorted(grouped[transaction_id], key=lambda row: str(row["source_id"])):
+            evidence = dict(preview["source_evidence"])
+            try:
+                debit = Decimal(str(evidence.get("debit") or "0"))
+                credit = Decimal(str(evidence.get("credit") or "0"))
+            except (InvalidOperation, ValueError) as exc:
+                raise HTTPException(
+                    status_code=409,
+                    detail="General Ledger readiness encountered non-numeric debit/credit evidence.",
+                ) from exc
+            debit_total += debit
+            credit_total += credit
+            line = {
+                "source_id": str(preview["source_id"]),
+                "transaction_id": transaction_id,
+                "posted_date": str(evidence.get("posted_date") or ""),
+                "debit": str(evidence.get("debit") or "0"),
+                "credit": str(evidence.get("credit") or "0"),
+                "resolved_targets": dict(preview["resolved_targets"]),
+            }
+            lines.append(line)
+            canonical_lines.append(
+                {
+                    **line,
+                    "description": evidence.get("description"),
+                    "reference": evidence.get("reference"),
+                    "remarks": evidence.get("remarks"),
+                    "transaction_type": evidence.get("transaction_type"),
+                }
+            )
+
+        balanced = debit_total == credit_total
+        if not balanced:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"General Ledger TransactionId {transaction_id!r} is not balanced "
+                    "from supplied source debit/credit evidence."
+                ),
+            )
+        groups.append(
+            {
+                "transaction_id": transaction_id,
+                "line_count": len(lines),
+                "debit_total": format(debit_total, "f"),
+                "credit_total": format(credit_total, "f"),
+                "balanced": True,
+                "lines": lines,
+            }
+        )
+        canonical_groups.append(
+            {
+                "transaction_id": transaction_id,
+                "debit_total": format(debit_total, "f"),
+                "credit_total": format(credit_total, "f"),
+                "lines": canonical_lines,
+            }
+        )
+
+    if not groups:
+        raise HTTPException(
+            status_code=409,
+            detail="General Ledger commit readiness requires at least one balanced transaction group.",
+        )
+
+    canonical = {
+        "dry_run_fingerprint": dry_run_fingerprint,
+        "groups": canonical_groups,
+    }
+    readiness_fingerprint = hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return groups, dry_run_fingerprint, readiness_fingerprint
 
 
 def _staged_vendor_state(
@@ -3296,6 +3412,78 @@ def dry_run_staged_appfolio_general_ledger(
         invalid=counts["invalid"],
         warning_count=counts["warning_count"],
         rows=rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/general-ledger/commit-readiness",
+    response_model=AppFolioGeneralLedgerCommitReadinessOut,
+)
+def analyze_staged_appfolio_general_ledger_commit_readiness(
+    run_id: int,
+    upload_id: int,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    groups, dry_run_fingerprint, readiness_fingerprint = (
+        _general_ledger_commit_readiness_state(db, run=run, upload=upload)
+    )
+    previous = dict(run.last_dry_run_summary or {})
+    prior_readiness = previous.get("ledger_commit_readiness_fingerprint")
+    replayed = prior_readiness == readiness_fingerprint
+    summary = {
+        **previous,
+        "resource": "GENERAL_LEDGER",
+        "ledger_commit_readiness_fingerprint": readiness_fingerprint,
+        "ledger_commit_readiness_group_count": len(groups),
+        "ledger_commit_readiness_line_count": sum(int(group["line_count"]) for group in groups),
+        "ledger_commit_ready": True,
+        "accounting_history_mutation": False,
+        "target_transaction_grouping_inferred": False,
+        "balancing_entries_inferred": False,
+        "payer_payee_inferred": False,
+    }
+    if not replayed:
+        run.last_dry_run_summary = summary
+        run.status = "DRY_RUN_READY"
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=run.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=run.id,
+            action="appfolio_staged_general_ledger_commit_readiness",
+            new_value={
+                "upload_id": upload.id,
+                "dry_run_fingerprint": dry_run_fingerprint,
+                "readiness_fingerprint": readiness_fingerprint,
+                "group_count": len(groups),
+                "line_count": sum(int(group["line_count"]) for group in groups),
+                "source_transaction_ids_only": True,
+                "source_balance_check_only": True,
+                "gl_transaction_mutation": False,
+                "gl_entry_mutation": False,
+                "journal_entry_mutation": False,
+                "receipt_bill_charge_mutation": False,
+                "gl_account_mutation": False,
+                "key_account_mutation": False,
+            },
+        )
+        db.commit()
+        db.refresh(run)
+
+    return AppFolioGeneralLedgerCommitReadinessOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        dry_run_fingerprint=dry_run_fingerprint,
+        readiness_fingerprint=readiness_fingerprint,
+        replayed=replayed,
+        group_count=len(groups),
+        line_count=sum(int(group["line_count"]) for group in groups),
+        groups=groups,
     )
 
 
