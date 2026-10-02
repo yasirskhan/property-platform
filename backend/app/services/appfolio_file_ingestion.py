@@ -14,6 +14,7 @@ import re
 import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,7 @@ from openpyxl import load_workbook
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.models.gl_account import GLAccount
 from app.models.platform_migration import (
     PlatformMigrationItem,
     PlatformMigrationRun,
@@ -223,6 +225,26 @@ GL_ACCOUNT_ALIASES: dict[str, tuple[str, ...]] = {
     "last_updated_at": ("LastUpdatedAt", "Last Updated At"),
 }
 GL_ACCOUNT_REQUIRED = ("account_number", "account_name", "account_type")
+
+# Verified AppFolio General Ledger Details source contract. Keep this source
+# schema independent from our target accounting models. These fields are
+# preserved as evidence only until later reconciliation/controlled-commit
+# batches prove the accounting contract.
+GENERAL_LEDGER_ALIASES: dict[str, tuple[str, ...]] = {
+    "source_id": ("LineItemId", "Line Item ID", "Line Item Id"),
+    "transaction_id": ("TransactionId", "Transaction ID", "Transaction Id"),
+    "source_gl_account_id": ("GlAccountId", "GL Account ID", "GL Account Id"),
+    "source_property_id": ("PropertyId", "Property ID", "Property Id"),
+    "source_unit_id": ("UnitId", "Unit ID", "Unit Id"),
+    "posted_date": ("Date", "Posted Date", "Post Date"),
+    "debit": ("Debit",),
+    "credit": ("Credit",),
+    "description": ("Description",),
+    "reference": ("Reference",),
+    "remarks": ("Remarks",),
+    "transaction_type": ("TransactionType", "Transaction Type"),
+}
+GENERAL_LEDGER_REQUIRED = ("source_gl_account_id", "posted_date", "debit", "credit")
 
 
 class AppFolioFileIngestionError(ValueError):
@@ -437,6 +459,18 @@ def _looks_like_gl_accounts(headers: list[str]) -> bool:
     )
 
 
+def _looks_like_general_ledger(headers: list[str]) -> bool:
+    normalized = {_normalize_header(header) for header in headers}
+    return all(
+        normalized
+        & {
+            _normalize_header(alias)
+            for alias in GENERAL_LEDGER_ALIASES[field]
+        }
+        for field in GENERAL_LEDGER_REQUIRED
+    )
+
+
 def _parse_xlsx(content: bytes, requested_sheet: str | None) -> ParsedTable:
     stream = io.BytesIO(content)
     if not zipfile.is_zipfile(stream):
@@ -490,6 +524,7 @@ def _parse_xlsx(content: bytes, requested_sheet: str | None) -> ParsedTable:
                     or _looks_like_owners(headers)
                     or _looks_like_vendors(headers)
                     or _looks_like_gl_accounts(headers)
+                    or _looks_like_general_ledger(headers)
                 ):
                     candidates.append(name)
             if len(candidates) != 1:
@@ -584,9 +619,9 @@ def _resolve_mapping(
     explicit_mapping: dict[str, str] | None,
 ) -> tuple[str, dict[str, str], list[str], list[str]]:
     requested = (resource_override or "").strip().upper()
-    if requested not in {"", "PROPERTIES", "UNITS", "TENANTS", "LEASE_OCCUPANCY", "OWNERS", "VENDORS", "GL_ACCOUNTS"}:
+    if requested not in {"", "PROPERTIES", "UNITS", "TENANTS", "LEASE_OCCUPANCY", "OWNERS", "VENDORS", "GL_ACCOUNTS", "GENERAL_LEDGER"}:
         raise AppFolioFileIngestionError(
-            "This migration stage currently supports only verified PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS and GL_ACCOUNTS resource mappings."
+            "This migration stage currently supports only verified PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS, GL_ACCOUNTS and GENERAL_LEDGER resource mappings."
         )
 
     if requested == "PROPERTIES":
@@ -603,6 +638,8 @@ def _resolve_mapping(
         resource = "VENDORS"
     elif requested == "GL_ACCOUNTS":
         resource = "GL_ACCOUNTS"
+    elif requested == "GENERAL_LEDGER":
+        resource = "GENERAL_LEDGER"
     elif _looks_like_properties(headers):
         resource = "PROPERTIES"
     elif _looks_like_units(headers):
@@ -615,6 +652,8 @@ def _resolve_mapping(
         resource = "VENDORS"
     elif _looks_like_gl_accounts(headers):
         resource = "GL_ACCOUNTS"
+    elif _looks_like_general_ledger(headers):
+        resource = "GENERAL_LEDGER"
     else:
         resource = "UNKNOWN"
 
@@ -633,6 +672,8 @@ def _resolve_mapping(
         if resource == "VENDORS"
         else GL_ACCOUNT_ALIASES
         if resource == "GL_ACCOUNTS"
+        else GENERAL_LEDGER_ALIASES
+        if resource == "GENERAL_LEDGER"
         else {}
     )
     required = (
@@ -650,6 +691,8 @@ def _resolve_mapping(
         if resource == "VENDORS"
         else GL_ACCOUNT_REQUIRED
         if resource == "GL_ACCOUNTS"
+        else GENERAL_LEDGER_REQUIRED
+        if resource == "GENERAL_LEDGER"
         else ()
     )
     auto_mapping, ambiguous = _auto_mapping(headers, aliases) if aliases else ({}, [])
@@ -809,6 +852,7 @@ def stage_appfolio_file(
     seen_source_ids: set[str] = set()
     seen_lease_occupancy_keys: set[tuple[str, str, str, str, str, str, str]] = set()
     seen_gl_account_keys: set[tuple[str, str, str]] = set()
+    seen_general_ledger_line_ids: set[str] = set()
 
     for row_number, source_row in parsed.rows:
         errors: list[str] = []
@@ -1725,10 +1769,151 @@ def stage_appfolio_file(
                     warnings.append(
                         "This staging batch creates or updates no GLAccount, key-account configuration, journal entry, GL transaction or accounting balance."
                     )
+        elif resource == "GENERAL_LEDGER":
+            normalized_data = {
+                field: _mapped_value(source_row, mapping, field)
+                for field in GENERAL_LEDGER_ALIASES
+                if field in mapping
+            }
+            if ambiguous:
+                errors.append(
+                    "Ambiguous automatic mapping requires explicit mapping for: "
+                    + ", ".join(sorted(ambiguous))
+                )
+            if missing_required:
+                errors.append(
+                    "Missing required source columns: " + ", ".join(missing_required)
+                )
+
+            source_line_value = normalized_data.get("source_id")
+            source_id = (
+                str(source_line_value).strip()
+                if source_line_value is not None
+                else None
+            )
+            if source_id:
+                if source_id in seen_general_ledger_line_ids:
+                    errors.append("Duplicate AppFolio General Ledger LineItemId in this staged upload.")
+                    duplicates += 1
+                else:
+                    seen_general_ledger_line_ids.add(source_id)
+
+            source_gl_value = normalized_data.get("source_gl_account_id")
+            source_gl_account_id = (
+                str(source_gl_value).strip()
+                if source_gl_value is not None
+                else None
+            )
+            posted_date_value = normalized_data.get("posted_date")
+            posted_date = (
+                str(posted_date_value).strip()
+                if posted_date_value is not None
+                else None
+            )
+            if not source_gl_account_id:
+                errors.append("source_gl_account_id is required.")
+            if not posted_date:
+                errors.append("posted_date is required.")
+
+            for money_field in ("debit", "credit"):
+                value = normalized_data.get(money_field)
+                if value in (None, ""):
+                    errors.append(f"{money_field} is required.")
+                    continue
+                try:
+                    Decimal(str(value).replace(",", "").strip())
+                except (InvalidOperation, ValueError):
+                    errors.append(f"{money_field} must be a numeric source amount.")
+
+            mapped_gl = None
+            if source_gl_account_id:
+                mapped_gl = (
+                    db.query(PlatformMigrationItem)
+                    .filter(
+                        PlatformMigrationItem.run_id == run.id,
+                        PlatformMigrationItem.organization_id == run.organization_id,
+                        PlatformMigrationItem.provider == "APPFOLIO",
+                        PlatformMigrationItem.resource == "GL_ACCOUNTS",
+                        PlatformMigrationItem.source_id == source_gl_account_id,
+                    )
+                    .first()
+                )
+                if mapped_gl is None:
+                    warnings.append(
+                        "General Ledger GL Account relationship is unresolved; commit remains blocked until the source GL Account is durably mapped."
+                    )
+                elif mapped_gl.target_entity != "GL_ACCOUNT":
+                    errors.append(
+                        "Mapped source GL Account ID does not resolve to a GL_ACCOUNT target."
+                    )
+                else:
+                    target_gl = (
+                        db.query(GLAccount)
+                        .filter(
+                            GLAccount.id == mapped_gl.target_id,
+                            GLAccount.organization_id == run.organization_id,
+                            GLAccount.is_active.is_(True),
+                            GLAccount.deleted_at.is_(None),
+                        )
+                        .first()
+                    )
+                    if target_gl is None:
+                        errors.append(
+                            "Mapped source GL Account ID no longer resolves to an active same-organization GL Account."
+                        )
+
+            for field_name, resource_name, target_entity in (
+                ("source_property_id", "PROPERTIES", "PROPERTY"),
+                ("source_unit_id", "UNITS", "UNIT"),
+            ):
+                raw_value = normalized_data.get(field_name)
+                source_ref = str(raw_value).strip() if raw_value not in (None, "") else None
+                if not source_ref:
+                    continue
+                linked = (
+                    db.query(PlatformMigrationItem)
+                    .filter(
+                        PlatformMigrationItem.run_id == run.id,
+                        PlatformMigrationItem.organization_id == run.organization_id,
+                        PlatformMigrationItem.provider == "APPFOLIO",
+                        PlatformMigrationItem.resource == resource_name,
+                        PlatformMigrationItem.source_id == source_ref,
+                    )
+                    .first()
+                )
+                if linked is None:
+                    warnings.append(
+                        f"General Ledger {resource_name[:-1].title()} relationship {source_ref} is not yet durably mapped."
+                    )
+                elif linked.target_entity != target_entity:
+                    errors.append(
+                        f"Mapped source {resource_name[:-1].title()} ID resolves to the wrong target type."
+                    )
+
+            if errors:
+                disposition = "INVALID"
+                invalid += 1
+            else:
+                valid += 1
+                disposition = "REVIEW"
+                if not source_id:
+                    warnings.append(
+                        "LineItemId was not supplied; no durable General Ledger row identity is synthesized from dates, descriptions, references, transaction IDs or amounts."
+                    )
+                if mapped_gl is not None:
+                    warnings.append(
+                        "The source GL Account relationship is durably mapped; this row remains review-only until a separate accounting-history reconciliation batch is verified."
+                    )
+                warnings.append(
+                    "Debit, credit, date, description, reference, remarks and transaction type are preserved as source evidence only; no accounting posting or balance is created."
+                )
+                warnings.append(
+                    "This staging batch creates or updates no GLTransaction, GLEntry, journal entry, Receipt, Bill, Charge or accounting balance."
+                )
         else:
             normalized_data = _normalized_source_row(source_row)
             errors.append(
-                "Report type could not be detected safely; choose PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS or GL_ACCOUNTS and supply explicit column mapping."
+                "Report type could not be detected safely; choose PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS, GL_ACCOUNTS or GENERAL_LEDGER and supply explicit column mapping."
             )
             disposition = "INVALID"
             invalid += 1
@@ -1901,6 +2086,34 @@ def stage_appfolio_file(
         )
         summary["gl_account_target_mutation"] = False
         summary["accounting_history_mutation"] = False
+    if resource == "GENERAL_LEDGER":
+        ledger_rows = (
+            db.query(PlatformMigrationStagedRow)
+            .filter(
+                PlatformMigrationStagedRow.upload_id == upload.id,
+                PlatformMigrationStagedRow.resource == "GENERAL_LEDGER",
+            )
+            .all()
+        )
+        summary["general_ledger_rows"] = len(ledger_rows)
+        summary["missing_general_ledger_line_ids"] = sum(
+            1
+            for row in ledger_rows
+            if any(
+                "LineItemId was not supplied" in warning
+                for warning in (row.warnings or [])
+            )
+        )
+        summary["unresolved_general_ledger_gl_accounts"] = sum(
+            1
+            for row in ledger_rows
+            if any(
+                "GL Account relationship is unresolved" in warning
+                for warning in (row.warnings or [])
+            )
+        )
+        summary["accounting_history_mutation"] = False
+        summary["customer_accounting_mutation"] = False
     if resource == "UNKNOWN" or missing_required or ambiguous:
         upload.status = "MAPPING_REQUIRED"
     elif invalid:
