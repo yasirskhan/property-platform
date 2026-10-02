@@ -160,6 +160,47 @@ remain non-resolvable. Acceptance is review metadata for a later independently
 verified controlled-commit contract only: it does not create or update Lease,
 RentInvoice, Payment, Charge, Receipt, GL, occupancy or security-deposit records.
 
+## 4.13 GL Accounts staging contract
+
+The first GL Accounts batch uses the shared `GL_ACCOUNTS` resource and the
+existing CSV/XLSX ingestion/staging architecture.
+
+Source-schema verification is intentionally narrower than the target
+`GLAccount` model. Current AppFolio Stack documentation for General Ledger
+Accounts publishes these source fields:
+
+- `Number`
+- `Name`
+- `Type`
+- `FundAccount`
+- `IsCorporateAccount`
+- `OffsetAccountId`
+- `ParentGlAccountId`
+- `PropertyIds`
+- `LastUpdatedAt`
+
+A Chart of Accounts export may also expose a stable GL Account ID. Preserve a
+supplied GL Account ID, but never synthesize one from account name, account
+number, row order or a row fingerprint.
+
+Safety boundaries for this first GL Accounts batch:
+
+1. Automatic report detection requires source Number, Name and Type.
+2. Account Number/code, Name and AppFolio Type are preserved exactly as source
+   evidence after deterministic cell cleanup.
+3. Fund/corporate/parent/offset/property fields remain source-only metadata.
+4. AppFolio Type/FundAccount values are **not** translated into target
+   `GLAccount.account_type`, key-account roles or posting behavior.
+5. Missing stable GL Account ID remains REVIEW; account number/code is preserved
+   but is not silently promoted into durable source identity.
+6. Duplicate supplied GL Account IDs are invalid.
+7. Upload/replay remains fingerprint-idempotent.
+8. This batch creates or updates **zero** `GLAccount`,
+   `AccountingKeyAccount`, journal entry, GL transaction or accounting-balance
+   records.
+9. GL Account reconciliation and controlled commit require a separate verified
+   batch before any accounting-history migration may begin.
+
 ## 5. File/report detection and column mapping
 
 The same AppFolio concept may arrive under different header spellings or export
