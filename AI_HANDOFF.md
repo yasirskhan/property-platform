@@ -1,3 +1,55 @@
+# AI_HANDOFF.md — 2026-10-02 PHASE 4.13 GL ACCOUNT CONTROLLED MAPPING COMMIT VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `3b02f5d88c11100e7ff70fcada281ebdb8c9eee5`.
+- GitHub Actions run: `37052444887` — SUCCESS.
+- All six required CI jobs passed: frontend, backend, security, platform-admin, staging-config, authenticated E2E.
+- Backend/PostgreSQL: **931 passed, 21 deselected, 24646 warnings in 294.15s**.
+- Authenticated E2E: **21 passed, 278 warnings in 115.32s**.
+- Alembic head remains `0a7c4e9f2b61`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified GL Account controlled mapping commit
+
+1. Staged `GL_ACCOUNTS` review state feeds an exact-fingerprint dry run.
+2. Only explicit `MATCH_EXISTING` rows can persist new durable `GL_ACCOUNTS -> GL_ACCOUNT` mappings.
+3. Existing durable mappings replay idempotently only while the target remains active, nondeleted and same-organization.
+4. Changed staged resolution/source review state makes prior dry-run fingerprints stale.
+5. SKIP rows are excluded; a skip-only upload cannot be committed as accounting migration progress.
+6. Controlled commit creates or updates zero GLAccount, AccountingKeyAccount, journal-entry, GL-transaction, balance or accounting-history records.
+7. Target GL account number/name/type and posting semantics remain untouched.
+
+Implementation commits:
+- `1fe69d4ab678d161160d182732e6851661dcc5ec` — dry-run/commit schemas.
+- `83efe5f13122d4e9bee0be1858c198e5a9f1b9ca` — mapping dry-run/commit service.
+- `6a958f64d5c74bd4400673e432871f23d3bca72d` — staged routes.
+- `0b774e7e0517576260a285bbf923672c6a4e5013` — focused regressions.
+- `3b02f5d88c11100e7ff70fcada281ebdb8c9eee5` — source-contract documentation; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Add **General Ledger/history CSV/XLSX ingestion + staging only** through the shared migration architecture.
+
+Required boundaries:
+
+1. Use only source fields verified for AppFolio General Ledger Details; do not invent source columns.
+2. Preserve stable source line/transaction/GL-account/property/unit IDs when supplied; never synthesize identity from descriptions, dates or amounts.
+3. Require durable GL Account source mapping before a row can be considered relationship-ready; unresolved references remain REVIEW/INVALID.
+4. Preserve debit, credit, date, description, reference, remarks and transaction type as source evidence only.
+5. Do not create/update GLTransaction, GLEntry, journal entry, balance, Receipt, Bill, Charge or other customer accounting record.
+6. Do not infer target accounting basis, balancing entries, opening balances, payer/payee identity or reconciliation completion.
+7. Reuse upload detection/mapping/fingerprint/replay/audit/recovery architecture; no parallel migration system.
+8. Do not implement AppFolio API transport or general UX work.
+9. Reconciliation/dry-run/controlled accounting-history commit requires separate verified batches.
+
+---
+
 # AI_HANDOFF.md — 2026-10-02 PHASE 4.13 GL ACCOUNT RECONCILIATION VERIFIED
 
 ## Current verified product checkpoint
