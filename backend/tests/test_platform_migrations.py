@@ -26,6 +26,8 @@ from app.schemas.platform_migration import (
     AppFolioStagedRowResolutionIn,
     AppFolioStagedUnitCommitIn,
     AppFolioStagedUnitResolutionIn,
+    AppFolioStagedOwnerResolutionIn,
+    AppFolioStagedVendorResolutionIn,
 )
 
 
@@ -2663,6 +2665,295 @@ def test_appfolio_vendor_directory_duplicate_source_id_invalid_and_xlsx_autodete
         assert rows[1].disposition == "INVALID"
         assert any("Duplicate AppFolio Vendor ID" in e for e in rows[1].errors)
         assert db.query(Vendor).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio Owner/Vendor staged reconciliation foundation
+# ---------------------------------------------------------------------------
+
+def test_appfolio_owner_possible_match_resolution_is_typed_audited_and_fingerprint_invalidating():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Owner Resolve Org")
+        existing = User(
+            organization_id=org.id,
+            role=UserRole.OWNER,
+            email="owner.resolve@example.com",
+            first_name="Existing",
+            last_name="Owner",
+            hashed_password="x",
+            is_active=True,
+        )
+        db.add(existing)
+        db.commit()
+
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="owner-resolve",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "owner-directory.csv",
+                    (
+                        "Owner ID,Name,Phone Numbers,Email,Properties Owned,Properties Owned IDs\n"
+                        "OWNER-R1,Existing Owner,216-555-0101,owner.resolve@example.com,"
+                        "Lake Apartments,PROP-1\n"
+                    ).encode(),
+                ),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        assert row.disposition == "POSSIBLE_MATCH"
+        before_fingerprint = api._staged_review_fingerprint(upload, [row])
+
+        run.last_dry_run_fingerprint = "a" * 64
+        run.last_dry_run_summary = {"old": True}
+        db.commit()
+        original_email = existing.email
+
+        resolved = api.resolve_staged_appfolio_owner(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedOwnerResolutionIn(
+                action="MATCH_EXISTING",
+                target_owner_user_id=existing.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert resolved.resolution_action == "MATCH_EXISTING"
+        assert resolved.resolution_target_owner_user_id == existing.id
+        assert resolved.resolution_target_id is None
+        assert resolved.resolution_target_unit_id is None
+        assert resolved.resolution_target_vendor_id is None
+        assert db.get(User, existing.id).email == original_email
+        db.refresh(run)
+        assert run.last_dry_run_fingerprint is None
+        assert run.last_dry_run_summary is None
+        after_fingerprint = api._staged_review_fingerprint(upload, [resolved])
+        assert after_fingerprint != before_fingerprint
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_staged_row",
+            AuditLog.entity_id == row.id,
+            AuditLog.action == "appfolio_owner_resolution_changed",
+        ).count() == 1
+
+        changed = api.resolve_staged_appfolio_owner(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedOwnerResolutionIn(action="CREATE_NEW"),
+            db=db,
+            current_user=admin,
+        )
+        assert changed.resolution_action == "CREATE_NEW"
+        assert changed.resolution_target_owner_user_id is None
+        assert db.get(User, existing.id).email == original_email
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_owner_resolution_rejects_foreign_target_and_missing_source_identity():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Owner Resolve Local")
+        foreign_org = _org(db, name="Owner Resolve Foreign")
+        foreign_owner = User(
+            organization_id=foreign_org.id,
+            role=UserRole.OWNER,
+            email="foreign.owner.resolve@example.com",
+            first_name="Foreign",
+            last_name="Owner",
+            hashed_password="x",
+            is_active=True,
+        )
+        db.add(foreign_owner)
+        db.commit()
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="owner-resolve-scope",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "owner-review.csv",
+                    (
+                        "Owner ID,Name,Phone Numbers,Email,Properties Owned,Properties Owned IDs\n"
+                        "OWNER-SCOPE,Scope Owner,216-555-0102,scope.owner@example.com,Lake,PROP-1\n"
+                        ",Missing ID,216-555-0103,missing.id@example.com,Lake,PROP-1\n"
+                    ).encode(),
+                ),
+                resource="OWNERS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+        with pytest.raises(HTTPException) as exc:
+            api.resolve_staged_appfolio_owner(
+                run.id,
+                upload.id,
+                rows[0].id,
+                AppFolioStagedOwnerResolutionIn(
+                    action="MATCH_EXISTING",
+                    target_owner_user_id=foreign_owner.id,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 404
+        with pytest.raises(HTTPException) as exc:
+            api.resolve_staged_appfolio_owner(
+                run.id,
+                upload.id,
+                rows[1].id,
+                AppFolioStagedOwnerResolutionIn(action="CREATE_NEW"),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        skipped = api.resolve_staged_appfolio_owner(
+            run.id,
+            upload.id,
+            rows[1].id,
+            AppFolioStagedOwnerResolutionIn(action="SKIP"),
+            db=db,
+            current_user=admin,
+        )
+        assert skipped.resolution_action == "SKIP"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_vendor_possible_match_resolution_is_typed_scoped_and_non_mutating():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Vendor Resolve Org")
+        foreign_org = _org(db, name="Vendor Resolve Foreign")
+        existing = Vendor(
+            organization_id=org.id,
+            company_name="Resolve Plumbing",
+            business_email="resolve.vendor@example.com",
+            is_active=True,
+        )
+        foreign = Vendor(
+            organization_id=foreign_org.id,
+            company_name="Foreign Plumbing",
+            business_email="foreign.vendor@example.com",
+            is_active=True,
+        )
+        db.add_all([existing, foreign])
+        db.commit()
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="vendor-resolve",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "vendor-directory.csv",
+                    (
+                        "Vendor ID,Company Name,Address,Phone Numbers,Email,Send 1099?\n"
+                        "VENDOR-R1,Resolve Plumbing,10 Trade St,216-555-0200,"
+                        "resolve.vendor@example.com,Yes\n"
+                    ).encode(),
+                ),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        assert row.disposition == "POSSIBLE_MATCH"
+        before = api._staged_review_fingerprint(upload, [row])
+        original_name = existing.company_name
+
+        with pytest.raises(HTTPException) as exc:
+            api.resolve_staged_appfolio_vendor(
+                run.id,
+                upload.id,
+                row.id,
+                AppFolioStagedVendorResolutionIn(
+                    action="MATCH_EXISTING",
+                    target_vendor_id=foreign.id,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 404
+
+        resolved = api.resolve_staged_appfolio_vendor(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedVendorResolutionIn(
+                action="MATCH_EXISTING",
+                target_vendor_id=existing.id,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert resolved.resolution_target_vendor_id == existing.id
+        assert resolved.resolution_target_owner_user_id is None
+        assert db.get(Vendor, existing.id).company_name == original_name
+        assert api._staged_review_fingerprint(upload, [resolved]) != before
+
+        changed = api.resolve_staged_appfolio_vendor(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedVendorResolutionIn(action="CREATE_NEW"),
+            db=db,
+            current_user=admin,
+        )
+        assert changed.resolution_action == "CREATE_NEW"
+        assert changed.resolution_target_vendor_id is None
+        assert db.get(Vendor, existing.id).company_name == original_name
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_staged_row",
+            AuditLog.entity_id == row.id,
+            AuditLog.action == "appfolio_vendor_resolution_changed",
+        ).count() == 2
     finally:
         db.close()
         engine.dispose()
