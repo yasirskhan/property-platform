@@ -1,3 +1,64 @@
+# AI_HANDOFF.md — 2026-10-02 PHASE 4.13 GENERAL LEDGER STAGED DRY RUN VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `da0b23fdba8f95fb2eeb818d3ff95e40df3f6f97`.
+- GitHub Actions run: `37062246604` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **938 passed, 21 deselected, 24789 warnings in 394.24s**.
+- Authenticated E2E: **21 passed, 278 warnings in 72.04s**.
+- Alembic head remains `0a7c4e9f2b61`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified General Ledger staged accounting-history dry run
+
+1. Dry run operates only on already-staged `GENERAL_LEDGER` rows from the verified CSV/XLSX pipeline.
+2. Only explicit `ACCEPT_RELATIONSHIP` rows with stable source `LineItemId` participate; SKIP rows are excluded and unresolved/INVALID rows block readiness.
+3. Current durable GL Account/Property/Unit source mappings and the accepted typed target IDs are revalidated before preview.
+4. The dry-run fingerprint binds the shared staged-review fingerprint plus current durable relationship mapping fingerprints/target IDs, so changed mapping context fails stale.
+5. Source transaction ID/date/debit/credit/description/reference/remarks/transaction type remain review evidence only.
+6. Dry run returns resolved GLAccount/Property/Unit IDs without creating customer accounting records.
+7. No balancing, netting, accounting-basis inference, opening-balance inference, payer/payee inference, target transaction grouping or posting semantics are performed.
+8. Empty accepted-row sets are not dry-run ready.
+9. Identical dry-run replay is idempotent and does not duplicate audit activity.
+10. The batch creates or updates zero GLTransaction, GLEntry, journal entry, Receipt, Bill, Charge, GLAccount, AccountingKeyAccount or customer balance records.
+
+Implementation commits:
+- `4ba9e28f0eac8268c6700daf7aa4df2a4b042230` — General Ledger dry-run response schema.
+- `5e3fbb2bb2bdf5c0265e9ae19c46fba9cf56a6ab` — exact staged/mapping revalidation and fingerprint state.
+- `6da9efbd6b3a402d3d920593f7221c00104d19e2` — platform dry-run route and audit.
+- `da0b23fdba8f95fb2eeb818d3ff95e40df3f6f97` — focused idempotency/staleness/non-mutation regressions; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Add **General Ledger accounting-history commit-readiness reconciliation only** before any customer accounting mutation.
+
+Required boundaries:
+
+1. Continue from the exact accepted staged rows and latest verified dry-run fingerprint; no arbitrary accounting payloads.
+2. Group source rows only by supplied stable `TransactionId`; rows missing `TransactionId` cannot be commit-ready and may only remain review/skip.
+3. Validate each candidate transaction group is internally balanced from source debit/credit evidence before any later commit can be permitted.
+4. Require every retained line to have the already-verified active same-organization GL Account relationship and any supplied Property/Unit relationship.
+5. Do not fabricate balancing lines, opening balances, target transaction type, payer/payee, reference semantics or posting date beyond supplied source evidence.
+6. Record only review/readiness metadata or a deterministic readiness fingerprint in this batch; create/update zero GLTransaction/GLEntry/journal entry/Receipt/Bill/Charge/balance records.
+7. A changed staged review, durable mapping, source line fingerprint or group composition must invalidate readiness.
+8. Repeating identical readiness analysis must be idempotent/audited once.
+9. Controlled accounting-history commit remains a separate later verified batch and must consume this exact readiness state.
+10. AppFolio API transport and general UX work remain out of scope.
+
+---
+
 # AI_HANDOFF.md — 2026-10-02 PHASE 4.13 GENERAL LEDGER RELATIONSHIP RECONCILIATION VERIFIED
 
 ## Current verified product checkpoint
