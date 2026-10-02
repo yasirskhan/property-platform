@@ -6065,3 +6065,193 @@ def test_appfolio_general_ledger_relationship_rejects_unit_property_mismatch_and
     finally:
         db.close()
         engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio General Ledger staged accounting-history dry run
+# ---------------------------------------------------------------------------
+
+def test_appfolio_general_ledger_dry_run_is_exact_replay_safe_and_non_mutating():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="General Ledger Dry Run Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="general-ledger-dry-run",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        prop, unit, account = _seed_general_ledger_source_mappings(
+            db, run=run, org=org
+        )
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "general-ledger-dry-run.csv",
+                    (
+                        "LineItemId,TransactionId,GlAccountId,PropertyId,UnitId,Date,Debit,Credit,"
+                        "Description,Reference,Remarks,TransactionType\n"
+                        "LINE-DRY-1,TX-DRY-1,GL-4100,PROP-GL-1,UNIT-GL-1,2026-04-01,"
+                        "0.00,1350.00,April rent,RCP-DRY,source note,Receipt\n"
+                    ).encode(),
+                ),
+                resource="GENERAL_LEDGER",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        api.resolve_staged_appfolio_general_ledger(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedGeneralLedgerResolutionIn(action="ACCEPT_RELATIONSHIP"),
+            db=db,
+            current_user=admin,
+        )
+
+        before_gl = db.query(GLTransaction).count()
+        before_accounts = db.query(GLAccount).count()
+        before_charges = db.query(Charge).count()
+
+        first = api.dry_run_staged_appfolio_general_ledger(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert first.replayed is False
+        assert first.total == 1
+        assert first.importable == 1
+        assert first.invalid == 0
+        assert len(first.rows) == 1
+        preview = first.rows[0]
+        assert preview.source_id == "LINE-DRY-1"
+        assert preview.source_evidence["transaction_id"] == "TX-DRY-1"
+        assert preview.source_evidence["posted_date"] == "2026-04-01"
+        assert preview.source_evidence["debit"] == "0.00"
+        assert preview.source_evidence["credit"] == "1350.00"
+        assert preview.source_evidence["transaction_type"] == "Receipt"
+        assert preview.resolved_targets == {
+            "gl_account_id": account.id,
+            "property_id": prop.id,
+            "unit_id": unit.id,
+        }
+        db.refresh(run)
+        assert run.last_dry_run_fingerprint == first.fingerprint
+        assert run.last_dry_run_summary["resource"] == "GENERAL_LEDGER"
+        assert run.last_dry_run_summary["review_only"] is True
+        assert run.last_dry_run_summary["accounting_history_mutation"] is False
+
+        audit_count = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "appfolio_staged_general_ledger_dry_run",
+        ).count()
+        assert audit_count == 1
+
+        replay = api.dry_run_staged_appfolio_general_ledger(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert replay.replayed is True
+        assert replay.fingerprint == first.fingerprint
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "appfolio_staged_general_ledger_dry_run",
+        ).count() == audit_count
+        assert db.query(GLTransaction).count() == before_gl
+        assert db.query(GLAccount).count() == before_accounts
+        assert db.query(Charge).count() == before_charges
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_general_ledger_dry_run_blocks_unresolved_or_stale_relationships():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="General Ledger Dry Run Guard Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="general-ledger-dry-run-guard",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _prop, _unit, account = _seed_general_ledger_source_mappings(
+            db, run=run, org=org
+        )
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "general-ledger-dry-run-guard.csv",
+                    (
+                        "LineItemId,TransactionId,GlAccountId,PropertyId,UnitId,Date,Debit,Credit\n"
+                        "LINE-GUARD-1,TX-GUARD-1,GL-4100,PROP-GL-1,UNIT-GL-1,2026-04-02,25.00,0.00\n"
+                    ).encode(),
+                ),
+                resource="GENERAL_LEDGER",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_general_ledger(
+                run.id, upload.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+        assert "unresolved" in exc.value.detail
+
+        api.resolve_staged_appfolio_general_ledger(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedGeneralLedgerResolutionIn(action="ACCEPT_RELATIONSHIP"),
+            db=db,
+            current_user=admin,
+        )
+        replacement = GLAccount(
+            organization_id=org.id,
+            gl_number="4199",
+            name="Replacement Review Account",
+            account_type="INCOME",
+            is_active=True,
+        )
+        db.add(replacement)
+        db.flush()
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "GL_ACCOUNTS",
+            PlatformMigrationItem.source_id == "GL-4100",
+        ).one()
+        mapping.target_id = replacement.id
+        mapping.source_fingerprint = "changed-gl-mapping"
+        db.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_general_ledger(
+                run.id, upload.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+        assert "stale or inconsistent" in exc.value.detail
+        assert db.get(GLAccount, account.id).is_active is True
+        assert db.query(GLTransaction).count() == 0
+        assert db.query(Charge).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
