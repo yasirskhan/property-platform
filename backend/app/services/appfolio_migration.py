@@ -163,8 +163,6 @@ def dry_run_properties(
 ) -> PropertyDryRunResult:
     if run.provider != "APPFOLIO":
         raise AppFolioMigrationError("Migration run is not an AppFolio run.")
-    resolved_existing_matches = dict(resolved_existing_matches or {})
-    force_create_new_source_ids = set(force_create_new_source_ids or set())
     if not records:
         raise AppFolioMigrationError("At least one AppFolio property record is required.")
 
@@ -614,6 +612,8 @@ def dry_run_units(
 ) -> UnitDryRunResult:
     if run.provider != "APPFOLIO":
         raise AppFolioMigrationError("Migration run is not an AppFolio run.")
+    resolved_existing_matches = dict(resolved_existing_matches or {})
+    force_create_new_source_ids = set(force_create_new_source_ids or set())
     if not records:
         raise AppFolioMigrationError("At least one staged AppFolio Unit record is required.")
 
