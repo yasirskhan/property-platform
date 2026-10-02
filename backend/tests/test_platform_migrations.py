@@ -17,6 +17,7 @@ from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.property import Property, PropertyOwner, Unit
 from app.models.lease import Lease
 from app.models.charge import Charge
+from app.models.bill import Bill
 from app.models.gl_transaction import GLTransaction
 from app.models.gl_account import GLAccount
 from app.models.user import Organization, User, UserRole
@@ -6488,6 +6489,259 @@ def test_appfolio_general_ledger_commit_readiness_blocks_missing_transaction_id_
         assert "not balanced" in exc.value.detail
         assert db.query(GLTransaction).count() == 0
         assert db.query(Charge).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio Bills / Payables CSV/XLSX ingestion + staging
+# ---------------------------------------------------------------------------
+
+def _seed_bill_source_mappings(db, *, run, org):
+    prop = Property(
+        organization_id=org.id,
+        name="Bill Stage Property",
+        address_line1="700 Bill Ave",
+        city="Cleveland",
+        state="OH",
+        zip_code="44113",
+        is_active=True,
+    )
+    vendor = Vendor(
+        organization_id=org.id,
+        company_name="Bill Stage Vendor",
+        business_email="bill-stage-vendor@example.com",
+        is_active=True,
+    )
+    db.add_all([prop, vendor])
+    db.flush()
+    for resource, source_id, target_entity, target_id in (
+        ("PROPERTIES", "PROP-BILL-1", "PROPERTY", prop.id),
+        ("VENDORS", "VENDOR-BILL-1", "VENDOR", vendor.id),
+    ):
+        db.add(
+            PlatformMigrationItem(
+                run_id=run.id,
+                organization_id=org.id,
+                provider="APPFOLIO",
+                resource=resource,
+                source_id=source_id,
+                target_entity=target_entity,
+                target_id=target_id,
+                source_fingerprint=f"seed-{resource}-{source_id}",
+            )
+        )
+    db.commit()
+    return prop, vendor
+
+
+def test_appfolio_bills_csv_stages_verified_top_level_source_evidence_without_mutation():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Bills Stage Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="bills-stage",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        prop, vendor = _seed_bill_source_mappings(db, run=run, org=org)
+        before_bills = db.query(Bill).count()
+        before_gl = db.query(GLTransaction).count()
+        before_charges = db.query(Charge).count()
+        before_vendors = db.query(Vendor).count()
+
+        content = (
+            "Bill ID,VendorId,PropertyId,DueDate,InvoiceDate,PostingDate,Reference,"
+            "Remarks,TotalAmount,ApprovalStatus,CheckMemo,AccountNumber,"
+            "ManagementCompanyAsPayee,WorkOrderId,LastUpdatedAt\n"
+            "BILL-100,VENDOR-BILL-1,PROP-BILL-1,2026-05-31,2026-05-15,2026-05-16,"
+            "INV-100,Source remarks,450.25,Approved,May invoice,2000,false,WO-55,"
+            "2026-05-17T12:00:00Z\n"
+        ).encode()
+
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("bills.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert upload.detected_resource == "BILLS"
+        assert upload.status == "REVIEW_REQUIRED"
+        assert upload.validation_summary["bill_rows"] == 1
+        assert upload.validation_summary["missing_bill_source_ids"] == 0
+        assert upload.validation_summary["unresolved_bill_vendor_relationships"] == 0
+        assert upload.validation_summary["unresolved_bill_property_relationships"] == 0
+        assert upload.validation_summary["bill_mutation"] is False
+        assert upload.validation_summary["accounting_history_mutation"] is False
+        assert upload.validation_summary["payment_state_inferred"] is False
+
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        assert row.resource == "BILLS"
+        assert row.source_id == "BILL-100"
+        assert row.disposition == "REVIEW"
+        assert row.normalized_data == {
+            "source_id": "BILL-100",
+            "source_vendor_id": "VENDOR-BILL-1",
+            "source_property_id": "PROP-BILL-1",
+            "due_date": "2026-05-31",
+            "invoice_date": "2026-05-15",
+            "posting_date": "2026-05-16",
+            "reference": "INV-100",
+            "remarks": "Source remarks",
+            "total_amount": "450.25",
+            "approval_status": "Approved",
+            "check_memo": "May invoice",
+            "account_number": "2000",
+            "management_company_as_payee": "false",
+            "source_work_order_id": "WO-55",
+            "last_updated_at": "2026-05-17T12:00:00Z",
+        }
+        assert any("WorkOrderId is preserved as source evidence only" in w for w in row.warnings)
+        assert any("paid/unpaid" in w for w in row.warnings)
+        assert db.query(Bill).count() == before_bills
+        assert db.query(GLTransaction).count() == before_gl
+        assert db.query(Charge).count() == before_charges
+        assert db.query(Vendor).count() == before_vendors
+        assert db.get(Property, prop.id).is_active is True
+        assert db.get(Vendor, vendor.id).is_active is True
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_bills_missing_source_id_stays_review_unresolved_links_warn_and_duplicate_id_invalid():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="Bills Review Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="bills-review",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        content = (
+            "Bill ID,VendorId,PropertyId,DueDate,TotalAmount,Reference\n"
+            ",VENDOR-MISSING,PROP-MISSING,2026-06-01,100.00,NO-ID\n"
+            "BILL-DUP,VENDOR-MISSING,PROP-MISSING,2026-06-02,125.00,DUP-1\n"
+            "BILL-DUP,VENDOR-MISSING,PROP-MISSING,2026-06-03,130.00,DUP-2\n"
+        ).encode()
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("bills-review.csv", content),
+                resource="BILLS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert upload.detected_resource == "BILLS"
+        assert upload.status == "STAGED_WITH_ERRORS"
+        assert upload.validation_summary["missing_bill_source_ids"] == 1
+        assert upload.validation_summary["unresolved_bill_vendor_relationships"] == 2
+        assert upload.validation_summary["unresolved_bill_property_relationships"] == 2
+
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+        assert rows[0].disposition == "REVIEW"
+        assert any("Bill ID was not supplied" in w for w in rows[0].warnings)
+        assert any("Vendor relationship remains unresolved" in w for w in rows[0].warnings)
+        assert any("Property relationship remains unresolved" in w for w in rows[0].warnings)
+        assert rows[1].disposition == "REVIEW"
+        assert rows[2].disposition == "INVALID"
+        assert any("Duplicate AppFolio Bill ID" in e for e in rows[2].errors)
+        assert db.query(Bill).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_bills_xlsx_multisheet_autodetects_and_replays_without_bill_creation():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Bills XLSX Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="bills-xlsx",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _seed_bill_source_mappings(db, run=run, org=org)
+
+        workbook = Workbook()
+        ws = workbook.active
+        ws.title = "Bills"
+        ws.append([
+            "Bill ID", "VendorId", "PropertyId", "DueDate", "InvoiceDate",
+            "TotalAmount", "ApprovalStatus",
+        ])
+        ws.append([
+            "BILL-XLSX-1", "VENDOR-BILL-1", "PROP-BILL-1", "2026-07-01",
+            "2026-06-15", "200.50", "Pending",
+        ])
+        notes = workbook.create_sheet("Notes")
+        notes.append(["Comment"])
+        notes.append(["not a supported migration report"])
+        buffer = BytesIO()
+        workbook.save(buffer)
+        workbook.close()
+
+        first = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("bills.xlsx", buffer.getvalue()),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert first.detected_resource == "BILLS"
+        assert first.sheet_name == "Bills"
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == first.id
+        ).one()
+        assert row.source_id == "BILL-XLSX-1"
+        assert row.normalized_data["total_amount"] == 200.5
+        assert row.normalized_data["approval_status"] == "Pending"
+
+        replay = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("bills-copy.xlsx", buffer.getvalue()),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert replay.replayed is True
+        assert replay.id == first.id
+        assert db.query(Bill).count() == 0
+        assert db.query(GLTransaction).count() == 0
     finally:
         db.close()
         engine.dispose()
