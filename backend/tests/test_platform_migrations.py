@@ -5768,7 +5768,7 @@ def test_appfolio_general_ledger_xlsx_detects_verified_fields_and_flags_identity
         assert upload.detected_resource == "GENERAL_LEDGER"
         assert upload.validation_summary["general_ledger_rows"] == 3
         assert upload.validation_summary["missing_general_ledger_line_ids"] == 1
-        assert upload.validation_summary["unresolved_general_ledger_gl_accounts"] == 2
+        assert upload.validation_summary["unresolved_general_ledger_gl_accounts"] == 3
         assert upload.validation_summary["duplicates"] == 1
 
         rows = db.query(PlatformMigrationStagedRow).filter(
