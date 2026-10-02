@@ -14,7 +14,7 @@ from app.core.security import hash_password
 from app.models.audit_log import AuditLog
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
-from app.models.property import Property, Unit
+from app.models.property import Property, PropertyOwner, Unit
 from app.models.user import Organization, User, UserRole
 from app.models.vendor import Vendor
 from app.routers import platform_migrations as api
