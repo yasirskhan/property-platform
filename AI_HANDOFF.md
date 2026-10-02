@@ -1,3 +1,66 @@
+# AI_HANDOFF.md — 2026-10-02 PHASE 4.13 UNIT RECONCILIATION VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `25a90d9119f21767bff8f5b8c9cbda2c8c43e0ae`.
+- GitHub Actions run: `36945450640` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **894 passed, 21 deselected, 23979 warnings in 269.53s**.
+- Authenticated E2E: **21 passed, 278 warnings in 103.57s**.
+- Alembic head: `c35e9d2a7b14`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified staged Unit match/create/skip reconciliation
+
+1. Staged Unit rows now carry a correctly typed `resolution_target_unit_id`; Unit IDs are not stored in the Property resolution foreign key.
+2. Unresolved same-property Unit matches support explicit `MATCH_EXISTING`, `CREATE_NEW`, and `SKIP` decisions.
+3. `MATCH_EXISTING` accepts only an active Unit under the already mapped same-organization Property and never overwrites the target Unit.
+4. `CREATE_NEW` overrides only the exact reviewed same-property possible-match blocker; identity and Property-link validation remain fail-closed.
+5. Exact same-property Unit create collisions fail closed unless the reviewed staged row explicitly carries `CREATE_NEW`.
+6. `SKIP` is durable and removes the staged row from dry-run/commit input.
+7. Resolution changes are audited and invalidate the prior run dry-run fingerprint.
+8. Unit resolution state and typed target identity participate in the staged review/relationship fingerprint.
+9. Controlled Unit commit still derives only from reviewed staged rows, preserves exact-fingerprint commit semantics, plan-limit checks and durable UNITS source mappings, and replays without duplicate Units.
+10. Mixed matched/new/skipped resolution behavior is covered by focused regressions.
+11. No Owners/Vendors, Tenants, Leases/occupancy, accounting history, AppFolio API connector, navigation change, or general UX work was added in this verified batch.
+
+Implementation/source commits include:
+- `9a1cc6deae69debb9124ead996dde16c07caab28` — typed Unit resolution target.
+- `fbdc1e93db960e7e8858c13149bf053429e75e25` — Unit-resolution migration.
+- `0de98cf12a9fb51f370a4be0a9904f5f03a7a72b`, `98177fb56096f65e1126d5f7a174ac5b1a96c292` — staged Unit resolution wiring and commit behavior.
+- `1312d017b4e5ee41f2d224b6f26c0ef2ac94f757`, `f1a5b78c06f8d82fcb11047c095168bf0029d52b` — focused reconciliation regressions.
+- `25a90d9119f21767bff8f5b8c9cbda2c8c43e0ae` — explicit CREATE_NEW disclosure; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Proceed in dependency order to **Owner Directory / Vendor Directory source-schema verification and staging support**.
+
+Start with the smallest independently verifiable resource (Owner Directory or Vendor Directory) whose public/export schema can be verified. Required boundaries:
+
+1. Reuse the existing shared CSV/XLSX upload, detection, column-mapping, staging, validation, fingerprint, replay/idempotency, audit and recovery architecture.
+2. Do not create a parallel migration system.
+3. Map only fields verified from an authoritative or otherwise reliable AppFolio export schema. Do not infer target-only fields.
+4. Preserve stable source IDs whenever supplied.
+5. The first Owner/Vendor batch is staging-only: no customer Owner/Vendor mutation yet.
+6. Possible existing target matches must be surfaced for explicit review; never overwrite automatically.
+7. Missing required identity/contact fields remain REVIEW/INVALID rather than fabricated.
+8. Do not proceed to Tenants until Owners/Vendors staging/reconciliation dependency is verified.
+9. Do not implement AppFolio API transport or general UX work.
+10. Preserve navigation integrity, the hidden-menu roadmap, organization isolation, audit/idempotency and recovery visibility.
+
+---
+
 # AI_HANDOFF.md — 2026-10-01 PHASE 4.13 UNIT DRY-RUN + CONTROLLED COMMIT VERIFIED
 
 ## Current verified product checkpoint
