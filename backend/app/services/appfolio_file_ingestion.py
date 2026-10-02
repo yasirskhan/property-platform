@@ -246,6 +246,33 @@ GENERAL_LEDGER_ALIASES: dict[str, tuple[str, ...]] = {
 }
 GENERAL_LEDGER_REQUIRED = ("source_gl_account_id", "posted_date", "debit", "credit")
 
+# Verified AppFolio Bills top-level source contract. Structured LineItems are
+# intentionally not flattened or inferred in this first staging batch.
+BILL_ALIASES: dict[str, tuple[str, ...]] = {
+    "source_id": ("Bill ID", "Bill Id", "BillId", "Id"),
+    "source_vendor_id": ("VendorId", "Vendor ID", "Vendor Id"),
+    "source_property_id": ("PropertyId", "Property ID", "Property Id"),
+    "due_date": ("DueDate", "Due Date"),
+    "invoice_date": ("InvoiceDate", "Invoice Date"),
+    "posting_date": ("PostingDate", "Posting Date"),
+    "reference": ("Reference",),
+    "remarks": ("Remarks",),
+    "total_amount": ("TotalAmount", "Total Amount", "Amount"),
+    "approval_status": ("ApprovalStatus", "Approval Status"),
+    "check_memo": ("CheckMemo", "Check Memo"),
+    "account_number": ("AccountNumber", "Account Number"),
+    "management_company_as_payee": (
+        "ManagementCompanyAsPayee",
+        "Management Company As Payee",
+    ),
+    "source_work_order_id": ("WorkOrderId", "Work Order ID", "Work Order Id"),
+    "last_updated_at": ("LastUpdatedAt", "Last Updated At"),
+}
+# Keep source Bill ID out of the explicit-resource required set so a file that
+# omits it can still be staged for REVIEW/SKIP. Auto-detection separately
+# requires a stable Bill ID to avoid false positives.
+BILL_REQUIRED = ("source_vendor_id", "due_date", "total_amount")
+
 
 class AppFolioFileIngestionError(ValueError):
     pass
@@ -471,6 +498,19 @@ def _looks_like_general_ledger(headers: list[str]) -> bool:
     )
 
 
+def _looks_like_bills(headers: list[str]) -> bool:
+    normalized = {_normalize_header(header) for header in headers}
+    required_fields = ("source_id",) + BILL_REQUIRED
+    return all(
+        normalized
+        & {
+            _normalize_header(alias)
+            for alias in BILL_ALIASES[field]
+        }
+        for field in required_fields
+    )
+
+
 def _parse_xlsx(content: bytes, requested_sheet: str | None) -> ParsedTable:
     stream = io.BytesIO(content)
     if not zipfile.is_zipfile(stream):
@@ -525,6 +565,7 @@ def _parse_xlsx(content: bytes, requested_sheet: str | None) -> ParsedTable:
                     or _looks_like_vendors(headers)
                     or _looks_like_gl_accounts(headers)
                     or _looks_like_general_ledger(headers)
+                    or _looks_like_bills(headers)
                 ):
                     candidates.append(name)
             if len(candidates) != 1:
@@ -619,9 +660,9 @@ def _resolve_mapping(
     explicit_mapping: dict[str, str] | None,
 ) -> tuple[str, dict[str, str], list[str], list[str]]:
     requested = (resource_override or "").strip().upper()
-    if requested not in {"", "PROPERTIES", "UNITS", "TENANTS", "LEASE_OCCUPANCY", "OWNERS", "VENDORS", "GL_ACCOUNTS", "GENERAL_LEDGER"}:
+    if requested not in {"", "PROPERTIES", "UNITS", "TENANTS", "LEASE_OCCUPANCY", "OWNERS", "VENDORS", "GL_ACCOUNTS", "GENERAL_LEDGER", "BILLS"}:
         raise AppFolioFileIngestionError(
-            "This migration stage currently supports only verified PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS, GL_ACCOUNTS and GENERAL_LEDGER resource mappings."
+            "This migration stage currently supports only verified PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS, GL_ACCOUNTS, GENERAL_LEDGER and BILLS resource mappings."
         )
 
     if requested == "PROPERTIES":
@@ -640,6 +681,8 @@ def _resolve_mapping(
         resource = "GL_ACCOUNTS"
     elif requested == "GENERAL_LEDGER":
         resource = "GENERAL_LEDGER"
+    elif requested == "BILLS":
+        resource = "BILLS"
     elif _looks_like_properties(headers):
         resource = "PROPERTIES"
     elif _looks_like_units(headers):
@@ -654,6 +697,8 @@ def _resolve_mapping(
         resource = "GL_ACCOUNTS"
     elif _looks_like_general_ledger(headers):
         resource = "GENERAL_LEDGER"
+    elif _looks_like_bills(headers):
+        resource = "BILLS"
     else:
         resource = "UNKNOWN"
 
@@ -674,6 +719,8 @@ def _resolve_mapping(
         if resource == "GL_ACCOUNTS"
         else GENERAL_LEDGER_ALIASES
         if resource == "GENERAL_LEDGER"
+        else BILL_ALIASES
+        if resource == "BILLS"
         else {}
     )
     required = (
@@ -693,6 +740,8 @@ def _resolve_mapping(
         if resource == "GL_ACCOUNTS"
         else GENERAL_LEDGER_REQUIRED
         if resource == "GENERAL_LEDGER"
+        else BILL_REQUIRED
+        if resource == "BILLS"
         else ()
     )
     auto_mapping, ambiguous = _auto_mapping(headers, aliases) if aliases else ({}, [])
@@ -704,7 +753,7 @@ def _resolve_mapping(
             # A caller must choose a supported resource before using explicit
             # mapping when automatic report detection cannot determine one.
             raise AppFolioFileIngestionError(
-                "Choose resource PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS or GL_ACCOUNTS before supplying explicit column mapping."
+                "Choose resource PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS, GL_ACCOUNTS, GENERAL_LEDGER or BILLS before supplying explicit column mapping."
             )
         unknown_fields = sorted(set(explicit_mapping) - allowed_fields)
         if unknown_fields:
@@ -1910,10 +1959,171 @@ def stage_appfolio_file(
                 warnings.append(
                     "This staging batch creates or updates no GLTransaction, GLEntry, journal entry, Receipt, Bill, Charge or accounting balance."
                 )
+        elif resource == "BILLS":
+            normalized_data = {
+                field: _mapped_value(source_row, mapping, field)
+                for field in BILL_ALIASES
+                if field in mapping
+            }
+            if ambiguous:
+                errors.append(
+                    "Ambiguous automatic mapping requires explicit mapping for: "
+                    + ", ".join(sorted(ambiguous))
+                )
+            if missing_required:
+                errors.append(
+                    "Missing required source columns: " + ", ".join(missing_required)
+                )
+
+            source_bill_value = normalized_data.get("source_id")
+            source_id = (
+                str(source_bill_value).strip()
+                if source_bill_value is not None
+                else None
+            )
+            if source_id:
+                if source_id in seen_source_ids:
+                    errors.append("Duplicate AppFolio Bill ID in this staged upload.")
+                    duplicates += 1
+                else:
+                    seen_source_ids.add(source_id)
+
+            source_vendor_value = normalized_data.get("source_vendor_id")
+            source_vendor_id = (
+                str(source_vendor_value).strip()
+                if source_vendor_value is not None
+                else None
+            )
+            due_date = normalized_data.get("due_date")
+            total_amount = normalized_data.get("total_amount")
+            if not source_vendor_id:
+                errors.append("source_vendor_id is required.")
+            if due_date in (None, ""):
+                errors.append("due_date is required.")
+            if total_amount in (None, ""):
+                errors.append("total_amount is required.")
+            else:
+                try:
+                    amount = Decimal(str(total_amount).replace(",", "").strip())
+                    if amount < 0:
+                        errors.append("total_amount must be a nonnegative source amount.")
+                except (InvalidOperation, ValueError):
+                    errors.append("total_amount must be a numeric source amount.")
+
+            mapped_vendor = None
+            if source_vendor_id:
+                mapped_vendor = (
+                    db.query(PlatformMigrationItem)
+                    .filter(
+                        PlatformMigrationItem.run_id == run.id,
+                        PlatformMigrationItem.organization_id == run.organization_id,
+                        PlatformMigrationItem.provider == "APPFOLIO",
+                        PlatformMigrationItem.resource == "VENDORS",
+                        PlatformMigrationItem.source_id == source_vendor_id,
+                    )
+                    .first()
+                )
+                if mapped_vendor is None:
+                    warnings.append(
+                        "Bill VendorId has no durable VENDORS mapping yet; Vendor relationship remains unresolved."
+                    )
+                elif mapped_vendor.target_entity != "VENDOR":
+                    errors.append(
+                        "Mapped source VendorId does not resolve to a VENDOR target."
+                    )
+                else:
+                    target_vendor = (
+                        db.query(Vendor)
+                        .filter(
+                            Vendor.id == mapped_vendor.target_id,
+                            Vendor.organization_id == run.organization_id,
+                            Vendor.is_active.is_(True),
+                            Vendor.deleted_at.is_(None),
+                        )
+                        .first()
+                    )
+                    if target_vendor is None:
+                        errors.append(
+                            "Mapped source VendorId no longer resolves to an active same-organization Vendor."
+                        )
+
+            source_property_value = normalized_data.get("source_property_id")
+            source_property_id = (
+                str(source_property_value).strip()
+                if source_property_value not in (None, "")
+                else None
+            )
+            if source_property_id:
+                mapped_property = (
+                    db.query(PlatformMigrationItem)
+                    .filter(
+                        PlatformMigrationItem.run_id == run.id,
+                        PlatformMigrationItem.organization_id == run.organization_id,
+                        PlatformMigrationItem.provider == "APPFOLIO",
+                        PlatformMigrationItem.resource == "PROPERTIES",
+                        PlatformMigrationItem.source_id == source_property_id,
+                    )
+                    .first()
+                )
+                if mapped_property is None:
+                    warnings.append(
+                        "Bill PropertyId has no durable PROPERTIES mapping yet; Property relationship remains unresolved."
+                    )
+                elif mapped_property.target_entity != "PROPERTY":
+                    errors.append(
+                        "Mapped source PropertyId does not resolve to a PROPERTY target."
+                    )
+                else:
+                    target_property = (
+                        db.query(Property)
+                        .filter(
+                            Property.id == mapped_property.target_id,
+                            Property.organization_id == run.organization_id,
+                            Property.is_active.is_(True),
+                            Property.deleted_at.is_(None),
+                        )
+                        .first()
+                    )
+                    if target_property is None:
+                        errors.append(
+                            "Mapped source PropertyId no longer resolves to an active same-organization Property."
+                        )
+
+            if errors:
+                disposition = "INVALID"
+                invalid += 1
+            else:
+                valid += 1
+                disposition = "REVIEW"
+                if not source_id:
+                    warnings.append(
+                        "Bill ID was not supplied; no durable Bill source identity is synthesized from reference, vendor, dates or amount."
+                    )
+                if mapped_vendor is not None:
+                    warnings.append(
+                        "The Bill Vendor relationship is durably mapped; the staged row remains review-only."
+                    )
+                if source_property_id and not any(
+                    "Property relationship remains unresolved" in warning
+                    for warning in warnings
+                ):
+                    warnings.append(
+                        "The Bill Property relationship is durably mapped; the staged row remains review-only."
+                    )
+                if normalized_data.get("source_work_order_id") not in (None, ""):
+                    warnings.append(
+                        "WorkOrderId is preserved as source evidence only; no Work Order relationship is inferred without a durable migration mapping."
+                    )
+                warnings.append(
+                    "ApprovalStatus, ManagementCompanyAsPayee, dates, reference, remarks and amount remain source evidence only; paid/unpaid, approval, check/payment and GL posting state are not inferred."
+                )
+                warnings.append(
+                    "This staging batch creates or updates no Bill, BillLine, Check, Vendor, WorkOrder, GLTransaction, GLEntry, Charge or accounting balance."
+                )
         else:
             normalized_data = _normalized_source_row(source_row)
             errors.append(
-                "Report type could not be detected safely; choose PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS, GL_ACCOUNTS or GENERAL_LEDGER and supply explicit column mapping."
+                "Report type could not be detected safely; choose PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS, GL_ACCOUNTS, GENERAL_LEDGER or BILLS and supply explicit column mapping."
             )
             disposition = "INVALID"
             invalid += 1
@@ -2114,6 +2324,34 @@ def stage_appfolio_file(
         )
         summary["accounting_history_mutation"] = False
         summary["customer_accounting_mutation"] = False
+    if resource == "BILLS":
+        bill_rows = (
+            db.query(PlatformMigrationStagedRow)
+            .filter(
+                PlatformMigrationStagedRow.upload_id == upload.id,
+                PlatformMigrationStagedRow.resource == "BILLS",
+            )
+            .all()
+        )
+        summary["bill_rows"] = len(bill_rows)
+        summary["missing_bill_source_ids"] = sum(
+            1
+            for row in bill_rows
+            if any("Bill ID was not supplied" in warning for warning in (row.warnings or []))
+        )
+        summary["unresolved_bill_vendor_relationships"] = sum(
+            1
+            for row in bill_rows
+            if any("Vendor relationship remains unresolved" in warning for warning in (row.warnings or []))
+        )
+        summary["unresolved_bill_property_relationships"] = sum(
+            1
+            for row in bill_rows
+            if any("Property relationship remains unresolved" in warning for warning in (row.warnings or []))
+        )
+        summary["bill_mutation"] = False
+        summary["accounting_history_mutation"] = False
+        summary["payment_state_inferred"] = False
     if resource == "UNKNOWN" or missing_required or ambiguous:
         upload.status = "MAPPING_REQUIRED"
     elif invalid:
