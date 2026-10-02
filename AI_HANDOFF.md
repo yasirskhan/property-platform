@@ -1,3 +1,62 @@
+# AI_HANDOFF.md — 2026-10-02 PHASE 4.13 TENANT STAGED RECONCILIATION VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `ba82fc275495c41465383ea8d609dfccc15a4ece`.
+- GitHub Actions run: `36977308748` — SUCCESS after authenticated E2E retry.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **913 passed, 21 deselected, 24323 warnings in 387.98s**.
+- Authenticated E2E retry: **21 passed, 278 warnings in 117.00s**.
+- Alembic head: `f58a2c4d6e91`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+- The first E2E attempt failed on an unrelated existing Student Housing tab click timeout; rerunning that failed job passed without source changes.
+
+## Verified staged Tenant reconciliation scope
+
+1. Staged TENANTS rows now have a correctly typed `resolution_target_tenant_user_id` foreign key to customer users.
+2. Tenant resolution does not reuse Property, Unit, Owner or Vendor resolution columns.
+3. Stable-source-ID Tenant rows may be explicitly MATCH_EXISTING to an active same-organization `UserRole.TENANT`, CREATE_NEW only from a reviewed POSSIBLE_MATCH, or SKIP.
+4. REVIEW rows with missing/unresolved durable Tenant/Unit/Property identity may only be skipped.
+5. Cross-organization, inactive or wrong-role target probes fail closed.
+6. Resolution never overwrites or mutates the matched customer Tenant user.
+7. Resolution changes are audited, clear the prior run dry-run fingerprint/summary and participate in the shared staged-review fingerprint.
+8. The reconciliation batch creates or updates **zero** customer Tenant users, leases, occupancy, charges, receipts or GL records.
+9. Migration parity advanced to `f58a2c4d6e91`; model-table count remains 201.
+10. No AppFolio API transport, navigation change or general UX work was added.
+
+Implementation commits:
+- `ce477249c75e932c812869b1a09ab51b39f38521` — typed Tenant reconciliation target, schema, route, migration and focused regressions.
+- `ba82fc275495c41465383ea8d609dfccc15a4ece` — focused fixture-ID correction; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Add **staged Tenant dry-run + controlled mapping commit** using the existing exact-fingerprint architecture.
+
+Required boundaries:
+
+1. Derive input only from reviewed TENANTS staged rows; never accept arbitrary caller-supplied Tenant records.
+2. Existing durable TENANTS mappings and explicit MATCH_EXISTING resolutions must replay safely and never overwrite the target Tenant user.
+3. `CREATE_NEW` remains unsupported for controlled commit in this batch because the verified Tenant Directory provides a display name/contact data but not safe first/last identity and credential semantics for a login-backed Tenant account. Do not split names or invent credentials.
+4. SKIP rows are excluded. Missing durable Tenant source ID, invalid/review/unresolved relationship rows block dry run unless explicitly skipped where permitted.
+5. Dry run must be target-non-mutating and bind staged review state plus referenced durable Unit/Property mappings into the exact fingerprint.
+6. Controlled commit may persist only durable TENANTS source mappings to verified existing TENANT users; it must not create or update customer User records.
+7. Preserve Unit/Property relationship context for later occupancy migration, but do not create Lease/occupancy records or infer liability from move-in/out or lease dates.
+8. Preserve organization scope, audit, idempotency, recovery visibility, navigation integrity and inactive UX standards.
+9. Do not proceed to Lease/occupancy commit, accounting-history migration or AppFolio API transport until this Tenant mapping dependency is verified.
+
+---
+
 # AI_HANDOFF.md — 2026-10-02 PHASE 4.13 TENANT DIRECTORY INGESTION + STAGING VERIFIED
 
 ## Current verified product checkpoint
