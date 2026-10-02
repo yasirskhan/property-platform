@@ -5577,3 +5577,211 @@ def test_staged_gl_account_dry_run_revalidates_target_and_skip_only_rows_do_not_
     finally:
         db.close()
         engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio General Ledger history ingestion + staging
+# ---------------------------------------------------------------------------
+
+def _seed_general_ledger_source_mappings(db, *, run, org):
+    prop = Property(
+        organization_id=org.id,
+        name="Ledger Stage Property",
+        address_line1="900 Ledger Ave",
+        city="Cleveland",
+        state="OH",
+        zip_code="44113",
+        is_active=True,
+    )
+    db.add(prop)
+    db.flush()
+    unit = Unit(
+        property_id=prop.id,
+        unit_number="GL-101",
+        bedrooms=1,
+        bathrooms=1,
+        monthly_rent=1000,
+        is_active=True,
+    )
+    account = GLAccount(
+        organization_id=org.id,
+        gl_number="4100",
+        name="Rent Income",
+        account_type="INCOME",
+        is_active=True,
+    )
+    db.add_all([unit, account])
+    db.flush()
+    for resource, source_id, target_entity, target_id in (
+        ("PROPERTIES", "PROP-GL-1", "PROPERTY", prop.id),
+        ("UNITS", "UNIT-GL-1", "UNIT", unit.id),
+        ("GL_ACCOUNTS", "GL-4100", "GL_ACCOUNT", account.id),
+    ):
+        db.add(
+            PlatformMigrationItem(
+                run_id=run.id,
+                organization_id=org.id,
+                provider="APPFOLIO",
+                resource=resource,
+                source_id=source_id,
+                target_entity=target_entity,
+                target_id=target_id,
+                source_fingerprint=f"seed-{resource}-{source_id}",
+            )
+        )
+    db.commit()
+    return prop, unit, account
+
+
+def test_appfolio_general_ledger_csv_staging_preserves_verified_source_evidence_and_replays():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="General Ledger Stage Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="general-ledger-stage",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _seed_general_ledger_source_mappings(db, run=run, org=org)
+        before_gl = db.query(GLTransaction).count()
+        before_charges = db.query(Charge).count()
+        before_accounts = db.query(GLAccount).count()
+
+        content = (
+            "LineItemId,TransactionId,GlAccountId,PropertyId,UnitId,Date,Debit,Credit,"
+            "Description,Reference,Remarks,TransactionType\n"
+            "LINE-1,TX-100,GL-4100,PROP-GL-1,UNIT-GL-1,2026-01-15,0.00,1250.00,"
+            "January rent,RCP-100,Imported source evidence,Receipt\n"
+        ).encode()
+
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("general-ledger.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert upload.detected_resource == "GENERAL_LEDGER"
+        assert upload.status == "REVIEW_REQUIRED"
+        assert upload.validation_summary["general_ledger_rows"] == 1
+        assert upload.validation_summary["missing_general_ledger_line_ids"] == 0
+        assert upload.validation_summary["unresolved_general_ledger_gl_accounts"] == 0
+        assert upload.validation_summary["accounting_history_mutation"] is False
+        assert upload.validation_summary["customer_accounting_mutation"] is False
+
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        assert row.resource == "GENERAL_LEDGER"
+        assert row.source_id == "LINE-1"
+        assert row.disposition == "REVIEW"
+        assert row.normalized_data["transaction_id"] == "TX-100"
+        assert row.normalized_data["source_gl_account_id"] == "GL-4100"
+        assert row.normalized_data["source_property_id"] == "PROP-GL-1"
+        assert row.normalized_data["source_unit_id"] == "UNIT-GL-1"
+        assert row.normalized_data["posted_date"] == "2026-01-15"
+        assert row.normalized_data["debit"] == "0.00"
+        assert row.normalized_data["credit"] == "1250.00"
+        assert row.normalized_data["transaction_type"] == "Receipt"
+        assert any("source evidence only" in warning for warning in row.warnings)
+        assert any("separate accounting-history reconciliation batch" in warning for warning in row.warnings)
+
+        replay = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("general-ledger-copy.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert replay.replayed is True
+        assert replay.id == upload.id
+        assert db.query(GLTransaction).count() == before_gl
+        assert db.query(Charge).count() == before_charges
+        assert db.query(GLAccount).count() == before_accounts
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_general_ledger_xlsx_detects_verified_fields_and_flags_identity_relationship_issues():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="General Ledger XLSX Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="general-ledger-xlsx",
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        workbook = Workbook()
+        ws = workbook.active
+        ws.title = "General Ledger"
+        ws.append([
+            "LineItemId", "TransactionId", "GlAccountId", "PropertyId", "UnitId",
+            "Date", "Debit", "Credit", "Description", "Reference", "Remarks",
+            "TransactionType",
+        ])
+        ws.append([
+            None, "TX-MISSING", "GL-NOT-MAPPED", None, None,
+            "2026-02-01", "25.00", "0.00", "Repair", "BILL-1", None, "Bill",
+        ])
+        ws.append([
+            "LINE-DUP", "TX-1", "GL-NOT-MAPPED", None, None,
+            "2026-02-02", "10.00", "0.00", "Repair A", "BILL-2", None, "Bill",
+        ])
+        ws.append([
+            "LINE-DUP", "TX-2", "GL-NOT-MAPPED", None, None,
+            "2026-02-03", "15.00", "0.00", "Repair B", "BILL-3", None, "Bill",
+        ])
+        buffer = BytesIO()
+        workbook.save(buffer)
+        workbook.close()
+
+        before_gl = db.query(GLTransaction).count()
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("general-ledger.xlsx", buffer.getvalue()),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert upload.detected_resource == "GENERAL_LEDGER"
+        assert upload.validation_summary["general_ledger_rows"] == 3
+        assert upload.validation_summary["missing_general_ledger_line_ids"] == 1
+        assert upload.validation_summary["unresolved_general_ledger_gl_accounts"] == 2
+        assert upload.validation_summary["duplicates"] == 1
+
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+        assert rows[0].disposition == "REVIEW"
+        assert rows[0].source_id is None
+        assert any("LineItemId was not supplied" in warning for warning in rows[0].warnings)
+        assert any("GL Account relationship is unresolved" in warning for warning in rows[0].warnings)
+        assert rows[1].disposition == "REVIEW"
+        assert rows[2].disposition == "INVALID"
+        assert any("Duplicate AppFolio General Ledger LineItemId" in error for error in rows[2].errors)
+        assert db.query(GLTransaction).count() == before_gl
+    finally:
+        db.close()
+        engine.dispose()
