@@ -155,6 +155,8 @@ class AppFolioMigrationStagedRowOut(BaseModel):
     resolution_action: str | None = None
     resolution_target_id: int | None = None
     resolution_target_unit_id: int | None = None
+    resolution_target_owner_user_id: int | None = None
+    resolution_target_vendor_id: int | None = None
     resolved_by_platform_user_id: int | None = None
     resolved_at: datetime | None = None
     created_at: datetime
@@ -214,6 +216,36 @@ class AppFolioStagedUnitResolutionIn(BaseModel):
             raise ValueError("target_unit_id is required for MATCH_EXISTING")
         if self.action != "MATCH_EXISTING" and self.target_unit_id is not None:
             raise ValueError("target_unit_id is only valid for MATCH_EXISTING")
+        return self
+
+
+class AppFolioStagedOwnerResolutionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action: str = Field(pattern=r"^(MATCH_EXISTING|CREATE_NEW|SKIP)$")
+    target_owner_user_id: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def validate_target(self):
+        if self.action == "MATCH_EXISTING" and self.target_owner_user_id is None:
+            raise ValueError("target_owner_user_id is required for MATCH_EXISTING")
+        if self.action != "MATCH_EXISTING" and self.target_owner_user_id is not None:
+            raise ValueError("target_owner_user_id is only valid for MATCH_EXISTING")
+        return self
+
+
+class AppFolioStagedVendorResolutionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action: str = Field(pattern=r"^(MATCH_EXISTING|CREATE_NEW|SKIP)$")
+    target_vendor_id: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def validate_target(self):
+        if self.action == "MATCH_EXISTING" and self.target_vendor_id is None:
+            raise ValueError("target_vendor_id is required for MATCH_EXISTING")
+        if self.action != "MATCH_EXISTING" and self.target_vendor_id is not None:
+            raise ValueError("target_vendor_id is only valid for MATCH_EXISTING")
         return self
 
 
