@@ -1,3 +1,60 @@
+# AI_HANDOFF.md — 2026-10-02 PHASE 4.13 GL ACCOUNT STAGING VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `d7e54d816c7ba4e58d0f1eee297819f363eb0a9d`.
+- GitHub Actions run: `37035944867` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **925 passed, 21 deselected, 24536 warnings in 418.99s**.
+- Authenticated E2E: **21 passed, 278 warnings in 100.27s**.
+- Alembic head remains `f58a2c4d6e91`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified GL Accounts CSV/XLSX staging
+
+1. Shared ingestion detects `GL_ACCOUNTS` only when Number, Name and Type are present.
+2. CSV and XLSX staging preserve supplied stable GL Account ID plus account number/code, name, AppFolio type and verified source-only Fund/corporate/parent/offset/property/update fields.
+3. Missing stable GL Account ID remains REVIEW; account number/name/type are not promoted to source identity.
+4. Duplicate supplied GL Account IDs and duplicate number/name/type source rows fail closed.
+5. AppFolio Type/FundAccount and related source fields are preserved as evidence only and are not translated into target GL classification, key-account roles or posting behavior.
+6. Upload replay remains normalized-fingerprint idempotent.
+7. The batch creates or updates zero GLAccount, AccountingKeyAccount, journal entry, GL transaction or accounting-balance records.
+8. No AppFolio API transport, navigation change or general UX work was added.
+
+Implementation commits:
+- `44a5d9221be468799d6485f1766e1f5c52006032` — shared GL Account staging support.
+- `705c65708898c27bd7de7302abf2cfb5fc70300c` — focused CSV/XLSX staging regressions.
+- `d7e54d816c7ba4e58d0f1eee297819f363eb0a9d` — verified source-contract documentation; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Add **staged GL Account reconciliation only** using the existing shared review architecture.
+
+Required boundaries:
+
+1. Add a typed GL Account resolution target; do not reuse Property/Unit/User resolution fields.
+2. Reconcile only already-staged `GL_ACCOUNTS` rows.
+3. Permit explicit `MATCH_EXISTING` only to an active same-organization GLAccount, or explicit `SKIP`.
+4. Rows without a stable source GL Account ID may only be skipped; never synthesize identity from account number or name.
+5. Do not translate AppFolio account Type/FundAccount into target account_type or key-account semantics during reconciliation.
+6. Resolution changes must be audited, invalidate prior dry-run state and participate in the shared staged-review fingerprint.
+7. Repeated identical resolution must be idempotent.
+8. Create/update zero GLAccount, AccountingKeyAccount, journal entry, GL transaction or balance records.
+9. Do not start accounting-history migration or GL controlled commit until reconciliation is independently verified.
+
+---
+
 # AI_HANDOFF.md — 2026-10-02 PHASE 4.13 LEASE/OCCUPANCY RECONCILIATION VERIFIED
 
 ## Current verified product checkpoint
