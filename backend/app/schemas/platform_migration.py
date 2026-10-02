@@ -396,6 +396,49 @@ class AppFolioTenantCommitOut(BaseModel):
     rows: list[AppFolioTenantCommitRow]
 
 
+class AppFolioGLAccountPreviewRow(BaseModel):
+    source_id: str | None
+    importable: bool
+    reason: str | None
+    mapped: dict[str, Any] | None
+    warnings: list[str] = Field(default_factory=list)
+
+
+class AppFolioGLAccountDryRunOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    fingerprint: str
+    replayed: bool
+    total: int
+    importable: int
+    invalid: int
+    warning_count: int
+    rows: list[AppFolioGLAccountPreviewRow]
+
+
+class AppFolioStagedGLAccountCommitIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class AppFolioGLAccountCommitRow(BaseModel):
+    source_id: str
+    target_gl_account_id: int
+    replayed: bool
+
+
+class AppFolioGLAccountCommitOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    fingerprint: str
+    replayed: bool
+    mapped_existing: int
+    warning_count: int
+    rows: list[AppFolioGLAccountCommitRow]
+
+
 class AppFolioVendorPreviewRow(BaseModel):
     source_id: str | None
     importable: bool
