@@ -1,3 +1,64 @@
+# AI_HANDOFF.md — 2026-10-02 PHASE 4.13 GL ACCOUNT RECONCILIATION VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `9b2523db5e0a2e561f61b47d7aebd7d76212ca89`.
+- GitHub Actions run: `37050387343` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **928 passed, 21 deselected, 24585 warnings in 420.98s**.
+- Authenticated E2E: **21 passed, 278 warnings in 116.94s**.
+- Alembic head: `0a7c4e9f2b61`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified staged GL Account reconciliation
+
+1. Reconciliation operates only on already-staged `GL_ACCOUNTS` rows.
+2. A dedicated typed `resolution_target_gl_account_id` foreign key now records explicit GL Account matches; Property/Unit/User/Vendor resolution fields are not reused.
+3. `MATCH_EXISTING` requires a stable source GL Account ID and an active, nondeleted same-organization target GLAccount.
+4. Rows without a stable source GL Account ID may only be explicitly SKIPped; account number/name never become synthesized source identity.
+5. INVALID rows and already-mapped rows cannot be manually re-resolved.
+6. AppFolio Type/FundAccount source values are not translated into target `account_type`, key-account roles or posting behavior.
+7. Resolution changes participate in the shared staged-review fingerprint and invalidate prior run dry-run state.
+8. Repeating the identical resolution is idempotent and does not duplicate audit activity.
+9. Resolution changes are audited with explicit no-overwrite/no-classification/no-accounting-mutation metadata.
+10. The batch creates or updates zero GLAccount, AccountingKeyAccount, journal entry, GL transaction or accounting-balance records.
+
+Implementation commits:
+- `ae6a0d84b37dcc4e4497162f9e29cd44cfb34e80` — typed GLAccount staged resolution target.
+- `48a0dbf48940e9e436da7d8aa6c68ad614e0bcb9` — migration `0a7c4e9f2b61`.
+- `6ff40f11c19da34a2a8c015ccf37d142b73e0500` — reconciliation schema.
+- `6a2ecd76943a9379ad6683aeb550b839f1cd56e3` — resolver, scope checks, audit and fingerprint binding.
+- `9b2523db5e0a2e561f61b47d7aebd7d76212ca89` — focused regressions; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Add **GL Account staged dry-run + controlled durable mapping commit** using the existing exact-fingerprint migration architecture.
+
+Required boundaries:
+
+1. Operate only on already-staged `GL_ACCOUNTS` rows.
+2. Only explicit `MATCH_EXISTING` rows may become new durable mappings in this batch; SKIP remains excluded.
+3. Do not create or update GLAccount records. Existing target account number/name/type remain untouched.
+4. Revalidate every matched target as active, nondeleted and same-organization at dry-run/commit time.
+5. Existing durable `GL_ACCOUNTS -> GL_ACCOUNT` mappings may replay only when the target is still valid.
+6. Bind staged review state to the exact dry-run fingerprint; any changed resolution or source fingerprint makes commit stale.
+7. Commit persists only `PlatformMigrationItem` source-to-target mappings and must be replay/idempotency safe.
+8. Do not mutate AccountingKeyAccount, journal entries, GL transactions, balances or accounting history.
+9. Do not begin General Ledger/history source ingestion until this mapping commit is independently verified.
+
+---
+
 # AI_HANDOFF.md — 2026-10-02 PHASE 4.13 GL ACCOUNT STAGING VERIFIED
 
 ## Current verified product checkpoint
