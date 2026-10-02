@@ -46,13 +46,18 @@ from app.schemas.platform_migration import (
     AppFolioStagedVendorResolutionIn,
     AppFolioUnitCommitOut,
     AppFolioUnitDryRunOut,
+    AppFolioStagedVendorCommitIn,
+    AppFolioVendorCommitOut,
+    AppFolioVendorDryRunOut,
 )
 from app.services.appfolio_migration import (
     AppFolioMigrationError,
     commit_properties,
     commit_units,
+    commit_vendors,
     dry_run_properties,
     dry_run_units,
+    dry_run_vendors,
 )
 from app.services.appfolio_file_ingestion import (
     MAX_FILE_BYTES,
@@ -798,6 +803,129 @@ def _staged_unit_state(
     return records, resolved_existing, force_create_new, relationship_fingerprint
 
 
+def _staged_vendor_state(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    upload: PlatformMigrationUpload,
+) -> tuple[list[dict[str, object]], dict[str, int], set[str], str]:
+    if upload.detected_resource != "VENDORS":
+        raise HTTPException(
+            status_code=409,
+            detail="Staged upload must be resolved to VENDORS before Vendor dry run.",
+        )
+    rows = (
+        db.query(PlatformMigrationStagedRow)
+        .filter(
+            PlatformMigrationStagedRow.upload_id == upload.id,
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "APPFOLIO",
+            PlatformMigrationStagedRow.resource == "VENDORS",
+        )
+        .order_by(
+            PlatformMigrationStagedRow.row_number.asc(),
+            PlatformMigrationStagedRow.id.asc(),
+        )
+        .all()
+    )
+    if not rows:
+        raise HTTPException(status_code=409, detail="Staged upload has no Vendor rows.")
+
+    blocking: list[PlatformMigrationStagedRow] = []
+    for row in rows:
+        if row.errors or row.disposition == "INVALID":
+            blocking.append(row)
+        elif row.disposition == "POSSIBLE_MATCH" and row.resolution_action not in {
+            "MATCH_EXISTING", "CREATE_NEW", "SKIP",
+        }:
+            blocking.append(row)
+        elif row.disposition == "REVIEW" and row.resolution_action != "SKIP":
+            blocking.append(row)
+        elif row.disposition == "ALREADY_MAPPED" and row.resolution_action is not None:
+            blocking.append(row)
+        elif row.resolution_action == "CREATE_NEW" and row.disposition != "POSSIBLE_MATCH":
+            blocking.append(row)
+    if blocking:
+        counts: dict[str, int] = {}
+        for row in blocking:
+            counts[row.disposition] = counts.get(row.disposition, 0) + 1
+        detail = ", ".join(f"{key}={counts[key]}" for key in sorted(counts))
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Staged Vendor dry run is blocked by unresolved rows: "
+                f"{detail}. Resolve staged Vendor validation/match decisions before continuing."
+            ),
+        )
+
+    records: list[dict[str, object]] = []
+    resolved_existing: dict[str, int] = {}
+    force_create_new: set[str] = set()
+    for row in rows:
+        if row.resolution_action == "SKIP":
+            continue
+        data = dict(row.normalized_data or {})
+        source_id = row.source_id or data.get("source_id")
+        company_name = data.get("company_name")
+        if not source_id or not company_name:
+            raise HTTPException(
+                status_code=409,
+                detail="Staged Vendor row lacks durable Vendor source identity or company name.",
+            )
+        source_key = str(source_id).strip()
+        if row.resolution_action == "MATCH_EXISTING":
+            if row.resolution_target_vendor_id is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Resolved staged Vendor match is missing its Vendor target.",
+                )
+            target = (
+                db.query(Vendor)
+                .filter(
+                    Vendor.id == row.resolution_target_vendor_id,
+                    Vendor.organization_id == run.organization_id,
+                    Vendor.is_active.is_(True),
+                    Vendor.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Resolved staged Vendor target is no longer active in this organization.",
+                )
+            resolved_existing[source_key] = target.id
+        elif row.resolution_action == "CREATE_NEW":
+            force_create_new.add(source_key)
+
+        records.append({
+            "Vendor ID": source_key,
+            "Company Name": company_name,
+            "Email": data.get("email"),
+            "Address": data.get("address"),
+            "Phone Numbers": data.get("phone_numbers"),
+            "Send 1099?": data.get("send_1099"),
+            "Liability Insurance Expiration": data.get("liability_insurance_expiration"),
+            "Workers Comp Expiration": data.get("workers_comp_expiration"),
+            "EPA Certification Expiration": data.get("epa_certification_expiration"),
+            "State License Expiration": data.get("state_license_expiration"),
+            "Contract Expiration": data.get("contract_expiration"),
+        })
+
+    if not records:
+        raise HTTPException(
+            status_code=409,
+            detail="No staged Vendor rows remain after explicit skip decisions.",
+        )
+    return (
+        records,
+        resolved_existing,
+        force_create_new,
+        _staged_review_fingerprint(upload, rows),
+    )
+
+
 @router.post(
     "/runs/{run_id}/uploads/{upload_id}/rows/{staged_row_id}/resolution",
     response_model=AppFolioMigrationStagedRowOut,
@@ -1466,6 +1594,141 @@ def commit_staged_appfolio_units(
         ) from exc
 
     return AppFolioUnitCommitOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        committed=result.committed,
+        matched_existing=result.matched_existing,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/vendors/dry-run",
+    response_model=AppFolioVendorDryRunOut,
+)
+def dry_run_staged_appfolio_vendors(
+    run_id: int,
+    upload_id: int,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    records, resolved_existing, force_create_new, review_fingerprint = _staged_vendor_state(
+        db, run=run, upload=upload
+    )
+    try:
+        result = dry_run_vendors(
+            db,
+            run=run,
+            records=records,
+            source_context_fingerprint=review_fingerprint,
+            resolved_existing_matches=resolved_existing,
+            force_create_new_source_ids=force_create_new,
+        )
+    except AppFolioMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=run.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=run.id,
+            action="appfolio_staged_vendors_dry_run",
+            new_value={
+                "upload_id": upload.id,
+                "source_context_fingerprint": review_fingerprint,
+                "dry_run_fingerprint": result.fingerprint,
+                **result.summary,
+                "raw_file_stored": False,
+                "target_mutation": False,
+            },
+        )
+        db.commit()
+        db.refresh(run)
+    return AppFolioVendorDryRunOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        importable=result.importable,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/vendors/commit",
+    response_model=AppFolioVendorCommitOut,
+)
+def commit_staged_appfolio_vendors(
+    run_id: int,
+    upload_id: int,
+    payload: AppFolioStagedVendorCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    records, resolved_existing, force_create_new, review_fingerprint = _staged_vendor_state(
+        db, run=run, upload=upload
+    )
+    try:
+        result = commit_vendors(
+            db,
+            run=run,
+            records=records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            source_context_fingerprint=review_fingerprint,
+            resolved_existing_matches=resolved_existing,
+            force_create_new_source_ids=force_create_new,
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=run.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=run.id,
+                action="appfolio_staged_vendors_committed",
+                new_value={
+                    "upload_id": upload.id,
+                    "source_context_fingerprint": review_fingerprint,
+                    "fingerprint": result.fingerprint,
+                    "committed": result.committed,
+                    "matched_existing": result.matched_existing,
+                    "warning_count": result.warning_count,
+                    "target_vendor_ids": [
+                        item["target_vendor_id"] for item in result.rows
+                    ],
+                    "raw_file_stored": False,
+                    "target_overwrite": False,
+                    "provider_credentials_stored": False,
+                },
+            )
+        db.commit()
+        db.refresh(run)
+    except AppFolioMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Vendor commit conflicted with an existing target or migration mapping.",
+        ) from exc
+
+    return AppFolioVendorCommitOut(
         run_id=run.id,
         organization_id=run.organization_id,
         provider=run.provider,
