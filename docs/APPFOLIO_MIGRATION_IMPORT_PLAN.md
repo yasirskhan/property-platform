@@ -201,6 +201,36 @@ Safety boundaries for this first GL Accounts batch:
 9. GL Account reconciliation and controlled commit require a separate verified
    batch before any accounting-history migration may begin.
 
+## 4.13 GL Account reconciliation + controlled existing-account mapping
+
+After GL Account staging is verified, operators may explicitly reconcile a
+stable AppFolio GL Account ID to an existing active same-organization target
+GLAccount.
+
+This reconciliation/commit contract is intentionally mapping-only:
+
+1. `MATCH_EXISTING` requires a supplied stable source GL Account ID and a
+   reviewed existing target GLAccount; source account number/name are never
+   promoted into durable identity.
+2. `SKIP` excludes the staged row. Missing-source-ID rows may only be skipped.
+3. Target GLAccount number, name, account_type, hierarchy, offsets and posting
+   flags remain untouched.
+4. AppFolio Type/FundAccount/corporate/parent/offset/property fields remain
+   source evidence and are not translated into target accounting semantics.
+5. Dry run revalidates active same-organization targets and binds the shared
+   staged-review fingerprint.
+6. Controlled commit persists only a replay-safe
+   `PlatformMigrationItem(resource="GL_ACCOUNTS", target_entity="GL_ACCOUNT")`
+   source-to-target mapping.
+7. Repeating the identical commit does not duplicate mappings or mutate the
+   target account.
+8. Any changed review resolution invalidates the prior dry-run fingerprint.
+9. This step creates or updates zero GLAccount, AccountingKeyAccount, journal
+   entry, GL transaction, balance or accounting-history records.
+
+Only after this mapping contract is independently verified may Phase 4.13 begin
+General Ledger/history source ingestion and accounting reconciliation.
+
 ## 5. File/report detection and column mapping
 
 The same AppFolio concept may arrive under different header spellings or export
