@@ -445,6 +445,28 @@ class AppFolioGLAccountCommitOut(BaseModel):
     rows: list[AppFolioGLAccountCommitRow]
 
 
+class AppFolioGeneralLedgerPreviewRow(BaseModel):
+    source_id: str
+    importable: bool = True
+    reason: str | None = None
+    source_evidence: dict[str, Any]
+    resolved_targets: dict[str, int | None]
+    warnings: list[str] = Field(default_factory=list)
+
+
+class AppFolioGeneralLedgerDryRunOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    fingerprint: str
+    replayed: bool
+    total: int
+    importable: int
+    invalid: int
+    warning_count: int
+    rows: list[AppFolioGeneralLedgerPreviewRow]
+
+
 class AppFolioVendorPreviewRow(BaseModel):
     source_id: str | None
     importable: bool
