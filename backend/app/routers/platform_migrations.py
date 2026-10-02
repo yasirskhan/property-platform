@@ -55,6 +55,7 @@ from app.schemas.platform_migration import (
     AppFolioStagedGLAccountCommitIn,
     AppFolioGLAccountCommitOut,
     AppFolioGLAccountDryRunOut,
+    AppFolioGeneralLedgerDryRunOut,
     AppFolioStagedTenantCommitIn,
     AppFolioTenantCommitOut,
     AppFolioTenantDryRunOut,
@@ -1265,6 +1266,263 @@ def _staged_gl_account_state(
             detail="No staged GL Account rows remain after explicit skip decisions.",
         )
     return records, resolved_existing, _staged_review_fingerprint(upload, rows)
+
+
+def _staged_general_ledger_dry_run_state(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    upload: PlatformMigrationUpload,
+) -> tuple[list[dict[str, object]], str, dict[str, int]]:
+    if upload.detected_resource != "GENERAL_LEDGER":
+        raise HTTPException(
+            status_code=409,
+            detail="Staged upload must be GENERAL_LEDGER before ledger dry run.",
+        )
+    rows = (
+        db.query(PlatformMigrationStagedRow)
+        .filter(
+            PlatformMigrationStagedRow.upload_id == upload.id,
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "APPFOLIO",
+            PlatformMigrationStagedRow.resource == "GENERAL_LEDGER",
+        )
+        .order_by(
+            PlatformMigrationStagedRow.row_number.asc(),
+            PlatformMigrationStagedRow.id.asc(),
+        )
+        .all()
+    )
+    if not rows:
+        raise HTTPException(status_code=409, detail="Staged upload has no General Ledger rows.")
+
+    blocking = [
+        row
+        for row in rows
+        if row.errors
+        or row.disposition == "INVALID"
+        or (
+            row.disposition == "REVIEW"
+            and row.resolution_action not in {"ACCEPT_RELATIONSHIP", "SKIP"}
+        )
+    ]
+    if blocking:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "General Ledger dry run is blocked by invalid or unresolved staged rows."
+            ),
+        )
+
+    previews: list[dict[str, object]] = []
+    relationship_links: list[dict[str, object]] = []
+    skipped = 0
+    for row in rows:
+        if row.resolution_action == "SKIP":
+            skipped += 1
+            continue
+        if row.resolution_action != "ACCEPT_RELATIONSHIP" or not row.source_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Every retained General Ledger row must have stable LineItemId identity and explicit ACCEPT_RELATIONSHIP review.",
+            )
+
+        data = dict(row.normalized_data or {})
+        source_gl = str(data.get("source_gl_account_id") or "").strip()
+        source_property = str(data.get("source_property_id") or "").strip()
+        source_unit = str(data.get("source_unit_id") or "").strip()
+        gl_mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "APPFOLIO",
+                PlatformMigrationItem.resource == "GL_ACCOUNTS",
+                PlatformMigrationItem.source_id == source_gl,
+            )
+            .first()
+        )
+        if (
+            gl_mapping is None
+            or gl_mapping.target_entity != "GL_ACCOUNT"
+            or row.resolution_target_gl_account_id != gl_mapping.target_id
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="Accepted General Ledger GL Account relationship is stale or inconsistent.",
+            )
+        target_gl = (
+            db.query(GLAccount)
+            .filter(
+                GLAccount.id == gl_mapping.target_id,
+                GLAccount.organization_id == run.organization_id,
+                GLAccount.is_active.is_(True),
+                GLAccount.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if target_gl is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Accepted General Ledger GL Account target is no longer active.",
+            )
+
+        target_property_id = None
+        property_mapping_fingerprint = None
+        if source_property:
+            mapping = (
+                db.query(PlatformMigrationItem)
+                .filter(
+                    PlatformMigrationItem.run_id == run.id,
+                    PlatformMigrationItem.organization_id == run.organization_id,
+                    PlatformMigrationItem.provider == "APPFOLIO",
+                    PlatformMigrationItem.resource == "PROPERTIES",
+                    PlatformMigrationItem.source_id == source_property,
+                )
+                .first()
+            )
+            if (
+                mapping is None
+                or mapping.target_entity != "PROPERTY"
+                or row.resolution_target_id != mapping.target_id
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Accepted General Ledger Property relationship is stale or inconsistent.",
+                )
+            target_property = (
+                db.query(Property)
+                .filter(
+                    Property.id == mapping.target_id,
+                    Property.organization_id == run.organization_id,
+                    Property.is_active.is_(True),
+                    Property.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target_property is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Accepted General Ledger Property target is no longer active.",
+                )
+            target_property_id = target_property.id
+            property_mapping_fingerprint = mapping.source_fingerprint
+
+        target_unit_id = None
+        unit_mapping_fingerprint = None
+        if source_unit:
+            mapping = (
+                db.query(PlatformMigrationItem)
+                .filter(
+                    PlatformMigrationItem.run_id == run.id,
+                    PlatformMigrationItem.organization_id == run.organization_id,
+                    PlatformMigrationItem.provider == "APPFOLIO",
+                    PlatformMigrationItem.resource == "UNITS",
+                    PlatformMigrationItem.source_id == source_unit,
+                )
+                .first()
+            )
+            if (
+                mapping is None
+                or mapping.target_entity != "UNIT"
+                or row.resolution_target_unit_id != mapping.target_id
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Accepted General Ledger Unit relationship is stale or inconsistent.",
+                )
+            target_unit = (
+                db.query(Unit)
+                .join(Property, Property.id == Unit.property_id)
+                .filter(
+                    Unit.id == mapping.target_id,
+                    Unit.is_active.is_(True),
+                    Unit.deleted_at.is_(None),
+                    Property.organization_id == run.organization_id,
+                    Property.is_active.is_(True),
+                    Property.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target_unit is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Accepted General Ledger Unit target is no longer active.",
+                )
+            if target_property_id is not None and target_unit.property_id != target_property_id:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Accepted General Ledger Unit no longer belongs to the accepted Property.",
+                )
+            target_unit_id = target_unit.id
+            unit_mapping_fingerprint = mapping.source_fingerprint
+
+        relationship_links.append(
+            {
+                "source_line_item_id": row.source_id,
+                "source_gl_account_id": source_gl,
+                "target_gl_account_id": target_gl.id,
+                "gl_mapping_fingerprint": gl_mapping.source_fingerprint,
+                "source_property_id": source_property or None,
+                "target_property_id": target_property_id,
+                "property_mapping_fingerprint": property_mapping_fingerprint,
+                "source_unit_id": source_unit or None,
+                "target_unit_id": target_unit_id,
+                "unit_mapping_fingerprint": unit_mapping_fingerprint,
+            }
+        )
+        previews.append(
+            {
+                "source_id": row.source_id,
+                "source_evidence": {
+                    "transaction_id": data.get("transaction_id"),
+                    "posted_date": data.get("posted_date"),
+                    "debit": data.get("debit"),
+                    "credit": data.get("credit"),
+                    "description": data.get("description"),
+                    "reference": data.get("reference"),
+                    "remarks": data.get("remarks"),
+                    "transaction_type": data.get("transaction_type"),
+                    "source_gl_account_id": source_gl,
+                    "source_property_id": source_property or None,
+                    "source_unit_id": source_unit or None,
+                },
+                "resolved_targets": {
+                    "gl_account_id": target_gl.id,
+                    "property_id": target_property_id,
+                    "unit_id": target_unit_id,
+                },
+                "warnings": [
+                    "Dry run is review-only: no balancing, posting, netting, target transaction grouping, payer/payee inference or accounting mutation occurs."
+                ],
+            }
+        )
+
+    if not previews:
+        raise HTTPException(
+            status_code=409,
+            detail="General Ledger dry run requires at least one accepted staged row.",
+        )
+
+    canonical = {
+        "staged_review_fingerprint": _staged_review_fingerprint(upload, rows),
+        "relationship_links": sorted(
+            relationship_links,
+            key=lambda item: str(item["source_line_item_id"]),
+        ),
+    }
+    fingerprint = hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    counts = {
+        "total": len(previews),
+        "importable": len(previews),
+        "invalid": 0,
+        "warning_count": len(previews),
+        "skipped": skipped,
+    }
+    return previews, fingerprint, counts
 
 
 def _staged_vendor_state(
