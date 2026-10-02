@@ -808,6 +808,10 @@ def dry_run_units(
                 row_warnings.append(
                     f"Possible existing target unit match: local unit #{existing.id}; explicit match resolution is required before commit."
                 )
+            elif source_id in force_create_new_source_ids:
+                row_warnings.append(
+                    "Explicit CREATE_NEW resolution accepted for a reviewed same-property possible match; no existing Unit will be overwritten."
+                )
 
         # The verified basic Unit Directory source contract does not require
         # layout/rent fields. Existing Unit defaults may therefore apply, but
