@@ -158,6 +158,7 @@ class AppFolioMigrationStagedRowOut(BaseModel):
     resolution_target_owner_user_id: int | None = None
     resolution_target_vendor_id: int | None = None
     resolution_target_tenant_user_id: int | None = None
+    resolution_target_gl_account_id: int | None = None
     resolved_by_platform_user_id: int | None = None
     resolved_at: datetime | None = None
     created_at: datetime
@@ -254,6 +255,21 @@ class AppFolioStagedLeaseOccupancyResolutionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     action: str = Field(pattern=r"^(ACCEPT_RELATIONSHIP|SKIP)$")
+
+
+class AppFolioStagedGLAccountResolutionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action: str = Field(pattern=r"^(MATCH_EXISTING|SKIP)$")
+    target_gl_account_id: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def validate_target(self):
+        if self.action == "MATCH_EXISTING" and self.target_gl_account_id is None:
+            raise ValueError("target_gl_account_id is required for MATCH_EXISTING")
+        if self.action != "MATCH_EXISTING" and self.target_gl_account_id is not None:
+            raise ValueError("target_gl_account_id is only valid for MATCH_EXISTING")
+        return self
 
 
 class AppFolioStagedVendorResolutionIn(BaseModel):
