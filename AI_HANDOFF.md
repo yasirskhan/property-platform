@@ -1,3 +1,61 @@
+# AI_HANDOFF.md — 2026-10-03 PHASE 4.13 BILLS CSV/XLSX STAGING VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Bills staging product/test SHA: `9158009acdb5dfdba9c409a034e61890841ac1a0`.
+- Exact green checkpoint SHA: `86b7c2cf38219a67edc67b60230acb591fa2b903`.
+- GitHub Actions run: `37092441697` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **943 passed, 21 deselected, 24903 warnings in 262.49s**.
+- Authenticated E2E: **21 passed, 278 warnings in 112.78s**.
+- Alembic head remains `0a7c4e9f2b61`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Bills / Payables CSV/XLSX staging
+
+1. Shared AppFolio CSV/XLSX ingestion now supports explicit/auto-detected `BILLS` top-level source records.
+2. Automatic detection requires a stable supplied Bill ID plus VendorId, DueDate and TotalAmount. Explicit BILLS staging may preserve a missing Bill ID for REVIEW/SKIP but never synthesizes identity.
+3. Top-level source fields are preserved as source evidence only: Bill ID, VendorId, PropertyId, due/invoice/posting dates, reference, remarks, TotalAmount, ApprovalStatus, CheckMemo, AccountNumber, ManagementCompanyAsPayee, WorkOrderId and LastUpdatedAt when supplied.
+4. Vendor relationship is considered resolved only through the existing durable `VENDORS -> VENDOR` source mapping and an active same-organization Vendor.
+5. Optional Property relationship is considered resolved only through the durable `PROPERTIES -> PROPERTY` mapping and an active same-organization Property.
+6. Duplicate supplied Bill IDs within one staged upload fail closed.
+7. TotalAmount must be numeric/nonnegative source evidence; no paid/unpaid, approval, check/payment, AP, GL posting or accounting state is inferred.
+8. WorkOrderId remains source evidence only; no Work Order relationship is inferred without a durable migration mapping.
+9. Upload/parser staging creates or updates zero Bill, BillLine, Check, Vendor, WorkOrder, GLTransaction, GLEntry, Charge or accounting-balance records.
+10. CSV/XLSX replay remains normalized-fingerprint idempotent and XLSX source cell representation is preserved rather than silently retyped.
+11. Initial CI run `37065183863` exposed two focused test expectation defects; scoped correction `9158009acdb5dfdba9c409a034e61890841ac1a0` aligned assertions with the verified staging contract.
+12. During verification, GitHub published high-severity `GHSA-vfj7-8cjw-p6xm` for the dev-only `braces` package with no patched npm release. Checkpoint `86b7c2cf38219a67edc67b60230acb591fa2b903` preserves high/critical npm auditing and allows only that exact advisory when every affected package node is dev-only; all other high/critical findings still fail CI.
+
+## Exact next Phase 4.13 product batch
+
+Add **staged Bills relationship reconciliation only** using the existing staged-row review/fingerprint/audit architecture.
+
+Required boundaries:
+
+1. Reconcile only already-staged `BILLS` rows; never accept arbitrary Bill payloads.
+2. `ACCEPT_RELATIONSHIP` requires a supplied stable Bill source ID. Rows without Bill ID may only remain REVIEW or be explicitly `SKIP`ped.
+3. Revalidate the current durable Vendor source mapping to an active same-organization Vendor before acceptance.
+4. If PropertyId is supplied, revalidate its durable mapping to an active same-organization Property before acceptance.
+5. Snapshot only the already-verified typed target Vendor/Property IDs on the staged row; do not create Bill/accounting records.
+6. INVALID rows remain non-resolvable; unresolved REVIEW rows may be explicitly SKIPped.
+7. Resolution changes must be audited, participate in the shared staged-review fingerprint and invalidate prior dry-run state.
+8. Repeating an identical accepted resolution must be idempotent.
+9. Create/update zero Bill, BillLine, Check, Vendor, WorkOrder, GLTransaction, GLEntry, Charge or accounting-balance records.
+10. Bills dry-run/controlled commit remain separate later verified batches. AppFolio API transport and general UX remain out of scope.
+
+---
+
 # AI_HANDOFF.md — 2026-10-02 PHASE 4.13 GENERAL LEDGER COMMIT-READINESS VERIFIED
 
 ## Current verified product checkpoint
