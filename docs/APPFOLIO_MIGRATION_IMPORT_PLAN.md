@@ -465,27 +465,72 @@ Safety boundaries for this staging batch:
     are not persisted.
 11. AppFolio API transport and general UX remain out of scope.
 
-### Work Orders staged relationship reconciliation — next
+### Work Orders staged relationship reconciliation
 
-The next bounded batch may add explicit review actions over already-staged
-`WORK_ORDERS` rows only.
+Verified staged review may explicitly `ACCEPT_RELATIONSHIP` or `SKIP`
+already-staged `WORK_ORDERS` rows only.
 
-Required boundaries:
+Safety boundaries:
 
 1. A row without stable source Work Order `Id` may only be `SKIP`ped.
-2. `ACCEPT_RELATIONSHIP` may snapshot only revalidated durable target
-   Property, optional Unit and optional Vendor relationships.
+2. `ACCEPT_RELATIONSHIP` snapshots only revalidated durable target Property,
+   optional Unit and optional Vendor relationships.
 3. If source PropertyId/UnitId/VendorId is supplied but unresolved, acceptance
-   must fail closed rather than dropping the source relation.
-4. Unit -> Property consistency must be revalidated at review time.
+   fails closed rather than dropping the source relation.
+4. Unit -> Property consistency is revalidated at review time.
 5. AssignedUsers, workflow status, priority, dates, permission-to-enter and
    VendorTrade remain source evidence only.
-6. Resolution changes must invalidate prior dry-run state, participate in the
-   shared staged-review fingerprint and be append-only audited.
-7. Exact replay of the same accepted relationship must be idempotent.
-8. No WorkOrder or accounting record may be created or updated in this
-   reconciliation batch.
+6. Resolution changes invalidate prior dry-run state, participate in the shared
+   staged-review fingerprint and are append-only audited.
+7. Exact replay of the same accepted relationship is idempotent.
+8. No WorkOrder or accounting record is created or updated by reconciliation.
 
+### Work Orders staged dry run
+
+The verified dry run operates only after explicit staged reconciliation.
+
+Safety boundaries:
+
+1. Retained rows require stable supplied Work Order identity and explicit
+   `ACCEPT_RELATIONSHIP`; `SKIP` rows are excluded and unresolved/INVALID
+   rows block the dry run.
+2. Current durable Property mapping plus any supplied Unit/Vendor mappings are
+   revalidated to active same-organization targets and must still match the
+   reviewed target snapshots.
+3. Unit -> Property consistency is revalidated.
+4. The dry-run fingerprint binds the shared staged-review fingerprint plus the
+   current source fingerprints/target IDs of every accepted relationship.
+5. Work Order Id, PropertyId, UnitId, VendorId, AssignedUsers, Status,
+   JobDescription, CanceledOn, CompletedOn, PermissionToEnter, Priority,
+   ScheduledStart, ScheduledEnd and VendorTrade remain source evidence only.
+6. Dry run creates or updates zero WorkOrder, Bill, Charge, GLTransaction,
+   GLEntry, inventory, purchase-order, vendor-payment or staff-assignment
+   records.
+7. It does not infer requester/tenant/occupancy identity, staff assignment
+   semantics, vendor contract, workflow-state translation,
+   completion/cancellation meaning or accounting effects.
+8. An empty accepted set is not commit-ready.
+9. Exact replay is idempotent and audited once.
+
+### Work Orders controlled-commit dependency
+
+Controlled commit is intentionally blocked by the current verified source and
+target contracts.
+
+Target `WorkOrder` requires a non-null target `unit_id` and `tenant_id`.
+The verified AppFolio Work Orders source contract may omit UnitId and does not
+provide a verified tenant/requester identity mapping. `AssignedUsers` is not
+tenant/requester identity and must not be substituted. Source Status/Priority
+values also are not translated into target workflow enums in this phase.
+
+Therefore do not create a target WorkOrder by inventing a tenant/requester,
+using a platform/customer staff user as a synthetic submitter, fabricating a
+Unit for property-only work, or translating workflow state by guess.
+
+After the Work Orders dry run is independently verified, continue with the
+shared migration coverage/completeness checklist from section 6 while
+Attachments/Documents source-schema evidence is researched. A document import
+resource must not be invented without a verified source/export contract.
 
 ## 5. File/report detection and column mapping
 
