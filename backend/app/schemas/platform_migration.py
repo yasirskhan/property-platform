@@ -141,6 +141,7 @@ class AppFolioMigrationCoverageItem(BaseModel):
     label: str
     state: str
     upload_count: int
+    mapping_count: int
     row_count: int
     latest_upload_status: str | None
     blockers: list[str] = Field(default_factory=list)
