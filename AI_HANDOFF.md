@@ -1,3 +1,72 @@
+# AI_HANDOFF.md — 2026-10-03 PHASE 4.13 BILLS STAGED DRY RUN VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `ab8a1b46c5211c4ca87df6a0be088e78b6ae1564`.
+- GitHub Actions run: `37095170716` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **949 passed, 21 deselected, 25017 warnings in 431.74s**.
+- Authenticated E2E: **21 passed, 278 warnings in 115.22s**.
+- Alembic head remains `0a7c4e9f2b61`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Bills staged dry run
+
+1. Dry run operates only on already-staged `BILLS` rows.
+2. Only explicit `ACCEPT_RELATIONSHIP` rows with stable Bill source ID participate; SKIP rows are excluded and unresolved/INVALID rows block readiness.
+3. Current durable Vendor and optional Property mappings are revalidated to active same-organization targets and must still match the snapped typed target IDs.
+4. Dry-run fingerprint binds the shared staged-review fingerprint plus current Vendor/Property mapping source fingerprints and target IDs.
+5. Due/invoice/posting dates, reference, remarks, TotalAmount, ApprovalStatus, CheckMemo, AccountNumber, ManagementCompanyAsPayee, WorkOrderId and LastUpdatedAt remain source evidence only.
+6. No approval, paid/unpaid state, check/payment linkage, GL allocation, Work Order linkage or posting semantics are inferred.
+7. Identical dry-run replay is idempotent and audited once; mapping-fingerprint changes produce a new dry-run fingerprint and stale/invalid relationships fail closed.
+8. The batch creates or updates zero Bill, BillLine, Check, Vendor, WorkOrder, GLTransaction, GLEntry, Charge or accounting-balance records.
+9. No AppFolio API transport, navigation change or general UX work was added.
+
+Implementation commits:
+- `2258047b98e5ba4e8863f12aefebc11cad6723b0` — Bills dry-run response schema.
+- `4456a51c98360183ae15f613dc9345903e90f84c` — exact Bills staged/mapping revalidation and dry-run route.
+- `ab8a1b46c5211c4ca87df6a0be088e78b6ae1564` — idempotency/staleness/non-mutation regressions; final VERIFIED PRODUCT SHA.
+
+## Bills controlled-commit dependency
+
+A target Bill cannot yet be safely created from this verified top-level source contract:
+
+- target `Bill` creation requires at least one explicit `BillLine` with a verified GL Account allocation;
+- the verified top-level Bills source contract intentionally does not flatten or infer structured line items;
+- target posting requires a deterministic Bill business date and central GL posting semantics; DueDate/InvoiceDate/PostingDate are preserved source evidence and are not interchangeable by assumption;
+- target `post_bill()` creates an accrual GL transaction immediately, so creating a Bill without verified source line allocations/date semantics would fabricate accounting history.
+
+Therefore **Bills controlled commit remains blocked on a separately verified source line-item/accounting contract**. Do not synthesize BillLine rows, GL accounts, payable/cash accounts, bill dates, payment status, or balancing entries.
+
+## Exact next Phase 4.13 product batch
+
+Proceed to the next independently safe accounting resource: **Charges / Receivables CSV/XLSX source-schema verification and staging support**, using the same shared migration architecture.
+
+Required boundaries:
+
+1. Verify an authoritative AppFolio source/export contract before adding automatic aliases.
+2. Reuse existing upload, detection, mapping, staging, validation, fingerprint, replay/idempotency, audit and recovery architecture.
+3. Preserve supplied stable source Charge/Receivable identity only; never synthesize identity from tenant/name/property/amount/date.
+4. Preserve source amount/date/description/status/reference and relationship IDs as evidence only unless the verified source contract proves their exact meaning.
+5. Relationship resolution may only use existing durable source mappings to active same-organization targets.
+6. First Charges/Receivables batch is staging only: create/update zero Charge, RentInvoice, Receipt, Payment, GLTransaction, GLEntry or customer balances.
+7. Do not infer paid/unpaid balance, rent-vs-charge classification, payer liability, GL posting, payment application or historical reconciliation.
+8. If no reliable source schema is available, record that resource-specific blocker and move to the next independently safe resource rather than inventing fields.
+9. AppFolio API transport and general UX remain out of scope.
+
+---
+
 # AI_HANDOFF.md — 2026-10-03 PHASE 4.13 BILLS RELATIONSHIP RECONCILIATION VERIFIED
 
 ## Current verified product checkpoint
