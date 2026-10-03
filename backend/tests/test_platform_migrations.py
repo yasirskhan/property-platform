@@ -7262,3 +7262,220 @@ def test_appfolio_bills_dry_run_blocks_unresolved_rows_and_empty_accepted_set():
     finally:
         db.close()
         engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio Charges / Receivables CSV/XLSX ingestion + staging
+# ---------------------------------------------------------------------------
+
+def test_appfolio_charges_csv_stages_source_evidence_without_receivable_mutation():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Charges Stage Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="charges-stage",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _prop, _unit, account = _seed_general_ledger_source_mappings(
+            db, run=run, org=org
+        )
+
+        before_charges = db.query(Charge).count()
+        before_gl = db.query(GLTransaction).count()
+
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "charges.csv",
+                    (
+                        "Id,AmountDue,ChargedOn,Description,GlAccountId,OccupancyId\n"
+                        "CHARGE-1,125.50,2026-09-10,Repair charge,GL-4100,OCC-100\n"
+                    ).encode(),
+                ),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert upload.detected_resource == "CHARGES"
+        assert upload.validation_summary["charge_rows"] == 1
+        assert upload.validation_summary["missing_charge_source_ids"] == 0
+        assert upload.validation_summary["unresolved_charge_gl_accounts"] == 0
+        assert upload.validation_summary["unresolved_charge_occupancies"] == 1
+        assert upload.validation_summary["charge_mutation"] is False
+        assert upload.validation_summary["payment_state_inferred"] is False
+        assert upload.validation_summary["tenant_liability_inferred"] is False
+
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        assert row.source_id == "CHARGE-1"
+        assert row.disposition == "REVIEW"
+        assert row.normalized_data == {
+            "source_id": "CHARGE-1",
+            "amount_due": "125.50",
+            "charged_on": "2026-09-10",
+            "description": "Repair charge",
+            "source_gl_account_id": "GL-4100",
+            "source_occupancy_id": "OCC-100",
+        }
+        assert any(
+            "GL Account relationship is durably mapped" in warning
+            for warning in row.warnings
+        )
+        assert any(
+            "OccupancyId is preserved as source evidence only" in warning
+            for warning in row.warnings
+        )
+        assert any(
+            "AmountDue is preserved as the source current outstanding amount"
+            in warning
+            for warning in row.warnings
+        )
+        assert account.is_active is True
+        assert db.query(Charge).count() == before_charges
+        assert db.query(GLTransaction).count() == before_gl
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_charges_explicit_missing_identity_and_duplicate_ids_fail_safe():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="Charges Guard Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="charges-guard",
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "charges-guard.csv",
+                    (
+                        "Id,AmountDue,ChargedOn,Description,GlAccountId,OccupancyId\n"
+                        ",50.00,2026-09-11,Missing ID,GL-NO-MAP,OCC-1\n"
+                        "CHARGE-DUP,60.00,2026-09-12,First duplicate,GL-NO-MAP,OCC-2\n"
+                        "CHARGE-DUP,70.00,2026-09-13,Second duplicate,GL-NO-MAP,OCC-3\n"
+                    ).encode(),
+                ),
+                resource="CHARGES",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+
+        assert upload.detected_resource == "CHARGES"
+        assert upload.validation_summary["charge_rows"] == 3
+        assert upload.validation_summary["missing_charge_source_ids"] == 1
+        assert upload.validation_summary["unresolved_charge_gl_accounts"] == 3
+        assert upload.validation_summary["unresolved_charge_occupancies"] == 2
+        assert upload.validation_summary["duplicates"] == 1
+
+        assert rows[0].source_id is None
+        assert rows[0].disposition == "REVIEW"
+        assert any("Charge ID was not supplied" in warning for warning in rows[0].warnings)
+        assert any("GL Account relationship is unresolved" in warning for warning in rows[0].warnings)
+        assert rows[1].disposition == "REVIEW"
+        assert rows[2].disposition == "INVALID"
+        assert any("Duplicate AppFolio Charge ID" in error for error in rows[2].errors)
+        assert db.query(Charge).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_charges_xlsx_multisheet_autodetects_and_replays_without_mutation():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_DEV)
+        org = _org(db, name="Charges XLSX Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="charges-xlsx",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _seed_general_ledger_source_mappings(db, run=run, org=org)
+
+        workbook = Workbook()
+        ws = workbook.active
+        ws.title = "Charges"
+        ws.append([
+            "Id", "AmountDue", "ChargedOn", "Description", "GlAccountId",
+            "OccupancyId",
+        ])
+        ws.append([
+            "CHARGE-XLSX-1", "88.25", "2026-09-14", "Source charge",
+            "GL-4100", "OCC-XLSX-1",
+        ])
+        notes = workbook.create_sheet("Notes")
+        notes.append(["Comment"])
+        notes.append(["not a supported migration report"])
+        buffer = BytesIO()
+        workbook.save(buffer)
+        workbook.close()
+
+        before_charges = db.query(Charge).count()
+        before_gl = db.query(GLTransaction).count()
+        first = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("charges.xlsx", buffer.getvalue()),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert first.detected_resource == "CHARGES"
+        assert first.sheet_name == "Charges"
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == first.id
+        ).one()
+        assert row.source_id == "CHARGE-XLSX-1"
+        assert row.normalized_data["amount_due"] == "88.25"
+        assert row.normalized_data["source_occupancy_id"] == "OCC-XLSX-1"
+
+        replay = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("charges-copy.xlsx", buffer.getvalue()),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert replay.replayed is True
+        assert replay.id == first.id
+        assert db.query(Charge).count() == before_charges
+        assert db.query(GLTransaction).count() == before_gl
+    finally:
+        db.close()
+        engine.dispose()
