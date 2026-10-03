@@ -63,6 +63,11 @@ class PlatformMigrationRun(Base):
         back_populates="run",
         cascade="all, delete-orphan",
     )
+    correction_rules = relationship(
+        "PlatformMigrationCorrectionRule",
+        back_populates="run",
+        cascade="all, delete-orphan",
+    )
 
 
 class PlatformMigrationUpload(Base):
@@ -206,7 +211,7 @@ class PlatformMigrationStagedRow(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     upload = relationship("PlatformMigrationUpload", back_populates="rows")
-    run = relationship("PlatformMigrationRun")
+    run = relationship("PlatformMigrationRun", back_populates="correction_rules")
     organization = relationship("Organization")
 
     __table_args__ = (
