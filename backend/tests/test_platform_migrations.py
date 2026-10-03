@@ -6995,3 +6995,270 @@ def test_appfolio_bills_acceptance_revalidates_optional_property_and_active_vend
     finally:
         db.close()
         engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio Bills staged dry run
+# ---------------------------------------------------------------------------
+
+def test_appfolio_bills_dry_run_is_exact_replay_safe_and_non_mutating():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Bills Dry Run Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="bills-dry-run",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        prop, vendor = _seed_bill_source_mappings(db, run=run, org=org)
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "bills-dry-run.csv",
+                    (
+                        "Bill ID,VendorId,PropertyId,DueDate,InvoiceDate,PostingDate,"
+                        "Reference,Remarks,TotalAmount,ApprovalStatus,CheckMemo,"
+                        "AccountNumber,ManagementCompanyAsPayee,WorkOrderId,LastUpdatedAt\n"
+                        "BILL-DRY-1,VENDOR-BILL-1,PROP-BILL-1,2026-09-01,2026-08-15,"
+                        "2026-08-16,INV-DRY,source remark,325.50,Pending,repair memo,"
+                        "5000,false,WO-DRY-1,2026-08-20T12:00:00Z\n"
+                    ).encode(),
+                ),
+                resource="BILLS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        api.resolve_staged_appfolio_bill(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedBillResolutionIn(action="ACCEPT_RELATIONSHIP"),
+            db=db,
+            current_user=admin,
+        )
+
+        before_bills = db.query(Bill).count()
+        before_gl = db.query(GLTransaction).count()
+        before_charges = db.query(Charge).count()
+        before_vendors = db.query(Vendor).count()
+
+        first = api.dry_run_staged_appfolio_bills(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert first.replayed is False
+        assert first.total == 1
+        assert first.importable == 1
+        assert first.invalid == 0
+        assert len(first.rows) == 1
+        preview = first.rows[0]
+        assert preview.source_id == "BILL-DRY-1"
+        assert preview.source_evidence["source_vendor_id"] == "VENDOR-BILL-1"
+        assert preview.source_evidence["source_property_id"] == "PROP-BILL-1"
+        assert preview.source_evidence["due_date"] == "2026-09-01"
+        assert preview.source_evidence["invoice_date"] == "2026-08-15"
+        assert preview.source_evidence["posting_date"] == "2026-08-16"
+        assert preview.source_evidence["reference"] == "INV-DRY"
+        assert preview.source_evidence["remarks"] == "source remark"
+        assert preview.source_evidence["total_amount"] == "325.50"
+        assert preview.source_evidence["approval_status"] == "Pending"
+        assert preview.source_evidence["check_memo"] == "repair memo"
+        assert preview.source_evidence["account_number"] == "5000"
+        assert preview.source_evidence["management_company_as_payee"] == "false"
+        assert preview.source_evidence["source_work_order_id"] == "WO-DRY-1"
+        assert preview.source_evidence["last_updated_at"] == "2026-08-20T12:00:00Z"
+        assert preview.resolved_targets == {
+            "vendor_id": vendor.id,
+            "property_id": prop.id,
+        }
+
+        db.refresh(run)
+        assert run.last_dry_run_fingerprint == first.fingerprint
+        assert run.last_dry_run_summary["resource"] == "BILLS"
+        assert run.last_dry_run_summary["review_only"] is True
+        assert run.last_dry_run_summary["bill_mutation"] is False
+        assert run.last_dry_run_summary["payment_state_inferred"] is False
+        assert run.last_dry_run_summary["gl_allocation_inferred"] is False
+        assert run.last_dry_run_summary["work_order_linkage_inferred"] is False
+
+        audit_count = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "appfolio_staged_bills_dry_run",
+        ).count()
+        assert audit_count == 1
+
+        replay = api.dry_run_staged_appfolio_bills(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert replay.replayed is True
+        assert replay.fingerprint == first.fingerprint
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "appfolio_staged_bills_dry_run",
+        ).count() == audit_count
+
+        assert db.query(Bill).count() == before_bills
+        assert db.query(GLTransaction).count() == before_gl
+        assert db.query(Charge).count() == before_charges
+        assert db.query(Vendor).count() == before_vendors
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_bills_dry_run_revalidates_relationship_mapping_fingerprints():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="Bills Dry Run Stale Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="bills-dry-run-stale",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        prop, vendor = _seed_bill_source_mappings(db, run=run, org=org)
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "bills-dry-run-stale.csv",
+                    (
+                        "Bill ID,VendorId,PropertyId,DueDate,TotalAmount\n"
+                        "BILL-DRY-STALE,VENDOR-BILL-1,PROP-BILL-1,2026-09-02,100.00\n"
+                    ).encode(),
+                ),
+                resource="BILLS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        api.resolve_staged_appfolio_bill(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedBillResolutionIn(action="ACCEPT_RELATIONSHIP"),
+            db=db,
+            current_user=admin,
+        )
+        first = api.dry_run_staged_appfolio_bills(
+            run.id, upload.id, db=db, current_user=admin
+        )
+
+        vendor_mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "VENDORS",
+            PlatformMigrationItem.source_id == "VENDOR-BILL-1",
+        ).one()
+        vendor_mapping.source_fingerprint = "changed-vendor-source-fingerprint"
+        db.commit()
+
+        changed = api.dry_run_staged_appfolio_bills(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert changed.fingerprint != first.fingerprint
+        assert changed.replayed is False
+        assert changed.rows[0].resolved_targets["vendor_id"] == vendor.id
+        assert changed.rows[0].resolved_targets["property_id"] == prop.id
+
+        property_mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "PROPERTIES",
+            PlatformMigrationItem.source_id == "PROP-BILL-1",
+        ).one()
+        property_mapping.target_entity = "UNIT"
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_bills(
+                run.id, upload.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+        assert "Property relationship is stale" in exc.value.detail
+
+        assert db.query(Bill).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_bills_dry_run_blocks_unresolved_rows_and_empty_accepted_set():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_DEV)
+        org = _org(db, name="Bills Dry Run Guard Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="bills-dry-run-guard",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _seed_bill_source_mappings(db, run=run, org=org)
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "bills-dry-run-guard.csv",
+                    (
+                        "Bill ID,VendorId,PropertyId,DueDate,TotalAmount\n"
+                        "BILL-DRY-GUARD,VENDOR-BILL-1,PROP-BILL-1,2026-09-03,75.00\n"
+                    ).encode(),
+                ),
+                resource="BILLS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_bills(
+                run.id, upload.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+        assert "unresolved staged rows" in exc.value.detail
+
+        api.resolve_staged_appfolio_bill(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedBillResolutionIn(action="SKIP"),
+            db=db,
+            current_user=admin,
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_bills(
+                run.id, upload.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+        assert "at least one accepted staged row" in exc.value.detail
+        assert db.query(Bill).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
