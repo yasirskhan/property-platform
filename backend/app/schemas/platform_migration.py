@@ -473,6 +473,28 @@ class AppFolioGeneralLedgerDryRunOut(BaseModel):
     rows: list[AppFolioGeneralLedgerPreviewRow]
 
 
+class AppFolioBillPreviewRow(BaseModel):
+    source_id: str
+    importable: bool = True
+    reason: str | None = None
+    source_evidence: dict[str, Any]
+    resolved_targets: dict[str, int | None]
+    warnings: list[str] = Field(default_factory=list)
+
+
+class AppFolioBillDryRunOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    fingerprint: str
+    replayed: bool
+    total: int
+    importable: int
+    invalid: int
+    warning_count: int
+    rows: list[AppFolioBillPreviewRow]
+
+
 class AppFolioGeneralLedgerReadinessLine(BaseModel):
     source_id: str
     transaction_id: str
