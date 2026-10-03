@@ -39,6 +39,7 @@ from app.schemas.platform_migration import (
     AppFolioMigrationUploadOut,
     AppFolioMigrationCoverageOut,
     AppFolioMigrationCorrectionRuleCreateIn,
+    AppFolioMigrationCorrectionRuleUpdateIn,
     AppFolioMigrationCorrectionRuleOut,
     AppFolioStagedRowCorrectionIn,
     AppFolioStagedPropertyCommitIn,
@@ -711,8 +712,31 @@ def _staged_review_fingerprint(
     upload: PlatformMigrationUpload,
     rows: list[PlatformMigrationStagedRow],
 ) -> str:
+    active_rules = sorted(
+        (
+            rule
+            for rule in (getattr(upload.run, "correction_rules", None) or [])
+            if rule.provider == "APPFOLIO"
+            and rule.resource == upload.detected_resource
+        ),
+        key=lambda rule: (
+            rule.resource,
+            rule.field_name,
+            rule.source_value,
+            rule.id or 0,
+        ),
+    )
     canonical = {
         "upload_normalized_fingerprint": upload.normalized_fingerprint,
+        "correction_rules": [
+            {
+                "resource": rule.resource,
+                "field_name": rule.field_name,
+                "source_value": rule.source_value,
+                "corrected_value": rule.corrected_value,
+            }
+            for rule in active_rules
+        ],
         "rows": [
             {
                 "id": row.id,
@@ -5391,6 +5415,30 @@ async def stage_appfolio_upload(
             explicit_mapping=mapping,
             platform_user_id=current_user.id,
         )
+        active_rules = (
+            db.query(PlatformMigrationCorrectionRule)
+            .filter(
+                PlatformMigrationCorrectionRule.run_id == run.id,
+                PlatformMigrationCorrectionRule.organization_id == run.organization_id,
+                PlatformMigrationCorrectionRule.provider == "APPFOLIO",
+                PlatformMigrationCorrectionRule.resource == result.upload.detected_resource,
+            )
+            .order_by(
+                PlatformMigrationCorrectionRule.field_name.asc(),
+                PlatformMigrationCorrectionRule.source_value.asc(),
+                PlatformMigrationCorrectionRule.id.asc(),
+            )
+            .all()
+        )
+        correction_rule_rows_applied = 0
+        for rule in active_rules:
+            correction_rule_rows_applied += _apply_correction_rule_to_staged_rows(
+                db,
+                run=run,
+                rule=rule,
+                platform_user_id=current_user.id,
+            )
+
         if not result.replayed:
             append_audit_log(
                 db,
@@ -5411,8 +5459,10 @@ async def stage_appfolio_upload(
                     "raw_file_stored": False,
                     "target_mutation": False,
                     "provider_credentials_stored": False,
+                    "correction_rule_rows_applied": correction_rule_rows_applied,
                 },
             )
+        if not result.replayed or correction_rule_rows_applied:
             db.commit()
             db.refresh(result.upload)
     except AppFolioFileIngestionError as exc:
@@ -5581,6 +5631,7 @@ def _apply_correction_rule_to_staged_rows(
     run: PlatformMigrationRun,
     rule: PlatformMigrationCorrectionRule,
     platform_user_id: int,
+    prior_corrected_value: str | None = None,
 ) -> int:
     rows = (
         db.query(PlatformMigrationStagedRow)
@@ -5600,11 +5651,38 @@ def _apply_correction_rule_to_staged_rows(
             continue
         data = dict(row.normalized_data or {})
         current = data.get(rule.field_name)
-        if current is None or str(current).strip() != rule.source_value:
+        if current is None:
+            continue
+
+        current_text = str(current).strip()
+        evidence = list(row.correction_evidence or [])
+        exact_source_match = current_text == rule.source_value
+        prior_rule_match = False
+        if (
+            not exact_source_match
+            and prior_corrected_value is not None
+            and current_text == prior_corrected_value
+        ):
+            field_evidence = [
+                item
+                for item in evidence
+                if item.get("field_name") == rule.field_name
+            ]
+            last_evidence = field_evidence[-1] if field_evidence else None
+            prior_rule_match = bool(
+                last_evidence
+                and last_evidence.get("kind") == "RUN_CORRECTION_RULE"
+                and last_evidence.get("rule_id") == rule.id
+                and last_evidence.get("source_value") == rule.source_value
+                and last_evidence.get("corrected_value") == prior_corrected_value
+            )
+
+        if not exact_source_match and not prior_rule_match:
+            continue
+        if current_text == rule.corrected_value:
             continue
 
         data[rule.field_name] = rule.corrected_value
-        evidence = list(row.correction_evidence or [])
         evidence.append(
             {
                 "kind": "RUN_CORRECTION_RULE",
@@ -5762,7 +5840,7 @@ def create_appfolio_correction_rule(
             status_code=409,
             detail=(
                 "A different correction already exists for this exact run/resource/"
-                "field/source value. Conflicting reusable rules fail closed."
+                "field/source value. Use the explicit correction-rule update path."
             ),
         )
 
@@ -5809,6 +5887,91 @@ def create_appfolio_correction_rule(
     db.refresh(rule)
     return AppFolioMigrationCorrectionRuleOut.model_validate(rule).model_copy(
         update={"replayed": replayed, "applied_row_count": applied}
+    )
+
+
+@router.put(
+    "/runs/{run_id}/correction-rules/{rule_id}",
+    response_model=AppFolioMigrationCorrectionRuleOut,
+)
+def update_appfolio_correction_rule(
+    run_id: int,
+    rule_id: int,
+    payload: AppFolioMigrationCorrectionRuleUpdateIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    rule = (
+        db.query(PlatformMigrationCorrectionRule)
+        .filter(
+            PlatformMigrationCorrectionRule.id == rule_id,
+            PlatformMigrationCorrectionRule.run_id == run.id,
+            PlatformMigrationCorrectionRule.organization_id == run.organization_id,
+            PlatformMigrationCorrectionRule.provider == "APPFOLIO",
+        )
+        .first()
+    )
+    if rule is None:
+        raise HTTPException(status_code=404, detail="Correction rule not found.")
+
+    corrected_value = payload.corrected_value.strip()
+    if not corrected_value:
+        raise HTTPException(
+            status_code=422,
+            detail="Corrected value must contain non-whitespace text.",
+        )
+    if corrected_value == rule.source_value:
+        raise HTTPException(
+            status_code=422,
+            detail="Correction rule must change the exact source value.",
+        )
+    if corrected_value == rule.corrected_value:
+        return AppFolioMigrationCorrectionRuleOut.model_validate(rule).model_copy(
+            update={"replayed": True, "applied_row_count": 0}
+        )
+
+    previous_corrected_value = rule.corrected_value
+    rule.corrected_value = corrected_value
+    applied = _apply_correction_rule_to_staged_rows(
+        db,
+        run=run,
+        rule=rule,
+        platform_user_id=current_user.id,
+        prior_corrected_value=previous_corrected_value,
+    )
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    run.status = "STAGED"
+    append_audit_log(
+        db,
+        platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_correction_rule",
+        entity_id=rule.id,
+        action="appfolio_correction_rule_updated",
+        old_value={
+            "resource": rule.resource,
+            "field_name": rule.field_name,
+            "source_value": rule.source_value,
+            "corrected_value": previous_corrected_value,
+        },
+        new_value={
+            "resource": rule.resource,
+            "field_name": rule.field_name,
+            "source_value": rule.source_value,
+            "corrected_value": rule.corrected_value,
+            "run_scoped": True,
+            "fuzzy_matching": False,
+            "dry_run_invalidated": True,
+            "customer_target_mutation": False,
+            "accounting_mutation": False,
+        },
+    )
+    db.commit()
+    db.refresh(rule)
+    return AppFolioMigrationCorrectionRuleOut.model_validate(rule).model_copy(
+        update={"replayed": False, "applied_row_count": applied}
     )
 
 
