@@ -1,3 +1,64 @@
+# AI_HANDOFF.md — 2026-10-03 PHASE 4.13 STAGED CORRECTION LAYER VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `11eb9d0e9cff3ff5b16ca4884b9aa09ce7bf295c`.
+- GitHub Actions run: `37151296381` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **972 passed, 21 deselected, 25482 warnings in 449.52s**.
+- Authenticated E2E: **21 passed, 278 warnings in 112.76s**.
+- Alembic head remains `0a7c4e9f2b61`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified shared staged correction layer
+
+1. A platform-write-scoped staged-row correction endpoint reuses the existing migration run/upload/staged-row architecture; no parallel migration system was added.
+2. Generic corrections are intentionally restricted to allowlisted descriptive normalized staging fields per resource.
+3. Stable source IDs, relationship IDs, amounts, dates, statuses, accounting classifications, payment/occupancy semantics and other resource-specific safety fields cannot be changed through the generic correction path.
+4. INVALID/error rows cannot be made commit-safe through a generic correction.
+5. The original upload `normalized_fingerprint`, staged-row `row_fingerprint` and durable source identity remain unchanged; correction modifies only the effective staged `normalized_data` overlay.
+6. Every actual correction appends immutable audit history with prior/new value, platform actor/time and explicit no-source-file/no-customer/no-accounting-mutation flags.
+7. Exact replay of the same correction is idempotent and does not duplicate audit history.
+8. Any changed corrected normalized value clears the run's prior dry-run state and the shared staged-review fingerprint now binds `normalized_data`, so prior dry-run/commit-readiness state becomes stale automatically.
+9. Corrections do not rewrite uploaded files or existing customer Property/Unit/User/Vendor/Lease/Charge/Bill/WorkOrder/GL records.
+10. Focused regressions verify source preservation, fingerprint invalidation, replay/idempotency, role enforcement, identity-field rejection, INVALID-row rejection and zero customer/accounting mutation.
+11. No AppFolio API transport, general UX, navigation or hidden-menu changes were added.
+
+Implementation commits:
+- `a7100e784f3733ea09ac623e9e8cb095f782af6a` — correction request contract.
+- `6b11c774d9b73393e413a3572ee3140d5c307905` — staged correction endpoint and corrected-data fingerprint binding.
+- `889129c7ef927ce8f8f8bca36d93dd5ae4b70c03` — focused correction safety regressions.
+- `11eb9d0e9cff3ff5b16ca4884b9aa09ce7bf295c` — test-only audit JSON assertion correction; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Extend section 8 of `docs/APPFOLIO_MIGRATION_IMPORT_PLAN.md` with **run-scoped reusable value-correction rules** so an explicitly reviewed correction can be applied consistently to later staging/replay without editing source files row-by-row.
+
+Required boundaries:
+
+1. Reuse the same provider/run/upload/staged-row architecture and the existing safe descriptive-field allowlist.
+2. Persist corrections as run-scoped provider/resource/field/source-value -> corrected-value rules with explicit actor/time; never global cross-customer rules.
+3. Apply a reusable rule only to the exact same resource + field + normalized source value; never fuzzy-match or reinterpret identities, amounts, dates, statuses, relationship IDs or accounting semantics.
+4. Preserve original source evidence and raw upload fingerprints. Rule application may affect only staged normalized overlays.
+5. Conflicting rule changes must be explicit/audited, invalidate prior dry-run state and change the staged-review fingerprint.
+6. Re-upload/replay must apply the current exact rule deterministically and remain idempotent.
+7. Never mutate existing customer records or automatically make INVALID/unsafe rows commit-ready.
+8. Add focused tests for run/org isolation, deterministic replay, conflicting-rule updates, fingerprint invalidation, authorization and zero target/accounting mutation.
+9. Keep AppFolio API transport, general UX, navigation and hidden-menu work out of scope.
+
+---
+
 # AI_HANDOFF.md — 2026-10-03 PHASE 4.13 MIGRATION SOURCE COVERAGE CHECKLIST VERIFIED
 
 ## Current verified product checkpoint
