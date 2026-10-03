@@ -189,6 +189,15 @@ class AppFolioMigrationStagedRowOut(BaseModel):
     created_at: datetime
 
 
+class AppFolioStagedRowCorrectionIn(BaseModel):
+    """Safe correction overlay for descriptive staged values only."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    field_name: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]*$")
+    corrected_value: str = Field(min_length=1, max_length=500)
+
+
 class AppFolioStagedRowResolutionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
