@@ -25,6 +25,7 @@ from datetime import date, datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.core import auth as auth_logic
@@ -37,7 +38,15 @@ from app.models.lease import (
 )
 from app.models.property import Property, Unit, PropertyAssignment
 from app.models.user import User, UserRole
+from app.models.accounting_key_account import AccountingKeyAccount
 from app.routers.auth import get_current_user
+from app.routers.properties import check_property_access
+from app.services.owner_held_deposits import (
+    OWNER_HELD_DEPOSIT_KEY_TYPE,
+    OwnerHeldDepositError,
+    owner_held_feature_allowed,
+    validate_owner_held_deposit_account,
+)
 from app.schemas.lease import (
     LeaseCreate,
     LeaseOut,
@@ -72,30 +81,8 @@ def _get_unit_and_property(db: Session, unit_id: int):
 
 
 def _check_property_access(db: Session, user: User, prop: Property):
-    """Same rules as in routers/properties.py, but reused here."""
-    if user.role == UserRole.ADMIN:
-        return
-
-    if user.role == UserRole.OWNER:
-        if prop.organization_id != user.organization_id:
-            raise HTTPException(status_code=403, detail="Not your property")
-        return
-
-    if user.role == UserRole.MANAGER:
-        assigned = (
-            db.query(PropertyAssignment)
-            .filter(
-                PropertyAssignment.property_id == prop.id,
-                PropertyAssignment.user_id == user.id,
-                PropertyAssignment.is_active == True,  # noqa: E712
-            )
-            .first()
-        )
-        if not assigned:
-            raise HTTPException(status_code=403, detail="Not assigned to this property")
-        return
-
-    raise HTTPException(status_code=403, detail="Access denied")
+    """Use the canonical customer-side property scope rules."""
+    check_property_access(db, user, prop.id)
 
 
 def _check_lease_access(db: Session, user: User, lease: Lease) -> Lease:
@@ -108,6 +95,98 @@ def _check_lease_access(db: Session, user: User, lease: Lease) -> Lease:
     unit, prop = _get_unit_and_property(db, lease.unit_id)
     _check_property_access(db, user, prop)
     return lease
+
+
+def _find_occupancy_conflict(
+    db: Session,
+    *,
+    unit_id: int,
+    student_bed_id: int | None,
+    exclude_lease_id: int | None = None,
+) -> Lease | None:
+    """Return a conflicting open lease for whole-unit or bed occupancy.
+
+    Ordinary whole-unit leases conflict with pending/active leases and any
+    student-bed draft on the unit. Student-bed leases conflict with any
+    whole-unit draft/pending/active lease or a draft/pending/active lease on
+    the same bed. Different beds may proceed independently.
+    """
+    q = db.query(Lease).filter(Lease.unit_id == unit_id)
+    if exclude_lease_id is not None:
+        q = q.filter(Lease.id != exclude_lease_id)
+
+    open_statuses = [
+        LeaseStatus.DRAFT,
+        LeaseStatus.PENDING_SIGNATURE,
+        LeaseStatus.ACTIVE,
+    ]
+    if student_bed_id is None:
+        q = q.filter(
+            or_(
+                Lease.status.in_(
+                    [LeaseStatus.PENDING_SIGNATURE, LeaseStatus.ACTIVE]
+                ),
+                and_(
+                    Lease.student_bed_id.isnot(None),
+                    Lease.status == LeaseStatus.DRAFT,
+                ),
+            )
+        )
+    else:
+        q = q.filter(
+            or_(
+                and_(
+                    Lease.student_bed_id.is_(None),
+                    Lease.status.in_(open_statuses),
+                ),
+                and_(
+                    Lease.student_bed_id == student_bed_id,
+                    Lease.status.in_(open_statuses),
+                ),
+            )
+        )
+    return q.order_by(Lease.id.asc()).first()
+
+
+def _validate_security_deposit_account_choice(
+    db: Session,
+    *,
+    current_user: User,
+    organization_id: int,
+    gl_account_id: int | None,
+) -> None:
+    if gl_account_id is None:
+        return
+    if not owner_held_feature_allowed(db, user=current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Owner Held Security Deposits capability is not enabled.",
+        )
+    configured = (
+        db.query(AccountingKeyAccount)
+        .filter(
+            AccountingKeyAccount.organization_id == organization_id,
+            AccountingKeyAccount.key_type == OWNER_HELD_DEPOSIT_KEY_TYPE,
+            AccountingKeyAccount.gl_account_id == gl_account_id,
+        )
+        .first()
+    )
+    if configured is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Select a configured deposit Key Account.",
+        )
+    try:
+        validate_owner_held_deposit_account(
+            db,
+            organization_id=organization_id,
+            gl_account_id=gl_account_id,
+        )
+    except OwnerHeldDepositError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
 
 
 def _generate_invoices_for_lease(db: Session, lease: Lease) -> List[RentInvoice]:
@@ -180,22 +259,32 @@ def create_lease(
         raise HTTPException(status_code=404, detail="Tenant not found")
     if tenant.role != UserRole.TENANT:
         raise HTTPException(status_code=400, detail="The specified user is not a tenant")
+    if tenant.organization_id != prop.organization_id:
+        raise HTTPException(status_code=403, detail="Tenant is not in this organization")
 
     # Validate dates
     if payload.end_date <= payload.start_date:
         raise HTTPException(status_code=400, detail="end_date must be after start_date")
 
-    # Check the unit isn't already actively leased
-    existing = (
-        db.query(Lease)
-        .filter(
-            Lease.unit_id == unit.id,
-            Lease.status.in_([LeaseStatus.ACTIVE, LeaseStatus.PENDING_SIGNATURE]),
-        )
-        .first()
+    _validate_security_deposit_account_choice(
+        db,
+        current_user=current_user,
+        organization_id=prop.organization_id,
+        gl_account_id=payload.security_deposit_gl_account_id,
+    )
+
+    # Whole-unit leases must not displace an open bed lease. Ordinary
+    # draft whole-unit leases remain compatible with the pre-Phase-4.10 flow.
+    existing = _find_occupancy_conflict(
+        db,
+        unit_id=unit.id,
+        student_bed_id=None,
     )
     if existing:
-        raise HTTPException(status_code=400, detail="Unit already has an active or pending lease")
+        raise HTTPException(
+            status_code=400,
+            detail="Unit already has a conflicting whole-unit or student-bed lease",
+        )
 
     lease = Lease(**payload.model_dump())
     db.add(lease)
@@ -223,12 +312,8 @@ def list_leases(
     if current_user.role == UserRole.CREW:
         raise HTTPException(status_code=403, detail="Crew members cannot list leases")
 
-    # Admin: all
-    if current_user.role == UserRole.ADMIN:
-        return db.query(Lease).all()
-
-    # Owner: leases for properties in their org
-    if current_user.role == UserRole.OWNER:
+    # Customer Admin / Owner: leases for properties in their org
+    if current_user.role in (UserRole.ADMIN, UserRole.OWNER):
         return (
             db.query(Lease)
             .join(Unit, Unit.id == Lease.unit_id)
@@ -287,7 +372,17 @@ def update_lease(
 
     _check_lease_access(db, current_user, lease)
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    update_values = payload.model_dump(exclude_unset=True)
+    if "security_deposit_gl_account_id" in update_values:
+        _unit, prop = _get_unit_and_property(db, lease.unit_id)
+        _validate_security_deposit_account_choice(
+            db,
+            current_user=current_user,
+            organization_id=prop.organization_id,
+            gl_account_id=update_values["security_deposit_gl_account_id"],
+        )
+
+    for field, value in update_values.items():
         setattr(lease, field, value)
 
     db.commit()
@@ -314,6 +409,18 @@ def send_lease(
 
     if lease.status != LeaseStatus.DRAFT:
         raise HTTPException(status_code=400, detail=f"Cannot send a lease with status '{lease.status.value}'")
+
+    conflict = _find_occupancy_conflict(
+        db,
+        unit_id=lease.unit_id,
+        student_bed_id=lease.student_bed_id,
+        exclude_lease_id=lease.id,
+    )
+    if conflict:
+        raise HTTPException(
+            status_code=409,
+            detail="Another whole-unit or same-bed lease conflicts with this lease.",
+        )
 
     lease.status = LeaseStatus.PENDING_SIGNATURE
     lease.signed_by_manager = True  # manager sending = countersigning
@@ -377,6 +484,18 @@ def activate_lease(
 
     if lease.status == LeaseStatus.ACTIVE:
         raise HTTPException(status_code=400, detail="Lease is already active")
+
+    conflict = _find_occupancy_conflict(
+        db,
+        unit_id=lease.unit_id,
+        student_bed_id=lease.student_bed_id,
+        exclude_lease_id=lease.id,
+    )
+    if conflict:
+        raise HTTPException(
+            status_code=409,
+            detail="Another whole-unit or same-bed lease conflicts with this lease.",
+        )
 
     lease.status = LeaseStatus.ACTIVE
     _generate_invoices_for_lease(db, lease)

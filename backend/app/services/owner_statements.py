@@ -151,6 +151,46 @@ def _cash_activity_for_property(
     return Decimal(debit_total or 0) - Decimal(credit_total or 0)
 
 
+def _liability_balance_for_property(
+    db: Session,
+    organization_id: int,
+    property_id: int,
+    gl_number: str,
+    *,
+    on_or_before: date,
+) -> Decimal:
+    """Natural liability balance (credits - debits) for a property."""
+    account_ids = [
+        row[0]
+        for row in (
+            db.query(GLAccount.id)
+            .filter(
+                GLAccount.organization_id == organization_id,
+                GLAccount.gl_number == gl_number,
+            )
+            .all()
+        )
+    ]
+    if not account_ids:
+        return Decimal("0")
+
+    debit_total, credit_total = (
+        db.query(
+            func.coalesce(func.sum(GLEntry.debit), 0),
+            func.coalesce(func.sum(GLEntry.credit), 0),
+        )
+        .join(GLTransaction, GLTransaction.id == GLEntry.transaction_id)
+        .filter(
+            GLEntry.organization_id == organization_id,
+            GLEntry.property_id == property_id,
+            GLEntry.gl_account_id.in_(account_ids),
+            GLTransaction.transaction_date <= on_or_before,
+        )
+        .one()
+    )
+    return Decimal(credit_total or 0) - Decimal(debit_total or 0)
+
+
 def _transactions_for_property(
     db: Session,
     organization_id: int,
@@ -296,6 +336,9 @@ def preview_owner_statement(
     total_ending = Decimal("0")
     total_income = Decimal("0")
     total_expense = Decimal("0")
+    total_required_reserves = Decimal("0")
+    total_prepaid_rent = Decimal("0")
+    total_available_cash = Decimal("0")
 
     property_blocks: List[dict] = []
 
@@ -327,6 +370,15 @@ def preview_owner_statement(
         income = sum(Decimal(t["income"]) for t in txns)
         expense = sum(Decimal(t["expense"]) for t in txns)
         net = ending_cash - beginning_cash
+        required_reserves = Decimal(prop.required_reserve_amount or 0)
+        prepaid_rent = _liability_balance_for_property(
+            db,
+            organization_id,
+            prop.id,
+            "2300",
+            on_or_before=period_end,
+        )
+        available_cash = ending_cash - required_reserves - prepaid_rent
 
         # Owner gets their share. We still SHOW the full
         # property numbers and the ownership_pct so the owner
@@ -335,6 +387,9 @@ def preview_owner_statement(
         total_ending += ending_cash
         total_income += income
         total_expense += expense
+        total_required_reserves += required_reserves
+        total_prepaid_rent += prepaid_rent
+        total_available_cash += available_cash
 
         property_blocks.append(
             {
@@ -346,6 +401,9 @@ def preview_owner_statement(
                 "income": _money_str(income),
                 "expense": _money_str(expense),
                 "net": _money_str(net),
+                "required_reserves": _money_str(required_reserves),
+                "prepaid_rent": _money_str(prepaid_rent),
+                "available_cash": _money_str(available_cash),
                 "transactions": txns,
             }
         )
@@ -363,6 +421,9 @@ def preview_owner_statement(
         "total_income": total_income,
         "total_expense": total_expense,
         "total_net": total_net,
+        "total_required_reserves": total_required_reserves,
+        "total_prepaid_rent": total_prepaid_rent,
+        "total_available_cash": total_available_cash,
         "properties": property_blocks,
         "can_generate": True,
         "reason": None,

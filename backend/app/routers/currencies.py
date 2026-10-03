@@ -29,6 +29,7 @@ from app.core.database import get_db
 from app.routers.auth import get_current_user
 from app.models.user import User, Organization
 from app.models.currency import Currency
+from app.services.menu_resolver import permission_allows_user
 
 
 router = APIRouter(prefix="/api/settings/currencies", tags=["currencies"])
@@ -58,6 +59,20 @@ def _get_org(db: Session, user: User) -> Organization:
     org = db.query(Organization).filter(Organization.id == user.organization_id).first()
     if org is None:
         raise HTTPException(status_code=404, detail="Organization not found.")
+    return org
+
+
+def _require_currency_access(db: Session, user: User) -> Organization:
+    org = _get_org(db, user)
+    if not permission_allows_user(
+        db,
+        user=user,
+        menu_key="SETTINGS.CURRENCIES",
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Currencies permission required.",
+        )
     return org
 
 
@@ -110,7 +125,7 @@ def list_currencies(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    org = _get_org(db, user)
+    org = _require_currency_access(db, user)
     rows = (
         db.query(Currency)
         .filter(Currency.organization_id == org.id)
@@ -130,7 +145,7 @@ def create_currency(
     user: User = Depends(get_current_user),
 ):
     _require_writer(user)
-    org = _get_org(db, user)
+    org = _require_currency_access(db, user)
 
     code = payload.code.upper()
     if not CODE_RE.match(code):
@@ -166,7 +181,7 @@ def update_currency(
     user: User = Depends(get_current_user),
 ):
     _require_writer(user)
-    org = _get_org(db, user)
+    org = _require_currency_access(db, user)
 
     row = (
         db.query(Currency)
@@ -210,7 +225,7 @@ def delete_currency(
     user: User = Depends(get_current_user),
 ):
     _require_writer(user)
-    org = _get_org(db, user)
+    org = _require_currency_access(db, user)
 
     row = (
         db.query(Currency)

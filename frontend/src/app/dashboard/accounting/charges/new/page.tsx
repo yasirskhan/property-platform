@@ -14,6 +14,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPost } from "@/lib/api";
+import { useDisplay } from "@/contexts/DisplayContext";
 
 interface User {
   id: number;
@@ -32,6 +33,7 @@ interface GLAccount {
 
 export default function NewChargePage() {
   const router = useRouter();
+  const { prefs } = useDisplay();
 
   const [tenants, setTenants] = useState<User[]>([]);
   const [accounts, setAccounts] = useState<GLAccount[]>([]);
@@ -112,7 +114,11 @@ export default function NewChargePage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
+    <div
+      className="max-w-2xl mx-auto p-6"
+      data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()}
+      data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}
+    >
       <h1 className="text-xl font-semibold text-slate-900 mb-1">New Charge</h1>
       <p className="text-sm text-slate-500 mb-6">
         One-off amount owed by a tenant.

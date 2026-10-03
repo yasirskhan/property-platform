@@ -80,6 +80,7 @@ class PropertyInsurance(Base):
     notes = Column(Text, nullable=True)
 
     is_active = Column(Boolean, default=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

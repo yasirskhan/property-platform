@@ -32,12 +32,16 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
-from app.models.user import User
-from app.models.gl_account import GLAccount
+from app.models.user import Organization, User
+from app.models.gl_account import GLAccount, GLAccountPostingRestriction
+from app.models.organization_feature_setting import OrganizationFeatureSetting
 from app.models.gl_transaction import GLTransaction
 from app.models.gl_entry import GLEntry
 from app.models.property import Property, Unit
 from app.schemas.gl_transaction import PostingLine
+from app.services.release_gate_resolver import release_gate_allows_org
+
+GL_ACCOUNT_PERMISSIONS_GATE = "release.accounting.gl_account_permissions"
 
 
 # Valid transaction types. Extend this list as new modules
@@ -47,8 +51,11 @@ from app.schemas.gl_transaction import PostingLine
 VALID_TRANSACTION_TYPES = {
     "RECEIPT",
     "BILL",
+    "CHECK",
+    "VENDOR_CREDIT",
     "JOURNAL_ENTRY",
     "DEPOSIT",
+    "BANK_ADJUSTMENT",
     "MGMT_FEE",
     "OWNER_DRAW",
     "TRANSFER",
@@ -69,6 +76,38 @@ class PostingError(Exception):
     pass
 
 
+def _norm_role(role) -> str:
+    value = getattr(role, "value", role)
+    return str(value or "").upper()
+
+def _gl_account_restrictions_enabled(db: Session, *, organization_id: int) -> bool:
+    if not release_gate_allows_org(db, gate_key=GL_ACCOUNT_PERMISSIONS_GATE, organization_id=organization_id):
+        return False
+    setting = db.query(OrganizationFeatureSetting).filter(
+        OrganizationFeatureSetting.organization_id == organization_id,
+        OrganizationFeatureSetting.feature_key == GL_ACCOUNT_PERMISSIONS_GATE,
+    ).first()
+    return setting is None or bool(setting.enabled)
+
+def _enforce_gl_account_posting_restrictions(
+    db: Session, *, organization_id: int, account_ids: set[int],
+    created_by: User, accounts: list[GLAccount],
+) -> None:
+    if not account_ids or created_by is None or not _gl_account_restrictions_enabled(db, organization_id=organization_id):
+        return
+    role = _norm_role(created_by.role)
+    if not role:
+        return
+    denied_ids = {row.gl_account_id for row in db.query(GLAccountPostingRestriction).filter(
+        GLAccountPostingRestriction.organization_id == organization_id,
+        GLAccountPostingRestriction.role == role,
+        GLAccountPostingRestriction.gl_account_id.in_(account_ids),
+    ).all()}
+    if denied_ids:
+        number_by_id = {account.id: account.gl_number for account in accounts}
+        denied_numbers = sorted(number_by_id.get(account_id, str(account_id)) for account_id in denied_ids)
+        raise PostingError(f"Role {role} is not allowed to post to GL account(s): {', '.join(denied_numbers)}")
+
 # ------------------------------------------------------------
 # The one public function
 # ------------------------------------------------------------
@@ -86,11 +125,15 @@ def post_transaction(
     source_type: Optional[str] = None,
     source_id: Optional[int] = None,
     reversal_of_id: Optional[int] = None,
+    commit: bool = True,
+    write_audit: bool = True,
 ) -> GLTransaction:
     """Post a balanced transaction to the General Ledger.
 
-    Raises PostingError on any validation failure. On success,
-    commits and returns the freshly created GLTransaction.
+    Raises PostingError on any validation failure. By default, commits
+    and audits the posting. Compound financial workflows may pass
+    commit=False and write_audit=False so related state changes can
+    commit atomically in the caller.
 
     Rules enforced here (in order):
       1. transaction_type must be valid
@@ -102,6 +145,20 @@ def post_transaction(
       7. All unit_ids belong to the given property
       8. created_by is the current user (caller responsibility)
     """
+    # -----------------------------------------------------------------
+    # 0. Closed accounting period
+    # -----------------------------------------------------------------
+    organization = db.get(Organization, organization_id)
+    if organization is None:
+        raise PostingError(f"Organization {organization_id} was not found.")
+
+    locked_through = organization.locked_through_date
+    if locked_through is not None and transaction_date <= locked_through:
+        raise PostingError(
+            f"Accounting period is locked through {locked_through.isoformat()}; "
+            f"cannot post transaction dated {transaction_date.isoformat()}."
+        )
+
     # -----------------------------------------------------------------
     # 1. Validate transaction type
     # -----------------------------------------------------------------
@@ -185,6 +242,14 @@ def post_transaction(
             f"Cannot post to inactive GL account(s): {sorted(inactive)}"
         )
 
+    _enforce_gl_account_posting_restrictions(
+        db,
+        organization_id=organization_id,
+        account_ids=account_ids,
+        created_by=created_by,
+        accounts=accounts,
+    )
+
     # -----------------------------------------------------------------
     # 6. Properties belong to this org (if given)
     # -----------------------------------------------------------------
@@ -265,8 +330,13 @@ def post_transaction(
             )
             db.add(entry)
 
-        db.commit()
-        db.refresh(txn)
+        if commit:
+            db.commit()
+            db.refresh(txn)
+        else:
+            # Keep this posting inside the caller's transaction. txn.id is
+            # already assigned by flush(), but nothing is durable yet.
+            db.flush()
     except Exception:
         db.rollback()
         raise
@@ -274,20 +344,21 @@ def post_transaction(
     # -----------------------------------------------------------------
     # 9. Audit log (best-effort — never breaks the post)
     # -----------------------------------------------------------------
-    try:
-        log_action(
-            db=db,
-            user=created_by,
-            entity_type="gl_transaction",
-            entity_id=txn.id,
-            action="post",
-            field_name=ttype,
-            old_value=None,
-            new_value=f"{total_debit} / {total_credit}",
-        )
-    except Exception:
-        # audit failures must never undo a successful posting
-        pass
+    if commit and write_audit:
+        try:
+            log_action(
+                db=db,
+                user=created_by,
+                entity_type="gl_transaction",
+                entity_id=txn.id,
+                action="post",
+                field_name=ttype,
+                old_value=None,
+                new_value=f"{total_debit} / {total_credit}",
+            )
+        except Exception:
+            # audit failures must never undo a successful posting
+            pass
 
     return txn
 
@@ -331,22 +402,45 @@ def reverse_transaction(
             )
         )
 
-    reversal = post_transaction(
-        db=db,
-        organization_id=original.organization_id,
-        transaction_date=reversal_date,
-        transaction_type="REVERSAL",
-        memo=memo or f"Reversal of transaction #{original.id}",
-        lines=flipped,
-        created_by=created_by,
-        reference_number=original.reference_number,
-        source_type=original.source_type,
-        source_id=original.source_id,
-        reversal_of_id=original.id,
-    )
+    # The reversal posting and original-state flip are one financial
+    # transaction. A failure must leave neither half durable.
+    try:
+        reversal = post_transaction(
+            db=db,
+            organization_id=original.organization_id,
+            transaction_date=reversal_date,
+            transaction_type="REVERSAL",
+            memo=memo or f"Reversal of transaction #{original.id}",
+            lines=flipped,
+            created_by=created_by,
+            reference_number=original.reference_number,
+            source_type=original.source_type,
+            source_id=original.source_id,
+            reversal_of_id=original.id,
+            commit=False,
+            write_audit=False,
+        )
+        original.is_reversed = True
+        db.commit()
+        db.refresh(reversal)
+        db.refresh(original)
+    except Exception:
+        db.rollback()
+        raise
 
-    original.is_reversed = True
-    db.commit()
-    db.refresh(original)
+    # Audit only after the financial transaction is durable.
+    try:
+        log_action(
+            db=db,
+            user=created_by,
+            entity_type="gl_transaction",
+            entity_id=reversal.id,
+            action="post",
+            field_name="REVERSAL",
+            old_value=None,
+            new_value=f"reversal_of={original.id}",
+        )
+    except Exception:
+        pass
 
     return reversal

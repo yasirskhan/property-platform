@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import { formatMoney } from "@/lib/money";
+import { useDisplay } from "@/contexts/DisplayContext";
 import {
   previewManagementFee,
   runManagementFee,
@@ -30,6 +31,7 @@ interface Property {
 
 export default function NewManagementFeePage() {
   const router = useRouter();
+  const { prefs } = useDisplay();
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertyId, setPropertyId] = useState<number | "">("");
@@ -107,7 +109,7 @@ export default function NewManagementFeePage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
+    <div className="max-w-3xl mx-auto p-6" data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()} data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}>
       <h1 className="text-xl font-semibold text-slate-900 mb-1">
         Pay Management Fees
       </h1>

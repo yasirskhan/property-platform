@@ -47,6 +47,30 @@ class DepositCreateIn(BaseModel):
         return v
 
 
+class DepositUpdateIn(BaseModel):
+    """Safe post-creation deposit edit.
+
+    Deposits remain grouping records only. Editing never writes a GL
+    transaction; receipt membership is replaced atomically when supplied.
+    """
+    deposit_date: Optional[date] = None
+    deposit_number: Optional[str] = Field(None, max_length=40)
+    description: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = None
+    receipt_ids: Optional[List[int]] = None
+
+    @field_validator("receipt_ids")
+    @classmethod
+    def _edit_no_dupes(cls, v: Optional[List[int]]) -> Optional[List[int]]:
+        if v is None:
+            return v
+        if not v:
+            raise ValueError("A deposit must include at least one receipt.")
+        if len(set(v)) != len(v):
+            raise ValueError("Receipt ids may not be repeated.")
+        return v
+
+
 # ============================================================
 # READ SHAPES
 # ============================================================
@@ -78,6 +102,7 @@ class DepositOut(BaseModel):
     deposit_date: date
     deposit_number: Optional[str] = None
     description: Optional[str] = None
+    bank_sequence: Optional[int] = None
     total: Decimal
     notes: Optional[str] = None
 

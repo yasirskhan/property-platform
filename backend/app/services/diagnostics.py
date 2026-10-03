@@ -3,13 +3,16 @@
 # ------------------------------------------------------------
 # Financial health checks over the General Ledger.
 #
-# Six checks (Section 35 of PROJECT_MASTER):
+# Nine checks (Section 35 + Phase 3.6 additions in PROJECT_MASTER):
 #   1. Security Deposit Funds Mismatch
 #   2. Escrow Cash Account Balance Mismatch
 #   3. Non-Zero Security Clearing Account Balances
 #   4. Negative Balance on Fee GL Accounts
 #   5. Positive Balance on Fee GL Accounts
-#   6. Trust Account 3-Way Reconciliation
+#   6. Bank Reconciliation Lapses
+#   7. Unbalanced Posted GL Transactions
+#   8. Bank Account GL Mapping Health
+#   9. Trust Account 3-Way Reconciliation
 #
 # Each check is a function that returns:
 #   {
@@ -31,15 +34,20 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.models.bank_account import BankAccount
+from app.models.bank_reconciliation import BankReconciliation
 from app.models.gl_account import GLAccount
 from app.models.gl_entry import GLEntry
 from app.models.gl_transaction import GLTransaction
+from app.schemas.gl_transaction import PostingLine
+from app.services.gl_posting import PostingError, post_transaction
 from app.services.owner_ledger import get_owner_subledger_total
 
 
@@ -368,9 +376,11 @@ def check_negative_fee_accounts(
         if income_balance < -Decimal("0.01"):
             bad.append(
                 {
+                    "gl_account_id": acct.id,
                     "gl": acct.gl_number,
                     "name": acct.name,
                     "balance": str(income_balance),
+                    "offset_account": acct.offset_account,
                 }
             )
 
@@ -398,6 +408,94 @@ def check_negative_fee_accounts(
 
 
 # ============================================================
+# CORRECTIVE ACTION — Refund Negative Diagnostic
+# ============================================================
+
+def refund_negative_fee_account(
+    db: Session,
+    *,
+    organization_id: int,
+    gl_account_id: int,
+    transaction_date: date,
+    created_by,
+):
+    """Bring one negative 44xx fee-income account back to zero."""
+    fee_account = (
+        db.query(GLAccount)
+        .filter(
+            GLAccount.id == gl_account_id,
+            GLAccount.organization_id == organization_id,
+            GLAccount.is_active.is_(True),
+            GLAccount.account_type == "INCOME",
+            GLAccount.gl_number.like("44%"),
+        )
+        .first()
+    )
+    if fee_account is None:
+        raise PostingError("Active fee income account was not found in this organization.")
+
+    raw_balance = _balance_of(db, organization_id, fee_account)
+    income_balance = -raw_balance
+    if income_balance >= -Decimal("0.01"):
+        raise PostingError("This fee account no longer has a negative balance.")
+
+    offset_number = (fee_account.offset_account or "").strip()
+    if not offset_number:
+        raise PostingError(
+            f"Fee account {fee_account.gl_number} has no offset account configured."
+        )
+    if offset_number == fee_account.gl_number:
+        raise PostingError("A fee account cannot use itself as its diagnostic offset.")
+
+    offset_account = (
+        db.query(GLAccount)
+        .filter(
+            GLAccount.organization_id == organization_id,
+            GLAccount.gl_number == offset_number,
+            GLAccount.is_active.is_(True),
+        )
+        .first()
+    )
+    if offset_account is None:
+        raise PostingError(
+            f"Configured offset account {offset_number} was not found or is inactive."
+        )
+
+    amount = abs(income_balance)
+    txn = post_transaction(
+        db=db,
+        organization_id=organization_id,
+        transaction_date=transaction_date,
+        transaction_type="REFUND_NEGATIVE_DIAGNOSTIC",
+        memo=f"Refund Negative Diagnostic: zero negative fee account {fee_account.gl_number}",
+        reference_number=f"RND-{fee_account.gl_number}",
+        source_type="financial_diagnostic",
+        source_id=fee_account.id,
+        created_by=created_by,
+        lines=[
+            PostingLine(
+                gl_account_id=offset_account.id,
+                description=f"Refund Negative Diagnostic offset for {fee_account.gl_number}",
+                debit=amount,
+            ),
+            PostingLine(
+                gl_account_id=fee_account.id,
+                description=f"Refund Negative Diagnostic correction for {fee_account.gl_number}",
+                credit=amount,
+            ),
+        ],
+    )
+    return {
+        "transaction_id": txn.id,
+        "gl_account_id": fee_account.id,
+        "gl_number": fee_account.gl_number,
+        "offset_gl_account_id": offset_account.id,
+        "offset_gl_number": offset_account.gl_number,
+        "amount": amount,
+    }
+
+
+# ============================================================
 # CHECK 5 — Positive Balance on Fee GL Accounts
 # ------------------------------------------------------------
 # Some fee accounts should clear to $0 after each cycle.
@@ -406,33 +504,323 @@ def check_negative_fee_accounts(
 # ANY fee account with a positive balance is flagged so the
 # manager knows to review. (Refine later if needed.)
 #
-# NOTE: For the moment we don't have a list of "must clear"
-# accounts, so we only flag accounts whose NAME suggests they
-# are clearing accounts but have drifted positive. If you add
-# a `must_clear` flag to gl_accounts later, switch to that.
+# Only active income accounts explicitly marked must_clear are
+# evaluated. The flag is configured on the Chart of Accounts.
 # ============================================================
 
 def check_positive_fee_accounts(
     db: Session, organization_id: int
 ) -> Dict:
-    # No accounts are currently marked "must clear to zero" in
-    # the schema. Return a pass so the report is clean, but keep
-    # the check present so the field is populated for the UI.
+    must_clear_accounts = (
+        db.query(GLAccount)
+        .filter(
+            GLAccount.organization_id == organization_id,
+            GLAccount.is_active.is_(True),
+            GLAccount.account_type == "INCOME",
+            GLAccount.must_clear.is_(True),
+        )
+        .order_by(GLAccount.gl_number.asc(), GLAccount.id.asc())
+        .all()
+    )
+
+    if not must_clear_accounts:
+        return {
+            "key": "POSITIVE_FEE_ACCOUNTS",
+            "label": "Positive Balance on Fee GL Accounts",
+            "passed": True,
+            "severity": "ok",
+            "message": "No active income accounts are marked as must-clear.",
+            "details": [],
+        }
+
+    bad = []
+    for acct in must_clear_accounts:
+        raw = _balance_of(db, organization_id, acct)
+        income_balance = -raw
+        if income_balance > Decimal("0.01"):
+            bad.append(
+                {
+                    "gl_account_id": acct.id,
+                    "gl": acct.gl_number,
+                    "name": acct.name,
+                    "balance": str(income_balance),
+                }
+            )
+
+    if not bad:
+        return {
+            "key": "POSITIVE_FEE_ACCOUNTS",
+            "label": "Positive Balance on Fee GL Accounts",
+            "passed": True,
+            "severity": "ok",
+            "message": (
+                f"All {len(must_clear_accounts)} must-clear income "
+                "account(s) are at zero or below."
+            ),
+            "details": [],
+        }
+
     return {
         "key": "POSITIVE_FEE_ACCOUNTS",
         "label": "Positive Balance on Fee GL Accounts",
-        "passed": True,
-        "severity": "ok",
+        "passed": False,
+        "severity": "warning",
         "message": (
-            "No accounts are flagged as must-clear. "
-            "(Add a `must_clear` flag to gl_accounts to enable this check.)"
+            f"{len(bad)} must-clear income account(s) have positive "
+            "balances that should be reviewed."
         ),
-        "details": [],
+        "details": bad,
     }
 
 
 # ============================================================
-# CHECK 6 — Trust Account 3-Way Reconciliation
+# CHECK 6 — Bank Reconciliation Lapses
+# ------------------------------------------------------------
+# Active bank accounts should be reconciled at least every
+# 60 days. Accounts that have never been reconciled are flagged
+# once they have existed for more than 60 days.
+# ============================================================
+
+def check_bank_reconciliation_lapses(
+    db: Session,
+    organization_id: int,
+    *,
+    as_of: date | None = None,
+) -> Dict:
+    as_of = as_of or date.today()
+    cutoff = as_of - timedelta(days=60)
+    bank_accounts = (
+        db.query(BankAccount)
+        .filter(
+            BankAccount.organization_id == organization_id,
+            BankAccount.is_active.is_(True),
+        )
+        .order_by(BankAccount.id.asc())
+        .all()
+    )
+
+    overdue = []
+    for account in bank_accounts:
+        last = (
+            db.query(BankReconciliation)
+            .filter(
+                BankReconciliation.organization_id == organization_id,
+                BankReconciliation.bank_account_id == account.id,
+                BankReconciliation.status == "RECONCILED",
+            )
+            .order_by(
+                BankReconciliation.statement_date.desc(),
+                BankReconciliation.id.desc(),
+            )
+            .first()
+        )
+
+        if last is not None:
+            days_since = (as_of - last.statement_date).days
+            if last.statement_date < cutoff:
+                overdue.append(
+                    {
+                        "bank_account_id": account.id,
+                        "bank_account": account.name,
+                        "last_reconciled_statement_date": last.statement_date.isoformat(),
+                        "days_since_reconciliation": days_since,
+                        "status": "OVERDUE",
+                    }
+                )
+            continue
+
+        created_date = account.created_at.date() if account.created_at else as_of
+        days_since = (as_of - created_date).days
+        if created_date < cutoff:
+            overdue.append(
+                {
+                    "bank_account_id": account.id,
+                    "bank_account": account.name,
+                    "last_reconciled_statement_date": None,
+                    "days_since_reconciliation": days_since,
+                    "status": "NEVER_RECONCILED",
+                }
+            )
+
+    if not overdue:
+        return {
+            "key": "BANK_RECONCILIATION_LAPSES",
+            "label": "Bank Reconciliation Lapses",
+            "passed": True,
+            "severity": "ok",
+            "message": (
+                f"All {len(bank_accounts)} active bank account(s) are within "
+                "the 60-day reconciliation window."
+            ),
+            "details": [],
+        }
+
+    return {
+        "key": "BANK_RECONCILIATION_LAPSES",
+        "label": "Bank Reconciliation Lapses",
+        "passed": False,
+        "severity": "warning",
+        "message": (
+            f"{len(overdue)} active bank account(s) have not been reconciled "
+            "within 60 days."
+        ),
+        "details": overdue,
+    }
+
+
+# ============================================================
+# CHECK 7 — Unbalanced Posted GL Transactions
+# ------------------------------------------------------------
+# Central posting rejects unbalanced transactions, but this
+# integrity check detects legacy/import/manual database corruption.
+# It is read-only and scoped to the current organization.
+# ============================================================
+
+def check_unbalanced_gl_transactions(
+    db: Session, organization_id: int
+) -> Dict:
+    rows = (
+        db.query(
+            GLTransaction.id,
+            GLTransaction.transaction_date,
+            GLTransaction.transaction_type,
+            GLTransaction.reference_number,
+            func.count(GLEntry.id).label("entry_count"),
+            func.coalesce(func.sum(GLEntry.debit), 0).label("debit_total"),
+            func.coalesce(func.sum(GLEntry.credit), 0).label("credit_total"),
+        )
+        .outerjoin(
+            GLEntry,
+            (GLEntry.transaction_id == GLTransaction.id)
+            & (GLEntry.organization_id == organization_id),
+        )
+        .filter(GLTransaction.organization_id == organization_id)
+        .group_by(
+            GLTransaction.id,
+            GLTransaction.transaction_date,
+            GLTransaction.transaction_type,
+            GLTransaction.reference_number,
+        )
+        .order_by(GLTransaction.id.asc())
+        .all()
+    )
+
+    bad = []
+    for row in rows:
+        debit_total = Decimal(row.debit_total or 0)
+        credit_total = Decimal(row.credit_total or 0)
+        entry_count = int(row.entry_count or 0)
+        if (
+            entry_count < 2
+            or debit_total <= Decimal("0")
+            or credit_total <= Decimal("0")
+            or abs(debit_total - credit_total) > Decimal("0.01")
+        ):
+            bad.append(
+                {
+                    "transaction_id": row.id,
+                    "transaction_date": row.transaction_date.isoformat(),
+                    "transaction_type": row.transaction_type,
+                    "reference_number": row.reference_number,
+                    "entry_count": entry_count,
+                    "debits": str(debit_total),
+                    "credits": str(credit_total),
+                    "difference": str(debit_total - credit_total),
+                }
+            )
+
+    if not bad:
+        return {
+            "key": "UNBALANCED_GL_TRANSACTIONS",
+            "label": "Posted GL Transaction Integrity",
+            "passed": True,
+            "severity": "ok",
+            "message": f"All {len(rows)} posted GL transaction(s) are balanced.",
+            "details": [],
+        }
+
+    return {
+        "key": "UNBALANCED_GL_TRANSACTIONS",
+        "label": "Posted GL Transaction Integrity",
+        "passed": False,
+        "severity": "error",
+        "message": (
+            f"{len(bad)} posted GL transaction(s) are missing lines or do not balance."
+        ),
+        "details": bad,
+    }
+
+
+# ============================================================
+# CHECK 8 — Bank Account GL Mapping Health
+# ------------------------------------------------------------
+# Every active physical bank account must map to an active ASSET
+# GL account owned by the same organization.
+# ============================================================
+
+def check_bank_account_gl_mappings(
+    db: Session, organization_id: int
+) -> Dict:
+    bank_accounts = (
+        db.query(BankAccount)
+        .filter(
+            BankAccount.organization_id == organization_id,
+            BankAccount.is_active.is_(True),
+        )
+        .order_by(BankAccount.id.asc())
+        .all()
+    )
+
+    bad = []
+    for bank in bank_accounts:
+        gl_account = db.get(GLAccount, bank.gl_account_id)
+        reason = None
+        if gl_account is None:
+            reason = "GL_ACCOUNT_NOT_FOUND"
+        elif gl_account.organization_id != organization_id:
+            reason = "CROSS_ORGANIZATION_GL"
+        elif not gl_account.is_active:
+            reason = "INACTIVE_GL_ACCOUNT"
+        elif gl_account.account_type != "ASSET":
+            reason = "GL_ACCOUNT_NOT_ASSET"
+
+        if reason:
+            bad.append(
+                {
+                    "bank_account_id": bank.id,
+                    "bank_account": bank.name,
+                    "gl_account_id": bank.gl_account_id,
+                    "gl_number": gl_account.gl_number if gl_account else None,
+                    "gl_account_type": gl_account.account_type if gl_account else None,
+                    "reason": reason,
+                }
+            )
+
+    if not bad:
+        return {
+            "key": "BANK_ACCOUNT_GL_MAPPINGS",
+            "label": "Bank Account GL Mapping Health",
+            "passed": True,
+            "severity": "ok",
+            "message": (
+                f"All {len(bank_accounts)} active bank account(s) map to active "
+                "same-organization ASSET GL accounts."
+            ),
+            "details": [],
+        }
+
+    return {
+        "key": "BANK_ACCOUNT_GL_MAPPINGS",
+        "label": "Bank Account GL Mapping Health",
+        "passed": False,
+        "severity": "error",
+        "message": f"{len(bad)} active bank account mapping(s) require correction.",
+        "details": bad,
+    }
+
+
+# ============================================================
+# CHECK 9 — Trust Account 3-Way Reconciliation
 # ------------------------------------------------------------
 # THE critical check. Three numbers must agree:
 #
@@ -519,6 +907,9 @@ def run_all_diagnostics(
         check_clearing_accounts(db, organization_id),
         check_negative_fee_accounts(db, organization_id),
         check_positive_fee_accounts(db, organization_id),
+        check_bank_reconciliation_lapses(db, organization_id),
+        check_unbalanced_gl_transactions(db, organization_id),
+        check_bank_account_gl_mappings(db, organization_id),
         check_three_way_reconciliation(db, organization_id),
     ]
 

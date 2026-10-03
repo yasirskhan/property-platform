@@ -6,7 +6,7 @@
 // One endpoint: GET /api/accounting/diagnostics
 // ============================================================
 
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/api";
 
 // ------------------------------------------------------------
 // Shapes
@@ -38,4 +38,23 @@ export type DiagnosticsReport = {
 
 export function getDiagnostics(): Promise<DiagnosticsReport> {
   return apiGet(`/api/accounting/diagnostics`);
+}
+
+export type RefundNegativeResult = {
+  transaction_id: number;
+  gl_account_id: number;
+  gl_number: string;
+  offset_gl_account_id: number;
+  offset_gl_number: string;
+  amount: string;
+};
+
+export function refundNegativeDiagnostic(
+  glAccountId: number,
+  transactionDate: string
+): Promise<RefundNegativeResult> {
+  return apiPost("/api/accounting/diagnostics/refund-negative", {
+    gl_account_id: glAccountId,
+    transaction_date: transactionDate,
+  });
 }

@@ -4,7 +4,7 @@
 // Typed API client for Owner Statements (Phase 2 Step 10).
 // ============================================================
 
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, apiPut } from "@/lib/api";
 
 // ------------------------------------------------------------
 // Shapes
@@ -29,6 +29,9 @@ export type StatementPropertyBlock = {
   income: string;
   expense: string;
   net: string;
+  required_reserves: string;
+  prepaid_rent: string;
+  available_cash: string;
   transactions: StatementTransactionLine[];
 };
 
@@ -43,6 +46,9 @@ export type StatementPreview = {
   total_income: string;
   total_expense: string;
   total_net: string;
+  total_required_reserves: string;
+  total_prepaid_rent: string;
+  total_available_cash: string;
   properties: StatementPropertyBlock[];
   can_generate: boolean;
   reason: string | null;
@@ -72,6 +78,25 @@ export type OwnerStatement = {
 
 export type OwnerStatementDetail = OwnerStatement & {
   properties: StatementPropertyBlock[];
+  total_required_reserves: string;
+  total_prepaid_rent: string;
+  total_available_cash: string;
+};
+
+export type OwnerStatementCashSummary = {
+  statement_id: number;
+  total_ending_cash: string;
+  total_required_reserves: string;
+  total_prepaid_rent: string;
+  total_available_cash: string;
+  properties: Array<{
+    property_id: number;
+    property_name: string;
+    ending_cash: string;
+    required_reserves: string;
+    prepaid_rent: string;
+    available_cash: string;
+  }>;
 };
 
 export type OwnerStatementList = {
@@ -139,4 +164,65 @@ export function getOwnerStatement(
   id: number
 ): Promise<OwnerStatementDetail> {
   return apiGet(`/api/accounting/owner-statements/${id}`);
+}
+
+export function getOwnerStatementCashSummary(
+  id: number
+): Promise<OwnerStatementCashSummary> {
+  return apiGet(`/api/accounting/owner-statements/${id}/cash-summary`);
+}
+
+
+export type OwnerPacketReport = "OWNER_STATEMENT" | "PROPERTY_CASH_SUMMARY";
+
+export type OwnerPacketSettings = {
+  organization_id: number;
+  included_reports: OwnerPacketReport[];
+  email_owner: boolean;
+  cover_message: string | null;
+};
+
+export type OwnerPacketSettingsUpdate = Omit<OwnerPacketSettings, "organization_id">;
+
+export function getOwnerPacketSettings(): Promise<OwnerPacketSettings> {
+  return apiGet("/api/accounting/owner-statements/packet-settings");
+}
+
+export function updateOwnerPacketSettings(
+  payload: OwnerPacketSettingsUpdate
+): Promise<OwnerPacketSettings> {
+  return apiPut("/api/accounting/owner-statements/packet-settings", payload);
+}
+
+
+// Owner packet delivery reuses the existing frozen statement and server-rendered CSV files.
+export type OwnerPacketPreview = {
+  statement_id: number;
+  owner_id: number;
+  recipient_email: string;
+  period_start: string;
+  period_end: string;
+  attachment_filenames: string[];
+  attachment_format: "CSV";
+  cover_message: string | null;
+  email_enabled: boolean;
+  review_token: string;
+};
+
+export type OwnerPacketSendResult = {
+  sent: boolean;
+  recipient_email: string;
+  filenames: string[];
+};
+
+export function previewOwnerPacket(id: number): Promise<OwnerPacketPreview> {
+  return apiGet(`/api/accounting/owner-packets/${id}/preview`);
+}
+
+export function emailOwnerPacket(id: number, reviewToken: string): Promise<OwnerPacketSendResult> {
+  return apiPost(`/api/accounting/owner-packets/${id}/email`, {
+    review_token: reviewToken,
+    confirm_recipient: true,
+    confirm_snapshot_reviewed: true,
+  });
 }

@@ -73,6 +73,7 @@ export default function AmenitiesTab({
 
   const [confirmingDelete, setConfirmingDelete] =
     useState<PropertyAmenity | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
 
   async function load() {
     setLoading(true);
@@ -152,6 +153,7 @@ export default function AmenitiesTab({
   }
 
   function askDelete(a: PropertyAmenity) {
+    setDeleteReason("");
     setConfirmingDelete(a);
   }
 
@@ -159,8 +161,9 @@ export default function AmenitiesTab({
     setWorking(true);
     setError("");
     try {
-      await deleteAmenity(propertyId, a.id);
+      await deleteAmenity(propertyId, a.id, deleteReason);
       setConfirmingDelete(null);
+      setDeleteReason("");
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Delete failed");
@@ -314,10 +317,21 @@ export default function AmenitiesTab({
                   Remove amenity?
                 </div>
               </div>
-              <div className="px-6 py-5 text-sm text-slate-700">
+              <div className="px-6 py-5 text-sm text-slate-700 space-y-3">
                 Remove <strong>{confirmingDelete.name}</strong> from this
                 property?
-              </div>
+                <div>
+    <label className="block text-xs font-medium text-slate-600 mb-1">Reason for removal *</label>
+    <textarea
+      value={deleteReason}
+      onChange={(e) => setDeleteReason(e.target.value)}
+      rows={3}
+      maxLength={1000}
+      placeholder="Explain why this item is being removed"
+      className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+    />
+  </div>
+</div>
               <div className="border-t border-slate-200 p-4 flex items-center justify-end gap-3">
                 <button
                   onClick={() => setConfirmingDelete(null)}
@@ -328,7 +342,7 @@ export default function AmenitiesTab({
                 </button>
                 <button
                   onClick={() => reallyDelete(confirmingDelete)}
-                  disabled={working}
+                  disabled={working || !deleteReason.trim()}
                   className="text-sm px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                 >
                   {working ? "Removing…" : "Remove"}

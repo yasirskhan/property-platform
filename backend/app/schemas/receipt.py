@@ -57,7 +57,7 @@ class ReceiptCreateIn(BaseModel):
     receipt_date: date
     amount: Decimal = Field(..., gt=0)
 
-    cash_gl_account_id: int
+    cash_gl_account_id: Optional[int] = None
 
     # TENANT-only
     tenant_user_id: Optional[int] = None
@@ -91,8 +91,8 @@ class ReceiptCreateIn(BaseModel):
     @classmethod
     def _valid_type(cls, v: str) -> str:
         up = (v or "").strip().upper()
-        if up not in {"TENANT", "OWNER", "OTHER"}:
-            raise ValueError("type must be TENANT, OWNER, or OTHER")
+        if up not in {"TENANT", "OWNER", "OTHER", "APPLICATION_FEE"}:
+            raise ValueError("type must be TENANT, OWNER, OTHER, or APPLICATION_FEE")
         return up
 
 
@@ -100,6 +100,12 @@ class ReceiptReverseIn(BaseModel):
     """Request body for POST /api/accounting/receipts/{id}/reverse."""
     reversal_date: date
     memo: Optional[str] = None
+
+
+class ReceiptNSFIn(BaseModel):
+    """Request body for POST /api/accounting/receipts/{id}/process-nsf."""
+    process_date: date
+    memo: Optional[str] = Field(None, max_length=500)
 
 
 # ============================================================
@@ -151,6 +157,8 @@ class ReceiptOut(BaseModel):
     notes: Optional[str] = None
 
     gl_transaction_id: Optional[int] = None
+    deposit_id: Optional[int] = None
+    is_deposited: bool = False
     is_reversed: bool
     reversal_of_id: Optional[int] = None
     is_active: bool

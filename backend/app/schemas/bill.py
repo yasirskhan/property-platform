@@ -34,6 +34,7 @@ class BillCreateIn(BaseModel):
     """Request body for POST /api/accounting/bills."""
     payee_name: str = Field(..., min_length=1, max_length=200)
     payee_user_id: Optional[int] = None
+    vendor_id: Optional[int] = Field(default=None, ge=1)
 
     bill_date: date
     due_date: Optional[date] = None
@@ -43,6 +44,10 @@ class BillCreateIn(BaseModel):
     # Payable account (defaults to 2100 Accounts Payable).
     # If not sent, the service picks 2100.
     payable_gl_account_id: Optional[int] = None
+
+    # Optional default payment cash account. The bill entry itself remains
+    # accrual-only; pay_bill() uses this when a payment does not override it.
+    cash_gl_account_id: Optional[int] = None
 
     property_id: Optional[int] = None
     unit_id: Optional[int] = None
@@ -68,7 +73,7 @@ class BillPayIn(BaseModel):
     Can be partial (pay less than the bill amount).
     """
     payment_date: date
-    cash_gl_account_id: int
+    cash_gl_account_id: Optional[int] = None
     amount: Decimal = Field(..., gt=0)
     reference_number: Optional[str] = Field(None, max_length=60)
     remarks: Optional[str] = None
@@ -107,6 +112,7 @@ class BillOut(BaseModel):
     bill_number: Optional[str] = None
     payee_name: str
     payee_user_id: Optional[int] = None
+    vendor_id: Optional[int] = None
 
     bill_date: date
     due_date: Optional[date] = None
@@ -123,6 +129,10 @@ class BillOut(BaseModel):
     payable_gl_account_id: int
     payable_gl_account_number: Optional[str] = None
     payable_gl_account_name: Optional[str] = None
+
+    cash_gl_account_id: Optional[int] = None
+    cash_gl_account_number: Optional[str] = None
+    cash_gl_account_name: Optional[str] = None
 
     remarks: Optional[str] = None
     notes: Optional[str] = None

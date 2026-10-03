@@ -23,6 +23,8 @@ import Link from "next/link";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { apiGet } from "@/lib/api";
 import { useMenu } from "@/contexts/MenuContext";
+import { useDisplay } from "@/contexts/DisplayContext";
+import Flag from "@/components/features/Flag";
 import RoleMatrix from "@/components/permissions/RoleMatrix";
 import UserOverrides from "@/components/permissions/UserOverrides";
 import MyPreferences from "@/components/permissions/MyPreferences";
@@ -40,6 +42,7 @@ const ROLE_CAN_EDIT_USERS = ["ADMIN", "OWNER", "MANAGER"];
 export default function PermissionsPage() {
   const router = useRouter();
   const { refresh } = useMenu();
+  const { prefs } = useDisplay();
 
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,9 +52,21 @@ export default function PermissionsPage() {
     apiGet("/auth/me")
       .then((u: User) => {
         setUser(u);
-        // Default landing tab depends on role
-        if (ROLE_CAN_EDIT_ROLES.includes(u.role)) {
+        const requestedTab = new URLSearchParams(window.location.search).get("tab");
+        const normalizedRole = String(u.role).toUpperCase();
+        const canEditRoles = ROLE_CAN_EDIT_ROLES.includes(normalizedRole);
+        const canEditUsers = ROLE_CAN_EDIT_USERS.includes(normalizedRole);
+
+        if (requestedTab === "preferences") {
+          setTab("preferences");
+        } else if (requestedTab === "users" && canEditUsers) {
+          setTab("users");
+        } else if (requestedTab === "roles" && canEditRoles) {
           setTab("roles");
+        } else if (canEditRoles) {
+          setTab("roles");
+        } else {
+          setTab("preferences");
         }
         setLoading(false);
       })
@@ -64,8 +79,9 @@ export default function PermissionsPage() {
     return <div className="p-8 text-slate-500">Loading…</div>;
   }
 
-  const showRoles = ROLE_CAN_EDIT_ROLES.includes(user.role);
-  const showUsers = ROLE_CAN_EDIT_USERS.includes(user.role);
+  const normalizedRole = String(user.role || "").toUpperCase();
+  const showRoles = ROLE_CAN_EDIT_ROLES.includes(normalizedRole);
+  const showUsers = ROLE_CAN_EDIT_USERS.includes(normalizedRole);
 
   const tabs: { key: TabKey; label: string }[] = [];
   if (showRoles) tabs.push({ key: "roles", label: "Roles" });
@@ -73,7 +89,11 @@ export default function PermissionsPage() {
   tabs.push({ key: "preferences", label: "My Preferences" });
 
   return (
-    <div className="max-w-5xl">
+    <div
+      className="max-w-5xl"
+      data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()}
+      data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}
+    >
       <Link
         href="/dashboard/settings"
         className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 mb-4"
@@ -82,11 +102,22 @@ export default function PermissionsPage() {
         Back to settings
       </Link>
 
-      <div className="flex items-center gap-3 mb-1">
-        <ShieldCheck className="w-6 h-6 text-slate-700" />
-        <h1 className="text-2xl font-semibold text-slate-900">
-          Permissions
-        </h1>
+      <div className="flex items-start justify-between gap-4 mb-1">
+        <div className="flex items-center gap-3">
+          <ShieldCheck className="w-6 h-6 text-slate-700" />
+          <h1 className="text-2xl font-semibold text-slate-900">
+            Permissions
+          </h1>
+        </div>
+        <Flag name="release.accounting.gl_account_permissions">
+          <button
+            type="button"
+            disabled
+            className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60"
+          >
+            GL Account Permissions
+          </button>
+        </Flag>
       </div>
       <p className="text-sm text-slate-500 mb-6">
         Control what each role sees, override for specific users, and

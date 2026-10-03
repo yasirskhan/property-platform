@@ -2,7 +2,7 @@
 
 **Property Management Platform (AppFolio-equivalent)**
 **Single source of truth for the project.**
-**Last updated: 2026-09-22**
+**Last updated: 2026-09-25**
 
 ---
 
@@ -11,78 +11,33 @@
 
 ## A1. WHERE WE ARE RIGHT NOW
 
-**Current activity:** Foundation Pass (Phase 3.4) — planning stage.
-The full plan is on disk. The retrofit that makes every page ship
-its full planned surface is scheduled next.
+**Current activity:** Phase **3.6 — Accounting Polish** is COMPLETE/VERIFIED. Phase **3.7 — Reports + Universal Attachments** is IN PROGRESS. Universal Attachments is COMPLETE/VERIFIED; current work: Report framework (standard vs enhanced).
 
-**What shipped this session (2026-09-22, second half):**
+**GitHub working state:** draft PR #2 from `chatgpt/checkpoint-005-safety` into `main`. `main` remains untouched until Yasir explicitly approves a merge.
 
-The session started as a currency/date sweep and expanded into a
-full planning + gap analysis. Two new canonical documents were
-written, and the master plan was corrected.
+**Verified in hosted GitHub CI on 2026-09-23:**
+- Python 3.12 backend suite against PostgreSQL 16;
+- parity/registry consistency and committed-secret scan;
+- frontend `npm ci`, lint, TypeScript, and production build;
+- fresh PostgreSQL bootstrap and deterministic E2E seed;
+- PostgreSQL `pg_dump` / restore verification;
+- authenticated Playwright login + Dashboard / Properties / Receipts / Bills;
+- staging Compose rendering, backend/frontend image builds, live stack startup, backend `/health`, and frontend `/login` in CI run 35916148970.
 
-**New files on disk:**
+**Real defects found and fixed by the safety gate:**
+- E2E seed used a reserved `.test` email domain rejected by Pydantic; changed to a valid example-domain address.
+- Playwright waited for `networkidle`, which is unreliable for a live client app; the smoke test now waits for DOM/UI readiness.
+- GL reversal posting previously used two financial commits; reversal + original `is_reversed` state now commit atomically with regression coverage.
+- Fresh database bootstrap/model registration gaps were corrected and the complete current model registry is guarded by tests.
+- Staging initially failed because the PostgreSQL `psycopg` driver was only a dev dependency; it is now a runtime dependency and the live staging smoke passes.
 
-- `docs/PLAN_GAPS.md` — the complete supplement to the master doc.
-  Every gap discussed with Yasir, with a decision and a phase. 84
-  new tracked items resulted.
-- `docs/FEATURE_REGISTRY.md` — the surface map. Every page, every
-  slot, every flag. v1 ships with the Receipts page as the format
-  sample. The remaining 13 pages land in Foundation Session 2.
+**3.4.S closeout:** COMPLETE. Portable private-repo security checks (Bandit, pip-audit, npm audit, committed-secret scan, Dependabot) replaced the unavailable mandatory CodeQL upload gate and passed in hosted CI run 35917804417. CodeQL remains optional/manual if GitHub Code Security is enabled later.
 
-**Decisions made this session:**
+**Migration head:** `a3d5f7b9c1e4`.
 
-- **Multi-region:** Model B — single logical system, `data_region`
-  column on organizations + properties, routing through
-  `get_db_for_org()`. Start US-only (Option Y). Add EU and APAC
-  regions when customers need them. Ship in Session 3.4.5.
-- **GDPR + CCPA:** per-org + per-property region. `deleted_at`
-  schema, machine-readable export, right-to-be-forgotten, DPA
-  per region, subprocessor list, cookie consent (EU only), ToS
-  versioning.
-- **SOC 2:** pursuing within 24 months. Immutable audit log from
-  day one.
-- **FCRA:** planned with Phase 8 screening. Adverse action notices,
-  disputes, retention.
-- **PCI:** Stripe only. We store tokens, never card numbers.
-- **Infra:** Arq (async jobs + cron) + Redis (Upstash dev,
-  ElastiCache prod). Sentry + Logtail + Grafana Cloud.
-- **Product:** all sub-phases confirmed. Affordable (4.6), HOA
-  (4.7), Commercial (4.8), RUBs (4.9), Student (4.10), Senior
-  (4.11), Short-term (4.12), Migration per competitor (4.13–4.17).
-- **Trust interest, positive pay, 1099 e-filing (Track1099), year-end
-  close:** all in the plan (4.5 + 3.4.5 for year-end).
-- **Enterprise:** not self-serve. Admin-provisioned. Custom plans.
-- **Custom domains + white-label:** in scope (Phase 11 for DNS/TLS).
-- **Status page + support SLA:** in scope.
-- **check_parity.py v2:** verifies page slots against
-  `FEATURE_REGISTRY.md`. Ships in Session 3.4.2.
+**Current parity inventory:** 262 built, 0 in progress, 366 scheduled, 628 total. `check_parity.py CLEAN` means planning consistency; behavioral proof comes from the automated gates.
 
-**Parity JSON:** grew from 528 → 612 items. All scheduled, all phased.
-`built` stays at 125 (no features shipped this half).
-
-**Also shipped earlier this session (before the planning turn):**
-The frontend currency/date sweep — 21 files, 3 commits. Every page
-now uses `formatMoney()` / `formatDate()` from `lib/money.ts`. Two
-real bugs fixed (Display currency persistence, `glTransactions`
-duplicate helpers). Sections 58/59/68 flipped from PARTIAL to DONE.
-
-**Migration head:** 5949df11e460 (unchanged — no DB work this session)
-
-**Next:** Foundation Session 3.4.2 — finish `FEATURE_REGISTRY.md` for
-the remaining 13 pages + write `check_parity.py` v2. Then Session
-3.4.3 (identity boundary), 3.4.4 (flags + jobs), 3.4.5 (multi-region
-schema + deleted_at + locked_through), 3.4.6 (billing), and so on
-through 3.4.12 (retrofit Receipts).
-
-**The 12-session Foundation Pass replaces the old plan order.**
-Phase 3.5.5 (Compliance Pass) starts after Session 3.4.11. Phase 3.6
-features resume after the retrofit. The full order is in Section 82.
-
-**New Sections 82 + 83 added this session:** Plan Gaps & Foundation
-Pass, and Feature Registry (Surface Map). See Part C.
-
-## A2. WHAT'S BUILT (WORKING)
+## A2. WHAT'S BUILT (WORKING)## A2. WHAT'S BUILT (WORKING)
 
 - Sessions 1-17 (auth, properties, units, people, leases, work
   orders, password reset, org email, uploads, team UI, property
@@ -159,9 +114,7 @@ Deployment target (Phase 11):
 13. Every GL posting goes through post_transaction(). Never write to GL tables directly.
 14. GL account seed count: 61 per org (60 original + 2100 AP added in Step 6).
 15. `push.bat` on the desktop is the one-click way to save to GitHub.
-16. Every new page uses the shared primitives (money(), date(),
-    useDisplay()) and gates every future feature behind a feature
-    flag. See Section 67 close-out rules and Section 79.
+16. Every new page uses shared primitives and the Hybrid Capability Gating rules. Gate independently releasable capabilities, not routine fields/columns/filters. Backend authorization remains authoritative. See Sections 67, 70, 79, and 80.
 
 ## A5. CURRENT OPEN DECISIONS
 
@@ -179,11 +132,8 @@ Deployment target (Phase 11):
   hand" GL account, add DR Bank / CR Cash on Hand in create_deposit().
 - Diagnostics currently detect only. Auto-fix postings deferred
   to Phase 3.6.
-- Currencies Display dropdown is still hardcoded. It does NOT
-  fetch /api/settings/currencies yet. Sweep is Phase 3.5.5.
-- Display settings save but no page consumes them yet (theme,
-  layout, date format, density, number format, font size, accent,
-  reduce motion). Sweep is Phase 3.5.5.
+- Currencies Display dropdown is API-backed and verified in Phase 3.4.23.
+- Display settings theme/density/font/accent/reduce-motion consumption is being completed in Phase 3.4.24; number-format rendering remains deferred until the formatter consumes it.
 - Section 12 says 61 GL accounts; header comment in gl_account.py
   still says 57. Fix in the next cleanup pass.
 
@@ -193,44 +143,14 @@ Deployment target (Phase 11):
 
 ## B1. IMMEDIATE NEXT ACTION
 
-**Foundation Session 3.4.2.**
+**Continue Phase 3.6 — Accounting Polish: Owner Statements.**
 
-Two deliverables:
+1. Diagnostics now has nine real checks and is VERIFIED in CI run 36196379096: backend 336 passed, 3 deselected; E2E 3 passed; frontend, platform-admin, security, PostgreSQL backup/restore, staging, parity/registry consistency, and secret scan passed.
+2. Implement Owner Statements in Section 38 order: Required Reserves, Prepaid Rent, then Property Cash Summary.
+3. Preserve organization isolation, the frozen owner-statement snapshot contract, existing owner/property ownership behavior, and central immutable GL as the accounting source.
+4. Do not fabricate reserve/prepaid values: add or reuse explicit durable source data, freeze computed values into statement snapshots, verify in hosted CI, fix reds autonomously, update checkpoint/planning state, then continue without waiting.
 
-1. **Finish `FEATURE_REGISTRY.md`** — the remaining 13 pages, using
-   the Receipts page as the format template. Pages: Bills (list +
-   new), Deposits (list + new), GL Accounts, Journal Entries (list
-   + new + detail), Management Fees, Owner Statements, Bank
-   Accounts, Charges, Properties (list + detail + every tab),
-   Settings pages.
-2. **Write `check_parity.py` v2** — reads `FEATURE_REGISTRY.md`,
-   verifies every page's slot list is present in the page source
-   (via a marker comment block), fails the build if any page is
-   missing slots. This gives the Complete-Page rule teeth.
-
-After 3.4.2:
-- **3.4.3** — Backend identity boundary (`platform_users` table,
-  separate JWT audience, seed first platform_admin, immutable audit)
-- **3.4.4** — Feature flags tables + resolver + Arq + Redis +
-  scheduler + Sentry
-- **3.4.5** — `data_region` column + `get_db_for_org()` + `deleted_at`
-  + `locked_through_date`
-- **3.4.6** — Billing foundation (Stripe products, plans,
-  subscriptions, webhooks, org state lifecycle)
-- **3.4.7** — Self-serve signup + Stripe Checkout
-- **3.4.8** — Fraud layer (Stripe Radar + our signals + review queue)
-- **3.4.9** — Internal admin app (separate Next.js app)
-- **3.4.10** — `useFlag()` + `<Flag>` + Settings → Features
-- **3.4.11** — Unit enforcement + plan limits
-- **3.4.12** — Retrofit Receipts page (proof of pattern)
-- **Then** — retrofit remaining pages, one per session
-- **Then** — back to Phase 3.6 features (Journal Entries sub-tabs first)
-
-Read `docs/PLAN_GAPS.md` for the full gap inventory and decision log.
-Read `docs/FEATURE_REGISTRY.md` for the page-by-page surface map.
-Read Section 82 (Foundation Pass) for the full order.
-
-## B2. AFTER THAT (Phase 3.5 onward)
+## B2. AFTER THAT## B2. AFTER THAT (Phase 3.5 onward)
 
 See Section 38 for the full build order including:
 - Phase 3.5 — Property Detail Polish
@@ -1272,7 +1192,7 @@ Phase 3.7 — Reports + Universal Attachments (57 items — see JSON for full li
   - Print / Email / CSV Export on every report
   - Custom Report Builder (saved configurations)
   - Create Labels Report (mail merge via CSV)
-  - Generate 1099 Forms & Reports (FIRE file)
+  - Generate 1099 Forms & Reports (IRIS or approved provider; secure W-9/tax profiles first)
   Letters:
   - Letters Overview + View/Edit + Custom + Print/Email + 3-Day Notice
   - Send Owner Packets
@@ -2089,11 +2009,11 @@ the summary:
 
 ## Accounting — additions (from PDF pp. 27–80)
 
-- ⬜ Owner Held Security Deposits (whole feature) — Phase 3.6 [PDF p.33]
+- ✅ Owner Held Security Deposits (whole feature) — Phase 3.6 [PDF p.33]
 - ⬜ Bank Account Adjustments (entity + sub-tab list) — Phase 3.6 [PDF p.44]
 - ⬜ Recalculate Balances button on GL Accounts — Phase 3.6 [PDF p.48]
 - ⬜ Post Codes for recurring bills — Phase 3.6 [PDF p.55]
-- ⬜ $0 ACH Test File — Phase 3.6 [PDF p.28]
+- ✅ $0 ACH Test File — Phase 3.6 [PDF p.28]
 - ⬜ Transfer Funds (property to property) — Phase 3.6 [PDF p.67]
 - ⬜ Manually Post Journal Entries — Phase 3.6 [PDF p.51]
 - ⬜ Manually Post Bills — Phase 3.6 [PDF p.61]
@@ -2113,7 +2033,7 @@ the summary:
 - ⬜ Report framework (standard vs enhanced) — Phase 3.7 [PDF p.81]
 - ⬜ Print / Email / CSV Export on every report — Phase 3.7 [PDF pp.83–86]
 - ⬜ Create Labels Report — Phase 3.7 [PDF p.87]
-- ⬜ Generate 1099 Forms & Reports (FIRE file + print) — Phase 3.7 [PDF p.89]
+- ⬜ Generate 1099 Forms & Reports (IRIS or approved provider + recipient copies; secure W-9/tax profiles first) — Phase 3.7 [PDF p.89]
 - ⬜ Letters module (Overview, View/Edit, Custom, Print/Email, 3-Day Notice) — Phase 3.7 [PDF pp.90–95]
 - ⬜ Send Owner Packets — Phase 3.7 [PDF pp.30, 95]
 - ⬜ Security Deposit Funds Detail report — Phase 3.7 [PDF p.81]
@@ -2281,6 +2201,7 @@ the summary:
 - ✅ Financials tab
 - ✅ Taxes tab
 - ✅ Expenses tab
+- ✅ Notes tab (universal timestamped notes)
 - ✅ History tab (audit)
 - ⬜ Property Groups — Phase 3.5
 - ⬜ Budget tab — Phase 3.5
@@ -2332,7 +2253,7 @@ the summary:
 
 - ✅ Owner list
 - ✅ Owner ID card
-- ⬜ Owner ACH setup — Phase 3.6
+- ✅ Owner ACH setup — Phase 3.6
 - ⬜ Owner Reserve Funds — Phase 3.5
 - ⬜ Vendor 1099 Payer — Phase 4
 - ⬜ Owner Directory report — Phase 3.7
@@ -2463,10 +2384,10 @@ the summary:
 - ✅ Soft delete (all entities)
 - ✅ Created by / at
 - ✅ Updated by / at
-- ⚠️  Notes (present on some — properties, leases) — expand to all — Phase 3.6
+- ✅ Notes universal timestamped entity stream — Phase 3.6
 - ⬜ Attachments (every entity) — Phase 3.7
 - ⚠️  Audit Log (partial coverage) — expand everywhere — Phase 3.6
-- ⬜ Soft-delete reason universal — Phase 3.6
+- ✅ Soft-delete reason universal — Phase 3.6
 
 ## Internal Side (ours)
 
@@ -3039,36 +2960,24 @@ and default state. If a change would affect an existing feature's
 behavior, it must be scheduled as its own item with its own migration
 -- never folded silently into a new section.
 
-## Complete-page rule (added 2026-09-22, enforced from Session 3.4.2)
+## Complete-page rule (revised 2026-09-23)
 
-Every page ships with its full planned surface -- not just the
-currently-built portions. Unbuilt features render as hidden slots,
-gated by a feature flag. Sessions that build a page with missing
-planned slots do not close.
+`docs/FEATURE_REGISTRY.md` is the page/capability surface contract. It records what exists, what is missing, and which independently releasable capabilities have access metadata. Routine fields, columns, filters, labels, sorting, and ordinary form controls do not need individual release gates.
 
-**The full surface for every page lives in `docs/FEATURE_REGISTRY.md`.**
+`check_parity.py` verifies planning/registry/route consistency. A CLEAN result does **not** prove that a workflow works. Behavioral confidence comes from the automated checks in Section 84.
 
-**Enforcement (ships in Session 3.4.2):** `check_parity.py` v2 reads
-`FEATURE_REGISTRY.md`, extracts the required slot list for each page,
-and verifies every page source has a top-of-file marker block listing
-all its slots. If a page is missing slots or the marker is missing,
-the script fails and the build aborts. The rule has teeth.
-
-## Primitives rule (added 2026-09-22)
+## Primitives rule## Primitives rule (added 2026-09-22)
 
 Every page uses the shared primitives: money() / formatMoney(),
 formatDate(), and useDisplay(). No hardcoded $, "USD", "MM/DD/YYYY",
 or hardcoded theme colors. Existing pages are retrofitted once in
 Phase 3.5.5 (Compatibility Pass) -- behavior-preserving.
 
-## Flag rule (added 2026-09-22)
+## Gating rule (revised 2026-09-23)
 
-Every new menu item, page, tab, field, button, and section is
-registered with a platform feature flag from day one. Default state
-is HIDDEN. Flipping the flag is the only action needed to go live.
-See Section 80 (Platform Feature Gating).
+Use Hybrid Capability Gating from Sections 70 and 80. Pages and major capabilities receive release gates only when they can reasonably be released, disabled, beta-tested, sold, or granted independently. Routine fields, columns, filters, labels, sorting, and form controls do not get independent release gates. Backend enforcement is authoritative for entitlements and permissions.
 
-## What NOT to do
+## What NOT to do## What NOT to do
 
 - Do not push without running check_parity.py.
 - Do not update the master doc without updating the JSON.
@@ -3450,101 +3359,44 @@ Part B1, and uses the three workflows above to keep everything
 current.
 
 
-# SECTION 70 — FEATURE FLAGS (DESIGNED)
+# SECTION 70 — HYBRID CAPABILITY GATING (DESIGNED)
 
-Every feature and every page in the platform is behind a feature flag.
-The flag is the single mechanism that controls visibility. Flipping it
-is the only action needed to go live.
+The platform uses **Hybrid Capability Gating**. Pages and major capabilities may have release gates. Ordinary fields, columns, filters, labels, sort orders, and routine form controls do not get independent gates.
 
-## Three levels of control
+A gate exists only when the item can reasonably be released, disabled, beta-tested, sold, or granted independently.
 
-1. **Platform** (our control) — is this feature or page live at all?
-2. **Org** (customer's Admin/Owner) — once platform-enabled, does the
-   org want it on? For which roles? For which users? Per-property?
-3. **User** (individual) — can the user hide it from their own view?
+## Five independent access concerns
 
-All three must pass. See Section 80 for the platform stage model.
+1. **Release control** — is this code ready to be exposed? Controlled by us through HIDDEN / BETA / ROLLOUT / ALL_ORGS.
+2. **Commercial entitlement** — does the customer's plan include the capability?
+3. **Organization configuration** — does the customer's Admin/Owner want the capability enabled, where customer choice is meaningful?
+4. **Authorization / permission** — may this role/user perform the operation? Backend enforcement is authoritative.
+5. **User presentation preference** — may the user hide this item from their own UI? Presentation only, never security.
 
-## Five flag states
+Each concern is optional per capability. A non-applicable concern passes automatically.
 
-Every flag declares one of:
+    effective_access =
+        release_allowed
+        AND entitlement_allowed_if_required
+        AND org_enabled_if_configurable
+        AND permission_allowed_if_permissioned
+        AND user_visible_if_hideable
 
-- **always_on** — not toggleable. The feature or setting is core.
-  Example: Audit Log (Section 71).
-- **default_on_sticky** — on by default. Cannot be turned off after
-  it has been used once. Example: per-org Backup Schedule. Once the
-  first backup runs, the flag is locked on. Only the schedule can be
-  changed afterward — not the on/off state.
-- **default_on_free** — on by default, freely toggleable. Example:
-  Tenant payment history export.
-- **default_off_sticky** — off by default. Cannot be turned on then
-  off after first use.
-- **default_off_free** — off by default, freely toggleable. Example:
-  Session timeout (Section 71), IP allowlist, quiet hours.
+**UI hiding is never security.** Protected endpoints/services independently enforce entitlement and permission requirements.
 
-## Registry schema
+## Registry metadata
 
-Every feature and page is registered. Fields:
+The Feature Registry records, where applicable:
 
-    key                e.g. "accounting.charges.print_receipt"
-    display_name       "Print Receipt"
-    description        one-line, human
-    scope              org | user | property | portal
-    state              one of the five states above
-    default            true | false
-    used_when          (for sticky states) how "used once" is detected
-    config_schema      (json) what settings this flag exposes when on
-    platform_stage     HIDDEN | BETA | ROLLOUT | ALL_ORGS  (Section 80)
-    platform_beta_orgs specific org ids when stage = BETA
-    platform_rollout_orgs specific org ids when stage = ROLLOUT
-    org_overridable    true | false (can the org turn it off?)
-    org_role_defaults  per-role default state
-    org_can_override_per_user  true | false
-    org_can_override_per_property  true | false
-    org_can_override_per_portal  true | false
-    user_hideable      true | false (can the user hide it from own view?)
-    menu_key           (if this adds a sidebar item)
-    page_route         (if this adds a page)
-    dependencies       [keys of other flags this one needs]
+    release_gate
+    entitlement
+    org_configurable
+    permission_key
+    user_hideable
 
-## The integration with menu gating
+Release state, plan entitlements, org settings, permissions, and user preferences remain separate storage/models even when displayed together in the registry.
 
-Today's menu resolver (Section 9, 4-layer) becomes 5-layer:
-1. Platform stage (this section + Section 80)
-2. Plan / subscription
-3. Role matrix
-4. User overrides
-5. Personal hiding
-
-Full visibility formula:
-
-    visible =
-        (platform_stage passes for this org)
-        AND (plan_gate)
-        AND (org_default AND role_allowed)
-        AND (not user_overridden)
-        AND (not user_personally_hidden)
-
-## Audit
-
-Every flag flip (platform stage change, org default change, per-user
-override) writes to audit_log. Who, when, old value, new value.
-
-## What this means for building
-
-Nothing new ships visible. Everything is behind a flag from day one.
-Flipping the flag is the release. No deploy. No page edits.
-
-## Where this lands in the plan
-
-- Registry schema + storage: Phase 9 (Platform Gating)
-- Settings → Features page (org-level toggles): Phase 9
-- Internal admin panel to flip platform stages: Phase 9
-- Integration with the menu resolver as Layer 1: Phase 9
-- WebSocket propagation of stage changes: Phase 6 (when messaging ships)
-
-
-# SECTION 71 — SETTINGS UNIVERSE (DESIGNED)
+# SECTION 71# SECTION 71 — SETTINGS UNIVERSE (DESIGNED)
 
 The full catalog of every setting across the platform, grouped by
 section, with its scope and who can change it.
@@ -4120,145 +3972,42 @@ HIDDEN. AI features never bypass human-in-the-loop.
 - Leasing lead draft AI: Phase 12+
 
 
-# SECTION 79 — BUILD-IN-PLACE POLICY (DESIGNED)
+# SECTION 79 — BUILD-IN-PLACE & COMPATIBLE REFACTOR POLICY (DESIGNED)
 
-Every page ships with its full planned surface. Built features render
-normally. Unbuilt features render as hidden slots behind a flag.
-Flipping the flag makes the feature appear on every page that
-references it — no page edits.
+Pages should be designed so future major capabilities can be added without repeatedly rebuilding the surrounding page. The Feature Registry is the surface contract.
 
-## The rule
+A page is complete when its currently required behavior works and its planned capability boundaries are represented clearly enough that future work can be added without guessing. Routine fields/columns/filters do not require their own release gates.
 
-A page is complete not when its visible UI is complete, but when
-every slot the plan says it should have exists — whether visible or
-hidden.
+**Refactoring is allowed.** Do not unnecessarily rebuild working pages, but safe refactors are allowed when public behavior/contracts are preserved unless intentionally changed, migrations are deliberate, regression tests protect verified behavior, and registry/handoff records are updated.
 
-Applies to:
-- Every tab on multi-tab pages (Property Detail, Tenant Detail, etc.)
-- Every field inside forms and detail views
-- Every button, link, and action
-- Every section (headers, panels, tables)
-- Every backend endpoint the plan calls for
+The promise is compatibility, not immobility: build reusable primitives once, avoid unnecessary rewrites, and use automated regression coverage to make future changes safe.
 
-## How it works
+# SECTION 80 — RELEASE STAGES & ACCESS RESOLUTION (DESIGNED)
 
-Every slot checks a feature flag (Section 70):
+Release control is only one of the five independent access concerns. It answers whether code is ready to be exposed to an organization; it does not replace subscriptions, org settings, permissions, or user preferences.
 
-    {flags.has("accounting.charges.print") && <PrintButton />}
+## Release stages
 
-Off → hidden. On → appears. Same pattern for menus, tabs, sections,
-fields, buttons.
+1. **HIDDEN**
+2. **BETA**
+3. **ROLLOUT**
+4. **ALL_ORGS**
 
-## Retrofit of existing pages
+A request may additionally need plan entitlement, org configuration, permission, and user-presentation checks. Non-applicable layers pass automatically.
 
-Existing pages were built before features existed. They get retrofitted
-once, page by page, in Phase 3.5.5 (Compliance Pass):
+The frontend may use the resolved result for presentation, but backend endpoints/services independently enforce entitlement and permission requirements.
 
-- Uses formatMoney() / formatDate() for every value.
-- Reads theme / layout / density from useDisplay().
-- Uses CSS variables instead of hardcoded colors.
-- Renders every planned tab / field / button / section as a hidden
-  slot behind a flag.
+Conceptually:
 
-Behavior-preserving: nothing changes visually until a flag flips.
+    release passes
+    AND plan entitlement passes if required
+    AND org setting passes if configurable
+    AND permission passes if required
+    AND personal hiding passes if supported
 
-## The promise
+Release-stage changes are audited. Org configuration does not change the platform release stage.
 
-- No page is ever rewritten again for currency, theme, layout, dates,
-  or any future feature.
-- Building a feature = build the backend + flip the flag. The UI
-  slot already exists.
-- Every new page from now on is born complete.
-
-## Where this lands in the plan
-
-- Policy: now (documented)
-- Retrofit of existing pages: Phase 3.5.5
-- New pages from here on: born with the pattern
-
-
-# SECTION 80 — PLATFORM FEATURE GATING (DESIGNED)
-
-Two levels of platform control over every feature and every page.
-Flipping a stage is the only action needed to go live.
-
-## The four platform stages
-
-1. **HIDDEN** — the feature or page exists in code but is invisible
-   to every org. Only we can see it (via the internal admin panel).
-   Default for anything new.
-2. **BETA** — visible only to specific pilot orgs we pick.
-   Configured via `platform_beta_orgs` (list of org ids).
-3. **ROLLOUT** — visible to specific orgs in a growing set.
-   Configured via `platform_rollout_orgs`.
-4. **ALL_ORGS** — visible to every org. The general availability
-   stage.
-
-## Rollout flow
-
-Hidden → Beta → Rollout → All Orgs. Each transition is one action.
-No deploy. No page edits. The change propagates:
-- Via WebSocket (Phase 6) — instant.
-- Otherwise — next page load.
-
-## Two levels of control
-
-Every feature / page has both:
-- A **platform stage** (our control, HIDDEN / BETA / ROLLOUT /
-  ALL_ORGS).
-- An **org state** (customer's control, once platform-enabled).
-  The org's Admin/Owner decides whether the org wants it on, for
-  which roles, for which users, per-property, per-portal.
-
-Both must pass for a user to see the feature:
-
-    visible =
-        (platform_stage passes for this org)
-        AND (org_default AND role_allowed)
-        AND (not user_overridden)
-        AND (not user_personally_hidden)
-
-## The 5-layer menu resolver
-
-Today's 4-layer menu gating (Section 9) becomes 5-layer:
-
-1. **Platform stage** — Layer 1 above.
-2. **Plan / subscription** — was Layer 1, now Layer 2.
-3. **Role matrix** — was Layer 2, now Layer 3.
-4. **User overrides** — was Layer 3, now Layer 4.
-5. **Personal hiding** — was Layer 4, now Layer 5.
-
-The existing 4 layers stay exactly as they are. The new platform
-stage is added on top as Layer 1.
-
-## Where we flip stages
-
-- **Internal admin panel** (Phase 9) — us only.
-- **Settings → Features** (Phase 9) — org-level toggles, but only
-  for features whose platform stage is BETA, ROLLOUT, or ALL_ORGS.
-
-## WebSocket propagation
-
-When a stage changes, connected clients receive an event. The menu
-re-renders, the feature appears, no page refresh needed. Requires
-Phase 6 (messaging WebSockets). Until then, propagation is on next
-page load.
-
-## Audit
-
-Every stage change is logged: who, when, old stage, new stage,
-which orgs (for BETA / ROLLOUT).
-
-## Where this lands in the plan
-
-- Registry + storage: Phase 9
-- Internal admin panel: Phase 9
-- Settings → Features page: Phase 9
-- Menu resolver 5-layer integration: Phase 9
-- WebSocket propagation: Phase 6 / Phase 9
-
-
-# SECTION 81 — BUILT & VERIFIED (LIVING LEDGER)
+# SECTION 81# SECTION 81 — BUILT & VERIFIED (LIVING LEDGER)
 
 Detailed, chronological record of every shipped item. Used to know
 what to trust. Updated at the end of every session.
@@ -4574,182 +4323,530 @@ The retrofit is one page at a time. Behavior-preserving. Every page
 stays exactly the same visually until a flag flips.
 
 
-# SECTION 82 — PLAN GAPS & FOUNDATION PASS
+# SECTION 82 — PLAN GAPS & REVISED FOUNDATION ORDER
 
-**Added 2026-09-22. Companion: `docs/PLAN_GAPS.md`.**
+**Companion:** `docs/PLAN_GAPS.md`  
+**Revised:** 2026-09-23
 
-The PLAN_GAPS review found that the master plan was missing or
-under-scoping the following. Every item below is now tracked in the
-parity JSON.
+The gap review identified compliance, infrastructure, product-scope, and operational work that was under-specified. Those items remain tracked in the parity JSON, but verification now comes before aggressive expansion.
 
-## Category A — Compliance / legal
+## Revised foundation sequence
 
-- Multi-region data residency (Model B: routing, single logical system)
-- GDPR + CCPA (export, forget, retention, DPA, subprocessor list,
-  cookie consent, ToS versioning)
-- SOC 2 prep (immutable audit, retention policy, encryption)
-- FCRA (adverse action, disputes, retention)
-- PCI (Stripe only — permanent rule)
-
-## Category B — Infrastructure
-
-- Arq async jobs + cron scheduler
-- Redis (Upstash dev, ElastiCache prod)
-- Sentry + Logtail + Grafana Cloud
-
-## Category C — Product sub-phases (new phases 4.6 – 4.17)
-
-- 4.6 — Affordable Housing (HUD, LIHTC, Section 8, AMI, waiting list,
-  recerts)
-- 4.7 — HOA (dues, violations, board portal, ARC, reserves)
-- 4.8 — Commercial (CAM, NNN, reconciliation, percentage rent, lease
-  abstracts, TI)
-- 4.9 — RUBs (meter reading, allocation, true-up)
-- 4.10 — Student housing
-- 4.11 — Senior housing
-- 4.12 — Short-term rentals
-- 4.13–4.17 — Direct migrations from AppFolio / Buildium / Yardi /
-  RentManager / DoorLoop
-
-## Category C-extra — Accounting additions
-
-- Trust account interest (state-mandated) — Phase 4.5
-- Positive pay — Phase 4.5
-- 1099 e-filing via Track1099 + W-9 collection — Phase 4.5
-- Year-end close / locked periods — Session 3.4.5 (schema) + Phase 3.6
-
-## Category D — Operational
-
-- Enterprise (non-self-serve) onboarding via internal admin
-- Custom domains + white-label (Phase 11 for DNS/TLS)
-- Status page + incident tracker
-- Support SLA tiers by plan (Standard 24h / Enterprise 4h / Critical 1h)
-
-## Category E — Enforcement
-
-- `check_parity.py` v2 — reads `FEATURE_REGISTRY.md`, verifies every
-  page's slot list is present in source, fails the build if not.
-  Ships in Session 3.4.2.
-
-## The Foundation Pass — 12 sessions
-
-The Foundation Pass (Phase 3.4) is the sequence that makes every
-subsequent feature ship by flipping a flag. It replaces the old plan
-order.
-
-| # | Session | Ships |
+| Order | Phase | Focus |
 |---|---|---|
-| 3.4.1 | (this session) | PLAN_GAPS.md + FEATURE_REGISTRY.md v1 + master doc updates + parity JSON additions |
-| 3.4.2 | Next | FEATURE_REGISTRY.md (all pages) + check_parity.py v2 |
-| 3.4.3 | | Backend identity boundary (platform_users, separate JWT, seed script, immutable audit) |
-| 3.4.4 | | Feature flags tables + resolver + audit + Arq + Redis + scheduler + Sentry |
-| 3.4.5 | | data_region + get_db_for_org() + deleted_at + locked_through_date |
-| 3.4.6 | | Billing foundation (Stripe, plans, subscriptions, webhooks, org state) |
-| 3.4.7 | | Self-serve signup + Stripe Checkout + org creation on success |
-| 3.4.8 | | Fraud / abuse layer (Stripe Radar + our signals + review queue) |
-| 3.4.9 | | Internal admin app (separate Next.js app) |
-| 3.4.10 | | useFlag() + <Flag> + Settings → Features |
-| 3.4.11 | | Unit enforcement + plan limits |
-| 3.4.12 | | Retrofit Receipts page (proof of pattern) |
-| 3.4.13+ | | Retrofit remaining pages, one per session |
-| Then | | Phase 3.5.5 (Compliance Pass continues), then Phase 3.6 features resume |
+| 1 | 3.4.1 | Planning + PLAN_GAPS + FEATURE_REGISTRY v1 |
+| 2 | 3.4.2 | Complete FEATURE_REGISTRY with Hybrid Capability Gating + registry/parity tooling |
+| 3 | **3.4.S** | Engineering Safety Foundation |
+| 4 | 3.4.3 | Identity boundary + immutable audit |
+| 5 | 3.4.4 | Release-gate storage/resolver + jobs runtime foundation |
+| 6 | 3.4.5 | Locked accounting periods + core org settings |
+| 7 | 3.4.6 | End-to-end verification of existing core product |
+| 8 | 3.4.7 | Basic billing foundation |
+| 9 | 3.4.8 | Self-serve signup/payment flow |
+| 10 | 3.4.9 | Fraud / abuse foundation: Stripe Radar, internal signals, review queue |
+| 11 | 3.4.10 | Separate internal admin app: organizations, release gates, plans, fraud, audit |
+| 12 | 3.4.11 | Customer release-gate consumption + Settings → Features |
+| 13 | 3.4.12 | Unit / plan-limit enforcement + upgrade path |
+| 14 | 3.4.13 | Receipts compatibility retrofit (proof pattern) |
+| 15 | 3.4.14+ | Remaining compatibility page retrofits |
+| then | core product | Resume Phase 3.6 through launch |
+| post-launch | expansion | Specialized product lines unless business priority changes |
 
-Total foundation cost: ~12 sessions. After that, every feature ships
-by flipping a flag. No page rewrites. No more loops.
+Key corrections: Engineering Safety is mandatory before broad AI-assisted development; per-field flagging is replaced by Hybrid Capability Gating; `check_parity.py CLEAN` proves planning consistency only; core launch precedes expansion products; and safe refactoring is allowed under regression protection.
 
-## What this replaces / updates
+# SECTION 83 — FEATURE REGISTRY (SURFACE & ACCESS MAP)
 
-- **Phase 9** narrows to "Extended Internal Tools" (support tickets,
-  SLA, impersonation logs). The basic internal admin moves to 3.4.9.
-- **Phase 10** narrows to metering, discounts, quotes. The core
-  billing stack moves to 3.4.6–3.4.7.
-- **Phase 4.5** becomes the umbrella for trust interest, positive pay,
-  1099 e-filing, and the compliance product lines.
-- **Phase 3.5.5** starts after 3.4.11.
-- **Phase 3.6** resumes after the retrofit.
+**Companion:** `docs/FEATURE_REGISTRY.md`  
+**Revised:** 2026-09-23
 
----
+The Feature Registry is the page/capability contract. It records routes, meaningful surface slots, independent release gates, entitlement keys, org configurability, permission keys, user-hideability, implementation status, and backend endpoints/access requirements.
 
-# SECTION 83 — FEATURE REGISTRY (SURFACE MAP)
+It deliberately does **not** assign a release flag to every field, column, filter, label, sorting control, or routine form element. Release control, plan entitlement, org configuration, permission, and user preference remain separate mechanisms.
 
-**Added 2026-09-22. Companion file: `docs/FEATURE_REGISTRY.md`.**
+`check_parity.py` verifies registry structure and current routes. It is not a behavioral test.
 
-## What it is
+**Session 3.4.2 COMPLETE:** 24 current routes, 211 meaningful rows, and 67 distinct release gates under the final Hybrid Capability Gating schema.
 
-`FEATURE_REGISTRY.md` is the map. For every page in the app, it
-defines:
+# SECTION 84 — ENGINEERING SAFETY FOUNDATION (FINAL HOSTED VERIFICATION)
 
-- Every tab, field, button, section, and behavior that page should
-  eventually have (whether built or not)
-- The feature flag that gates each slot
-- The platform stage that flag is at (HIDDEN / BETA / ROLLOUT /
-  ALL_ORGS)
-- Which backend endpoints the slot requires
+**Phase:** `3.4.S`  
+**Started:** 2026-09-23
 
-It's the document that makes Section 79 (Build-In-Place Policy) real.
+The project does not accelerate into broad AI-assisted batches until the codebase can verify its own correctness.
 
-## Why it exists
+## Required gates
 
-Before this file, the plan said "every page ships with its full
-planned surface." But nothing on disk said what any page's full
-surface actually was. So sessions kept building visible-only UI and
-marking pages complete, then had to rewrite them when a new feature
-arrived. That's the loop.
+- parity/registry consistency;
+- backend unit/integration tests;
+- PostgreSQL integration;
+- migration/bootstrap verification;
+- frontend lint + TypeScript + production build;
+- Playwright authenticated smoke/E2E;
+- accounting invariants for money movement;
+- backup/restore proof;
+- basic staging build/start/health proof;
+- dependency/static security scanning;
+- documented idempotency rules and Definition of Done.
 
-With `FEATURE_REGISTRY.md`, the retrofit becomes mechanical: read
-the surface table for a page, drop each slot into the page, gate it
-with its flag, done.
+## Evidence already green
 
-## How it's enforced
+Hosted GitHub CI has passed backend/PostgreSQL, frontend lint/type/build, fresh DB bootstrap, E2E seed, PostgreSQL dump/restore, authenticated browser smoke, staging image/config checks, and live Docker Compose startup/health verification. CI run 35916148970 proved backend `/health` and frontend `/login` from the running stack.
 
-`check_parity.py` v2 reads `FEATURE_REGISTRY.md`, extracts the slot
-list for each page, and verifies every page source has a top-of-file
-marker block listing all its slots:
+Phase 3.4.S is complete. Hosted CI uses portable security gates that work for this private repository: Bandit, pip-audit, npm audit, committed-secret scanning, and Dependabot. CodeQL remains an optional manual workflow if GitHub Code Security is enabled later.
 
-    // ═══════════════════════════════════════════════════
-    // PAGE SURFACE — from FEATURE_REGISTRY.md
-    // Slots: accounting.receipts.tabs, accounting.receipts.fields.date, ...
-    // ═══════════════════════════════════════════════════
+## Permanent rules
 
-If a page is missing slots or the marker is missing, the script
-fails. Sessions cannot close with an incomplete page.
+- Implemented is not VERIFIED.
+- `check_parity.py CLEAN` is necessary planning consistency, not behavioral proof.
+- Financial changes require accounting invariant + atomic failure coverage.
+- Retryable/financial/external-side-effect workflows require stable idempotency identity and database-backed duplicate prevention.
+- Existing verified behavior is a contract; safe refactors are allowed only with regression protection.
+- `docs/AI_HANDOFF.md` is maintained by the assistant after meaningful verified batches. Yasir is never responsible for reconstructing AI context.
 
-## Status legend
+# END OF PROJECT_MASTER.md# END OF PROJECT_MASTER.md
 
-- ✅ **present** — slot exists and works
-- ⬜ **hidden** — slot exists in code, gated by flag, currently off
-- ❌ **missing** — not in code yet (what the retrofit fixes)
 
-## Naming convention
+# SECTION 85 — FOUNDATION 3.4.3 (COMPLETE)
 
-Flags are dotted, lowercase, hierarchical:
+**Phase:** `3.4.3`  
+**Completed:** 2026-09-23
 
-    accounting.receipts.tabs
-    accounting.receipts.fields.date
-    accounting.receipts.cash_automatic
-    accounting.receipts.print
+## Identity boundary
 
-Top-level page flag: `{module}.{page}`. Every slot under that page
-uses the same prefix. Cross-page flags live at the top:
-`universal.repeat_form`, `universal.repeat_field`.
+- Separate `platform_users` table with no customer `organization_id`.
+- Platform roles remain independent from customer roles.
+- One-time guarded `seed_platform_admin.py`; no self-signup path for platform staff.
+- Customer and platform JWTs require separate audience claims and are not interchangeable.
+- Hosted CI run 35922527217 passed after migration/schema-count guards were updated.
 
-## Default stage for a new flag
+## Immutable audit foundation
 
-**HIDDEN.** Always. A flag only advances to BETA / ROLLOUT / ALL_ORGS
-when we choose. Nothing new is visible on day one.
+- Existing `audit_log` remains the canonical history table.
+- New canonical append service flushes into the caller's transaction and does not force an independent commit.
+- ORM UPDATE/DELETE attempts are rejected.
+- PostgreSQL fresh bootstrap creates an immutable trigger; existing versioned databases receive it through Alembic revision `a6e4c8f2b1d0`.
+- Direct PostgreSQL UPDATE and DELETE attempts are regression-tested and rejected.
+- Existing `app.core.audit.log_action()` now routes through the canonical append-only service.
+- Hosted CI run 35924373985 passed backend, security, frontend, E2E, backup/restore, and live staging checks.
 
-## Where flags live
+## Next
 
-The registry (this file) names the flags. The `feature_flags` table
-(built in Session 3.4.4) stores their current stage, beta orgs, and
-rollout orgs. The registry is the source of truth for what flags
-exist; the table is the source of truth for their current state.
+Phase **3.4.4 — release-gate storage/resolver + jobs runtime foundation**. The parity checklist keeps Redis/Arq queue, scheduler, standard retry/dead-letter patterns, and Redis standup in 3.4.4.
 
-## Current status of the file
 
-v1 (this session) — structure + Receipts page as the format sample.
-Remaining 13 pages land in Session 3.4.2.
+# SECTION 86 — FOUNDATION 3.4.4 (COMPLETE)
 
----
+**Phase:** `3.4.4`  
+**Completed:** 2026-09-23  
+**Verification:** hosted CI run `35931322493`
 
-# END OF PROJECT_MASTER.md
+## Hybrid Capability Gating runtime
+
+The old five-state / sticky / three-tier feature-flag wording is retired. The locked architecture remains PROJECT_MASTER Sections 70 and 80:
+
+- release stages: `HIDDEN`, `BETA`, `ROLLOUT`, `ALL_ORGS`;
+- release control is independent from entitlement, org configuration, authorization, and user presentation;
+- a non-applicable layer passes automatically;
+- UI hiding never grants backend access.
+
+Implemented:
+
+- `release_gates` and `release_gate_organizations` storage;
+- explicit beta/rollout organization allowlists;
+- fail-closed release resolver;
+- five-layer access composition without cross-layer grants;
+- platform-audience-only `PUT /api/platform/flags/{key}`;
+- immutable audit of release-stage/allowlist changes with `platform_user_id`;
+- idempotent `seed_release_gates.py` from FEATURE_REGISTRY metadata, creating missing gates as HIDDEN without overwriting existing state.
+
+## Jobs runtime foundation
+
+PostgreSQL is the durable source of truth. Redis is dispatch.
+
+Implemented:
+
+- `job_runs` with unique `(job_name, idempotency_key)`;
+- `job_dead_letters`;
+- DB-first reserve/commit before queue dispatch;
+- deterministic Arq job IDs;
+- scheduled/deferred dispatch;
+- handler registry;
+- bounded exponential retries;
+- per-job max attempts;
+- durable dead-letter transition;
+- minute-level recovery cron for due PENDING/RETRYING jobs and lost DB-first dispatches;
+- platform-only job list, summary, and dead-letter monitoring endpoints.
+
+Operational contract: `docs/JOBS_RUNTIME.md`.
+
+## Redis / staging
+
+Staging now proves the complete runtime stack:
+
+- PostgreSQL;
+- Redis with persistence + health check;
+- FastAPI backend;
+- Arq worker;
+- Next.js frontend.
+
+The runtime uses provider-neutral `REDIS_URL`. Managed environments may supply the planned Upstash development URL or ElastiCache production endpoint without application-code changes.
+
+## Sentry observability
+
+Optional `sentry-sdk` wiring covers:
+
+- FastAPI backend exceptions;
+- Arq worker handler exceptions;
+- bounded Next.js client-error relay through `/api/observability/client-error`.
+
+No `SENTRY_DSN` means the integration is inert. Default PII collection is disabled.
+
+## Next
+
+Phase **3.4.5 — locked accounting periods + core organization settings**. Follow the revised foundation sequence in Section 82 when legacy phase assignments conflict with the locked architecture.
+
+
+# SECTION 86 — FOUNDATION 3.4.5 (COMPLETE)
+
+**Phase:** `3.4.5`  
+**Completed:** 2026-09-23
+
+## Locked accounting periods
+
+- `organizations.locked_through_date` closes all GL posting dates on or before the configured date.
+- Enforcement lives in `post_transaction()`, so existing receipts, bills, journals, deposits, management fees, transfers, and reversals inherit the rule.
+- Regression tests prove a locked post creates no GL transaction or entries and the first open day can post normally.
+
+## Core organization settings
+
+- `organizations.data_region` defaults to `us-east-1`; `properties.data_region` may override it.
+- `get_db_for_org()` provides the Model B logical routing seam, uses explicit regional DB mappings, and fails closed for unknown regions.
+- `data_retention_policies` supports 30d / 365d / 2555d / forever with org-specific overrides.
+- Organization Admin foundation-settings GET/PUT endpoints manage lock date, logical region, and retention overrides with same-org authorization and immutable audit logging.
+
+## GDPR schema foundation
+
+- Every model class that uses `is_active` as a soft-delete/status mechanism now also has `deleted_at`.
+- The retrofit is split across small Alembic migrations; current head is `46c3d8f2ab10`.
+
+## Verification
+
+Hosted CI run **35934453373** passed backend/PostgreSQL, frontend, security, migration/bootstrap, pg_dump/restore, authenticated E2E, and live staging.
+
+## Next
+
+Phase **3.4.6 — end-to-end verification of the existing core product**. This phase verifies existing behavior before 3.4.7 begins basic billing foundation work.
+
+
+# SECTION 87 — FOUNDATION 3.4.9 (COMPLETE)
+
+**Phase:** `3.4.9`  
+**Completed:** 2026-09-24  
+**Implementation commit:** `27fdf78524ddb4665bf3cc416b59c8289e4e8d51`  
+**Verification:** hosted CI run `35960071377`
+
+## Fraud / abuse foundation
+
+- Added durable `fraud_cases` and `fraud_signals` storage.
+- Signed Stripe Radar early-fraud-warning and review events plus fraud-related disputes feed an idempotent internal review queue.
+- No raw card data is stored by the fraud layer.
+- Internal checkout-attempt velocity creates HIGH / CRITICAL signals in a one-hour window.
+- New Checkout requests fail closed while an unresolved CRITICAL fraud case exists.
+- Platform-only fraud list/detail/review APIs enforce platform roles and audit review decisions.
+- Existing durable Arq/Redis jobs runtime schedules an hourly fraud refresh.
+- Alembic head is `6f1a9c4d2e7b`; model table count is 75.
+
+## Verification evidence
+
+- Backend/PostgreSQL: **154 passed, 2 deselected, 1096 warnings in 35.89s**.
+- E2E: **2 passed in 6.63s**.
+- Frontend lint / TypeScript / production build: SUCCESS.
+- Security gates: SUCCESS.
+- Staging build / live smoke: SUCCESS.
+- Parity/registry and committed-secret checks: SUCCESS.
+
+## Next
+
+Phase **3.4.11 — customer release-gate consumption + Settings → Features**. Customer-side capability visibility must consume release-stage resolution without conflating it with plan entitlement, organization configuration, role permission, or user preference.
+
+
+# SECTION 88 — FOUNDATION 3.4.10 (COMPLETE)
+
+**Phase:** `3.4.10`  
+**Completed:** 2026-09-24  
+**Platform-control API commit:** `764f6816b8334490c93d095a47a721b8ccbf380d`  
+**Internal-app commit:** `02ddfa7a622d9b155ca1c71899316c6b163755a2`  
+**Browser-proof commits:** `39e7d3e3a39c77dbc9a1b3388f2115e400b2cdc6`, `e195a2b98e0a1d5686580f89842ccd56726b0f0c`  
+**Verification:** hosted CI run `35981504331`
+
+## Separate internal administration application
+
+- Added a separate Next.js application under `platform-admin/`; platform staff are not mixed into the customer frontend.
+- Platform login uses the platform JWT audience and a separate browser token key, `platform_access_token`.
+- Customer JWTs and the customer `token` key are not reused by the internal application.
+- Internal surfaces cover organizations, plans, release gates, fraud review, and platform staff audit.
+- Backend platform-role authorization remains authoritative for every privileged operation.
+
+## Platform controls
+
+- Platform staff can list customer organizations and authorized sales/admin staff can provision enterprise organizations without creating customer credentials.
+- Billing/admin staff can manage the plan catalog; sales remains read-only.
+- Platform admin/dev can inspect and update release stages and organization allowlists.
+- Authorized platform staff can review fraud cases.
+- Platform audit reads expose platform-actor activity only.
+- Privileged mutations are immutably audited.
+
+## CI and browser proof
+
+- CI has a dedicated platform-admin lint, TypeScript, and production-build job plus npm audit.
+- Disposable E2E setup seeds a platform administrator and runs the internal app on port 3001 beside the customer frontend.
+- Playwright proves platform login, the core internal surfaces, a populated `platform_access_token`, and absence of the customer `token` key.
+- Backend/PostgreSQL: **160 passed, 3 deselected, 1132 warnings in 39.14s**.
+- E2E: **3 passed in 9.49s**.
+- Customer frontend, platform-admin frontend, security, backup/restore, and staging smoke: SUCCESS.
+- Alembic head remains `6f1a9c4d2e7b`; this phase added no migration.
+
+## Next
+
+Phase **3.4.11 — customer release-gate consumption + Settings → Features**.
+
+# SECTION 89 — FOUNDATION 3.4.11 (COMPLETE)
+
+**Phase:** `3.4.11`  
+**Completed:** 2026-09-24  
+**Capability API commit:** `d32682c153b6ebbe83c262dc755e4104b0774710`  
+**Customer UI commit:** `bb43ad66e4aeb8608a0ec42e82f8c8a1b6e4bbf1`  
+**UX/E2E fix commit:** `d49368a07e6df74e78ed6d03f71e8afc3b3029aa`  
+**Verification:** hosted CI run `35985275368`
+
+## Customer capability consumption
+
+- Customer runtime resolves platform release state, commercial entitlement, organization configuration, and role/user permission as independent layers.
+- Hidden/unreleased platform stages are not exposed to customer clients.
+- Organization feature choices live in their own `organization_feature_settings` table and cannot mutate platform release state.
+- `SETTINGS.FEATURES` is itself release-gated; its organization toggle cannot self-disable the control surface.
+- Customer sidebar consumes the release gate while backend authorization remains authoritative.
+
+## Customer UI primitives
+
+- Added `FeatureProvider`, `useFlag()`, and the reusable `<Flag>` wrapper.
+- Added Settings → Features for ADMIN/OWNER organizations with org-level capability toggles.
+- Toggles update optimistically and roll back on API failure.
+- Deterministic E2E coverage proves a released configurable capability can be disabled and remains disabled after reload.
+
+## Verification evidence
+
+- Backend/PostgreSQL: **165 passed, 3 deselected, 1187 warnings in 43.02s**.
+- E2E: **3 passed in 9.05s**.
+- Customer frontend lint / TypeScript / production build: SUCCESS.
+- Platform-admin lint / TypeScript / production build: SUCCESS.
+- Security gates, PostgreSQL backup/restore, and live staging smoke: SUCCESS.
+- Alembic head: `3b8d1f5c7a20`; model table count: 76.
+
+## Next
+
+Phase **3.4.12 — unit / plan-limit enforcement + upgrade path**. Enforce limits on backend unit creation/restoration first; customer upgrade messaging may explain the limit but never replace server enforcement.
+
+# SECTION 90 — FOUNDATION 3.4.21 (COMPLETE)
+
+**Phase:** `3.4.21`  
+**Completed:** 2026-09-24  
+**Implementation commit:** `7148b788315be7c6a245884da8d2dec5e0f02913`  
+**Verification:** hosted CI run `36051620935`
+
+## Charges compatibility retrofit
+
+- Preserve existing standalone-charge rules: org-scoped tenant/account validation, INCOME-only GL accounts, paid-floor edits, and no deletion of fully paid charges.
+- Backend list/detail access is governed by `ACCOUNTING.CHARGES`; create/update/delete additionally require ADMIN/OWNER/MANAGER.
+- Charges list/new pages consume shared display preferences.
+- Bulk Tenant Charges Upload is represented as `release.accounting.charges.bulk_upload`, a hidden compatibility slot only; the actual bulk-import workflow remains scheduled.
+- Regression coverage verifies access/write-role helpers, and authenticated E2E verifies the unreleased bulk action stays hidden.
+- No migration is required; Alembic head remains `8c4e2a7d1f90`.
+
+## Verification evidence
+
+- Backend/PostgreSQL: **233 passed, 3 deselected, 1266 warnings in 36.78s**.
+- E2E: **3 passed in 11.77s**.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
+- Alembic head remains `8c4e2a7d1f90`.
+
+## Next
+
+Phase **3.4.22 — Properties compatibility retrofit**. Preserve verified property/unit behavior while adding only planned compatibility boundaries and authoritative permission coverage.
+
+# SECTION 91 — FOUNDATION 3.4.22 (COMPLETE)
+
+**Phase:** `3.4.22`  
+**Completed:** 2026-09-24
+
+## Properties compatibility retrofit
+
+- Existing organization/assignment property scope and unit plan-limit enforcement remain intact.
+- Backend routes layer menu authorization onto scope: `PROPERTIES.ALL` for property reads/core mutations, `PROPERTIES.ADD` for property creation, and `PROPERTIES.UNITS` for unit routes.
+- Existing role contracts remain authoritative: property create/update/delete/restore are ADMIN/OWNER; unit create/update/delete are ADMIN/OWNER/MANAGER; unit restore remains ADMIN/OWNER.
+- Customer list/detail/new/edit/unit surfaces consume shared display preferences and normalize role casing.
+- The property Edit link/page now matches backend ADMIN/OWNER authorization while MANAGER retains unit and allowed child-tab management.
+- Property Groups, Map View, Photo Editor, Keys, Statement Settings, Attachments, Non-Revenue, Staff, Budget, Fixed Assets, RUBs, and Compliance are represented only as hidden release-gated compatibility slots. Their workflows remain scheduled.
+- Existing routine/missing fields such as default bank account are not converted into feature flags.
+- No migration is required; Alembic head remains `8c4e2a7d1f90`.
+
+## Verification evidence
+
+- Final repair commit: `d26b2f4e8eee85e09643a29fcda68948d98c5192`.
+- Hosted CI run `36056943124`: SUCCESS.
+- Backend/PostgreSQL: **239 passed, 3 deselected, 1266 warnings in 36.66s**.
+- E2E: **3 passed in 10.40s**.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
+- Alembic head remains `8c4e2a7d1f90`.
+
+## Next
+
+Phase **3.4.23 — Currencies compatibility retrofit**. Preserve verified currency behavior while replacing hardcoded Display currency choices with the existing organization currency API and applying shared display compatibility.
+
+
+
+# SECTION 92 — FOUNDATION 3.4.23 (COMPLETE)
+
+**Phase:** `3.4.23`  
+**Completed:** 2026-09-24
+
+## Currencies compatibility retrofit
+
+- Existing per-organization currency catalog CRUD is preserved.
+- System currencies remain non-deletable and the organization’s active currency remains protected from delete/deactivation.
+- `SETTINGS.CURRENCIES` is now enforced server-side for currency catalog routes; ADMIN/OWNER remain the only mutation roles.
+- The Currencies page consumes shared display layout/density metadata and aligns mutation controls with backend write roles.
+- Display currency choices are sourced from `/api/settings/currencies`; alternate hardcoded fallback choices are removed, while the current organization currency remains available if catalog loading fails.
+- Routine currency fields are not feature-flagged.
+- No migration is required; Alembic head remains `8c4e2a7d1f90`.
+
+## Verification evidence
+
+- Implementation commit: `9b9dad9eec699887035f6acd9fbb6bbb7b150729`.
+- Hosted CI run `36057866985`: SUCCESS.
+- Backend/PostgreSQL: **249 passed, 3 deselected, 1266 warnings in 42.14s**.
+- E2E: **3 passed in 13.23s**.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
+- Alembic head remains `8c4e2a7d1f90`.
+
+## Next
+
+Phase **3.4.24 — Display compatibility retrofit**.
+
+
+# SECTION 93 — FOUNDATION 3.4.24 (COMPLETE)
+
+**Phase:** `3.4.24`  
+**Completed:** 2026-09-24
+
+## Display compatibility retrofit
+
+- Existing per-user display preference storage and API payload remain intact.
+- `SETTINGS.DISPLAY` is enforced server-side for GET/PUT display settings.
+- Existing ADMIN/OWNER-only organization-currency mutation semantics remain unchanged.
+- Shared CSS now consumes DisplayContext attributes for explicit light/dark theme, density-sensitive inputs, base font size, reduce-motion behavior, and accent color.
+- The Display page consumes shared layout/density metadata and exposes the already-persisted density, font-size, accent-color, and reduce-motion settings.
+- Date format remains consumed by the shared formatter. Number-format rendering remains deferred because `formatMoney()` does not yet consume that preference.
+- No migration is required; Alembic head remains `8c4e2a7d1f90`.
+
+## Verification evidence
+
+- Implementation commit: `4a58e2513004b3ad235d495b964a5749e5780faf`.
+- Hosted CI run `36058923158`: SUCCESS.
+- Backend/PostgreSQL: **252 passed, 3 deselected, 1266 warnings in 41.71s**.
+- E2E: **3 passed in 11.93s**.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
+- Alembic head remains `8c4e2a7d1f90`.
+
+## Next
+
+Phase **3.4.25 — Permissions compatibility retrofit**.
+
+
+# SECTION 94 — FOUNDATION 3.4.25 (COMPLETE)
+
+**Phase:** `3.4.25`  
+**Completed:** 2026-09-24
+
+## Permissions compatibility retrofit
+
+- Existing menu resolver behavior, editor-role hierarchy, immutable ADMIN matrix, subtract-only user override behavior, and personal sidebar preferences are preserved.
+- Privileged role-matrix and per-user override management endpoints require `SETTINGS.PERMISSIONS` server-side.
+- Resolved-menu reads and each user’s own `/api/menu/me/preferences` remain self-service and are intentionally independent of privileged permission-management access.
+- The Permissions page consumes shared display layout/density metadata and normalizes role casing.
+- GL Account Permissions is represented only as a hidden `release.accounting.gl_account_permissions` compatibility slot; the workflow remains scheduled.
+- No migration is required; Alembic head remains `8c4e2a7d1f90`.
+
+## Verification evidence
+
+- Implementation commit: `9a0680914e0f1f3ac96a93e2751d6db180a2eadf`.
+- Hosted CI run `36060022264`: SUCCESS.
+- Backend/PostgreSQL: **256 passed, 3 deselected, 1266 warnings in 41.97s**.
+- E2E: **3 passed in 10.77s**.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
+- Alembic head remains `8c4e2a7d1f90`.
+
+## Next
+
+Phase **3.4.26 — Sidebar compatibility retrofit**. Preserve the legacy route while sending users directly to Permissions → My Preferences, keep personal sidebar customization self-service, and preserve backend-authoritative menu resolution.
+
+
+# SECTION 95 — FOUNDATION 3.4.26 (COMPLETE)
+
+**Phase:** `3.4.26`  
+**Completed:** 2026-09-24
+
+## Sidebar compatibility retrofit
+
+- The legacy `/dashboard/settings/sidebar` customer route remains available for old bookmarks.
+- It now deep-links to `/dashboard/settings/permissions?tab=preferences` so ADMIN/OWNER/MANAGER users land on **My Preferences** instead of the privileged Roles tab.
+- The Permissions page accepts an allowed `tab` query selection while preserving role-based tab visibility and its existing default behavior when no tab is requested.
+- Existing personal sidebar order/hide storage, `/api/menu/me/preferences`, legacy `/settings/sidebar` API behavior, and backend-authoritative `/api/menu/me` resolution are unchanged.
+- Browser smoke coverage verifies the compatibility redirect reaches the self-service preference surface.
+- No migration is required; Alembic head remains `8c4e2a7d1f90`.
+
+## Verification evidence
+
+- Implementation commit: `b223d5746d5f19c361bf00b2ec749be0af25e756`.
+- Hosted CI run `36066815450`: SUCCESS.
+- Backend/PostgreSQL: **256 passed, 3 deselected, 1266 warnings in 40.31s**.
+- E2E: **3 passed in 9.03s**.
+- Customer frontend, platform-admin, security, parity/registry, backup/restore, and staging smoke: SUCCESS.
+- Alembic head remains `8c4e2a7d1f90`.
+
+## Next
+
+Phase **3.6 — Accounting Polish** begins with Chart of Accounts. The 3.5.5 compatibility pass is complete.
+
+
+# SECTION 96 — PHASE 3.6 OWNER STATEMENTS + OWNER PACKET CUSTOMIZER (COMPLETE)
+
+**Completed:** 2026-09-25
+
+## Owner Statements financial detail
+
+- Required reserve amounts are explicit per-property accounting configuration.
+- Prepaid rent is derived from the property-scoped 2300 liability balance as of statement period end.
+- Frozen statement snapshots preserve required reserves, prepaid rent, and available cash.
+- Property Cash Summary is release-gated and organization-scoped.
+- Verified implementation commit: `415a9dbfe08c191c729e3c582c03dfc31db9937e`.
+- Hosted CI run `36197438770`: SUCCESS.
+
+## Owner Packet customizer
+
+- Durable organization-level packet settings select Owner Statement and/or Property Cash Summary.
+- At least one report is required.
+- Optional owner-email preference and cover message are stored for the later delivery workflow.
+- Backend access remains behind `release.owner_portal.packet_customizer` and `ACCOUNTING.OWNER_STATEMENTS`.
+- ADMIN/MANAGER may change global packet settings; OWNER cannot change organization-global configuration.
+- This phase does not send packets or email; generation/delivery remains Phase 3.7.
+- Migration head: `a6c8e0f2b4d7`; expected model-table count: 94.
+- Verified implementation commit: `825a3eaef5834a8c3dcc08550cc7d409445add62`.
+- Hosted CI run `36200032326`: SUCCESS.
+- Backend/PostgreSQL: **344 passed, 3 deselected, 2799 warnings in 55.94s**.
+- E2E: **3 passed in 8.50s**.
+- Customer frontend, platform-admin, security, PostgreSQL backup/restore, staging, parity/registry, and secret scan: SUCCESS.
+
+## Next
+
+Phase 3.6 Accounting Settings, Accounting Basis, My Settings, Auditing Center, Two-step verification, Login history, Universal delete_reason UI, and Universal Notes are complete/verified. Continue with **Universal — Audit Log expansion**, then Phase 3.7.

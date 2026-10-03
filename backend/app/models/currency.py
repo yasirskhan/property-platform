@@ -54,6 +54,7 @@ class Currency(Base):
 
     is_system = Column(Boolean, nullable=False, default=False)   # seeded default
     is_active = Column(Boolean, nullable=False, default=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

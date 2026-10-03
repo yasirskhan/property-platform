@@ -18,7 +18,9 @@ import {
   type DepositDetail,
   type DepositListFilters,
 } from "@/lib/deposits";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, formatDate } from "@/lib/money";
+import Flag from "@/components/features/Flag";
+import { useDisplay } from "@/contexts/DisplayContext";
 
 interface Me {
   id: number;
@@ -26,6 +28,7 @@ interface Me {
 }
 
 export default function DepositsPage() {
+  const { prefs } = useDisplay();
   const [me, setMe] = useState<Me | null>(null);
   const [rows, setRows] = useState<Deposit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,7 +88,7 @@ export default function DepositsPage() {
   const totalAmount = rows.reduce((acc, d) => acc + parseFloat(d.total), 0);
 
   return (
-    <div className="p-6">
+    <div className="p-6" data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()} data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}>
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-xl font-semibold text-slate-900">Bank Deposits</h1>
         {me && me.role !== "TENANT" && (
@@ -183,7 +186,7 @@ export default function DepositsPage() {
                 <td className="px-4 py-2 font-mono text-xs">
                   {d.deposit_number || `#${d.id}`}
                 </td>
-                <td className="px-4 py-2">{d.deposit_date}</td>
+                <td className="px-4 py-2">{formatDate(d.deposit_date)}</td>
                 <td className="px-4 py-2 text-slate-500">
                   {d.bank_gl_account_number
                     ? `${d.bank_gl_account_number} ${d.bank_gl_account_name}`
@@ -233,7 +236,7 @@ export default function DepositsPage() {
                       {openDeposit.deposit_number || `#${openDeposit.id}`}
                     </h2>
                     <div className="text-sm text-slate-500">
-                      {openDeposit.deposit_date}
+                      {formatDate(openDeposit.deposit_date)}
                       {openDeposit.bank_gl_account_number && (
                         <>
                           {" · "}
@@ -257,11 +260,17 @@ export default function DepositsPage() {
                   </div>
                 )}
 
-                <div className="text-sm text-slate-600 mb-4">
-                  Total:{" "}
-                  <span className="font-mono">
-                    {formatMoney(openDeposit.total)}
-                  </span>
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                  <div className="text-sm text-slate-600">
+                    Total:{" "}
+                    <span className="font-mono">{formatMoney(openDeposit.total)}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Flag name="release.accounting.deposits.print"><Link href={`/dashboard/accounting/deposits/${openDeposit.id}/print`} className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Print Bank Deposit</Link></Flag>
+                    <Flag name="release.accounting.deposits.edit"><Link href={`/dashboard/accounting/deposits/${openDeposit.id}/edit`} className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Edit Bank Deposit</Link></Flag>
+                    <Flag name="release.accounting.deposits.process_nsf"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Process NSF</button></Flag>
+                    <Flag name="release.accounting.deposits.escrow_refund"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Escrow Refund</button></Flag>
+                  </div>
                 </div>
 
                 <div className="border border-slate-200 rounded-md overflow-hidden">

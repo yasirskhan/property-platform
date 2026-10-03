@@ -1,0 +1,131 @@
+"""Staff-only compliance evidence index: never eligibility, certification or approval."""
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, Response, HTTPException
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.models.affordable_evidence import AffordableEvidence
+from app.models.unit_inspection import UnitInspectionRecord
+from app.models.user import User
+from app.routers.auth import get_current_user
+from app.routers.affordable_programs import _property, _item
+from app.schemas.affordable_evidence import AffordableEvidenceIn, AffordableEvidenceOut, StaffInspectionSummaryOut
+from app.services.report_delivery import ReportDeliveryError
+from app.services.unit_inspections import _scope as unit_inspection_scope
+from app.services.audit import append_audit_log
+
+router = APIRouter(prefix="/api/properties", tags=["Affordable evidence readiness"])
+CATEGORIES = ("AGENCY_GUIDANCE", "PROGRAM_AGREEMENT", "PROPERTY_RECORD_INDEX", "INSPECTION_COORDINATION")
+
+
+@router.get("/{property_id}/affordable-programs/{program_id}/evidence",
+            response_model=list[AffordableEvidenceOut])
+def list_evidence(
+    property_id: int, program_id: int, response: Response,
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    prop = _property(db, property_id=property_id, actor=current_user, write=False)
+    program = _item(db, org_id=prop.organization_id, prop_id=prop.id, item_id=program_id)
+    response.headers["Cache-Control"] = "no-store"
+    records = db.query(AffordableEvidence).filter(
+        AffordableEvidence.organization_id == prop.organization_id,
+        AffordableEvidence.program_id == program.id,
+    ).all()
+    saved = {row.category: row for row in records}
+    return [
+        AffordableEvidenceOut(
+            category=key,
+            status=saved[key].status if key in saved else "NOT_RECORDED",
+            staff_follow_up_on=saved[key].staff_follow_up_on if key in saved else None,
+            source_url=saved[key].source_url if key in saved else None,
+            source_checked_on=saved[key].source_checked_on if key in saved else None,
+            updated_at=saved[key].updated_at if key in saved else None,
+        )
+        for key in CATEGORIES
+    ]
+
+
+@router.put("/{property_id}/affordable-programs/{program_id}/evidence",
+            response_model=AffordableEvidenceOut)
+def save_evidence(
+    property_id: int, program_id: int, payload: AffordableEvidenceIn,
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    prop = _property(db, property_id=property_id, actor=current_user, write=True)
+    program = _item(db, org_id=prop.organization_id, prop_id=prop.id, item_id=program_id)
+    # Fixed enum-only values: no unencrypted document bodies, household details,
+    # self-certification, legal deadline or arbitrary user-entered reference.
+    row = db.query(AffordableEvidence).filter(
+        AffordableEvidence.organization_id == prop.organization_id,
+        AffordableEvidence.program_id == program.id,
+        AffordableEvidence.category == payload.category,
+    ).first()
+    created = row is None
+    if row is None:
+        row = AffordableEvidence(
+            organization_id=prop.organization_id, program_id=program.id,
+            category=payload.category,
+        )
+        db.add(row)
+    previous = None if created else row.status
+    row.status = payload.status
+    row.staff_follow_up_on = payload.staff_follow_up_on
+    row.source_url = payload.source_url
+    row.source_checked_on = payload.source_checked_on
+    row.updated_by_id = current_user.id
+    try:
+        db.flush()
+        append_audit_log(
+            db, organization_id=prop.organization_id, user_id=current_user.id,
+            entity_type="affordable_evidence", entity_id=row.id,
+            action="created" if created else "updated",
+            old_value=None if created else {"status": previous},
+            new_value={"program_id": program.id, "category": payload.category,
+                       "status": payload.status,
+                       "public_reference_present": bool(payload.source_url)},
+        )
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Evidence readiness was updated concurrently.") from exc
+    db.refresh(row)
+    return AffordableEvidenceOut.model_validate(row)
+
+
+
+@router.get("/{property_id}/affordable-programs/{program_id}/inspection-summary",
+            response_model=StaffInspectionSummaryOut)
+def recorded_inspection_summary(
+    property_id: int, program_id: int, response: Response,
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    """Read-only property-wide unit-inspection count, never HQS certification.
+
+    Independently enforce the existing inspection module's narrower
+    ADMIN/MANAGER + three-menu-key scope; a compliance OWNER alone does
+    not gain unit inspection data. No findings or unit identifiers leak.
+    """
+    prop = _property(db, property_id=property_id, actor=current_user, write=False)
+    _item(db, org_id=prop.organization_id, prop_id=prop.id, item_id=program_id)
+    try:
+        _, units = unit_inspection_scope(
+            db, organization_id=prop.organization_id, actor=current_user,
+            property_id=prop.id,
+        )
+    except ReportDeliveryError as exc:
+        raise HTTPException(status_code=403, detail="Unit inspection permission required.") from exc
+    response.headers["Cache-Control"] = "no-store"
+    if not units:
+        return StaffInspectionSummaryOut(total_recorded=0, latest_recorded_on=None)
+    total, latest = db.query(
+        func.count(UnitInspectionRecord.id),
+        func.max(UnitInspectionRecord.inspection_date),
+    ).filter(
+        UnitInspectionRecord.organization_id == prop.organization_id,
+        UnitInspectionRecord.property_id == prop.id,
+        UnitInspectionRecord.unit_id.in_(list(units)),
+    ).one()
+    return StaffInspectionSummaryOut(total_recorded=int(total), latest_recorded_on=latest)

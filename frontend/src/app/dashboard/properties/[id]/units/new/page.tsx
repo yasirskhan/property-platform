@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiPost, apiGet } from "@/lib/api";
+import { useDisplay } from "@/contexts/DisplayContext";
 
 export default function AddUnitPage() {
+  const { prefs } = useDisplay();
   const params = useParams();
   const router = useRouter();
   const propertyId = Number(params.id);
@@ -13,6 +15,7 @@ export default function AddUnitPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [planLimitReached, setPlanLimitReached] = useState(false);
   const [propertyName, setPropertyName] = useState("");
 
   const [unitNumber, setUnitNumber] = useState("");
@@ -36,7 +39,8 @@ export default function AddUnitPage() {
           apiGet("/auth/me"),
           apiGet(`/properties/${propertyId}`),
         ]);
-        if (me.role !== "admin" && me.role !== "owner" && me.role !== "manager") {
+        const role = String(me.role || "").toUpperCase();
+        if (role !== "ADMIN" && role !== "OWNER" && role !== "MANAGER") {
           router.replace(`/dashboard/properties/${propertyId}`);
           return;
         }
@@ -52,6 +56,7 @@ export default function AddUnitPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setPlanLimitReached(false);
     setSaving(true);
     try {
       await apiPost(`/properties/${propertyId}/units`, {
@@ -71,7 +76,14 @@ export default function AddUnitPage() {
       });
       router.push(`/dashboard/properties/${propertyId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      const message = err instanceof Error ? err.message : "Save failed";
+      const prefix = "PLAN_UNIT_LIMIT_REACHED:";
+      if (message.startsWith(prefix)) {
+        setPlanLimitReached(true);
+        setError(message.slice(prefix.length).trim());
+      } else {
+        setError(message);
+      }
       setSaving(false);
     }
   }
@@ -79,7 +91,11 @@ export default function AddUnitPage() {
   if (loading) return <div className="text-slate-500">Loading…</div>;
 
   return (
-    <div className="max-w-2xl">
+    <div
+      className="max-w-2xl"
+      data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()}
+      data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}
+    >
       <Link
         href={`/dashboard/properties/${propertyId}`}
         className="text-sm text-slate-500 hover:text-slate-900 mb-4 inline-block"
@@ -91,7 +107,15 @@ export default function AddUnitPage() {
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-6">
-          {error}
+          <p>{error}</p>
+          {planLimitReached && (
+            <Link
+              href="/signup?upgrade=units"
+              className="mt-2 inline-block font-medium underline underline-offset-2"
+            >
+              Review plan options
+            </Link>
+          )}
         </div>
       )}
 

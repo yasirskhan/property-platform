@@ -30,6 +30,7 @@ from app.routers.auth import get_current_user
 from app.models.user import User
 from app.models.receipt import Receipt
 from app.models.receipt_line import ReceiptLine
+from app.models.deposit_line import DepositLine
 from app.models.gl_account import GLAccount
 from app.schemas.receipt import (
     ReceiptCreateIn,
@@ -38,9 +39,12 @@ from app.schemas.receipt import (
     ReceiptListOut,
     ReceiptOut,
     ReceiptReverseIn,
+    ReceiptNSFIn,
 )
 from app.services.gl_posting import PostingError
-from app.services.receipt_posting import post_receipt, reverse_receipt
+from app.services.receipt_posting import post_receipt, reverse_receipt, process_nsf_receipt
+from app.services.menu_resolver import permission_allows_user
+from app.services.customer_features import resolve_customer_features
 
 
 router = APIRouter(
@@ -62,7 +66,52 @@ def _require_org(current_user: User) -> int:
     return current_user.organization_id
 
 
-def _receipt_to_out(r: Receipt) -> ReceiptOut:
+def _require_receipts_access(db: Session, current_user: User) -> int:
+    org_id = _require_org(current_user)
+    if not permission_allows_user(db, user=current_user, menu_key="ACCOUNTING.RECEIVABLES"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Receivables permission required.")
+    return org_id
+
+
+def _require_receipt_feature(
+    db: Session,
+    current_user: User,
+    feature_key: str,
+) -> None:
+    decisions = {
+        row.key: row
+        for row in resolve_customer_features(db, user=current_user)
+    }
+    decision = decisions.get(feature_key)
+    if decision is None or not decision.allowed:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Receipt capability is not available.",
+        )
+
+
+def _deposit_ids(
+    db: Session,
+    *,
+    organization_id: int,
+    receipt_ids: list[int],
+) -> dict[int, int]:
+    if not receipt_ids:
+        return {}
+    return {
+        receipt_id: deposit_id
+        for receipt_id, deposit_id in (
+            db.query(DepositLine.receipt_id, DepositLine.deposit_id)
+            .filter(
+                DepositLine.organization_id == organization_id,
+                DepositLine.receipt_id.in_(receipt_ids),
+            )
+            .all()
+        )
+    }
+
+
+def _receipt_to_out(r: Receipt, deposit_id: int | None = None) -> ReceiptOut:
     return ReceiptOut(
         id=r.id,
         organization_id=r.organization_id,
@@ -89,6 +138,8 @@ def _receipt_to_out(r: Receipt) -> ReceiptOut:
         remarks=r.remarks,
         notes=r.notes,
         gl_transaction_id=r.gl_transaction_id,
+        deposit_id=deposit_id,
+        is_deposited=deposit_id is not None,
         is_reversed=r.is_reversed,
         reversal_of_id=r.reversal_of_id,
         is_active=r.is_active,
@@ -98,8 +149,8 @@ def _receipt_to_out(r: Receipt) -> ReceiptOut:
     )
 
 
-def _detail_out(r: Receipt) -> ReceiptDetailOut:
-    base = _receipt_to_out(r)
+def _detail_out(r: Receipt, deposit_id: int | None = None) -> ReceiptDetailOut:
+    base = _receipt_to_out(r, deposit_id)
     lines_out = [
         ReceiptLineOut(
             id=ln.id,
@@ -138,7 +189,7 @@ def list_receipts(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_receipts_access(db, current_user)
 
     q = (
         db.query(Receipt)
@@ -165,8 +216,13 @@ def list_receipts(
         .all()
     )
 
+    deposit_map = _deposit_ids(
+        db,
+        organization_id=org_id,
+        receipt_ids=[row.id for row in rows],
+    )
     return ReceiptListOut(
-        items=[_receipt_to_out(r) for r in rows],
+        items=[_receipt_to_out(row, deposit_map.get(row.id)) for row in rows],
         total=total,
     )
 
@@ -189,7 +245,7 @@ def list_tenant_open_charges(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_receipts_access(db, current_user)
 
     # The tenant must belong to this org
     tenant = (
@@ -317,7 +373,7 @@ def get_receipt(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_receipts_access(db, current_user)
 
     r = (
         db.query(Receipt)
@@ -337,6 +393,128 @@ def get_receipt(
             detail="Receipt not found.",
         )
 
+    deposit_map = _deposit_ids(
+        db, organization_id=org_id, receipt_ids=[r.id]
+    )
+    return _detail_out(r, deposit_map.get(r.id))
+
+
+# ============================================================
+# RECEIPT ACTION DATA / PROCESSING
+# ============================================================
+
+@router.get("/{receipt_id}/print-data", response_model=ReceiptDetailOut)
+def get_receipt_print_data(
+    receipt_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_receipts_access(db, current_user)
+    _require_receipt_feature(
+        db, current_user, "release.accounting.receipts.print"
+    )
+    r = (
+        db.query(Receipt)
+        .options(
+            joinedload(Receipt.cash_gl_account),
+            joinedload(Receipt.lines).joinedload(ReceiptLine.gl_account),
+        )
+        .filter(
+            Receipt.id == receipt_id,
+            Receipt.organization_id == org_id,
+        )
+        .first()
+    )
+    if r is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Receipt not found.",
+        )
+    deposit_map = _deposit_ids(
+        db, organization_id=org_id, receipt_ids=[r.id]
+    )
+    return _detail_out(r, deposit_map.get(r.id))
+
+
+@router.get("/{receipt_id}/repeat-data", response_model=ReceiptDetailOut)
+def get_receipt_repeat_data(
+    receipt_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_receipts_access(db, current_user)
+    _require_receipt_feature(
+        db, current_user, "release.accounting.receipts.repeat"
+    )
+    r = (
+        db.query(Receipt)
+        .options(
+            joinedload(Receipt.cash_gl_account),
+            joinedload(Receipt.lines).joinedload(ReceiptLine.gl_account),
+        )
+        .filter(
+            Receipt.id == receipt_id,
+            Receipt.organization_id == org_id,
+        )
+        .first()
+    )
+    if r is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Receipt not found.",
+        )
+    deposit_map = _deposit_ids(
+        db, organization_id=org_id, receipt_ids=[r.id]
+    )
+    return _detail_out(r, deposit_map.get(r.id))
+
+
+@router.post("/{receipt_id}/process-nsf", response_model=ReceiptDetailOut)
+def process_receipt_nsf_endpoint(
+    receipt_id: int,
+    payload: ReceiptNSFIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_receipts_access(db, current_user)
+    _require_receipt_feature(
+        db, current_user, "release.accounting.receipts.process_nsf"
+    )
+    original = (
+        db.query(Receipt)
+        .filter(
+            Receipt.id == receipt_id,
+            Receipt.organization_id == org_id,
+        )
+        .first()
+    )
+    if original is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Receipt not found.",
+        )
+    try:
+        mirror = process_nsf_receipt(
+            db=db,
+            original=original,
+            process_date=payload.process_date,
+            memo=payload.memo,
+            created_by=current_user,
+        )
+    except PostingError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+    r = (
+        db.query(Receipt)
+        .options(
+            joinedload(Receipt.cash_gl_account),
+            joinedload(Receipt.lines).joinedload(ReceiptLine.gl_account),
+        )
+        .filter(Receipt.id == mirror.id)
+        .first()
+    )
     return _detail_out(r)
 
 
@@ -354,7 +532,13 @@ def create_receipt(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_receipts_access(db, current_user)
+    if payload.type == "APPLICATION_FEE":
+        _require_receipt_feature(
+            db,
+            current_user,
+            "release.accounting.receipts.application_fee",
+        )
 
     try:
         receipt = post_receipt(
@@ -397,7 +581,7 @@ def reverse_receipt_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_receipts_access(db, current_user)
 
     original = (
         db.query(Receipt)
