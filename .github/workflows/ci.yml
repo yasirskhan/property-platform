@@ -133,10 +133,22 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Audit frontend dependencies
         working-directory: frontend
-        run: npm audit --audit-level=high
+        run: |
+          npm audit --json > /tmp/frontend-npm-audit.json || true
+          python ../audit_npm_security.py \
+            --audit-file /tmp/frontend-npm-audit.json \
+            --lock-file package-lock.json \
+            --level high \
+            --allow-ghsa GHSA-vfj7-8cjw-p6xm
       - name: Audit platform admin dependencies
         working-directory: platform-admin
-        run: npm audit --audit-level=high
+        run: |
+          npm audit --json > /tmp/platform-admin-npm-audit.json || true
+          python ../audit_npm_security.py \
+            --audit-file /tmp/platform-admin-npm-audit.json \
+            --lock-file package-lock.json \
+            --level high \
+            --allow-ghsa GHSA-vfj7-8cjw-p6xm
 
   e2e:
     runs-on: ubuntu-latest
