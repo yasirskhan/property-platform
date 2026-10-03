@@ -1,3 +1,59 @@
+# AI_HANDOFF.md — 2026-10-03 PHASE 4.13 WORK ORDERS RELATIONSHIP RECONCILIATION VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `357653e915d2da4eb7813c14f0de80304e1993ab`.
+- GitHub Actions run: `37110817034` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **964 passed, 21 deselected, 25336 warnings in 407.92s**.
+- Authenticated E2E: **21 passed, 278 warnings in 100.19s**.
+- Alembic head remains `0a7c4e9f2b61`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Work Orders staged relationship reconciliation
+
+1. Reconciliation operates only on already-staged `WORK_ORDERS` rows.
+2. Rows without stable supplied Work Order identity may only be `SKIP`ped; INVALID rows cannot be resolved.
+3. `ACCEPT_RELATIONSHIP` revalidates every supplied PropertyId/UnitId/VendorId through current durable migration mappings to active same-organization targets.
+4. Unit -> Property consistency is revalidated at review time.
+5. Accepted review state snapshots only verified target Property/Unit/Vendor IDs on the staged row.
+6. AssignedUsers, workflow status, priority, schedule/completion/cancellation, permission-to-enter and VendorTrade remain source evidence only.
+7. Resolution changes invalidate prior dry-run state, participate in the shared staged-review fingerprint and are append-only audited.
+8. Exact replay of the same resolution is idempotent.
+9. The batch creates or updates zero WorkOrder, Bill, Charge, GLTransaction, GLEntry, inventory, purchase-order or vendor-payment records.
+10. No AppFolio API transport, customer navigation change, hidden-menu change or general UX work was added.
+
+## Exact next Phase 4.13 product batch
+
+Add **Work Orders staged dry run only** using the existing exact-fingerprint staged-review architecture.
+
+Required boundaries:
+
+1. Operate only on already-staged `WORK_ORDERS` rows.
+2. Include only explicit `ACCEPT_RELATIONSHIP` rows with stable Work Order source ID; `SKIP` rows remain excluded and unresolved/INVALID rows block readiness.
+3. Revalidate current durable Property mapping plus optional Unit/Vendor mappings and require snapped target IDs to still match active same-organization targets.
+4. Revalidate Unit -> Property consistency.
+5. Preserve Id, PropertyId, UnitId, VendorId, AssignedUsers, Status, JobDescription, CanceledOn, CompletedOn, PermissionToEnter, Priority, ScheduledStart, ScheduledEnd and VendorTrade as source evidence only.
+6. Bind the dry-run fingerprint to the shared staged-review fingerprint plus current mapping source fingerprints/target IDs for every accepted relation.
+7. Do not create or update WorkOrder, Bill, Charge, GL, inventory, purchase-order, vendor-payment or staff-assignment records.
+8. Do not infer requester/tenant/occupancy identity, assignment semantics, vendor contract, workflow-state translation, completion/cancellation meaning or accounting effects.
+9. A dry run containing no accepted Work Order rows is not commit-ready.
+10. Exact replay must be idempotent and audited once.
+11. Work Orders controlled commit remains a separate later verified dependency; AppFolio API transport and general UX remain out of scope.
+
+---
+
 # AI_HANDOFF.md — 2026-10-03 PHASE 4.13 WORK ORDERS STAGING VERIFIED
 
 ## Current verified product checkpoint
