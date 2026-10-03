@@ -9157,12 +9157,14 @@ def test_appfolio_staged_correction_preserves_source_and_invalidates_preview():
         ).all()
         assert len(audit_rows) == audit_before + 1
         audit = audit_rows[-1]
-        assert audit.old_value["field_name"] == "name"
-        assert audit.old_value["value"] == "Apt Bldg"
-        assert audit.new_value["value"] == "Apartment Building"
-        assert audit.new_value["source_file_rewritten"] is False
-        assert audit.new_value["customer_target_mutation"] is False
-        assert audit.new_value["accounting_mutation"] is False
+        audit_old = json.loads(audit.old_value)
+        audit_new = json.loads(audit.new_value)
+        assert audit_old["field_name"] == "name"
+        assert audit_old["value"] == "Apt Bldg"
+        assert audit_new["value"] == "Apartment Building"
+        assert audit_new["source_file_rewritten"] is False
+        assert audit_new["customer_target_mutation"] is False
+        assert audit_new["accounting_mutation"] is False
 
         replay = api.correct_appfolio_staged_row(
             run.id,
