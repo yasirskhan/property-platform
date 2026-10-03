@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -7565,11 +7566,12 @@ def test_appfolio_charge_resolution_accepts_only_durable_gl_mapping_and_is_idemp
         audit = db.query(AuditLog).filter(
             AuditLog.action == "appfolio_charge_resolution_changed"
         ).order_by(AuditLog.id.desc()).first()
-        assert audit.new_value["accepted_gl_relationship_only"] is True
-        assert audit.new_value["occupancy_mapping_inferred"] is False
-        assert audit.new_value["tenant_liability_inferred"] is False
-        assert audit.new_value["payment_state_inferred"] is False
-        assert audit.new_value["target_charge_mutation"] is False
+        audit_value = json.loads(audit.new_value)
+        assert audit_value["accepted_gl_relationship_only"] is True
+        assert audit_value["occupancy_mapping_inferred"] is False
+        assert audit_value["tenant_liability_inferred"] is False
+        assert audit_value["payment_state_inferred"] is False
+        assert audit_value["target_charge_mutation"] is False
         assert db.query(Charge).count() == before_charges
         assert db.query(GLTransaction).count() == before_gl
     finally:
