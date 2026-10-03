@@ -273,6 +273,27 @@ BILL_ALIASES: dict[str, tuple[str, ...]] = {
 # requires a stable Bill ID to avoid false positives.
 BILL_REQUIRED = ("source_vendor_id", "due_date", "total_amount")
 
+# Verified AppFolio Charges source contract from the public Stack API field
+# inventory. AmountDue is preserved as the source's current outstanding amount;
+# it is not promoted into target Charge.amount or payment state.
+CHARGE_ALIASES: dict[str, tuple[str, ...]] = {
+    "source_id": ("Charge ID", "Charge Id", "ChargeId", "Id"),
+    "amount_due": ("AmountDue", "Amount Due"),
+    "charged_on": ("ChargedOn", "Charged On", "Charge Date"),
+    "description": ("Description",),
+    "source_gl_account_id": ("GlAccountId", "GL Account ID", "GL Account Id"),
+    "source_occupancy_id": ("OccupancyId", "Occupancy ID", "Occupancy Id"),
+}
+# Stable source Charge ID is deliberately excluded from explicit-resource
+# required fields so an incomplete export may still be staged for REVIEW/SKIP.
+# Auto-detection separately requires source_id to avoid false positives.
+CHARGE_REQUIRED = (
+    "amount_due",
+    "charged_on",
+    "source_gl_account_id",
+    "source_occupancy_id",
+)
+
 
 class AppFolioFileIngestionError(ValueError):
     pass
@@ -511,6 +532,19 @@ def _looks_like_bills(headers: list[str]) -> bool:
     )
 
 
+def _looks_like_charges(headers: list[str]) -> bool:
+    normalized = {_normalize_header(header) for header in headers}
+    required_fields = ("source_id",) + CHARGE_REQUIRED
+    return all(
+        normalized
+        & {
+            _normalize_header(alias)
+            for alias in CHARGE_ALIASES[field]
+        }
+        for field in required_fields
+    )
+
+
 def _parse_xlsx(content: bytes, requested_sheet: str | None) -> ParsedTable:
     stream = io.BytesIO(content)
     if not zipfile.is_zipfile(stream):
@@ -566,6 +600,7 @@ def _parse_xlsx(content: bytes, requested_sheet: str | None) -> ParsedTable:
                     or _looks_like_gl_accounts(headers)
                     or _looks_like_general_ledger(headers)
                     or _looks_like_bills(headers)
+                    or _looks_like_charges(headers)
                 ):
                     candidates.append(name)
             if len(candidates) != 1:
@@ -660,9 +695,9 @@ def _resolve_mapping(
     explicit_mapping: dict[str, str] | None,
 ) -> tuple[str, dict[str, str], list[str], list[str]]:
     requested = (resource_override or "").strip().upper()
-    if requested not in {"", "PROPERTIES", "UNITS", "TENANTS", "LEASE_OCCUPANCY", "OWNERS", "VENDORS", "GL_ACCOUNTS", "GENERAL_LEDGER", "BILLS"}:
+    if requested not in {"", "PROPERTIES", "UNITS", "TENANTS", "LEASE_OCCUPANCY", "OWNERS", "VENDORS", "GL_ACCOUNTS", "GENERAL_LEDGER", "BILLS", "CHARGES"}:
         raise AppFolioFileIngestionError(
-            "This migration stage currently supports only verified PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS, GL_ACCOUNTS, GENERAL_LEDGER and BILLS resource mappings."
+            "This migration stage currently supports only verified PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS, GL_ACCOUNTS, GENERAL_LEDGER, BILLS and CHARGES resource mappings."
         )
 
     if requested == "PROPERTIES":
@@ -683,6 +718,8 @@ def _resolve_mapping(
         resource = "GENERAL_LEDGER"
     elif requested == "BILLS":
         resource = "BILLS"
+    elif requested == "CHARGES":
+        resource = "CHARGES"
     elif _looks_like_properties(headers):
         resource = "PROPERTIES"
     elif _looks_like_units(headers):
@@ -699,6 +736,8 @@ def _resolve_mapping(
         resource = "GENERAL_LEDGER"
     elif _looks_like_bills(headers):
         resource = "BILLS"
+    elif _looks_like_charges(headers):
+        resource = "CHARGES"
     else:
         resource = "UNKNOWN"
 
@@ -721,6 +760,8 @@ def _resolve_mapping(
         if resource == "GENERAL_LEDGER"
         else BILL_ALIASES
         if resource == "BILLS"
+        else CHARGE_ALIASES
+        if resource == "CHARGES"
         else {}
     )
     required = (
@@ -742,6 +783,8 @@ def _resolve_mapping(
         if resource == "GENERAL_LEDGER"
         else BILL_REQUIRED
         if resource == "BILLS"
+        else CHARGE_REQUIRED
+        if resource == "CHARGES"
         else ()
     )
     auto_mapping, ambiguous = _auto_mapping(headers, aliases) if aliases else ({}, [])
@@ -753,7 +796,7 @@ def _resolve_mapping(
             # A caller must choose a supported resource before using explicit
             # mapping when automatic report detection cannot determine one.
             raise AppFolioFileIngestionError(
-                "Choose resource PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS, GL_ACCOUNTS, GENERAL_LEDGER or BILLS before supplying explicit column mapping."
+                "Choose resource PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS, GL_ACCOUNTS, GENERAL_LEDGER, BILLS or CHARGES before supplying explicit column mapping."
             )
         unknown_fields = sorted(set(explicit_mapping) - allowed_fields)
         if unknown_fields:
@@ -2120,10 +2163,138 @@ def stage_appfolio_file(
                 warnings.append(
                     "This staging batch creates or updates no Bill, BillLine, Check, Vendor, WorkOrder, GLTransaction, GLEntry, Charge or accounting balance."
                 )
+        elif resource == "CHARGES":
+            normalized_data = {
+                field: _mapped_value(source_row, mapping, field)
+                for field in CHARGE_ALIASES
+                if field in mapping
+            }
+            if ambiguous:
+                errors.append(
+                    "Ambiguous automatic mapping requires explicit mapping for: "
+                    + ", ".join(sorted(ambiguous))
+                )
+            if missing_required:
+                errors.append(
+                    "Missing required source columns: " + ", ".join(missing_required)
+                )
+
+            source_charge_value = normalized_data.get("source_id")
+            source_id = (
+                str(source_charge_value).strip()
+                if source_charge_value is not None
+                else None
+            )
+            if source_id:
+                if source_id in seen_source_ids:
+                    errors.append("Duplicate AppFolio Charge ID in this staged upload.")
+                    duplicates += 1
+                else:
+                    seen_source_ids.add(source_id)
+
+            amount_due = normalized_data.get("amount_due")
+            if amount_due in (None, ""):
+                errors.append("amount_due is required.")
+            else:
+                try:
+                    Decimal(str(amount_due).replace(",", "").strip())
+                except (InvalidOperation, ValueError):
+                    errors.append("amount_due must be a numeric source amount.")
+
+            charged_on_value = normalized_data.get("charged_on")
+            charged_on = (
+                str(charged_on_value).strip()
+                if charged_on_value is not None
+                else None
+            )
+            if not charged_on:
+                errors.append("charged_on is required.")
+
+            source_gl_value = normalized_data.get("source_gl_account_id")
+            source_gl_account_id = (
+                str(source_gl_value).strip()
+                if source_gl_value is not None
+                else None
+            )
+            if not source_gl_account_id:
+                errors.append("source_gl_account_id is required.")
+
+            source_occupancy_value = normalized_data.get("source_occupancy_id")
+            source_occupancy_id = (
+                str(source_occupancy_value).strip()
+                if source_occupancy_value is not None
+                else None
+            )
+            if not source_occupancy_id:
+                errors.append("source_occupancy_id is required.")
+
+            mapped_gl = None
+            if source_gl_account_id:
+                mapped_gl = (
+                    db.query(PlatformMigrationItem)
+                    .filter(
+                        PlatformMigrationItem.run_id == run.id,
+                        PlatformMigrationItem.organization_id == run.organization_id,
+                        PlatformMigrationItem.provider == "APPFOLIO",
+                        PlatformMigrationItem.resource == "GL_ACCOUNTS",
+                        PlatformMigrationItem.source_id == source_gl_account_id,
+                    )
+                    .first()
+                )
+                if mapped_gl is None:
+                    warnings.append(
+                        "Charge GL Account relationship is unresolved; the source GlAccountId has no durable GL_ACCOUNTS mapping yet."
+                    )
+                elif mapped_gl.target_entity != "GL_ACCOUNT":
+                    errors.append(
+                        "Mapped source Charge GlAccountId does not resolve to a GL_ACCOUNT target."
+                    )
+                else:
+                    target_gl = (
+                        db.query(GLAccount)
+                        .filter(
+                            GLAccount.id == mapped_gl.target_id,
+                            GLAccount.organization_id == run.organization_id,
+                            GLAccount.is_active.is_(True),
+                            GLAccount.deleted_at.is_(None),
+                        )
+                        .first()
+                    )
+                    if target_gl is None:
+                        errors.append(
+                            "Mapped source Charge GlAccountId no longer resolves to an active same-organization GL Account."
+                        )
+
+            if errors:
+                disposition = "INVALID"
+                invalid += 1
+            else:
+                valid += 1
+                disposition = "REVIEW"
+                if not source_id:
+                    warnings.append(
+                        "Charge ID was not supplied; no durable Charge source identity is synthesized from occupancy, GL account, date, description or amount."
+                    )
+                if mapped_gl is not None:
+                    warnings.append(
+                        "The Charge GL Account relationship is durably mapped; the staged row remains review-only."
+                    )
+                warnings.append(
+                    "OccupancyId is preserved as source evidence only because no durable occupancy source-to-target mapping is verified in the migration architecture."
+                )
+                warnings.append(
+                    "AmountDue is preserved as the source current outstanding amount; it is not treated as original target Charge amount, amount_paid, is_paid, rent liability or reconciled balance."
+                )
+                warnings.append(
+                    "ChargedOn and Description are source evidence only; no tenant, lease, property/unit, payer liability, payment application or GL posting is inferred."
+                )
+                warnings.append(
+                    "This staging batch creates or updates no Charge, RentInvoice, Receipt, Payment, GLTransaction, GLEntry or customer balance."
+                )
         else:
             normalized_data = _normalized_source_row(source_row)
             errors.append(
-                "Report type could not be detected safely; choose PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS, GL_ACCOUNTS, GENERAL_LEDGER or BILLS and supply explicit column mapping."
+                "Report type could not be detected safely; choose PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS, GL_ACCOUNTS, GENERAL_LEDGER, BILLS or CHARGES and supply explicit column mapping."
             )
             disposition = "INVALID"
             invalid += 1
@@ -2352,6 +2523,37 @@ def stage_appfolio_file(
         summary["bill_mutation"] = False
         summary["accounting_history_mutation"] = False
         summary["payment_state_inferred"] = False
+    if resource == "CHARGES":
+        charge_rows = (
+            db.query(PlatformMigrationStagedRow)
+            .filter(
+                PlatformMigrationStagedRow.upload_id == upload.id,
+                PlatformMigrationStagedRow.resource == "CHARGES",
+            )
+            .all()
+        )
+        summary["charge_rows"] = len(charge_rows)
+        summary["missing_charge_source_ids"] = sum(
+            1
+            for row in charge_rows
+            if any("Charge ID was not supplied" in warning for warning in (row.warnings or []))
+        )
+        summary["unresolved_charge_gl_accounts"] = sum(
+            1
+            for row in charge_rows
+            if any("GL Account relationship is unresolved" in warning for warning in (row.warnings or []))
+        )
+        summary["unresolved_charge_occupancies"] = sum(
+            1
+            for row in charge_rows
+            if any("OccupancyId is preserved as source evidence only" in warning for warning in (row.warnings or []))
+        )
+        summary["charge_mutation"] = False
+        summary["rent_invoice_mutation"] = False
+        summary["receipt_payment_mutation"] = False
+        summary["accounting_history_mutation"] = False
+        summary["payment_state_inferred"] = False
+        summary["tenant_liability_inferred"] = False
     if resource == "UNKNOWN" or missing_required or ambiguous:
         upload.status = "MAPPING_REQUIRED"
     elif invalid:
