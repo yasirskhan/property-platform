@@ -5790,7 +5790,10 @@ def get_appfolio_migration_review_summary(
     last_resource = last_summary.get("resource")
     if run.last_dry_run_fingerprint:
         dry_run_state = "CURRENT"
-    elif run.status == "STAGED" and (uploads or rows or mappings):
+    elif uploads or rows or mappings:
+        # Durable migration evidence without a current fingerprint means either
+        # no dry run has been performed yet or a prior preview was invalidated.
+        # Do not trust the mutable run status alone to distinguish those cases.
         dry_run_state = "NONE_OR_STALE"
     else:
         dry_run_state = "NONE"
