@@ -217,6 +217,52 @@ class PlatformMigrationStagedRow(Base):
     )
 
 
+class PlatformMigrationCorrectionRule(Base):
+    """Run-scoped exact-value correction rule for migration staging only."""
+
+    __tablename__ = "platform_migration_correction_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    run_id = Column(
+        Integer,
+        ForeignKey("platform_migration_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    provider = Column(String(32), nullable=False, index=True)
+    resource = Column(String(32), nullable=False, index=True)
+    field_name = Column(String(64), nullable=False)
+    source_value = Column(String(500), nullable=False)
+    corrected_value = Column(String(500), nullable=False)
+    created_by_platform_user_id = Column(
+        Integer,
+        ForeignKey("platform_users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    run = relationship("PlatformMigrationRun")
+    organization = relationship("Organization")
+    created_by_platform_user = relationship("PlatformUser")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "run_id",
+            "resource",
+            "field_name",
+            "source_value",
+            name="uq_platform_migration_correction_rule_source",
+        ),
+    )
+
+
 class PlatformMigrationItem(Base):
     """Durable provider source-to-target mapping for replay-safe migration commits."""
 
