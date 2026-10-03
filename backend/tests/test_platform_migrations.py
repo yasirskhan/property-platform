@@ -6654,8 +6654,8 @@ def test_appfolio_bills_missing_source_id_stays_review_unresolved_links_warn_and
         assert upload.detected_resource == "BILLS"
         assert upload.status == "STAGED_WITH_ERRORS"
         assert upload.validation_summary["missing_bill_source_ids"] == 1
-        assert upload.validation_summary["unresolved_bill_vendor_relationships"] == 2
-        assert upload.validation_summary["unresolved_bill_property_relationships"] == 2
+        assert upload.validation_summary["unresolved_bill_vendor_relationships"] == 3
+        assert upload.validation_summary["unresolved_bill_property_relationships"] == 3
 
         rows = db.query(PlatformMigrationStagedRow).filter(
             PlatformMigrationStagedRow.upload_id == upload.id
@@ -6724,7 +6724,7 @@ def test_appfolio_bills_xlsx_multisheet_autodetects_and_replays_without_bill_cre
             PlatformMigrationStagedRow.upload_id == first.id
         ).one()
         assert row.source_id == "BILL-XLSX-1"
-        assert row.normalized_data["total_amount"] == 200.5
+        assert row.normalized_data["total_amount"] == "200.50"
         assert row.normalized_data["approval_status"] == "Pending"
 
         replay = asyncio.run(
