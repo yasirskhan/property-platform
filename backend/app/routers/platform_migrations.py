@@ -712,10 +712,11 @@ def _staged_review_fingerprint(
     upload: PlatformMigrationUpload,
     rows: list[PlatformMigrationStagedRow],
 ) -> str:
+    upload_run = getattr(upload, "run", None)
     active_rules = sorted(
         (
             rule
-            for rule in (getattr(upload.run, "correction_rules", None) or [])
+            for rule in (getattr(upload_run, "correction_rules", None) or [])
             if rule.provider == "APPFOLIO"
             and rule.resource == upload.detected_resource
         ),
