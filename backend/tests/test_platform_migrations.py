@@ -10172,3 +10172,161 @@ def test_appfolio_run_review_summary_route_is_exposed():
         "/api/platform/migrations/appfolio/runs/{run_id}/review-summary"
         in set(app.openapi()["paths"])
     )
+
+
+def test_appfolio_run_review_fingerprint_is_deterministic_and_binds_all_review_evidence():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Review Fingerprint Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="review-fingerprint",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        upload = _review_summary_upload(
+            db,
+            run=run,
+            organization_id=org.id,
+            resource="PROPERTIES",
+            suffix="a",
+        )
+        row = _review_summary_row(
+            db,
+            run=run,
+            upload=upload,
+            row_number=1,
+            source_id="P-FP",
+            disposition="NEW",
+        )
+        row.normalized_data = {
+            "source_id": "P-FP",
+            "name": "Original Name",
+            "city": "Cleveland",
+        }
+        upload.row_count = 1
+
+        rule = PlatformMigrationCorrectionRule(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="APPFOLIO",
+            resource="PROPERTIES",
+            field_name="name",
+            source_value="Original Name",
+            corrected_value="Reviewed Name",
+            created_by_platform_user_id=admin.id,
+        )
+        mapping = PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="APPFOLIO",
+            resource="PROPERTIES",
+            source_id="P-FP",
+            target_entity="PROPERTY",
+            target_id=12345,
+            source_fingerprint="1" * 64,
+            created_by_platform_user_id=admin.id,
+        )
+        db.add_all([rule, mapping])
+        db.commit()
+
+        def fingerprint() -> str:
+            return api.get_appfolio_migration_review_summary(
+                run.id,
+                response=Response(),
+                db=db,
+                current_user=admin,
+            ).review_fingerprint
+
+        first = fingerprint()
+        assert len(first) == 64
+        assert fingerprint() == first
+
+        upload.normalized_fingerprint = "2" * 64
+        db.commit()
+        after_upload = fingerprint()
+        assert after_upload != first
+
+        row.normalized_data = {
+            **dict(row.normalized_data),
+            "city": "Lakewood",
+        }
+        db.commit()
+        after_normalized = fingerprint()
+        assert after_normalized != after_upload
+
+        row.row_fingerprint = "3" * 64
+        db.commit()
+        after_source_row = fingerprint()
+        assert after_source_row != after_normalized
+
+        row.correction_evidence = [
+            {
+                "kind": "ROW_CORRECTION",
+                "field_name": "city",
+                "source_value": "Cleveland",
+                "corrected_value": "Lakewood",
+            }
+        ]
+        db.commit()
+        after_evidence = fingerprint()
+        assert after_evidence != after_source_row
+
+        row.resolution_action = "SKIP"
+        db.commit()
+        after_resolution = fingerprint()
+        assert after_resolution != after_evidence
+
+        rule.corrected_value = "Final Reviewed Name"
+        db.commit()
+        after_rule = fingerprint()
+        assert after_rule != after_resolution
+
+        mapping.source_fingerprint = "4" * 64
+        db.commit()
+        after_mapping_source = fingerprint()
+        assert after_mapping_source != after_rule
+
+        mapping.target_id = 54321
+        db.commit()
+        after_mapping_target = fingerprint()
+        assert after_mapping_target != after_mapping_source
+
+        before_counts = (
+            db.query(PlatformMigrationUpload).count(),
+            db.query(PlatformMigrationStagedRow).count(),
+            db.query(PlatformMigrationCorrectionRule).count(),
+            db.query(PlatformMigrationItem).count(),
+            db.query(Property).count(),
+            db.query(Unit).count(),
+            db.query(User).count(),
+            db.query(Vendor).count(),
+            db.query(Lease).count(),
+            db.query(Charge).count(),
+            db.query(Bill).count(),
+            db.query(GLTransaction).count(),
+            db.query(WorkOrder).count(),
+        )
+        assert fingerprint() == after_mapping_target
+        after_counts = (
+            db.query(PlatformMigrationUpload).count(),
+            db.query(PlatformMigrationStagedRow).count(),
+            db.query(PlatformMigrationCorrectionRule).count(),
+            db.query(PlatformMigrationItem).count(),
+            db.query(Property).count(),
+            db.query(Unit).count(),
+            db.query(User).count(),
+            db.query(Vendor).count(),
+            db.query(Lease).count(),
+            db.query(Charge).count(),
+            db.query(Bill).count(),
+            db.query(GLTransaction).count(),
+            db.query(WorkOrder).count(),
+        )
+        assert after_counts == before_counts
+    finally:
+        db.close()
+        engine.dispose()
