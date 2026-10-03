@@ -5354,6 +5354,19 @@ def get_appfolio_migration_coverage(
     for upload in uploads:
         by_resource.setdefault(upload.detected_resource, []).append(upload)
 
+    mappings = (
+        db.query(PlatformMigrationItem)
+        .filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "APPFOLIO",
+        )
+        .all()
+    )
+    mappings_by_resource: dict[str, list[PlatformMigrationItem]] = {}
+    for mapping in mappings:
+        mappings_by_resource.setdefault(mapping.resource, []).append(mapping)
+
     items: list[dict[str, object]] = []
     top_level_blockers: list[str] = []
     supplied_count = 0
@@ -5363,12 +5376,14 @@ def get_appfolio_migration_coverage(
 
     for resource, label in _MIGRATION_COVERAGE_RESOURCES:
         resource_uploads = by_resource.get(resource, [])
+        resource_mappings = mappings_by_resource.get(resource, [])
+        has_source_evidence = bool(resource_uploads or resource_mappings)
         blockers: list[str] = []
         if resource in _MIGRATION_SOURCE_SCHEMA_BLOCKERS:
             state = "BLOCKED"
             blockers.append(_MIGRATION_SOURCE_SCHEMA_BLOCKERS[resource])
             blocked_count += 1
-        elif not resource_uploads:
+        elif not has_source_evidence:
             state = "MISSING"
             missing_count += 1
         elif resource in _MIGRATION_PARTIAL_BLOCKERS:
@@ -5389,6 +5404,7 @@ def get_appfolio_migration_coverage(
                 "label": label,
                 "state": state,
                 "upload_count": len(resource_uploads),
+                "mapping_count": len(resource_mappings),
                 "row_count": sum(int(upload.row_count or 0) for upload in resource_uploads),
                 "latest_upload_status": (
                     resource_uploads[-1].status if resource_uploads else None
