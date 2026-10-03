@@ -1,3 +1,64 @@
+# AI_HANDOFF.md — 2026-10-03 PHASE 4.13 REUSABLE CORRECTION RULES VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `d9c9df635664d990170d7c84291f8a29d65193c8`.
+- GitHub Actions run: `37158399721` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **976 passed, 21 deselected, 25563 warnings in 475.51s**.
+- Authenticated E2E: **21 passed, 278 warnings in 75.33s**.
+- Alembic head: `1b8d3f6a9c20`.
+- Expected model tables: **202**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified run-scoped reusable correction-rule scope
+
+1. Reusable value-correction rules are persisted only inside one migration run and organization; they are never global cross-customer rules.
+2. A rule binds the exact AppFolio provider + resource + safe descriptive field + normalized source value to one corrected value.
+3. The same descriptive-field allowlist used by the verified row-correction layer remains authoritative; identities, relationship IDs, amounts, dates, statuses and accounting semantics are not generically corrected.
+4. Original source evidence, upload fingerprints and row source fingerprints remain unchanged. Rule application affects only staged normalized overlays plus explicit correction evidence.
+5. Rule creation/update is explicit, platform-write scoped and audited with actor/time.
+6. Exact rule replay is idempotent. Conflicting rule updates are explicit, audited and invalidate the prior dry-run state.
+7. Re-upload/replay in the same run applies the current exact matching rules deterministically; no fuzzy matching is used.
+8. Active correction rules and staged correction evidence participate in the shared staged-review fingerprint, so changed rules make prior dry-run/commit readiness stale.
+9. INVALID/unsafe rows are not made commit-safe by reusable rules.
+10. The correction-rule lifecycle creates or updates zero existing customer Property/Unit/User/Vendor/Lease/Charge/Bill/WorkOrder/GL records and rewrites no source file.
+11. The latest regression also supports the verified upload-object shape used by the shared review fingerprint without opening an AppFolio API transport path.
+12. No general UX, navigation, hidden-menu or AppFolio API connector work was added.
+
+Implementation commits after the prior correction-layer checkpoint:
+- `8d88051689153529cc67c1becb8c41450e170132` through `84cc5ba85145ff95dc75b00c0c1cf803cf74f2e8` — correction-rule model, migration, schemas, API and initial tests.
+- `4436af1b4db3134004a6a02c322a028c9ec9a7a7` through `661529276c9ee187524187a6f560995fb4168055` — run binding, explicit update lifecycle, deterministic application and lifecycle regressions.
+- `041ae4b3a493d103704df1d78c439863041cf38e` — relationship mapping correction.
+- `d9c9df635664d990170d7c84291f8a29d65193c8` — shared review-fingerprint upload-object compatibility; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Implement the shared **run-level migration review/readiness summary** required by section 10 of `docs/APPFOLIO_MIGRATION_IMPORT_PLAN.md`.
+
+Required boundaries:
+
+1. Aggregate only durable migration-run/upload/staged-row/mapping state already stored in the shared migration architecture.
+2. Report run-level counts for new, possible matches, matched, already imported, skipped, invalid, review/unresolved rows, warnings and blocking errors, with resource-level breakdown.
+3. Distinguish an explicit `MATCH_EXISTING` from relationship-only `ACCEPT_RELATIONSHIP`; do not claim accepted relationships are target records already matched/imported.
+4. Surface the run's latest dry-run resource/fingerprint state and whether current staged-review fingerprints have made that state stale; do not manufacture a combined financial commit-ready claim.
+5. Read-only analysis only: mutate no upload, staged row, correction rule, source mapping, customer record, accounting record or run status.
+6. Preserve platform read authorization, organization/run scope and no-store behavior.
+7. Add focused tests for mixed-resource counts, unresolved blockers, mapping/replay state, authorization and zero mutation.
+8. Keep AppFolio API transport, general UX, navigation and hidden-menu work out of scope.
+
+---
+
 # AI_HANDOFF.md — 2026-10-03 PHASE 4.13 STAGED CORRECTION LAYER VERIFIED
 
 ## Current verified product checkpoint
