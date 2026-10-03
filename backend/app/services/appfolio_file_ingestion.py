@@ -294,6 +294,30 @@ CHARGE_REQUIRED = (
     "source_occupancy_id",
 )
 
+# Verified AppFolio Stack Work Orders source contract. These fields are staged
+# as source evidence only; this batch does not translate workflow state or
+# create/update target WorkOrder records.
+WORK_ORDER_ALIASES: dict[str, tuple[str, ...]] = {
+    "source_id": ("Work Order ID", "Work Order Id", "WorkOrderId", "Id"),
+    "source_property_id": ("PropertyId", "Property ID", "Property Id"),
+    "source_unit_id": ("UnitId", "Unit ID", "Unit Id"),
+    "status": ("Status", "Statuses"),
+    "job_description": ("JobDescription", "Job Description"),
+    "assigned_users": ("AssignedUsers", "Assigned Users"),
+    "canceled_on": ("CanceledOn", "Canceled On"),
+    "completed_on": ("CompletedOn", "Completed On"),
+    "permission_to_enter": ("PermissionToEnter", "Permission To Enter"),
+    "priority": ("Priority",),
+    "scheduled_start": ("ScheduledStart", "Scheduled Start"),
+    "scheduled_end": ("ScheduledEnd", "Scheduled End"),
+    "source_vendor_id": ("VendorId", "Vendor ID", "Vendor Id"),
+    "vendor_trade": ("VendorTrade", "Vendor Trade"),
+}
+# Stable Work Order ID is deliberately excluded so an explicitly selected,
+# incomplete source file can still be staged for REVIEW/SKIP. Auto-detection
+# separately requires source_id.
+WORK_ORDER_REQUIRED = ("source_property_id", "status", "job_description")
+
 
 class AppFolioFileIngestionError(ValueError):
     pass
@@ -545,6 +569,19 @@ def _looks_like_charges(headers: list[str]) -> bool:
     )
 
 
+def _looks_like_work_orders(headers: list[str]) -> bool:
+    normalized = {_normalize_header(header) for header in headers}
+    required_fields = ("source_id",) + WORK_ORDER_REQUIRED
+    return all(
+        normalized
+        & {
+            _normalize_header(alias)
+            for alias in WORK_ORDER_ALIASES[field]
+        }
+        for field in required_fields
+    )
+
+
 def _parse_xlsx(content: bytes, requested_sheet: str | None) -> ParsedTable:
     stream = io.BytesIO(content)
     if not zipfile.is_zipfile(stream):
@@ -601,6 +638,7 @@ def _parse_xlsx(content: bytes, requested_sheet: str | None) -> ParsedTable:
                     or _looks_like_general_ledger(headers)
                     or _looks_like_bills(headers)
                     or _looks_like_charges(headers)
+                    or _looks_like_work_orders(headers)
                 ):
                     candidates.append(name)
             if len(candidates) != 1:
@@ -695,9 +733,9 @@ def _resolve_mapping(
     explicit_mapping: dict[str, str] | None,
 ) -> tuple[str, dict[str, str], list[str], list[str]]:
     requested = (resource_override or "").strip().upper()
-    if requested not in {"", "PROPERTIES", "UNITS", "TENANTS", "LEASE_OCCUPANCY", "OWNERS", "VENDORS", "GL_ACCOUNTS", "GENERAL_LEDGER", "BILLS", "CHARGES"}:
+    if requested not in {"", "PROPERTIES", "UNITS", "TENANTS", "LEASE_OCCUPANCY", "OWNERS", "VENDORS", "GL_ACCOUNTS", "GENERAL_LEDGER", "BILLS", "CHARGES", "WORK_ORDERS"}:
         raise AppFolioFileIngestionError(
-            "This migration stage currently supports only verified PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS, GL_ACCOUNTS, GENERAL_LEDGER, BILLS and CHARGES resource mappings."
+            "This migration stage currently supports only verified PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS, GL_ACCOUNTS, GENERAL_LEDGER, BILLS, CHARGES and WORK_ORDERS resource mappings."
         )
 
     if requested == "PROPERTIES":
@@ -720,6 +758,8 @@ def _resolve_mapping(
         resource = "BILLS"
     elif requested == "CHARGES":
         resource = "CHARGES"
+    elif requested == "WORK_ORDERS":
+        resource = "WORK_ORDERS"
     elif _looks_like_properties(headers):
         resource = "PROPERTIES"
     elif _looks_like_units(headers):
@@ -738,6 +778,8 @@ def _resolve_mapping(
         resource = "BILLS"
     elif _looks_like_charges(headers):
         resource = "CHARGES"
+    elif _looks_like_work_orders(headers):
+        resource = "WORK_ORDERS"
     else:
         resource = "UNKNOWN"
 
@@ -762,6 +804,8 @@ def _resolve_mapping(
         if resource == "BILLS"
         else CHARGE_ALIASES
         if resource == "CHARGES"
+        else WORK_ORDER_ALIASES
+        if resource == "WORK_ORDERS"
         else {}
     )
     required = (
@@ -785,6 +829,8 @@ def _resolve_mapping(
         if resource == "BILLS"
         else CHARGE_REQUIRED
         if resource == "CHARGES"
+        else WORK_ORDER_REQUIRED
+        if resource == "WORK_ORDERS"
         else ()
     )
     auto_mapping, ambiguous = _auto_mapping(headers, aliases) if aliases else ({}, [])
@@ -796,7 +842,7 @@ def _resolve_mapping(
             # A caller must choose a supported resource before using explicit
             # mapping when automatic report detection cannot determine one.
             raise AppFolioFileIngestionError(
-                "Choose resource PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS, GL_ACCOUNTS, GENERAL_LEDGER, BILLS or CHARGES before supplying explicit column mapping."
+                "Choose resource PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS, GL_ACCOUNTS, GENERAL_LEDGER, BILLS, CHARGES or WORK_ORDERS before supplying explicit column mapping."
             )
         unknown_fields = sorted(set(explicit_mapping) - allowed_fields)
         if unknown_fields:
@@ -2163,6 +2209,200 @@ def stage_appfolio_file(
                 warnings.append(
                     "This staging batch creates or updates no Bill, BillLine, Check, Vendor, WorkOrder, GLTransaction, GLEntry, Charge or accounting balance."
                 )
+        elif resource == "WORK_ORDERS":
+            normalized_data = {
+                field: _mapped_value(source_row, mapping, field)
+                for field in WORK_ORDER_ALIASES
+                if field in mapping
+            }
+            if ambiguous:
+                errors.append(
+                    "Ambiguous automatic mapping requires explicit mapping for: "
+                    + ", ".join(sorted(ambiguous))
+                )
+            if missing_required:
+                errors.append(
+                    "Missing required source columns: " + ", ".join(missing_required)
+                )
+
+            source_work_order_value = normalized_data.get("source_id")
+            source_id = (
+                str(source_work_order_value).strip()
+                if source_work_order_value is not None
+                else None
+            )
+            if source_id:
+                if source_id in seen_source_ids:
+                    errors.append("Duplicate AppFolio Work Order ID in this staged upload.")
+                    duplicates += 1
+                else:
+                    seen_source_ids.add(source_id)
+
+            source_property_value = normalized_data.get("source_property_id")
+            source_property_id = (
+                str(source_property_value).strip()
+                if source_property_value not in (None, "")
+                else None
+            )
+            source_unit_value = normalized_data.get("source_unit_id")
+            source_unit_id = (
+                str(source_unit_value).strip()
+                if source_unit_value not in (None, "")
+                else None
+            )
+            source_vendor_value = normalized_data.get("source_vendor_id")
+            source_vendor_id = (
+                str(source_vendor_value).strip()
+                if source_vendor_value not in (None, "")
+                else None
+            )
+
+            for field_name in ("status", "job_description"):
+                value = normalized_data.get(field_name)
+                if value is None or not str(value).strip():
+                    errors.append(f"{field_name} is required.")
+
+            mapped_property = None
+            target_property = None
+            if source_property_id:
+                mapped_property = (
+                    db.query(PlatformMigrationItem)
+                    .filter(
+                        PlatformMigrationItem.run_id == run.id,
+                        PlatformMigrationItem.organization_id == run.organization_id,
+                        PlatformMigrationItem.provider == "APPFOLIO",
+                        PlatformMigrationItem.resource == "PROPERTIES",
+                        PlatformMigrationItem.source_id == source_property_id,
+                    )
+                    .first()
+                )
+                if mapped_property is None:
+                    warnings.append(
+                        "Work Order Property relationship is unresolved; PropertyId is preserved as source evidence."
+                    )
+                elif mapped_property.target_entity != "PROPERTY":
+                    errors.append(
+                        "Mapped Work Order PropertyId resolves to the wrong target type."
+                    )
+                else:
+                    target_property = (
+                        db.query(Property)
+                        .filter(
+                            Property.id == mapped_property.target_id,
+                            Property.organization_id == run.organization_id,
+                            Property.is_active.is_(True),
+                            Property.deleted_at.is_(None),
+                        )
+                        .first()
+                    )
+                    if target_property is None:
+                        errors.append(
+                            "Mapped Work Order PropertyId no longer resolves to an active same-organization Property."
+                        )
+
+            mapped_unit = None
+            target_unit = None
+            if source_unit_id:
+                mapped_unit = (
+                    db.query(PlatformMigrationItem)
+                    .filter(
+                        PlatformMigrationItem.run_id == run.id,
+                        PlatformMigrationItem.organization_id == run.organization_id,
+                        PlatformMigrationItem.provider == "APPFOLIO",
+                        PlatformMigrationItem.resource == "UNITS",
+                        PlatformMigrationItem.source_id == source_unit_id,
+                    )
+                    .first()
+                )
+                if mapped_unit is None:
+                    warnings.append(
+                        "Work Order Unit relationship is unresolved; UnitId is preserved as source evidence."
+                    )
+                elif mapped_unit.target_entity != "UNIT":
+                    errors.append(
+                        "Mapped Work Order UnitId resolves to the wrong target type."
+                    )
+                else:
+                    target_unit = (
+                        db.query(Unit)
+                        .join(Property, Property.id == Unit.property_id)
+                        .filter(
+                            Unit.id == mapped_unit.target_id,
+                            Unit.is_active.is_(True),
+                            Unit.deleted_at.is_(None),
+                            Property.organization_id == run.organization_id,
+                            Property.is_active.is_(True),
+                            Property.deleted_at.is_(None),
+                        )
+                        .first()
+                    )
+                    if target_unit is None:
+                        errors.append(
+                            "Mapped Work Order UnitId no longer resolves to an active same-organization Unit."
+                        )
+
+            if (
+                target_property is not None
+                and target_unit is not None
+                and target_unit.property_id != target_property.id
+            ):
+                errors.append(
+                    "Mapped Work Order PropertyId and UnitId resolve to different target Properties."
+                )
+
+            mapped_vendor = None
+            if source_vendor_id:
+                mapped_vendor = (
+                    db.query(PlatformMigrationItem)
+                    .filter(
+                        PlatformMigrationItem.run_id == run.id,
+                        PlatformMigrationItem.organization_id == run.organization_id,
+                        PlatformMigrationItem.provider == "APPFOLIO",
+                        PlatformMigrationItem.resource == "VENDORS",
+                        PlatformMigrationItem.source_id == source_vendor_id,
+                    )
+                    .first()
+                )
+                if mapped_vendor is None:
+                    warnings.append(
+                        "Work Order Vendor relationship is unresolved; VendorId is preserved as source evidence."
+                    )
+                elif mapped_vendor.target_entity != "VENDOR":
+                    errors.append(
+                        "Mapped Work Order VendorId resolves to the wrong target type."
+                    )
+                else:
+                    target_vendor = (
+                        db.query(Vendor)
+                        .filter(
+                            Vendor.id == mapped_vendor.target_id,
+                            Vendor.organization_id == run.organization_id,
+                            Vendor.is_active.is_(True),
+                            Vendor.deleted_at.is_(None),
+                        )
+                        .first()
+                    )
+                    if target_vendor is None:
+                        errors.append(
+                            "Mapped Work Order VendorId no longer resolves to an active same-organization Vendor."
+                        )
+
+            if errors:
+                disposition = "INVALID"
+                invalid += 1
+            else:
+                valid += 1
+                disposition = "REVIEW"
+                if not source_id:
+                    warnings.append(
+                        "Work Order ID was not supplied; no durable Work Order identity is synthesized from property, unit, vendor, status, dates or description."
+                    )
+                warnings.append(
+                    "Status, priority, schedule, completion/cancellation dates, permission-to-enter, AssignedUsers and VendorTrade remain source evidence only; target workflow state and assignments are not inferred."
+                )
+                warnings.append(
+                    "This staging batch creates or updates no WorkOrder, Bill, Charge, GLTransaction, GLEntry, inventory, purchase order or vendor-payment record."
+                )
         elif resource == "CHARGES":
             normalized_data = {
                 field: _mapped_value(source_row, mapping, field)
@@ -2294,7 +2534,7 @@ def stage_appfolio_file(
         else:
             normalized_data = _normalized_source_row(source_row)
             errors.append(
-                "Report type could not be detected safely; choose PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS, GL_ACCOUNTS, GENERAL_LEDGER, BILLS or CHARGES and supply explicit column mapping."
+                "Report type could not be detected safely; choose PROPERTIES, UNITS, TENANTS, LEASE_OCCUPANCY, OWNERS, VENDORS, GL_ACCOUNTS, GENERAL_LEDGER, BILLS, CHARGES or WORK_ORDERS and supply explicit column mapping."
             )
             disposition = "INVALID"
             invalid += 1
@@ -2523,6 +2763,41 @@ def stage_appfolio_file(
         summary["bill_mutation"] = False
         summary["accounting_history_mutation"] = False
         summary["payment_state_inferred"] = False
+    if resource == "WORK_ORDERS":
+        work_order_rows = (
+            db.query(PlatformMigrationStagedRow)
+            .filter(
+                PlatformMigrationStagedRow.upload_id == upload.id,
+                PlatformMigrationStagedRow.resource == "WORK_ORDERS",
+            )
+            .all()
+        )
+        summary["work_order_rows"] = len(work_order_rows)
+        summary["missing_work_order_source_ids"] = sum(
+            1
+            for row in work_order_rows
+            if any("Work Order ID was not supplied" in warning for warning in (row.warnings or []))
+        )
+        summary["unresolved_work_order_properties"] = sum(
+            1
+            for row in work_order_rows
+            if any("Property relationship is unresolved" in warning for warning in (row.warnings or []))
+        )
+        summary["unresolved_work_order_units"] = sum(
+            1
+            for row in work_order_rows
+            if any("Unit relationship is unresolved" in warning for warning in (row.warnings or []))
+        )
+        summary["unresolved_work_order_vendors"] = sum(
+            1
+            for row in work_order_rows
+            if any("Vendor relationship is unresolved" in warning for warning in (row.warnings or []))
+        )
+        summary["work_order_mutation"] = False
+        summary["bill_mutation"] = False
+        summary["charge_mutation"] = False
+        summary["accounting_history_mutation"] = False
+        summary["workflow_state_inferred"] = False
     if resource == "CHARGES":
         charge_rows = (
             db.query(PlatformMigrationStagedRow)
