@@ -11,6 +11,16 @@ depends_on = None
 
 
 def upgrade():
+    with op.batch_alter_table("platform_migration_staged_rows") as batch:
+        batch.add_column(
+            sa.Column(
+                "correction_evidence",
+                sa.JSON(),
+                nullable=False,
+                server_default=sa.text("'[]'"),
+            )
+        )
+
     op.create_table(
         "platform_migration_correction_rules",
         sa.Column("id", sa.Integer(), primary_key=True),
