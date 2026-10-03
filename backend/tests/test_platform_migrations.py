@@ -39,6 +39,7 @@ from app.schemas.platform_migration import (
     AppFolioStagedGLAccountResolutionIn,
     AppFolioStagedGeneralLedgerResolutionIn,
     AppFolioStagedBillResolutionIn,
+    AppFolioStagedChargeResolutionIn,
     AppFolioStagedGLAccountCommitIn,
     AppFolioStagedTenantCommitIn,
     AppFolioStagedVendorCommitIn,
@@ -7476,6 +7477,245 @@ def test_appfolio_charges_xlsx_multisheet_autodetects_and_replays_without_mutati
         assert replay.id == first.id
         assert db.query(Charge).count() == before_charges
         assert db.query(GLTransaction).count() == before_gl
+    finally:
+        db.close()
+        engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio Charges staged relationship reconciliation
+# ---------------------------------------------------------------------------
+
+def test_appfolio_charge_resolution_accepts_only_durable_gl_mapping_and_is_idempotent():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Charges Resolve Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="charges-resolve",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _prop, _unit, account = _seed_general_ledger_source_mappings(
+            db, run=run, org=org
+        )
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "charges-resolve.csv",
+                    (
+                        "Id,AmountDue,ChargedOn,Description,GlAccountId,OccupancyId\n"
+                        "CHARGE-R1,125.50,2026-09-10,Repair charge,GL-4100,OCC-100\n"
+                    ).encode(),
+                ),
+                resource="CHARGES",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        run.last_dry_run_fingerprint = "a" * 64
+        run.last_dry_run_summary = {"resource": "CHARGES"}
+        db.commit()
+
+        before_charges = db.query(Charge).count()
+        before_gl = db.query(GLTransaction).count()
+        before_audit = db.query(AuditLog).filter(
+            AuditLog.action == "appfolio_charge_resolution_changed"
+        ).count()
+
+        resolved = api.resolve_staged_appfolio_charge(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedChargeResolutionIn(action="ACCEPT_RELATIONSHIP"),
+            db=db,
+            current_user=admin,
+        )
+        assert resolved.resolution_action == "ACCEPT_RELATIONSHIP"
+        assert resolved.resolution_target_gl_account_id == account.id
+        assert resolved.resolution_target_id is None
+        assert resolved.resolution_target_unit_id is None
+        assert resolved.resolution_target_tenant_user_id is None
+        db.refresh(run)
+        assert run.last_dry_run_fingerprint is None
+        assert run.last_dry_run_summary is None
+        assert run.status == "STAGED"
+
+        replay = api.resolve_staged_appfolio_charge(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedChargeResolutionIn(action="ACCEPT_RELATIONSHIP"),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.id == resolved.id
+        assert db.query(AuditLog).filter(
+            AuditLog.action == "appfolio_charge_resolution_changed"
+        ).count() == before_audit + 1
+        audit = db.query(AuditLog).filter(
+            AuditLog.action == "appfolio_charge_resolution_changed"
+        ).order_by(AuditLog.id.desc()).first()
+        assert audit.new_value["accepted_gl_relationship_only"] is True
+        assert audit.new_value["occupancy_mapping_inferred"] is False
+        assert audit.new_value["tenant_liability_inferred"] is False
+        assert audit.new_value["payment_state_inferred"] is False
+        assert audit.new_value["target_charge_mutation"] is False
+        assert db.query(Charge).count() == before_charges
+        assert db.query(GLTransaction).count() == before_gl
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_charge_resolution_rejects_unresolved_or_stale_gl_relationship():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="Charges Resolve Guard Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="charges-resolve-guard",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _prop, _unit, account = _seed_general_ledger_source_mappings(
+            db, run=run, org=org
+        )
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "charges-resolve-guard.csv",
+                    (
+                        "Id,AmountDue,ChargedOn,Description,GlAccountId,OccupancyId\n"
+                        "CHARGE-OK,10.00,2026-09-10,Known account,GL-4100,OCC-1\n"
+                        "CHARGE-BAD,20.00,2026-09-11,Unknown account,GL-NO-MAP,OCC-2\n"
+                    ).encode(),
+                ),
+                resource="CHARGES",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+
+        with pytest.raises(HTTPException) as exc:
+            api.resolve_staged_appfolio_charge(
+                run.id,
+                upload.id,
+                rows[1].id,
+                AppFolioStagedChargeResolutionIn(action="ACCEPT_RELATIONSHIP"),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        account.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.resolve_staged_appfolio_charge(
+                run.id,
+                upload.id,
+                rows[0].id,
+                AppFolioStagedChargeResolutionIn(action="ACCEPT_RELATIONSHIP"),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(Charge).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_charge_resolution_missing_identity_may_only_skip_and_invalid_cannot_resolve():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_DEV)
+        org = _org(db, name="Charges Resolve Identity Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="charges-resolve-identity",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "charges-resolve-identity.csv",
+                    (
+                        "Id,AmountDue,ChargedOn,Description,GlAccountId,OccupancyId\n"
+                        ",10.00,2026-09-10,Missing id,GL-1,OCC-1\n"
+                        "CHARGE-DUP,20.00,2026-09-11,Duplicate one,GL-1,OCC-2\n"
+                        "CHARGE-DUP,30.00,2026-09-12,Duplicate two,GL-1,OCC-3\n"
+                    ).encode(),
+                ),
+                resource="CHARGES",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+
+        with pytest.raises(HTTPException) as exc:
+            api.resolve_staged_appfolio_charge(
+                run.id,
+                upload.id,
+                rows[0].id,
+                AppFolioStagedChargeResolutionIn(action="ACCEPT_RELATIONSHIP"),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        skipped = api.resolve_staged_appfolio_charge(
+            run.id,
+            upload.id,
+            rows[0].id,
+            AppFolioStagedChargeResolutionIn(action="SKIP"),
+            db=db,
+            current_user=admin,
+        )
+        assert skipped.resolution_action == "SKIP"
+        assert skipped.resolution_target_gl_account_id is None
+
+        assert rows[2].disposition == "INVALID"
+        with pytest.raises(HTTPException) as exc:
+            api.resolve_staged_appfolio_charge(
+                run.id,
+                upload.id,
+                rows[2].id,
+                AppFolioStagedChargeResolutionIn(action="SKIP"),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(Charge).count() == 0
+        assert db.query(GLTransaction).count() == 0
     finally:
         db.close()
         engine.dispose()
