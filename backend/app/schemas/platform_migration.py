@@ -161,6 +161,48 @@ class AppFolioMigrationCoverageOut(BaseModel):
     blockers: list[str] = Field(default_factory=list)
 
 
+class AppFolioMigrationReviewSummaryItem(BaseModel):
+    resource: str
+    upload_count: int
+    row_count: int
+    new: int
+    possible_matches: int
+    matched_existing: int
+    create_new: int
+    accepted_relationships: int
+    already_imported: int
+    skipped: int
+    invalid: int
+    unresolved_review: int
+    warning_count: int
+    blocking_count: int
+    mapping_count: int
+
+
+class AppFolioMigrationReviewSummaryOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    upload_count: int
+    row_count: int
+    new: int
+    possible_matches: int
+    matched_existing: int
+    create_new: int
+    accepted_relationships: int
+    already_imported: int
+    skipped: int
+    invalid: int
+    unresolved_review: int
+    warning_count: int
+    blocking_count: int
+    mapping_count: int
+    dry_run_state: str
+    last_dry_run_resource: str | None = None
+    last_dry_run_fingerprint: str | None = None
+    resources: list[AppFolioMigrationReviewSummaryItem]
+
+
 class AppFolioMigrationStagedRowOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
