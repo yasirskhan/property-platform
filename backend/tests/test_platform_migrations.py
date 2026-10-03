@@ -8881,3 +8881,169 @@ def test_appfolio_work_orders_dry_run_blocks_unresolved_and_empty_accepted_set()
     finally:
         db.close()
         engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 migration source coverage/completeness checklist
+# ---------------------------------------------------------------------------
+
+def test_appfolio_migration_coverage_reports_durable_sources_partial_and_blocked_states():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Coverage Checklist Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="coverage-checklist",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _prop, _unit, _vendor = _seed_work_order_source_mappings(
+            db, run=run, org=org
+        )
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "coverage-work-orders.csv",
+                    (
+                        "Id,PropertyId,UnitId,Status,JobDescription,VendorId\n"
+                        "WO-COVERAGE-1,PROP-WO-1,UNIT-WO-1,Open,Coverage test,VENDOR-WO-1\n"
+                    ).encode(),
+                ),
+                resource="WORK_ORDERS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert upload.detected_resource == "WORK_ORDERS"
+
+        response = Response()
+        result = api.get_appfolio_migration_coverage(
+            run.id,
+            response=response,
+            db=db,
+            current_user=admin,
+        )
+        by_resource = {item.resource: item for item in result.items}
+
+        assert response.headers["cache-control"] == "no-store"
+        assert by_resource["PROPERTIES"].state == "SUPPLIED"
+        assert by_resource["PROPERTIES"].upload_count == 0
+        assert by_resource["PROPERTIES"].mapping_count == 1
+        assert by_resource["UNITS"].state == "SUPPLIED"
+        assert by_resource["VENDORS"].state == "SUPPLIED"
+        assert by_resource["WORK_ORDERS"].state == "PARTIAL"
+        assert by_resource["WORK_ORDERS"].upload_count == 1
+        assert by_resource["WORK_ORDERS"].row_count == 1
+        assert any(
+            "target WorkOrder requires" in blocker
+            for blocker in by_resource["WORK_ORDERS"].blockers
+        )
+        assert by_resource["TENANTS"].state == "MISSING"
+        assert by_resource["SECURITY_DEPOSITS"].state == "BLOCKED"
+        assert by_resource["DOCUMENTS"].state == "BLOCKED"
+        assert result.accounting_complete is False
+        assert result.partial_operational_migration_may_be_possible is True
+        assert result.blocked_count == 2
+        assert any(
+            "Accounting migration is not complete" in blocker
+            for blocker in result.blockers
+        )
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_migration_coverage_is_repeatable_read_only_and_preserves_run_state():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="Coverage Read Only Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="coverage-read-only",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _seed_work_order_source_mappings(db, run=run, org=org)
+        run.status = "DRY_RUN_READY"
+        run.last_dry_run_fingerprint = "f" * 64
+        run.last_dry_run_summary = {"resource": "WORK_ORDERS", "review_only": True}
+        db.commit()
+
+        before_uploads = db.query(PlatformMigrationUpload).count()
+        before_mappings = db.query(PlatformMigrationItem).count()
+        before_work_orders = db.query(WorkOrder).count()
+        before_bills = db.query(Bill).count()
+        before_charges = db.query(Charge).count()
+        before_gl = db.query(GLTransaction).count()
+        before_audit = db.query(AuditLog).count()
+
+        first = api.get_appfolio_migration_coverage(
+            run.id, response=Response(), db=db, current_user=admin
+        )
+        second = api.get_appfolio_migration_coverage(
+            run.id, response=Response(), db=db, current_user=admin
+        )
+        assert first.model_dump() == second.model_dump()
+
+        db.refresh(run)
+        assert run.status == "DRY_RUN_READY"
+        assert run.last_dry_run_fingerprint == "f" * 64
+        assert run.last_dry_run_summary == {
+            "resource": "WORK_ORDERS",
+            "review_only": True,
+        }
+        assert db.query(PlatformMigrationUpload).count() == before_uploads
+        assert db.query(PlatformMigrationItem).count() == before_mappings
+        assert db.query(WorkOrder).count() == before_work_orders
+        assert db.query(Bill).count() == before_bills
+        assert db.query(Charge).count() == before_charges
+        assert db.query(GLTransaction).count() == before_gl
+        assert db.query(AuditLog).count() == before_audit
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_migration_coverage_enforces_platform_view_role_and_never_claims_accounting_complete():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        support = _platform_user(db, PlatformUserRole.PLATFORM_SUPPORT)
+        sales = _platform_user(db, PlatformUserRole.PLATFORM_SALES)
+        org = _org(db, name="Coverage Auth Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="coverage-auth",
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        support_result = api.get_appfolio_migration_coverage(
+            run.id, response=Response(), db=db, current_user=support
+        )
+        assert support_result.accounting_complete is False
+        assert all(
+            item.state in {"MISSING", "BLOCKED"}
+            for item in support_result.items
+        )
+        assert support_result.partial_operational_migration_may_be_possible is False
+
+        with pytest.raises(HTTPException) as exc:
+            api.get_appfolio_migration_coverage(
+                run.id, response=Response(), db=db, current_user=sales
+            )
+        assert exc.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()
