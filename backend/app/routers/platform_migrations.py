@@ -37,6 +37,7 @@ from app.schemas.platform_migration import (
     AppFolioMigrationStagedRowOut,
     AppFolioMigrationUploadOut,
     AppFolioMigrationCoverageOut,
+    AppFolioStagedRowCorrectionIn,
     AppFolioStagedPropertyCommitIn,
     AppFolioStagedRowResolutionIn,
     AppFolioPropertyCommitIn,
@@ -174,6 +175,23 @@ _ACCOUNTING_COVERAGE_RESOURCES = {
     "SECURITY_DEPOSITS",
 }
 
+# Generic corrections are deliberately limited to descriptive staging fields.
+# Source identity, relationship IDs, amounts, dates, statuses and accounting
+# classifications stay under their resource-specific review contracts.
+_MIGRATION_CORRECTABLE_FIELDS: dict[str, set[str]] = {
+    "PROPERTIES": {"name", "address_line1", "address_line2", "city", "state", "zip_code"},
+    "UNITS": {"unit_number", "address_line1", "address_line2", "city", "state", "zip_code"},
+    "OWNERS": {"name", "email", "phone"},
+    "VENDORS": {"name", "email", "phone"},
+    "TENANTS": {"tenant_name", "email", "phone"},
+    "LEASE_OCCUPANCY": {"tenant_name"},
+    "GL_ACCOUNTS": {"account_name"},
+    "GENERAL_LEDGER": {"description", "reference", "remarks"},
+    "BILLS": {"description"},
+    "CHARGES": {"description"},
+    "WORK_ORDERS": {"job_description", "vendor_trade", "permission_to_enter"},
+}
+
 
 def _require_role(
     user: PlatformUser,
@@ -249,6 +267,96 @@ def list_runs(
     )
     response.headers["Cache-Control"] = "no-store"
     return rows
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/rows/{staged_row_id}/correction",
+    response_model=AppFolioMigrationStagedRowOut,
+)
+def correct_appfolio_staged_row(
+    run_id: int,
+    upload_id: int,
+    staged_row_id: int,
+    payload: AppFolioStagedRowCorrectionIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    row = _staged_row(
+        db,
+        run=run,
+        upload=upload,
+        staged_row_id=staged_row_id,
+    )
+    if row.disposition == "INVALID" or row.errors:
+        raise HTTPException(
+            status_code=409,
+            detail="Invalid staged rows cannot be made commit-safe by generic corrections.",
+        )
+
+    allowed = _MIGRATION_CORRECTABLE_FIELDS.get(row.resource, set())
+    if payload.field_name not in allowed:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Field {payload.field_name!r} is not an approved descriptive "
+                f"correction field for {row.resource}."
+            ),
+        )
+
+    data = dict(row.normalized_data or {})
+    if payload.field_name not in data:
+        raise HTTPException(
+            status_code=409,
+            detail="Correction field is not present in the staged normalized source row.",
+        )
+
+    corrected = payload.corrected_value.strip()
+    if not corrected:
+        raise HTTPException(
+            status_code=422,
+            detail="Corrected value must contain non-whitespace text.",
+        )
+    previous = data.get(payload.field_name)
+    if previous == corrected:
+        return row
+
+    data[payload.field_name] = corrected
+    row.normalized_data = data
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    run.status = "STAGED"
+
+    append_audit_log(
+        db,
+        platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_staged_row",
+        entity_id=row.id,
+        action="appfolio_staged_value_corrected",
+        old_value={
+            "upload_id": upload.id,
+            "resource": row.resource,
+            "source_id": row.source_id,
+            "field_name": payload.field_name,
+            "value": previous,
+        },
+        new_value={
+            "upload_id": upload.id,
+            "resource": row.resource,
+            "source_id": row.source_id,
+            "field_name": payload.field_name,
+            "value": corrected,
+            "source_file_rewritten": False,
+            "customer_target_mutation": False,
+            "accounting_mutation": False,
+            "dry_run_invalidated": True,
+        },
+    )
+    db.commit()
+    db.refresh(row)
+    return row
 
 
 @router.get("/runs/{run_id}", response_model=AppFolioMigrationRunOut)
@@ -595,6 +703,7 @@ def _staged_review_fingerprint(
                 "row_number": row.row_number,
                 "source_id": row.source_id,
                 "row_fingerprint": row.row_fingerprint,
+                "normalized_data": row.normalized_data,
                 "disposition": row.disposition,
                 "resolution_action": row.resolution_action,
                 "resolution_target_id": row.resolution_target_id,
