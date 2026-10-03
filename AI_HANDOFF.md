@@ -1,3 +1,78 @@
+# AI_HANDOFF.md — 2026-10-03 PHASE 4.13 WORK ORDERS STAGED DRY RUN VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `978a8cdc07c9e33a416ba7b3472d3dd1437bc174`.
+- GitHub Actions run: `37135155264` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **967 passed, 21 deselected, 25410 warnings in 436.53s**.
+- Authenticated E2E: **21 passed, 278 warnings in 118.41s**.
+- Alembic head remains `0a7c4e9f2b61`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Work Orders staged dry run
+
+1. Dry run operates only on already-staged `WORK_ORDERS` rows.
+2. Retained rows require stable Work Order source identity and explicit `ACCEPT_RELATIONSHIP`; `SKIP` rows are excluded and unresolved/INVALID rows block readiness.
+3. Current durable Property plus any supplied Unit/Vendor mappings are revalidated to active same-organization targets and must still match the staged resolution snapshots.
+4. Unit -> Property consistency is revalidated.
+5. Dry-run fingerprint binds the shared staged-review fingerprint plus current mapping source fingerprints/target IDs for every accepted relation.
+6. Source Id, PropertyId, UnitId, VendorId, AssignedUsers, Status, JobDescription, CanceledOn, CompletedOn, PermissionToEnter, Priority, ScheduledStart, ScheduledEnd and VendorTrade remain source evidence only.
+7. No requester/tenant/occupancy identity, staff-assignment semantics, vendor contract, workflow-state translation, completion/cancellation meaning or accounting effects are inferred.
+8. Empty accepted sets fail closed; exact replay is idempotent and audited once.
+9. The batch creates or updates zero WorkOrder, Bill, Charge, GLTransaction, GLEntry, inventory, purchase-order, vendor-payment or staff-assignment records.
+10. No AppFolio API transport, customer navigation change, hidden-menu change or general UX work was added.
+
+Implementation commits:
+- `1636bae3397782c4884b83118a67cf4520715075` — Work Order dry-run response contract.
+- `93e8e95efea8320afe92bbddc93fb6c342a7bc74` — staged Work Order dry-run and mapping revalidation.
+- `978a8cdc07c9e33a416ba7b3472d3dd1437bc174` — focused replay/staleness/blocking/non-mutation regressions; final VERIFIED PRODUCT SHA.
+- `9bbe39caa617af52e4600afa399b9463a71b457e` — migration-plan documentation.
+
+## Work Orders controlled-commit blocker
+
+Controlled commit is intentionally blocked.
+
+Target `WorkOrder` requires non-null `unit_id` and `tenant_id`. The verified AppFolio Work Orders source may omit UnitId and does not provide a verified tenant/requester identity contract. `AssignedUsers` cannot safely stand in for tenant/requester identity. Source Status/Priority values also remain source evidence and are not translated into target workflow enums.
+
+Do not fabricate a tenant/requester, use a staff/platform user as a synthetic submitter, invent a Unit for property-only work, or guess workflow-state translations.
+
+## Attachments/Documents source-schema check
+
+Current public AppFolio material confirms document-management capabilities, but this review did not find an authoritative public AppFolio Stack CSV/XLSX or API field contract suitable for automatic Attachments/Documents migration mapping.
+
+Therefore **Attachments/Documents automatic ingestion remains BLOCKED on source-schema evidence**. Do not invent attachment/document export columns, entity relationships, sharing state, folder semantics or file identity.
+
+This resource-specific blocker does not block shared Phase 4.13 migration infrastructure.
+
+## Exact next Phase 4.13 product batch
+
+Implement the **migration source coverage/completeness checklist** required by section 6 of `docs/APPFOLIO_MIGRATION_IMPORT_PLAN.md`, using the existing migration run/upload records only.
+
+Required boundaries:
+
+1. Report which verified source families have been supplied to the run and which remain missing.
+2. Distinguish supplied/partial/blocked states without claiming an accounting migration is complete merely because some operational resources exist.
+3. Derive coverage only from durable migration uploads/mappings and verified resource contracts; never infer missing reports from customer production records.
+4. Expose blockers already recorded for Security Deposits, Charges controlled commit, Bills controlled commit, Work Orders controlled commit and Attachments/Documents source schema without fabricating completion.
+5. Read-only coverage analysis only: no customer record, staged row, mapping, GL, balance or source file mutation.
+6. Organization/run scope and platform-role authorization must remain authoritative.
+7. Add focused tests for partial coverage, replay/read-only behavior and accounting-completeness fail-closed semantics.
+8. Do not add general UX, AppFolio API transport or hidden-menu/navigation changes in this batch.
+
+---
+
 # AI_HANDOFF.md — 2026-10-03 PHASE 4.13 WORK ORDERS RELATIONSHIP RECONCILIATION VERIFIED
 
 ## Current verified product checkpoint
