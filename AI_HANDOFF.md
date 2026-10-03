@@ -1,3 +1,67 @@
+# AI_HANDOFF.md — 2026-10-03 PHASE 4.13 WORK ORDERS STAGING VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `e9d6aba390d3756cb2481a937b6b0ff4a41d3d14`.
+- GitHub Actions run: `37109939688` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **961 passed, 21 deselected, 25267 warnings in 389.12s**.
+- Authenticated E2E: **21 passed, 278 warnings in 115.60s**.
+- Alembic head remains `0a7c4e9f2b61`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Work Orders CSV/XLSX ingestion + staging
+
+1. Shared ingestion now supports `WORK_ORDERS` using only the verified public AppFolio Stack Work Orders field inventory.
+2. Automatic detection requires stable source Work Order `Id` plus `PropertyId`, `Status` and `JobDescription`.
+3. Explicit-resource files missing source Work Order ID may stage for REVIEW/SKIP only; no identity is synthesized.
+4. Duplicate supplied Work Order IDs fail closed.
+5. PropertyId, UnitId and VendorId relationships are checked only through existing durable migration mappings and active same-organization targets.
+6. Mapped Unit -> Property consistency is enforced.
+7. AssignedUsers, status, priority, scheduled/completed/canceled timestamps, permission-to-enter and VendorTrade remain source evidence only.
+8. Valid rows remain REVIEW-only; no target maintenance workflow translation occurs.
+9. CSV/XLSX replay remains normalized-fingerprint idempotent and raw file bytes are not persisted.
+10. The batch creates/updates zero WorkOrder, Bill, Charge, GLTransaction, GLEntry, inventory, purchase-order, vendor-payment or accounting-balance records.
+11. No AppFolio API transport, customer navigation change, hidden-menu change or general UX work was added.
+12. First exact-SHA CI run `37109486472` found one focused test-only count mismatch; `e9d6aba390d3756cb2481a937b6b0ff4a41d3d14` corrected the assertion without changing product behavior.
+
+Implementation commits:
+- `1f24d57f8dcfb30ca0aa7334ee50044d179766a8` — shared Work Orders staging contract.
+- `f9c27843899a0594c241c0569228d3b2458a1784` — focused CSV/XLSX/replay/safety regressions.
+- `e9d6aba390d3756cb2481a937b6b0ff4a41d3d14` — focused test expectation correction; final VERIFIED PRODUCT SHA.
+- `b5c27e47d4f3a288158e69c1a78b60b83a68a77c` — migration-plan documentation.
+
+## Exact next Phase 4.13 product batch
+
+Add **staged Work Orders relationship reconciliation only** using the existing staged-row resolution/fingerprint/audit architecture.
+
+Required boundaries:
+
+1. Reconcile only already-staged `WORK_ORDERS` rows; never accept arbitrary Work Order payloads.
+2. Rows without stable source Work Order `Id` may only be `SKIP`ped.
+3. Add explicit `ACCEPT_RELATIONSHIP` only when every supplied PropertyId/UnitId/VendorId relation is revalidated through current durable mappings to active same-organization targets.
+4. Revalidate Unit -> Property consistency.
+5. Snapshot only verified target Property/Unit/Vendor IDs on the staged row; do not create WorkOrder or staff-assignment records.
+6. AssignedUsers, workflow status, priority, schedule/completion/cancellation, permission-to-enter and VendorTrade remain source evidence only.
+7. Resolution changes must invalidate prior dry-run state, participate in the shared staged-review fingerprint and be append-only audited.
+8. Exact replay must be idempotent.
+9. INVALID rows remain non-resolvable; safe REVIEW rows may be explicitly SKIPped.
+10. Create/update zero WorkOrder, Bill, Charge, GL, inventory, purchase-order or vendor-payment records.
+11. Do not implement Work Orders dry-run/controlled commit, AppFolio API transport or general UX work in this batch.
+
+---
+
 # AI_HANDOFF.md — 2026-10-03 PHASE 4.13 CHARGES STAGED DRY RUN VERIFIED
 
 ## Current verified product checkpoint
