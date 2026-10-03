@@ -155,7 +155,7 @@ class AppFolioMigrationCoverageOut(BaseModel):
     missing_count: int
     blocked_count: int
     accounting_complete: bool
-    safe_partial_operational_migration: bool
+    partial_operational_migration_may_be_possible: bool
     items: list[AppFolioMigrationCoverageItem]
     blockers: list[str] = Field(default_factory=list)
 
