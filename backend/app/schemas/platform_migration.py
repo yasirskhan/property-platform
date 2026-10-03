@@ -278,6 +278,12 @@ class AppFolioStagedGeneralLedgerResolutionIn(BaseModel):
     action: str = Field(pattern=r"^(ACCEPT_RELATIONSHIP|SKIP)$")
 
 
+class AppFolioStagedBillResolutionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action: str = Field(pattern=r"^(ACCEPT_RELATIONSHIP|SKIP)$")
+
+
 class AppFolioStagedVendorResolutionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
