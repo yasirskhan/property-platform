@@ -175,6 +175,7 @@ class AppFolioMigrationStagedRowOut(BaseModel):
     disposition: str
     row_fingerprint: str
     normalized_data: dict[str, Any]
+    correction_evidence: list[dict[str, Any]] = Field(default_factory=list)
     warnings: list[str]
     errors: list[str]
     resolution_action: str | None = None
@@ -187,6 +188,32 @@ class AppFolioMigrationStagedRowOut(BaseModel):
     resolved_by_platform_user_id: int | None = None
     resolved_at: datetime | None = None
     created_at: datetime
+
+
+class AppFolioMigrationCorrectionRuleCreateIn(BaseModel):
+    """Create an exact run-scoped correction rule from a reviewed staged value."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    field_name: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]*$")
+    corrected_value: str = Field(min_length=1, max_length=500)
+
+
+class AppFolioMigrationCorrectionRuleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    run_id: int
+    organization_id: int
+    provider: str
+    resource: str
+    field_name: str
+    source_value: str
+    corrected_value: str
+    created_by_platform_user_id: int | None
+    created_at: datetime
+    replayed: bool = False
+    applied_row_count: int = 0
 
 
 class AppFolioStagedRowCorrectionIn(BaseModel):
