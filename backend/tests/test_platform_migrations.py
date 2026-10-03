@@ -7721,3 +7721,233 @@ def test_appfolio_charge_resolution_missing_identity_may_only_skip_and_invalid_c
     finally:
         db.close()
         engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio Charges staged dry run
+# ---------------------------------------------------------------------------
+
+def test_appfolio_charges_dry_run_binds_review_and_gl_mapping_and_replays():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Charges Dry Run Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="charges-dry-run",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _prop, _unit, account = _seed_general_ledger_source_mappings(
+            db, run=run, org=org
+        )
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "charges-dry-run.csv",
+                    (
+                        "Id,AmountDue,ChargedOn,Description,GlAccountId,OccupancyId\n"
+                        "CHARGE-DRY-1,125.50,2026-09-10,Repair charge,GL-4100,OCC-100\n"
+                    ).encode(),
+                ),
+                resource="CHARGES",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        api.resolve_staged_appfolio_charge(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedChargeResolutionIn(action="ACCEPT_RELATIONSHIP"),
+            db=db,
+            current_user=admin,
+        )
+
+        before_charges = db.query(Charge).count()
+        before_gl = db.query(GLTransaction).count()
+        before_audit = db.query(AuditLog).filter(
+            AuditLog.action == "appfolio_staged_charges_dry_run"
+        ).count()
+
+        first = api.dry_run_staged_appfolio_charges(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert len(first.fingerprint) == 64
+        assert first.replayed is False
+        assert first.total == 1 and first.importable == 1 and first.invalid == 0
+        assert first.rows[0].source_id == "CHARGE-DRY-1"
+        assert first.rows[0].source_evidence == {
+            "amount_due": "125.50",
+            "charged_on": "2026-09-10",
+            "description": "Repair charge",
+            "source_gl_account_id": "GL-4100",
+            "source_occupancy_id": "OCC-100",
+        }
+        assert first.rows[0].resolved_targets == {"gl_account_id": account.id}
+        db.refresh(run)
+        assert run.status == "DRY_RUN_READY"
+        assert run.last_dry_run_fingerprint == first.fingerprint
+        assert run.last_dry_run_summary["resource"] == "CHARGES"
+        assert run.last_dry_run_summary["target_mutation"] is False
+        assert run.last_dry_run_summary["occupancy_target_inferred"] is False
+        assert run.last_dry_run_summary["tenant_liability_inferred"] is False
+        assert run.last_dry_run_summary["payment_state_inferred"] is False
+
+        replay = api.dry_run_staged_appfolio_charges(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert replay.replayed is True
+        assert replay.fingerprint == first.fingerprint
+        assert db.query(AuditLog).filter(
+            AuditLog.action == "appfolio_staged_charges_dry_run"
+        ).count() == before_audit + 1
+        assert db.query(Charge).count() == before_charges
+        assert db.query(GLTransaction).count() == before_gl
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_charges_dry_run_changes_when_mapping_fingerprint_changes_and_rejects_stale_target():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="Charges Dry Run Mapping Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="charges-dry-map",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _prop, _unit, account = _seed_general_ledger_source_mappings(
+            db, run=run, org=org
+        )
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "charges-dry-map.csv",
+                    (
+                        "Id,AmountDue,ChargedOn,Description,GlAccountId,OccupancyId\n"
+                        "CHARGE-MAP-1,80.00,2026-09-12,Source charge,GL-4100,OCC-1\n"
+                    ).encode(),
+                ),
+                resource="CHARGES",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        api.resolve_staged_appfolio_charge(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedChargeResolutionIn(action="ACCEPT_RELATIONSHIP"),
+            db=db,
+            current_user=admin,
+        )
+        first = api.dry_run_staged_appfolio_charges(
+            run.id, upload.id, db=db, current_user=admin
+        )
+
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "GL_ACCOUNTS",
+            PlatformMigrationItem.source_id == "GL-4100",
+        ).one()
+        mapping.source_fingerprint = "b" * 64
+        db.commit()
+
+        changed = api.dry_run_staged_appfolio_charges(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert changed.replayed is False
+        assert changed.fingerprint != first.fingerprint
+
+        account.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_charges(
+                run.id, upload.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+        assert db.query(Charge).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_charges_dry_run_blocks_unresolved_rows_and_empty_accepted_set():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_DEV)
+        org = _org(db, name="Charges Dry Run Guard Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="charges-dry-guard",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _seed_general_ledger_source_mappings(db, run=run, org=org)
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "charges-dry-guard.csv",
+                    (
+                        "Id,AmountDue,ChargedOn,Description,GlAccountId,OccupancyId\n"
+                        "CHARGE-GUARD-1,50.00,2026-09-10,Guard charge,GL-4100,OCC-1\n"
+                    ).encode(),
+                ),
+                resource="CHARGES",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_charges(
+                run.id, upload.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+
+        api.resolve_staged_appfolio_charge(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedChargeResolutionIn(action="SKIP"),
+            db=db,
+            current_user=admin,
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_charges(
+                run.id, upload.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+        assert db.query(Charge).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
