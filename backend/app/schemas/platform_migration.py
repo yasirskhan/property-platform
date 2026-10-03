@@ -199,6 +199,14 @@ class AppFolioMigrationCorrectionRuleCreateIn(BaseModel):
     corrected_value: str = Field(min_length=1, max_length=500)
 
 
+class AppFolioMigrationCorrectionRuleUpdateIn(BaseModel):
+    """Explicitly replace the corrected value for one existing exact rule."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    corrected_value: str = Field(min_length=1, max_length=500)
+
+
 class AppFolioMigrationCorrectionRuleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
