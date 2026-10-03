@@ -1,3 +1,63 @@
+# AI_HANDOFF.md — 2026-10-03 PHASE 4.13 BILLS RELATIONSHIP RECONCILIATION VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `d8a87958dfd363e73343401fb89a8efb183be834`.
+- GitHub Actions run: `37093216499` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **946 passed, 21 deselected, 24954 warnings in 420.68s**.
+- Authenticated E2E: **21 passed, 278 warnings in 110.28s**.
+- Alembic head remains `0a7c4e9f2b61`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified staged Bills relationship reconciliation
+
+1. Resolution operates only on already-staged `BILLS` rows.
+2. `ACCEPT_RELATIONSHIP` requires a supplied stable Bill source ID; rows without Bill ID may only be explicitly SKIPped.
+3. Source Vendor identity is revalidated only through the durable `VENDORS -> VENDOR` mapping and an active same-organization Vendor.
+4. A supplied PropertyId is revalidated only through the durable `PROPERTIES -> PROPERTY` mapping and an active same-organization Property.
+5. Accepted review state snapshots only the already-verified typed target Vendor and optional Property IDs on the staged row.
+6. INVALID rows remain non-resolvable; unresolved REVIEW rows may be explicitly SKIPped.
+7. Resolution changes participate in the shared staged-review fingerprint and invalidate prior dry-run state.
+8. Repeating the identical accepted resolution is idempotent and does not duplicate audit activity.
+9. The batch creates or updates zero Bill, BillLine, Check, Vendor, WorkOrder, GLTransaction, GLEntry, Charge or accounting-balance records.
+10. No AppFolio API transport, navigation change or general UX work was added.
+
+Implementation commits:
+- `c84e62c00bf4902c6a53b07a8486f0a4510a8125` — Bills relationship-resolution schema.
+- `e408446b222fb59f4df9a3536a8beae9620e3c44` — staged Bills relationship resolver.
+- `d8a87958dfd363e73343401fb89a8efb183be834` — focused reconciliation/idempotency/scope regressions; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Add **Bills staged dry-run only** using the existing exact-fingerprint staged-review architecture.
+
+Required boundaries:
+
+1. Operate only on already-staged `BILLS` rows.
+2. Include only explicit `ACCEPT_RELATIONSHIP` rows with stable Bill source ID; SKIP rows remain excluded and unresolved/INVALID rows block readiness.
+3. Revalidate current durable Vendor and optional Property mappings and require the snapped typed target IDs to still match.
+4. Preserve due/invoice/posting dates, reference, remarks, TotalAmount, ApprovalStatus, CheckMemo, AccountNumber, ManagementCompanyAsPayee, WorkOrderId and LastUpdatedAt as source evidence only.
+5. Do not create or update Bill, BillLine, Check, Vendor, WorkOrder, GLTransaction, GLEntry, Charge, AP balance or payment state.
+6. Do not infer approval, paid/unpaid status, check/payment linkage, GL account/line-item allocation, Work Order linkage or posting semantics.
+7. Dry-run output must bind the shared staged-review fingerprint plus current durable relationship mapping fingerprints/target IDs.
+8. A dry run containing no accepted Bill rows is not commit-ready.
+9. Repeating an identical dry run must be idempotent and audited once.
+10. Bills controlled commit remains a separate later verified batch; AppFolio API transport and general UX remain out of scope.
+
+---
+
 # AI_HANDOFF.md — 2026-10-03 PHASE 4.13 BILLS CSV/XLSX STAGING VERIFIED
 
 ## Current verified product checkpoint
