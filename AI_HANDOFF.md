@@ -1,3 +1,88 @@
+# AI_HANDOFF.md — 2026-10-03 PHASE 4.13 CHARGES STAGED DRY RUN VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `ce41780f9250d9347367bb118f8ab197d80a0dd2`.
+- GitHub Actions run: `37099508230` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **958 passed, 21 deselected, 25204 warnings in 409.27s**.
+- Authenticated E2E: **21 passed, 278 warnings in 115.26s**.
+- Alembic head remains `0a7c4e9f2b61`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Charges / Receivables staged dry run
+
+1. Dry run operates only on already-staged `CHARGES` rows.
+2. Retained rows require stable supplied Charge ID plus explicit `ACCEPT_RELATIONSHIP`; `SKIP` rows are excluded and unresolved/INVALID rows block the dry run.
+3. The accepted `GlAccountId` relationship is revalidated against the current durable `GL_ACCOUNTS -> GL_ACCOUNT` mapping and active same-organization target.
+4. Dry-run fingerprint binds the shared staged-review fingerprint plus current GL Account mapping source fingerprint and target ID, so either staged review changes or durable mapping changes produce a new fingerprint.
+5. Preview preserves only supplied source evidence: `AmountDue`, `ChargedOn`, `Description`, `GlAccountId`, `OccupancyId`.
+6. Resolved target output contains only the verified GL Account target. `OccupancyId` remains source evidence only and is not converted into Tenant/Lease/Unit/Property identity.
+7. Empty accepted sets are not dry-run ready.
+8. Exact replay is idempotent and does not duplicate dry-run audit activity.
+9. The batch creates or updates zero Charge, RentInvoice, Receipt, Payment, GLTransaction, GLEntry or customer balance records.
+10. No original charge amount, amount paid, paid/unpaid state, rent-vs-charge classification, payment application, tenant liability, target Occupancy identity, GL posting or historical reconciliation is inferred.
+11. No AppFolio API transport, customer navigation change, hidden-menu change or general UX work was added.
+
+Implementation commits:
+- `5374e0e7f58692341b67a245a89fd182c807f765` — Charges dry-run response contract.
+- `d7ee0fc561d44dd989137fcea68f7334e2aa17f7` — staged Charges dry-run and exact-fingerprint state.
+- `83dee2a6b483ef176da891e60f9a6c3db2aeb2fb` — replay/mapping-staleness/blocking regressions.
+- `ce41780f9250d9347367bb118f8ab197d80a0dd2` — documented dry-run and controlled-commit blocker; final VERIFIED PRODUCT SHA.
+
+## Charges controlled-commit blocker
+
+Controlled commit remains intentionally blocked.
+
+Target `Charge` requires a real tenant identity and original billed amount. The verified AppFolio Charges source contract provides only `OccupancyId` plus current `AmountDue`. There is no separately verified durable Occupancy-to-target identity contract, and `AmountDue` cannot establish original amount or `amount_paid`. Creating a target Charge from those fields would fabricate tenant liability/payment history.
+
+Do not synthesize tenant identity, property/unit association, original charge amount, amount paid, paid state or GL posting semantics.
+
+## Security Deposit source-schema check
+
+A public-source check was performed before adding any Security Deposit ingestion aliases.
+
+- AppFolio's current public Stack API lists Charges, Tenant Ledgers, Rental Applications and other resources, but no standalone Security Deposit / Security Deposit Funds Detail API resource with a published field contract.
+- Tenant Ledgers expose only a nested `Ledger` plus `OccupancyId` at the public contract level.
+- Rental Application `Deposit` is an application/listing deposit field and is not proof of security-deposit funds held, ledger liability, receipt/payment history or refund state.
+- Public material acknowledges security-deposit workflows, but no authoritative CSV/XLSX column contract for the Security Deposit Funds Detail report was found.
+
+Therefore **Security Deposit CSV/XLSX automatic detection/staging is BLOCKED on source-schema evidence**. Do not invent report columns or map generic deposit amounts into held-funds/accounting history.
+
+This blocker does not block Phase 4.13 overall.
+
+## Exact next Phase 4.13 product batch
+
+Proceed to the next independently safe resource with an authoritative public source contract: **Work Orders CSV/XLSX source-schema verification and shared staging support**.
+
+Use the existing shared migration upload/detect/map/stage/validate/review architecture. The current public AppFolio source contract exposes Work Order fields including `Id`, `PropertyId`, `UnitId`, `Status`, `JobDescription`, `AssignedUsers`, `CanceledOn`, `CompletedOn`, `PermissionToEnter`, `Priority`, `ScheduledStart`, `ScheduledEnd`, `VendorId` and `VendorTrade`.
+
+Required boundaries for the next batch:
+
+1. Verify exact source aliases against authoritative public AppFolio evidence before coding.
+2. Require a stable supplied Work Order ID for automatic identity; explicit-resource missing-ID rows may be REVIEW/SKIP only, never assigned synthetic IDs.
+3. Preserve PropertyId, UnitId, VendorId and AssignedUsers as source relationship evidence unless an already durable migration mapping safely resolves that specific relation.
+4. Do not infer Occupancy, tenant, requester, maintenance assignment, vendor contract, completion/cancellation semantics beyond supplied fields.
+5. Stage only; do not create/update target WorkOrder records in this batch.
+6. Preserve status/priority/schedule/completion/cancellation/permission-to-enter exactly as source evidence; do not translate workflow state until separately verified.
+7. Duplicate supplied Work Order IDs must fail closed.
+8. No Bill, Charge, GL, inventory, purchase-order, vendor-payment or accounting mutation.
+9. Keep raw file content out of durable storage; preserve normalized fingerprints/replay/idempotency/audit behavior.
+10. AppFolio API transport and general UX remain out of scope.
+
+---
+
 # AI_HANDOFF.md — 2026-10-03 PHASE 4.13 CHARGES RELATIONSHIP RECONCILIATION VERIFIED
 
 ## Current verified product checkpoint
