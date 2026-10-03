@@ -8145,7 +8145,7 @@ def test_appfolio_work_orders_explicit_missing_id_and_duplicate_ids_fail_closed_
         assert upload.validation_summary["duplicates"] == 1
         assert upload.validation_summary["invalid"] == 1
         assert upload.validation_summary["missing_work_order_source_ids"] == 1
-        assert upload.validation_summary["unresolved_work_order_properties"] == 2
+        assert upload.validation_summary["unresolved_work_order_properties"] == 3
         assert db.query(WorkOrder).count() == 0
     finally:
         db.close()
