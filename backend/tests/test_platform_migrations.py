@@ -14,6 +14,7 @@ from app.core.database import Base
 from app.core.security import hash_password
 from app.models.audit_log import AuditLog
 from app.models.platform_migration import (
+    PlatformMigrationCorrectionRule,
     PlatformMigrationItem,
     PlatformMigrationRun,
     PlatformMigrationStagedRow,
@@ -32,6 +33,7 @@ from app.models.vendor import Vendor
 from app.routers import platform_migrations as api
 from app.schemas.platform_migration import (
     AppFolioMigrationRunCreateIn,
+    AppFolioMigrationCorrectionRuleCreateIn,
     AppFolioStagedRowCorrectionIn,
     AppFolioPropertyCommitIn,
     AppFolioPropertyDryRunIn,
@@ -9298,6 +9300,342 @@ def test_appfolio_staged_correction_blocks_identity_invalid_rows_and_nonwrite_ro
             )
         assert exc.value.status_code == 403
         assert db.get(PlatformMigrationStagedRow, safe.id).normalized_data["name"] == "Safe Name"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+def test_appfolio_run_scoped_correction_rule_applies_exact_value_and_replays():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Correction Rule Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="rule-run",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        upload = PlatformMigrationUpload(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="APPFOLIO",
+            filename="properties.csv",
+            file_format="CSV",
+            file_sha256="9" * 64,
+            normalized_fingerprint="a" * 64,
+            detected_resource="PROPERTIES",
+            sheet_name="CSV",
+            headers=["Id", "Name", "City"],
+            column_mapping={"Id": "source_id", "Name": "name", "City": "city"},
+            validation_summary={"valid": 3},
+            status="STAGED",
+            row_count=3,
+            created_by_platform_user_id=admin.id,
+        )
+        db.add(upload)
+        db.flush()
+        rows = [
+            PlatformMigrationStagedRow(
+                upload_id=upload.id,
+                run_id=run.id,
+                organization_id=org.id,
+                provider="APPFOLIO",
+                resource="PROPERTIES",
+                row_number=2,
+                source_id="RULE-1",
+                disposition="NEW",
+                row_fingerprint="b" * 64,
+                normalized_data={"source_id": "RULE-1", "name": "Apt Bldg", "city": "Cleveland"},
+                correction_evidence=[],
+                warnings=[],
+                errors=[],
+            ),
+            PlatformMigrationStagedRow(
+                upload_id=upload.id,
+                run_id=run.id,
+                organization_id=org.id,
+                provider="APPFOLIO",
+                resource="PROPERTIES",
+                row_number=3,
+                source_id="RULE-2",
+                disposition="NEW",
+                row_fingerprint="c" * 64,
+                normalized_data={"source_id": "RULE-2", "name": "Apt Bldg", "city": "Lakewood"},
+                correction_evidence=[],
+                warnings=[],
+                errors=[],
+            ),
+            PlatformMigrationStagedRow(
+                upload_id=upload.id,
+                run_id=run.id,
+                organization_id=org.id,
+                provider="APPFOLIO",
+                resource="PROPERTIES",
+                row_number=4,
+                source_id="RULE-3",
+                disposition="NEW",
+                row_fingerprint="d" * 64,
+                normalized_data={"source_id": "RULE-3", "name": "Apartment", "city": "Parma"},
+                correction_evidence=[],
+                warnings=[],
+                errors=[],
+            ),
+        ]
+        db.add_all(rows)
+        run.last_dry_run_fingerprint = "e" * 64
+        run.last_dry_run_summary = {"resource": "PROPERTIES"}
+        run.status = "DRY_RUN_READY"
+        db.commit()
+        for row in rows:
+            db.refresh(row)
+        db.refresh(upload)
+
+        before_review = api._staged_review_fingerprint(upload, rows)
+        before_properties = db.query(Property).count()
+        before_charges = db.query(Charge).count()
+        before_gl = db.query(GLTransaction).count()
+
+        result = api.create_appfolio_correction_rule(
+            run.id,
+            upload.id,
+            rows[0].id,
+            AppFolioMigrationCorrectionRuleCreateIn(
+                field_name="name",
+                corrected_value="Apartment",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert result.replayed is False
+        assert result.applied_row_count == 2
+        assert result.resource == "PROPERTIES"
+        assert result.source_value == "Apt Bldg"
+        assert result.corrected_value == "Apartment"
+
+        db.refresh(run)
+        for row in rows:
+            db.refresh(row)
+        assert rows[0].normalized_data["name"] == "Apartment"
+        assert rows[1].normalized_data["name"] == "Apartment"
+        assert rows[2].normalized_data["name"] == "Apartment"
+        assert rows[0].source_id == "RULE-1"
+        assert rows[0].row_fingerprint == "b" * 64
+        assert upload.normalized_fingerprint == "a" * 64
+        assert rows[0].correction_evidence[-1]["source_value"] == "Apt Bldg"
+        assert rows[0].correction_evidence[-1]["corrected_value"] == "Apartment"
+        assert rows[0].correction_evidence[-1]["kind"] == "RUN_CORRECTION_RULE"
+        assert rows[2].correction_evidence == []
+        assert run.last_dry_run_fingerprint is None
+        assert run.last_dry_run_summary is None
+        assert run.status == "STAGED"
+        assert api._staged_review_fingerprint(upload, rows) != before_review
+
+        rule = db.query(PlatformMigrationCorrectionRule).one()
+        assert rule.run_id == run.id
+        assert rule.organization_id == org.id
+        assert rule.source_value == "Apt Bldg"
+
+        application_audits = db.query(AuditLog).filter(
+            AuditLog.action == "appfolio_correction_rule_applied"
+        ).all()
+        assert len(application_audits) == 2
+        assert all(json.loads(a.new_value)["customer_target_mutation"] is False for a in application_audits)
+        assert all(json.loads(a.new_value)["accounting_mutation"] is False for a in application_audits)
+
+        # Replay the same rule from a fresh staged row carrying the exact source value.
+        upload2 = PlatformMigrationUpload(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="APPFOLIO",
+            filename="properties-2.csv",
+            file_format="CSV",
+            file_sha256="f" * 64,
+            normalized_fingerprint="0" * 64,
+            detected_resource="PROPERTIES",
+            sheet_name="CSV",
+            headers=["Id", "Name"],
+            column_mapping={"Id": "source_id", "Name": "name"},
+            validation_summary={"valid": 1},
+            status="STAGED",
+            row_count=1,
+            created_by_platform_user_id=admin.id,
+        )
+        db.add(upload2)
+        db.flush()
+        row4 = PlatformMigrationStagedRow(
+            upload_id=upload2.id,
+            run_id=run.id,
+            organization_id=org.id,
+            provider="APPFOLIO",
+            resource="PROPERTIES",
+            row_number=2,
+            source_id="RULE-4",
+            disposition="NEW",
+            row_fingerprint="1" * 64,
+            normalized_data={"source_id": "RULE-4", "name": "Apt Bldg"},
+            correction_evidence=[],
+            warnings=[],
+            errors=[],
+        )
+        db.add(row4)
+        db.commit()
+        replay = api.create_appfolio_correction_rule(
+            run.id,
+            upload2.id,
+            row4.id,
+            AppFolioMigrationCorrectionRuleCreateIn(
+                field_name="name",
+                corrected_value="Apartment",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert replay.id == rule.id
+        assert replay.applied_row_count == 1
+        db.refresh(row4)
+        assert row4.normalized_data["name"] == "Apartment"
+        assert db.query(PlatformMigrationCorrectionRule).count() == 1
+
+        assert db.query(Property).count() == before_properties
+        assert db.query(Charge).count() == before_charges
+        assert db.query(GLTransaction).count() == before_gl
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_correction_rule_conflict_scope_and_authorization_fail_closed():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        support = _platform_user(db, PlatformUserRole.PLATFORM_SUPPORT)
+        org = _org(db, name="Correction Conflict Org")
+        other_org = _org(db, name="Correction Other Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="conflict-run",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        upload = PlatformMigrationUpload(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="APPFOLIO",
+            filename="vendors.csv",
+            file_format="CSV",
+            file_sha256="2" * 64,
+            normalized_fingerprint="3" * 64,
+            detected_resource="VENDORS",
+            sheet_name="CSV",
+            headers=["VendorId", "Name"],
+            column_mapping={"VendorId": "source_id", "Name": "name"},
+            validation_summary={"valid": 1},
+            status="STAGED",
+            row_count=1,
+            created_by_platform_user_id=admin.id,
+        )
+        db.add(upload)
+        db.flush()
+        row = PlatformMigrationStagedRow(
+            upload_id=upload.id,
+            run_id=run.id,
+            organization_id=org.id,
+            provider="APPFOLIO",
+            resource="VENDORS",
+            row_number=2,
+            source_id="VEN-1",
+            disposition="NEW",
+            row_fingerprint="4" * 64,
+            normalized_data={"source_id": "VEN-1", "name": "ABC Maint"},
+            correction_evidence=[],
+            warnings=[],
+            errors=[],
+        )
+        db.add(row)
+        db.add(
+            PlatformMigrationCorrectionRule(
+                run_id=run.id,
+                organization_id=org.id,
+                provider="APPFOLIO",
+                resource="VENDORS",
+                field_name="name",
+                source_value="ABC Maint",
+                corrected_value="ABC Maintenance",
+                created_by_platform_user_id=admin.id,
+            )
+        )
+        db.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            api.create_appfolio_correction_rule(
+                run.id,
+                upload.id,
+                row.id,
+                AppFolioMigrationCorrectionRuleCreateIn(
+                    field_name="name",
+                    corrected_value="ABC Maintenance LLC",
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        db.refresh(row)
+        assert row.normalized_data["name"] == "ABC Maint"
+
+        with pytest.raises(HTTPException) as exc:
+            api.create_appfolio_correction_rule(
+                run.id,
+                upload.id,
+                row.id,
+                AppFolioMigrationCorrectionRuleCreateIn(
+                    field_name="name",
+                    corrected_value="ABC Maintenance",
+                ),
+                db=db,
+                current_user=support,
+            )
+        assert exc.value.status_code == 403
+
+        # A rule from another organization/run never participates in this run.
+        other_run = PlatformMigrationRun(
+            organization_id=other_org.id,
+            provider="APPFOLIO",
+            source_account_ref="other",
+            status="DRAFT",
+            created_by_platform_user_id=admin.id,
+        )
+        db.add(other_run)
+        db.flush()
+        db.add(
+            PlatformMigrationCorrectionRule(
+                run_id=other_run.id,
+                organization_id=other_org.id,
+                provider="APPFOLIO",
+                resource="VENDORS",
+                field_name="name",
+                source_value="ABC Maint",
+                corrected_value="Foreign Rule",
+                created_by_platform_user_id=admin.id,
+            )
+        )
+        db.commit()
+        response = Response()
+        listed = api.list_appfolio_correction_rules(
+            run.id,
+            response=response,
+            db=db,
+            current_user=admin,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert len(listed) == 1
+        assert listed[0].corrected_value == "ABC Maintenance"
     finally:
         db.close()
         engine.dispose()
