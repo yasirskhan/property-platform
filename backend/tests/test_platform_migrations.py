@@ -21,6 +21,7 @@ from app.models.charge import Charge
 from app.models.bill import Bill
 from app.models.gl_transaction import GLTransaction
 from app.models.gl_account import GLAccount
+from app.models.work_order import WorkOrder
 from app.models.user import Organization, User, UserRole
 from app.models.vendor import Vendor
 from app.routers import platform_migrations as api
@@ -7951,3 +7952,340 @@ def test_appfolio_charges_dry_run_blocks_unresolved_rows_and_empty_accepted_set(
     finally:
         db.close()
         engine.dispose()
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio Work Orders ingestion + staging
+# ---------------------------------------------------------------------------
+
+def _seed_work_order_source_mappings(db, *, run, org):
+    prop = Property(
+        organization_id=org.id,
+        name="Work Order Stage Property",
+        address_line1="500 Service Ave",
+        city="Cleveland",
+        state="OH",
+        zip_code="44113",
+        is_active=True,
+    )
+    db.add(prop)
+    db.flush()
+    unit = Unit(
+        property_id=prop.id,
+        unit_number="WO-101",
+        bedrooms=1,
+        bathrooms=1,
+        monthly_rent=1000,
+        is_active=True,
+    )
+    vendor = Vendor(
+        organization_id=org.id,
+        company_name="Work Order Plumbing",
+        is_active=True,
+    )
+    db.add_all([unit, vendor])
+    db.flush()
+    for resource, source_id, target_entity, target_id in (
+        ("PROPERTIES", "PROP-WO-1", "PROPERTY", prop.id),
+        ("UNITS", "UNIT-WO-1", "UNIT", unit.id),
+        ("VENDORS", "VENDOR-WO-1", "VENDOR", vendor.id),
+    ):
+        db.add(
+            PlatformMigrationItem(
+                run_id=run.id,
+                organization_id=org.id,
+                provider="APPFOLIO",
+                resource=resource,
+                source_id=source_id,
+                target_entity=target_entity,
+                target_id=target_id,
+                source_fingerprint=f"seed-{resource}-{source_id}",
+            )
+        )
+    db.commit()
+    return prop, unit, vendor
+
+
+def test_appfolio_work_orders_csv_staging_preserves_source_evidence_and_replays_without_mutation():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Work Orders Stage Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="work-orders-stage",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _seed_work_order_source_mappings(db, run=run, org=org)
+        before_work_orders = db.query(WorkOrder).count()
+        before_bills = db.query(Bill).count()
+        before_charges = db.query(Charge).count()
+        before_gl = db.query(GLTransaction).count()
+
+        content = (
+            "Id,PropertyId,UnitId,Status,JobDescription,AssignedUsers,CanceledOn,"
+            "CompletedOn,PermissionToEnter,Priority,ScheduledStart,ScheduledEnd,"
+            "VendorId,VendorTrade\n"
+            "WO-100,PROP-WO-1,UNIT-WO-1,Open,Leaking faucet,USER-44,,,"
+            "true,Urgent,2026-10-04T09:00:00,2026-10-04T10:00:00,"
+            "VENDOR-WO-1,Plumbing\n"
+        ).encode()
+
+        first = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("work-orders.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert first.detected_resource == "WORK_ORDERS"
+        assert first.status == "REVIEW_REQUIRED"
+        assert first.validation_summary["work_order_rows"] == 1
+        assert first.validation_summary["missing_work_order_source_ids"] == 0
+        assert first.validation_summary["unresolved_work_order_properties"] == 0
+        assert first.validation_summary["unresolved_work_order_units"] == 0
+        assert first.validation_summary["unresolved_work_order_vendors"] == 0
+        assert first.validation_summary["work_order_mutation"] is False
+        assert first.validation_summary["accounting_history_mutation"] is False
+
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == first.id
+        ).one()
+        assert row.resource == "WORK_ORDERS"
+        assert row.source_id == "WO-100"
+        assert row.disposition == "REVIEW"
+        assert row.normalized_data == {
+            "source_id": "WO-100",
+            "source_property_id": "PROP-WO-1",
+            "source_unit_id": "UNIT-WO-1",
+            "status": "Open",
+            "job_description": "Leaking faucet",
+            "assigned_users": "USER-44",
+            "canceled_on": None,
+            "completed_on": None,
+            "permission_to_enter": "true",
+            "priority": "Urgent",
+            "scheduled_start": "2026-10-04T09:00:00",
+            "scheduled_end": "2026-10-04T10:00:00",
+            "source_vendor_id": "VENDOR-WO-1",
+            "vendor_trade": "Plumbing",
+        }
+        assert any("source evidence only" in warning for warning in row.warnings)
+        assert any("creates or updates no WorkOrder" in warning for warning in row.warnings)
+
+        replay = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("work-orders-copy.csv", content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert replay.replayed is True
+        assert replay.id == first.id
+        assert db.query(WorkOrder).count() == before_work_orders
+        assert db.query(Bill).count() == before_bills
+        assert db.query(Charge).count() == before_charges
+        assert db.query(GLTransaction).count() == before_gl
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_work_orders_explicit_missing_id_and_duplicate_ids_fail_closed_as_required():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="Work Orders Identity Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="work-orders-identity",
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        content = (
+            "Id,PropertyId,Status,JobDescription,Priority\n"
+            ",PROP-MISSING,Open,Missing stable id,Normal\n"
+            "WO-DUP,PROP-MISSING,Open,Duplicate one,High\n"
+            "WO-DUP,PROP-MISSING,Closed,Duplicate two,Low\n"
+        ).encode()
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("work-orders-identity.csv", content),
+                resource="WORK_ORDERS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+
+        assert rows[0].disposition == "REVIEW"
+        assert rows[0].source_id is None
+        assert any("Work Order ID was not supplied" in warning for warning in rows[0].warnings)
+        assert rows[1].disposition == "REVIEW"
+        assert rows[2].disposition == "INVALID"
+        assert any("Duplicate AppFolio Work Order ID" in error for error in rows[2].errors)
+        assert upload.validation_summary["duplicates"] == 1
+        assert upload.validation_summary["invalid"] == 1
+        assert upload.validation_summary["missing_work_order_source_ids"] == 1
+        assert upload.validation_summary["unresolved_work_order_properties"] == 2
+        assert db.query(WorkOrder).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_work_orders_xlsx_detects_verified_contract_and_rejects_contradictory_mappings():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_DEV)
+        org = _org(db, name="Work Orders XLSX Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="work-orders-xlsx",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        prop, unit, vendor = _seed_work_order_source_mappings(db, run=run, org=org)
+
+        second = Property(
+            organization_id=org.id,
+            name="Other Work Order Property",
+            address_line1="700 Other Ave",
+            city="Cleveland",
+            state="OH",
+            zip_code="44113",
+            is_active=True,
+        )
+        db.add(second)
+        db.flush()
+        db.add(
+            PlatformMigrationItem(
+                run_id=run.id,
+                organization_id=org.id,
+                provider="APPFOLIO",
+                resource="PROPERTIES",
+                source_id="PROP-WO-2",
+                target_entity="PROPERTY",
+                target_id=second.id,
+                source_fingerprint="seed-PROP-WO-2",
+            )
+        )
+        db.commit()
+
+        workbook = Workbook()
+        ws = workbook.active
+        ws.title = "Work Orders"
+        ws.append([
+            "Id", "PropertyId", "UnitId", "Status", "JobDescription",
+            "AssignedUsers", "CanceledOn", "CompletedOn", "PermissionToEnter",
+            "Priority", "ScheduledStart", "ScheduledEnd", "VendorId", "VendorTrade",
+        ])
+        ws.append([
+            "WO-XLSX-1", "PROP-WO-1", "UNIT-WO-1", "Completed",
+            "Replace disposal", "USER-9", None, "2026-10-02T14:00:00",
+            True, "High", "2026-10-02T13:00:00", "2026-10-02T14:00:00",
+            "VENDOR-WO-1", "Plumbing",
+        ])
+        buffer = BytesIO()
+        workbook.save(buffer)
+        workbook.close()
+
+        first = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("work-orders.xlsx", buffer.getvalue()),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert first.detected_resource == "WORK_ORDERS"
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == first.id
+        ).one()
+        assert row.normalized_data["completed_on"] == "2026-10-02T14:00:00"
+        assert row.normalized_data["permission_to_enter"] is True
+        assert db.query(WorkOrder).count() == 0
+
+        contradictory = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "work-orders-contradictory.csv",
+                    (
+                        "Id,PropertyId,UnitId,Status,JobDescription,VendorId\n"
+                        "WO-BAD,PROP-WO-2,UNIT-WO-1,Open,Contradictory unit,"
+                        "VENDOR-WO-1\n"
+                    ).encode(),
+                ),
+                resource="WORK_ORDERS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        bad = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == contradictory.id
+        ).one()
+        assert bad.disposition == "INVALID"
+        assert any(
+            "resolve to different target Properties" in error
+            for error in bad.errors
+        )
+
+        vendor.is_active = False
+        db.commit()
+        stale = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "work-orders-stale-vendor.csv",
+                    (
+                        "Id,PropertyId,UnitId,Status,JobDescription,VendorId\n"
+                        "WO-STALE,PROP-WO-1,UNIT-WO-1,Open,Stale vendor,"
+                        "VENDOR-WO-1\n"
+                    ).encode(),
+                ),
+                resource="WORK_ORDERS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        stale_row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == stale.id
+        ).one()
+        assert stale_row.disposition == "INVALID"
+        assert any(
+            "active same-organization Vendor" in error
+            for error in stale_row.errors
+        )
+        assert db.query(WorkOrder).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
