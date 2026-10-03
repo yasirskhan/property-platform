@@ -54,6 +54,7 @@ from app.schemas.platform_migration import (
     AppFolioStagedGLAccountResolutionIn,
     AppFolioStagedGeneralLedgerResolutionIn,
     AppFolioStagedBillResolutionIn,
+    AppFolioStagedChargeResolutionIn,
     AppFolioStagedGLAccountCommitIn,
     AppFolioGLAccountCommitOut,
     AppFolioGLAccountDryRunOut,
@@ -2969,6 +2970,130 @@ def resolve_staged_appfolio_bill(
             "resolution_target_id": row.resolution_target_id,
             "accepted_for_later_commit": row.resolution_action == "ACCEPT_RELATIONSHIP",
             "target_bill_mutation": False,
+            "accounting_history_mutation": False,
+        },
+    )
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/rows/{staged_row_id}/charge-resolution",
+    response_model=AppFolioMigrationStagedRowOut,
+)
+def resolve_staged_appfolio_charge(
+    run_id: int,
+    upload_id: int,
+    staged_row_id: int,
+    payload: AppFolioStagedChargeResolutionIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    if upload.detected_resource != "CHARGES":
+        raise HTTPException(
+            status_code=409,
+            detail="Only staged CHARGES rows can be resolved here.",
+        )
+    row = _staged_row(db, run=run, upload=upload, staged_row_id=staged_row_id)
+    if row.resource != "CHARGES" or row.errors or row.disposition == "INVALID":
+        raise HTTPException(
+            status_code=409,
+            detail="Invalid staged Charge rows cannot be resolved.",
+        )
+    if not row.source_id and payload.action != "SKIP":
+        raise HTTPException(
+            status_code=409,
+            detail="Charge rows without a durable Charge ID may only be skipped.",
+        )
+
+    target_gl_account_id = None
+    if payload.action == "ACCEPT_RELATIONSHIP":
+        data = dict(row.normalized_data or {})
+        source_gl_account_id = str(data.get("source_gl_account_id") or "").strip()
+        if not source_gl_account_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Charge relationship requires a source GlAccountId.",
+            )
+        gl_mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "APPFOLIO",
+                PlatformMigrationItem.resource == "GL_ACCOUNTS",
+                PlatformMigrationItem.source_id == source_gl_account_id,
+            )
+            .first()
+        )
+        if gl_mapping is None or gl_mapping.target_entity != "GL_ACCOUNT":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Charge relationship cannot be accepted until the source "
+                    "GlAccountId has a durable GL_ACCOUNT mapping."
+                ),
+            )
+        target_gl = (
+            db.query(GLAccount)
+            .filter(
+                GLAccount.id == gl_mapping.target_id,
+                GLAccount.organization_id == run.organization_id,
+                GLAccount.is_active.is_(True),
+                GLAccount.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if target_gl is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Mapped Charge GL Account is no longer active in this organization.",
+            )
+        target_gl_account_id = target_gl.id
+
+    if (
+        row.resolution_action == payload.action
+        and row.resolution_target_gl_account_id == target_gl_account_id
+        and row.resolution_target_id is None
+        and row.resolution_target_unit_id is None
+        and row.resolution_target_tenant_user_id is None
+    ):
+        return row
+
+    row.resolution_action = payload.action
+    row.resolution_target_gl_account_id = target_gl_account_id
+    row.resolution_target_id = None
+    row.resolution_target_unit_id = None
+    row.resolution_target_owner_user_id = None
+    row.resolution_target_vendor_id = None
+    row.resolution_target_tenant_user_id = None
+    row.resolved_by_platform_user_id = current_user.id
+    row.resolved_at = datetime.utcnow()
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    run.status = "STAGED"
+    append_audit_log(
+        db,
+        platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_staged_row",
+        entity_id=row.id,
+        action="appfolio_charge_resolution_changed",
+        new_value={
+            "upload_id": upload.id,
+            "source_charge_id": row.source_id,
+            "source_gl_account_id": (row.normalized_data or {}).get("source_gl_account_id"),
+            "source_occupancy_id": (row.normalized_data or {}).get("source_occupancy_id"),
+            "resolution_action": row.resolution_action,
+            "resolution_target_gl_account_id": row.resolution_target_gl_account_id,
+            "accepted_gl_relationship_only": row.resolution_action == "ACCEPT_RELATIONSHIP",
+            "occupancy_mapping_inferred": False,
+            "tenant_liability_inferred": False,
+            "payment_state_inferred": False,
+            "target_charge_mutation": False,
             "accounting_history_mutation": False,
         },
     )
