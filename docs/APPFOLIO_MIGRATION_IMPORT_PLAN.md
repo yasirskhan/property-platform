@@ -363,6 +363,58 @@ Next dependency after this reconciliation is independently verified:
 fingerprint plus the currently valid durable GL Account mapping. It remains
 review-only and must not create customer receivables or accounting history.
 
+## 4.13 Charges / Receivables staged dry run
+
+The Charges dry run operates only after explicit staged reconciliation.
+
+Safety boundaries:
+
+1. Retained rows require stable supplied Charge identity and explicit
+   `ACCEPT_RELATIONSHIP`; `SKIP` rows are excluded and unresolved/INVALID
+   rows block the dry run.
+2. The accepted `GlAccountId` relationship is revalidated against the current
+   durable `GL_ACCOUNTS -> GL_ACCOUNT` mapping and active same-organization
+   target.
+3. The dry-run fingerprint binds the shared staged-review fingerprint plus the
+   current GL Account mapping source fingerprint and target ID.
+4. `AmountDue`, `ChargedOn`, `Description`, `GlAccountId` and
+   `OccupancyId` remain source evidence only.
+5. `OccupancyId` is not resolved to Tenant, Lease, Unit or Property.
+6. The dry run creates or updates zero `Charge`, `RentInvoice`, `Receipt`,
+   `Payment`, `GLTransaction`, `GLEntry` or customer balance records.
+7. It does not infer original charge amount, amount paid, paid/unpaid state,
+   rent-vs-charge classification, payment application, tenant liability,
+   target Occupancy identity, GL posting or historical reconciliation.
+8. An empty accepted set is not commit-ready.
+9. Exact replay is idempotent and audited once.
+
+### Charges controlled-commit dependency
+
+A target `Charge` cannot yet be safely created from this source contract:
+
+- target `Charge.tenant_user_id` is required, while the verified source
+  contract supplies only `OccupancyId` and no durable Occupancy-to-target
+  identity mapping exists;
+- target `Charge.amount` represents the original billed amount, while source
+  `AmountDue` is the current outstanding amount and cannot establish original
+  amount or `amount_paid`;
+- target create semantics initialize payment state, so choosing `amount_paid`
+  or `is_paid` from `AmountDue` would fabricate payment history;
+- target Charges require an INCOME GL Account; the migration preserves the
+  mapped source GL Account without translating AppFolio source classification
+  into target posting semantics.
+
+Therefore **Charges controlled commit remains blocked** until a separately
+verified Occupancy/tenant identity contract and original-charge/payment
+semantics are available. Do not synthesize tenant identity, original amount,
+amount paid, paid state, property/unit association or GL posting.
+
+After Charges dry run is independently verified, proceed to the next safe
+resource by first verifying an authoritative **Security Deposit report**
+CSV/XLSX source contract. If a reliable source schema is not available, record
+that resource-specific blocker and move to the next independently safe resource
+rather than inventing fields.
+
 ## 5. File/report detection and column mapping
 
 The same AppFolio concept may arrive under different header spellings or export
