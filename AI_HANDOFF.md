@@ -1,3 +1,65 @@
+# AI_HANDOFF.md — 2026-10-03 PHASE 4.13 CHARGES RELATIONSHIP RECONCILIATION VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `0bfb6794b4388a7cbf944fe10aed778a6222cae7`.
+- GitHub Actions run: `37098864919` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **955 passed, 21 deselected, 25131 warnings in 231.73s**.
+- Authenticated E2E: **21 passed, 278 warnings in 117.72s**.
+- Alembic head remains `0a7c4e9f2b61`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Charges / Receivables staged reconciliation
+
+1. Reconciliation operates only on already-staged `CHARGES` rows.
+2. Allowed actions are `ACCEPT_RELATIONSHIP` or `SKIP`; rows without stable supplied Charge identity may only be skipped and INVALID rows cannot be resolved.
+3. `ACCEPT_RELATIONSHIP` revalidates the supplied `GlAccountId` through the existing durable `GL_ACCOUNTS -> GL_ACCOUNT` mapping and requires the target GL Account to remain active in the same organization.
+4. The accepted staged state snapshots only the typed target GL Account ID. Occupancy remains source evidence only; no Tenant, Lease, Unit, Property or payer/liability relationship is inferred.
+5. Resolution changes invalidate prior dry-run state, participate in the shared staged-review fingerprint and are append-only audited.
+6. Repeating an identical accepted resolution is idempotent and does not duplicate audit activity.
+7. The batch creates or updates zero Charge, RentInvoice, Receipt, Payment, GLTransaction, GLEntry or customer balance records.
+8. No paid/unpaid state, original amount, amount paid, rent-vs-charge classification, payment application, tenant liability, GL posting or historical reconciliation is inferred.
+9. No AppFolio API transport, navigation change or general UX work was added.
+10. Initial CI run `37098492141` exposed one focused test-only defect: AuditLog.new_value is stored as JSON text. Commit `0bfb6794b4388a7cbf944fe10aed778a6222cae7` corrected the assertion by parsing the immutable JSON text; product reconciliation behavior was unchanged.
+
+Implementation commits:
+- `80baa351489f6d6dcfa418af022269a381260efb` — Charges relationship-resolution schema.
+- `4cd2c418fd15c3bbea92678fc15e02422d818946` — scoped Charges staged relationship resolver.
+- `ef7f5dd7b83d3eb9b551cb6bddfc96f6f6b8de45` — reconciliation/idempotency/scope regressions.
+- `8324be2dbf841af7f2de82a46392b28f5b2bf680` — migration-plan reconciliation contract.
+- `0bfb6794b4388a7cbf944fe10aed778a6222cae7` — test-only audit assertion correction; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Add **Charges staged dry-run only** using the existing exact-fingerprint staged-review architecture.
+
+Required boundaries:
+
+1. Operate only on already-staged `CHARGES` rows.
+2. Include only explicit `ACCEPT_RELATIONSHIP` rows with stable Charge source ID; SKIP rows remain excluded and unresolved/INVALID rows block readiness.
+3. Revalidate current durable GL Account mapping and require the snapped typed target GL Account ID to still match.
+4. Preserve `AmountDue`, `ChargedOn`, `Description`, `GlAccountId` and `OccupancyId` as source evidence only.
+5. Bind the dry-run fingerprint to the shared staged-review fingerprint plus current GL Account mapping source fingerprint/target ID.
+6. Do not create or update Charge, RentInvoice, Receipt, Payment, GLTransaction, GLEntry or customer balances.
+7. Do not infer original amount, amount paid, paid/unpaid state, rent-vs-charge classification, payment application, tenant liability, Occupancy target identity, GL posting or historical reconciliation.
+8. A dry run containing no accepted Charge rows is not commit-ready.
+9. Repeating an identical dry run must be idempotent and audited once.
+10. Charges controlled commit remains a separate later verified dependency; AppFolio API transport and general UX remain out of scope.
+
+---
+
 # AI_HANDOFF.md — 2026-10-03 PHASE 4.13 BILLS STAGED DRY RUN VERIFIED
 
 ## Current verified product checkpoint
