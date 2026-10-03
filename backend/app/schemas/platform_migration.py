@@ -136,6 +136,30 @@ class AppFolioMigrationUploadOut(BaseModel):
     replayed: bool = False
 
 
+class AppFolioMigrationCoverageItem(BaseModel):
+    resource: str
+    label: str
+    state: str
+    upload_count: int
+    row_count: int
+    latest_upload_status: str | None
+    blockers: list[str] = Field(default_factory=list)
+
+
+class AppFolioMigrationCoverageOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    supplied_count: int
+    partial_count: int
+    missing_count: int
+    blocked_count: int
+    accounting_complete: bool
+    safe_partial_operational_migration: bool
+    items: list[AppFolioMigrationCoverageItem]
+    blockers: list[str] = Field(default_factory=list)
+
+
 class AppFolioMigrationStagedRowOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
