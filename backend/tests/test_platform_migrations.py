@@ -34,6 +34,7 @@ from app.routers import platform_migrations as api
 from app.schemas.platform_migration import (
     AppFolioMigrationRunCreateIn,
     AppFolioMigrationCorrectionRuleCreateIn,
+    AppFolioMigrationCorrectionRuleUpdateIn,
     AppFolioStagedRowCorrectionIn,
     AppFolioPropertyCommitIn,
     AppFolioPropertyDryRunIn,
@@ -9636,6 +9637,228 @@ def test_appfolio_correction_rule_conflict_scope_and_authorization_fail_closed()
         assert response.headers["cache-control"] == "no-store"
         assert len(listed) == 1
         assert listed[0].corrected_value == "ABC Maintenance"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+def test_appfolio_correction_rule_update_is_explicit_audited_and_changes_fingerprint():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Correction Update Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="correction-update",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        upload = PlatformMigrationUpload(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="APPFOLIO",
+            filename="properties.csv",
+            file_format="CSV",
+            file_sha256="2" * 64,
+            normalized_fingerprint="3" * 64,
+            detected_resource="PROPERTIES",
+            sheet_name="CSV",
+            headers=["Id", "Name"],
+            column_mapping={"Id": "source_id", "Name": "name"},
+            validation_summary={"valid": 1},
+            status="STAGED",
+            row_count=1,
+            created_by_platform_user_id=admin.id,
+        )
+        db.add(upload)
+        db.flush()
+        row = PlatformMigrationStagedRow(
+            upload_id=upload.id,
+            run_id=run.id,
+            organization_id=org.id,
+            provider="APPFOLIO",
+            resource="PROPERTIES",
+            row_number=2,
+            source_id="UPD-1",
+            disposition="NEW",
+            row_fingerprint="4" * 64,
+            normalized_data={"source_id": "UPD-1", "name": "Apt Bldg"},
+            correction_evidence=[],
+            warnings=[],
+            errors=[],
+        )
+        db.add(row)
+        db.commit()
+
+        created = api.create_appfolio_correction_rule(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioMigrationCorrectionRuleCreateIn(
+                field_name="name",
+                corrected_value="Apartment",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        db.refresh(row)
+        before_fingerprint = api._staged_review_fingerprint(upload, [row])
+        run.last_dry_run_fingerprint = "5" * 64
+        run.last_dry_run_summary = {"staged_review_fingerprint": before_fingerprint}
+        run.status = "DRY_RUN_READY"
+        db.commit()
+
+        updated = api.update_appfolio_correction_rule(
+            run.id,
+            created.id,
+            AppFolioMigrationCorrectionRuleUpdateIn(
+                corrected_value="Apartment Building",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        db.refresh(row)
+        db.refresh(run)
+        assert updated.replayed is False
+        assert updated.applied_row_count == 1
+        assert updated.corrected_value == "Apartment Building"
+        assert row.normalized_data["name"] == "Apartment Building"
+        assert row.correction_evidence[-1]["source_value"] == "Apt Bldg"
+        assert row.correction_evidence[-1]["corrected_value"] == "Apartment Building"
+        assert run.last_dry_run_fingerprint is None
+        assert run.last_dry_run_summary is None
+        assert run.status == "STAGED"
+        assert api._staged_review_fingerprint(upload, [row]) != before_fingerprint
+
+        audit = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_correction_rule",
+            AuditLog.entity_id == created.id,
+            AuditLog.action == "appfolio_correction_rule_updated",
+        ).one()
+        old_value = json.loads(audit.old_value)
+        new_value = json.loads(audit.new_value)
+        assert old_value["corrected_value"] == "Apartment"
+        assert new_value["corrected_value"] == "Apartment Building"
+        assert new_value["dry_run_invalidated"] is True
+
+        replay = api.update_appfolio_correction_rule(
+            run.id,
+            created.id,
+            AppFolioMigrationCorrectionRuleUpdateIn(
+                corrected_value="Apartment Building",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_correction_rule",
+            AuditLog.entity_id == created.id,
+            AuditLog.action == "appfolio_correction_rule_updated",
+        ).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_new_upload_applies_current_exact_run_correction_rule_only():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Correction Replay Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="correction-replay",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        first_content = (
+            "Property Id,Property Name,Address 1,City,State,Zip\n"
+            "RULE-SEED,Apt Bldg,1 Rule St,Cleveland,OH,44113\n"
+        ).encode()
+        first = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("seed.csv", first_content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        seed_row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == first.id
+        ).one()
+        rule = api.create_appfolio_correction_rule(
+            run.id,
+            first.id,
+            seed_row.id,
+            AppFolioMigrationCorrectionRuleCreateIn(
+                field_name="name",
+                corrected_value="Apartment",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert rule.applied_row_count == 1
+
+        second_content = (
+            "Property Id,Property Name,Address 1,City,State,Zip\n"
+            "RULE-LATER,Apt Bldg,2 Rule St,Cleveland,OH,44113\n"
+            "RULE-OTHER,Apt Bldg East,3 Rule St,Cleveland,OH,44113\n"
+        ).encode()
+        second = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("later.csv", second_content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        later_rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == second.id
+        ).order_by(PlatformMigrationStagedRow.row_number.asc()).all()
+        assert later_rows[0].normalized_data["name"] == "Apartment"
+        assert later_rows[0].correction_evidence[-1]["rule_id"] == rule.id
+        assert later_rows[1].normalized_data["name"] == "Apt Bldg East"
+        assert later_rows[1].correction_evidence == []
+
+        applied_audits = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_staged_row",
+            AuditLog.entity_id == later_rows[0].id,
+            AuditLog.action == "appfolio_correction_rule_applied",
+        ).count()
+        assert applied_audits == 1
+
+        replay = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file("later-replay.csv", second_content),
+                resource=None,
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        assert replay.replayed is True
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_staged_row",
+            AuditLog.entity_id == later_rows[0].id,
+            AuditLog.action == "appfolio_correction_rule_applied",
+        ).count() == 1
+        assert db.query(Property).count() == 0
+        assert db.query(Charge).count() == 0
+        assert db.query(GLTransaction).count() == 0
     finally:
         db.close()
         engine.dispose()

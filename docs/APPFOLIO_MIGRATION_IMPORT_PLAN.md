@@ -627,6 +627,14 @@ Rules:
 A correction that changes normalized staged input invalidates the prior dry-run
 fingerprint and requires a new dry run.
 
+Reusable correction rules are run-scoped only. They bind the exact
+provider/resource/field/normalized-source-value tuple to one corrected value.
+They are never fuzzy/global customer rules. Current rules are applied
+deterministically to later staged uploads in the same migration run. An explicit
+change to an existing rule is audited, invalidates prior dry-run state and is
+included in the staged-review fingerprint. Original source files, upload hashes
+and row source fingerprints remain unchanged.
+
 ## 9. Existing-record conflict resolution
 
 Default behavior is **never automatic overwrite**.
