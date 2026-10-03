@@ -61,6 +61,7 @@ from app.schemas.platform_migration import (
     AppFolioGLAccountDryRunOut,
     AppFolioGeneralLedgerDryRunOut,
     AppFolioBillDryRunOut,
+    AppFolioWorkOrderDryRunOut,
     AppFolioChargeDryRunOut,
     AppFolioGeneralLedgerCommitReadinessOut,
     AppFolioStagedTenantCommitIn,
@@ -1471,6 +1472,291 @@ def _staged_bill_dry_run_state(
         "relationship_links": sorted(
             relationship_links,
             key=lambda item: str(item["source_bill_id"]),
+        ),
+    }
+    fingerprint = hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    counts = {
+        "total": len(previews),
+        "importable": len(previews),
+        "invalid": 0,
+        "warning_count": len(previews),
+        "skipped": skipped,
+    }
+    return previews, fingerprint, counts
+
+
+def _staged_work_order_dry_run_state(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    upload: PlatformMigrationUpload,
+) -> tuple[list[dict[str, object]], str, dict[str, int]]:
+    if upload.detected_resource != "WORK_ORDERS":
+        raise HTTPException(
+            status_code=409,
+            detail="Staged upload must be WORK_ORDERS before Work Orders dry run.",
+        )
+    rows = (
+        db.query(PlatformMigrationStagedRow)
+        .filter(
+            PlatformMigrationStagedRow.upload_id == upload.id,
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "APPFOLIO",
+            PlatformMigrationStagedRow.resource == "WORK_ORDERS",
+        )
+        .order_by(
+            PlatformMigrationStagedRow.row_number.asc(),
+            PlatformMigrationStagedRow.id.asc(),
+        )
+        .all()
+    )
+    if not rows:
+        raise HTTPException(
+            status_code=409,
+            detail="Staged upload has no Work Order rows.",
+        )
+
+    blocking = [
+        row
+        for row in rows
+        if row.errors
+        or row.disposition == "INVALID"
+        or (
+            row.disposition == "REVIEW"
+            and row.resolution_action not in {"ACCEPT_RELATIONSHIP", "SKIP"}
+        )
+    ]
+    if blocking:
+        raise HTTPException(
+            status_code=409,
+            detail="Work Orders dry run is blocked by invalid or unresolved staged rows.",
+        )
+
+    previews: list[dict[str, object]] = []
+    relationship_links: list[dict[str, object]] = []
+    skipped = 0
+
+    for row in rows:
+        if row.resolution_action == "SKIP":
+            skipped += 1
+            continue
+        if row.resolution_action != "ACCEPT_RELATIONSHIP" or not row.source_id:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Every retained Work Order row must have stable Work Order ID "
+                    "identity and explicit ACCEPT_RELATIONSHIP review."
+                ),
+            )
+
+        data = dict(row.normalized_data or {})
+        source_property_id = str(data.get("source_property_id") or "").strip()
+        source_unit_id = str(data.get("source_unit_id") or "").strip()
+        source_vendor_id = str(data.get("source_vendor_id") or "").strip()
+        if not source_property_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Accepted Work Order row is missing source PropertyId.",
+            )
+
+        property_mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "APPFOLIO",
+                PlatformMigrationItem.resource == "PROPERTIES",
+                PlatformMigrationItem.source_id == source_property_id,
+            )
+            .first()
+        )
+        if (
+            property_mapping is None
+            or property_mapping.target_entity != "PROPERTY"
+            or row.resolution_target_id != property_mapping.target_id
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="Accepted Work Order Property relationship is stale or inconsistent.",
+            )
+        target_property = (
+            db.query(Property)
+            .filter(
+                Property.id == property_mapping.target_id,
+                Property.organization_id == run.organization_id,
+                Property.is_active.is_(True),
+                Property.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if target_property is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Accepted Work Order Property target is no longer active.",
+            )
+
+        target_unit_id = None
+        unit_mapping_fingerprint = None
+        if source_unit_id:
+            unit_mapping = (
+                db.query(PlatformMigrationItem)
+                .filter(
+                    PlatformMigrationItem.run_id == run.id,
+                    PlatformMigrationItem.organization_id == run.organization_id,
+                    PlatformMigrationItem.provider == "APPFOLIO",
+                    PlatformMigrationItem.resource == "UNITS",
+                    PlatformMigrationItem.source_id == source_unit_id,
+                )
+                .first()
+            )
+            if (
+                unit_mapping is None
+                or unit_mapping.target_entity != "UNIT"
+                or row.resolution_target_unit_id != unit_mapping.target_id
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Accepted Work Order Unit relationship is stale or inconsistent.",
+                )
+            target_unit = (
+                db.query(Unit)
+                .join(Property, Property.id == Unit.property_id)
+                .filter(
+                    Unit.id == unit_mapping.target_id,
+                    Unit.is_active.is_(True),
+                    Unit.deleted_at.is_(None),
+                    Property.organization_id == run.organization_id,
+                    Property.is_active.is_(True),
+                    Property.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target_unit is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Accepted Work Order Unit target is no longer active.",
+                )
+            if target_unit.property_id != target_property.id:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Accepted Work Order Unit no longer belongs to the accepted Property.",
+                )
+            target_unit_id = target_unit.id
+            unit_mapping_fingerprint = unit_mapping.source_fingerprint
+        elif row.resolution_target_unit_id is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="Accepted Work Order Unit snapshot is inconsistent with source evidence.",
+            )
+
+        target_vendor_id = None
+        vendor_mapping_fingerprint = None
+        if source_vendor_id:
+            vendor_mapping = (
+                db.query(PlatformMigrationItem)
+                .filter(
+                    PlatformMigrationItem.run_id == run.id,
+                    PlatformMigrationItem.organization_id == run.organization_id,
+                    PlatformMigrationItem.provider == "APPFOLIO",
+                    PlatformMigrationItem.resource == "VENDORS",
+                    PlatformMigrationItem.source_id == source_vendor_id,
+                )
+                .first()
+            )
+            if (
+                vendor_mapping is None
+                or vendor_mapping.target_entity != "VENDOR"
+                or row.resolution_target_vendor_id != vendor_mapping.target_id
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Accepted Work Order Vendor relationship is stale or inconsistent.",
+                )
+            target_vendor = (
+                db.query(Vendor)
+                .filter(
+                    Vendor.id == vendor_mapping.target_id,
+                    Vendor.organization_id == run.organization_id,
+                    Vendor.is_active.is_(True),
+                    Vendor.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target_vendor is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Accepted Work Order Vendor target is no longer active.",
+                )
+            target_vendor_id = target_vendor.id
+            vendor_mapping_fingerprint = vendor_mapping.source_fingerprint
+        elif row.resolution_target_vendor_id is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="Accepted Work Order Vendor snapshot is inconsistent with source evidence.",
+            )
+
+        relationship_links.append(
+            {
+                "source_work_order_id": row.source_id,
+                "source_property_id": source_property_id,
+                "target_property_id": target_property.id,
+                "property_mapping_fingerprint": property_mapping.source_fingerprint,
+                "source_unit_id": source_unit_id or None,
+                "target_unit_id": target_unit_id,
+                "unit_mapping_fingerprint": unit_mapping_fingerprint,
+                "source_vendor_id": source_vendor_id or None,
+                "target_vendor_id": target_vendor_id,
+                "vendor_mapping_fingerprint": vendor_mapping_fingerprint,
+            }
+        )
+        previews.append(
+            {
+                "source_id": row.source_id,
+                "source_evidence": {
+                    "source_property_id": source_property_id,
+                    "source_unit_id": source_unit_id or None,
+                    "source_vendor_id": source_vendor_id or None,
+                    "assigned_users": data.get("assigned_users"),
+                    "status": data.get("status"),
+                    "job_description": data.get("job_description"),
+                    "canceled_on": data.get("canceled_on"),
+                    "completed_on": data.get("completed_on"),
+                    "permission_to_enter": data.get("permission_to_enter"),
+                    "priority": data.get("priority"),
+                    "scheduled_start": data.get("scheduled_start"),
+                    "scheduled_end": data.get("scheduled_end"),
+                    "vendor_trade": data.get("vendor_trade"),
+                },
+                "resolved_targets": {
+                    "property_id": target_property.id,
+                    "unit_id": target_unit_id,
+                    "vendor_id": target_vendor_id,
+                },
+                "warnings": [
+                    (
+                        "Dry run is review-only: requester/tenant/occupancy identity, "
+                        "staff assignment semantics, vendor contract, workflow-state "
+                        "translation, completion/cancellation meaning and accounting "
+                        "effects are not inferred."
+                    )
+                ],
+            }
+        )
+
+    if not previews:
+        raise HTTPException(
+            status_code=409,
+            detail="Work Orders dry run requires at least one accepted staged row.",
+        )
+
+    canonical = {
+        "staged_review_fingerprint": _staged_review_fingerprint(upload, rows),
+        "relationship_links": sorted(
+            relationship_links,
+            key=lambda item: str(item["source_work_order_id"]),
         ),
     }
     fingerprint = hashlib.sha256(
@@ -4287,6 +4573,83 @@ def dry_run_staged_appfolio_bills(
         db.refresh(run)
 
     return AppFolioBillDryRunOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        fingerprint=fingerprint,
+        replayed=replayed,
+        total=counts["total"],
+        importable=counts["importable"],
+        invalid=counts["invalid"],
+        warning_count=counts["warning_count"],
+        rows=rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/work-orders/dry-run",
+    response_model=AppFolioWorkOrderDryRunOut,
+)
+def dry_run_staged_appfolio_work_orders(
+    run_id: int,
+    upload_id: int,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    rows, fingerprint, counts = _staged_work_order_dry_run_state(
+        db, run=run, upload=upload
+    )
+    replayed = (
+        run.last_dry_run_fingerprint == fingerprint
+        and (run.last_dry_run_summary or {}).get("resource") == "WORK_ORDERS"
+    )
+    summary = {
+        **counts,
+        "resource": "WORK_ORDERS",
+        "review_only": True,
+        "target_mutation": False,
+        "work_order_mutation": False,
+        "bill_mutation": False,
+        "charge_mutation": False,
+        "accounting_history_mutation": False,
+        "staff_assignment_inferred": False,
+        "requester_tenant_occupancy_inferred": False,
+        "vendor_contract_inferred": False,
+        "workflow_state_translated": False,
+        "completion_cancellation_semantics_inferred": False,
+    }
+    if not replayed:
+        run.last_dry_run_fingerprint = fingerprint
+        run.last_dry_run_summary = summary
+        run.status = "DRY_RUN_READY"
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=run.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=run.id,
+            action="appfolio_staged_work_orders_dry_run",
+            new_value={
+                "upload_id": upload.id,
+                "dry_run_fingerprint": fingerprint,
+                **summary,
+                "raw_file_stored": False,
+                "work_order_mutation": False,
+                "bill_mutation": False,
+                "charge_mutation": False,
+                "gl_transaction_mutation": False,
+                "gl_entry_mutation": False,
+                "inventory_mutation": False,
+                "purchase_order_mutation": False,
+                "vendor_payment_mutation": False,
+            },
+        )
+        db.commit()
+        db.refresh(run)
+
+    return AppFolioWorkOrderDryRunOut(
         run_id=run.id,
         organization_id=run.organization_id,
         provider=run.provider,
