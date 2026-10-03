@@ -327,6 +327,42 @@ Safety boundaries:
     batches. Do not infer payer liability, payment application, rent-vs-charge
     classification, GL posting or historical reconciliation.
 
+## 4.13 Charges / Receivables staged reconciliation
+
+After CHARGES ingestion/staging is verified, review may explicitly accept only
+the relationship that has an independently durable target contract today:
+the source `GlAccountId` to an existing active same-organization
+`GLAccount`.
+
+Safety boundaries:
+
+1. Reconcile only already-staged `CHARGES` rows from the shared migration
+   upload architecture.
+2. The only allowed actions are `ACCEPT_RELATIONSHIP` and `SKIP`.
+3. A row without a stable supplied Charge `Id` may only be skipped.
+4. `ACCEPT_RELATIONSHIP` requires the staged `GlAccountId` to have an
+   existing durable `GL_ACCOUNTS -> GL_ACCOUNT` migration mapping and the
+   mapped target must still be active in the same organization.
+5. `OccupancyId` remains source evidence only. Reconciliation must not infer
+   Tenant, Lease, Unit, Property, payer identity or liability from it.
+6. The accepted review state snapshots only the verified target GL Account ID
+   on the staged row; no Charge target or customer balance record is created.
+7. INVALID rows remain non-resolvable. Unresolved REVIEW rows may be explicitly
+   skipped.
+8. Resolution changes participate in the shared staged-review fingerprint,
+   invalidate prior dry-run state and are audited. Repeating the identical
+   resolution is idempotent.
+9. The batch creates or updates zero `Charge`, `RentInvoice`, `Receipt`,
+   `Payment`, `GLTransaction`, `GLEntry` or customer balance records.
+10. No paid/unpaid state, original amount, amount paid, rent-vs-charge
+    classification, payment application, tenant liability, GL posting or
+    historical reconciliation is inferred.
+
+Next dependency after this reconciliation is independently verified:
+**CHARGES staged dry run only**. That dry run must bind the exact staged-review
+fingerprint plus the currently valid durable GL Account mapping. It remains
+review-only and must not create customer receivables or accounting history.
+
 ## 5. File/report detection and column mapping
 
 The same AppFolio concept may arrive under different header spellings or export
