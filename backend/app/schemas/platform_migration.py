@@ -197,6 +197,7 @@ class AppFolioMigrationReviewSummaryOut(BaseModel):
     warning_count: int
     blocking_count: int
     mapping_count: int
+    review_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     dry_run_state: str
     last_dry_run_resource: str | None = None
     last_dry_run_fingerprint: str | None = None
