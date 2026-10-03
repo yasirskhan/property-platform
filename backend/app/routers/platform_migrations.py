@@ -60,6 +60,7 @@ from app.schemas.platform_migration import (
     AppFolioGLAccountDryRunOut,
     AppFolioGeneralLedgerDryRunOut,
     AppFolioBillDryRunOut,
+    AppFolioChargeDryRunOut,
     AppFolioGeneralLedgerCommitReadinessOut,
     AppFolioStagedTenantCommitIn,
     AppFolioTenantCommitOut,
@@ -1469,6 +1470,163 @@ def _staged_bill_dry_run_state(
         "relationship_links": sorted(
             relationship_links,
             key=lambda item: str(item["source_bill_id"]),
+        ),
+    }
+    fingerprint = hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    counts = {
+        "total": len(previews),
+        "importable": len(previews),
+        "invalid": 0,
+        "warning_count": len(previews),
+        "skipped": skipped,
+    }
+    return previews, fingerprint, counts
+
+
+def _staged_charge_dry_run_state(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    upload: PlatformMigrationUpload,
+) -> tuple[list[dict[str, object]], str, dict[str, int]]:
+    if upload.detected_resource != "CHARGES":
+        raise HTTPException(
+            status_code=409,
+            detail="Staged upload must be CHARGES before Charges dry run.",
+        )
+    rows = (
+        db.query(PlatformMigrationStagedRow)
+        .filter(
+            PlatformMigrationStagedRow.upload_id == upload.id,
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "APPFOLIO",
+            PlatformMigrationStagedRow.resource == "CHARGES",
+        )
+        .order_by(
+            PlatformMigrationStagedRow.row_number.asc(),
+            PlatformMigrationStagedRow.id.asc(),
+        )
+        .all()
+    )
+    if not rows:
+        raise HTTPException(status_code=409, detail="Staged upload has no Charge rows.")
+
+    blocking = [
+        row
+        for row in rows
+        if row.errors
+        or row.disposition == "INVALID"
+        or (
+            row.disposition == "REVIEW"
+            and row.resolution_action not in {"ACCEPT_RELATIONSHIP", "SKIP"}
+        )
+    ]
+    if blocking:
+        raise HTTPException(
+            status_code=409,
+            detail="Charges dry run is blocked by invalid or unresolved staged rows.",
+        )
+
+    previews: list[dict[str, object]] = []
+    relationship_links: list[dict[str, object]] = []
+    skipped = 0
+    for row in rows:
+        if row.resolution_action == "SKIP":
+            skipped += 1
+            continue
+        if row.resolution_action != "ACCEPT_RELATIONSHIP" or not row.source_id:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Every retained Charge row must have stable Charge ID identity "
+                    "and explicit ACCEPT_RELATIONSHIP review."
+                ),
+            )
+
+        data = dict(row.normalized_data or {})
+        source_gl_account_id = str(data.get("source_gl_account_id") or "").strip()
+        gl_mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "APPFOLIO",
+                PlatformMigrationItem.resource == "GL_ACCOUNTS",
+                PlatformMigrationItem.source_id == source_gl_account_id,
+            )
+            .first()
+        )
+        if (
+            gl_mapping is None
+            or gl_mapping.target_entity != "GL_ACCOUNT"
+            or row.resolution_target_gl_account_id != gl_mapping.target_id
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="Accepted Charge GL Account relationship is stale or inconsistent.",
+            )
+        target_gl = (
+            db.query(GLAccount)
+            .filter(
+                GLAccount.id == gl_mapping.target_id,
+                GLAccount.organization_id == run.organization_id,
+                GLAccount.is_active.is_(True),
+                GLAccount.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if target_gl is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Accepted Charge GL Account target is no longer active.",
+            )
+
+        relationship_links.append(
+            {
+                "source_charge_id": row.source_id,
+                "source_gl_account_id": source_gl_account_id,
+                "target_gl_account_id": target_gl.id,
+                "gl_mapping_fingerprint": gl_mapping.source_fingerprint,
+            }
+        )
+        previews.append(
+            {
+                "source_id": row.source_id,
+                "source_evidence": {
+                    "amount_due": data.get("amount_due"),
+                    "charged_on": data.get("charged_on"),
+                    "description": data.get("description"),
+                    "source_gl_account_id": source_gl_account_id,
+                    "source_occupancy_id": data.get("source_occupancy_id"),
+                },
+                "resolved_targets": {
+                    "gl_account_id": target_gl.id,
+                },
+                "warnings": [
+                    (
+                        "Dry run is review-only: Occupancy target identity, tenant "
+                        "liability, original amount, amount paid, paid/unpaid state, "
+                        "rent classification, payment application, GL posting and "
+                        "historical reconciliation are not inferred."
+                    )
+                ],
+            }
+        )
+
+    if not previews:
+        raise HTTPException(
+            status_code=409,
+            detail="Charges dry run requires at least one accepted staged row.",
+        )
+
+    canonical = {
+        "staged_review_fingerprint": _staged_review_fingerprint(upload, rows),
+        "relationship_links": sorted(
+            relationship_links,
+            key=lambda item: str(item["source_charge_id"]),
         ),
     }
     fingerprint = hashlib.sha256(
@@ -3910,6 +4068,82 @@ def dry_run_staged_appfolio_bills(
         db.refresh(run)
 
     return AppFolioBillDryRunOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        fingerprint=fingerprint,
+        replayed=replayed,
+        total=counts["total"],
+        importable=counts["importable"],
+        invalid=counts["invalid"],
+        warning_count=counts["warning_count"],
+        rows=rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/charges/dry-run",
+    response_model=AppFolioChargeDryRunOut,
+)
+def dry_run_staged_appfolio_charges(
+    run_id: int,
+    upload_id: int,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    rows, fingerprint, counts = _staged_charge_dry_run_state(
+        db, run=run, upload=upload
+    )
+    replayed = (
+        run.last_dry_run_fingerprint == fingerprint
+        and (run.last_dry_run_summary or {}).get("resource") == "CHARGES"
+    )
+    summary = {
+        **counts,
+        "resource": "CHARGES",
+        "review_only": True,
+        "target_mutation": False,
+        "charge_mutation": False,
+        "rent_invoice_mutation": False,
+        "receipt_payment_mutation": False,
+        "accounting_history_mutation": False,
+        "occupancy_target_inferred": False,
+        "tenant_liability_inferred": False,
+        "payment_state_inferred": False,
+        "original_amount_inferred": False,
+        "rent_classification_inferred": False,
+        "gl_posting_inferred": False,
+    }
+    if not replayed:
+        run.last_dry_run_fingerprint = fingerprint
+        run.last_dry_run_summary = summary
+        run.status = "DRY_RUN_READY"
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=run.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=run.id,
+            action="appfolio_staged_charges_dry_run",
+            new_value={
+                "upload_id": upload.id,
+                "dry_run_fingerprint": fingerprint,
+                **summary,
+                "raw_file_stored": False,
+                "charge_mutation": False,
+                "rent_invoice_mutation": False,
+                "receipt_mutation": False,
+                "payment_mutation": False,
+                "gl_transaction_mutation": False,
+                "gl_entry_mutation": False,
+            },
+        )
+        db.commit()
+        db.refresh(run)
+
+    return AppFolioChargeDryRunOut(
         run_id=run.id,
         organization_id=run.organization_id,
         provider=run.provider,
