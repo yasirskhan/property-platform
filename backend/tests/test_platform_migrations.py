@@ -9862,3 +9862,313 @@ def test_appfolio_new_upload_applies_current_exact_run_correction_rule_only():
     finally:
         db.close()
         engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 run-level migration review/readiness summary
+# ---------------------------------------------------------------------------
+
+def _review_summary_upload(
+    db,
+    *,
+    run: PlatformMigrationRun,
+    organization_id: int,
+    resource: str,
+    suffix: str,
+) -> PlatformMigrationUpload:
+    upload = PlatformMigrationUpload(
+        run_id=run.id,
+        organization_id=organization_id,
+        provider="APPFOLIO",
+        filename=f"{resource.lower()}-{suffix}.csv",
+        file_format="CSV",
+        file_sha256=(suffix[:1] or "a") * 64,
+        normalized_fingerprint=(suffix[-1:] or "b") * 64,
+        detected_resource=resource,
+        sheet_name="Sheet1",
+        headers=["Id"],
+        column_mapping={"Id": "source_id"},
+        validation_summary={"total": 0},
+        status="STAGED",
+        row_count=0,
+        created_by_platform_user_id=run.created_by_platform_user_id,
+    )
+    db.add(upload)
+    db.flush()
+    return upload
+
+
+def _review_summary_row(
+    db,
+    *,
+    run: PlatformMigrationRun,
+    upload: PlatformMigrationUpload,
+    row_number: int,
+    source_id: str,
+    disposition: str,
+    resolution_action: str | None = None,
+    warnings: list[str] | None = None,
+    errors: list[str] | None = None,
+    organization_id: int | None = None,
+) -> PlatformMigrationStagedRow:
+    row = PlatformMigrationStagedRow(
+        upload_id=upload.id,
+        run_id=run.id,
+        organization_id=organization_id or run.organization_id,
+        provider="APPFOLIO",
+        resource=upload.detected_resource,
+        row_number=row_number,
+        source_id=source_id,
+        disposition=disposition,
+        row_fingerprint=(f"{row_number:x}" * 64)[:64],
+        normalized_data={"source_id": source_id},
+        correction_evidence=[],
+        warnings=warnings or [],
+        errors=errors or [],
+        resolution_action=resolution_action,
+    )
+    db.add(row)
+    db.flush()
+    return row
+
+
+def test_appfolio_run_review_summary_mixed_resources_is_read_only_and_no_store():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        support = _platform_user(db, PlatformUserRole.PLATFORM_SUPPORT)
+        org = _org(db, name="Review Summary Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="review-summary",
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        target = Property(
+            organization_id=org.id,
+            name="Existing Review Target",
+            address_line1="1 Review Way",
+            city="Cleveland",
+            state="OH",
+            zip_code="44113",
+            is_active=True,
+        )
+        db.add(target)
+        db.flush()
+
+        properties = _review_summary_upload(
+            db, run=run, organization_id=org.id, resource="PROPERTIES", suffix="a"
+        )
+        general_ledger = _review_summary_upload(
+            db, run=run, organization_id=org.id, resource="GENERAL_LEDGER", suffix="b"
+        )
+        tenants = _review_summary_upload(
+            db, run=run, organization_id=org.id, resource="TENANTS", suffix="c"
+        )
+
+        _review_summary_row(
+            db, run=run, upload=properties, row_number=1,
+            source_id="P-NEW", disposition="NEW",
+            warnings=["descriptive warning"],
+        )
+        matched = _review_summary_row(
+            db, run=run, upload=properties, row_number=2,
+            source_id="P-MATCH", disposition="POSSIBLE_MATCH",
+            resolution_action="MATCH_EXISTING",
+        )
+        matched.resolution_target_id = target.id
+        _review_summary_row(
+            db, run=run, upload=properties, row_number=3,
+            source_id="P-SKIP", disposition="REVIEW",
+            resolution_action="SKIP",
+        )
+
+        _review_summary_row(
+            db, run=run, upload=general_ledger, row_number=1,
+            source_id="GL-ACCEPT", disposition="REVIEW",
+            resolution_action="ACCEPT_RELATIONSHIP",
+        )
+        _review_summary_row(
+            db, run=run, upload=general_ledger, row_number=2,
+            source_id="GL-BAD", disposition="INVALID",
+            errors=["source row invalid"],
+        )
+        _review_summary_row(
+            db, run=run, upload=general_ledger, row_number=3,
+            source_id="GL-POSSIBLE", disposition="POSSIBLE_MATCH",
+            warnings=["needs review"],
+        )
+        _review_summary_row(
+            db, run=run, upload=tenants, row_number=1,
+            source_id="T-MAPPED", disposition="ALREADY_MAPPED",
+        )
+        db.add(
+            PlatformMigrationItem(
+                run_id=run.id,
+                organization_id=org.id,
+                provider="APPFOLIO",
+                resource="TENANTS",
+                source_id="T-MAPPED",
+                target_entity="TENANT_USER",
+                target_id=999999,
+                source_fingerprint="d" * 64,
+                created_by_platform_user_id=admin.id,
+            )
+        )
+
+        properties.row_count = 3
+        general_ledger.row_count = 3
+        tenants.row_count = 1
+        stored_run = db.get(PlatformMigrationRun, run.id)
+        stored_run.last_dry_run_fingerprint = "e" * 64
+        stored_run.last_dry_run_summary = {"resource": "PROPERTIES", "total": 2}
+        stored_run.status = "DRY_RUN_READY"
+        db.commit()
+
+        before = {
+            "uploads": db.query(PlatformMigrationUpload).count(),
+            "rows": db.query(PlatformMigrationStagedRow).count(),
+            "items": db.query(PlatformMigrationItem).count(),
+            "properties": db.query(Property).count(),
+            "units": db.query(Unit).count(),
+            "users": db.query(User).count(),
+            "vendors": db.query(Vendor).count(),
+            "leases": db.query(Lease).count(),
+            "charges": db.query(Charge).count(),
+            "bills": db.query(Bill).count(),
+            "gl_transactions": db.query(GLTransaction).count(),
+            "work_orders": db.query(WorkOrder).count(),
+        }
+
+        response = Response()
+        summary = api.get_appfolio_migration_review_summary(
+            run.id,
+            response=response,
+            db=db,
+            current_user=support,
+        )
+
+        assert response.headers["cache-control"] == "no-store"
+        assert summary.upload_count == 3
+        assert summary.row_count == 7
+        assert summary.new == 1
+        assert summary.possible_matches == 1
+        assert summary.matched_existing == 1
+        assert summary.create_new == 0
+        assert summary.accepted_relationships == 1
+        assert summary.already_imported == 1
+        assert summary.skipped == 1
+        assert summary.invalid == 1
+        assert summary.unresolved_review == 0
+        assert summary.warning_count == 2
+        assert summary.blocking_count == 2
+        assert summary.mapping_count == 1
+        assert summary.dry_run_state == "CURRENT"
+        assert summary.last_dry_run_resource == "PROPERTIES"
+        assert summary.last_dry_run_fingerprint == "e" * 64
+
+        by_resource = {item.resource: item for item in summary.resources}
+        assert by_resource["PROPERTIES"].row_count == 3
+        assert by_resource["PROPERTIES"].new == 1
+        assert by_resource["PROPERTIES"].matched_existing == 1
+        assert by_resource["PROPERTIES"].skipped == 1
+        assert by_resource["GENERAL_LEDGER"].accepted_relationships == 1
+        assert by_resource["GENERAL_LEDGER"].possible_matches == 1
+        assert by_resource["GENERAL_LEDGER"].invalid == 1
+        assert by_resource["GENERAL_LEDGER"].blocking_count == 2
+        assert by_resource["TENANTS"].already_imported == 1
+        assert by_resource["TENANTS"].mapping_count == 1
+
+        after = {
+            "uploads": db.query(PlatformMigrationUpload).count(),
+            "rows": db.query(PlatformMigrationStagedRow).count(),
+            "items": db.query(PlatformMigrationItem).count(),
+            "properties": db.query(Property).count(),
+            "units": db.query(Unit).count(),
+            "users": db.query(User).count(),
+            "vendors": db.query(Vendor).count(),
+            "leases": db.query(Lease).count(),
+            "charges": db.query(Charge).count(),
+            "bills": db.query(Bill).count(),
+            "gl_transactions": db.query(GLTransaction).count(),
+            "work_orders": db.query(WorkOrder).count(),
+        }
+        assert after == before
+        assert db.get(PlatformMigrationRun, run.id).last_dry_run_fingerprint == "e" * 64
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_run_review_summary_filters_inconsistent_org_rows_and_fails_closed_for_role():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        sales = _platform_user(db, PlatformUserRole.PLATFORM_SALES)
+        org = _org(db, name="Review Scope Org")
+        foreign_org = _org(db, name="Review Scope Foreign")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="review-scope",
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        own_upload = _review_summary_upload(
+            db, run=run, organization_id=org.id, resource="PROPERTIES", suffix="f"
+        )
+        foreign_upload = _review_summary_upload(
+            db, run=run, organization_id=foreign_org.id, resource="UNITS", suffix="9"
+        )
+        _review_summary_row(
+            db, run=run, upload=own_upload, row_number=1,
+            source_id="OWN", disposition="REVIEW",
+        )
+        _review_summary_row(
+            db, run=run, upload=foreign_upload, row_number=1,
+            source_id="FOREIGN", disposition="INVALID",
+            errors=["must not leak"],
+            organization_id=foreign_org.id,
+        )
+        own_upload.row_count = 1
+        foreign_upload.row_count = 1
+        db.commit()
+
+        summary = api.get_appfolio_migration_review_summary(
+            run.id,
+            response=Response(),
+            db=db,
+            current_user=admin,
+        )
+        assert summary.upload_count == 1
+        assert summary.row_count == 1
+        assert summary.unresolved_review == 1
+        assert summary.blocking_count == 1
+        assert [item.resource for item in summary.resources] == ["PROPERTIES"]
+        assert summary.dry_run_state == "NONE_OR_STALE"
+
+        with pytest.raises(HTTPException) as exc:
+            api.get_appfolio_migration_review_summary(
+                run.id,
+                response=Response(),
+                db=db,
+                current_user=sales,
+            )
+        assert exc.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_run_review_summary_route_is_exposed():
+    from app.main import app
+
+    assert (
+        "/api/platform/migrations/appfolio/runs/{run_id}/review-summary"
+        in set(app.openapi()["paths"])
+    )
