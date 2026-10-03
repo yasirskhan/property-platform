@@ -415,6 +415,78 @@ CSV/XLSX source contract. If a reliable source schema is not available, record
 that resource-specific blocker and move to the next independently safe resource
 rather than inventing fields.
 
+
+## 4.13 Work Orders ingestion + staging
+
+The first maintenance-history batch uses the shared `WORK_ORDERS` resource and
+existing CSV/XLSX upload/detection/mapping/staging architecture.
+
+The source contract is limited to the current public AppFolio Stack Work Orders
+field inventory:
+
+- `Id`
+- `PropertyId`
+- `UnitId`
+- `Status`
+- `JobDescription`
+- `AssignedUsers`
+- `CanceledOn`
+- `CompletedOn`
+- `PermissionToEnter`
+- `Priority`
+- `ScheduledStart`
+- `ScheduledEnd`
+- `VendorId`
+- `VendorTrade`
+
+Safety boundaries for this staging batch:
+
+1. Automatic detection requires a supplied stable Work Order `Id` plus
+   `PropertyId`, `Status` and `JobDescription`.
+2. Explicit `WORK_ORDERS` staging may preserve a missing Work Order ID for
+   REVIEW/SKIP only; identity is never synthesized from property, unit, vendor,
+   assigned users, status, dates, description or row fingerprint.
+3. Duplicate supplied Work Order IDs fail closed.
+4. Supplied PropertyId, UnitId and VendorId are rechecked only through existing
+   durable migration mappings; unresolved relations remain source evidence.
+5. When both mapped Property and Unit exist, Unit -> Property consistency is
+   required. Stale/wrong-type/cross-organization relationship targets fail
+   closed.
+6. AssignedUsers remains source evidence only because no verified AppFolio
+   user-to-target staff identity contract exists in this batch.
+7. Status, priority, scheduling, completion/cancellation, permission-to-enter
+   and VendorTrade are preserved exactly as source evidence; target maintenance
+   workflow state and assignment semantics are not translated.
+8. Every valid row remains REVIEW-only.
+9. This batch creates or updates zero WorkOrder, Bill, Charge, GLTransaction,
+   GLEntry, inventory, purchase-order, vendor-payment or accounting-balance
+   records.
+10. CSV/XLSX replay remains normalized-fingerprint idempotent; raw source bytes
+    are not persisted.
+11. AppFolio API transport and general UX remain out of scope.
+
+### Work Orders staged relationship reconciliation — next
+
+The next bounded batch may add explicit review actions over already-staged
+`WORK_ORDERS` rows only.
+
+Required boundaries:
+
+1. A row without stable source Work Order `Id` may only be `SKIP`ped.
+2. `ACCEPT_RELATIONSHIP` may snapshot only revalidated durable target
+   Property, optional Unit and optional Vendor relationships.
+3. If source PropertyId/UnitId/VendorId is supplied but unresolved, acceptance
+   must fail closed rather than dropping the source relation.
+4. Unit -> Property consistency must be revalidated at review time.
+5. AssignedUsers, workflow status, priority, dates, permission-to-enter and
+   VendorTrade remain source evidence only.
+6. Resolution changes must invalidate prior dry-run state, participate in the
+   shared staged-review fingerprint and be append-only audited.
+7. Exact replay of the same accepted relationship must be idempotent.
+8. No WorkOrder or accounting record may be created or updated in this
+   reconciliation batch.
+
+
 ## 5. File/report detection and column mapping
 
 The same AppFolio concept may arrive under different header spellings or export
