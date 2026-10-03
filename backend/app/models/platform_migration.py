@@ -156,6 +156,7 @@ class PlatformMigrationStagedRow(Base):
     disposition = Column(String(32), nullable=False, index=True)
     row_fingerprint = Column(String(64), nullable=False, index=True)
     normalized_data = Column(JSON, nullable=False)
+    correction_evidence = Column(JSON, nullable=False, default=list, server_default="[]")
     warnings = Column(JSON, nullable=False)
     errors = Column(JSON, nullable=False)
     resolution_action = Column(String(32), nullable=True, index=True)
