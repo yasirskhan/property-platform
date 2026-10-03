@@ -38,6 +38,7 @@ from app.schemas.platform_migration import (
     AppFolioStagedLeaseOccupancyResolutionIn,
     AppFolioStagedGLAccountResolutionIn,
     AppFolioStagedGeneralLedgerResolutionIn,
+    AppFolioStagedBillResolutionIn,
     AppFolioStagedGLAccountCommitIn,
     AppFolioStagedTenantCommitIn,
     AppFolioStagedVendorCommitIn,
@@ -6740,6 +6741,255 @@ def test_appfolio_bills_xlsx_multisheet_autodetects_and_replays_without_bill_cre
         )
         assert replay.replayed is True
         assert replay.id == first.id
+        assert db.query(Bill).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio Bills staged relationship reconciliation
+# ---------------------------------------------------------------------------
+
+def test_appfolio_bills_relationship_acceptance_replays_and_does_not_mutate_bills():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Bills Resolve Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="bills-resolve",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        prop, vendor = _seed_bill_source_mappings(db, run=run, org=org)
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "bills-resolve.csv",
+                    (
+                        "Bill ID,VendorId,PropertyId,DueDate,TotalAmount,Reference\n"
+                        "BILL-RESOLVE-1,VENDOR-BILL-1,PROP-BILL-1,2026-08-01,325.50,INV-RESOLVE\n"
+                    ).encode(),
+                ),
+                resource="BILLS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        before_fingerprint = api._staged_review_fingerprint(upload, [row])
+        before_bills = db.query(Bill).count()
+        before_gl = db.query(GLTransaction).count()
+        before_charges = db.query(Charge).count()
+        before_vendors = db.query(Vendor).count()
+
+        resolved = api.resolve_staged_appfolio_bill(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedBillResolutionIn(action="ACCEPT_RELATIONSHIP"),
+            db=db,
+            current_user=admin,
+        )
+        assert resolved.resolution_action == "ACCEPT_RELATIONSHIP"
+        assert resolved.resolution_target_vendor_id == vendor.id
+        assert resolved.resolution_target_id == prop.id
+        assert resolved.resolution_target_unit_id is None
+        assert resolved.resolution_target_owner_user_id is None
+        assert resolved.resolution_target_tenant_user_id is None
+        assert resolved.resolution_target_gl_account_id is None
+        assert api._staged_review_fingerprint(upload, [resolved]) != before_fingerprint
+        db.refresh(run)
+        assert run.last_dry_run_fingerprint is None
+        assert run.last_dry_run_summary is None
+
+        audit_count = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_staged_row",
+            AuditLog.entity_id == row.id,
+            AuditLog.action == "appfolio_bill_resolution_changed",
+        ).count()
+        assert audit_count == 1
+
+        replay = api.resolve_staged_appfolio_bill(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedBillResolutionIn(action="ACCEPT_RELATIONSHIP"),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.id == row.id
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_staged_row",
+            AuditLog.entity_id == row.id,
+            AuditLog.action == "appfolio_bill_resolution_changed",
+        ).count() == audit_count
+
+        assert db.query(Bill).count() == before_bills
+        assert db.query(GLTransaction).count() == before_gl
+        assert db.query(Charge).count() == before_charges
+        assert db.query(Vendor).count() == before_vendors
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_bills_missing_identity_or_unresolved_vendor_may_only_skip_or_fail_closed():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="Bills Resolve Guard Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="bills-resolve-guard",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "bills-resolve-guard.csv",
+                    (
+                        "Bill ID,VendorId,PropertyId,DueDate,TotalAmount\n"
+                        ",VENDOR-NO-MAP,,2026-08-02,100.00\n"
+                        "BILL-NO-VENDOR-MAP,VENDOR-NO-MAP,,2026-08-03,110.00\n"
+                    ).encode(),
+                ),
+                resource="BILLS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+
+        with pytest.raises(HTTPException) as exc:
+            api.resolve_staged_appfolio_bill(
+                run.id,
+                upload.id,
+                rows[0].id,
+                AppFolioStagedBillResolutionIn(action="ACCEPT_RELATIONSHIP"),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "Bill ID" in exc.value.detail
+
+        skipped = api.resolve_staged_appfolio_bill(
+            run.id,
+            upload.id,
+            rows[0].id,
+            AppFolioStagedBillResolutionIn(action="SKIP"),
+            db=db,
+            current_user=admin,
+        )
+        assert skipped.resolution_action == "SKIP"
+        assert skipped.resolution_target_vendor_id is None
+        assert skipped.resolution_target_id is None
+
+        with pytest.raises(HTTPException) as exc:
+            api.resolve_staged_appfolio_bill(
+                run.id,
+                upload.id,
+                rows[1].id,
+                AppFolioStagedBillResolutionIn(action="ACCEPT_RELATIONSHIP"),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "durable VENDOR mapping" in exc.value.detail
+        assert db.query(Bill).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_bills_acceptance_revalidates_optional_property_and_active_vendor_scope():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_DEV)
+        org = _org(db, name="Bills Resolve Scope Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="bills-resolve-scope",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        prop, vendor = _seed_bill_source_mappings(db, run=run, org=org)
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "bills-resolve-scope.csv",
+                    (
+                        "Bill ID,VendorId,PropertyId,DueDate,TotalAmount\n"
+                        "BILL-SCOPE-1,VENDOR-BILL-1,PROP-BILL-1,2026-08-04,120.00\n"
+                    ).encode(),
+                ),
+                resource="BILLS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+
+        property_mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "PROPERTIES",
+            PlatformMigrationItem.source_id == "PROP-BILL-1",
+        ).one()
+        property_mapping.target_entity = "UNIT"
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.resolve_staged_appfolio_bill(
+                run.id,
+                upload.id,
+                row.id,
+                AppFolioStagedBillResolutionIn(action="ACCEPT_RELATIONSHIP"),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "durable PROPERTY mapping" in exc.value.detail
+
+        property_mapping.target_entity = "PROPERTY"
+        vendor.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.resolve_staged_appfolio_bill(
+                run.id,
+                upload.id,
+                row.id,
+                AppFolioStagedBillResolutionIn(action="ACCEPT_RELATIONSHIP"),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "Vendor is no longer active" in exc.value.detail
+        assert db.get(Property, prop.id).is_active is True
         assert db.query(Bill).count() == 0
         assert db.query(GLTransaction).count() == 0
     finally:
