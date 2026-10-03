@@ -13,7 +13,12 @@ import init_db  # noqa: F401
 from app.core.database import Base
 from app.core.security import hash_password
 from app.models.audit_log import AuditLog
-from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
+from app.models.platform_migration import (
+    PlatformMigrationItem,
+    PlatformMigrationRun,
+    PlatformMigrationStagedRow,
+    PlatformMigrationUpload,
+)
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.property import Property, PropertyOwner, Unit
 from app.models.lease import Lease
@@ -27,6 +32,7 @@ from app.models.vendor import Vendor
 from app.routers import platform_migrations as api
 from app.schemas.platform_migration import (
     AppFolioMigrationRunCreateIn,
+    AppFolioStagedRowCorrectionIn,
     AppFolioPropertyCommitIn,
     AppFolioPropertyDryRunIn,
     AppFolioStagedPropertyCommitIn,
@@ -9044,6 +9050,252 @@ def test_appfolio_migration_coverage_enforces_platform_view_role_and_never_claim
                 run.id, response=Response(), db=db, current_user=sales
             )
         assert exc.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+def test_appfolio_staged_correction_preserves_source_and_invalidates_preview():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Correction Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="correction-run",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        upload = PlatformMigrationUpload(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="APPFOLIO",
+            filename="properties.csv",
+            file_format="CSV",
+            file_sha256="1" * 64,
+            normalized_fingerprint="2" * 64,
+            detected_resource="PROPERTIES",
+            sheet_name="CSV",
+            headers=["Id", "Name", "City"],
+            column_mapping={"Id": "source_id", "Name": "name", "City": "city"},
+            validation_summary={"valid": 1},
+            status="STAGED",
+            row_count=1,
+            created_by_platform_user_id=admin.id,
+        )
+        db.add(upload)
+        db.flush()
+        row = PlatformMigrationStagedRow(
+            upload_id=upload.id,
+            run_id=run.id,
+            organization_id=org.id,
+            provider="APPFOLIO",
+            resource="PROPERTIES",
+            row_number=2,
+            source_id="AF-CORR-1",
+            disposition="NEW",
+            row_fingerprint="3" * 64,
+            normalized_data={
+                "source_id": "AF-CORR-1",
+                "name": "Apt Bldg",
+                "city": "Cleveland",
+            },
+            warnings=[],
+            errors=[],
+        )
+        db.add(row)
+        run.last_dry_run_fingerprint = "4" * 64
+        run.last_dry_run_summary = {"resource": "PROPERTIES"}
+        run.status = "DRY_RUN_READY"
+        db.commit()
+        db.refresh(row)
+        db.refresh(upload)
+        db.refresh(run)
+
+        source_upload_fingerprint = upload.normalized_fingerprint
+        source_row_fingerprint = row.row_fingerprint
+        before_review = api._staged_review_fingerprint(upload, [row])
+        before_properties = db.query(Property).count()
+        before_charges = db.query(Charge).count()
+        before_gl = db.query(GLTransaction).count()
+        audit_before = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_staged_row",
+            AuditLog.entity_id == row.id,
+            AuditLog.action == "appfolio_staged_value_corrected",
+        ).count()
+
+        corrected = api.correct_appfolio_staged_row(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedRowCorrectionIn(
+                field_name="name",
+                corrected_value="Apartment Building",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert corrected.normalized_data["name"] == "Apartment Building"
+        assert corrected.source_id == "AF-CORR-1"
+        assert corrected.row_fingerprint == source_row_fingerprint
+        assert upload.normalized_fingerprint == source_upload_fingerprint
+
+        db.refresh(run)
+        assert run.last_dry_run_fingerprint is None
+        assert run.last_dry_run_summary is None
+        assert run.status == "STAGED"
+        after_review = api._staged_review_fingerprint(upload, [corrected])
+        assert after_review != before_review
+
+        audit_rows = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_staged_row",
+            AuditLog.entity_id == row.id,
+            AuditLog.action == "appfolio_staged_value_corrected",
+        ).all()
+        assert len(audit_rows) == audit_before + 1
+        audit = audit_rows[-1]
+        assert audit.old_value["field_name"] == "name"
+        assert audit.old_value["value"] == "Apt Bldg"
+        assert audit.new_value["value"] == "Apartment Building"
+        assert audit.new_value["source_file_rewritten"] is False
+        assert audit.new_value["customer_target_mutation"] is False
+        assert audit.new_value["accounting_mutation"] is False
+
+        replay = api.correct_appfolio_staged_row(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedRowCorrectionIn(
+                field_name="name",
+                corrected_value="Apartment Building",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.normalized_data["name"] == "Apartment Building"
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_staged_row",
+            AuditLog.entity_id == row.id,
+            AuditLog.action == "appfolio_staged_value_corrected",
+        ).count() == audit_before + 1
+
+        assert db.query(Property).count() == before_properties
+        assert db.query(Charge).count() == before_charges
+        assert db.query(GLTransaction).count() == before_gl
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_staged_correction_blocks_identity_invalid_rows_and_nonwrite_roles():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        support = _platform_user(db, PlatformUserRole.PLATFORM_SUPPORT)
+        org = _org(db, name="Correction Guard Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="correction-guards",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        upload = PlatformMigrationUpload(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="APPFOLIO",
+            filename="properties.csv",
+            file_format="CSV",
+            file_sha256="5" * 64,
+            normalized_fingerprint="6" * 64,
+            detected_resource="PROPERTIES",
+            sheet_name="CSV",
+            headers=["Id", "Name"],
+            column_mapping={"Id": "source_id", "Name": "name"},
+            validation_summary={"valid": 1, "invalid": 1},
+            status="STAGED",
+            row_count=2,
+            created_by_platform_user_id=admin.id,
+        )
+        db.add(upload)
+        db.flush()
+        safe = PlatformMigrationStagedRow(
+            upload_id=upload.id,
+            run_id=run.id,
+            organization_id=org.id,
+            provider="APPFOLIO",
+            resource="PROPERTIES",
+            row_number=2,
+            source_id="AF-SAFE",
+            disposition="NEW",
+            row_fingerprint="7" * 64,
+            normalized_data={"source_id": "AF-SAFE", "name": "Safe Name"},
+            warnings=[],
+            errors=[],
+        )
+        invalid = PlatformMigrationStagedRow(
+            upload_id=upload.id,
+            run_id=run.id,
+            organization_id=org.id,
+            provider="APPFOLIO",
+            resource="PROPERTIES",
+            row_number=3,
+            source_id=None,
+            disposition="INVALID",
+            row_fingerprint="8" * 64,
+            normalized_data={"source_id": None, "name": "Invalid Name"},
+            warnings=[],
+            errors=["Source property identity is missing."],
+        )
+        db.add_all([safe, invalid])
+        db.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            api.correct_appfolio_staged_row(
+                run.id,
+                upload.id,
+                safe.id,
+                AppFolioStagedRowCorrectionIn(
+                    field_name="source_id",
+                    corrected_value="SYNTHETIC-ID",
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        with pytest.raises(HTTPException) as exc:
+            api.correct_appfolio_staged_row(
+                run.id,
+                upload.id,
+                invalid.id,
+                AppFolioStagedRowCorrectionIn(
+                    field_name="name",
+                    corrected_value="Cannot Rescue",
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        with pytest.raises(HTTPException) as exc:
+            api.correct_appfolio_staged_row(
+                run.id,
+                upload.id,
+                safe.id,
+                AppFolioStagedRowCorrectionIn(
+                    field_name="name",
+                    corrected_value="Support Change",
+                ),
+                db=db,
+                current_user=support,
+            )
+        assert exc.value.status_code == 403
+        assert db.get(PlatformMigrationStagedRow, safe.id).normalized_data["name"] == "Safe Name"
     finally:
         db.close()
         engine.dispose()
