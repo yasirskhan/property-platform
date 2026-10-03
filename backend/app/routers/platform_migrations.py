@@ -55,6 +55,7 @@ from app.schemas.platform_migration import (
     AppFolioStagedGeneralLedgerResolutionIn,
     AppFolioStagedBillResolutionIn,
     AppFolioStagedChargeResolutionIn,
+    AppFolioStagedWorkOrderResolutionIn,
     AppFolioStagedGLAccountCommitIn,
     AppFolioGLAccountCommitOut,
     AppFolioGLAccountDryRunOut,
@@ -3129,6 +3130,224 @@ def resolve_staged_appfolio_bill(
             "accepted_for_later_commit": row.resolution_action == "ACCEPT_RELATIONSHIP",
             "target_bill_mutation": False,
             "accounting_history_mutation": False,
+        },
+    )
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/rows/{staged_row_id}/work-order-resolution",
+    response_model=AppFolioMigrationStagedRowOut,
+)
+def resolve_staged_appfolio_work_order(
+    run_id: int,
+    upload_id: int,
+    staged_row_id: int,
+    payload: AppFolioStagedWorkOrderResolutionIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    if upload.detected_resource != "WORK_ORDERS":
+        raise HTTPException(
+            status_code=409,
+            detail="Only staged WORK_ORDERS rows can be resolved here.",
+        )
+    row = _staged_row(db, run=run, upload=upload, staged_row_id=staged_row_id)
+    if row.resource != "WORK_ORDERS" or row.errors or row.disposition == "INVALID":
+        raise HTTPException(
+            status_code=409,
+            detail="Invalid staged Work Order rows cannot be resolved.",
+        )
+    if not row.source_id and payload.action != "SKIP":
+        raise HTTPException(
+            status_code=409,
+            detail="Work Order rows without a durable Work Order ID may only be skipped.",
+        )
+
+    target_property_id = None
+    target_unit_id = None
+    target_vendor_id = None
+
+    if payload.action == "ACCEPT_RELATIONSHIP":
+        data = dict(row.normalized_data or {})
+        source_property_id = str(data.get("source_property_id") or "").strip()
+        source_unit_id = str(data.get("source_unit_id") or "").strip()
+        source_vendor_id = str(data.get("source_vendor_id") or "").strip()
+
+        if not source_property_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Work Order relationship requires a source PropertyId.",
+            )
+
+        property_mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "APPFOLIO",
+                PlatformMigrationItem.resource == "PROPERTIES",
+                PlatformMigrationItem.source_id == source_property_id,
+            )
+            .first()
+        )
+        if property_mapping is None or property_mapping.target_entity != "PROPERTY":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Supplied Work Order PropertyId must have a durable PROPERTY "
+                    "mapping before acceptance."
+                ),
+            )
+        target_property = (
+            db.query(Property)
+            .filter(
+                Property.id == property_mapping.target_id,
+                Property.organization_id == run.organization_id,
+                Property.is_active.is_(True),
+                Property.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if target_property is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Mapped Work Order Property is no longer active in this organization.",
+            )
+        target_property_id = target_property.id
+
+        target_unit = None
+        if source_unit_id:
+            unit_mapping = (
+                db.query(PlatformMigrationItem)
+                .filter(
+                    PlatformMigrationItem.run_id == run.id,
+                    PlatformMigrationItem.organization_id == run.organization_id,
+                    PlatformMigrationItem.provider == "APPFOLIO",
+                    PlatformMigrationItem.resource == "UNITS",
+                    PlatformMigrationItem.source_id == source_unit_id,
+                )
+                .first()
+            )
+            if unit_mapping is None or unit_mapping.target_entity != "UNIT":
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Supplied Work Order UnitId must have a durable UNIT "
+                        "mapping before acceptance."
+                    ),
+                )
+            target_unit = (
+                db.query(Unit)
+                .join(Property, Property.id == Unit.property_id)
+                .filter(
+                    Unit.id == unit_mapping.target_id,
+                    Unit.is_active.is_(True),
+                    Unit.deleted_at.is_(None),
+                    Property.organization_id == run.organization_id,
+                    Property.is_active.is_(True),
+                    Property.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target_unit is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Mapped Work Order Unit is no longer active in this organization.",
+                )
+            if target_unit.property_id != target_property.id:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Mapped Work Order Unit does not belong to the mapped Property.",
+                )
+            target_unit_id = target_unit.id
+
+        if source_vendor_id:
+            vendor_mapping = (
+                db.query(PlatformMigrationItem)
+                .filter(
+                    PlatformMigrationItem.run_id == run.id,
+                    PlatformMigrationItem.organization_id == run.organization_id,
+                    PlatformMigrationItem.provider == "APPFOLIO",
+                    PlatformMigrationItem.resource == "VENDORS",
+                    PlatformMigrationItem.source_id == source_vendor_id,
+                )
+                .first()
+            )
+            if vendor_mapping is None or vendor_mapping.target_entity != "VENDOR":
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Supplied Work Order VendorId must have a durable VENDOR "
+                        "mapping before acceptance."
+                    ),
+                )
+            target_vendor = (
+                db.query(Vendor)
+                .filter(
+                    Vendor.id == vendor_mapping.target_id,
+                    Vendor.organization_id == run.organization_id,
+                    Vendor.is_active.is_(True),
+                    Vendor.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target_vendor is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Mapped Work Order Vendor is no longer active in this organization.",
+                )
+            target_vendor_id = target_vendor.id
+
+    if (
+        row.resolution_action == payload.action
+        and row.resolution_target_id == target_property_id
+        and row.resolution_target_unit_id == target_unit_id
+        and row.resolution_target_vendor_id == target_vendor_id
+        and row.resolution_target_owner_user_id is None
+        and row.resolution_target_tenant_user_id is None
+        and row.resolution_target_gl_account_id is None
+    ):
+        return row
+
+    row.resolution_action = payload.action
+    row.resolution_target_id = target_property_id
+    row.resolution_target_unit_id = target_unit_id
+    row.resolution_target_vendor_id = target_vendor_id
+    row.resolution_target_owner_user_id = None
+    row.resolution_target_tenant_user_id = None
+    row.resolution_target_gl_account_id = None
+    row.resolved_by_platform_user_id = current_user.id
+    row.resolved_at = datetime.utcnow()
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    run.status = "STAGED"
+    append_audit_log(
+        db,
+        platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_staged_row",
+        entity_id=row.id,
+        action="appfolio_work_order_resolution_changed",
+        new_value={
+            "upload_id": upload.id,
+            "source_work_order_id": row.source_id,
+            "source_property_id": (row.normalized_data or {}).get("source_property_id"),
+            "source_unit_id": (row.normalized_data or {}).get("source_unit_id"),
+            "source_vendor_id": (row.normalized_data or {}).get("source_vendor_id"),
+            "resolution_action": row.resolution_action,
+            "resolution_target_id": row.resolution_target_id,
+            "resolution_target_unit_id": row.resolution_target_unit_id,
+            "resolution_target_vendor_id": row.resolution_target_vendor_id,
+            "accepted_for_later_commit": row.resolution_action == "ACCEPT_RELATIONSHIP",
+            "assigned_users_inferred": False,
+            "workflow_state_inferred": False,
+            "target_work_order_mutation": False,
+            "accounting_mutation": False,
         },
     )
     db.commit()
