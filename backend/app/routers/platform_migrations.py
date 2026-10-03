@@ -38,6 +38,7 @@ from app.schemas.platform_migration import (
     AppFolioMigrationStagedRowOut,
     AppFolioMigrationUploadOut,
     AppFolioMigrationCoverageOut,
+    AppFolioMigrationReviewSummaryOut,
     AppFolioMigrationCorrectionRuleCreateIn,
     AppFolioMigrationCorrectionRuleUpdateIn,
     AppFolioMigrationCorrectionRuleOut,
@@ -5623,6 +5624,189 @@ def get_appfolio_migration_coverage(
         ),
         items=items,
         blockers=top_level_blockers,
+    )
+
+
+@router.get(
+    "/runs/{run_id}/review-summary",
+    response_model=AppFolioMigrationReviewSummaryOut,
+)
+def get_appfolio_migration_review_summary(
+    run_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Read-only run-level staged review/readiness summary.
+
+    This aggregates durable staging/review/mapping evidence only. It does not
+    infer accounting completeness, target mutation readiness or financial
+    commit safety beyond the already-recorded staged review state.
+    """
+    run = _run(db, run_id=run_id, current_user=current_user, write=False)
+    uploads = (
+        db.query(PlatformMigrationUpload)
+        .filter(
+            PlatformMigrationUpload.run_id == run.id,
+            PlatformMigrationUpload.organization_id == run.organization_id,
+            PlatformMigrationUpload.provider == "APPFOLIO",
+        )
+        .order_by(PlatformMigrationUpload.id.asc())
+        .all()
+    )
+    rows = (
+        db.query(PlatformMigrationStagedRow)
+        .filter(
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "APPFOLIO",
+        )
+        .order_by(
+            PlatformMigrationStagedRow.resource.asc(),
+            PlatformMigrationStagedRow.upload_id.asc(),
+            PlatformMigrationStagedRow.row_number.asc(),
+            PlatformMigrationStagedRow.id.asc(),
+        )
+        .all()
+    )
+    mappings = (
+        db.query(PlatformMigrationItem)
+        .filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "APPFOLIO",
+        )
+        .all()
+    )
+
+    uploads_by_resource: dict[str, int] = {}
+    for upload in uploads:
+        uploads_by_resource[upload.detected_resource] = (
+            uploads_by_resource.get(upload.detected_resource, 0) + 1
+        )
+
+    mappings_by_resource: dict[str, int] = {}
+    for mapping in mappings:
+        mappings_by_resource[mapping.resource] = (
+            mappings_by_resource.get(mapping.resource, 0) + 1
+        )
+
+    def blank_counts() -> dict[str, int]:
+        return {
+            "row_count": 0,
+            "new": 0,
+            "possible_matches": 0,
+            "matched_existing": 0,
+            "create_new": 0,
+            "accepted_relationships": 0,
+            "already_imported": 0,
+            "skipped": 0,
+            "invalid": 0,
+            "unresolved_review": 0,
+            "warning_count": 0,
+            "blocking_count": 0,
+        }
+
+    by_resource: dict[str, dict[str, int]] = {}
+    totals = blank_counts()
+
+    for row in rows:
+        counts = by_resource.setdefault(row.resource, blank_counts())
+        for bucket in (counts, totals):
+            bucket["row_count"] += 1
+            bucket["warning_count"] += len(row.warnings or [])
+
+        action = row.resolution_action
+        disposition = row.disposition
+        has_errors = bool(row.errors)
+
+        if action == "SKIP":
+            for bucket in (counts, totals):
+                bucket["skipped"] += 1
+            # Explicit SKIP is a resolved review decision; an INVALID/error row
+            # still remains invalid evidence and cannot be represented as safe.
+            if disposition == "INVALID" or has_errors:
+                for bucket in (counts, totals):
+                    bucket["invalid"] += 1
+                    bucket["blocking_count"] += 1
+            continue
+
+        if disposition == "INVALID" or has_errors:
+            for bucket in (counts, totals):
+                bucket["invalid"] += 1
+                bucket["blocking_count"] += 1
+            continue
+
+        if action == "MATCH_EXISTING":
+            for bucket in (counts, totals):
+                bucket["matched_existing"] += 1
+            continue
+        if action == "CREATE_NEW":
+            for bucket in (counts, totals):
+                bucket["create_new"] += 1
+            continue
+        if action == "ACCEPT_RELATIONSHIP":
+            for bucket in (counts, totals):
+                bucket["accepted_relationships"] += 1
+            continue
+
+        if disposition == "ALREADY_MAPPED":
+            for bucket in (counts, totals):
+                bucket["already_imported"] += 1
+        elif disposition == "POSSIBLE_MATCH":
+            for bucket in (counts, totals):
+                bucket["possible_matches"] += 1
+                bucket["blocking_count"] += 1
+        elif disposition == "REVIEW":
+            for bucket in (counts, totals):
+                bucket["unresolved_review"] += 1
+                bucket["blocking_count"] += 1
+        elif disposition == "NEW":
+            for bucket in (counts, totals):
+                bucket["new"] += 1
+        else:
+            # Unknown staged dispositions are surfaced conservatively as review
+            # blockers instead of being silently treated as importable.
+            for bucket in (counts, totals):
+                bucket["unresolved_review"] += 1
+                bucket["blocking_count"] += 1
+
+    resources = []
+    all_resources = sorted(
+        set(uploads_by_resource) | set(by_resource) | set(mappings_by_resource)
+    )
+    for resource in all_resources:
+        counts = by_resource.get(resource, blank_counts())
+        resources.append(
+            {
+                "resource": resource,
+                "upload_count": uploads_by_resource.get(resource, 0),
+                **counts,
+                "mapping_count": mappings_by_resource.get(resource, 0),
+            }
+        )
+
+    last_summary = dict(run.last_dry_run_summary or {})
+    last_resource = last_summary.get("resource")
+    if run.last_dry_run_fingerprint:
+        dry_run_state = "CURRENT"
+    elif run.status == "STAGED" and (uploads or rows or mappings):
+        dry_run_state = "NONE_OR_STALE"
+    else:
+        dry_run_state = "NONE"
+
+    response.headers["Cache-Control"] = "no-store"
+    return AppFolioMigrationReviewSummaryOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        upload_count=len(uploads),
+        mapping_count=len(mappings),
+        dry_run_state=dry_run_state,
+        last_dry_run_resource=(str(last_resource) if last_resource else None),
+        last_dry_run_fingerprint=run.last_dry_run_fingerprint,
+        resources=resources,
+        **totals,
     )
 
 
