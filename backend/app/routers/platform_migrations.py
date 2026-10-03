@@ -36,6 +36,7 @@ from app.schemas.platform_migration import (
     AppFolioMigrationRunOut,
     AppFolioMigrationStagedRowOut,
     AppFolioMigrationUploadOut,
+    AppFolioMigrationCoverageOut,
     AppFolioStagedPropertyCommitIn,
     AppFolioStagedRowResolutionIn,
     AppFolioPropertyCommitIn,
@@ -111,6 +112,66 @@ _WRITE_ROLES = {
     PlatformUserRole.PLATFORM_ADMIN,
     PlatformUserRole.PLATFORM_TECH,
     PlatformUserRole.PLATFORM_DEV,
+}
+
+
+_MIGRATION_COVERAGE_RESOURCES: tuple[tuple[str, str], ...] = (
+    ("PROPERTIES", "Properties"),
+    ("UNITS", "Units"),
+    ("OWNERS", "Owners"),
+    ("VENDORS", "Vendors"),
+    ("TENANTS", "Tenants"),
+    ("LEASE_OCCUPANCY", "Lease / occupancy"),
+    ("GL_ACCOUNTS", "GL Accounts"),
+    ("GENERAL_LEDGER", "General Ledger"),
+    ("BILLS", "Bills / payables"),
+    ("CHARGES", "Charges / receivables"),
+    ("SECURITY_DEPOSITS", "Security Deposits"),
+    ("WORK_ORDERS", "Work Orders"),
+    ("DOCUMENTS", "Attachments / Documents"),
+)
+
+_MIGRATION_PARTIAL_BLOCKERS: dict[str, str] = {
+    "LEASE_OCCUPANCY": (
+        "Lease/occupancy controlled commit is not yet verified from the current "
+        "staged relationship contract."
+    ),
+    "GENERAL_LEDGER": (
+        "Historical General Ledger controlled commit is not yet verified; "
+        "staging/dry-run/readiness are not equivalent to booked accounting history."
+    ),
+    "BILLS": (
+        "Bills controlled commit is blocked on verified source line-item GL "
+        "allocations and deterministic business-date/posting semantics."
+    ),
+    "CHARGES": (
+        "Charges controlled commit is blocked on verified Occupancy/tenant identity "
+        "and original-charge/payment semantics."
+    ),
+    "WORK_ORDERS": (
+        "Work Orders controlled commit is blocked because target WorkOrder requires "
+        "a verified Unit and tenant/requester identity that the current source "
+        "contract does not provide safely."
+    ),
+}
+
+_MIGRATION_SOURCE_SCHEMA_BLOCKERS: dict[str, str] = {
+    "SECURITY_DEPOSITS": (
+        "No authoritative Security Deposit report CSV/XLSX field contract is "
+        "verified; automatic ingestion must remain disabled."
+    ),
+    "DOCUMENTS": (
+        "No authoritative Attachments/Documents CSV/XLSX or API field contract "
+        "is verified for automatic migration mapping."
+    ),
+}
+
+_ACCOUNTING_COVERAGE_RESOURCES = {
+    "GL_ACCOUNTS",
+    "GENERAL_LEDGER",
+    "BILLS",
+    "CHARGES",
+    "SECURITY_DEPOSITS",
 }
 
 
@@ -5262,6 +5323,114 @@ def list_appfolio_uploads(
     )
     response.headers["Cache-Control"] = "no-store"
     return [_upload_out(row, replayed=False) for row in rows]
+
+
+@router.get(
+    "/runs/{run_id}/coverage",
+    response_model=AppFolioMigrationCoverageOut,
+)
+def get_appfolio_migration_coverage(
+    run_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=False)
+    uploads = (
+        db.query(PlatformMigrationUpload)
+        .filter(
+            PlatformMigrationUpload.run_id == run.id,
+            PlatformMigrationUpload.organization_id == run.organization_id,
+            PlatformMigrationUpload.provider == "APPFOLIO",
+        )
+        .order_by(
+            PlatformMigrationUpload.created_at.asc(),
+            PlatformMigrationUpload.id.asc(),
+        )
+        .all()
+    )
+
+    by_resource: dict[str, list[PlatformMigrationUpload]] = {}
+    for upload in uploads:
+        by_resource.setdefault(upload.detected_resource, []).append(upload)
+
+    items: list[dict[str, object]] = []
+    top_level_blockers: list[str] = []
+    supplied_count = 0
+    partial_count = 0
+    missing_count = 0
+    blocked_count = 0
+
+    for resource, label in _MIGRATION_COVERAGE_RESOURCES:
+        resource_uploads = by_resource.get(resource, [])
+        blockers: list[str] = []
+        if resource in _MIGRATION_SOURCE_SCHEMA_BLOCKERS:
+            state = "BLOCKED"
+            blockers.append(_MIGRATION_SOURCE_SCHEMA_BLOCKERS[resource])
+            blocked_count += 1
+        elif not resource_uploads:
+            state = "MISSING"
+            missing_count += 1
+        elif resource in _MIGRATION_PARTIAL_BLOCKERS:
+            state = "PARTIAL"
+            blockers.append(_MIGRATION_PARTIAL_BLOCKERS[resource])
+            partial_count += 1
+        else:
+            state = "SUPPLIED"
+            supplied_count += 1
+
+        if blockers:
+            top_level_blockers.extend(
+                f"{label}: {blocker}" for blocker in blockers
+            )
+        items.append(
+            {
+                "resource": resource,
+                "label": label,
+                "state": state,
+                "upload_count": len(resource_uploads),
+                "row_count": sum(int(upload.row_count or 0) for upload in resource_uploads),
+                "latest_upload_status": (
+                    resource_uploads[-1].status if resource_uploads else None
+                ),
+                "blockers": blockers,
+            }
+        )
+
+    state_by_resource = {str(item["resource"]): str(item["state"]) for item in items}
+    accounting_complete = all(
+        state_by_resource.get(resource) == "SUPPLIED"
+        for resource in _ACCOUNTING_COVERAGE_RESOURCES
+    )
+    if not accounting_complete:
+        top_level_blockers.append(
+            "Accounting migration is not complete until every required accounting "
+            "source family is supplied under a verified commit-safe contract and "
+            "the applicable reconciliation controls pass."
+        )
+
+    operational_resources = {"PROPERTIES", "UNITS", "OWNERS", "VENDORS", "TENANTS"}
+    partial_operational_migration_may_be_possible = any(
+        state_by_resource.get(resource) == "SUPPLIED"
+        for resource in operational_resources
+    )
+
+    response.headers["Cache-Control"] = "no-store"
+    return AppFolioMigrationCoverageOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        supplied_count=supplied_count,
+        partial_count=partial_count,
+        missing_count=missing_count,
+        blocked_count=blocked_count,
+        accounting_complete=accounting_complete,
+        partial_operational_migration_may_be_possible=(
+            partial_operational_migration_may_be_possible
+        ),
+        items=items,
+        blockers=top_level_blockers,
+    )
 
 
 @router.get(
