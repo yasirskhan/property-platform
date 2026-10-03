@@ -15,6 +15,7 @@ from app.core.database import Base, engine
 from app.models.user import User, Organization  # noqa: F401
 from app.models.platform_user import PlatformUser  # noqa: F401
 from app.models.platform_migration import (  # noqa: F401
+    PlatformMigrationCorrectionRule,
     PlatformMigrationItem,
     PlatformMigrationRun,
     PlatformMigrationStagedRow,
