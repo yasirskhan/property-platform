@@ -278,6 +278,55 @@ Safety boundaries for this staging batch:
    are not persisted.
 10. No AppFolio API transport or general UX work is added.
 
+## 4.13 Charges / Receivables ingestion + staging
+
+The first Charges/Receivables batch uses the shared `CHARGES` resource and
+existing CSV/XLSX upload/detection/mapping/staging architecture.
+
+The source contract is intentionally limited to the current public AppFolio
+Stack Charges field inventory:
+
+- `Id`
+- `AmountDue`
+- `ChargedOn`
+- `Description`
+- `GlAccountId`
+- `OccupancyId`
+
+These fields remain source evidence until later reconciliation proves a safe
+target contract.
+
+Safety boundaries:
+
+1. Automatic detection requires a supplied stable Charge `Id` plus
+   `AmountDue`, `ChargedOn`, `GlAccountId` and `OccupancyId`.
+2. Explicit CHARGES staging may preserve a missing Charge ID for REVIEW/SKIP,
+   but never synthesizes identity from occupancy, account, date, description,
+   row order, fingerprint or amount.
+3. `AmountDue` is the source current outstanding amount. It is not treated as
+   original target `Charge.amount`, amount paid, paid/unpaid status, rent,
+   reconciled receivable balance or tenant liability.
+4. `GlAccountId` is considered resolved only through an existing durable
+   `GL_ACCOUNTS -> GL_ACCOUNT` source mapping to an active
+   same-organization target.
+5. `OccupancyId` is preserved only as source evidence in this batch. The
+   current migration architecture has no independently verified durable
+   occupancy source-to-target mapping, so no tenant, Lease, Unit or Property is
+   inferred from it.
+6. `ChargedOn` and `Description` remain source evidence and are not promoted
+   into customer records.
+7. Duplicate supplied Charge IDs fail closed. Source `AmountDue` must be
+   numeric, but its sign is not reinterpreted into unsupported payment/credit
+   semantics.
+8. Every valid row remains REVIEW-only. GL mapping availability does not make
+   the charge commit-ready while Occupancy identity and original-amount/payment
+   semantics remain unresolved.
+9. This batch creates or updates zero `Charge`, `RentInvoice`, `Receipt`,
+   `Payment`, `GLTransaction`, `GLEntry` or customer balance records.
+10. Charges reconciliation/dry-run/controlled commit require separate verified
+    batches. Do not infer payer liability, payment application, rent-vs-charge
+    classification, GL posting or historical reconciliation.
+
 ## 5. File/report detection and column mapping
 
 The same AppFolio concept may arrive under different header spellings or export
