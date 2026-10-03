@@ -8584,3 +8584,300 @@ def test_appfolio_work_order_resolution_revalidates_required_supplied_relationsh
         db.close()
         engine.dispose()
 
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio Work Orders staged dry run
+# ---------------------------------------------------------------------------
+
+def test_appfolio_work_orders_dry_run_is_exact_replay_safe_and_non_mutating():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Work Orders Dry Run Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="work-orders-dry-run",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        prop, unit, vendor = _seed_work_order_source_mappings(db, run=run, org=org)
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "work-orders-dry-run.csv",
+                    (
+                        "Id,PropertyId,UnitId,Status,JobDescription,AssignedUsers,CanceledOn,"
+                        "CompletedOn,PermissionToEnter,Priority,ScheduledStart,ScheduledEnd,"
+                        "VendorId,VendorTrade\n"
+                        "WO-DRY-1,PROP-WO-1,UNIT-WO-1,Open,Leaking faucet,USER-44,,,"
+                        "true,Urgent,2026-10-04T09:00:00,2026-10-04T10:00:00,"
+                        "VENDOR-WO-1,Plumbing\n"
+                    ).encode(),
+                ),
+                resource="WORK_ORDERS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        api.resolve_staged_appfolio_work_order(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedWorkOrderResolutionIn(action="ACCEPT_RELATIONSHIP"),
+            db=db,
+            current_user=admin,
+        )
+
+        before_work_orders = db.query(WorkOrder).count()
+        before_bills = db.query(Bill).count()
+        before_charges = db.query(Charge).count()
+        before_gl = db.query(GLTransaction).count()
+        before_vendors = db.query(Vendor).count()
+
+        first = api.dry_run_staged_appfolio_work_orders(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert first.replayed is False
+        assert first.total == 1
+        assert first.importable == 1
+        assert first.invalid == 0
+        assert len(first.rows) == 1
+        preview = first.rows[0]
+        assert preview.source_id == "WO-DRY-1"
+        assert preview.source_evidence == {
+            "source_property_id": "PROP-WO-1",
+            "source_unit_id": "UNIT-WO-1",
+            "source_vendor_id": "VENDOR-WO-1",
+            "assigned_users": "USER-44",
+            "status": "Open",
+            "job_description": "Leaking faucet",
+            "canceled_on": None,
+            "completed_on": None,
+            "permission_to_enter": "true",
+            "priority": "Urgent",
+            "scheduled_start": "2026-10-04T09:00:00",
+            "scheduled_end": "2026-10-04T10:00:00",
+            "vendor_trade": "Plumbing",
+        }
+        assert preview.resolved_targets == {
+            "property_id": prop.id,
+            "unit_id": unit.id,
+            "vendor_id": vendor.id,
+        }
+        assert any("review-only" in warning for warning in preview.warnings)
+
+        db.refresh(run)
+        assert run.last_dry_run_fingerprint == first.fingerprint
+        assert run.status == "DRY_RUN_READY"
+        assert run.last_dry_run_summary["resource"] == "WORK_ORDERS"
+        assert run.last_dry_run_summary["review_only"] is True
+        assert run.last_dry_run_summary["work_order_mutation"] is False
+        assert run.last_dry_run_summary["staff_assignment_inferred"] is False
+        assert run.last_dry_run_summary["workflow_state_translated"] is False
+
+        audit_count = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "appfolio_staged_work_orders_dry_run",
+        ).count()
+        assert audit_count == 1
+
+        replay = api.dry_run_staged_appfolio_work_orders(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert replay.replayed is True
+        assert replay.fingerprint == first.fingerprint
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "appfolio_staged_work_orders_dry_run",
+        ).count() == audit_count
+
+        assert db.query(WorkOrder).count() == before_work_orders
+        assert db.query(Bill).count() == before_bills
+        assert db.query(Charge).count() == before_charges
+        assert db.query(GLTransaction).count() == before_gl
+        assert db.query(Vendor).count() == before_vendors
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_work_orders_dry_run_revalidates_mapping_fingerprints_and_scope():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_TECH)
+        org = _org(db, name="Work Orders Dry Run Stale Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="work-orders-dry-run-stale",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        prop, unit, vendor = _seed_work_order_source_mappings(db, run=run, org=org)
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "work-orders-dry-run-stale.csv",
+                    (
+                        "Id,PropertyId,UnitId,Status,JobDescription,VendorId\n"
+                        "WO-DRY-STALE,PROP-WO-1,UNIT-WO-1,Open,Stale checks,VENDOR-WO-1\n"
+                    ).encode(),
+                ),
+                resource="WORK_ORDERS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+        api.resolve_staged_appfolio_work_order(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedWorkOrderResolutionIn(action="ACCEPT_RELATIONSHIP"),
+            db=db,
+            current_user=admin,
+        )
+        first = api.dry_run_staged_appfolio_work_orders(
+            run.id, upload.id, db=db, current_user=admin
+        )
+
+        vendor_mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "VENDORS",
+            PlatformMigrationItem.source_id == "VENDOR-WO-1",
+        ).one()
+        vendor_mapping.source_fingerprint = "changed-work-order-vendor-fingerprint"
+        db.commit()
+
+        changed = api.dry_run_staged_appfolio_work_orders(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        assert changed.fingerprint != first.fingerprint
+        assert changed.replayed is False
+        assert changed.rows[0].resolved_targets["vendor_id"] == vendor.id
+
+        property_mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "PROPERTIES",
+            PlatformMigrationItem.source_id == "PROP-WO-1",
+        ).one()
+        property_mapping.target_entity = "UNIT"
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_work_orders(
+                run.id, upload.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+        assert "Property relationship is stale" in exc.value.detail
+
+        property_mapping.target_entity = "PROPERTY"
+        second_property = Property(
+            organization_id=org.id,
+            name="Work Order Dry Run Other Property",
+            address_line1="777 Other",
+            city="Cleveland",
+            state="OH",
+            zip_code="44113",
+            is_active=True,
+        )
+        db.add(second_property)
+        db.flush()
+        property_mapping.target_id = second_property.id
+        row.resolution_target_id = second_property.id
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_work_orders(
+                run.id, upload.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+        assert "Unit no longer belongs" in exc.value.detail
+
+        assert db.get(Property, prop.id).is_active is True
+        assert db.get(Unit, unit.id).is_active is True
+        assert db.query(WorkOrder).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_work_orders_dry_run_blocks_unresolved_and_empty_accepted_set():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_DEV)
+        org = _org(db, name="Work Orders Dry Run Guard Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="work-orders-dry-run-guard",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _seed_work_order_source_mappings(db, run=run, org=org)
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "work-orders-dry-run-guard.csv",
+                    (
+                        "Id,PropertyId,Status,JobDescription\n"
+                        "WO-DRY-GUARD,PROP-WO-1,Open,Needs explicit review\n"
+                    ).encode(),
+                ),
+                resource="WORK_ORDERS",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).one()
+
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_work_orders(
+                run.id, upload.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+        assert "unresolved staged rows" in exc.value.detail
+
+        api.resolve_staged_appfolio_work_order(
+            run.id,
+            upload.id,
+            row.id,
+            AppFolioStagedWorkOrderResolutionIn(action="SKIP"),
+            db=db,
+            current_user=admin,
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_staged_appfolio_work_orders(
+                run.id, upload.id, db=db, current_user=admin
+            )
+        assert exc.value.status_code == 409
+        assert "at least one accepted staged row" in exc.value.detail
+        assert db.query(WorkOrder).count() == 0
+        assert db.query(Bill).count() == 0
+        assert db.query(Charge).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
