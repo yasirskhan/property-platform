@@ -507,6 +507,28 @@ class AppFolioBillDryRunOut(BaseModel):
     rows: list[AppFolioBillPreviewRow]
 
 
+class AppFolioWorkOrderPreviewRow(BaseModel):
+    source_id: str
+    importable: bool = True
+    reason: str | None = None
+    source_evidence: dict[str, Any]
+    resolved_targets: dict[str, int | None]
+    warnings: list[str] = Field(default_factory=list)
+
+
+class AppFolioWorkOrderDryRunOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    fingerprint: str
+    replayed: bool
+    total: int
+    importable: int
+    invalid: int
+    warning_count: int
+    rows: list[AppFolioWorkOrderPreviewRow]
+
+
 class AppFolioChargePreviewRow(BaseModel):
     source_id: str
     importable: bool = True
