@@ -58,6 +58,7 @@ from app.schemas.platform_migration import (
     AppFolioGLAccountCommitOut,
     AppFolioGLAccountDryRunOut,
     AppFolioGeneralLedgerDryRunOut,
+    AppFolioBillDryRunOut,
     AppFolioGeneralLedgerCommitReadinessOut,
     AppFolioStagedTenantCommitIn,
     AppFolioTenantCommitOut,
@@ -1269,6 +1270,217 @@ def _staged_gl_account_state(
             detail="No staged GL Account rows remain after explicit skip decisions.",
         )
     return records, resolved_existing, _staged_review_fingerprint(upload, rows)
+
+
+def _staged_bill_dry_run_state(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    upload: PlatformMigrationUpload,
+) -> tuple[list[dict[str, object]], str, dict[str, int]]:
+    if upload.detected_resource != "BILLS":
+        raise HTTPException(
+            status_code=409,
+            detail="Staged upload must be BILLS before Bills dry run.",
+        )
+    rows = (
+        db.query(PlatformMigrationStagedRow)
+        .filter(
+            PlatformMigrationStagedRow.upload_id == upload.id,
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "APPFOLIO",
+            PlatformMigrationStagedRow.resource == "BILLS",
+        )
+        .order_by(
+            PlatformMigrationStagedRow.row_number.asc(),
+            PlatformMigrationStagedRow.id.asc(),
+        )
+        .all()
+    )
+    if not rows:
+        raise HTTPException(status_code=409, detail="Staged upload has no Bill rows.")
+
+    blocking = [
+        row
+        for row in rows
+        if row.errors
+        or row.disposition == "INVALID"
+        or (
+            row.disposition == "REVIEW"
+            and row.resolution_action not in {"ACCEPT_RELATIONSHIP", "SKIP"}
+        )
+    ]
+    if blocking:
+        raise HTTPException(
+            status_code=409,
+            detail="Bills dry run is blocked by invalid or unresolved staged rows.",
+        )
+
+    previews: list[dict[str, object]] = []
+    relationship_links: list[dict[str, object]] = []
+    skipped = 0
+    for row in rows:
+        if row.resolution_action == "SKIP":
+            skipped += 1
+            continue
+        if row.resolution_action != "ACCEPT_RELATIONSHIP" or not row.source_id:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Every retained Bill row must have stable Bill ID identity "
+                    "and explicit ACCEPT_RELATIONSHIP review."
+                ),
+            )
+
+        data = dict(row.normalized_data or {})
+        source_vendor_id = str(data.get("source_vendor_id") or "").strip()
+        source_property_id = str(data.get("source_property_id") or "").strip()
+        vendor_mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "APPFOLIO",
+                PlatformMigrationItem.resource == "VENDORS",
+                PlatformMigrationItem.source_id == source_vendor_id,
+            )
+            .first()
+        )
+        if (
+            vendor_mapping is None
+            or vendor_mapping.target_entity != "VENDOR"
+            or row.resolution_target_vendor_id != vendor_mapping.target_id
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="Accepted Bill Vendor relationship is stale or inconsistent.",
+            )
+        target_vendor = (
+            db.query(Vendor)
+            .filter(
+                Vendor.id == vendor_mapping.target_id,
+                Vendor.organization_id == run.organization_id,
+                Vendor.is_active.is_(True),
+                Vendor.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if target_vendor is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Accepted Bill Vendor target is no longer active.",
+            )
+
+        target_property_id = None
+        property_mapping_fingerprint = None
+        if source_property_id:
+            property_mapping = (
+                db.query(PlatformMigrationItem)
+                .filter(
+                    PlatformMigrationItem.run_id == run.id,
+                    PlatformMigrationItem.organization_id == run.organization_id,
+                    PlatformMigrationItem.provider == "APPFOLIO",
+                    PlatformMigrationItem.resource == "PROPERTIES",
+                    PlatformMigrationItem.source_id == source_property_id,
+                )
+                .first()
+            )
+            if (
+                property_mapping is None
+                or property_mapping.target_entity != "PROPERTY"
+                or row.resolution_target_id != property_mapping.target_id
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Accepted Bill Property relationship is stale or inconsistent.",
+                )
+            target_property = (
+                db.query(Property)
+                .filter(
+                    Property.id == property_mapping.target_id,
+                    Property.organization_id == run.organization_id,
+                    Property.is_active.is_(True),
+                    Property.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target_property is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Accepted Bill Property target is no longer active.",
+                )
+            target_property_id = target_property.id
+            property_mapping_fingerprint = property_mapping.source_fingerprint
+
+        relationship_links.append(
+            {
+                "source_bill_id": row.source_id,
+                "source_vendor_id": source_vendor_id,
+                "target_vendor_id": target_vendor.id,
+                "vendor_mapping_fingerprint": vendor_mapping.source_fingerprint,
+                "source_property_id": source_property_id or None,
+                "target_property_id": target_property_id,
+                "property_mapping_fingerprint": property_mapping_fingerprint,
+            }
+        )
+        previews.append(
+            {
+                "source_id": row.source_id,
+                "source_evidence": {
+                    "source_vendor_id": source_vendor_id,
+                    "source_property_id": source_property_id or None,
+                    "due_date": data.get("due_date"),
+                    "invoice_date": data.get("invoice_date"),
+                    "posting_date": data.get("posting_date"),
+                    "reference": data.get("reference"),
+                    "remarks": data.get("remarks"),
+                    "total_amount": data.get("total_amount"),
+                    "approval_status": data.get("approval_status"),
+                    "check_memo": data.get("check_memo"),
+                    "account_number": data.get("account_number"),
+                    "management_company_as_payee": data.get("management_company_as_payee"),
+                    "source_work_order_id": data.get("source_work_order_id"),
+                    "last_updated_at": data.get("last_updated_at"),
+                },
+                "resolved_targets": {
+                    "vendor_id": target_vendor.id,
+                    "property_id": target_property_id,
+                },
+                "warnings": [
+                    (
+                        "Dry run is review-only: approval, paid/unpaid state, "
+                        "check/payment linkage, GL allocation, Work Order linkage "
+                        "and posting semantics are not inferred."
+                    )
+                ],
+            }
+        )
+
+    if not previews:
+        raise HTTPException(
+            status_code=409,
+            detail="Bills dry run requires at least one accepted staged row.",
+        )
+
+    canonical = {
+        "staged_review_fingerprint": _staged_review_fingerprint(upload, rows),
+        "relationship_links": sorted(
+            relationship_links,
+            key=lambda item: str(item["source_bill_id"]),
+        ),
+    }
+    fingerprint = hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    counts = {
+        "total": len(previews),
+        "importable": len(previews),
+        "invalid": 0,
+        "warning_count": len(previews),
+        "skipped": skipped,
+    }
+    return previews, fingerprint, counts
 
 
 def _staged_general_ledger_dry_run_state(
@@ -3507,6 +3719,82 @@ def commit_staged_appfolio_tenants(
         mapped_existing=result.mapped_existing,
         warning_count=result.warning_count,
         rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/uploads/{upload_id}/bills/dry-run",
+    response_model=AppFolioBillDryRunOut,
+)
+def dry_run_staged_appfolio_bills(
+    run_id: int,
+    upload_id: int,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    rows, fingerprint, counts = _staged_bill_dry_run_state(
+        db, run=run, upload=upload
+    )
+    replayed = (
+        run.last_dry_run_fingerprint == fingerprint
+        and (run.last_dry_run_summary or {}).get("resource") == "BILLS"
+    )
+    summary = {
+        **counts,
+        "resource": "BILLS",
+        "review_only": True,
+        "target_mutation": False,
+        "bill_mutation": False,
+        "bill_line_mutation": False,
+        "check_payment_mutation": False,
+        "vendor_mutation": False,
+        "work_order_mutation": False,
+        "accounting_history_mutation": False,
+        "approval_state_inferred": False,
+        "payment_state_inferred": False,
+        "gl_allocation_inferred": False,
+        "work_order_linkage_inferred": False,
+    }
+    if not replayed:
+        run.last_dry_run_fingerprint = fingerprint
+        run.last_dry_run_summary = summary
+        run.status = "DRY_RUN_READY"
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=run.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=run.id,
+            action="appfolio_staged_bills_dry_run",
+            new_value={
+                "upload_id": upload.id,
+                "dry_run_fingerprint": fingerprint,
+                **summary,
+                "raw_file_stored": False,
+                "bill_mutation": False,
+                "bill_line_mutation": False,
+                "check_mutation": False,
+                "gl_transaction_mutation": False,
+                "gl_entry_mutation": False,
+                "charge_mutation": False,
+            },
+        )
+        db.commit()
+        db.refresh(run)
+
+    return AppFolioBillDryRunOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        fingerprint=fingerprint,
+        replayed=replayed,
+        total=counts["total"],
+        importable=counts["importable"],
+        invalid=counts["invalid"],
+        warning_count=counts["warning_count"],
+        rows=rows,
     )
 
 
