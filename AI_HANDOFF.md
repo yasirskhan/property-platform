@@ -1,3 +1,61 @@
+# AI_HANDOFF.md — 2026-10-03 PHASE 4.13 RUN-LEVEL REVIEW SUMMARY VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `f8a640bddd088d759113ded793b258b96964315c`.
+- GitHub Actions run: `37160770621` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **979 passed, 21 deselected, 25601 warnings in 244.95s**.
+- Authenticated E2E: **21 passed, 278 warnings in 74.84s**.
+- Alembic head remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified shared run-level migration review summary
+
+1. A no-store platform-read endpoint aggregates durable migration run/upload/staged-row/source-mapping state across the whole AppFolio run.
+2. The summary reports overall and per-resource counts for NEW, unresolved POSSIBLE_MATCH, explicit MATCH_EXISTING, explicit CREATE_NEW, relationship-only ACCEPT_RELATIONSHIP, ALREADY_MAPPED, SKIP, INVALID, unresolved REVIEW, warnings and conservative blockers.
+3. ACCEPT_RELATIONSHIP is reported separately and is never mislabeled as an imported/matched customer target.
+4. Durable source mappings are counted independently from staged review decisions.
+5. The summary exposes the current run dry-run fingerprint/resource when present and reports `NONE_OR_STALE` whenever durable migration evidence exists without a current fingerprint; it does not trust the mutable run status alone.
+6. Unknown staged dispositions fail conservatively into unresolved/blocking review rather than being treated as importable.
+7. Run/organization/provider filters remain fail-closed and platform SALES cannot read migration review state.
+8. Focused tests prove mixed-resource counts, run/org isolation, no-store behavior, role enforcement and zero mutation of uploads, staged rows, source mappings, customer records or accounting records.
+9. The batch creates no AppFolio API transport, general UX, navigation or hidden-menu work.
+
+Implementation commits:
+- `e441355524b91efa02edd27632abcaf9052cf5ec` — review-summary response contract.
+- `5c08655675d46b7355c68f0ea4e53f113782255f` — read-only run-level review aggregation.
+- `9b033d918840a21182f0c3f75edbd4adad99cd15` — focused mixed-resource/non-mutation/authorization regressions.
+- `f8a640bddd088d759113ded793b258b96964315c` — durable-evidence dry-run-state correction; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Extend the shared Section 10 review boundary with a deterministic **run-level review snapshot fingerprint**.
+
+Required boundaries:
+
+1. Fingerprint only durable AppFolio migration evidence already inside the shared run: upload normalized fingerprints, current staged-review fingerprints (including correction rules/evidence and explicit resolutions), and durable source-mapping identity/fingerprints.
+2. Sort/canonicalize every component deterministically; identical replay must produce the same fingerprint.
+3. Any upload, normalized staged correction, reusable correction-rule change, explicit resolution, staged row source fingerprint, or durable source-mapping fingerprint/target change must change the run review fingerprint.
+4. Keep this fingerprint review/readiness metadata only. It must not authorize a global commit or imply accounting completeness.
+5. Expose it through the read-only run-level review summary; mutate no run status, upload, staged row, rule, mapping, customer record or accounting record.
+6. Preserve platform read authorization, organization/provider isolation and no-store behavior.
+7. Add focused tests for deterministic replay and fingerprint changes across staged review, correction-rule and durable mapping changes while proving zero target/accounting mutation.
+8. Keep AppFolio API transport, general UX, navigation and hidden-menu work out of scope.
+
+---
+
 # AI_HANDOFF.md — 2026-10-03 PHASE 4.13 REUSABLE CORRECTION RULES VERIFIED
 
 ## Current verified product checkpoint
