@@ -1,3 +1,57 @@
+# AI_HANDOFF.md — 2026-10-03 PHASE 4.13 MIGRATION SOURCE COVERAGE CHECKLIST VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `95649486557ab36531cc82b81085e8272c19adc0`.
+- GitHub Actions run: `37136410778` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **970 passed, 21 deselected, 25458 warnings in 444.39s**.
+- Authenticated E2E: **21 passed, 278 warnings in 112.72s**.
+- Alembic head remains `0a7c4e9f2b61`.
+- Expected model tables remain **201**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified migration source coverage / completeness checklist
+
+1. A read-only run-scoped coverage endpoint now reports the supported source families from durable AppFolio migration upload/mapping evidence only.
+2. Coverage states distinguish `SUPPLIED`, `PARTIAL`, `MISSING` and `BLOCKED`; customer production records are never used to infer missing imports.
+3. The checklist includes Properties, Units, Owners, Vendors, Tenants, Lease/occupancy, GL Accounts, General Ledger, Bills/payables, Charges/receivables, Security Deposits, Work Orders and Attachments/Documents.
+4. Existing blockers are surfaced explicitly for Lease/occupancy controlled commit, historical GL controlled commit, Bills controlled commit, Charges controlled commit, Work Orders controlled commit, Security Deposit source-schema evidence and Attachments/Documents source-schema evidence.
+5. `accounting_complete` fails closed unless every required accounting source family is under a supplied/verified commit-safe contract; partial operational coverage does not claim accounting completeness.
+6. Coverage analysis is no-store/read-only and mutates no uploads, staged rows, mappings, customer records, balances or GL.
+7. Platform organization/run scope and read-role authorization remain authoritative.
+8. Focused tests cover partial coverage, blocked/missing states, accounting completeness fail-closed behavior, read-only replay and authorization.
+9. No AppFolio API transport, general UX, navigation or hidden-menu changes were added.
+
+## Exact next Phase 4.13 product batch
+
+Implement the shared **migration-stage correction layer** from section 8 of `docs/APPFOLIO_MIGRATION_IMPORT_PLAN.md`.
+
+Required boundaries:
+
+1. Reuse the existing migration run/upload/staged-row architecture; do not build a parallel migration system.
+2. A correction may change only an explicitly supported normalized staging field/value while preserving the original source value/evidence.
+3. Record the correction decision, actor and timestamp durably and append-only/audited.
+4. Corrections apply only to migration staging/review logic; never rewrite source files or existing production customer records.
+5. A correction that changes normalized staged input must invalidate prior dry-run/commit-readiness state and participate in the exact staged-review fingerprint.
+6. Replaying the identical correction must be idempotent; conflicting correction changes require a new fingerprint/dry run.
+7. INVALID source identity or unsupported source/target semantics must not be made commit-safe by arbitrary correction.
+8. Keep organization/run scope and platform-role authorization fail-closed.
+9. Add focused tests for correction persistence, source preservation, fingerprint invalidation, replay/idempotency, authorization and zero customer/accounting mutation.
+10. Do not add general UX, AppFolio API transport or hidden-menu/navigation changes.
+
+---
+
 # AI_HANDOFF.md — 2026-10-03 PHASE 4.13 WORK ORDERS STAGED DRY RUN VERIFIED
 
 ## Current verified product checkpoint
