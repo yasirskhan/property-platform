@@ -5679,6 +5679,22 @@ def get_appfolio_migration_review_summary(
         .all()
     )
 
+    correction_rules = (
+        db.query(PlatformMigrationCorrectionRule)
+        .filter(
+            PlatformMigrationCorrectionRule.run_id == run.id,
+            PlatformMigrationCorrectionRule.organization_id == run.organization_id,
+            PlatformMigrationCorrectionRule.provider == "APPFOLIO",
+        )
+        .order_by(
+            PlatformMigrationCorrectionRule.resource.asc(),
+            PlatformMigrationCorrectionRule.field_name.asc(),
+            PlatformMigrationCorrectionRule.source_value.asc(),
+            PlatformMigrationCorrectionRule.id.asc(),
+        )
+        .all()
+    )
+
     uploads_by_resource: dict[str, int] = {}
     for upload in uploads:
         uploads_by_resource[upload.detected_resource] = (
@@ -5786,6 +5802,66 @@ def get_appfolio_migration_review_summary(
             }
         )
 
+    rows_by_upload: dict[int, list[PlatformMigrationStagedRow]] = {}
+    for row in rows:
+        rows_by_upload.setdefault(row.upload_id, []).append(row)
+
+    review_canonical = {
+        "run": {
+            "id": run.id,
+            "organization_id": run.organization_id,
+            "provider": run.provider,
+        },
+        "uploads": [
+            {
+                "id": upload.id,
+                "resource": upload.detected_resource,
+                "normalized_fingerprint": upload.normalized_fingerprint,
+                "staged_review_fingerprint": _staged_review_fingerprint(
+                    upload,
+                    rows_by_upload.get(upload.id, []),
+                ),
+            }
+            for upload in uploads
+        ],
+        "correction_rules": [
+            {
+                "id": rule.id,
+                "resource": rule.resource,
+                "field_name": rule.field_name,
+                "source_value": rule.source_value,
+                "corrected_value": rule.corrected_value,
+            }
+            for rule in correction_rules
+        ],
+        "mappings": [
+            {
+                "resource": mapping.resource,
+                "source_id": mapping.source_id,
+                "target_entity": mapping.target_entity,
+                "target_id": mapping.target_id,
+                "source_fingerprint": mapping.source_fingerprint,
+            }
+            for mapping in sorted(
+                mappings,
+                key=lambda item: (
+                    item.resource,
+                    item.source_id,
+                    item.target_entity,
+                    item.target_id,
+                    item.id,
+                ),
+            )
+        ],
+    }
+    review_fingerprint = hashlib.sha256(
+        json.dumps(
+            review_canonical,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+
     last_summary = dict(run.last_dry_run_summary or {})
     last_resource = last_summary.get("resource")
     if run.last_dry_run_fingerprint:
@@ -5805,6 +5881,7 @@ def get_appfolio_migration_review_summary(
         provider=run.provider,
         upload_count=len(uploads),
         mapping_count=len(mappings),
+        review_fingerprint=review_fingerprint,
         dry_run_state=dry_run_state,
         last_dry_run_resource=(str(last_resource) if last_resource else None),
         last_dry_run_fingerprint=run.last_dry_run_fingerprint,
