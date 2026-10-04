@@ -19,6 +19,7 @@ from app.models.lease import Lease
 from app.models.charge import Charge
 from app.models.gl_transaction import GLTransaction
 from app.models.user import Organization, User, UserRole
+from app.models.vendor import Vendor
 from app.routers import buildium_migrations as api
 from app.schemas.buildium_migration import (
     BuildiumMigrationRunCreateIn,
@@ -31,6 +32,9 @@ from app.schemas.buildium_migration import (
     BuildiumOwnerCommitIn,
     BuildiumOwnerDryRunIn,
     BuildiumOwnerResolutionIn,
+    BuildiumVendorCommitIn,
+    BuildiumVendorDryRunIn,
+    BuildiumVendorResolutionIn,
 )
 
 
@@ -1575,3 +1579,255 @@ def test_buildium_owner_routes_are_exposed():
     paths = set(app.openapi()["paths"])
     assert "/api/platform/migrations/buildium/runs/{run_id}/owners/dry-run" in paths
     assert "/api/platform/migrations/buildium/runs/{run_id}/owners/commit" in paths
+
+
+def _vendor_record(**changes):
+    record = {
+        "Id": 4001,
+        "FirstName": "",
+        "LastName": "",
+        "CompanyName": "Lake Plumbing",
+        "PrimaryEmail": "service@lakeplumbing.example.com",
+        "AlternateEmail": "",
+        "PhoneNumbers": [{"Number": "2165550199", "Type": "Work"}],
+        "Website": "https://example.com",
+        "IsCompany": True,
+    }
+    record.update(changes)
+    return record
+
+
+def _target_vendor(db, org, *, company_name="Lake Plumbing", email="service@lakeplumbing.example.com"):
+    row = Vendor(
+        organization_id=org.id,
+        company_name=company_name,
+        business_email=email,
+        is_active=True,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def test_buildium_vendor_mapping_requires_explicit_existing_target_and_replays():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Vendor Mapping")
+        vendor = _target_vendor(db, org)
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="vendor-map",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        preview = api.dry_run_buildium_vendors(
+            run.id,
+            BuildiumVendorDryRunIn(records=[_vendor_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.invalid == 0
+        assert preview.reviewable == 1
+        assert any("explicit MATCH_EXISTING" in warning for warning in preview.rows[0].warnings)
+
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_vendors(
+                run.id,
+                BuildiumVendorCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=[_vendor_record()],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "VENDORS"
+        ).count() == 0
+
+        reviewed = BuildiumVendorDryRunIn(
+            records=[_vendor_record()],
+            resolutions=[
+                BuildiumVendorResolutionIn(
+                    source_id=4001,
+                    action="MATCH_EXISTING",
+                    target_vendor_id=vendor.id,
+                )
+            ],
+        )
+        reviewed_preview = api.dry_run_buildium_vendors(
+            run.id, reviewed, db=db, current_user=admin
+        )
+        first = api.commit_buildium_vendors(
+            run.id,
+            BuildiumVendorCommitIn(
+                fingerprint=reviewed_preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert first.matched_existing == 1
+        assert first.replayed is False
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "VENDORS"
+        ).one()
+        assert mapping.target_entity == "VENDOR"
+        assert mapping.target_id == vendor.id
+        assert db.query(Vendor).count() == 1
+
+        second = api.commit_buildium_vendors(
+            run.id,
+            BuildiumVendorCommitIn(
+                fingerprint=reviewed_preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert second.replayed is True
+        assert db.query(Vendor).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_vendor_mapping_rejects_cross_org_and_stale_identity():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Vendor Safety")
+        foreign_org = _org(db, name="Vendor Foreign")
+        vendor = _target_vendor(db, org)
+        foreign_vendor = _target_vendor(
+            db,
+            foreign_org,
+            company_name="Foreign Plumbing",
+            email="foreign@example.com",
+        )
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="vendor-safety",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_buildium_vendors(
+                run.id,
+                BuildiumVendorDryRunIn(
+                    records=[_vendor_record()],
+                    resolutions=[
+                        BuildiumVendorResolutionIn(
+                            source_id=4001,
+                            action="MATCH_EXISTING",
+                            target_vendor_id=foreign_vendor.id,
+                        )
+                    ],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        payload = BuildiumVendorDryRunIn(
+            records=[_vendor_record()],
+            resolutions=[
+                BuildiumVendorResolutionIn(
+                    source_id=4001,
+                    action="MATCH_EXISTING",
+                    target_vendor_id=vendor.id,
+                )
+            ],
+        )
+        preview = api.dry_run_buildium_vendors(
+            run.id, payload, db=db, current_user=admin
+        )
+        vendor.company_name = "Changed Vendor"
+        vendor.business_email = "changed@example.com"
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_vendors(
+                run.id,
+                BuildiumVendorCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=payload.records,
+                    resolutions=payload.resolutions,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "VENDORS"
+        ).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_vendor_individual_and_skip_do_not_create_vendor_or_relationships():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Vendor Skip")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="vendor-skip",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        record = _vendor_record(
+            Id=4002,
+            IsCompany=False,
+            CompanyName="",
+            FirstName="Pat",
+            LastName="Plumber",
+            PrimaryEmail="pat@example.com",
+        )
+        resolutions = [BuildiumVendorResolutionIn(source_id=4002, action="SKIP")]
+        preview = api.dry_run_buildium_vendors(
+            run.id,
+            BuildiumVendorDryRunIn(records=[record], resolutions=resolutions),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.skipped_review == 1
+        assert any(
+            "individual" in warning.lower()
+            for warning in preview.rows[0].warnings
+        )
+        result = api.commit_buildium_vendors(
+            run.id,
+            BuildiumVendorCommitIn(
+                fingerprint=preview.fingerprint,
+                records=[record],
+                resolutions=resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert result.replayed is False
+        assert result.matched_existing == 0
+        assert db.query(Vendor).count() == 0
+        assert db.get(PlatformMigrationRun, run.id).status == "VENDORS_REVIEWED"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_vendor_routes_and_item_visibility():
+    from app.main import app
+
+    paths = set(app.openapi()["paths"])
+    assert "/api/platform/migrations/buildium/runs/{run_id}/vendors/dry-run" in paths
+    assert "/api/platform/migrations/buildium/runs/{run_id}/vendors/commit" in paths

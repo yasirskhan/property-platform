@@ -14,6 +14,7 @@ from app.core.database import get_db
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.property import Property, Unit
+from app.models.vendor import Vendor
 from app.models.user import Organization
 from app.routers.platform_auth import get_current_platform_user
 from app.schemas.buildium_migration import (
@@ -32,6 +33,10 @@ from app.schemas.buildium_migration import (
     BuildiumOwnerCommitOut,
     BuildiumOwnerDryRunIn,
     BuildiumOwnerDryRunOut,
+    BuildiumVendorCommitIn,
+    BuildiumVendorCommitOut,
+    BuildiumVendorDryRunIn,
+    BuildiumVendorDryRunOut,
 )
 from app.services.audit import append_audit_log
 from app.services.buildium_migration import (
@@ -48,6 +53,11 @@ from app.services.buildium_owner_migration import (
     BuildiumOwnerMigrationError,
     commit_owners,
     dry_run_owners,
+)
+from app.services.buildium_vendor_migration import (
+    BuildiumVendorMigrationError,
+    commit_vendors,
+    dry_run_vendors,
 )
 
 
@@ -576,6 +586,125 @@ def commit_buildium_owners(
         rows=result.rows,
     )
 
+
+
+@router.post(
+    "/runs/{run_id}/vendors/dry-run",
+    response_model=BuildiumVendorDryRunOut,
+)
+def dry_run_buildium_vendors(
+    run_id: int,
+    payload: BuildiumVendorDryRunIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = dry_run_vendors(
+            db,
+            run=row,
+            records=payload.records,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+    except BuildiumVendorMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=row.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=row.id,
+            action="buildium_vendors_dry_run",
+            new_value={
+                "fingerprint": result.fingerprint,
+                **result.summary,
+                "target_mutation": False,
+            },
+        )
+        db.commit()
+        db.refresh(row)
+
+    return BuildiumVendorDryRunOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        reviewable=result.reviewable,
+        skipped_review=result.skipped_review,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/vendors/commit",
+    response_model=BuildiumVendorCommitOut,
+)
+def commit_buildium_vendors(
+    run_id: int,
+    payload: BuildiumVendorCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = commit_vendors(
+            db,
+            run=row,
+            records=payload.records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=row.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=row.id,
+                action="buildium_vendors_mapped",
+                new_value={
+                    "fingerprint": result.fingerprint,
+                    "matched_existing": result.matched_existing,
+                    "skipped_review": result.skipped_review,
+                    "target_vendor_ids": [item["target_vendor_id"] for item in result.rows],
+                    "vendors_created": False,
+                    "preferred_vendor_links_created": False,
+                    "trade_inferred": False,
+                    "raw_payload_stored": False,
+                    "provider_credentials_stored": False,
+                },
+            )
+            db.commit()
+            db.refresh(row)
+    except BuildiumVendorMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Buildium Vendor mapping conflicted with an existing migration mapping.",
+        ) from exc
+
+    return BuildiumVendorCommitOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        matched_existing=result.matched_existing,
+        skipped_review=result.skipped_review,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
 @router.get(
     "/runs/{run_id}/items",
     response_model=list[BuildiumMigrationItemOut],
@@ -668,6 +797,18 @@ def list_migration_items(
             if target is not None:
                 target_exists = True
                 target_label = target.email
+        elif item.target_entity == "VENDOR":
+            target = (
+                db.query(Vendor)
+                .filter(
+                    Vendor.id == item.target_id,
+                    Vendor.organization_id == row.organization_id,
+                )
+                .first()
+            )
+            if target is not None:
+                target_exists = True
+                target_label = target.company_name
         result.append(
             BuildiumMigrationItemOut(
                 id=item.id,
