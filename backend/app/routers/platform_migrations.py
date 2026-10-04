@@ -68,6 +68,7 @@ from app.schemas.platform_migration import (
     AppFolioGLAccountDryRunOut,
     AppFolioGeneralLedgerDryRunOut,
     AppFolioBillDryRunOut,
+    AppFolioBillReconciliationOut,
     AppFolioWorkOrderDryRunOut,
     AppFolioChargeDryRunOut,
     AppFolioGeneralLedgerCommitReadinessOut,
@@ -1699,6 +1700,131 @@ def _staged_bill_dry_run_state(
         "skipped": skipped,
     }
     return previews, fingerprint, counts
+
+
+def _bill_reconciliation_state(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    upload: PlatformMigrationUpload,
+) -> dict[str, object]:
+    """Compare accepted Bill source identity/TotalAmount with the exact current preview.
+
+    This is a narrow Section 11 control only. It does not establish AP posting,
+    payment state, BillLine allocations, business-date semantics or accounting
+    completeness.
+    """
+    previews, dry_run_fingerprint, _counts = _staged_bill_dry_run_state(
+        db, run=run, upload=upload
+    )
+    if (
+        run.last_dry_run_fingerprint != dry_run_fingerprint
+        or (run.last_dry_run_summary or {}).get("resource") != "BILLS"
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Bills reconciliation requires the exact latest Bills dry-run fingerprint.",
+        )
+
+    staged_rows = (
+        db.query(PlatformMigrationStagedRow)
+        .filter(
+            PlatformMigrationStagedRow.upload_id == upload.id,
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "APPFOLIO",
+            PlatformMigrationStagedRow.resource == "BILLS",
+            PlatformMigrationStagedRow.resolution_action == "ACCEPT_RELATIONSHIP",
+        )
+        .order_by(
+            PlatformMigrationStagedRow.row_number.asc(),
+            PlatformMigrationStagedRow.id.asc(),
+        )
+        .all()
+    )
+
+    def _amount(value: object, *, label: str) -> Decimal:
+        try:
+            return Decimal(str(value or "0"))
+        except (InvalidOperation, ValueError) as exc:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Bills reconciliation encountered non-numeric {label} evidence.",
+            ) from exc
+
+    source_ids: list[str] = []
+    source_total = Decimal("0")
+    for row in staged_rows:
+        if not row.source_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Bills reconciliation requires stable supplied Bill identity.",
+            )
+        evidence = dict(row.normalized_data or {})
+        source_ids.append(str(row.source_id))
+        source_total += _amount(
+            evidence.get("total_amount"),
+            label="source TotalAmount",
+        )
+
+    preview_ids: list[str] = []
+    preview_total = Decimal("0")
+    for preview in previews:
+        evidence = dict(preview["source_evidence"])
+        preview_ids.append(str(preview["source_id"]))
+        preview_total += _amount(
+            evidence.get("total_amount"),
+            label="preview TotalAmount",
+        )
+
+    bill_count_match = len(source_ids) == len(preview_ids)
+    bill_identity_match = sorted(source_ids) == sorted(preview_ids)
+    total_amount_match = source_total == preview_total
+    reconciled = all(
+        (
+            bill_count_match,
+            bill_identity_match,
+            total_amount_match,
+        )
+    )
+    warnings = [
+        (
+            "This reconciliation proves only retained Bill identity/count and "
+            "source TotalAmount preservation against the exact current dry run."
+        ),
+        (
+            "Bill line GL allocations, AP posting, paid/unpaid state, check/payment "
+            "application, posting/business-date semantics and historical balances "
+            "are not reconciled here."
+        ),
+        "No Bill, BillLine, Check, GL or customer balance record is created or changed.",
+    ]
+    if not reconciled:
+        warnings.append(
+            "Bill source evidence and current migration preview do not reconcile; no financial commit may rely on this result."
+        )
+
+    return {
+        "dry_run_fingerprint": dry_run_fingerprint,
+        "source_bill_count": len(source_ids),
+        "preview_bill_count": len(preview_ids),
+        "source_total_amount": format(source_total, "f"),
+        "preview_total_amount": format(preview_total, "f"),
+        "bill_count_match": bill_count_match,
+        "bill_identity_match": bill_identity_match,
+        "total_amount_match": total_amount_match,
+        "reconciled": reconciled,
+        "accounting_complete": False,
+        "unverified_controls": [
+            "bill_line_gl_allocations",
+            "accounts_payable_posting",
+            "payment_application",
+            "paid_unpaid_state",
+            "business_date_semantics",
+            "historical_ap_balance",
+        ],
+        "warnings": warnings,
+    }
 
 
 def _staged_work_order_dry_run_state(
@@ -5031,6 +5157,29 @@ def dry_run_staged_appfolio_bills(
         invalid=counts["invalid"],
         warning_count=counts["warning_count"],
         rows=rows,
+    )
+
+
+@router.get(
+    "/runs/{run_id}/uploads/{upload_id}/bills/reconciliation",
+    response_model=AppFolioBillReconciliationOut,
+)
+def get_staged_appfolio_bills_reconciliation(
+    run_id: int,
+    upload_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=False)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    result = _bill_reconciliation_state(db, run=run, upload=upload)
+    response.headers["Cache-Control"] = "no-store"
+    return AppFolioBillReconciliationOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        **result,
     )
 
 
