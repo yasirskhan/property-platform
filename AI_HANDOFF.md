@@ -1,3 +1,56 @@
+# AI_HANDOFF.md — 2026-10-04 PHASE 4.13 BILLS / PAYABLES RECONCILIATION VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `20cdbbff7db2c5e77fee1569fc105614c8091138`.
+- GitHub Actions run: `37167167312` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **983 passed, 21 deselected, 25654 warnings in 340.37s**.
+- Authenticated E2E: **21 passed, 278 warnings in 115.68s**.
+- Alembic head remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Bills / Payables reconciliation control
+
+1. A read-only Section 11 control compares retained staged Bill identity/count and supplied `TotalAmount` against the exact current Bills dry-run preview.
+2. Only rows already explicitly accepted through the verified Bills relationship review path are reconciled; SKIP rows remain excluded and unresolved/INVALID rows remain blockers.
+3. Current durable Property/Vendor mappings are revalidated through the existing Bills dry-run helper and the exact current dry-run fingerprint remains authoritative.
+4. The result is explicitly review-only with `accounting_complete=false`; BillLine allocations, AP posting, paid/unpaid state, check/payment application, business/posting-date semantics and historical AP balances remain unverified.
+5. No Bill, BillLine, Check, VendorCredit, GLTransaction, GLEntry, Charge, Receipt, Payment or customer balance is created or changed.
+6. Platform read authorization, run/organization/upload/provider isolation and no-store behavior remain intact.
+7. Focused tests cover deterministic count/identity/TotalAmount reconciliation, stale-preview rejection, authorization and zero accounting mutation.
+8. AppFolio API transport, general UX, navigation and hidden-menu work remain out of scope.
+
+## Exact next Phase 4.13 product batch
+
+Add the matching read-only **Charges / Receivables staged reconciliation control** over the already-verified CHARGES dry-run contract.
+
+Required boundaries:
+
+1. Operate only on already-staged `CHARGES` rows and the exact current Charges dry-run fingerprint.
+2. Reconcile only retained rows already explicitly accepted by the verified Charges relationship review/dry-run path; SKIP rows remain excluded and unresolved/INVALID rows remain blockers.
+3. Compare stable source Charge identity/count plus supplied source `AmountDue` against the exact current preview `AmountDue` for the same retained source IDs.
+4. Revalidate current durable GL Account relationships through the existing Charges dry-run helper; stale mappings or changed staged evidence must fail closed through exact-fingerprint protection.
+5. Keep the result review-only with `accounting_complete=false`. It must not claim original billed amount, amount paid, paid/unpaid state, tenant/Occupancy identity, payment application, GL posting or historical AR reconciliation.
+6. Do not infer tenant liability, rent-vs-charge classification, original charge amount, payment history, target Occupancy identity or GL posting semantics.
+7. Do not create/update Charge, RentInvoice, Receipt, Payment, GLTransaction, GLEntry, Bill, Check or customer balances.
+8. Preserve platform read authorization, run/org/upload/provider isolation and `Cache-Control: no-store`.
+9. Add focused tests for deterministic source-vs-preview count/AmountDue reconciliation, stale-preview protection, authorization and zero mutation.
+10. Keep AppFolio API transport, general UX, navigation and hidden-menu work out of scope.
+
+---
+
 # AI_HANDOFF.md — 2026-10-04 PHASE 4.13 GENERAL LEDGER PER-ACCOUNT RECONCILIATION VERIFIED
 
 ## Current verified product checkpoint
