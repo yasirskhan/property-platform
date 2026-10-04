@@ -8241,6 +8241,145 @@ def test_appfolio_charges_dry_run_blocks_unresolved_rows_and_empty_accepted_set(
         engine.dispose()
 
 # ---------------------------------------------------------------------------
+# Phase 4.13 AppFolio Charges / Receivables staged reconciliation controls
+# ---------------------------------------------------------------------------
+
+def test_appfolio_charges_reconciliation_matches_identity_amount_due_and_stale_preview_fails_closed():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Charges Reconciliation Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="charges-reconciliation",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _prop, _unit, _account = _seed_general_ledger_source_mappings(
+            db, run=run, org=org
+        )
+        upload = asyncio.run(
+            api.stage_appfolio_upload(
+                run.id,
+                file=_upload_file(
+                    "charges-reconciliation.csv",
+                    (
+                        "Id,AmountDue,ChargedOn,Description,GlAccountId,OccupancyId\n"
+                        "CHARGE-REC-2,74.50,2026-10-02,Second charge,GL-4100,OCC-2\n"
+                        "CHARGE-REC-1,125.50,2026-10-01,First charge,GL-4100,OCC-1\n"
+                    ).encode(),
+                ),
+                resource="CHARGES",
+                sheet_name=None,
+                column_mapping_json=None,
+                db=db,
+                current_user=admin,
+            )
+        )
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.id
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+        for row in rows:
+            api.resolve_staged_appfolio_charge(
+                run.id,
+                upload.id,
+                row.id,
+                AppFolioStagedChargeResolutionIn(action="ACCEPT_RELATIONSHIP"),
+                db=db,
+                current_user=admin,
+            )
+
+        dry = api.dry_run_staged_appfolio_charges(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        before_charges = db.query(Charge).count()
+        before_gl = db.query(GLTransaction).count()
+
+        response = Response()
+        reconciliation = api.get_staged_appfolio_charges_reconciliation(
+            run.id,
+            upload.id,
+            response=response,
+            db=db,
+            current_user=admin,
+        )
+        assert response.headers["cache-control"] == "no-store"
+        assert reconciliation.dry_run_fingerprint == dry.fingerprint
+        assert reconciliation.source_charge_count == 2
+        assert reconciliation.preview_charge_count == 2
+        assert reconciliation.source_amount_due == "200.00"
+        assert reconciliation.preview_amount_due == "200.00"
+        assert reconciliation.charge_count_match is True
+        assert reconciliation.charge_identity_match is True
+        assert reconciliation.amount_due_match is True
+        assert reconciliation.reconciled is True
+        assert reconciliation.accounting_complete is False
+        assert "original_billed_amount" in reconciliation.unverified_controls
+        assert "historical_ar_balance" in reconciliation.unverified_controls
+        assert db.query(Charge).count() == before_charges
+        assert db.query(GLTransaction).count() == before_gl
+
+        stale = db.get(PlatformMigrationStagedRow, rows[0].id)
+        stale.normalized_data = {
+            **dict(stale.normalized_data or {}),
+            "amount_due": "75.50",
+        }
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.get_staged_appfolio_charges_reconciliation(
+                run.id,
+                upload.id,
+                response=Response(),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "exact latest Charges dry-run fingerprint" in exc.value.detail
+        assert db.query(Charge).count() == before_charges
+        assert db.query(GLTransaction).count() == before_gl
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_appfolio_charges_reconciliation_route_is_exposed_and_sales_is_denied():
+    from app.main import app
+
+    assert (
+        "/api/platform/migrations/appfolio/runs/{run_id}/uploads/{upload_id}/charges/reconciliation"
+        in set(app.openapi()["paths"])
+    )
+
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        sales = _platform_user(db, PlatformUserRole.PLATFORM_SALES)
+        org = _org(db, name="Charges Reconciliation Auth Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="charges-reconciliation-auth",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.get_staged_appfolio_charges_reconciliation(
+                run.id,
+                999999,
+                response=Response(),
+                db=db,
+                current_user=sales,
+            )
+        assert exc.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()
+
+
+# ---------------------------------------------------------------------------
 # Phase 4.13 AppFolio Work Orders ingestion + staging
 # ---------------------------------------------------------------------------
 
