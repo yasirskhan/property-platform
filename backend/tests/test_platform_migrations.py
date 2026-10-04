@@ -6400,6 +6400,28 @@ def test_appfolio_general_ledger_commit_readiness_groups_supplied_transaction_id
         assert reconciliation.debit_total_match is True
         assert reconciliation.credit_total_match is True
         assert reconciliation.transaction_groups_balanced is True
+        assert reconciliation.account_controls_match is True
+        assert [
+            control.source_gl_account_id for control in reconciliation.account_controls
+        ] == ["GL-1000", "GL-4100"]
+        cash_control, income_control = reconciliation.account_controls
+        assert cash_control.target_gl_account_id == cash.id
+        assert cash_control.source_line_count == 1
+        assert cash_control.preview_line_count == 1
+        assert cash_control.source_debit_total == "1350.00"
+        assert cash_control.preview_debit_total == "1350.00"
+        assert cash_control.source_credit_total == "0.00"
+        assert cash_control.preview_credit_total == "0.00"
+        assert cash_control.reconciled is True
+        assert income_control.target_gl_account_id == income.id
+        assert income_control.source_line_count == 1
+        assert income_control.preview_line_count == 1
+        assert income_control.source_debit_total == "0.00"
+        assert income_control.preview_debit_total == "0.00"
+        assert income_control.source_credit_total == "1350.00"
+        assert income_control.preview_credit_total == "1350.00"
+        assert income_control.reconciled is True
+        assert "gl_account_debit_credit_totals" in reconciliation.compared_controls
         assert reconciliation.reconciled is True
         assert reconciliation.accounting_complete is False
         assert "security_deposit_total" in reconciliation.unverified_controls
@@ -6432,6 +6454,39 @@ def test_appfolio_general_ledger_commit_readiness_groups_supplied_transaction_id
         assert db.query(GLTransaction).count() == before_gl
         assert db.query(GLAccount).count() == before_accounts
         assert db.query(Charge).count() == before_charges
+
+        cash_mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == org.id,
+            PlatformMigrationItem.provider == "APPFOLIO",
+            PlatformMigrationItem.resource == "GL_ACCOUNTS",
+            PlatformMigrationItem.source_id == "GL-1000",
+        ).one()
+        original_mapping_fingerprint = cash_mapping.source_fingerprint
+        cash_mapping.source_fingerprint = "changed-GL-1000-source-fingerprint"
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.get_staged_appfolio_general_ledger_reconciliation(
+                run.id,
+                upload.id,
+                response=Response(),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "exact latest staged dry-run" in exc.value.detail
+        assert db.query(GLTransaction).count() == before_gl
+        assert db.query(GLAccount).count() == before_accounts
+        assert db.query(Charge).count() == before_charges
+
+        cash_mapping.source_fingerprint = original_mapping_fingerprint
+        db.commit()
+        api.dry_run_staged_appfolio_general_ledger(
+            run.id, upload.id, db=db, current_user=admin
+        )
+        api.analyze_staged_appfolio_general_ledger_commit_readiness(
+            run.id, upload.id, db=db, current_user=admin
+        )
 
         stale_row = db.get(PlatformMigrationStagedRow, rows[0].id)
         stale_row.normalized_data = {
