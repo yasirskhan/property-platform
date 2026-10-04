@@ -18,6 +18,7 @@ from app.models.property import Property, PropertyOwner, PropertyType, Unit
 from app.models.lease import Lease, LeaseStatus
 from app.models.charge import Charge
 from app.models.gl_transaction import GLTransaction
+from app.models.gl_account import GLAccount
 from app.models.user import Organization, User, UserRole
 from app.models.vendor import Vendor
 from app.routers import buildium_migrations as api
@@ -41,6 +42,9 @@ from app.schemas.buildium_migration import (
     BuildiumLeaseCommitIn,
     BuildiumLeaseDryRunIn,
     BuildiumLeaseResolutionIn,
+    BuildiumGLAccountCommitIn,
+    BuildiumGLAccountDryRunIn,
+    BuildiumGLAccountResolutionIn,
 )
 
 
@@ -2425,6 +2429,322 @@ def test_buildium_lease_skip_routes_and_sensitive_audit_boundary():
         paths = set(app.openapi()["paths"])
         assert "/api/platform/migrations/buildium/runs/{run_id}/leases/dry-run" in paths
         assert "/api/platform/migrations/buildium/runs/{run_id}/leases/commit" in paths
+    finally:
+        db.close()
+        engine.dispose()
+
+def _gl_record(**changes):
+    record = {
+        "Id": 7001,
+        "AccountNumber": "4100",
+        "Name": "Rental Income",
+        "Description": "Provider description only",
+        "Type": "Income",
+        "SubType": "Income",
+        "IsDefaultGLAccount": True,
+        "DefaultAccountName": "Rental Income",
+        "IsContraAccount": False,
+        "IsBankAccount": False,
+        "CashFlowClassification": "OperatingActivities",
+        "ExcludeFromCashBalances": False,
+        "SubAccounts": [],
+        "IsActive": True,
+        "ParentGLAccountId": None,
+        "IsCreditCardAccount": False,
+    }
+    record.update(changes)
+    return record
+
+
+def _target_gl(db, org, *, number="4100", name="Rental Income", account_type="INCOME", parent_id=None):
+    row = GLAccount(
+        organization_id=org.id,
+        gl_number=number,
+        name=name,
+        account_type=account_type,
+        sub_account_of=parent_id,
+        is_active=True,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def test_buildium_gl_account_maps_existing_identity_only_and_replays():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="GL Mapping")
+        target = _target_gl(db, org)
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="gl-map",
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        preview = api.dry_run_buildium_gl_accounts(
+            run.id,
+            BuildiumGLAccountDryRunIn(records=[_gl_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.invalid == 0
+        assert preview.reviewable == 1
+        assert any("exact account number" in x for x in preview.rows[0].warnings)
+
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_gl_accounts(
+                run.id,
+                BuildiumGLAccountCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=[_gl_record()],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        reviewed = BuildiumGLAccountDryRunIn(
+            records=[_gl_record()],
+            resolutions=[
+                BuildiumGLAccountResolutionIn(
+                    source_id=7001,
+                    action="MATCH_EXISTING",
+                    target_gl_account_id=target.id,
+                )
+            ],
+        )
+        reviewed_preview = api.dry_run_buildium_gl_accounts(
+            run.id, reviewed, db=db, current_user=admin
+        )
+        first = api.commit_buildium_gl_accounts(
+            run.id,
+            BuildiumGLAccountCommitIn(
+                fingerprint=reviewed_preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert first.matched_existing == 1
+        assert first.replayed is False
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "GL_ACCOUNTS"
+        ).one()
+        assert mapping.target_entity == "GL_ACCOUNT"
+        assert mapping.target_id == target.id
+        assert db.query(GLAccount).count() == 1
+        assert db.query(GLTransaction).count() == 0
+
+        replay = api.commit_buildium_gl_accounts(
+            run.id,
+            BuildiumGLAccountCommitIn(
+                fingerprint=reviewed_preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+
+        response = Response()
+        items = api.list_migration_items(
+            run.id,
+            response=response,
+            resource="gl_accounts",
+            limit=200,
+            db=db,
+            current_user=admin,
+        )
+        assert len(items) == 1
+        assert items[0].target_exists is True
+        assert items[0].target_label == "4100 Rental Income"
+        assert response.headers["cache-control"] == "no-store"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_gl_account_parent_mapping_is_required_and_fingerprint_protected():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="GL Parent")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="gl-parent",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        parent = _target_gl(
+            db,
+            org,
+            number="6100",
+            name="Utilities",
+            account_type="EXPENSE",
+        )
+        child = _target_gl(
+            db,
+            org,
+            number="6110",
+            name="Electric",
+            account_type="EXPENSE",
+            parent_id=parent.id,
+        )
+        child_record = _gl_record(
+            Id=7011,
+            AccountNumber="6110",
+            Name="Electric",
+            Type="Expense",
+            SubType="OperatingExpenses",
+            ParentGLAccountId=7010,
+        )
+
+        blocked = api.dry_run_buildium_gl_accounts(
+            run.id,
+            BuildiumGLAccountDryRunIn(records=[child_record]),
+            db=db,
+            current_user=admin,
+        )
+        assert blocked.invalid == 1
+        assert "parent GL account 7010" in blocked.rows[0].reason
+
+        parent_mapping = PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="BUILDIUM",
+            resource="GL_ACCOUNTS",
+            source_id="7010",
+            target_entity="GL_ACCOUNT",
+            target_id=parent.id,
+            source_fingerprint="a" * 64,
+            created_by_platform_user_id=admin.id,
+        )
+        db.add(parent_mapping)
+        db.commit()
+
+        reviewed = BuildiumGLAccountDryRunIn(
+            records=[child_record],
+            resolutions=[
+                BuildiumGLAccountResolutionIn(
+                    source_id=7011,
+                    action="MATCH_EXISTING",
+                    target_gl_account_id=child.id,
+                )
+            ],
+        )
+        preview = api.dry_run_buildium_gl_accounts(
+            run.id, reviewed, db=db, current_user=admin
+        )
+        assert preview.invalid == 0
+        parent_mapping.source_fingerprint = "b" * 64
+        db.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_gl_accounts(
+                run.id,
+                BuildiumGLAccountCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=reviewed.records,
+                    resolutions=reviewed.resolutions,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "parent mapping state" in exc.value.detail
+        assert db.query(GLAccount).count() == 2
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_gl_account_rejects_wrong_type_cross_org_and_supports_skip():
+    from app.main import app
+
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="GL Safety")
+        foreign_org = _org(db, name="GL Foreign")
+        target = _target_gl(db, org)
+        foreign = _target_gl(db, foreign_org, number="4100", name="Foreign Income")
+        wrong_type = _target_gl(
+            db,
+            org,
+            number="4200",
+            name="Other Asset",
+            account_type="ASSET",
+        )
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="gl-safety",
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        for bad_target in (foreign, wrong_type):
+            with pytest.raises(HTTPException) as exc:
+                api.dry_run_buildium_gl_accounts(
+                    run.id,
+                    BuildiumGLAccountDryRunIn(
+                        records=[_gl_record(AccountNumber=bad_target.gl_number)],
+                        resolutions=[
+                            BuildiumGLAccountResolutionIn(
+                                source_id=7001,
+                                action="MATCH_EXISTING",
+                                target_gl_account_id=bad_target.id,
+                            )
+                        ],
+                    ),
+                    db=db,
+                    current_user=admin,
+                )
+            assert exc.value.status_code == 409
+
+        record = _gl_record(Id=7002, AccountNumber="4300", Name="Skip Income")
+        resolutions = [
+            BuildiumGLAccountResolutionIn(source_id=7002, action="SKIP")
+        ]
+        preview = api.dry_run_buildium_gl_accounts(
+            run.id,
+            BuildiumGLAccountDryRunIn(
+                records=[record],
+                resolutions=resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.skipped_review == 1
+        result = api.commit_buildium_gl_accounts(
+            run.id,
+            BuildiumGLAccountCommitIn(
+                fingerprint=preview.fingerprint,
+                records=[record],
+                resolutions=resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert result.matched_existing == 0
+        assert result.replayed is False
+        assert db.query(GLAccount).count() == 3
+        assert db.query(GLTransaction).count() == 0
+
+        paths = set(app.openapi()["paths"])
+        assert "/api/platform/migrations/buildium/runs/{run_id}/gl-accounts/dry-run" in paths
+        assert "/api/platform/migrations/buildium/runs/{run_id}/gl-accounts/commit" in paths
     finally:
         db.close()
         engine.dispose()
