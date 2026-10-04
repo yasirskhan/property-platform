@@ -1,3 +1,124 @@
+# AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM BILL PAYMENTS VERIFIED
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `a0672a1b81ba81f15a360c06ad9672e73e6933c2`.
+- GitHub Actions run: `37238918719` — **SUCCESS**.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **1033 passed, 21 deselected, 26707 warnings in 439.66s**.
+- Authenticated E2E: **21 passed, 278 warnings in 72.16s**.
+- Alembic head remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- No migration was added in this batch.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Buildium Bank Account dependency
+
+The immediately preceding source `7db18543eb1c8220edd9bd6f2a2845c3ef7b7c6a`
+is independently VERIFIED by GitHub Actions `37232720930` with all six
+jobs green: backend **1029 passed, 21 deselected, 26501 warnings in
+271.10s** and authenticated E2E **21 passed, 278 warnings in 114.48s**.
+It maps only an existing target BankAccount through the already-verified
+Buildium GL Account mapping. It never copies provider account/routing
+numbers, unmasked values, balances, electronic-payment limits, check-printing
+configuration, reconciliation state, or Buildium Checking/Savings into the
+target OPERATING/ESCROW classification.
+
+## Verified Buildium Bill Payment relationship reconciliation
+
+This bounded batch consumes documented Buildium Bill Payment identity,
+bank, date, check number, paid-bill and accounting-line evidence and maps
+only to an already-existing target Check when the complete target payment
+contract already exists.
+
+Verified behavior:
+
+1. Stable positive Buildium Bill Payment `Id` is durable source identity.
+2. `BankAccountId` must resolve through the current same-run
+   `BANK_ACCOUNTS -> BANK_ACCOUNT` mapping.
+3. Exactly one positive `PaidBillIds` entry is supported and must resolve
+   through the current same-run `BILLS -> BILL_RELATIONSHIP` mapping.
+4. A nonblank bounded `CheckNumber` and ISO `EntryDate` are required.
+   Non-check/electronic payments remain blocked in this batch.
+5. `AppliedVendorCredits` must be absent/empty. Vendor-credit payment
+   semantics remain blocked rather than inferred.
+6. Every source payment line must use Rental accounting-entity semantics and
+   current durable Property, optional Unit, and GL Account mappings. The exact
+   mapped GL/Property/Unit/amount multiset must equal the existing target
+   BillLine allocation multiset.
+7. The source line total must exactly equal the mapped Bill amount, and the
+   mapped target Bill must already be fully PAID with the same amount_paid.
+   Partial and multi-bill payments remain explicitly unsupported.
+8. Existing Check candidates are evaluated only by exact organization,
+   mapped BankAccount, EntryDate/check date, CheckNumber, amount, one exact
+   Bill allocation, payee, and current issued state. No candidate is
+   auto-selected.
+9. The target Check's immutable GL transaction must remain type CHECK,
+   unreversed, sourced to that Check, and contain exactly the expected
+   payable debit plus mapped bank-cash credit. The payable line must preserve
+   the target Bill property/unit/owner tags.
+10. Review supports only `MATCH_EXISTING` or `SKIP`; there is intentionally
+    no Check/payment creation action.
+11. Exact dry-run fingerprinting binds source records, explicit review
+    decisions, and current Bank Account/Bill/Property/Unit/GL dependency
+    target IDs plus source fingerprints. Any changed dependency state makes
+    commit stale.
+12. Commit writes only durable migration metadata:
+    provider `BUILDIUM`, resource `BILL_PAYMENTS`, target entity
+    `CHECK_PAYMENT_RELATIONSHIP`.
+13. Replay is idempotent. Changed/missing/cross-scope target relationships
+    fail closed.
+14. No Check, Bill, payment, bank movement, Vendor Credit, GLTransaction or
+    GLEntry is created or updated by this migration batch.
+15. Provider Memo/raw response bodies, provider credentials, and local bank
+    account/routing secrets are not persisted in migration audit metadata.
+
+## Phase 4.14 verified resource progress
+
+- Properties — controlled create / existing-target mapping with review.
+- Units — controlled create / existing-target mapping tied to Property mapping.
+- Owners — existing OWNER identity mapping only.
+- Vendors — existing Vendor identity mapping only.
+- Tenants — existing TENANT identity mapping only.
+- Leases — existing-target relationship reconciliation only.
+- GL Accounts — existing-target identity/parent mapping only.
+- Work Orders — existing-target relationship reconciliation only.
+- Bills — existing-target relationship and line-allocation reconciliation only.
+- Bank Accounts — existing-target identity mapping through mapped GL Account.
+- Bill Payments — existing-target Check/payment relationship reconciliation
+  for the exact full single-bill, check-backed, no-vendor-credit subset only.
+
+## Exact NEXT Phase 4.14 batch
+
+Inspect Buildium General Ledger transactions before attempting broader check,
+bank-transaction, vendor-credit, partial-payment or historical accounting
+coverage. Prefer read-only existing-target GLTransaction relationship
+reconciliation with exact mapped GL/property/unit relationships and immutable
+posted-line validation. Do not create journal history, balances, bank movement,
+synthetic opening entries or inferred debit/credit semantics. If the documented
+Buildium transaction contract is insufficient to establish an exact target
+posting relationship, leave that resource blocked and move to the next
+independent verified source contract.
+
+The Buildium outbound credential/transport adapter remains deferred. Any later
+transport must feed this same provider-labelled migration run, exact-fingerprint,
+explicit-review and durable-mapping architecture. Provider secrets/raw bodies
+must remain outside migration rows, audit and customer-visible responses.
+
+Do not reopen Phase 4.13, start general UX/navigation work, touch main, create
+another branch, or add the optional AppFolio API adapter.
+
+---
+
 # AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM BILLS VERIFIED
 
 ## Current verified checkpoint
