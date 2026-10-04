@@ -1,3 +1,83 @@
+# AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM PROPERTY MATCH REVIEW VERIFIED
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `ccb433f41484543f595de0d95a1083198e22c824`.
+- GitHub Actions run: `37192597336` — **SUCCESS**.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **994 passed, 21 deselected, 25840 warnings in 459.83s**.
+- Authenticated E2E: **21 passed, 278 warnings in 114.42s**.
+- Alembic head remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- No migration was added in this batch.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Buildium Property match-review behavior
+
+The first Buildium Property foundation remains intact and now supports an
+explicit reviewed decision for a source Property that may already exist in the
+target organization.
+
+Verified behavior:
+
+1. Possible existing target matches are never auto-selected or overwritten.
+2. The review contract supports only explicit `MATCH_EXISTING`, `CREATE_NEW`
+   or `SKIP` decisions tied to an exact positive Buildium source `Id`.
+3. A MATCH_EXISTING target is revalidated as active, undeleted and in the same
+   target organization at dry-run and controlled-commit time.
+4. Resolution state is included in the exact Buildium dry-run fingerprint, so a
+   changed source row, changed resolution, changed target, or changed
+   include-inactive choice cannot reuse a stale reviewed preview.
+5. CREATE_NEW remains explicit and does not silently overwrite an existing
+   customer Property.
+6. SKIP excludes the reviewed source row from controlled commit without
+   manufacturing a mapping.
+7. Durable replay/idempotency continues to use the existing
+   `platform_migration_items` provider-labelled mapping table.
+8. Cross-organization targets, deleted/inactive targets, stale resolution
+   payloads and inconsistent replay mappings fail closed.
+9. No Buildium API credentials, outbound network calls, raw provider response
+   persistence, accounting mutation, or Phase 4.13 behavior was added.
+10. Focused Buildium regression coverage is included in the verified backend
+    total above.
+
+## Exact NEXT Phase 4.14 batch
+
+Proceed to **Buildium Units foundation** using the same verified provider-labelled
+migration architecture and the official Buildium v1 Rental Units source contract.
+
+Required boundaries:
+
+- use stable Buildium Unit `Id` as source identity;
+- require the source `PropertyId` and resolve it only through an existing
+  durable Buildium Property mapping from this same migration run;
+- map Buildium `UnitNumber` and structured `Address` conservatively;
+- preserve explicit review instead of guessing when a possible target Unit
+  already exists under the mapped Property;
+- never infer occupancy from `IsUnitOccupied`;
+- do not create Lease/Tenant/Charge/GL history in the Unit batch;
+- bind Property mapping state and any Unit match resolution into exact
+  dry-run/commit fingerprints so stale mappings cannot be reused;
+- preserve organization isolation, replay/idempotency, audit and no-overwrite
+  rules;
+- add focused cross-org/property, stale mapping, duplicate source ID,
+  replay and no-unintended-mutation regressions;
+- no Buildium credential storage or outbound API transport yet.
+
+Do not reopen Phase 4.13, start general UX/navigation work, touch main, create a
+new branch, or add the optional AppFolio API adapter.
+
+---
+
 # AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM PROPERTY FOUNDATION VERIFIED
 
 ## Current verified checkpoint
