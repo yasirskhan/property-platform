@@ -14,7 +14,10 @@ from app.core.security import hash_password
 from app.models.audit_log import AuditLog
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
-from app.models.property import Property, PropertyType
+from app.models.property import Property, PropertyType, Unit
+from app.models.lease import Lease
+from app.models.charge import Charge
+from app.models.gl_transaction import GLTransaction
 from app.models.user import Organization
 from app.routers import buildium_migrations as api
 from app.schemas.buildium_migration import (
@@ -22,6 +25,9 @@ from app.schemas.buildium_migration import (
     BuildiumPropertyCommitIn,
     BuildiumPropertyDryRunIn,
     BuildiumPropertyResolutionIn,
+    BuildiumUnitCommitIn,
+    BuildiumUnitDryRunIn,
+    BuildiumUnitResolutionIn,
 )
 
 
@@ -828,3 +834,452 @@ def test_buildium_skip_only_commit_records_reviewed_noop_and_replays():
     finally:
         db.close()
         engine.dispose()
+
+
+def _unit_record(**changes):
+    record = {
+        "Id": 2001,
+        "PropertyId": 1001,
+        "BuildingName": "Lake Apartments",
+        "UnitNumber": "1A",
+        "Description": "",
+        "MarketRent": 1250,
+        "Address": {
+            "AddressLine1": "10 Lake Ave",
+            "AddressLine2": "Building A",
+            "AddressLine3": "",
+            "City": "Cleveland",
+            "State": "OH",
+            "PostalCode": "44113",
+            "Country": "United States",
+        },
+        "UnitBedrooms": "TwoBed",
+        "UnitBathrooms": "OnePointFiveBath",
+        "UnitSize": 900,
+        "IsUnitListed": True,
+        "IsUnitOccupied": True,
+    }
+    record.update(changes)
+    return record
+
+
+def _buildium_property_mapping(db, run, org, *, source_id="1001", name="Lake Apartments"):
+    target = Property(
+        organization_id=org.id,
+        name=name,
+        property_type=PropertyType.MULTI_FAMILY,
+        address_line1="10 Lake Ave",
+        address_line2="Building A",
+        city="Cleveland",
+        state="OH",
+        zip_code="44113",
+        country="United States",
+        is_active=True,
+    )
+    db.add(target)
+    db.flush()
+    mapping = PlatformMigrationItem(
+        run_id=run.id,
+        organization_id=org.id,
+        provider="BUILDIUM",
+        resource="PROPERTIES",
+        source_id=str(source_id),
+        target_entity="PROPERTY",
+        target_id=target.id,
+        source_fingerprint="a" * 64,
+        created_by_platform_user_id=run.created_by_platform_user_id,
+    )
+    db.add(mapping)
+    db.commit()
+    db.refresh(target)
+    db.refresh(mapping)
+    return target, mapping
+
+
+def test_buildium_units_require_durable_property_mapping_and_never_infer_occupancy():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Unit Foundation")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="unit-foundation",
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        blocked = api.dry_run_buildium_units(
+            run.id,
+            BuildiumUnitDryRunIn(records=[_unit_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert blocked.invalid == 1
+        assert blocked.importable == 0
+        assert "no durable Property mapping" in blocked.rows[0].reason
+        assert db.query(Unit).count() == 0
+
+        target_property, _ = _buildium_property_mapping(db, run, org)
+        preview = api.dry_run_buildium_units(
+            run.id,
+            BuildiumUnitDryRunIn(records=[_unit_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.invalid == 0
+        assert preview.importable == 1
+        assert preview.rows[0].mapped["target_property_id"] == target_property.id
+        assert preview.rows[0].mapped["unit_number"] == "1A"
+        assert preview.rows[0].mapped["bedrooms"] == 2
+        assert str(preview.rows[0].mapped["bathrooms"]) == "1.5"
+        assert str(preview.rows[0].mapped["monthly_rent"]) == "1250.00"
+        assert preview.rows[0].mapped["is_available"] is None
+        assert any("IsUnitOccupied is source evidence only" in x for x in preview.rows[0].warnings)
+        assert db.query(Unit).count() == 0
+        assert db.query(Lease).count() == 0
+        assert db.query(Charge).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_unit_commit_is_fingerprint_bound_replay_safe_and_visible():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Unit Commit")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="unit-commit",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        target_property, _ = _buildium_property_mapping(db, run, org)
+        records = [_unit_record()]
+        preview = api.dry_run_buildium_units(
+            run.id,
+            BuildiumUnitDryRunIn(records=records),
+            db=db,
+            current_user=admin,
+        )
+
+        changed = [_unit_record(MarketRent=1300)]
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_units(
+                run.id,
+                BuildiumUnitCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=changed,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(Unit).count() == 0
+
+        first = api.commit_buildium_units(
+            run.id,
+            BuildiumUnitCommitIn(
+                fingerprint=preview.fingerprint,
+                records=records,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert first.committed == 1
+        assert first.replayed is False
+        unit = db.query(Unit).one()
+        assert unit.property_id == target_property.id
+        assert unit.unit_number == "1A"
+        assert unit.is_available is None
+        assert unit.is_listed is True
+
+        second = api.commit_buildium_units(
+            run.id,
+            BuildiumUnitCommitIn(
+                fingerprint=preview.fingerprint,
+                records=records,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert second.replayed is True
+        assert second.committed == 0
+        assert db.query(Unit).count() == 1
+
+        response = Response()
+        items = api.list_migration_items(
+            run.id,
+            response=response,
+            resource="units",
+            limit=200,
+            db=db,
+            current_user=admin,
+        )
+        assert len(items) == 1
+        assert items[0].provider == "BUILDIUM"
+        assert items[0].target_entity == "UNIT"
+        assert items[0].target_exists is True
+        assert items[0].target_label == "1A"
+        assert response.headers["cache-control"] == "no-store"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_unit_possible_match_requires_explicit_review_without_overwrite():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Unit Match")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="unit-match",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        target_property, _ = _buildium_property_mapping(db, run, org)
+        existing = Unit(
+            property_id=target_property.id,
+            unit_number="1A",
+            bedrooms=3,
+            bathrooms=2,
+            square_feet=1100,
+            monthly_rent=1500,
+            is_available=False,
+            is_listed=False,
+            is_active=True,
+        )
+        db.add(existing)
+        db.commit()
+        existing_id = existing.id
+
+        preview = api.dry_run_buildium_units(
+            run.id,
+            BuildiumUnitDryRunIn(records=[_unit_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert any("Possible existing target Unit match" in x for x in preview.rows[0].warnings)
+
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_units(
+                run.id,
+                BuildiumUnitCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=[_unit_record()],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(Unit).count() == 1
+
+        reviewed = BuildiumUnitDryRunIn(
+            records=[_unit_record()],
+            resolutions=[
+                BuildiumUnitResolutionIn(
+                    source_id=2001,
+                    action="MATCH_EXISTING",
+                    target_unit_id=existing_id,
+                )
+            ],
+        )
+        reviewed_preview = api.dry_run_buildium_units(
+            run.id,
+            reviewed,
+            db=db,
+            current_user=admin,
+        )
+        committed = api.commit_buildium_units(
+            run.id,
+            BuildiumUnitCommitIn(
+                fingerprint=reviewed_preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.committed == 0
+        assert committed.matched_existing == 1
+        db.refresh(existing)
+        assert existing.bedrooms == 3
+        assert str(existing.monthly_rent) == "1500.00"
+        assert existing.is_available is False
+        assert db.query(Unit).count() == 1
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "UNITS"
+        ).one()
+        assert mapping.target_id == existing_id
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_unit_property_mapping_state_invalidates_stale_preview():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Unit Mapping Fingerprint")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="unit-map-fingerprint",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        target_property, mapping = _buildium_property_mapping(db, run, org)
+        records = [_unit_record()]
+        preview = api.dry_run_buildium_units(
+            run.id,
+            BuildiumUnitDryRunIn(records=records),
+            db=db,
+            current_user=admin,
+        )
+
+        mapping.source_fingerprint = "b" * 64
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_units(
+                run.id,
+                BuildiumUnitCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=records,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "Property mapping state" in exc.value.detail
+        assert db.query(Unit).count() == 0
+
+        refreshed = api.dry_run_buildium_units(
+            run.id,
+            BuildiumUnitDryRunIn(records=records),
+            db=db,
+            current_user=admin,
+        )
+        target_property.deleted_at = datetime.utcnow()
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_units(
+                run.id,
+                BuildiumUnitCommitIn(
+                    fingerprint=refreshed.fingerprint,
+                    records=records,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(Unit).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_unit_review_rejects_cross_property_and_lossy_source_contracts():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Unit Safety")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="unit-safety",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        mapped_property, _ = _buildium_property_mapping(db, run, org)
+        other_property = Property(
+            organization_id=org.id,
+            name="Other",
+            property_type=PropertyType.MULTI_FAMILY,
+            address_line1="99 Other Rd",
+            city="Cleveland",
+            state="OH",
+            zip_code="44114",
+            country="United States",
+            is_active=True,
+        )
+        db.add(other_property)
+        db.flush()
+        foreign_unit = Unit(
+            property_id=other_property.id,
+            unit_number="1A",
+            bedrooms=2,
+            bathrooms=1.5,
+            monthly_rent=1200,
+            is_active=True,
+        )
+        db.add(foreign_unit)
+        db.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_buildium_units(
+                run.id,
+                BuildiumUnitDryRunIn(
+                    records=[_unit_record()],
+                    resolutions=[
+                        BuildiumUnitResolutionIn(
+                            source_id=2001,
+                            action="MATCH_EXISTING",
+                            target_unit_id=foreign_unit.id,
+                        )
+                    ],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "not active under the mapped Property" in exc.value.detail
+
+        lossy = [
+            _unit_record(Description="Private patio"),
+            _unit_record(Id=2002, UnitNumber="2A", UnitBedrooms="NotSet"),
+            _unit_record(
+                Id=2003,
+                UnitNumber="3A",
+                Address={
+                    **_unit_record()["Address"],
+                    "AddressLine3": "Rear building",
+                },
+            ),
+        ]
+        preview = api.dry_run_buildium_units(
+            run.id,
+            BuildiumUnitDryRunIn(records=lossy),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.invalid == 3
+        assert preview.importable == 0
+        reasons = " ".join(row.reason or "" for row in preview.rows)
+        assert "Description is populated" in reasons
+        assert "UnitBedrooms is not set" in reasons
+        assert "Address.AddressLine3 is populated" in reasons
+        assert db.query(Unit).count() == 1
+        assert db.query(Lease).count() == 0
+        assert db.query(Charge).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_unit_routes_are_exposed():
+    from app.main import app
+
+    paths = set(app.openapi()["paths"])
+    assert "/api/platform/migrations/buildium/runs/{run_id}/units/dry-run" in paths
+    assert "/api/platform/migrations/buildium/runs/{run_id}/units/commit" in paths

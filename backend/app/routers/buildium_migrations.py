@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
-from app.models.property import Property
+from app.models.property import Property, Unit
 from app.models.user import Organization
 from app.routers.platform_auth import get_current_platform_user
 from app.schemas.buildium_migration import (
@@ -24,12 +24,21 @@ from app.schemas.buildium_migration import (
     BuildiumPropertyCommitOut,
     BuildiumPropertyDryRunIn,
     BuildiumPropertyDryRunOut,
+    BuildiumUnitCommitIn,
+    BuildiumUnitCommitOut,
+    BuildiumUnitDryRunIn,
+    BuildiumUnitDryRunOut,
 )
 from app.services.audit import append_audit_log
 from app.services.buildium_migration import (
     BuildiumMigrationError,
     commit_properties,
     dry_run_properties,
+)
+from app.services.buildium_unit_migration import (
+    BuildiumUnitMigrationError,
+    commit_units,
+    dry_run_units,
 )
 
 
@@ -308,6 +317,129 @@ def commit_buildium_properties(
     )
 
 
+
+
+@router.post(
+    "/runs/{run_id}/units/dry-run",
+    response_model=BuildiumUnitDryRunOut,
+)
+def dry_run_buildium_units(
+    run_id: int,
+    payload: BuildiumUnitDryRunIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = dry_run_units(
+            db,
+            run=row,
+            records=payload.records,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+    except BuildiumUnitMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=row.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=row.id,
+            action="buildium_units_dry_run",
+            new_value={
+                "fingerprint": result.fingerprint,
+                **result.summary,
+                "target_mutation": False,
+            },
+        )
+        db.commit()
+        db.refresh(row)
+
+    return BuildiumUnitDryRunOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        importable=result.importable,
+        skipped_review=result.skipped_review,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/units/commit",
+    response_model=BuildiumUnitCommitOut,
+)
+def commit_buildium_units(
+    run_id: int,
+    payload: BuildiumUnitCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = commit_units(
+            db,
+            run=row,
+            records=payload.records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=row.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=row.id,
+                action="buildium_units_committed",
+                new_value={
+                    "fingerprint": result.fingerprint,
+                    "committed": result.committed,
+                    "matched_existing": result.matched_existing,
+                    "skipped_review": result.skipped_review,
+                    "warning_count": result.warning_count,
+                    "target_unit_ids": [
+                        item["target_unit_id"] for item in result.rows
+                    ],
+                    "raw_payload_stored": False,
+                    "provider_credentials_stored": False,
+                    "occupancy_inferred": False,
+                    "lease_mutation": False,
+                },
+            )
+            db.commit()
+            db.refresh(row)
+    except BuildiumUnitMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Buildium Unit commit conflicted with an existing migration mapping or target Unit.",
+        ) from exc
+
+    return BuildiumUnitCommitOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        committed=result.committed,
+        matched_existing=result.matched_existing,
+        skipped_review=result.skipped_review,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
 @router.get(
     "/runs/{run_id}/items",
     response_model=list[BuildiumMigrationItemOut],
@@ -373,6 +505,19 @@ def list_migration_items(
             if target is not None:
                 target_exists = True
                 target_label = target.name
+        elif item.target_entity == "UNIT":
+            target = (
+                db.query(Unit)
+                .join(Property, Property.id == Unit.property_id)
+                .filter(
+                    Unit.id == item.target_id,
+                    Property.organization_id == row.organization_id,
+                )
+                .first()
+            )
+            if target is not None:
+                target_exists = True
+                target_label = target.unit_number
         result.append(
             BuildiumMigrationItemOut(
                 id=item.id,
