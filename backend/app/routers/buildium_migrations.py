@@ -14,6 +14,7 @@ from app.core.database import get_db
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.property import Property, Unit
+from app.models.lease import Lease
 from app.models.vendor import Vendor
 from app.models.user import Organization
 from app.routers.platform_auth import get_current_platform_user
@@ -41,6 +42,10 @@ from app.schemas.buildium_migration import (
     BuildiumTenantCommitOut,
     BuildiumTenantDryRunIn,
     BuildiumTenantDryRunOut,
+    BuildiumLeaseCommitIn,
+    BuildiumLeaseCommitOut,
+    BuildiumLeaseDryRunIn,
+    BuildiumLeaseDryRunOut,
 )
 from app.services.audit import append_audit_log
 from app.services.buildium_migration import (
@@ -67,6 +72,11 @@ from app.services.buildium_tenant_migration import (
     BuildiumTenantMigrationError,
     commit_tenants,
     dry_run_tenants,
+)
+from app.services.buildium_lease_migration import (
+    BuildiumLeaseMigrationError,
+    commit_leases,
+    dry_run_leases,
 )
 
 
@@ -836,6 +846,132 @@ def commit_buildium_tenants(
         rows=result.rows,
     )
 
+
+
+@router.post(
+    "/runs/{run_id}/leases/dry-run",
+    response_model=BuildiumLeaseDryRunOut,
+)
+def dry_run_buildium_leases(
+    run_id: int,
+    payload: BuildiumLeaseDryRunIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = dry_run_leases(
+            db,
+            run=row,
+            records=payload.records,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+    except BuildiumLeaseMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=row.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=row.id,
+            action="buildium_leases_dry_run",
+            new_value={
+                "fingerprint": result.fingerprint,
+                **result.summary,
+                "target_mutation": False,
+            },
+        )
+        db.commit()
+        db.refresh(row)
+
+    return BuildiumLeaseDryRunOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        reviewable=result.reviewable,
+        skipped_review=result.skipped_review,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/leases/commit",
+    response_model=BuildiumLeaseCommitOut,
+)
+def commit_buildium_leases(
+    run_id: int,
+    payload: BuildiumLeaseCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = commit_leases(
+            db,
+            run=row,
+            records=payload.records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=row.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=row.id,
+                action="buildium_leases_reconciled",
+                new_value={
+                    "fingerprint": result.fingerprint,
+                    "matched_existing": result.matched_existing,
+                    "skipped_review": result.skipped_review,
+                    "warning_count": result.warning_count,
+                    "target_lease_ids": [
+                        item["target_lease_id"] for item in result.rows
+                    ],
+                    "leases_created": False,
+                    "leases_updated": False,
+                    "occupancy_inferred": False,
+                    "rent_or_deposit_created": False,
+                    "charges_created": False,
+                    "payments_created": False,
+                    "gl_history_created": False,
+                    "raw_payload_stored": False,
+                    "provider_credentials_stored": False,
+                },
+            )
+            db.commit()
+            db.refresh(row)
+    except BuildiumLeaseMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Buildium Lease relationship mapping conflicted with an existing migration mapping.",
+        ) from exc
+
+    return BuildiumLeaseCommitOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        matched_existing=result.matched_existing,
+        skipped_review=result.skipped_review,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
 @router.get(
     "/runs/{run_id}/items",
     response_model=list[BuildiumMigrationItemOut],
@@ -954,6 +1090,20 @@ def list_migration_items(
             if target is not None:
                 target_exists = True
                 target_label = target.email
+        elif item.target_entity == "LEASE_RELATIONSHIP":
+            target = (
+                db.query(Lease)
+                .join(Unit, Unit.id == Lease.unit_id)
+                .join(Property, Property.id == Unit.property_id)
+                .filter(
+                    Lease.id == item.target_id,
+                    Property.organization_id == row.organization_id,
+                )
+                .first()
+            )
+            if target is not None:
+                target_exists = True
+                target_label = f"Lease #{target.id}"
         result.append(
             BuildiumMigrationItemOut(
                 id=item.id,

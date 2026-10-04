@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import date, datetime
 
 import pytest
 from fastapi import HTTPException, Response
@@ -15,7 +15,7 @@ from app.models.audit_log import AuditLog
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.property import Property, PropertyOwner, PropertyType, Unit
-from app.models.lease import Lease
+from app.models.lease import Lease, LeaseStatus
 from app.models.charge import Charge
 from app.models.gl_transaction import GLTransaction
 from app.models.user import Organization, User, UserRole
@@ -38,6 +38,9 @@ from app.schemas.buildium_migration import (
     BuildiumTenantCommitIn,
     BuildiumTenantDryRunIn,
     BuildiumTenantResolutionIn,
+    BuildiumLeaseCommitIn,
+    BuildiumLeaseDryRunIn,
+    BuildiumLeaseResolutionIn,
 )
 
 
@@ -2090,3 +2093,339 @@ def test_buildium_tenant_skip_and_routes():
     finally:
         db.close()
         engine.dispose()
+
+def _lease_record(**changes):
+    record = {
+        "Id": 6001,
+        "PropertyId": 1001,
+        "UnitId": 2001,
+        "UnitNumber": "1A",
+        "LeaseFromDate": "2026-01-01",
+        "LeaseToDate": "2026-12-31",
+        "LeaseType": "Fixed",
+        "LeaseStatus": "Active",
+        "TermType": "Fixed",
+        "PaymentDueDay": 1,
+        "IsEvictionPending": False,
+        "CurrentTenants": [
+            {
+                "Id": 5001,
+                "FirstName": "Tina",
+                "LastName": "Tenant",
+                "Email": "tina.tenant@example.com",
+                "TaxId": "DO-NOT-PROMOTE",
+            }
+        ],
+        "RentAmount": 1300,
+        "SecurityDepositAmount": 500,
+    }
+    record.update(changes)
+    return record
+
+
+def _lease_dependencies(db, run, org):
+    target_property, _ = _buildium_property_mapping(db, run, org)
+    unit = Unit(
+        property_id=target_property.id,
+        unit_number="1A",
+        bedrooms=2,
+        bathrooms=1.5,
+        square_feet=900,
+        monthly_rent=1250,
+        is_available=None,
+        is_listed=True,
+        is_active=True,
+    )
+    db.add(unit)
+    db.flush()
+    db.add(
+        PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="BUILDIUM",
+            resource="UNITS",
+            source_id="2001",
+            target_entity="UNIT",
+            target_id=unit.id,
+            source_fingerprint="b" * 64,
+            created_by_platform_user_id=run.created_by_platform_user_id,
+        )
+    )
+    tenant = _customer_tenant(db, org)
+    db.add(
+        PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="BUILDIUM",
+            resource="TENANTS",
+            source_id="5001",
+            target_entity="TENANT_USER",
+            target_id=tenant.id,
+            source_fingerprint="c" * 64,
+            created_by_platform_user_id=run.created_by_platform_user_id,
+        )
+    )
+    lease = Lease(
+        unit_id=unit.id,
+        tenant_id=tenant.id,
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 12, 31),
+        monthly_rent=1300,
+        security_deposit=500,
+        due_day=1,
+        status=LeaseStatus.ACTIVE,
+    )
+    db.add(lease)
+    db.commit()
+    db.refresh(unit)
+    db.refresh(tenant)
+    db.refresh(lease)
+    return target_property, unit, tenant, lease
+
+
+def test_buildium_lease_reconciles_exact_existing_relationship_only_and_replays():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Lease Reconciliation")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="lease-rel",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _, unit, tenant, lease = _lease_dependencies(db, run, org)
+
+        preview = api.dry_run_buildium_leases(
+            run.id,
+            BuildiumLeaseDryRunIn(records=[_lease_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.invalid == 0
+        assert preview.reviewable == 1
+        assert preview.rows[0].mapped["target_unit_id"] == unit.id
+        assert preview.rows[0].mapped["target_tenant_user_id"] == tenant.id
+        assert any("never creates or updates" in warning for warning in preview.rows[0].warnings)
+
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_leases(
+                run.id,
+                BuildiumLeaseCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=[_lease_record()],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        reviewed = BuildiumLeaseDryRunIn(
+            records=[_lease_record()],
+            resolutions=[
+                BuildiumLeaseResolutionIn(
+                    source_id=6001,
+                    action="MATCH_EXISTING",
+                    target_lease_id=lease.id,
+                )
+            ],
+        )
+        reviewed_preview = api.dry_run_buildium_leases(
+            run.id, reviewed, db=db, current_user=admin
+        )
+        first = api.commit_buildium_leases(
+            run.id,
+            BuildiumLeaseCommitIn(
+                fingerprint=reviewed_preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert first.matched_existing == 1
+        assert first.replayed is False
+        mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(PlatformMigrationItem.resource == "LEASES")
+            .one()
+        )
+        assert mapping.target_entity == "LEASE_RELATIONSHIP"
+        assert mapping.target_id == lease.id
+        assert db.query(Lease).count() == 1
+        assert db.query(Charge).count() == 0
+        assert db.query(GLTransaction).count() == 0
+
+        replay = api.commit_buildium_leases(
+            run.id,
+            BuildiumLeaseCommitIn(
+                fingerprint=reviewed_preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+
+        response = Response()
+        items = api.list_migration_items(
+            run.id,
+            response=response,
+            resource="leases",
+            limit=200,
+            db=db,
+            current_user=admin,
+        )
+        assert len(items) == 1
+        assert items[0].target_exists is True
+        assert items[0].target_label == f"Lease #{lease.id}"
+        assert response.headers["cache-control"] == "no-store"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_lease_blocks_missing_or_ambiguous_membership_and_stale_dependency_fingerprint():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Lease Safety")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="lease-safety",
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        missing = api.dry_run_buildium_leases(
+            run.id,
+            BuildiumLeaseDryRunIn(records=[_lease_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert missing.invalid == 1
+        assert "Property, Unit, Tenant" in missing.rows[0].reason
+
+        _, unit, _, lease = _lease_dependencies(db, run, org)
+        ambiguous = api.dry_run_buildium_leases(
+            run.id,
+            BuildiumLeaseDryRunIn(
+                records=[
+                    _lease_record(
+                        CurrentTenants=[
+                            {"Id": 5001},
+                            {"Id": 5002},
+                        ]
+                    )
+                ]
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert ambiguous.invalid == 1
+        assert "Exactly one current Buildium tenant" in ambiguous.rows[0].reason
+
+        reviewed = BuildiumLeaseDryRunIn(
+            records=[_lease_record()],
+            resolutions=[
+                BuildiumLeaseResolutionIn(
+                    source_id=6001,
+                    action="MATCH_EXISTING",
+                    target_lease_id=lease.id,
+                )
+            ],
+        )
+        preview = api.dry_run_buildium_leases(
+            run.id, reviewed, db=db, current_user=admin
+        )
+        unit_mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(PlatformMigrationItem.resource == "UNITS")
+            .one()
+        )
+        unit_mapping.source_fingerprint = "d" * 64
+        db.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_leases(
+                run.id,
+                BuildiumLeaseCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=reviewed.records,
+                    resolutions=reviewed.resolutions,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "dependency mapping state" in exc.value.detail
+        assert db.query(Lease).count() == 1
+        assert db.query(Charge).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_lease_skip_routes_and_sensitive_audit_boundary():
+    from app.main import app
+
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Lease Skip")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="lease-skip",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _lease_dependencies(db, run, org)
+        record = _lease_record(
+            Id=6002,
+            CurrentTenants=[{"Id": 5001, "TaxId": "LEASE-SECRET"}],
+        )
+        resolutions = [BuildiumLeaseResolutionIn(source_id=6002, action="SKIP")]
+        preview = api.dry_run_buildium_leases(
+            run.id,
+            BuildiumLeaseDryRunIn(records=[record], resolutions=resolutions),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.skipped_review == 1
+        result = api.commit_buildium_leases(
+            run.id,
+            BuildiumLeaseCommitIn(
+                fingerprint=preview.fingerprint,
+                records=[record],
+                resolutions=resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert result.replayed is False
+        assert result.matched_existing == 0
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "LEASES"
+        ).count() == 0
+        audit_text = "\n".join(
+            row.new_value or ""
+            for row in db.query(AuditLog)
+            .filter(AuditLog.entity_type == "platform_migration_run")
+            .all()
+        )
+        assert "LEASE-SECRET" not in audit_text
+        paths = set(app.openapi()["paths"])
+        assert "/api/platform/migrations/buildium/runs/{run_id}/leases/dry-run" in paths
+        assert "/api/platform/migrations/buildium/runs/{run_id}/leases/commit" in paths
+    finally:
+        db.close()
+        engine.dispose()
+
