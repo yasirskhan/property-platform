@@ -1,3 +1,77 @@
+# AI_HANDOFF.md — 2026-10-04 PHASE 4.13 CSV/XLSX FILE PATH COMPLETE | VERIFIED
+
+## Final Phase 4.13 file-based migration checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Final VERIFIED PRODUCT SHA: `b4ef4ac8313068a6cd1d1466b197fdf3cbf28bb7`.
+- Product CI: `37172152530` — SUCCESS.
+- File-path closeout source SHA: `e60d83f3c34704f79ea52bbf7aac99656301825b`.
+- Closeout CI: `37172973833` — SUCCESS.
+- All six required CI jobs passed on both final product and closeout verification checkpoints:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **985 passed, 21 deselected, 25690 warnings in 463.28s** on closeout CI.
+- Authenticated E2E: **21 passed, 278 warnings in 111.38s** on closeout CI.
+- Alembic head remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## What Phase 4.13 now safely supports
+
+The authorized AppFolio file path is:
+
+`CSV/XLSX -> upload -> detect -> map -> stage -> validate -> review -> reconcile -> dry run -> controlled commit where the verified source/target contract is sufficient`.
+
+Verified shared controls include bounded CSV/XLSX parsing, resource detection,
+explicit column mapping, durable source identity, staged validation/review,
+correction rules, source-to-target durable mappings, exact fingerprints,
+stale-preview protection, run-level coverage/review summaries, review snapshot
+fingerprinting, replay/idempotency, recovery/mapping visibility, organization
+isolation and audit.
+
+Verified resource coverage:
+
+- Properties — controlled commit supported.
+- Units — controlled commit supported.
+- Owners — controlled existing-record mapping supported.
+- Vendors — controlled commit supported.
+- Tenants — controlled mapping supported.
+- Lease/occupancy — staging + relationship reconciliation verified; controlled commit blocked on insufficient verified lease/occupancy semantics.
+- GL Accounts — controlled mapping to existing same-organization GL Accounts supported.
+- General Ledger/history — staging, relationship reconciliation, dry run, balanced transaction-group readiness, overall and per-account reconciliation verified; historical controlled posting remains blocked on independently verified target accounting semantics.
+- Bills/payables — staging, relationship reconciliation, dry run and source identity/count/TotalAmount reconciliation verified; controlled commit blocked on line-item GL allocation and deterministic posting/business-date semantics.
+- Charges/receivables — staging, relationship reconciliation, dry run and source identity/count/AmountDue reconciliation verified; controlled commit blocked on Occupancy/tenant identity plus original-charge/payment semantics.
+- Work Orders — staging, relationship reconciliation and dry run verified; controlled commit blocked where the source contract cannot safely establish required target identity/assignment semantics.
+- Security Deposits — automatic ingestion/reconciliation remains BLOCKED on authoritative source-schema evidence.
+- Attachments/Documents — automatic ingestion remains BLOCKED on authoritative source-schema/entity-relationship evidence.
+
+Section 11 reconciliation is complete wherever the verified current source contracts support it: record identity/count, GL debit/credit/per-account totals, Bills/payables TotalAmount and Charges/receivables AmountDue. Beginning/ending balances, Security Deposit totals and other external control totals remain explicitly unverified where no authoritative supplied source contract exists. No balancing entries or synthetic history may be fabricated.
+
+## Preserved exclusions
+
+- Do not implement the AppFolio API adapter yet. Section 12 remains optional later transport/testing and must feed this same verified staging pipeline.
+- Do not add general UX work unless the owner explicitly says `start UX work`.
+- Do not change navigation integrity or the hidden-menu roadmap unless a future verified feature actually qualifies under the existing unhide rules.
+- Do not automatically overwrite existing customer records or invent missing source data.
+- Do not reinterpret the resource-specific blockers above as authorization to synthesize accounting, occupancy, maintenance or document history.
+
+## STOP / NEXT REFERENCE
+
+Phase 4.13 file-based AppFolio migration work is complete at this checkpoint.
+
+**Do not start Phase 4.14 in this closeout batch.**
+
+The next roadmap phase may be taken up only in a subsequent explicit continuation instruction. The optional AppFolio API adapter also remains deferred and is not a prerequisite for this completed CSV/XLSX path.
+
+---
+
 # AI_HANDOFF.md — 2026-10-04 PHASE 4.13 CHARGES / RECEIVABLES RECONCILIATION VERIFIED
 
 ## Current verified product checkpoint
