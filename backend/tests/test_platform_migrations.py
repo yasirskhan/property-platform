@@ -6456,6 +6456,41 @@ def test_appfolio_general_ledger_commit_readiness_groups_supplied_transaction_id
         engine.dispose()
 
 
+def test_appfolio_general_ledger_reconciliation_route_is_exposed_and_sales_is_denied():
+    from app.main import app
+
+    assert (
+        "/api/platform/migrations/appfolio/runs/{run_id}/uploads/{upload_id}/general-ledger/reconciliation"
+        in set(app.openapi()["paths"])
+    )
+
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        sales = _platform_user(db, PlatformUserRole.SALES)
+        org = _org(db, name="Ledger Reconciliation Auth Org")
+        run = api.create_run(
+            AppFolioMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="ledger-reconciliation-auth",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.get_staged_appfolio_general_ledger_reconciliation(
+                run.id,
+                999999,
+                response=Response(),
+                db=db,
+                current_user=sales,
+            )
+        assert exc.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_appfolio_general_ledger_commit_readiness_blocks_missing_transaction_id_or_unbalanced_group():
     db, engine = _session()
     try:
