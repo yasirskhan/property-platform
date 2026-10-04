@@ -5899,25 +5899,6 @@ def test_appfolio_general_ledger_relationship_acceptance_is_scoped_idempotent_an
         assert db.query(GLAccount).count() == before_accounts
         assert db.query(Charge).count() == before_charges
 
-        stale_row = db.get(PlatformMigrationStagedRow, rows[0].id)
-        stale_row.normalized_data = {
-            **dict(stale_row.normalized_data or {}),
-            "debit": "1400.00",
-        }
-        db.commit()
-        with pytest.raises(HTTPException) as exc:
-            api.get_staged_appfolio_general_ledger_reconciliation(
-                run.id,
-                upload.id,
-                response=Response(),
-                db=db,
-                current_user=admin,
-            )
-        assert exc.value.status_code == 409
-        assert "exact latest staged dry-run" in exc.value.detail
-        assert db.query(GLTransaction).count() == before_gl
-        assert db.query(GLAccount).count() == before_accounts
-        assert db.query(Charge).count() == before_charges
     finally:
         db.close()
         engine.dispose()
@@ -6451,6 +6432,26 @@ def test_appfolio_general_ledger_commit_readiness_groups_supplied_transaction_id
         assert db.query(GLTransaction).count() == before_gl
         assert db.query(GLAccount).count() == before_accounts
         assert db.query(Charge).count() == before_charges
+
+        stale_row = db.get(PlatformMigrationStagedRow, rows[0].id)
+        stale_row.normalized_data = {
+            **dict(stale_row.normalized_data or {}),
+            "debit": "1400.00",
+        }
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.get_staged_appfolio_general_ledger_reconciliation(
+                run.id,
+                upload.id,
+                response=Response(),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "exact latest staged dry-run" in exc.value.detail
+        assert db.query(GLTransaction).count() == before_gl
+        assert db.query(GLAccount).count() == before_accounts
+        assert db.query(Charge).count() == before_charges
     finally:
         db.close()
         engine.dispose()
@@ -6467,7 +6468,7 @@ def test_appfolio_general_ledger_reconciliation_route_is_exposed_and_sales_is_de
     db, engine = _session()
     try:
         admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
-        sales = _platform_user(db, PlatformUserRole.SALES)
+        sales = _platform_user(db, PlatformUserRole.PLATFORM_SALES)
         org = _org(db, name="Ledger Reconciliation Auth Org")
         run = api.create_run(
             AppFolioMigrationRunCreateIn(
