@@ -1,3 +1,46 @@
+# AI_HANDOFF.md — 2026-10-04 PHASE 4.13 RUN-LEVEL REVIEW SNAPSHOT FINGERPRINT VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `af95086c25a5f8cc4c42ea91375f6d2611dee037`.
+- GitHub Actions run: `37163325927` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **980 passed, 21 deselected, 25612 warnings in 398.63s**.
+- Authenticated E2E: **21 passed, 278 warnings in 88.21s**.
+- Alembic head remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified run-level review snapshot fingerprint
+
+1. The shared read-only AppFolio run review summary now exposes one deterministic SHA-256 review fingerprint over durable migration evidence already stored in the run.
+2. The canonical fingerprint includes run identity, upload IDs/resources/normalized fingerprints, each upload's staged-review fingerprint, run-scoped correction rules, and durable source mappings including resource/source identity/target identity/source fingerprint.
+3. The existing staged-review fingerprint already binds normalized staged values, row source fingerprints, correction evidence, dispositions and explicit review resolutions; those changes therefore invalidate the run-level review fingerprint.
+4. Upload, correction-rule, staged review/resolution, staged source-fingerprint, durable mapping fingerprint or mapping target changes produce a different run review fingerprint; identical replay remains deterministic.
+5. The run-level fingerprint is review/readiness metadata only. It does not authorize a global commit, mutate run status, or claim accounting completeness.
+6. Platform read authorization, organization/run/provider isolation and `Cache-Control: no-store` remain authoritative.
+7. Focused tests prove deterministic replay, all required fingerprint-change cases and zero mutation of uploads, staged rows, correction rules, source mappings, customer records or accounting records.
+8. Exact-SHA CI first exposed an unrelated Student Housing authenticated-navigation race after all backend migration tests passed. Scoped test-only commit `af95086c25a5f8cc4c42ea91375f6d2611dee037` waits for authenticated dashboard/property readiness before clicking the gated tab; product behavior is unchanged.
+9. AppFolio API transport, general UX, navigation and hidden-menu work remain out of scope.
+
+Implementation commits in this batch include the review-summary schema/aggregation/fingerprint tests through `65768f2c25cf86913c11241f3cdd62d435030946`, plus the scoped E2E stabilization `af95086c25a5f8cc4c42ea91375f6d2611dee037` (final VERIFIED PRODUCT SHA).
+
+## Exact next Phase 4.13 product batch
+
+Reconcile the remaining authoritative `docs/APPFOLIO_MIGRATION_IMPORT_PLAN.md` requirements against live source and implement the next smallest independently safe gap. Preserve the shared migration-run/upload/staging architecture, exact-fingerprint dry-run/commit boundaries, durable source mappings, replay/idempotency, recovery visibility and accounting fail-closed rules. Do not add AppFolio API transport, general UX, navigation or hidden-menu changes.
+
+---
+
 # AI_HANDOFF.md — 2026-10-03 PHASE 4.13 RUN-LEVEL REVIEW SUMMARY VERIFIED
 
 ## Current verified product checkpoint
