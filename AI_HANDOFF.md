@@ -1,3 +1,144 @@
+# AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM LEASE RELATIONSHIPS VERIFIED
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `2449c2a29ca3a477245e543b94f59471f343975b`.
+- GitHub Actions run: `37221799488` — **SUCCESS** after rerunning only the failed authenticated E2E job.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **1014 passed, 21 deselected, 26134 warnings in 475.47s**.
+- Authenticated E2E rerun: **21 passed, 278 warnings in 117.26s**.
+- The first E2E attempt had **20 passed, 1 failed** because the pre-existing HOA evidence browser test timed out waiting for the post-login `/dashboard` navigation. No Buildium code was implicated; the failed job rerun passed with no product-code change.
+- Alembic head remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- No migration was added in this batch.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Buildium Tenant identity behavior inherited in this checkpoint
+
+The immediately preceding product source `f7645b436eec50ce5b8802466a942df5b127319d`
+added Buildium Rental Tenant identity mapping and its CI `37219114312` passed
+all six required jobs. That behavior is now included in this later green product
+checkpoint and remains intentionally identity-only:
+
+1. Stable positive Buildium Tenant `Id` is the durable source identity.
+2. Exact source email is required to map to an existing active, undeleted,
+   same-organization target `UserRole.TENANT`.
+3. Candidate discovery never auto-matches. Explicit `MATCH_EXISTING` or
+   `SKIP` review is required.
+4. Buildium `UserLeaseId` is preserved in the reviewed source/fingerprint as
+   lease-membership evidence only.
+5. No Tenant login, Lease, occupancy, Charge, security-deposit fact, payment,
+   receipt, tax record or GL history is created.
+6. Durable mapping uses the existing provider-labelled migration architecture
+   with resource `TENANTS` and target entity `TENANT_USER`.
+7. Cross-organization targets, stale email identity, inconsistent durable
+   mappings and replay conflicts fail closed.
+8. Raw provider bodies, tax identifiers and provider credentials are not
+   persisted in audit metadata.
+
+## Verified Buildium Lease relationship reconciliation
+
+This batch deliberately reconciles Buildium Lease identity to an already-existing
+target Lease. It does not create or update a customer Lease because the bounded
+provider relationship payload does not independently establish every required
+target rent, deposit, occupancy and financial-history semantic.
+
+Verified behavior:
+
+1. Stable positive Buildium Lease `Id` is the durable Lease source identity.
+2. A source Lease requires positive Buildium `PropertyId` and `UnitId`,
+   valid bounded `LeaseFromDate` / `LeaseToDate`, and a non-reversed date range.
+3. An optional `PaymentDueDay` is validated only as source evidence. A
+   difference from the target Lease is surfaced as a warning and never silently
+   overwrites the target.
+4. Because the current target Lease has one `tenant_id`, this bounded batch
+   requires exactly one current Buildium tenant. Multi-tenant or tenantless
+   source membership is not collapsed or invented.
+5. Relationship reconciliation requires current durable same-run,
+   same-organization Buildium mappings for:
+   - Property: `PROPERTIES -> PROPERTY`
+   - Unit: `UNITS -> UNIT`
+   - Tenant: `TENANTS -> TENANT_USER`
+6. The mapped Unit must still be active and belong to the mapped Property. The
+   mapped Tenant must still be an active, undeleted, same-organization TENANT.
+7. The exact Lease dry-run fingerprint binds:
+   - the supplied Buildium Lease records,
+   - explicit review decisions,
+   - current dependency target IDs, and
+   - current dependency source fingerprints.
+   If an upstream Property, Unit or Tenant mapping changes after dry run, the
+   Lease commit is stale and fails closed.
+8. Existing target Lease candidates are considered only when mapped Unit,
+   mapped Tenant, start date and end date match exactly. No candidate is ever
+   auto-selected.
+9. Review supports only `MATCH_EXISTING` or `SKIP`. There is intentionally
+   no `CREATE_NEW` Lease action in this batch.
+10. `MATCH_EXISTING` revalidates exact target organization scope, Unit,
+    Tenant and source dates at commit time and writes only durable migration
+    metadata:
+    - provider `BUILDIUM`
+    - resource `LEASES`
+    - target entity `LEASE_RELATIONSHIP`
+11. Replay is idempotent. Inconsistent mappings, stale dependencies, missing
+    targets, cross-property relationships and changed target relationships fail
+    closed.
+12. This batch creates or updates **no** Lease, occupancy, rent, security
+    deposit, RentInvoice, Charge, Payment, Receipt or GL history.
+13. Buildium rent schedules, rent amount, deposit amount, lease status/type,
+    eviction flags, recurring charges, ledger transactions, move-out facts and
+    payment history remain source evidence only unless a later independently
+    verified contract supports them.
+14. Raw provider bodies and provider credentials are not persisted. Audit
+    metadata contains safe IDs/counts and explicit non-mutation controls.
+
+## Phase 4.14 verified resource progress
+
+- Properties — verified controlled create / existing-target mapping with review.
+- Units — verified controlled create / existing-target mapping tied to durable
+  Buildium Property mappings; no occupancy inference.
+- Owners — verified existing OWNER identity mapping only; no login creation,
+  ownership percentage or primary-owner invention.
+- Vendors — verified existing Vendor identity mapping only; no vendor-field or
+  preferred-property invention.
+- Tenants — verified existing TENANT identity mapping only; no login creation.
+- Leases — verified existing-target **relationship reconciliation only** through
+  durable Property/Unit/Tenant mappings; no target Lease creation/update or
+  financial-history migration.
+
+## Exact NEXT Phase 4.14 batch
+
+Continue with the next independently safe Buildium v1 resource only after
+checking the current official provider contract against the target models.
+Prefer a stable provider identity that can reuse the existing
+run/fingerprint/review/mapping architecture without inventing occupancy,
+accounting, payment, tax, document or maintenance facts.
+
+Strong candidates to inspect next are Buildium GL accounts or Work Orders,
+but do not implement either merely from its name. First verify the official
+source fields and target semantics, then choose the narrower safe mapping or
+reconciliation contract. Do not create historical accounting entries, synthetic
+balances, maintenance assignments, tenant liabilities or missing relationships.
+
+The Buildium outbound API transport/credential layer remains deferred. Any later
+transport adapter must feed the same provider-labelled migration run,
+exact-fingerprint, explicit-review and durable-mapping services. Provider client
+secrets and raw provider bodies must stay out of migration rows, audit,
+browser code and customer-visible responses.
+
+Do not reopen Phase 4.13, start general UX/navigation work, touch main, create a
+new branch, or add the optional AppFolio API adapter.
+
+---
+
 # AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM VENDORS VERIFIED
 
 ## Current verified checkpoint
