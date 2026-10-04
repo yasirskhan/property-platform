@@ -35,6 +35,9 @@ from app.schemas.buildium_migration import (
     BuildiumVendorCommitIn,
     BuildiumVendorDryRunIn,
     BuildiumVendorResolutionIn,
+    BuildiumTenantCommitIn,
+    BuildiumTenantDryRunIn,
+    BuildiumTenantResolutionIn,
 )
 
 
@@ -1831,3 +1834,259 @@ def test_buildium_vendor_routes_and_item_visibility():
     paths = set(app.openapi()["paths"])
     assert "/api/platform/migrations/buildium/runs/{run_id}/vendors/dry-run" in paths
     assert "/api/platform/migrations/buildium/runs/{run_id}/vendors/commit" in paths
+
+
+def _tenant_record(**changes):
+    record = {
+        "Id": 5001,
+        "UserLeaseId": 9001,
+        "FirstName": "Tina",
+        "LastName": "Tenant",
+        "Email": "tina.tenant@example.com",
+        "AlternateEmail": "alternate.tenant@example.com",
+        "PhoneNumbers": [{"Number": "2165550188", "Type": "Mobile"}],
+        "PrimaryAddress": {
+            "AddressLine1": "10 Lake Ave",
+            "AddressLine2": "1A",
+            "AddressLine3": "",
+            "City": "Cleveland",
+            "State": "OH",
+            "PostalCode": "44113",
+            "Country": "United States",
+        },
+        "TaxId": "DO-NOT-STORE",
+        "MoveInDate": "2026-01-01",
+    }
+    record.update(changes)
+    return record
+
+
+def _customer_tenant(db, org, *, email="tina.tenant@example.com"):
+    row = User(
+        email=email,
+        hashed_password=hash_password("tenant-password"),
+        first_name="Tina",
+        last_name="Tenant",
+        role=UserRole.TENANT,
+        organization_id=org.id,
+        is_active=True,
+        is_verified=True,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def test_buildium_tenant_maps_existing_identity_only_and_preserves_membership_as_evidence():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Tenant Mapping")
+        tenant = _customer_tenant(db, org)
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="tenant-map",
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        preview = api.dry_run_buildium_tenants(
+            run.id,
+            BuildiumTenantDryRunIn(records=[_tenant_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.invalid == 0
+        assert preview.reviewable == 1
+        assert preview.rows[0].mapped["email"] == tenant.email
+        assert preview.rows[0].mapped["user_lease_id"] == "9001"
+        assert any("creates no Lease" in x for x in preview.rows[0].warnings)
+        assert db.query(Lease).count() == 0
+
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_tenants(
+                run.id,
+                BuildiumTenantCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=[_tenant_record()],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        reviewed = BuildiumTenantDryRunIn(
+            records=[_tenant_record()],
+            resolutions=[
+                BuildiumTenantResolutionIn(
+                    source_id=5001,
+                    action="MATCH_EXISTING",
+                    target_tenant_user_id=tenant.id,
+                )
+            ],
+        )
+        reviewed_preview = api.dry_run_buildium_tenants(
+            run.id, reviewed, db=db, current_user=admin
+        )
+        first = api.commit_buildium_tenants(
+            run.id,
+            BuildiumTenantCommitIn(
+                fingerprint=reviewed_preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert first.matched_existing == 1
+        assert first.replayed is False
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "TENANTS"
+        ).one()
+        assert mapping.target_entity == "TENANT_USER"
+        assert mapping.target_id == tenant.id
+        assert db.query(User).filter(User.role == UserRole.TENANT).count() == 1
+        assert db.query(Lease).count() == 0
+        assert db.query(Charge).count() == 0
+        assert db.query(GLTransaction).count() == 0
+
+        replay = api.commit_buildium_tenants(
+            run.id,
+            BuildiumTenantCommitIn(
+                fingerprint=reviewed_preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_tenant_rejects_cross_org_stale_email_and_sensitive_audit():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Tenant Safety")
+        foreign_org = _org(db, name="Tenant Foreign")
+        tenant = _customer_tenant(db, org)
+        foreign = _customer_tenant(
+            db, foreign_org, email="foreign.tenant@example.com"
+        )
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="tenant-safety",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_buildium_tenants(
+                run.id,
+                BuildiumTenantDryRunIn(
+                    records=[_tenant_record()],
+                    resolutions=[
+                        BuildiumTenantResolutionIn(
+                            source_id=5001,
+                            action="MATCH_EXISTING",
+                            target_tenant_user_id=foreign.id,
+                        )
+                    ],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        payload = BuildiumTenantDryRunIn(
+            records=[_tenant_record()],
+            resolutions=[
+                BuildiumTenantResolutionIn(
+                    source_id=5001,
+                    action="MATCH_EXISTING",
+                    target_tenant_user_id=tenant.id,
+                )
+            ],
+        )
+        preview = api.dry_run_buildium_tenants(
+            run.id, payload, db=db, current_user=admin
+        )
+        tenant.email = "changed.tenant@example.com"
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_tenants(
+                run.id,
+                BuildiumTenantCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=payload.records,
+                    resolutions=payload.resolutions,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        audit_text = "\n".join(
+            row.new_value or ""
+            for row in db.query(AuditLog)
+            .filter(AuditLog.entity_type == "platform_migration_run")
+            .all()
+        )
+        assert "DO-NOT-STORE" not in audit_text
+        assert "tina.tenant@example.com" not in audit_text
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_tenant_skip_and_routes():
+    from app.main import app
+
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Tenant Skip")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="tenant-skip",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        record = _tenant_record(Id=5002, Email="skip.tenant@example.com")
+        resolutions = [BuildiumTenantResolutionIn(source_id=5002, action="SKIP")]
+        preview = api.dry_run_buildium_tenants(
+            run.id,
+            BuildiumTenantDryRunIn(records=[record], resolutions=resolutions),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.skipped_review == 1
+        result = api.commit_buildium_tenants(
+            run.id,
+            BuildiumTenantCommitIn(
+                fingerprint=preview.fingerprint,
+                records=[record],
+                resolutions=resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert result.replayed is False
+        assert result.matched_existing == 0
+        assert db.query(User).filter(User.role == UserRole.TENANT).count() == 0
+        assert db.query(Lease).count() == 0
+
+        paths = set(app.openapi()["paths"])
+        assert "/api/platform/migrations/buildium/runs/{run_id}/tenants/dry-run" in paths
+        assert "/api/platform/migrations/buildium/runs/{run_id}/tenants/commit" in paths
+    finally:
+        db.close()
+        engine.dispose()

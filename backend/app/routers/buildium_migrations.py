@@ -37,6 +37,10 @@ from app.schemas.buildium_migration import (
     BuildiumVendorCommitOut,
     BuildiumVendorDryRunIn,
     BuildiumVendorDryRunOut,
+    BuildiumTenantCommitIn,
+    BuildiumTenantCommitOut,
+    BuildiumTenantDryRunIn,
+    BuildiumTenantDryRunOut,
 )
 from app.services.audit import append_audit_log
 from app.services.buildium_migration import (
@@ -58,6 +62,11 @@ from app.services.buildium_vendor_migration import (
     BuildiumVendorMigrationError,
     commit_vendors,
     dry_run_vendors,
+)
+from app.services.buildium_tenant_migration import (
+    BuildiumTenantMigrationError,
+    commit_tenants,
+    dry_run_tenants,
 )
 
 
@@ -705,6 +714,128 @@ def commit_buildium_vendors(
         rows=result.rows,
     )
 
+
+
+@router.post(
+    "/runs/{run_id}/tenants/dry-run",
+    response_model=BuildiumTenantDryRunOut,
+)
+def dry_run_buildium_tenants(
+    run_id: int,
+    payload: BuildiumTenantDryRunIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = dry_run_tenants(
+            db,
+            run=row,
+            records=payload.records,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+    except BuildiumTenantMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=row.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=row.id,
+            action="buildium_tenants_dry_run",
+            new_value={
+                "fingerprint": result.fingerprint,
+                **result.summary,
+                "target_mutation": False,
+            },
+        )
+        db.commit()
+        db.refresh(row)
+
+    return BuildiumTenantDryRunOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        reviewable=result.reviewable,
+        skipped_review=result.skipped_review,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/tenants/commit",
+    response_model=BuildiumTenantCommitOut,
+)
+def commit_buildium_tenants(
+    run_id: int,
+    payload: BuildiumTenantCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = commit_tenants(
+            db,
+            run=row,
+            records=payload.records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=row.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=row.id,
+                action="buildium_tenants_mapped",
+                new_value={
+                    "fingerprint": result.fingerprint,
+                    "matched_existing": result.matched_existing,
+                    "skipped_review": result.skipped_review,
+                    "target_tenant_user_ids": [
+                        item["target_tenant_user_id"] for item in result.rows
+                    ],
+                    "tenant_users_created": False,
+                    "leases_created": False,
+                    "occupancy_inferred": False,
+                    "tax_data_stored": False,
+                    "raw_payload_stored": False,
+                    "provider_credentials_stored": False,
+                },
+            )
+            db.commit()
+            db.refresh(row)
+    except BuildiumTenantMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Buildium Tenant mapping conflicted with an existing migration mapping.",
+        ) from exc
+
+    return BuildiumTenantCommitOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        matched_existing=result.matched_existing,
+        skipped_review=result.skipped_review,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
 @router.get(
     "/runs/{run_id}/items",
     response_model=list[BuildiumMigrationItemOut],
@@ -809,6 +940,20 @@ def list_migration_items(
             if target is not None:
                 target_exists = True
                 target_label = target.company_name
+        elif item.target_entity == "TENANT_USER":
+            from app.models.user import User, UserRole
+            target = (
+                db.query(User)
+                .filter(
+                    User.id == item.target_id,
+                    User.organization_id == row.organization_id,
+                    User.role == UserRole.TENANT,
+                )
+                .first()
+            )
+            if target is not None:
+                target_exists = True
+                target_label = target.email
         result.append(
             BuildiumMigrationItemOut(
                 id=item.id,
