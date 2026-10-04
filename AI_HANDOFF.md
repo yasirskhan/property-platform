@@ -1,3 +1,95 @@
+# AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM VENDORS VERIFIED
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `9d707a07ff3f00f40d32944e2b42a65b5568ea20`.
+- GitHub Actions run: `37218142367` — **SUCCESS**.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **1008 passed, 21 deselected, 26020 warnings in 271.70s**.
+- Authenticated E2E: **21 passed, 278 warnings in 108.50s**.
+- Alembic head remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- No migration was added in this batch.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Buildium Vendor mapping behavior
+
+This batch consumes the documented Buildium Vendor identity shape but keeps the
+target mutation deliberately narrower than the AppFolio file-based Vendor path
+because the bounded Buildium identity record does not establish every target
+Vendor field or relationship.
+
+Verified behavior:
+
+1. Stable positive Buildium Vendor `Id` is the durable source identity.
+2. Company vendors use Buildium `CompanyName` for reviewed identity. Individual
+   vendors use FirstName + LastName only as a reviewed display identity with an
+   explicit warning that it is not being promoted to a legal company name.
+3. `PrimaryEmail` is normalized when supplied and can support candidate review.
+   Candidate search uses exact same-organization email first, then exact target
+   Vendor company/display name.
+4. No candidate is ever auto-selected. A valid source row requires explicit
+   `MATCH_EXISTING` or `SKIP`.
+5. MATCH_EXISTING revalidates an active, undeleted, same-organization target
+   Vendor and rechecks current source name/email identity at commit time.
+6. Durable mapping uses the existing provider-labelled
+   `platform_migration_items` architecture with resource `VENDORS` and target
+   entity `VENDOR`.
+7. Replay is idempotent and inconsistent or cross-organization target mappings
+   fail closed.
+8. This bounded batch creates no target Vendor, Vendor login, trade/category,
+   preferred-property assignment, insurance record, Bill, WorkOrder, tax
+   profile, W-9, GL record or payment history.
+9. Buildium alternate email, website, phones and any additional provider fields
+   remain source evidence only in the supplied dry-run payload and are not
+   promoted into target facts by this identity-mapping batch.
+10. Raw provider bodies and provider credentials are not persisted. Audit
+    metadata contains safe IDs/counts and control booleans rather than contact
+    or tax content.
+
+## Phase 4.14 verified resource progress
+
+- Properties — verified controlled create / existing-target mapping with review.
+- Units — verified controlled create / existing-target mapping, tied to durable
+  Buildium Property mappings; no occupancy inference.
+- Owners — verified existing OWNER identity mapping only; no login creation or
+  ownership percentage/primary-owner invention.
+- Vendors — verified existing Vendor identity mapping only; no vendor-field or
+  preferred-property invention.
+
+## Exact NEXT Phase 4.14 batch
+
+Inspect Buildium Rental Tenants / Leases and the current target User/Lease
+contracts together before implementing either. Tenant identity is login-bearing
+and lease membership/occupancy is relationship-sensitive, so do not create a
+TENANT user, Lease, rent/deposit liability, occupancy, Charge or payment history
+merely from provider contact or status fields.
+
+A safe next batch may stage/reconcile tenant identity and Buildium lease/unit/
+property relationships through already-durable mappings while leaving target
+Tenant/Lease creation blocked wherever the source/target contract is
+insufficient. Preserve exact fingerprints, organization isolation, explicit
+review, no-overwrite semantics and replay/idempotency.
+
+The Buildium outbound API transport/credential layer remains deferred. Any later
+transport adapter must feed these same provider-labelled run/fingerprint/review/
+mapping services and keep client secret material out of migration rows, audit,
+browser code and customer-visible responses.
+
+Do not reopen Phase 4.13, start general UX/navigation work, touch main, create a
+new branch, or add the optional AppFolio API adapter.
+
+---
+
 # AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM OWNERS VERIFIED
 
 ## Current verified checkpoint
