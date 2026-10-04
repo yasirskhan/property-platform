@@ -2568,6 +2568,7 @@ def _general_ledger_reconciliation_state(
     source_debit = Decimal("0")
     source_credit = Decimal("0")
     source_ids: list[str] = []
+    source_account_totals: dict[tuple[str, int], dict[str, object]] = {}
     for row in staged_rows:
         if not row.source_id:
             raise HTTPException(
@@ -2575,18 +2576,101 @@ def _general_ledger_reconciliation_state(
                 detail="General Ledger reconciliation requires stable LineItemId identity.",
             )
         evidence = dict(row.normalized_data or {})
+        source_gl_account_id = str(evidence.get("source_gl_account_id") or "").strip()
+        target_gl_account_id = row.resolution_target_gl_account_id
+        if not source_gl_account_id or target_gl_account_id is None:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "General Ledger reconciliation requires the exact accepted "
+                    "GL Account relationship for every retained line."
+                ),
+            )
         source_ids.append(str(row.source_id))
-        source_debit += _amount(evidence.get("debit"), label="source debit")
-        source_credit += _amount(evidence.get("credit"), label="source credit")
+        debit = _amount(evidence.get("debit"), label="source debit")
+        credit = _amount(evidence.get("credit"), label="source credit")
+        source_debit += debit
+        source_credit += credit
+        source_key = (source_gl_account_id, int(target_gl_account_id))
+        bucket = source_account_totals.setdefault(
+            source_key,
+            {"line_count": 0, "debit": Decimal("0"), "credit": Decimal("0")},
+        )
+        bucket["line_count"] = int(bucket["line_count"]) + 1
+        bucket["debit"] = bucket["debit"] + debit
+        bucket["credit"] = bucket["credit"] + credit
 
     preview_debit = Decimal("0")
     preview_credit = Decimal("0")
     preview_ids: list[str] = []
+    preview_account_totals: dict[tuple[str, int], dict[str, object]] = {}
     for preview in previews:
         evidence = dict(preview["source_evidence"])
+        targets = dict(preview["resolved_targets"])
+        source_gl_account_id = str(evidence.get("source_gl_account_id") or "").strip()
+        target_gl_account_id = targets.get("gl_account_id")
+        if not source_gl_account_id or target_gl_account_id is None:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "General Ledger preview is missing the exact resolved "
+                    "GL Account relationship required for reconciliation."
+                ),
+            )
         preview_ids.append(str(preview["source_id"]))
-        preview_debit += _amount(evidence.get("debit"), label="preview debit")
-        preview_credit += _amount(evidence.get("credit"), label="preview credit")
+        debit = _amount(evidence.get("debit"), label="preview debit")
+        credit = _amount(evidence.get("credit"), label="preview credit")
+        preview_debit += debit
+        preview_credit += credit
+        preview_key = (source_gl_account_id, int(target_gl_account_id))
+        bucket = preview_account_totals.setdefault(
+            preview_key,
+            {"line_count": 0, "debit": Decimal("0"), "credit": Decimal("0")},
+        )
+        bucket["line_count"] = int(bucket["line_count"]) + 1
+        bucket["debit"] = bucket["debit"] + debit
+        bucket["credit"] = bucket["credit"] + credit
+
+    account_controls: list[dict[str, object]] = []
+    for source_gl_account_id, target_gl_account_id in sorted(
+        set(source_account_totals) | set(preview_account_totals),
+        key=lambda item: (item[0], item[1]),
+    ):
+        source_bucket = source_account_totals.get(
+            (source_gl_account_id, target_gl_account_id),
+            {"line_count": 0, "debit": Decimal("0"), "credit": Decimal("0")},
+        )
+        preview_bucket = preview_account_totals.get(
+            (source_gl_account_id, target_gl_account_id),
+            {"line_count": 0, "debit": Decimal("0"), "credit": Decimal("0")},
+        )
+        account_line_count_match = (
+            int(source_bucket["line_count"]) == int(preview_bucket["line_count"])
+        )
+        account_debit_match = source_bucket["debit"] == preview_bucket["debit"]
+        account_credit_match = source_bucket["credit"] == preview_bucket["credit"]
+        account_controls.append(
+            {
+                "source_gl_account_id": source_gl_account_id,
+                "target_gl_account_id": target_gl_account_id,
+                "source_line_count": int(source_bucket["line_count"]),
+                "preview_line_count": int(preview_bucket["line_count"]),
+                "source_debit_total": format(source_bucket["debit"], "f"),
+                "source_credit_total": format(source_bucket["credit"], "f"),
+                "preview_debit_total": format(preview_bucket["debit"], "f"),
+                "preview_credit_total": format(preview_bucket["credit"], "f"),
+                "line_count_match": account_line_count_match,
+                "debit_total_match": account_debit_match,
+                "credit_total_match": account_credit_match,
+                "reconciled": all(
+                    (
+                        account_line_count_match,
+                        account_debit_match,
+                        account_credit_match,
+                    )
+                ),
+            }
+        )
 
     line_count_match = len(source_ids) == len(preview_ids)
     line_identity_match = sorted(source_ids) == sorted(preview_ids)
@@ -2595,6 +2679,9 @@ def _general_ledger_reconciliation_state(
     transaction_groups_balanced = bool(groups) and all(
         bool(group["balanced"]) for group in groups
     )
+    account_controls_match = bool(account_controls) and all(
+        bool(control["reconciled"]) for control in account_controls
+    )
     reconciled = all(
         (
             line_count_match,
@@ -2602,14 +2689,15 @@ def _general_ledger_reconciliation_state(
             debit_total_match,
             credit_total_match,
             transaction_groups_balanced,
+            account_controls_match,
         )
     )
 
     warnings = [
         (
             "This reconciliation proves only accepted staged line identity/count, "
-            "debit/credit preservation and supplied TransactionId balance against "
-            "the exact current dry run."
+            "overall and per-GL-account debit/credit preservation, and supplied "
+            "TransactionId balance against the exact current dry run."
         ),
         (
             "Beginning/ending balances, receivables, payables, security deposits "
@@ -2636,6 +2724,8 @@ def _general_ledger_reconciliation_state(
         "debit_total_match": debit_total_match,
         "credit_total_match": credit_total_match,
         "transaction_groups_balanced": transaction_groups_balanced,
+        "account_controls_match": account_controls_match,
+        "account_controls": account_controls,
         "reconciled": reconciled,
         "accounting_complete": False,
         "compared_controls": [
@@ -2643,6 +2733,7 @@ def _general_ledger_reconciliation_state(
             "accepted_line_identity",
             "debit_total",
             "credit_total",
+            "gl_account_debit_credit_totals",
             "supplied_transaction_group_balance",
         ],
         "unverified_controls": [
