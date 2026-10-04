@@ -1,6 +1,6 @@
 # APPFOLIO MIGRATION IMPORT PLAN
 
-Status: **AUTHORIZED — PHASE 4.13 ACTIVE DIRECTION**
+Status: **PHASE 4.13 CSV/XLSX FILE PATH COMPLETE | VERIFIED — EXPLICIT RESOURCE BLOCKERS PRESERVED**
 
 Owner decision: **CSV/XLSX exports are the primary AppFolio migration path.**
 A live AppFolio API adapter is optional future transport/testing and must not
