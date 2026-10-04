@@ -1,3 +1,92 @@
+# AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM UNITS VERIFIED
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `4cc0a850889f3a06fb521c01b8782b37bb13baac`.
+- GitHub Actions run: `37194289805` — **SUCCESS**.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **1000 passed, 21 deselected, 25923 warnings in 464.32s**.
+- Authenticated E2E: **21 passed, 278 warnings in 114.63s**.
+- Alembic head remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- No migration was added in this batch.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Buildium Units behavior
+
+This batch reuses the existing provider-labelled migration run and durable
+source-to-target mapping architecture. It does not create a parallel Buildium
+migration subsystem.
+
+Verified behavior:
+
+1. Buildium Unit `Id` is the stable Unit source identity and `PropertyId`
+   must resolve through a durable Buildium Property mapping in the same
+   migration run and organization.
+2. Exact Unit dry-run fingerprints bind the source records, explicit Unit
+   review decisions and the current Buildium Property mapping target/source
+   fingerprint state. A changed Property mapping or source payload invalidates
+   an older Unit preview.
+3. UnitNumber, MarketRent, UnitSize and exact representable bedroom/bathroom
+   values are mapped conservatively. Unknown or lossy provider values fail
+   closed rather than being invented.
+4. The current target Unit has no independent address fields. Buildium Unit
+   address must therefore match the mapped target Property address; populated
+   AddressLine3 or mismatched address blocks controlled commit rather than
+   discarding source data.
+5. A populated Buildium Unit Description is currently blocked because the
+   target Unit has no description field.
+6. Buildium `IsUnitOccupied` is retained only as source evidence/warning. It
+   never determines target availability, Tenant identity, occupancy or Lease
+   state. New target Unit availability remains unknown/null rather than being
+   inferred from provider occupancy.
+7. Possible existing Unit matches under the mapped Property require explicit
+   `MATCH_EXISTING`, `CREATE_NEW` or `SKIP` review. MATCH_EXISTING creates
+   durable mapping metadata only and never overwrites the customer Unit.
+8. Cross-property targets, stale/deleted Property mappings, stale Unit review
+   decisions, duplicate source IDs and inconsistent durable mappings fail
+   closed.
+9. Replays are idempotent through existing `platform_migration_items` with
+   provider `BUILDIUM`, resource `UNITS`.
+10. No Lease, Tenant, Charge, GL, receipt, payment or accounting history is
+    created by the Unit batch. No Buildium API credential or outbound network
+    transport was added.
+
+Initial Unit source `57d3ccd1492fcd7b9f7e123aa13b62f4aa2b8d10`
+correctly exposed two new regression failures in CI `37193667637`:
+money preview normalization retained Decimal exponent zero and the legacy Unit
+Python default converted an intentionally unknown availability to true during
+insert. Corrective source `4cc0a850889f3a06fb521c01b8782b37bb13baac`
+normalizes money to two decimals and explicitly restores unknown availability
+after insert inside the same transaction. The full six-job CI then passed.
+
+## Exact NEXT Phase 4.14 batch
+
+Inspect the official Buildium v1 resource contracts and current target models,
+then continue the next independently safe provider resource through the same
+run/fingerprint/mapping/review pipeline. Prefer a resource whose stable provider
+identity and target semantics are sufficient for safe controlled mapping.
+Do not infer ownership, tenancy, lease liability, accounting history or payment
+facts merely from names/contact information.
+
+No Buildium API credential storage or outbound provider transport yet unless a
+separate bounded transport batch is explicitly justified by the existing
+provider architecture and secret-handling rules.
+
+Do not reopen Phase 4.13, start general UX/navigation work, touch main, create a
+new branch, or add the optional AppFolio API adapter.
+
+---
+
 # AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM PROPERTY MATCH REVIEW VERIFIED
 
 ## Current verified checkpoint
