@@ -194,12 +194,17 @@ def dry_run_buildium_properties(
     current_user: PlatformUser = Depends(get_current_platform_user),
 ):
     row = _run(db, run_id=run_id, current_user=current_user, write=True)
-    result = dry_run_properties(
-        db,
-        run=row,
-        include_inactive=payload.include_inactive,
-        records=payload.records,
-    )
+    try:
+        result = dry_run_properties(
+            db,
+            run=row,
+            include_inactive=payload.include_inactive,
+            records=payload.records,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+    except BuildiumMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if not result.replayed:
         append_audit_log(
             db,
@@ -226,6 +231,7 @@ def dry_run_buildium_properties(
         total=result.total,
         importable=result.importable,
         skipped_inactive=result.skipped_inactive,
+        skipped_review=result.skipped_review,
         invalid=result.invalid,
         warning_count=result.warning_count,
         rows=result.rows,
@@ -251,6 +257,7 @@ def commit_buildium_properties(
             records=payload.records,
             expected_fingerprint=payload.fingerprint,
             platform_user_id=current_user.id,
+            resolutions=[item.model_dump() for item in payload.resolutions],
         )
         if not result.replayed:
             append_audit_log(
@@ -263,7 +270,9 @@ def commit_buildium_properties(
                 new_value={
                     "fingerprint": result.fingerprint,
                     "committed": result.committed,
+                    "matched_existing": result.matched_existing,
                     "skipped_inactive": result.skipped_inactive,
+                    "skipped_review": result.skipped_review,
                     "warning_count": result.warning_count,
                     "target_property_ids": [
                         item["target_property_id"] for item in result.rows
@@ -291,7 +300,9 @@ def commit_buildium_properties(
         fingerprint=result.fingerprint,
         replayed=result.replayed,
         committed=result.committed,
+        matched_existing=result.matched_existing,
         skipped_inactive=result.skipped_inactive,
+        skipped_review=result.skipped_review,
         warning_count=result.warning_count,
         rows=result.rows,
     )

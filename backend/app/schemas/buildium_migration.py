@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class BuildiumMigrationRunCreateIn(BaseModel):
@@ -37,11 +37,28 @@ class BuildiumMigrationRunOut(BaseModel):
     updated_at: datetime
 
 
+class BuildiumPropertyResolutionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_id: int = Field(ge=1)
+    action: str = Field(pattern=r"^(MATCH_EXISTING|CREATE_NEW|SKIP)$")
+    target_property_id: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def validate_target(self):
+        if self.action == "MATCH_EXISTING" and self.target_property_id is None:
+            raise ValueError("target_property_id is required for MATCH_EXISTING")
+        if self.action != "MATCH_EXISTING" and self.target_property_id is not None:
+            raise ValueError("target_property_id is only valid for MATCH_EXISTING")
+        return self
+
+
 class BuildiumPropertyDryRunIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     include_inactive: bool = False
     records: list[dict[str, Any]] = Field(min_length=1, max_length=500)
+    resolutions: list[BuildiumPropertyResolutionIn] = Field(default_factory=list, max_length=500)
 
 
 class BuildiumPropertyPreviewRow(BaseModel):
@@ -50,6 +67,8 @@ class BuildiumPropertyPreviewRow(BaseModel):
     reason: str | None
     mapped: dict[str, Any] | None
     warnings: list[str] = Field(default_factory=list)
+    resolution_action: str | None = None
+    resolution_target_property_id: int | None = None
 
 
 class BuildiumPropertyDryRunOut(BaseModel):
@@ -61,6 +80,7 @@ class BuildiumPropertyDryRunOut(BaseModel):
     total: int
     importable: int
     skipped_inactive: int
+    skipped_review: int
     invalid: int
     warning_count: int
     rows: list[BuildiumPropertyPreviewRow]
@@ -74,6 +94,7 @@ class BuildiumPropertyCommitIn(BaseModel):
     include_inactive: bool = False
     fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     records: list[dict[str, Any]] = Field(min_length=1, max_length=500)
+    resolutions: list[BuildiumPropertyResolutionIn] = Field(default_factory=list, max_length=500)
 
 
 class BuildiumPropertyCommitRow(BaseModel):
@@ -89,7 +110,9 @@ class BuildiumPropertyCommitOut(BaseModel):
     fingerprint: str
     replayed: bool
     committed: int
+    matched_existing: int = 0
     skipped_inactive: int
+    skipped_review: int = 0
     warning_count: int
     rows: list[BuildiumPropertyCommitRow]
 
