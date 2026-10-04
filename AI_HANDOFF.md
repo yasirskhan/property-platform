@@ -1,3 +1,83 @@
+# AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM OWNERS VERIFIED
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `6eb10380e6a1704f3bf901f8131196bf42425347`.
+- GitHub Actions run: `37195278499` — **SUCCESS**.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **1004 passed, 21 deselected, 25977 warnings in 276.47s**.
+- Authenticated E2E: **21 passed, 278 warnings in 114.55s**.
+- Alembic head remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- No migration was added in this batch.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Buildium Owner mapping behavior
+
+This batch treats Buildium Rental Owners as provider identities that may map to
+an already-existing target OWNER login. It deliberately does not manufacture
+customer identities or ownership economics that the verified source/target
+contract cannot establish.
+
+Verified behavior:
+
+1. Stable positive Buildium Owner `Id` is the durable source identity.
+2. Exact source email is required for safe mapping to the target login-bearing
+   OWNER model. Exact-email candidates are surfaced for review but are never
+   auto-matched.
+3. A reviewed decision supports only `MATCH_EXISTING` or `SKIP`.
+   `CREATE_NEW` is intentionally unsupported because the target OWNER is an
+   authenticated customer user and migration must not silently create a login
+   identity from provider contact data.
+4. MATCH_EXISTING requires an active, undeleted, same-organization
+   `UserRole.OWNER` and revalidates the exact source email at dry-run and
+   commit time.
+5. Buildium `PropertyIds` must resolve through current durable Buildium
+   Property mappings in the same migration run and organization. That
+   relationship state is included in the exact Owner dry-run fingerprint.
+6. Buildium Property associations are reconciliation evidence only. The batch
+   creates no `PropertyOwner` row, ownership percentage, primary-owner
+   designation or owner sub-ledger state because those target semantics are not
+   established by the bounded source contract.
+7. Inactive Buildium owners are excluded by default. Explicit review of an
+   inactive source does not deactivate or otherwise mutate the target OWNER.
+8. Durable replay/idempotency uses the existing provider-labelled
+   `platform_migration_items` table with resource `OWNERS` and target entity
+   `OWNER_USER`.
+9. No target User, PropertyOwner relationship, tax profile, W-9 record,
+   accounting record or payment fact is created or changed.
+10. Raw provider bodies, emails, tax identifiers and Buildium credentials are
+    not persisted in audit metadata. Focused regression coverage verifies
+    cross-organization denial, stale-email rejection, property-mapping
+    prerequisites, replay, skip-only review and sensitive-audit exclusion.
+
+## Exact NEXT Phase 4.14 batch
+
+Continue with the next independently safe Buildium provider resource after
+checking the current official Buildium v1 contract and target-model semantics.
+Prefer a resource with stable provider identity and enough source facts for
+controlled mapping without inventing customer identity, ownership, occupancy or
+accounting history.
+
+The Buildium outbound API transport/credential layer remains deferred. Any later
+transport adapter must feed these same provider-labelled run, fingerprint,
+review and durable-mapping services and keep provider secrets out of database
+migration rows, audit, browser code and customer-visible responses.
+
+Do not reopen Phase 4.13, start general UX/navigation work, touch main, create a
+new branch, or add the optional AppFolio API adapter.
+
+---
+
 # AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM UNITS VERIFIED
 
 ## Current verified checkpoint
