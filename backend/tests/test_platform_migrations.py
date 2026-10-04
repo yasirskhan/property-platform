@@ -5898,6 +5898,26 @@ def test_appfolio_general_ledger_relationship_acceptance_is_scoped_idempotent_an
         assert db.query(GLTransaction).count() == before_gl
         assert db.query(GLAccount).count() == before_accounts
         assert db.query(Charge).count() == before_charges
+
+        stale_row = db.get(PlatformMigrationStagedRow, rows[0].id)
+        stale_row.normalized_data = {
+            **dict(stale_row.normalized_data or {}),
+            "debit": "1400.00",
+        }
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.get_staged_appfolio_general_ledger_reconciliation(
+                run.id,
+                upload.id,
+                response=Response(),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "exact latest staged dry-run" in exc.value.detail
+        assert db.query(GLTransaction).count() == before_gl
+        assert db.query(GLAccount).count() == before_accounts
+        assert db.query(Charge).count() == before_charges
     finally:
         db.close()
         engine.dispose()
@@ -6376,6 +6396,33 @@ def test_appfolio_general_ledger_commit_readiness_groups_supplied_transaction_id
             cash.id,
             income.id,
         }
+
+        reconciliation_response = Response()
+        reconciliation = api.get_staged_appfolio_general_ledger_reconciliation(
+            run.id,
+            upload.id,
+            response=reconciliation_response,
+            db=db,
+            current_user=admin,
+        )
+        assert reconciliation_response.headers["cache-control"] == "no-store"
+        assert reconciliation.dry_run_fingerprint == dry.fingerprint
+        assert reconciliation.readiness_fingerprint == first.readiness_fingerprint
+        assert reconciliation.source_line_count == 2
+        assert reconciliation.preview_line_count == 2
+        assert reconciliation.source_debit_total == "1350.00"
+        assert reconciliation.source_credit_total == "1350.00"
+        assert reconciliation.preview_debit_total == "1350.00"
+        assert reconciliation.preview_credit_total == "1350.00"
+        assert reconciliation.line_count_match is True
+        assert reconciliation.line_identity_match is True
+        assert reconciliation.debit_total_match is True
+        assert reconciliation.credit_total_match is True
+        assert reconciliation.transaction_groups_balanced is True
+        assert reconciliation.reconciled is True
+        assert reconciliation.accounting_complete is False
+        assert "security_deposit_total" in reconciliation.unverified_controls
+        assert "receivables_total" in reconciliation.unverified_controls
 
         db.refresh(run)
         assert run.last_dry_run_fingerprint == dry.fingerprint
