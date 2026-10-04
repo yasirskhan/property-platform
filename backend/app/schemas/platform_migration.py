@@ -693,6 +693,30 @@ class AppFolioGeneralLedgerCommitReadinessOut(BaseModel):
     groups: list[AppFolioGeneralLedgerReadinessGroup]
 
 
+class AppFolioGeneralLedgerReconciliationOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    dry_run_fingerprint: str
+    readiness_fingerprint: str
+    source_line_count: int
+    preview_line_count: int
+    source_debit_total: str
+    source_credit_total: str
+    preview_debit_total: str
+    preview_credit_total: str
+    line_count_match: bool
+    line_identity_match: bool
+    debit_total_match: bool
+    credit_total_match: bool
+    transaction_groups_balanced: bool
+    reconciled: bool
+    accounting_complete: bool = False
+    compared_controls: list[str] = Field(default_factory=list)
+    unverified_controls: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class AppFolioVendorPreviewRow(BaseModel):
     source_id: str | None
     importable: bool
