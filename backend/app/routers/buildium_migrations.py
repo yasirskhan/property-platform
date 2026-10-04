@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
-from app.models.property import Property, Unit
+from app.models.property import Property, PropertyOwner, Unit
 from app.models.lease import Lease
 from app.models.gl_account import GLAccount
 from app.models.vendor import Vendor
@@ -71,6 +71,10 @@ from app.schemas.buildium_migration import (
     BuildiumBillPaymentCommitOut,
     BuildiumBillPaymentDryRunIn,
     BuildiumBillPaymentDryRunOut,
+    BuildiumOwnerPropertyCommitIn,
+    BuildiumOwnerPropertyCommitOut,
+    BuildiumOwnerPropertyDryRunIn,
+    BuildiumOwnerPropertyDryRunOut,
 )
 from app.services.audit import append_audit_log
 from app.services.buildium_migration import (
@@ -127,6 +131,11 @@ from app.services.buildium_bill_payment_migration import (
     BuildiumBillPaymentMigrationError,
     commit_bill_payments,
     dry_run_bill_payments,
+)
+from app.services.buildium_owner_property_migration import (
+    BuildiumOwnerPropertyMigrationError,
+    commit_owner_property_relationships,
+    dry_run_owner_property_relationships,
 )
 
 
@@ -1661,6 +1670,128 @@ def commit_buildium_bill_payments(
     )
 
 
+@router.post(
+    "/runs/{run_id}/owner-property-relationships/dry-run",
+    response_model=BuildiumOwnerPropertyDryRunOut,
+)
+def dry_run_buildium_owner_property_relationships(
+    run_id: int,
+    payload: BuildiumOwnerPropertyDryRunIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = dry_run_owner_property_relationships(
+            db,
+            run=row,
+            records=payload.records,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+    except BuildiumOwnerPropertyMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=row.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=row.id,
+            action="buildium_owner_properties_dry_run",
+            new_value={
+                "fingerprint": result.fingerprint,
+                **result.summary,
+                "target_mutation": False,
+            },
+        )
+        db.commit()
+        db.refresh(row)
+    return BuildiumOwnerPropertyDryRunOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        reviewable=result.reviewable,
+        skipped_review=result.skipped_review,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/owner-property-relationships/commit",
+    response_model=BuildiumOwnerPropertyCommitOut,
+)
+def commit_buildium_owner_property_relationships(
+    run_id: int,
+    payload: BuildiumOwnerPropertyCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = commit_owner_property_relationships(
+            db,
+            run=row,
+            records=payload.records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=row.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=row.id,
+                action="buildium_owner_properties_reconciled",
+                new_value={
+                    "fingerprint": result.fingerprint,
+                    "matched_existing": result.matched_existing,
+                    "skipped_review": result.skipped_review,
+                    "warning_count": result.warning_count,
+                    "target_property_owner_ids": [
+                        item["target_property_owner_id"] for item in result.rows
+                    ],
+                    "property_owner_rows_created": False,
+                    "property_owner_rows_updated": False,
+                    "ownership_percentage_imported": False,
+                    "primary_owner_imported": False,
+                    "tax_information_imported": False,
+                    "gl_history_created": False,
+                    "raw_payload_stored": False,
+                    "provider_credentials_stored": False,
+                },
+            )
+            db.commit()
+            db.refresh(row)
+    except BuildiumOwnerPropertyMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Buildium owner/property mapping conflicted with an existing migration mapping.",
+        ) from exc
+    return BuildiumOwnerPropertyCommitOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        matched_existing=result.matched_existing,
+        skipped_review=result.skipped_review,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
 @router.get(
     "/runs/{run_id}/items",
     response_model=list[BuildiumMigrationItemOut],
@@ -1820,6 +1951,20 @@ def list_migration_items(
             if target is not None:
                 target_exists = True
                 target_label = f"Bill #{target.id}: {target.payee_name}"
+        elif item.target_entity == "PROPERTY_OWNER_RELATIONSHIP":
+            target = (
+                db.query(PropertyOwner)
+                .join(Property, Property.id == PropertyOwner.property_id)
+                .filter(
+                    PropertyOwner.id == item.target_id,
+                    PropertyOwner.organization_id == row.organization_id,
+                    Property.organization_id == row.organization_id,
+                )
+                .first()
+            )
+            if target is not None:
+                target_exists = True
+                target_label = f"PropertyOwner #{target.id}: property {target.property_id} / owner {target.user_id}"
         elif item.target_entity == "CHECK_PAYMENT_RELATIONSHIP":
             target = (
                 db.query(Check)

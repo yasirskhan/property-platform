@@ -64,6 +64,9 @@ from app.schemas.buildium_migration import (
     BuildiumBillPaymentCommitIn,
     BuildiumBillPaymentDryRunIn,
     BuildiumBillPaymentResolutionIn,
+    BuildiumOwnerPropertyCommitIn,
+    BuildiumOwnerPropertyDryRunIn,
+    BuildiumOwnerPropertyResolutionIn,
 )
 
 
@@ -4521,6 +4524,369 @@ def test_buildium_bill_payment_skip_visibility_and_sensitive_audit_boundary():
         paths = set(app.openapi()["paths"])
         assert "/api/platform/migrations/buildium/runs/{run_id}/bill-payments/dry-run" in paths
         assert "/api/platform/migrations/buildium/runs/{run_id}/bill-payments/commit" in paths
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+def _owner_property_dependencies(db, run, org):
+    target_property, _ = _buildium_property_mapping(db, run, org)
+    owner = _customer_owner(db, org)
+    db.add(
+        PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="BUILDIUM",
+            resource="OWNERS",
+            source_id="3001",
+            target_entity="OWNER_USER",
+            target_id=owner.id,
+            source_fingerprint="o" * 64,
+            created_by_platform_user_id=run.created_by_platform_user_id,
+        )
+    )
+    relationship = PropertyOwner(
+        organization_id=org.id,
+        property_id=target_property.id,
+        user_id=owner.id,
+        ownership_pct=37.50,
+        is_primary=False,
+        is_active=True,
+    )
+    db.add(relationship)
+    db.commit()
+    db.refresh(relationship)
+    return target_property, owner, relationship
+
+
+def test_buildium_owner_property_relationship_maps_existing_without_changing_split():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Owner Property Mapping")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="owner-property-map",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        prop, owner, relationship = _owner_property_dependencies(db, run, org)
+        preview = api.dry_run_buildium_owner_property_relationships(
+            run.id,
+            BuildiumOwnerPropertyDryRunIn(records=[_owner_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.invalid == 0
+        assert preview.reviewable == 1
+        assert preview.rows[0].mapped["target_owner_user_id"] == owner.id
+        assert preview.rows[0].mapped["target_property_id"] == prop.id
+        assert preview.rows[0].mapped["candidate_property_owner_id"] == relationship.id
+        assert preview.rows[0].mapped["ownership_percentage_from_source"] is False
+
+        reviewed = BuildiumOwnerPropertyDryRunIn(
+            records=[_owner_record()],
+            resolutions=[
+                BuildiumOwnerPropertyResolutionIn(
+                    source_owner_id=3001,
+                    source_property_id=1001,
+                    action="MATCH_EXISTING",
+                    target_property_owner_id=relationship.id,
+                )
+            ],
+        )
+        reviewed_preview = api.dry_run_buildium_owner_property_relationships(
+            run.id, reviewed, db=db, current_user=admin
+        )
+        result = api.commit_buildium_owner_property_relationships(
+            run.id,
+            BuildiumOwnerPropertyCommitIn(
+                fingerprint=reviewed_preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert result.matched_existing == 1
+        db.refresh(relationship)
+        assert str(relationship.ownership_pct) == "37.50"
+        assert relationship.is_primary is False
+        assert prop.owner_id is None
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "OWNER_PROPERTY_RELATIONSHIPS"
+        ).one()
+        assert mapping.source_id == "3001:1001"
+        assert mapping.target_entity == "PROPERTY_OWNER_RELATIONSHIP"
+        assert mapping.target_id == relationship.id
+
+        replay = api.commit_buildium_owner_property_relationships(
+            run.id,
+            BuildiumOwnerPropertyCommitIn(
+                fingerprint=reviewed_preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert db.query(PropertyOwner).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_owner_property_relationship_never_creates_missing_target():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Owner Property Missing")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="owner-property-missing",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        prop, _ = _buildium_property_mapping(db, run, org)
+        owner = _customer_owner(db, org)
+        db.add(
+            PlatformMigrationItem(
+                run_id=run.id,
+                organization_id=org.id,
+                provider="BUILDIUM",
+                resource="OWNERS",
+                source_id="3001",
+                target_entity="OWNER_USER",
+                target_id=owner.id,
+                source_fingerprint="o" * 64,
+                created_by_platform_user_id=run.created_by_platform_user_id,
+            )
+        )
+        db.commit()
+        preview = api.dry_run_buildium_owner_property_relationships(
+            run.id,
+            BuildiumOwnerPropertyDryRunIn(records=[_owner_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.invalid == 1
+        assert "does not create one" in preview.rows[0].warnings[-1]
+        assert db.query(PropertyOwner).count() == 0
+        assert prop.owner_id is None
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_owner_property_relationship_rejects_stale_dependency_and_wrong_target():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Owner Property Safety")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="owner-property-safety",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        prop, owner, relationship = _owner_property_dependencies(db, run, org)
+        reviewed = BuildiumOwnerPropertyDryRunIn(
+            records=[_owner_record()],
+            resolutions=[
+                BuildiumOwnerPropertyResolutionIn(
+                    source_owner_id=3001,
+                    source_property_id=1001,
+                    action="MATCH_EXISTING",
+                    target_property_owner_id=relationship.id,
+                )
+            ],
+        )
+        preview = api.dry_run_buildium_owner_property_relationships(
+            run.id, reviewed, db=db, current_user=admin
+        )
+        owner_mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "OWNERS"
+        ).one()
+        owner_mapping.source_fingerprint = "x" * 64
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_owner_property_relationships(
+                run.id,
+                BuildiumOwnerPropertyCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=reviewed.records,
+                    resolutions=reviewed.resolutions,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "stale" in exc.value.detail.lower()
+
+        owner_mapping.source_fingerprint = "o" * 64
+        foreign_org = _org(db, name="Owner Property Foreign")
+        foreign_property = Property(
+            organization_id=foreign_org.id,
+            name="Foreign",
+            property_type=PropertyType.MULTI_FAMILY,
+            address_line1="1 Away",
+            city="Elsewhere",
+            state="OH",
+            zip_code="44000",
+            country="United States",
+            is_active=True,
+        )
+        foreign_owner = User(
+            email="foreign-owner-relationship@example.com",
+            hashed_password=hash_password("owner-password"),
+            first_name="Foreign",
+            last_name="Owner",
+            role=UserRole.OWNER,
+            organization_id=foreign_org.id,
+            is_active=True,
+            is_verified=True,
+        )
+        db.add_all([foreign_property, foreign_owner])
+        db.flush()
+        foreign_relationship = PropertyOwner(
+            organization_id=foreign_org.id,
+            property_id=foreign_property.id,
+            user_id=foreign_owner.id,
+            ownership_pct=100,
+            is_primary=True,
+            is_active=True,
+        )
+        db.add(foreign_relationship)
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_buildium_owner_property_relationships(
+                run.id,
+                BuildiumOwnerPropertyDryRunIn(
+                    records=[_owner_record()],
+                    resolutions=[
+                        BuildiumOwnerPropertyResolutionIn(
+                            source_owner_id=3001,
+                            source_property_id=1001,
+                            action="MATCH_EXISTING",
+                            target_property_owner_id=foreign_relationship.id,
+                        )
+                    ],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(PropertyOwner).filter(
+            PropertyOwner.organization_id == org.id
+        ).count() == 1
+        assert relationship.property_id == prop.id
+        assert relationship.user_id == owner.id
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_owner_property_skip_visibility_and_tax_audit_boundary():
+    from app.main import app
+
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        support = _platform_user(db, PlatformUserRole.PLATFORM_SUPPORT)
+        org = _org(db, name="Owner Property Visibility")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="owner-property-visible",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _, _, relationship = _owner_property_dependencies(db, run, org)
+
+        skip = BuildiumOwnerPropertyDryRunIn(
+            records=[_owner_record()],
+            resolutions=[
+                BuildiumOwnerPropertyResolutionIn(
+                    source_owner_id=3001,
+                    source_property_id=1001,
+                    action="SKIP",
+                )
+            ],
+        )
+        skip_preview = api.dry_run_buildium_owner_property_relationships(
+            run.id, skip, db=db, current_user=admin
+        )
+        skipped = api.commit_buildium_owner_property_relationships(
+            run.id,
+            BuildiumOwnerPropertyCommitIn(
+                fingerprint=skip_preview.fingerprint,
+                records=skip.records,
+                resolutions=skip.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert skipped.matched_existing == 0
+
+        reviewed = BuildiumOwnerPropertyDryRunIn(
+            records=[_owner_record()],
+            resolutions=[
+                BuildiumOwnerPropertyResolutionIn(
+                    source_owner_id=3001,
+                    source_property_id=1001,
+                    action="MATCH_EXISTING",
+                    target_property_owner_id=relationship.id,
+                )
+            ],
+        )
+        preview = api.dry_run_buildium_owner_property_relationships(
+            run.id, reviewed, db=db, current_user=admin
+        )
+        api.commit_buildium_owner_property_relationships(
+            run.id,
+            BuildiumOwnerPropertyCommitIn(
+                fingerprint=preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        response = Response()
+        items = api.list_migration_items(
+            run.id,
+            response=response,
+            resource="OWNER_PROPERTY_RELATIONSHIPS",
+            limit=200,
+            db=db,
+            current_user=support,
+        )
+        assert len(items) == 1
+        assert items[0].target_exists is True
+        assert "PropertyOwner" in items[0].target_label
+        assert response.headers["cache-control"] == "no-store"
+
+        audit_text = "\n".join(
+            row.new_value or ""
+            for row in db.query(AuditLog)
+            .filter(AuditLog.entity_type == "platform_migration_run")
+            .all()
+        )
+        assert "DO-NOT-STORE" not in audit_text
+        assert "alternate@example.com" not in audit_text
+        paths = set(app.openapi()["paths"])
+        assert "/api/platform/migrations/buildium/runs/{run_id}/owner-property-relationships/dry-run" in paths
+        assert "/api/platform/migrations/buildium/runs/{run_id}/owner-property-relationships/commit" in paths
     finally:
         db.close()
         engine.dispose()
