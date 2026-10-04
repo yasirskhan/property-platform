@@ -15,6 +15,61 @@ Related reference:
 - `docs/PLAN_GAPS.md` — Phase 4.13 roadmap.
 - `AI_HANDOFF.md` — current verified checkpoint and exact next batch.
 
+## Phase 4.13 CSV/XLSX closeout status
+
+The verified file-based Phase 4.13 implementation now covers every currently
+supportable resource family in this plan through the shared migration-run
+architecture. Phase completion does **not** mean every historical customer or
+accounting record is automatically importable. Resource-specific blockers are
+part of the safety contract and remain visible rather than being bypassed.
+
+Verified file-path coverage:
+
+- Properties: upload/stage/review/dry run/controlled commit with durable mapping.
+- Units: upload/stage/reconcile/dry run/controlled commit with durable mapping.
+- Owners: upload/stage/reconcile/controlled existing-record mapping.
+- Vendors: upload/stage/reconcile/dry run/controlled commit.
+- Tenants: upload/stage/reconcile/dry run/controlled mapping.
+- Lease/occupancy: upload/stage/relationship reconciliation; controlled commit
+  remains blocked until the verified source contract can establish safe target
+  lease/occupancy semantics without invention.
+- GL Accounts: upload/stage/reconcile/dry run/controlled mapping to existing
+  same-organization GL accounts.
+- General Ledger/history: upload/stage/relationship reconciliation/dry run,
+  transaction-group commit-readiness, record/debit/credit/per-account
+  reconciliation; historical controlled commit remains blocked until target
+  posting/accounting semantics are independently verified.
+- Bills/payables: upload/stage/relationship reconciliation/dry run and
+  identity/count/TotalAmount reconciliation; controlled commit remains blocked
+  on line-item GL allocation and deterministic posting/business-date semantics.
+- Charges/receivables: upload/stage/relationship reconciliation/dry run and
+  identity/count/AmountDue reconciliation; controlled commit remains blocked on
+  Occupancy/tenant identity plus original-charge/payment semantics.
+- Work Orders: upload/stage/relationship reconciliation/dry run; controlled
+  commit remains blocked because the current verified source contract cannot
+  safely establish every required target WorkOrder identity/assignment semantic.
+- Security Deposits: automatic ingestion/reconciliation remains blocked because
+  no authoritative source report field contract is verified.
+- Attachments/Documents: automatic ingestion remains blocked because no
+  authoritative source-schema/entity-relationship contract is verified.
+
+Shared controls are also verified: CSV/XLSX bounded parsing, detection/column
+mapping, durable source IDs, staging validation, review dispositions, correction
+rules, exact fingerprints, stale-preview protection, run-level review/coverage,
+replay/idempotency, recovery/mapping visibility, organization isolation and
+audit.
+
+Section 11 reconciliation is implemented wherever the verified source contract
+supports it: record identity/count, General Ledger debit/credit/per-account
+totals, Bills/payables TotalAmount and Charges/receivables AmountDue. Beginning
+and ending balances, Security Deposit totals and other external control totals
+remain explicitly unverified when no authoritative supplied source contract
+exists. No balancing entries or synthetic history may be created to fill those
+gaps.
+
+Section 12 AppFolio API transport remains an optional later adapter and is not
+part of this CSV/XLSX closeout.
+
 ## 1. Product objective
 
 A customer leaving AppFolio should be able to export supported reports/data to
