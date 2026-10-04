@@ -1,3 +1,92 @@
+# AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM BILLS VERIFIED
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `248f5a1c98bf66d86cae7f0563e4671691a01cf0`.
+- GitHub Actions run: `37231678171` — **SUCCESS**.
+- All six required CI jobs passed.
+- Backend/PostgreSQL: **1025 passed, 21 deselected, 26421 warnings in 267.88s**.
+- Authenticated E2E: **21 passed, 278 warnings in 98.51s**.
+- Alembic head remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- No migration was added in this batch.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Buildium Bill relationship reconciliation
+
+This batch consumes the documented Buildium v1 Bill identity and line
+relationships but deliberately reconciles only to an already-existing target
+Bill. It does not create or update accounting records.
+
+Verified behavior:
+
+1. Stable positive Buildium Bill `Id` is the durable source identity.
+2. Positive Buildium `VendorId` must resolve through a current durable
+   same-run `VENDORS -> VENDOR` mapping.
+3. Each Bill line must be a documented Rental accounting entity and requires
+   durable same-run Property and GL Account mappings; an optional Unit must
+   resolve through a durable Unit mapping and still belong to the mapped
+   Property.
+4. An optional Buildium WorkOrderId must resolve through the verified
+   `WORK_ORDERS -> WORK_ORDER_RELATIONSHIP` mapping.
+5. Buildium line amounts are validated as positive, finite, exact two-decimal
+   values. A non-zero Buildium line markup blocks reconciliation because the
+   target BillLine contract does not independently represent that markup.
+6. Existing-target candidates are checked by exact vendor, bill date, due date,
+   reference, summed line amount and the complete multiset of mapped
+   GL/Property/Unit/amount line allocations. When a Work Order is supplied, the
+   existing Bill must also carry that exact local work-order source relationship.
+7. No candidate is auto-selected. Review supports only `MATCH_EXISTING` or
+   `SKIP`; there is intentionally no `CREATE_NEW` Bill action.
+8. Exact dry-run fingerprints bind source records, explicit review and current
+   Vendor/Property/Unit/GL Account/Work Order dependency mapping target IDs and
+   source fingerprints. Changed dependency state invalidates commit.
+9. MATCH_EXISTING revalidates the complete Bill/line relationship at commit and
+   writes only durable metadata: provider `BUILDIUM`, resource `BILLS`,
+   target entity `BILL_RELATIONSHIP`.
+10. Replay is idempotent; stale relationships, inconsistent durable mappings,
+    missing/deleted/reversed targets and cross-scope dependencies fail closed.
+11. Buildium paid status/date, approval status, memo, line memo, files, bill
+    payments and vendor credits remain source evidence only.
+12. No Bill, BillLine, payable posting, payment, check, bank movement, vendor
+    credit, receipt or GL history is created or changed.
+13. Raw provider bodies, provider credentials and sensitive memo text are not
+    persisted in audit metadata.
+
+## Phase 4.14 verified resource progress
+
+- Properties — controlled create / existing-target mapping with review.
+- Units — controlled create / existing-target mapping tied to Property mapping.
+- Owners — existing OWNER identity mapping only.
+- Vendors — existing Vendor identity mapping only.
+- Tenants — existing TENANT identity mapping only.
+- Leases — existing-target relationship reconciliation only.
+- GL Accounts — existing-target identity/parent mapping only.
+- Work Orders — existing-target relationship reconciliation only.
+- Bills — existing-target relationship and line-allocation reconciliation only.
+
+## Exact NEXT Phase 4.14 batch
+
+Inspect Buildium v1 Bank Accounts before attempting bill-payment or check
+history. Buildium bill payments reference a BankAccountId, so a safe payment
+reconciliation dependency is a durable Buildium Bank Account identity mapping.
+
+Prefer existing-target BankAccount mapping through the already verified Buildium
+GL Account mapping. Do not copy or expose provider AccountNumber,
+AccountNumberUnmasked, RoutingNumber, electronic-payment limits, check-printing
+information or Balance. Do not infer our target OPERATING/ESCROW classification
+from Buildium Checking/Savings. No bank account creation, balance import,
+reconciliation state or bank movement in the identity batch.
+
+The Buildium outbound credential/transport adapter remains deferred and must
+eventually feed this same provider-labelled migration/review/fingerprint/mapping
+architecture.
+
+---
+
 # AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM WORK ORDERS VERIFIED
 
 ## Current verified checkpoint
