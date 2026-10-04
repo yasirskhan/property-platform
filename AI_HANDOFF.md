@@ -1,3 +1,116 @@
+# AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM PROPERTY FOUNDATION VERIFIED
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `be83e29e1792638c617f26fac277f2b20e439698`.
+- GitHub Actions run: `37191001666` — **SUCCESS**.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **989 passed, 21 deselected, 25752 warnings in 468.57s**.
+- Authenticated E2E: **21 passed, 278 warnings in 90.81s**.
+- Alembic head remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- No migration was added in this batch.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Phase 4.14 first batch
+
+The first Buildium migration batch reuses the existing provider-labelled
+`PlatformMigrationRun` and `PlatformMigrationItem` architecture rather
+than creating a parallel migration subsystem.
+
+Verified bounded behavior:
+
+1. Platform migration runs may now use provider `BUILDIUM` with the same
+   organization scope, platform-role authorization, no-store reads and
+   append-only audit expectations used by the verified migration foundation.
+2. The first supported source contract is the official Buildium v1 Rental
+   Property record shape supplied to the service after retrieval:
+   - stable positive `Id`;
+   - `Name`;
+   - boolean `IsActive`;
+   - structured `Address` with AddressLine1/2/3, City, State, PostalCode,
+     Country;
+   - optional `YearBuilt`;
+   - `RentalSubType`.
+3. The service does **not** make Buildium network calls in this batch and does
+   **not** accept, persist or audit Buildium API credentials or raw provider
+   response bodies.
+4. Exact dry-run fingerprints bind provider, target organization,
+   source-account reference, inactive-record choice and the exact supplied
+   source records. A changed payload cannot reuse an older reviewed
+   fingerprint.
+5. Durable source-to-target mappings use the existing
+   `platform_migration_items` table with provider `BUILDIUM` and resource
+   `PROPERTIES`. Replays are idempotent and do not create duplicate
+   Properties or mappings.
+6. Inactive Buildium properties are excluded by default. When explicitly
+   included, their target Property remains inactive rather than being silently
+   activated.
+7. Buildium property subtype mapping is intentionally conservative:
+   - SingleFamily -> single-family;
+   - MultiFamily -> multi-family;
+   - documented commercial subtypes -> commercial;
+   - CondoTownhome -> OTHER with a review warning rather than guessing condo
+     versus townhouse;
+   - absent/unknown subtype -> OTHER with a warning.
+8. A populated Buildium AddressLine3 is a blocking validation error because
+   the current target Property contract has no third address line. No address
+   content is silently discarded.
+9. A possible existing target Property match is surfaced during dry run and
+   controlled commit is blocked. The system never auto-overwrites or silently
+   duplicates the customer record.
+10. Focused regressions cover platform role/provider isolation, target-org
+    scope, no-store reads, exact fingerprint staleness, inactive preservation,
+    source-ID duplication, AddressLine3 loss prevention, subtype warnings,
+    replay/idempotency, durable mapping visibility, secret/raw-address audit
+    exclusion and possible-match commit blocking.
+
+## Current Phase 4.14 transport boundary
+
+Official Buildium Open API v1 supports server-to-server API-key access and a
+sandbox, but the verified product source above deliberately stops before
+credential storage or outbound API transport. A later transport adapter must
+feed the same provider-labelled migration/review/fingerprint/mapping pipeline.
+It must never place Buildium client secrets in migration records, audit logs,
+browser code or customer-visible responses.
+
+## Exact NEXT Phase 4.14 batch
+
+Before adding Buildium Units, close the first property safety gap:
+
+**Buildium Property explicit existing-match review/resolution.**
+
+Required behavior:
+
+- reuse the existing provider-labelled migration run/mapping architecture;
+- add an explicit reviewed decision for a possible target Property match;
+- support only deliberate `MATCH_EXISTING`, `CREATE_NEW` or `SKIP`
+  semantics for the reviewed Buildium source row;
+- revalidate target organization, active/deleted state and exact source
+  identity at commit time;
+- bind the resolution state into the exact reviewed dry-run/commit contract so
+  stale previews or changed source rows cannot inherit an old decision;
+- preserve durable replay/idempotency;
+- never automatically overwrite an existing customer Property;
+- add focused cross-organization, stale-resolution, replay, deleted-target and
+  no-unintended-mutation regressions;
+- no Buildium API credentials/network transport yet;
+- no Units batch until this property-match review gap is verified.
+
+Do not reopen Phase 4.13, start general UX/navigation work, touch main, create a
+new branch, or add the optional AppFolio API adapter.
+
+---
+
 # AI_HANDOFF.md — 2026-10-04 PHASE 4.13 CSV/XLSX FILE PATH COMPLETE | VERIFIED
 
 ## Final Phase 4.13 file-based migration checkpoint
