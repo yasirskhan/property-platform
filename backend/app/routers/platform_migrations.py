@@ -71,6 +71,7 @@ from app.schemas.platform_migration import (
     AppFolioBillReconciliationOut,
     AppFolioWorkOrderDryRunOut,
     AppFolioChargeDryRunOut,
+    AppFolioChargeReconciliationOut,
     AppFolioGeneralLedgerCommitReadinessOut,
     AppFolioGeneralLedgerReconciliationOut,
     AppFolioStagedTenantCommitIn,
@@ -2267,6 +2268,132 @@ def _staged_charge_dry_run_state(
         "skipped": skipped,
     }
     return previews, fingerprint, counts
+
+
+def _charge_reconciliation_state(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    upload: PlatformMigrationUpload,
+) -> dict[str, object]:
+    """Compare accepted Charge source identity/AmountDue with the exact current preview.
+
+    This is a narrow Section 11 control only. It does not establish original
+    billed amount, payment history, tenant/Occupancy identity, GL posting or
+    accounting completeness.
+    """
+    previews, dry_run_fingerprint, _counts = _staged_charge_dry_run_state(
+        db, run=run, upload=upload
+    )
+    if (
+        run.last_dry_run_fingerprint != dry_run_fingerprint
+        or (run.last_dry_run_summary or {}).get("resource") != "CHARGES"
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Charges reconciliation requires the exact latest Charges dry-run fingerprint.",
+        )
+
+    staged_rows = (
+        db.query(PlatformMigrationStagedRow)
+        .filter(
+            PlatformMigrationStagedRow.upload_id == upload.id,
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "APPFOLIO",
+            PlatformMigrationStagedRow.resource == "CHARGES",
+            PlatformMigrationStagedRow.resolution_action == "ACCEPT_RELATIONSHIP",
+        )
+        .order_by(
+            PlatformMigrationStagedRow.row_number.asc(),
+            PlatformMigrationStagedRow.id.asc(),
+        )
+        .all()
+    )
+
+    def _amount(value: object, *, label: str) -> Decimal:
+        try:
+            return Decimal(str(value or "0"))
+        except (InvalidOperation, ValueError) as exc:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Charges reconciliation encountered non-numeric {label} evidence.",
+            ) from exc
+
+    source_ids: list[str] = []
+    source_total = Decimal("0")
+    for row in staged_rows:
+        if not row.source_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Charges reconciliation requires stable supplied Charge identity.",
+            )
+        evidence = dict(row.normalized_data or {})
+        source_ids.append(str(row.source_id))
+        source_total += _amount(
+            evidence.get("amount_due"),
+            label="source AmountDue",
+        )
+
+    preview_ids: list[str] = []
+    preview_total = Decimal("0")
+    for preview in previews:
+        evidence = dict(preview["source_evidence"])
+        preview_ids.append(str(preview["source_id"]))
+        preview_total += _amount(
+            evidence.get("amount_due"),
+            label="preview AmountDue",
+        )
+
+    charge_count_match = len(source_ids) == len(preview_ids)
+    charge_identity_match = sorted(source_ids) == sorted(preview_ids)
+    amount_due_match = source_total == preview_total
+    reconciled = all(
+        (
+            charge_count_match,
+            charge_identity_match,
+            amount_due_match,
+        )
+    )
+    warnings = [
+        (
+            "This reconciliation proves only retained Charge identity/count and "
+            "source AmountDue preservation against the exact current dry run."
+        ),
+        (
+            "Original billed amount, amount paid, paid/unpaid state, Occupancy/tenant "
+            "identity, payment application, GL posting and historical AR balances "
+            "are not reconciled here."
+        ),
+        "No Charge, RentInvoice, Receipt, Payment, GL or customer balance record is created or changed.",
+    ]
+    if not reconciled:
+        warnings.append(
+            "Charge source evidence and current migration preview do not reconcile; no financial commit may rely on this result."
+        )
+
+    return {
+        "dry_run_fingerprint": dry_run_fingerprint,
+        "source_charge_count": len(source_ids),
+        "preview_charge_count": len(preview_ids),
+        "source_amount_due": format(source_total, "f"),
+        "preview_amount_due": format(preview_total, "f"),
+        "charge_count_match": charge_count_match,
+        "charge_identity_match": charge_identity_match,
+        "amount_due_match": amount_due_match,
+        "reconciled": reconciled,
+        "accounting_complete": False,
+        "unverified_controls": [
+            "original_billed_amount",
+            "amount_paid",
+            "paid_unpaid_state",
+            "occupancy_tenant_identity",
+            "payment_application",
+            "gl_posting",
+            "historical_ar_balance",
+        ],
+        "warnings": warnings,
+    }
 
 
 def _staged_general_ledger_dry_run_state(
@@ -5333,6 +5460,29 @@ def dry_run_staged_appfolio_charges(
         invalid=counts["invalid"],
         warning_count=counts["warning_count"],
         rows=rows,
+    )
+
+
+@router.get(
+    "/runs/{run_id}/uploads/{upload_id}/charges/reconciliation",
+    response_model=AppFolioChargeReconciliationOut,
+)
+def get_staged_appfolio_charges_reconciliation(
+    run_id: int,
+    upload_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=False)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    result = _charge_reconciliation_state(db, run=run, upload=upload)
+    response.headers["Cache-Control"] = "no-store"
+    return AppFolioChargeReconciliationOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        **result,
     )
 
 
