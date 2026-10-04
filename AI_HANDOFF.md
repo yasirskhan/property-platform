@@ -1,3 +1,61 @@
+# AI_HANDOFF.md — 2026-10-04 PHASE 4.13 CHARGES / RECEIVABLES RECONCILIATION VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `b4ef4ac8313068a6cd1d1466b197fdf3cbf28bb7`.
+- GitHub Actions run: `37172152530` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **985 passed, 21 deselected, 25690 warnings in 453.55s**.
+- Authenticated E2E: **21 passed, 278 warnings in 113.44s**.
+- Alembic head remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Charges / Receivables reconciliation control
+
+1. A read-only Section 11 control compares retained staged Charge identity/count and supplied `AmountDue` against the exact current Charges dry-run preview.
+2. Only rows already explicitly accepted through the verified Charges relationship review path are reconciled; SKIP rows remain excluded and unresolved/INVALID rows remain blockers through the existing dry-run helper.
+3. Current durable GL Account relationships are revalidated through the existing Charges dry-run helper and the exact current dry-run fingerprint remains authoritative.
+4. The result is explicitly review-only with `accounting_complete=false`; original billed amount, amount paid, paid/unpaid state, Occupancy/tenant identity, payment application, GL posting and historical AR balances remain unverified.
+5. No Charge, RentInvoice, Receipt, Payment, GLTransaction, GLEntry, Bill, Check or customer balance is created or changed.
+6. Platform read authorization, run/organization/upload/provider isolation and no-store behavior remain intact.
+7. Focused tests cover deterministic count/identity/AmountDue reconciliation, stale-preview rejection, route exposure, SALES denial and zero accounting mutation.
+8. AppFolio API transport, general UX, navigation and hidden-menu work remain out of scope.
+
+Implementation commits in this bounded batch:
+- `e126ba300bb009887d9de5a31f1479b3f67102b1` — Charges reconciliation response contract.
+- `b6f48cc86aa8a9602036ab200f820e31b44d1a75` — read-only Charges/Receivables reconciliation control.
+- `b4ef4ac8313068a6cd1d1466b197fdf3cbf28bb7` — focused reconciliation/stale-preview/authorization regressions; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 batch
+
+Perform a **file-based Phase 4.13 closeout audit** against `docs/APPFOLIO_MIGRATION_IMPORT_PLAN.md` and the verified live source.
+
+Required boundaries:
+
+1. Confirm every currently supportable CSV/XLSX resource in the plan has a verified upload/detect/map/stage/validate/review/dry-run/commit-or-explicit-blocker contract.
+2. Confirm Section 11 controls now cover supported record counts, GL debit/credit/account totals, payable totals and receivable totals.
+3. Preserve explicit blockers instead of inventing source data:
+   - Security Deposit automatic ingestion/reconciliation remains blocked on authoritative source-schema evidence.
+   - beginning/ending accounting balances remain unverified where no authoritative supplied control export exists.
+   - controlled commits for Lease/occupancy, General Ledger history, Bills, Charges and Work Orders remain blocked where verified target/source semantics are insufficient.
+   - Attachments/Documents automatic ingestion remains blocked on authoritative source-schema/relationship evidence.
+4. Do not add AppFolio API transport; Section 12 remains an optional later adapter.
+5. Do not add general UX, navigation or hidden-menu changes.
+6. If no independently safe file-path product gap remains after reconciliation, update the plan/handoff to mark the Phase 4.13 CSV/XLSX path complete with the resource-specific blockers explicitly preserved. Do not start Phase 4.14 in the same batch.
+
+---
+
 # AI_HANDOFF.md — 2026-10-04 PHASE 4.13 BILLS / PAYABLES RECONCILIATION VERIFIED
 
 ## Current verified product checkpoint
