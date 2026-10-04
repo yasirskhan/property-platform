@@ -24,6 +24,7 @@ from app.models.vendor import Vendor
 from app.models.work_order import WorkOrder, WorkOrderStatus
 from app.models.bill import Bill
 from app.models.bill_line import BillLine
+from app.models.bank_account import BankAccount
 from app.routers import buildium_migrations as api
 from app.schemas.buildium_migration import (
     BuildiumMigrationRunCreateIn,
@@ -54,6 +55,9 @@ from app.schemas.buildium_migration import (
     BuildiumBillCommitIn,
     BuildiumBillDryRunIn,
     BuildiumBillResolutionIn,
+    BuildiumBankAccountCommitIn,
+    BuildiumBankAccountDryRunIn,
+    BuildiumBankAccountResolutionIn,
 )
 
 
@@ -3643,6 +3647,413 @@ def test_buildium_bill_skip_routes_item_visibility_and_sensitive_audit_boundary(
         paths = set(app.openapi()["paths"])
         assert "/api/platform/migrations/buildium/runs/{run_id}/bills/dry-run" in paths
         assert "/api/platform/migrations/buildium/runs/{run_id}/bills/commit" in paths
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+def _bank_record(**changes):
+    record = {
+        "Id": 10001,
+        "GLAccount": {
+            "Id": 7001,
+            "AccountNumber": "1150",
+            "Name": "Rental Trust",
+            "Type": "Asset",
+        },
+        "Name": "Client Trust",
+        "Description": "PROVIDER-DESCRIPTION-DO-NOT-PERSIST",
+        "BankAccountType": "Checking",
+        "Country": "UnitedStates",
+        "AccountNumber": "PROVIDER-MASKED-ACCOUNT-SECRET",
+        "RoutingNumber": "PROVIDER-ROUTING-SECRET",
+        "IsActive": True,
+        "Balance": 9876.54,
+        "AccountNumberUnmasked": "PROVIDER-UNMASKED-ACCOUNT-SECRET",
+        "CheckPrintingInfo": {
+            "BankInformationLine1": "PROVIDER-CHECK-SECRET"
+        },
+        "ElectronicPayments": {
+            "DebitTransactionLimit": 9999
+        },
+    }
+    record.update(changes)
+    return record
+
+
+def _bank_dependencies(db, run, org):
+    gl = _target_gl(
+        db, org, number="1150", name="Rental Trust", account_type="ASSET"
+    )
+    db.add(
+        PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="BUILDIUM",
+            resource="GL_ACCOUNTS",
+            source_id="7001",
+            target_entity="GL_ACCOUNT",
+            target_id=gl.id,
+            source_fingerprint="g" * 64,
+            created_by_platform_user_id=run.created_by_platform_user_id,
+        )
+    )
+    bank = BankAccount(
+        organization_id=org.id,
+        name="Client Trust",
+        bank_name="Local Bank",
+        routing_number="LOCAL-ROUTING-SECRET",
+        account_number="LOCAL-ACCOUNT-SECRET",
+        gl_account_id=gl.id,
+        account_type="OPERATING",
+        is_active=True,
+    )
+    db.add(bank)
+    db.commit()
+    db.refresh(gl)
+    db.refresh(bank)
+    return gl, bank
+
+
+def test_buildium_bank_account_maps_existing_identity_only_and_replays():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Bank Mapping")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="bank-map",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        gl, bank = _bank_dependencies(db, run, org)
+        original = {
+            "name": bank.name,
+            "account_type": bank.account_type,
+            "routing_number": bank.routing_number,
+            "account_number": bank.account_number,
+            "gl_account_id": bank.gl_account_id,
+        }
+
+        preview = api.dry_run_buildium_bank_accounts(
+            run.id,
+            BuildiumBankAccountDryRunIn(records=[_bank_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.invalid == 0
+        assert preview.reviewable == 1
+        assert preview.rows[0].mapped["target_gl_account_id"] == gl.id
+        assert preview.rows[0].mapped["sensitive_bank_fields_exposed"] is False
+        assert "account_number" not in preview.rows[0].mapped
+        assert "routing_number" not in preview.rows[0].mapped
+        assert "balance" not in preview.rows[0].mapped
+        assert any("explicit MATCH_EXISTING" in x for x in preview.rows[0].warnings)
+
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_bank_accounts(
+                run.id,
+                BuildiumBankAccountCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=[_bank_record()],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        reviewed = BuildiumBankAccountDryRunIn(
+            records=[_bank_record()],
+            resolutions=[
+                BuildiumBankAccountResolutionIn(
+                    source_id=10001,
+                    action="MATCH_EXISTING",
+                    target_bank_account_id=bank.id,
+                )
+            ],
+        )
+        reviewed_preview = api.dry_run_buildium_bank_accounts(
+            run.id, reviewed, db=db, current_user=admin
+        )
+        first = api.commit_buildium_bank_accounts(
+            run.id,
+            BuildiumBankAccountCommitIn(
+                fingerprint=reviewed_preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert first.matched_existing == 1
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "BANK_ACCOUNTS"
+        ).one()
+        assert mapping.target_entity == "BANK_ACCOUNT"
+        assert mapping.target_id == bank.id
+        db.refresh(bank)
+        assert bank.name == original["name"]
+        assert bank.account_type == original["account_type"] == "OPERATING"
+        assert bank.routing_number == original["routing_number"]
+        assert bank.account_number == original["account_number"]
+        assert bank.gl_account_id == original["gl_account_id"]
+        assert db.query(GLTransaction).count() == 0
+
+        replay = api.commit_buildium_bank_accounts(
+            run.id,
+            BuildiumBankAccountCommitIn(
+                fingerprint=reviewed_preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert db.query(BankAccount).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_bank_account_requires_gl_mapping_and_rejects_stale_dependency():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Bank Dependencies")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="bank-deps",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        missing = api.dry_run_buildium_bank_accounts(
+            run.id,
+            BuildiumBankAccountDryRunIn(records=[_bank_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert missing.invalid == 1
+        assert "GL Account mapping" in missing.rows[0].reason
+
+        _, bank = _bank_dependencies(db, run, org)
+        reviewed = BuildiumBankAccountDryRunIn(
+            records=[_bank_record()],
+            resolutions=[
+                BuildiumBankAccountResolutionIn(
+                    source_id=10001,
+                    action="MATCH_EXISTING",
+                    target_bank_account_id=bank.id,
+                )
+            ],
+        )
+        preview = api.dry_run_buildium_bank_accounts(
+            run.id, reviewed, db=db, current_user=admin
+        )
+        gl_mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "GL_ACCOUNTS"
+        ).one()
+        gl_mapping.source_fingerprint = "x" * 64
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_bank_accounts(
+                run.id,
+                BuildiumBankAccountCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=reviewed.records,
+                    resolutions=reviewed.resolutions,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "GL mapping state" in exc.value.detail
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "BANK_ACCOUNTS"
+        ).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_bank_account_inactive_type_and_cross_org_safety():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Bank Safety")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="bank-safety",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _, bank = _bank_dependencies(db, run, org)
+
+        skipped = api.dry_run_buildium_bank_accounts(
+            run.id,
+            BuildiumBankAccountDryRunIn(
+                records=[_bank_record(IsActive=False)]
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert skipped.skipped_inactive == 1
+        assert skipped.reviewable == 0
+
+        invalid = api.dry_run_buildium_bank_accounts(
+            run.id,
+            BuildiumBankAccountDryRunIn(
+                records=[_bank_record(BankAccountType="MoneyMarket")]
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert invalid.invalid == 1
+        assert "Checking or Savings" in invalid.rows[0].reason
+
+        foreign_org = _org(db, name="Foreign Bank Org")
+        foreign_gl = _target_gl(
+            db, foreign_org, number="1150", name="Foreign Cash", account_type="ASSET"
+        )
+        foreign_bank = BankAccount(
+            organization_id=foreign_org.id,
+            name="Foreign Bank",
+            gl_account_id=foreign_gl.id,
+            account_type="OPERATING",
+            is_active=True,
+        )
+        db.add(foreign_bank)
+        db.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_buildium_bank_accounts(
+                run.id,
+                BuildiumBankAccountDryRunIn(
+                    records=[_bank_record()],
+                    resolutions=[
+                        BuildiumBankAccountResolutionIn(
+                            source_id=10001,
+                            action="MATCH_EXISTING",
+                            target_bank_account_id=foreign_bank.id,
+                        )
+                    ],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(BankAccount).count() == 2
+        assert bank.account_type == "OPERATING"
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_bank_account_skip_routes_visibility_and_sensitive_audit_boundary():
+    from app.main import app
+
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        support = _platform_user(db, PlatformUserRole.PLATFORM_SUPPORT)
+        org = _org(db, name="Bank Visibility")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="bank-visible",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _, bank = _bank_dependencies(db, run, org)
+
+        skip_payload = BuildiumBankAccountDryRunIn(
+            records=[_bank_record(Id=10002)],
+            resolutions=[
+                BuildiumBankAccountResolutionIn(source_id=10002, action="SKIP")
+            ],
+        )
+        skip_preview = api.dry_run_buildium_bank_accounts(
+            run.id, skip_payload, db=db, current_user=admin
+        )
+        skipped = api.commit_buildium_bank_accounts(
+            run.id,
+            BuildiumBankAccountCommitIn(
+                fingerprint=skip_preview.fingerprint,
+                records=skip_payload.records,
+                resolutions=skip_payload.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert skipped.matched_existing == 0
+
+        reviewed = BuildiumBankAccountDryRunIn(
+            records=[_bank_record()],
+            resolutions=[
+                BuildiumBankAccountResolutionIn(
+                    source_id=10001,
+                    action="MATCH_EXISTING",
+                    target_bank_account_id=bank.id,
+                )
+            ],
+        )
+        preview = api.dry_run_buildium_bank_accounts(
+            run.id, reviewed, db=db, current_user=admin
+        )
+        api.commit_buildium_bank_accounts(
+            run.id,
+            BuildiumBankAccountCommitIn(
+                fingerprint=preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        response = Response()
+        items = api.list_migration_items(
+            run.id,
+            response=response,
+            resource="BANK_ACCOUNTS",
+            limit=200,
+            db=db,
+            current_user=support,
+        )
+        assert len(items) == 1
+        assert items[0].target_exists is True
+        assert items[0].target_label == "Client Trust"
+        assert response.headers["cache-control"] == "no-store"
+
+        audit_text = "\n".join(
+            row.new_value or ""
+            for row in db.query(AuditLog)
+            .filter(AuditLog.entity_type == "platform_migration_run")
+            .all()
+        )
+        for secret in (
+            "PROVIDER-MASKED-ACCOUNT-SECRET",
+            "PROVIDER-ROUTING-SECRET",
+            "PROVIDER-UNMASKED-ACCOUNT-SECRET",
+            "PROVIDER-CHECK-SECRET",
+            "LOCAL-ROUTING-SECRET",
+            "LOCAL-ACCOUNT-SECRET",
+        ):
+            assert secret not in audit_text
+
+        paths = set(app.openapi()["paths"])
+        assert "/api/platform/migrations/buildium/runs/{run_id}/bank-accounts/dry-run" in paths
+        assert "/api/platform/migrations/buildium/runs/{run_id}/bank-accounts/commit" in paths
+        assert db.query(GLTransaction).count() == 0
     finally:
         db.close()
         engine.dispose()
