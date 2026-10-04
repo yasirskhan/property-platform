@@ -693,6 +693,21 @@ class AppFolioGeneralLedgerCommitReadinessOut(BaseModel):
     groups: list[AppFolioGeneralLedgerReadinessGroup]
 
 
+class AppFolioGeneralLedgerAccountReconciliationControl(BaseModel):
+    source_gl_account_id: str
+    target_gl_account_id: int
+    source_line_count: int
+    preview_line_count: int
+    source_debit_total: str
+    source_credit_total: str
+    preview_debit_total: str
+    preview_credit_total: str
+    line_count_match: bool
+    debit_total_match: bool
+    credit_total_match: bool
+    reconciled: bool
+
+
 class AppFolioGeneralLedgerReconciliationOut(BaseModel):
     run_id: int
     organization_id: int
@@ -710,6 +725,10 @@ class AppFolioGeneralLedgerReconciliationOut(BaseModel):
     debit_total_match: bool
     credit_total_match: bool
     transaction_groups_balanced: bool
+    account_controls_match: bool
+    account_controls: list[AppFolioGeneralLedgerAccountReconciliationControl] = Field(
+        default_factory=list
+    )
     reconciled: bool
     accounting_complete: bool = False
     compared_controls: list[str] = Field(default_factory=list)
