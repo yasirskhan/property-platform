@@ -619,6 +619,24 @@ class AppFolioBillDryRunOut(BaseModel):
     rows: list[AppFolioBillPreviewRow]
 
 
+class AppFolioBillReconciliationOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    dry_run_fingerprint: str
+    source_bill_count: int
+    preview_bill_count: int
+    source_total_amount: str
+    preview_total_amount: str
+    bill_count_match: bool
+    bill_identity_match: bool
+    total_amount_match: bool
+    reconciled: bool
+    accounting_complete: bool = False
+    unverified_controls: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class AppFolioWorkOrderPreviewRow(BaseModel):
     source_id: str
     importable: bool = True
