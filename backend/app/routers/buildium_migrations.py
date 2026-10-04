@@ -17,6 +17,7 @@ from app.models.property import Property, Unit
 from app.models.lease import Lease
 from app.models.gl_account import GLAccount
 from app.models.vendor import Vendor
+from app.models.work_order import WorkOrder
 from app.models.user import Organization
 from app.routers.platform_auth import get_current_platform_user
 from app.schemas.buildium_migration import (
@@ -51,6 +52,10 @@ from app.schemas.buildium_migration import (
     BuildiumGLAccountCommitOut,
     BuildiumGLAccountDryRunIn,
     BuildiumGLAccountDryRunOut,
+    BuildiumWorkOrderCommitIn,
+    BuildiumWorkOrderCommitOut,
+    BuildiumWorkOrderDryRunIn,
+    BuildiumWorkOrderDryRunOut,
 )
 from app.services.audit import append_audit_log
 from app.services.buildium_migration import (
@@ -87,6 +92,11 @@ from app.services.buildium_gl_account_migration import (
     BuildiumGLAccountMigrationError,
     commit_gl_accounts,
     dry_run_gl_accounts,
+)
+from app.services.buildium_work_order_migration import (
+    BuildiumWorkOrderMigrationError,
+    commit_work_orders,
+    dry_run_work_orders,
 )
 
 
@@ -1111,6 +1121,133 @@ def commit_buildium_gl_accounts(
         rows=result.rows,
     )
 
+
+@router.post(
+    "/runs/{run_id}/work-orders/dry-run",
+    response_model=BuildiumWorkOrderDryRunOut,
+)
+def dry_run_buildium_work_orders(
+    run_id: int,
+    payload: BuildiumWorkOrderDryRunIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = dry_run_work_orders(
+            db,
+            run=row,
+            records=payload.records,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+    except BuildiumWorkOrderMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=row.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=row.id,
+            action="buildium_work_orders_dry_run",
+            new_value={
+                "fingerprint": result.fingerprint,
+                **result.summary,
+                "target_mutation": False,
+            },
+        )
+        db.commit()
+        db.refresh(row)
+
+    return BuildiumWorkOrderDryRunOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        reviewable=result.reviewable,
+        skipped_review=result.skipped_review,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/work-orders/commit",
+    response_model=BuildiumWorkOrderCommitOut,
+)
+def commit_buildium_work_orders(
+    run_id: int,
+    payload: BuildiumWorkOrderCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = commit_work_orders(
+            db,
+            run=row,
+            records=payload.records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=row.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=row.id,
+                action="buildium_work_orders_reconciled",
+                new_value={
+                    "fingerprint": result.fingerprint,
+                    "matched_existing": result.matched_existing,
+                    "skipped_review": result.skipped_review,
+                    "warning_count": result.warning_count,
+                    "target_work_order_ids": [
+                        item["target_work_order_id"] for item in result.rows
+                    ],
+                    "work_orders_created": False,
+                    "work_orders_updated": False,
+                    "tenant_inferred": False,
+                    "assignment_mutation": False,
+                    "status_mutation": False,
+                    "cost_mutation": False,
+                    "bills_created": False,
+                    "gl_history_created": False,
+                    "raw_payload_stored": False,
+                    "provider_credentials_stored": False,
+                },
+            )
+            db.commit()
+            db.refresh(row)
+    except BuildiumWorkOrderMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Buildium Work Order relationship mapping conflicted with an existing migration mapping.",
+        ) from exc
+
+    return BuildiumWorkOrderCommitOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        matched_existing=result.matched_existing,
+        skipped_review=result.skipped_review,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
 @router.get(
     "/runs/{run_id}/items",
     response_model=list[BuildiumMigrationItemOut],
@@ -1243,6 +1380,21 @@ def list_migration_items(
             if target is not None:
                 target_exists = True
                 target_label = f"Lease #{target.id}"
+        elif item.target_entity == "WORK_ORDER_RELATIONSHIP":
+            target = (
+                db.query(WorkOrder)
+                .join(Unit, Unit.id == WorkOrder.unit_id)
+                .join(Property, Property.id == Unit.property_id)
+                .filter(
+                    WorkOrder.id == item.target_id,
+                    WorkOrder.property_id == Property.id,
+                    Property.organization_id == row.organization_id,
+                )
+                .first()
+            )
+            if target is not None:
+                target_exists = True
+                target_label = f"Work Order #{target.id}: {target.title}"
         elif item.target_entity == "GL_ACCOUNT":
             target = (
                 db.query(GLAccount)

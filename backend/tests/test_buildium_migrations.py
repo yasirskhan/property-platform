@@ -21,6 +21,7 @@ from app.models.gl_transaction import GLTransaction
 from app.models.gl_account import GLAccount
 from app.models.user import Organization, User, UserRole
 from app.models.vendor import Vendor
+from app.models.work_order import WorkOrder, WorkOrderStatus
 from app.routers import buildium_migrations as api
 from app.schemas.buildium_migration import (
     BuildiumMigrationRunCreateIn,
@@ -45,6 +46,9 @@ from app.schemas.buildium_migration import (
     BuildiumGLAccountCommitIn,
     BuildiumGLAccountDryRunIn,
     BuildiumGLAccountResolutionIn,
+    BuildiumWorkOrderCommitIn,
+    BuildiumWorkOrderDryRunIn,
+    BuildiumWorkOrderResolutionIn,
 )
 
 
@@ -2749,3 +2753,412 @@ def test_buildium_gl_account_rejects_wrong_type_cross_org_and_supports_skip():
         db.close()
         engine.dispose()
 
+
+
+def _work_order_record(**changes):
+    record = {
+        "Id": 8001,
+        "Title": "Kitchen sink leak",
+        "Status": "Open",
+        "DueDate": "2026-10-10",
+        "Priority": "High",
+        "VendorId": 4001,
+        "EntryAllowed": True,
+        "EntryNotes": "DO-NOT-PERSIST-ENTRY-NOTES",
+        "Amount": 275.50,
+        "BillTransactionIds": [99001],
+        "LineItems": [{"Description": "DO-NOT-PROMOTE-LINE", "Amount": 275.50}],
+        "Task": {
+            "Id": 7001,
+            "PropertyId": 1001,
+            "UnitId": 2001,
+            "Description": "DO-NOT-PROMOTE-TASK-TEXT",
+        },
+    }
+    record.update(changes)
+    return record
+
+
+def _work_order_dependencies(db, run, org):
+    target_property, _ = _buildium_property_mapping(db, run, org)
+    unit = Unit(
+        property_id=target_property.id,
+        unit_number="1A",
+        bedrooms=2,
+        bathrooms=1.5,
+        square_feet=900,
+        monthly_rent=1250,
+        is_available=None,
+        is_listed=True,
+        is_active=True,
+    )
+    db.add(unit)
+    db.flush()
+    db.add(
+        PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="BUILDIUM",
+            resource="UNITS",
+            source_id="2001",
+            target_entity="UNIT",
+            target_id=unit.id,
+            source_fingerprint="u" * 64,
+            created_by_platform_user_id=run.created_by_platform_user_id,
+        )
+    )
+    vendor = _target_vendor(db, org)
+    db.add(
+        PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="BUILDIUM",
+            resource="VENDORS",
+            source_id="4001",
+            target_entity="VENDOR",
+            target_id=vendor.id,
+            source_fingerprint="v" * 64,
+            created_by_platform_user_id=run.created_by_platform_user_id,
+        )
+    )
+    tenant = _customer_tenant(db, org)
+    work_order = WorkOrder(
+        unit_id=unit.id,
+        property_id=target_property.id,
+        tenant_id=tenant.id,
+        vendor_id=vendor.id,
+        title="Kitchen sink leak",
+        description="Existing local maintenance description",
+        status=WorkOrderStatus.SUBMITTED,
+        permission_to_enter=False,
+    )
+    db.add(work_order)
+    db.commit()
+    db.refresh(unit)
+    db.refresh(vendor)
+    db.refresh(work_order)
+    return target_property, unit, vendor, tenant, work_order
+
+
+def test_buildium_work_order_reconciles_existing_relationship_only_and_replays():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Work Order Reconciliation")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="work-order-rel",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _, unit, vendor, tenant, work_order = _work_order_dependencies(db, run, org)
+        original = {
+            "tenant_id": work_order.tenant_id,
+            "assigned_to_id": work_order.assigned_to_id,
+            "status": work_order.status,
+            "permission_to_enter": work_order.permission_to_enter,
+            "total_cost": work_order.total_cost,
+            "description": work_order.description,
+        }
+
+        preview = api.dry_run_buildium_work_orders(
+            run.id,
+            BuildiumWorkOrderDryRunIn(records=[_work_order_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.invalid == 0
+        assert preview.reviewable == 1
+        assert preview.rows[0].mapped["target_property_id"] == work_order.property_id
+        assert preview.rows[0].mapped["target_unit_id"] == unit.id
+        assert preview.rows[0].mapped["target_vendor_id"] == vendor.id
+        assert any("explicit MATCH_EXISTING" in x for x in preview.rows[0].warnings)
+
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_work_orders(
+                run.id,
+                BuildiumWorkOrderCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=[_work_order_record()],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        reviewed = BuildiumWorkOrderDryRunIn(
+            records=[_work_order_record()],
+            resolutions=[
+                BuildiumWorkOrderResolutionIn(
+                    source_id=8001,
+                    action="MATCH_EXISTING",
+                    target_work_order_id=work_order.id,
+                )
+            ],
+        )
+        reviewed_preview = api.dry_run_buildium_work_orders(
+            run.id, reviewed, db=db, current_user=admin
+        )
+        first = api.commit_buildium_work_orders(
+            run.id,
+            BuildiumWorkOrderCommitIn(
+                fingerprint=reviewed_preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert first.matched_existing == 1
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "WORK_ORDERS"
+        ).one()
+        assert mapping.target_entity == "WORK_ORDER_RELATIONSHIP"
+        assert mapping.target_id == work_order.id
+        assert db.query(WorkOrder).count() == 1
+        db.refresh(work_order)
+        assert work_order.tenant_id == original["tenant_id"] == tenant.id
+        assert work_order.assigned_to_id == original["assigned_to_id"]
+        assert work_order.status == original["status"]
+        assert work_order.permission_to_enter == original["permission_to_enter"]
+        assert work_order.total_cost == original["total_cost"]
+        assert work_order.description == original["description"]
+        assert db.query(GLTransaction).count() == 0
+
+        replay = api.commit_buildium_work_orders(
+            run.id,
+            BuildiumWorkOrderCommitIn(
+                fingerprint=reviewed_preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert db.query(WorkOrder).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_work_order_requires_durable_relationships_and_rejects_stale_dependencies():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Work Order Dependencies")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="work-order-deps",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        missing = api.dry_run_buildium_work_orders(
+            run.id,
+            BuildiumWorkOrderDryRunIn(records=[_work_order_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert missing.invalid == 1
+        assert "Property" in missing.rows[0].reason
+        assert "Unit" in missing.rows[0].reason
+        assert "Vendor" in missing.rows[0].reason
+
+        _, _, _, _, work_order = _work_order_dependencies(db, run, org)
+        payload = BuildiumWorkOrderDryRunIn(
+            records=[_work_order_record()],
+            resolutions=[
+                BuildiumWorkOrderResolutionIn(
+                    source_id=8001,
+                    action="MATCH_EXISTING",
+                    target_work_order_id=work_order.id,
+                )
+            ],
+        )
+        preview = api.dry_run_buildium_work_orders(
+            run.id, payload, db=db, current_user=admin
+        )
+        unit_mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "UNITS"
+        ).one()
+        unit_mapping.source_fingerprint = "x" * 64
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_work_orders(
+                run.id,
+                BuildiumWorkOrderCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=payload.records,
+                    resolutions=payload.resolutions,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "WORK_ORDERS"
+        ).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_work_order_rejects_cross_relationship_and_does_not_persist_sensitive_evidence():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Work Order Safety")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="work-order-safety",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _, _, vendor, _, work_order = _work_order_dependencies(db, run, org)
+
+        other_unit = Unit(
+            property_id=work_order.property_id,
+            unit_number="2B",
+            bedrooms=1,
+            bathrooms=1,
+            square_feet=600,
+            monthly_rent=900,
+            is_available=True,
+            is_listed=True,
+            is_active=True,
+        )
+        db.add(other_unit)
+        db.commit()
+        bad_target = WorkOrder(
+            unit_id=other_unit.id,
+            property_id=work_order.property_id,
+            tenant_id=work_order.tenant_id,
+            vendor_id=vendor.id,
+            title=work_order.title,
+            description="Other unit",
+            status=WorkOrderStatus.SUBMITTED,
+        )
+        db.add(bad_target)
+        db.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_buildium_work_orders(
+                run.id,
+                BuildiumWorkOrderDryRunIn(
+                    records=[_work_order_record()],
+                    resolutions=[
+                        BuildiumWorkOrderResolutionIn(
+                            source_id=8001,
+                            action="MATCH_EXISTING",
+                            target_work_order_id=bad_target.id,
+                        )
+                    ],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        skip_payload = BuildiumWorkOrderDryRunIn(
+            records=[_work_order_record(Id=8002)],
+            resolutions=[
+                BuildiumWorkOrderResolutionIn(source_id=8002, action="SKIP")
+            ],
+        )
+        skip_preview = api.dry_run_buildium_work_orders(
+            run.id, skip_payload, db=db, current_user=admin
+        )
+        assert skip_preview.skipped_review == 1
+        skipped = api.commit_buildium_work_orders(
+            run.id,
+            BuildiumWorkOrderCommitIn(
+                fingerprint=skip_preview.fingerprint,
+                records=skip_payload.records,
+                resolutions=skip_payload.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert skipped.matched_existing == 0
+        assert db.query(WorkOrder).count() == 2
+        audit_text = "\n".join(
+            row.new_value or ""
+            for row in db.query(AuditLog)
+            .filter(AuditLog.entity_type == "platform_migration_run")
+            .all()
+        )
+        assert "DO-NOT-PERSIST-ENTRY-NOTES" not in audit_text
+        assert "DO-NOT-PROMOTE-TASK-TEXT" not in audit_text
+        assert "DO-NOT-PROMOTE-LINE" not in audit_text
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_work_order_routes_and_item_visibility():
+    from app.main import app
+
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        support = _platform_user(db, PlatformUserRole.PLATFORM_SUPPORT)
+        org = _org(db, name="Work Order Visibility")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="work-order-visible",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _, _, _, _, work_order = _work_order_dependencies(db, run, org)
+        reviewed = BuildiumWorkOrderDryRunIn(
+            records=[_work_order_record()],
+            resolutions=[
+                BuildiumWorkOrderResolutionIn(
+                    source_id=8001,
+                    action="MATCH_EXISTING",
+                    target_work_order_id=work_order.id,
+                )
+            ],
+        )
+        preview = api.dry_run_buildium_work_orders(
+            run.id, reviewed, db=db, current_user=admin
+        )
+        api.commit_buildium_work_orders(
+            run.id,
+            BuildiumWorkOrderCommitIn(
+                fingerprint=preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        response = Response()
+        items = api.list_migration_items(
+            run.id,
+            response=response,
+            resource="WORK_ORDERS",
+            limit=200,
+            db=db,
+            current_user=support,
+        )
+        assert len(items) == 1
+        assert items[0].target_exists is True
+        assert "Kitchen sink leak" in items[0].target_label
+        assert response.headers["cache-control"] == "no-store"
+
+        paths = set(app.openapi()["paths"])
+        assert "/api/platform/migrations/buildium/runs/{run_id}/work-orders/dry-run" in paths
+        assert "/api/platform/migrations/buildium/runs/{run_id}/work-orders/commit" in paths
+    finally:
+        db.close()
+        engine.dispose()
