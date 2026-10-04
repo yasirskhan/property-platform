@@ -681,6 +681,24 @@ class AppFolioChargeDryRunOut(BaseModel):
     rows: list[AppFolioChargePreviewRow]
 
 
+class AppFolioChargeReconciliationOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    dry_run_fingerprint: str
+    source_charge_count: int
+    preview_charge_count: int
+    source_amount_due: str
+    preview_amount_due: str
+    charge_count_match: bool
+    charge_identity_match: bool
+    amount_due_match: bool
+    reconciled: bool
+    accounting_complete: bool = False
+    unverified_controls: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class AppFolioGeneralLedgerReadinessLine(BaseModel):
     source_id: str
     transaction_id: str
