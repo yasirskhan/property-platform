@@ -25,7 +25,10 @@ from app.models.work_order import WorkOrder, WorkOrderStatus
 from app.models.bill import Bill
 from app.models.bill_line import BillLine
 from app.models.bank_account import BankAccount
+from app.models.check import Check
 from app.routers import buildium_migrations as api
+from app.schemas.check import CheckAllocationIn, CheckIssueIn
+from app.services.checks import issue_check
 from app.schemas.buildium_migration import (
     BuildiumMigrationRunCreateIn,
     BuildiumPropertyCommitIn,
@@ -58,6 +61,9 @@ from app.schemas.buildium_migration import (
     BuildiumBankAccountCommitIn,
     BuildiumBankAccountDryRunIn,
     BuildiumBankAccountResolutionIn,
+    BuildiumBillPaymentCommitIn,
+    BuildiumBillPaymentDryRunIn,
+    BuildiumBillPaymentResolutionIn,
 )
 
 
@@ -4054,6 +4060,467 @@ def test_buildium_bank_account_skip_routes_visibility_and_sensitive_audit_bounda
         assert "/api/platform/migrations/buildium/runs/{run_id}/bank-accounts/dry-run" in paths
         assert "/api/platform/migrations/buildium/runs/{run_id}/bank-accounts/commit" in paths
         assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+def _bill_payment_record(**changes):
+    record = {
+        "Id": 11001,
+        "BankAccountId": 10001,
+        "EntryDate": "2026-09-20",
+        "Memo": "PROVIDER-BILL-PAYMENT-MEMO-DO-NOT-PERSIST",
+        "CheckNumber": "1042",
+        "PaidBillIds": [9001],
+        "AppliedVendorCredits": [],
+        "Lines": [
+            {
+                "AccountingEntity": {
+                    "Id": 1001,
+                    "AccountingEntityType": "Rental",
+                    "UnitId": 2001,
+                },
+                "GLAccountId": 7001,
+                "Amount": 125.50,
+            }
+        ],
+    }
+    record.update(changes)
+    return record
+
+
+def _bill_payment_dependencies(db, run, org):
+    target_property, unit, vendor, expense, payable, bill = _bill_dependencies(
+        db, run, org
+    )
+    db.add(
+        PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="BUILDIUM",
+            resource="BILLS",
+            source_id="9001",
+            target_entity="BILL_RELATIONSHIP",
+            target_id=bill.id,
+            source_fingerprint="b" * 64,
+            created_by_platform_user_id=run.created_by_platform_user_id,
+        )
+    )
+    cash = _target_gl(
+        db, org, number="1100", name="Operating Cash", account_type="ASSET"
+    )
+    db.add(
+        PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="BUILDIUM",
+            resource="GL_ACCOUNTS",
+            source_id="8001",
+            target_entity="GL_ACCOUNT",
+            target_id=cash.id,
+            source_fingerprint="c" * 64,
+            created_by_platform_user_id=run.created_by_platform_user_id,
+        )
+    )
+    bank = BankAccount(
+        organization_id=org.id,
+        name="Operating",
+        bank_name="Local Bank",
+        routing_number="LOCAL-ROUTING-DO-NOT-EXPOSE",
+        account_number="LOCAL-ACCOUNT-DO-NOT-EXPOSE",
+        gl_account_id=cash.id,
+        account_type="OPERATING",
+        is_active=True,
+    )
+    db.add(bank)
+    db.flush()
+    db.add(
+        PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="BUILDIUM",
+            resource="BANK_ACCOUNTS",
+            source_id="10001",
+            target_entity="BANK_ACCOUNT",
+            target_id=bank.id,
+            source_fingerprint="k" * 64,
+            created_by_platform_user_id=run.created_by_platform_user_id,
+        )
+    )
+    customer_admin = User(
+        email=f"bill-payment-admin-{org.id}@example.com",
+        hashed_password=hash_password("customer-admin-password"),
+        first_name="Customer",
+        last_name="Admin",
+        role=UserRole.ADMIN,
+        organization_id=org.id,
+        is_active=True,
+        is_verified=True,
+    )
+    db.add(customer_admin)
+    db.commit()
+    check = issue_check(
+        db,
+        organization_id=org.id,
+        payload=CheckIssueIn(
+            bank_account_id=bank.id,
+            check_date=date(2026, 9, 20),
+            check_number="1042",
+            memo="Local target payment",
+            allocations=[
+                CheckAllocationIn(bill_id=bill.id, amount=125.50)
+            ],
+        ),
+        created_by=customer_admin,
+    )
+    db.refresh(bill)
+    return target_property, unit, vendor, expense, payable, bill, cash, bank, check
+
+
+def test_buildium_bill_payment_maps_exact_existing_check_and_replays():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Bill Payment Mapping")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="bill-payment-map",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _, _, _, _, _, bill, _, _, check = _bill_payment_dependencies(
+            db, run, org
+        )
+        gl_count = db.query(GLTransaction).count()
+
+        preview = api.dry_run_buildium_bill_payments(
+            run.id,
+            BuildiumBillPaymentDryRunIn(records=[_bill_payment_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.invalid == 0
+        assert preview.reviewable == 1
+        assert preview.rows[0].mapped["target_bill_id"] == bill.id
+        assert preview.rows[0].mapped["candidate_check_ids"] == [check.id]
+        assert preview.rows[0].mapped["full_single_bill_check_only"] is True
+
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_bill_payments(
+                run.id,
+                BuildiumBillPaymentCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=[_bill_payment_record()],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        reviewed = BuildiumBillPaymentDryRunIn(
+            records=[_bill_payment_record()],
+            resolutions=[
+                BuildiumBillPaymentResolutionIn(
+                    source_id=11001,
+                    action="MATCH_EXISTING",
+                    target_check_id=check.id,
+                )
+            ],
+        )
+        reviewed_preview = api.dry_run_buildium_bill_payments(
+            run.id, reviewed, db=db, current_user=admin
+        )
+        first = api.commit_buildium_bill_payments(
+            run.id,
+            BuildiumBillPaymentCommitIn(
+                fingerprint=reviewed_preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert first.matched_existing == 1
+        mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(PlatformMigrationItem.resource == "BILL_PAYMENTS")
+            .one()
+        )
+        assert mapping.target_entity == "CHECK_PAYMENT_RELATIONSHIP"
+        assert mapping.target_id == check.id
+        assert db.query(Check).count() == 1
+        assert db.query(GLTransaction).count() == gl_count
+
+        replay = api.commit_buildium_bill_payments(
+            run.id,
+            BuildiumBillPaymentCommitIn(
+                fingerprint=reviewed_preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert db.query(Check).count() == 1
+        assert db.query(GLTransaction).count() == gl_count
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_bill_payment_blocks_partial_multi_bill_noncheck_and_vendor_credit():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Bill Payment Unsupported")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="bill-payment-unsupported",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _bill_payment_dependencies(db, run, org)
+        baseline = db.query(GLTransaction).count()
+
+        variants = [
+            (
+                _bill_payment_record(PaidBillIds=[9001, 9002]),
+                "exactly one fully paid Buildium Bill",
+            ),
+            (
+                _bill_payment_record(CheckNumber=None),
+                "requires a documented CheckNumber",
+            ),
+            (
+                _bill_payment_record(
+                    AppliedVendorCredits=[{"Id": 5, "Href": "/v1/vendorcredits/5"}]
+                ),
+                "Vendor Credits",
+            ),
+            (
+                _bill_payment_record(
+                    Lines=[
+                        {
+                            "AccountingEntity": {
+                                "Id": 1001,
+                                "AccountingEntityType": "Rental",
+                                "UnitId": 2001,
+                            },
+                            "GLAccountId": 7001,
+                            "Amount": 100.00,
+                        }
+                    ]
+                ),
+                "exactly match the already-mapped target Bill lines",
+            ),
+        ]
+        for record, phrase in variants:
+            preview = api.dry_run_buildium_bill_payments(
+                run.id,
+                BuildiumBillPaymentDryRunIn(records=[record]),
+                db=db,
+                current_user=admin,
+            )
+            assert preview.invalid == 1
+            assert phrase in preview.rows[0].reason
+            db.rollback()
+
+        assert db.query(GLTransaction).count() == baseline
+        assert (
+            db.query(PlatformMigrationItem)
+            .filter(PlatformMigrationItem.resource == "BILL_PAYMENTS")
+            .count()
+            == 0
+        )
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_bill_payment_rejects_stale_bank_dependency_and_wrong_check():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Bill Payment Safety")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="bill-payment-safety",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _, _, _, _, _, _, _, _, check = _bill_payment_dependencies(
+            db, run, org
+        )
+        reviewed = BuildiumBillPaymentDryRunIn(
+            records=[_bill_payment_record()],
+            resolutions=[
+                BuildiumBillPaymentResolutionIn(
+                    source_id=11001,
+                    action="MATCH_EXISTING",
+                    target_check_id=check.id,
+                )
+            ],
+        )
+        preview = api.dry_run_buildium_bill_payments(
+            run.id, reviewed, db=db, current_user=admin
+        )
+
+        bank_mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(PlatformMigrationItem.resource == "BANK_ACCOUNTS")
+            .one()
+        )
+        bank_mapping.source_fingerprint = "z" * 64
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_bill_payments(
+                run.id,
+                BuildiumBillPaymentCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=reviewed.records,
+                    resolutions=reviewed.resolutions,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "stale" in exc.value.detail.lower()
+        assert (
+            db.query(PlatformMigrationItem)
+            .filter(PlatformMigrationItem.resource == "BILL_PAYMENTS")
+            .count()
+            == 0
+        )
+
+        bank_mapping.source_fingerprint = "k" * 64
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_buildium_bill_payments(
+                run.id,
+                BuildiumBillPaymentDryRunIn(
+                    records=[_bill_payment_record(CheckNumber="9999")],
+                    resolutions=[
+                        BuildiumBillPaymentResolutionIn(
+                            source_id=11001,
+                            action="MATCH_EXISTING",
+                            target_check_id=check.id,
+                        )
+                    ],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "Check number" in exc.value.detail
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_bill_payment_skip_visibility_and_sensitive_audit_boundary():
+    from app.main import app
+
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        support = _platform_user(db, PlatformUserRole.PLATFORM_SUPPORT)
+        org = _org(db, name="Bill Payment Visibility")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="bill-payment-visible",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _, _, _, _, _, _, _, _, check = _bill_payment_dependencies(
+            db, run, org
+        )
+
+        skip_payload = BuildiumBillPaymentDryRunIn(
+            records=[_bill_payment_record(Id=11002)],
+            resolutions=[
+                BuildiumBillPaymentResolutionIn(
+                    source_id=11002,
+                    action="SKIP",
+                )
+            ],
+        )
+        skip_preview = api.dry_run_buildium_bill_payments(
+            run.id, skip_payload, db=db, current_user=admin
+        )
+        skipped = api.commit_buildium_bill_payments(
+            run.id,
+            BuildiumBillPaymentCommitIn(
+                fingerprint=skip_preview.fingerprint,
+                records=skip_payload.records,
+                resolutions=skip_payload.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert skipped.matched_existing == 0
+
+        reviewed = BuildiumBillPaymentDryRunIn(
+            records=[_bill_payment_record()],
+            resolutions=[
+                BuildiumBillPaymentResolutionIn(
+                    source_id=11001,
+                    action="MATCH_EXISTING",
+                    target_check_id=check.id,
+                )
+            ],
+        )
+        preview = api.dry_run_buildium_bill_payments(
+            run.id, reviewed, db=db, current_user=admin
+        )
+        api.commit_buildium_bill_payments(
+            run.id,
+            BuildiumBillPaymentCommitIn(
+                fingerprint=preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        response = Response()
+        items = api.list_migration_items(
+            run.id,
+            response=response,
+            resource="BILL_PAYMENTS",
+            limit=200,
+            db=db,
+            current_user=support,
+        )
+        assert len(items) == 1
+        assert items[0].target_exists is True
+        assert "1042" in items[0].target_label
+        assert response.headers["cache-control"] == "no-store"
+
+        audit_text = "\n".join(
+            row.new_value or ""
+            for row in db.query(AuditLog)
+            .filter(AuditLog.entity_type == "platform_migration_run")
+            .all()
+        )
+        assert "PROVIDER-BILL-PAYMENT-MEMO-DO-NOT-PERSIST" not in audit_text
+        assert "LOCAL-ROUTING-DO-NOT-EXPOSE" not in audit_text
+        assert "LOCAL-ACCOUNT-DO-NOT-EXPOSE" not in audit_text
+
+        paths = set(app.openapi()["paths"])
+        assert "/api/platform/migrations/buildium/runs/{run_id}/bill-payments/dry-run" in paths
+        assert "/api/platform/migrations/buildium/runs/{run_id}/bill-payments/commit" in paths
     finally:
         db.close()
         engine.dispose()

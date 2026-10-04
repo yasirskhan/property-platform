@@ -20,6 +20,7 @@ from app.models.vendor import Vendor
 from app.models.work_order import WorkOrder
 from app.models.bill import Bill
 from app.models.bank_account import BankAccount
+from app.models.check import Check
 from app.models.user import Organization
 from app.routers.platform_auth import get_current_platform_user
 from app.schemas.buildium_migration import (
@@ -66,6 +67,10 @@ from app.schemas.buildium_migration import (
     BuildiumBankAccountCommitOut,
     BuildiumBankAccountDryRunIn,
     BuildiumBankAccountDryRunOut,
+    BuildiumBillPaymentCommitIn,
+    BuildiumBillPaymentCommitOut,
+    BuildiumBillPaymentDryRunIn,
+    BuildiumBillPaymentDryRunOut,
 )
 from app.services.audit import append_audit_log
 from app.services.buildium_migration import (
@@ -117,6 +122,11 @@ from app.services.buildium_bank_account_migration import (
     BuildiumBankAccountMigrationError,
     commit_bank_accounts,
     dry_run_bank_accounts,
+)
+from app.services.buildium_bill_payment_migration import (
+    BuildiumBillPaymentMigrationError,
+    commit_bill_payments,
+    dry_run_bill_payments,
 )
 
 
@@ -1526,6 +1536,131 @@ def commit_buildium_bank_accounts(
     )
 
 
+@router.post(
+    "/runs/{run_id}/bill-payments/dry-run",
+    response_model=BuildiumBillPaymentDryRunOut,
+)
+def dry_run_buildium_bill_payments(
+    run_id: int,
+    payload: BuildiumBillPaymentDryRunIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = dry_run_bill_payments(
+            db,
+            run=row,
+            records=payload.records,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+    except BuildiumBillPaymentMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=row.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=row.id,
+            action="buildium_bill_payments_dry_run",
+            new_value={
+                "fingerprint": result.fingerprint,
+                **result.summary,
+                "target_mutation": False,
+            },
+        )
+        db.commit()
+        db.refresh(row)
+
+    return BuildiumBillPaymentDryRunOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        reviewable=result.reviewable,
+        skipped_review=result.skipped_review,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/bill-payments/commit",
+    response_model=BuildiumBillPaymentCommitOut,
+)
+def commit_buildium_bill_payments(
+    run_id: int,
+    payload: BuildiumBillPaymentCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = commit_bill_payments(
+            db,
+            run=row,
+            records=payload.records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=row.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=row.id,
+                action="buildium_bill_payments_reconciled",
+                new_value={
+                    "fingerprint": result.fingerprint,
+                    "matched_existing": result.matched_existing,
+                    "skipped_review": result.skipped_review,
+                    "warning_count": result.warning_count,
+                    "target_check_ids": [
+                        item["target_check_id"] for item in result.rows
+                    ],
+                    "checks_created": False,
+                    "checks_updated": False,
+                    "bills_updated": False,
+                    "payments_posted": False,
+                    "bank_movements_created": False,
+                    "vendor_credits_applied": False,
+                    "gl_history_created": False,
+                    "raw_payload_stored": False,
+                    "provider_credentials_stored": False,
+                },
+            )
+            db.commit()
+            db.refresh(row)
+    except BuildiumBillPaymentMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Buildium Bill Payment mapping conflicted with an existing migration mapping.",
+        ) from exc
+
+    return BuildiumBillPaymentCommitOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        matched_existing=result.matched_existing,
+        skipped_review=result.skipped_review,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
 @router.get(
     "/runs/{run_id}/items",
     response_model=list[BuildiumMigrationItemOut],
@@ -1685,6 +1820,18 @@ def list_migration_items(
             if target is not None:
                 target_exists = True
                 target_label = f"Bill #{target.id}: {target.payee_name}"
+        elif item.target_entity == "CHECK_PAYMENT_RELATIONSHIP":
+            target = (
+                db.query(Check)
+                .filter(
+                    Check.id == item.target_id,
+                    Check.organization_id == row.organization_id,
+                )
+                .first()
+            )
+            if target is not None:
+                target_exists = True
+                target_label = f"Check #{target.id}: {target.check_number or 'unnumbered'}"
         elif item.target_entity == "BANK_ACCOUNT":
             target = (
                 db.query(BankAccount)
