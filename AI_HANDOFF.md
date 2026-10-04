@@ -1,3 +1,62 @@
+# AI_HANDOFF.md — 2026-10-04 PHASE 4.13 GENERAL LEDGER PER-ACCOUNT RECONCILIATION VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `1035185c978993dcfc5c0949e985cc0b62cadf1f`.
+- GitHub Actions run: `37166335534` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **981 passed, 21 deselected, 25621 warnings in 344.46s**.
+- Authenticated E2E: **21 passed, 278 warnings in 114.03s**.
+- Alembic head remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified per-GL-account reconciliation controls
+
+1. The existing read-only General Ledger reconciliation now also produces deterministic control totals per durable source GL Account identity and resolved same-organization target GL Account ID.
+2. Each account control compares source-vs-preview line count, debit total and credit total and exposes an explicit reconciled flag.
+3. Account controls are canonically sorted by source GL Account ID and target ID; identical replay is deterministic.
+4. The exact current staged dry-run/readiness fingerprint remains authoritative. A changed durable GL Account mapping source fingerprint or changed staged source evidence makes the prior dry run stale and reconciliation fails closed.
+5. Overall reconciliation now requires line identity/count, total debit/credit, balanced supplied TransactionId groups and all per-account controls to match.
+6. `accounting_complete` remains false. Beginning/ending balances, AR, AP, security deposits and independent external control totals remain explicitly unverified.
+7. No balancing journal, GL transaction, Charge, Bill, Receipt, Payment or other customer/accounting record is created or changed.
+8. Focused tests prove account-level totals for both debit and credit accounts, deterministic ordering, stale mapping protection, stale staged evidence protection and zero accounting mutation.
+9. AppFolio API transport, general UX, navigation and hidden-menu work remain out of scope.
+
+Implementation commits in this bounded batch:
+- `a5deafb7a80468f48bd73462002638425c3ce875` — account reconciliation response contract.
+- `54c0a95a2602da19e47ce3932e48c76713d2e149` — per-GL-account reconciliation aggregation.
+- `1035185c978993dcfc5c0949e985cc0b62cadf1f` — focused per-account/stale-mapping tests; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Add a read-only **Bills / Payables staged reconciliation control** over the already-verified BILLS dry-run contract.
+
+Required boundaries:
+
+1. Operate only on already-staged `BILLS` rows and the exact current Bills dry-run fingerprint.
+2. Reconcile only retained rows already explicitly accepted by the verified Bills relationship review/dry-run path; SKIP rows remain excluded and unresolved/INVALID rows remain blockers.
+3. Compare stable source Bill identity/count plus source `TotalAmount` against the exact current preview `TotalAmount` for the same retained source IDs.
+4. Revalidate current durable Property/Vendor relationships through the existing Bills dry-run helper; stale mappings or changed staged evidence must fail closed through exact-fingerprint protection.
+5. Keep the result review-only with `accounting_complete=false`. It must not claim AP, payment, posting-date, line-item allocation, GL distribution or historical balance reconciliation.
+6. Do not infer Bill line allocations, payment/application history, vendor liability beyond supplied source evidence, or target GL posting.
+7. Do not create/update Bill, BillLine, Check, VendorCredit, GLTransaction, GLEntry, Charge, Receipt, Payment or customer balances.
+8. Preserve platform read authorization, run/org/upload/provider isolation and `Cache-Control: no-store`.
+9. Add focused tests for deterministic source-vs-preview count/TotalAmount reconciliation, stale-preview protection, authorization and zero mutation.
+10. Keep AppFolio API transport, general UX, navigation and hidden-menu work out of scope.
+
+---
+
 # AI_HANDOFF.md — 2026-10-04 PHASE 4.13 GENERAL LEDGER RECONCILIATION CONTROL VERIFIED
 
 ## Current verified product checkpoint
