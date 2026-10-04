@@ -1,3 +1,98 @@
+# AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM WORK ORDERS VERIFIED
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `dbd6a1a7db5b19468718009971222f23900ded57`.
+- GitHub Actions run: `37229578216` — **SUCCESS**.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **1021 passed, 21 deselected, 26291 warnings in 265.32s**.
+- Authenticated E2E: **21 passed, 278 warnings in 118.96s**.
+- Alembic head remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- No migration was added in this batch.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Buildium Work Order reconciliation
+
+This batch reconciles a Buildium Work Order only to an already-existing target
+WorkOrder. It does not create or update a maintenance record.
+
+Verified behavior:
+
+1. Stable positive Buildium Work Order `Id` is the durable source identity.
+2. An exact bounded Title plus explicit source Property and Unit identities are
+   required. Property/Unit relationship IDs may come from the Work Order or its
+   nested Task only when explicitly present.
+3. Reconciliation requires current durable same-run Buildium mappings for
+   Property and Unit. An optional positive VendorId also requires a durable
+   same-run Vendor mapping.
+4. The mapped Unit must remain active and belong to the mapped Property; an
+   optional mapped Vendor must remain active and in the same organization.
+5. Existing target candidates are considered only by exact mapped Property,
+   mapped Unit and Title, plus exact Vendor when the provider record supplies
+   one. No candidate is ever auto-selected.
+6. Review supports only `MATCH_EXISTING` or `SKIP`. There is intentionally
+   no `CREATE_NEW` Work Order action.
+7. The exact dry-run fingerprint binds source records, explicit review and all
+   current Property/Unit/Vendor dependency mapping target IDs and source
+   fingerprints. Any changed upstream mapping makes commit stale.
+8. MATCH_EXISTING revalidates organization, Property, Unit, exact Title and
+   optional Vendor at commit time and writes durable migration metadata only:
+   provider `BUILDIUM`, resource `WORK_ORDERS`, target entity
+   `WORK_ORDER_RELATIONSHIP`.
+9. Replay is idempotent; inconsistent mappings, cross-property targets, stale
+   dependency mappings, removed targets and changed reviewed relationships fail
+   closed.
+10. Buildium Task text, work details, status, due date, priority, entry contacts,
+    entry permission, entry notes, amount, line items, bills and vendor notes
+    remain source evidence only.
+11. No tenant, maintenance assignee, status transition, entry permission, cost,
+    bill, receipt, resident liability or GL/accounting history is inferred or
+    mutated.
+12. Raw provider bodies and provider credentials are not persisted in migration
+    rows or audit metadata.
+
+## Phase 4.14 verified resource progress
+
+- Properties — verified controlled create / existing-target mapping with review.
+- Units — verified controlled create / existing-target mapping tied to durable
+  Buildium Property mappings; no occupancy inference.
+- Owners — verified existing OWNER identity mapping only.
+- Vendors — verified existing Vendor identity mapping only.
+- Tenants — verified existing TENANT identity mapping only.
+- Leases — verified existing-target relationship reconciliation only.
+- GL Accounts — verified existing-target identity/parent mapping only.
+- Work Orders — verified existing-target relationship reconciliation only.
+
+## Exact NEXT Phase 4.14 batch
+
+Inspect Buildium v1 Bills against the target Bill/BillLine and immutable central
+GL contracts. Prefer existing-target Bill reconciliation through already
+verified Buildium Vendor, Property/Unit, GL Account and optional Work Order
+mappings. Do not create a Bill, payable posting, payment, check, bank movement,
+vendor credit, markup, attachment, or synthetic GL history unless the source and
+target posting semantics are independently sufficient and verified.
+
+The Buildium outbound credential/transport adapter remains deferred. Any later
+adapter must feed the same provider-labelled migration run, exact-fingerprint,
+explicit-review and durable-mapping architecture. Provider secrets and raw
+provider bodies must stay out of migration rows, audit, browser code and
+customer-visible responses.
+
+Do not reopen Phase 4.13, start general UX/navigation work, touch main, create
+another branch, or add the optional AppFolio API adapter.
+
+---
+
 # AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM GL ACCOUNTS VERIFIED
 
 ## Current verified checkpoint
