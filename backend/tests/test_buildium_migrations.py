@@ -14,11 +14,11 @@ from app.core.security import hash_password
 from app.models.audit_log import AuditLog
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
-from app.models.property import Property, PropertyType, Unit
+from app.models.property import Property, PropertyOwner, PropertyType, Unit
 from app.models.lease import Lease
 from app.models.charge import Charge
 from app.models.gl_transaction import GLTransaction
-from app.models.user import Organization
+from app.models.user import Organization, User, UserRole
 from app.routers import buildium_migrations as api
 from app.schemas.buildium_migration import (
     BuildiumMigrationRunCreateIn,
@@ -28,6 +28,9 @@ from app.schemas.buildium_migration import (
     BuildiumUnitCommitIn,
     BuildiumUnitDryRunIn,
     BuildiumUnitResolutionIn,
+    BuildiumOwnerCommitIn,
+    BuildiumOwnerDryRunIn,
+    BuildiumOwnerResolutionIn,
 )
 
 
@@ -1283,3 +1286,292 @@ def test_buildium_unit_routes_are_exposed():
     paths = set(app.openapi()["paths"])
     assert "/api/platform/migrations/buildium/runs/{run_id}/units/dry-run" in paths
     assert "/api/platform/migrations/buildium/runs/{run_id}/units/commit" in paths
+
+
+def _owner_record(**changes):
+    record = {
+        "Id": 3001,
+        "IsCompany": False,
+        "IsActive": True,
+        "FirstName": "Olivia",
+        "LastName": "Owner",
+        "CompanyName": None,
+        "Email": "olivia.owner@example.com",
+        "AlternateEmail": "alternate@example.com",
+        "PhoneNumbers": [{"Number": "2165550100", "Type": "Mobile"}],
+        "Address": {
+            "AddressLine1": "55 Owner Way",
+            "AddressLine2": "",
+            "AddressLine3": "",
+            "City": "Cleveland",
+            "State": "OH",
+            "PostalCode": "44113",
+            "Country": "United States",
+        },
+        "PropertyIds": [1001],
+        "TaxInformation": {
+            "TaxPayerId": "DO-NOT-STORE",
+            "TaxPayerName1": "Olivia Owner",
+            "IncludeIn1099": True,
+        },
+    }
+    record.update(changes)
+    return record
+
+
+def _customer_owner(db, org, *, email="olivia.owner@example.com"):
+    row = User(
+        email=email,
+        hashed_password=hash_password("owner-password"),
+        first_name="Olivia",
+        last_name="Owner",
+        role=UserRole.OWNER,
+        organization_id=org.id,
+        is_active=True,
+        is_verified=True,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def test_buildium_owner_mapping_requires_property_reconciliation_and_explicit_existing_owner():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Owner Mapping")
+        target_owner = _customer_owner(db, org)
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="owner-map",
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        missing_property = api.dry_run_buildium_owners(
+            run.id,
+            BuildiumOwnerDryRunIn(records=[_owner_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert missing_property.invalid == 1
+        assert "no durable Property mapping" in missing_property.rows[0].reason
+        assert db.query(PropertyOwner).count() == 0
+
+        target_property, _ = _buildium_property_mapping(db, run, org)
+        preview = api.dry_run_buildium_owners(
+            run.id,
+            BuildiumOwnerDryRunIn(records=[_owner_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.invalid == 0
+        assert preview.reviewable == 1
+        assert preview.rows[0].mapped["target_property_ids"] == [target_property.id]
+        assert preview.rows[0].mapped["email"] == target_owner.email
+        assert any("explicit MATCH_EXISTING" in x for x in preview.rows[0].warnings)
+        assert db.query(PropertyOwner).count() == 0
+
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_owners(
+                run.id,
+                BuildiumOwnerCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=[_owner_record()],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "OWNERS"
+        ).count() == 0
+
+        reviewed = BuildiumOwnerDryRunIn(
+            records=[_owner_record()],
+            resolutions=[
+                BuildiumOwnerResolutionIn(
+                    source_id=3001,
+                    action="MATCH_EXISTING",
+                    target_owner_user_id=target_owner.id,
+                )
+            ],
+        )
+        reviewed_preview = api.dry_run_buildium_owners(
+            run.id, reviewed, db=db, current_user=admin
+        )
+        first = api.commit_buildium_owners(
+            run.id,
+            BuildiumOwnerCommitIn(
+                fingerprint=reviewed_preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert first.matched_existing == 1
+        assert first.replayed is False
+        assert db.query(User).filter(User.role == UserRole.OWNER).count() == 1
+        assert db.query(PropertyOwner).count() == 0
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "OWNERS"
+        ).one()
+        assert mapping.target_entity == "OWNER_USER"
+        assert mapping.target_id == target_owner.id
+
+        second = api.commit_buildium_owners(
+            run.id,
+            BuildiumOwnerCommitIn(
+                fingerprint=reviewed_preview.fingerprint,
+                records=reviewed.records,
+                resolutions=reviewed.resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert second.replayed is True
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "OWNERS"
+        ).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_owner_mapping_rejects_cross_org_stale_email_and_sensitive_audit():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Owner Safety")
+        foreign_org = _org(db, name="Owner Foreign")
+        owner = _customer_owner(db, org)
+        foreign_owner = _customer_owner(
+            db, foreign_org, email="foreign.owner@example.com"
+        )
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="owner-safety",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _buildium_property_mapping(db, run, org)
+
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_buildium_owners(
+                run.id,
+                BuildiumOwnerDryRunIn(
+                    records=[_owner_record()],
+                    resolutions=[
+                        BuildiumOwnerResolutionIn(
+                            source_id=3001,
+                            action="MATCH_EXISTING",
+                            target_owner_user_id=foreign_owner.id,
+                        )
+                    ],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        payload = BuildiumOwnerDryRunIn(
+            records=[_owner_record()],
+            resolutions=[
+                BuildiumOwnerResolutionIn(
+                    source_id=3001,
+                    action="MATCH_EXISTING",
+                    target_owner_user_id=owner.id,
+                )
+            ],
+        )
+        preview = api.dry_run_buildium_owners(
+            run.id, payload, db=db, current_user=admin
+        )
+        owner.email = "changed.owner@example.com"
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_owners(
+                run.id,
+                BuildiumOwnerCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=payload.records,
+                    resolutions=payload.resolutions,
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "OWNERS"
+        ).count() == 0
+        assert db.query(PropertyOwner).count() == 0
+
+        audit_text = "\n".join(
+            row.new_value or ""
+            for row in db.query(AuditLog)
+            .filter(AuditLog.entity_type == "platform_migration_run")
+            .all()
+        )
+        assert "DO-NOT-STORE" not in audit_text
+        assert "olivia.owner@example.com" not in audit_text
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_owner_skip_records_reviewed_noop_without_login_or_ownership_creation():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Owner Skip")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="owner-skip",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _buildium_property_mapping(db, run, org)
+        records = [_owner_record(Email="skip.owner@example.com")]
+        resolutions = [BuildiumOwnerResolutionIn(source_id=3001, action="SKIP")]
+        preview = api.dry_run_buildium_owners(
+            run.id,
+            BuildiumOwnerDryRunIn(records=records, resolutions=resolutions),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.reviewable == 0
+        assert preview.skipped_review == 1
+        result = api.commit_buildium_owners(
+            run.id,
+            BuildiumOwnerCommitIn(
+                fingerprint=preview.fingerprint,
+                records=records,
+                resolutions=resolutions,
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert result.matched_existing == 0
+        assert result.replayed is False
+        assert db.get(PlatformMigrationRun, run.id).status == "OWNERS_REVIEWED"
+        assert db.query(User).filter(User.role == UserRole.OWNER).count() == 0
+        assert db.query(PropertyOwner).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_owner_routes_are_exposed():
+    from app.main import app
+
+    paths = set(app.openapi()["paths"])
+    assert "/api/platform/migrations/buildium/runs/{run_id}/owners/dry-run" in paths
+    assert "/api/platform/migrations/buildium/runs/{run_id}/owners/commit" in paths
