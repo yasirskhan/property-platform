@@ -1,3 +1,104 @@
+# AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM GL ACCOUNTS VERIFIED
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `162503c7a6e2a1921bc3f79bca38d90b47d26bbd`.
+- GitHub Actions run: `37223349543` — **SUCCESS**.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **1017 passed, 21 deselected, 26185 warnings in 474.81s**.
+- Authenticated E2E: **21 passed, 278 warnings in 113.95s**.
+- Alembic head remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- No migration was added in this batch.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Buildium GL account mapping
+
+This batch consumes Buildium v1 General Ledger account records and deliberately
+maps identity only to already-existing target GL accounts. It creates no target
+chart-of-accounts row and no accounting history.
+
+Verified behavior:
+
+1. Stable positive Buildium GL account `Id` is the durable source identity.
+2. `AccountNumber`, `Name`, `Type`, `IsActive` and optional
+   `ParentGLAccountId` are validated as source evidence.
+3. Buildium account type is limited to Asset, Liability, Equity, Income or
+   Expense and must match the reviewed target account type exactly.
+4. Candidate discovery by exact same-organization account number never
+   auto-selects a target. Explicit `MATCH_EXISTING` or `SKIP` review is
+   required.
+5. Parent-child source relationships are accepted only when the Buildium parent
+   already has a durable same-run `GL_ACCOUNTS -> GL_ACCOUNT` mapping.
+6. The target account must remain in the same organization, keep the exact
+   reviewed account number and account type, and preserve the mapped parent
+   relationship at commit time.
+7. Source/target name or active-state differences are surfaced as warnings and
+   never overwrite target configuration.
+8. Buildium subtype, default-account, contra-account, bank-account,
+   cash-flow-classification, excluded-cash and credit-card flags remain source
+   evidence only. They are not promoted into target configuration.
+9. Exact-fingerprint dry run binds the source records, review decisions and
+   current parent-mapping dependencies. Changed review or dependency state
+   invalidates commit.
+10. Durable mapping uses provider `BUILDIUM`, resource `GL_ACCOUNTS`,
+    target entity `GL_ACCOUNT`.
+11. Replay is idempotent; conflicting durable mappings fail closed.
+12. No GLAccount, balance, GLTransaction, GLEntry, BankAccount, bill, charge,
+    receipt or synthetic historical accounting record is created or updated.
+13. Raw provider bodies and provider credentials are not persisted in migration
+    rows or audit metadata.
+
+## Phase 4.14 verified resource progress
+
+- Properties — verified controlled create / existing-target mapping with review.
+- Units — verified controlled create / existing-target mapping tied to durable
+  Buildium Property mappings; no occupancy inference.
+- Owners — verified existing OWNER identity mapping only.
+- Vendors — verified existing Vendor identity mapping only.
+- Tenants — verified existing TENANT identity mapping only.
+- Leases — verified existing-target relationship reconciliation only through
+  durable Property/Unit/Tenant mappings; no target Lease creation/update.
+- GL Accounts — verified existing-target identity/parent mapping only; no target
+  account creation, balances or accounting history.
+
+## Exact NEXT Phase 4.14 batch
+
+Inspect Buildium v1 Work Orders against the current target WorkOrder model and
+implement only the narrowest safe reconciliation contract. The Buildium API
+exposes durable Work Order IDs plus work-order/task, vendor, entry and line-item
+evidence, while the target WorkOrder requires property/unit/tenant lifecycle and
+assignment semantics that a provider work-order record does not independently
+prove.
+
+Therefore the next batch must prefer explicit existing-target relationship
+mapping and dependency revalidation rather than creating a target WorkOrder.
+Use already verified Buildium Property/Unit/Vendor mappings where the source
+record proves those relationships. Do not invent a tenant, maintenance assignee,
+status transition, cost, bill, entry permission, resident liability or GL
+posting. If the source record cannot safely prove a required relationship, leave
+the row review-blocked rather than guessing.
+
+The Buildium outbound credential/transport adapter remains deferred. Any later
+adapter must feed the same provider-labelled migration run, exact-fingerprint,
+explicit-review and durable-mapping architecture. Provider secrets and raw
+provider bodies must stay out of migration rows, audit, browser code and
+customer-visible responses.
+
+Do not reopen Phase 4.13, start general UX/navigation work, touch main, create
+another branch, or add the optional AppFolio API adapter.
+
+---
+
 # AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM LEASE RELATIONSHIPS VERIFIED
 
 ## Current verified checkpoint
