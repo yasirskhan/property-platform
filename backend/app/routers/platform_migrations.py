@@ -71,6 +71,7 @@ from app.schemas.platform_migration import (
     AppFolioWorkOrderDryRunOut,
     AppFolioChargeDryRunOut,
     AppFolioGeneralLedgerCommitReadinessOut,
+    AppFolioGeneralLedgerReconciliationOut,
     AppFolioStagedTenantCommitIn,
     AppFolioTenantCommitOut,
     AppFolioTenantDryRunOut,
@@ -2511,6 +2512,149 @@ def _general_ledger_commit_readiness_state(
         json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
     return groups, dry_run_fingerprint, readiness_fingerprint
+
+
+def _general_ledger_reconciliation_state(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    upload: PlatformMigrationUpload,
+) -> dict[str, object]:
+    """Compare accepted staged ledger source evidence with the exact current preview.
+
+    This is a narrow Section 11 reconciliation control. It does not reconcile
+    beginning/ending balances, AR, AP, security deposits or other external
+    control totals and therefore never represents the accounting migration as
+    complete.
+    """
+    groups, dry_run_fingerprint, readiness_fingerprint = (
+        _general_ledger_commit_readiness_state(db, run=run, upload=upload)
+    )
+    previews, recomputed_fingerprint, _counts = _staged_general_ledger_dry_run_state(
+        db, run=run, upload=upload
+    )
+    if recomputed_fingerprint != dry_run_fingerprint:
+        raise HTTPException(
+            status_code=409,
+            detail="General Ledger reconciliation requires the exact current dry-run state.",
+        )
+
+    staged_rows = (
+        db.query(PlatformMigrationStagedRow)
+        .filter(
+            PlatformMigrationStagedRow.upload_id == upload.id,
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "APPFOLIO",
+            PlatformMigrationStagedRow.resource == "GENERAL_LEDGER",
+            PlatformMigrationStagedRow.resolution_action == "ACCEPT_RELATIONSHIP",
+        )
+        .order_by(
+            PlatformMigrationStagedRow.row_number.asc(),
+            PlatformMigrationStagedRow.id.asc(),
+        )
+        .all()
+    )
+
+    def _amount(value: object, *, label: str) -> Decimal:
+        try:
+            return Decimal(str(value or "0"))
+        except (InvalidOperation, ValueError) as exc:
+            raise HTTPException(
+                status_code=409,
+                detail=f"General Ledger reconciliation encountered non-numeric {label} evidence.",
+            ) from exc
+
+    source_debit = Decimal("0")
+    source_credit = Decimal("0")
+    source_ids: list[str] = []
+    for row in staged_rows:
+        if not row.source_id:
+            raise HTTPException(
+                status_code=409,
+                detail="General Ledger reconciliation requires stable LineItemId identity.",
+            )
+        evidence = dict(row.normalized_data or {})
+        source_ids.append(str(row.source_id))
+        source_debit += _amount(evidence.get("debit"), label="source debit")
+        source_credit += _amount(evidence.get("credit"), label="source credit")
+
+    preview_debit = Decimal("0")
+    preview_credit = Decimal("0")
+    preview_ids: list[str] = []
+    for preview in previews:
+        evidence = dict(preview["source_evidence"])
+        preview_ids.append(str(preview["source_id"]))
+        preview_debit += _amount(evidence.get("debit"), label="preview debit")
+        preview_credit += _amount(evidence.get("credit"), label="preview credit")
+
+    line_count_match = len(source_ids) == len(preview_ids)
+    line_identity_match = sorted(source_ids) == sorted(preview_ids)
+    debit_total_match = source_debit == preview_debit
+    credit_total_match = source_credit == preview_credit
+    transaction_groups_balanced = bool(groups) and all(
+        bool(group["balanced"]) for group in groups
+    )
+    reconciled = all(
+        (
+            line_count_match,
+            line_identity_match,
+            debit_total_match,
+            credit_total_match,
+            transaction_groups_balanced,
+        )
+    )
+
+    warnings = [
+        (
+            "This reconciliation proves only accepted staged line identity/count, "
+            "debit/credit preservation and supplied TransactionId balance against "
+            "the exact current dry run."
+        ),
+        (
+            "Beginning/ending balances, receivables, payables, security deposits "
+            "and independent external control totals are not reconciled here."
+        ),
+        "No balancing journal entry or customer/accounting record is created.",
+    ]
+    if not reconciled:
+        warnings.append(
+            "Source evidence and current migration preview do not reconcile; no financial commit may rely on this result."
+        )
+
+    return {
+        "dry_run_fingerprint": dry_run_fingerprint,
+        "readiness_fingerprint": readiness_fingerprint,
+        "source_line_count": len(source_ids),
+        "preview_line_count": len(preview_ids),
+        "source_debit_total": format(source_debit, "f"),
+        "source_credit_total": format(source_credit, "f"),
+        "preview_debit_total": format(preview_debit, "f"),
+        "preview_credit_total": format(preview_credit, "f"),
+        "line_count_match": line_count_match,
+        "line_identity_match": line_identity_match,
+        "debit_total_match": debit_total_match,
+        "credit_total_match": credit_total_match,
+        "transaction_groups_balanced": transaction_groups_balanced,
+        "reconciled": reconciled,
+        "accounting_complete": False,
+        "compared_controls": [
+            "accepted_line_count",
+            "accepted_line_identity",
+            "debit_total",
+            "credit_total",
+            "supplied_transaction_group_balance",
+        ],
+        "unverified_controls": [
+            "beginning_balance",
+            "ending_balance",
+            "receivables_total",
+            "payables_total",
+            "security_deposit_total",
+            "independent_external_control_totals",
+        ],
+        "warnings": warnings,
+    }
 
 
 def _staged_vendor_state(
@@ -5088,6 +5232,29 @@ def analyze_staged_appfolio_general_ledger_commit_readiness(
         group_count=len(groups),
         line_count=sum(int(group["line_count"]) for group in groups),
         groups=groups,
+    )
+
+
+@router.get(
+    "/runs/{run_id}/uploads/{upload_id}/general-ledger/reconciliation",
+    response_model=AppFolioGeneralLedgerReconciliationOut,
+)
+def get_staged_appfolio_general_ledger_reconciliation(
+    run_id: int,
+    upload_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=False)
+    upload = _upload(db, run=run, upload_id=upload_id)
+    state = _general_ledger_reconciliation_state(db, run=run, upload=upload)
+    response.headers["Cache-Control"] = "no-store"
+    return AppFolioGeneralLedgerReconciliationOut(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider=run.provider,
+        **state,
     )
 
 
