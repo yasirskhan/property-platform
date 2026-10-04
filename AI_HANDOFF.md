@@ -1,3 +1,64 @@
+# AI_HANDOFF.md — 2026-10-04 PHASE 4.13 GENERAL LEDGER RECONCILIATION CONTROL VERIFIED
+
+## Current verified product checkpoint
+
+- Phase 4.11 — Senior Housing: **COMPLETE | VERIFIED**.
+- Phase 4.12 — Short-term Rentals: **COMPLETE | VERIFIED**.
+- Phase 4.13 — AppFolio CSV/XLSX migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `70108b1b7091f93a0bd6cb4158442559689da65e`.
+- GitHub Actions run: `37165527762` — SUCCESS.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **981 passed, 21 deselected, 25621 warnings in 448.66s**.
+- Authenticated E2E: **21 passed, 278 warnings in 112.11s**.
+- Alembic head remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- Navigation integrity and the `HIDDEN MENU / UNHIDE ROADMAP` remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified General Ledger reconciliation control
+
+1. A read-only no-store Section 11 reconciliation endpoint now compares accepted staged AppFolio General Ledger source evidence against the exact current staged dry-run/readiness state.
+2. The control verifies accepted line count, exact line identity, total debits, total credits, and supplied `TransactionId` group balance.
+3. The reconciliation requires the exact latest staged dry-run fingerprint; normalized staged changes invalidate the prior preview and fail closed until a new dry run/readiness pass is completed.
+4. The response keeps `accounting_complete=false` and explicitly lists unverified controls including beginning balance, ending balance, receivables, payables, security deposits and independent external control totals.
+5. No balancing journal entry is created. No GL transaction/account, Charge or other customer/accounting record is mutated by reconciliation.
+6. Platform read authorization, organization/run/upload/provider isolation and no-store behavior remain authoritative; platform SALES is denied.
+7. Focused tests cover deterministic matching totals, stale-preview rejection, authorization, route exposure and zero accounting mutation.
+8. CI on the initial test-fix SHA exposed an unrelated Short-term Rentals authenticated-navigation race after backend success. Test-only commit `70108b1b7091f93a0bd6cb4158442559689da65e` waits for authenticated dashboard/property readiness before clicking the gated tab; product behavior is unchanged.
+9. AppFolio API transport, general UX, navigation and hidden-menu work remain out of scope.
+
+Implementation commits in this bounded batch:
+- `2f8fb88f9331697756c82ed93f0ab9f10579330b` — reconciliation response contract.
+- `d1887d32cee195f17e24ae7b97791c2b7cb2ce2e` — read-only General Ledger reconciliation control.
+- `8834ff3a6182cd26ab1545ae02492f37c62c3b2b` — reconciliation/stale-preview regressions.
+- `0e95525fc12bdbcc379cd3ae37d454df374ac739` and `11f44f32e9b59f978adc956650d87f7e1a3b41f8` — authorization/test corrections.
+- `70108b1b7091f93a0bd6cb4158442559689da65e` — scoped E2E stabilization; final VERIFIED PRODUCT SHA.
+
+## Exact next Phase 4.13 product batch
+
+Extend the same read-only Section 11 General Ledger reconciliation boundary with deterministic **per-GL-account source-vs-preview control totals**.
+
+Required boundaries:
+
+1. Operate only on already accepted/staged `GENERAL_LEDGER` rows and the exact current dry-run/readiness state.
+2. Compare debit/credit totals per durable source GL Account identity and its currently resolved same-organization target GL Account ID.
+3. Require every accepted line to have the exact durable GL Account mapping already used by the verified dry run; stale or changed mappings must fail closed.
+4. Canonicalize/sort account controls deterministically; identical replay must be stable.
+5. Expose source and preview debit/credit totals plus explicit per-account match status. Do not infer external balances not present in the source export.
+6. Keep `accounting_complete=false`; this still does not verify beginning/ending balances, AR, AP, security deposits or independent external control totals.
+7. Do not create balancing journals, GL transactions, Charges, Bills, Receipts, Payments or any customer/accounting mutation.
+8. Preserve platform read authorization, organization/run/upload/provider isolation, no-store behavior and exact-fingerprint stale-preview protection.
+9. Add focused tests for matching per-account totals, stale mapping/source evidence, deterministic ordering and zero mutation.
+10. Keep AppFolio API transport, general UX, navigation and hidden-menu work out of scope.
+
+---
+
 # AI_HANDOFF.md — 2026-10-04 PHASE 4.13 RUN-LEVEL REVIEW SNAPSHOT FINGERPRINT VERIFIED
 
 ## Current verified product checkpoint
