@@ -116,11 +116,12 @@ def _nonnegative_money(value: Any, *, field: str) -> tuple[Decimal | None, str |
         return None, f"{field} must be a non-negative amount."
     if not amount.is_finite() or amount < 0:
         return None, f"{field} must be a non-negative amount."
-    if amount != amount.quantize(Decimal("0.01")):
+    quantized = amount.quantize(Decimal("0.01"))
+    if amount != quantized:
         return None, f"{field} cannot have more than two decimal places."
-    if amount > Decimal("99999999.99"):
+    if quantized > Decimal("99999999.99"):
         return None, f"{field} exceeds the target Unit amount range."
-    return amount, None
+    return quantized, None
 
 
 def _unit_size(value: Any) -> tuple[int | None, str | None]:
@@ -849,6 +850,12 @@ def commit_units(
         mapped.pop("target_property_id")
         target = Unit(property_id=target_property_id, **mapped)
         db.add(target)
+        db.flush()
+        # Unit.is_available has a legacy Python default of True. Buildium's
+        # IsUnitOccupied is not equivalent to our availability field, so restore
+        # the deliberately unknown value after INSERT rather than inventing
+        # vacancy/availability from provider occupancy evidence.
+        target.is_available = None
         db.flush()
         db.add(PlatformMigrationItem(
             run_id=run.id,
