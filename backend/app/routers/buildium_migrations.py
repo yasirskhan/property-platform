@@ -22,6 +22,7 @@ from app.models.work_order import WorkOrder
 from app.models.bill import Bill
 from app.models.bank_account import BankAccount
 from app.models.check import Check
+from app.models.charge import Charge
 from app.models.user import Organization
 from app.routers.platform_auth import get_current_platform_user
 from app.schemas.buildium_migration import (
@@ -84,6 +85,10 @@ from app.schemas.buildium_migration import (
     BuildiumPropertyReserveCommitOut,
     BuildiumPropertyReserveDryRunIn,
     BuildiumPropertyReserveDryRunOut,
+    BuildiumLeaseChargeCommitIn,
+    BuildiumLeaseChargeCommitOut,
+    BuildiumLeaseChargeDryRunIn,
+    BuildiumLeaseChargeDryRunOut,
 )
 from app.services.audit import append_audit_log
 from app.services.buildium_migration import (
@@ -155,6 +160,11 @@ from app.services.buildium_property_reserve_migration import (
     BuildiumPropertyReserveMigrationError,
     commit_property_reserves,
     dry_run_property_reserves,
+)
+from app.services.buildium_lease_charge_migration import (
+    BuildiumLeaseChargeMigrationError,
+    commit_lease_charges,
+    dry_run_lease_charges,
 )
 
 
@@ -2154,6 +2164,20 @@ def list_migration_items(
             if target is not None:
                 target_exists = True
                 target_label = f"{target.gl_number} {target.name}"
+        elif item.target_entity == "CHARGE_RELATIONSHIP":
+            target = (
+                db.query(Charge)
+                .filter(
+                    Charge.id == item.target_id,
+                    Charge.organization_id == row.organization_id,
+                    Charge.is_active.is_(True),
+                    Charge.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target is not None:
+                target_exists = True
+                target_label = f"Charge #{target.id}: {target.description}"
         result.append(
             BuildiumMigrationItemOut(
                 id=item.id,
@@ -2293,6 +2317,129 @@ def commit_buildium_property_reserves(
         fingerprint=result.fingerprint,
         replayed=result.replayed,
         updated=result.updated,
+        matched_existing=result.matched_existing,
+        skipped_review=result.skipped_review,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+
+@router.post(
+    "/runs/{run_id}/lease-charges/dry-run",
+    response_model=BuildiumLeaseChargeDryRunOut,
+)
+def dry_run_buildium_lease_charges(
+    run_id: int,
+    payload: BuildiumLeaseChargeDryRunIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = dry_run_lease_charges(
+            db,
+            run=row,
+            records=payload.records,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+    except BuildiumLeaseChargeMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=row.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=row.id,
+            action="buildium_lease_charges_dry_run",
+            new_value={
+                "fingerprint": result.fingerprint,
+                **result.summary,
+                "target_mutation": False,
+                "raw_payload_stored": False,
+                "provider_credentials_stored": False,
+            },
+        )
+        db.commit()
+        db.refresh(row)
+
+    return BuildiumLeaseChargeDryRunOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        reviewable=result.reviewable,
+        skipped_review=result.skipped_review,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/lease-charges/commit",
+    response_model=BuildiumLeaseChargeCommitOut,
+)
+def commit_buildium_lease_charges(
+    run_id: int,
+    payload: BuildiumLeaseChargeCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = commit_lease_charges(
+            db,
+            run=row,
+            records=payload.records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=row.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=row.id,
+                action="buildium_lease_charges_reconciled",
+                new_value={
+                    "fingerprint": result.fingerprint,
+                    "matched_existing": result.matched_existing,
+                    "skipped_review": result.skipped_review,
+                    "target_charge_ids": [item["target_charge_id"] for item in result.rows],
+                    "charge_created": False,
+                    "charge_updated": False,
+                    "payment_history_reconciled": False,
+                    "gl_history_created": False,
+                    "raw_payload_stored": False,
+                    "provider_credentials_stored": False,
+                },
+            )
+            db.commit()
+            db.refresh(row)
+    except BuildiumLeaseChargeMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Buildium Lease Charge mapping conflicted with an existing migration mapping.",
+        ) from exc
+
+    return BuildiumLeaseChargeCommitOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
         matched_existing=result.matched_existing,
         skipped_review=result.skipped_review,
         warning_count=result.warning_count,
