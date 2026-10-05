@@ -15,6 +15,7 @@ from app.models.platform_migration import PlatformMigrationItem, PlatformMigrati
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.property import Property, PropertyOwner, Unit
 from app.models.property_group import PropertyGroup
+from app.models.property_budget import PropertyBudgetLine
 from app.models.lease import Lease
 from app.models.gl_account import GLAccount
 from app.models.vendor import Vendor
@@ -2164,6 +2165,23 @@ def list_migration_items(
             if target is not None:
                 target_exists = True
                 target_label = f"{target.gl_number} {target.name}"
+        elif item.target_entity == "PROPERTY_BUDGET_LINE":
+            target = (
+                db.query(PropertyBudgetLine)
+                .join(Property, Property.id == PropertyBudgetLine.property_id)
+                .filter(
+                    PropertyBudgetLine.id == item.target_id,
+                    PropertyBudgetLine.organization_id == row.organization_id,
+                    Property.organization_id == row.organization_id,
+                )
+                .first()
+            )
+            if target is not None:
+                target_exists = True
+                target_label = (
+                    f"Budget {target.calendar_year}-{target.month:02d}: "
+                    f"property {target.property_id} / GL {target.gl_account_id}"
+                )
         elif item.target_entity == "CHARGE_RELATIONSHIP":
             target = (
                 db.query(Charge)
