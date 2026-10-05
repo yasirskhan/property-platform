@@ -2185,6 +2185,23 @@ def list_migration_items(
                     f"Transfer GL transaction #{target.id}: "
                     f"{target.transaction_date.isoformat()}"
                 )
+        elif item.target_entity == "GL_TRANSACTION_BANK_ADJUSTMENT_RELATIONSHIP":
+            target = (
+                db.query(GLTransaction)
+                .filter(
+                    GLTransaction.id == item.target_id,
+                    GLTransaction.organization_id == row.organization_id,
+                    GLTransaction.transaction_type == "BANK_ADJUSTMENT",
+                    GLTransaction.source_type == "bank_adjustment",
+                )
+                .first()
+            )
+            if target is not None:
+                target_exists = True
+                target_label = (
+                    f"Bank adjustment GL transaction #{target.id}: "
+                    f"{target.transaction_date.isoformat()}"
+                )
         elif item.target_entity == "GL_ACCOUNT":
             target = (
                 db.query(GLAccount)
