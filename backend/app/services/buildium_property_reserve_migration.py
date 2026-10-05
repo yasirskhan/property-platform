@@ -164,18 +164,11 @@ def _fingerprint(
     for record in records:
         source_id = _id(record.get("Id"))
         target, mapping = _target_property(db, run, source_id) if source_id else (None, None)
-        prior = (
-            _mapping(db, run, "PROPERTY_RESERVES", source_id, "PROPERTY")
-            if source_id
-            else None
-        )
         dependencies.append(
             {
                 "source_id": source_id,
                 "property_mapping_target_id": mapping.target_id if mapping else None,
                 "property_mapping_source_fingerprint": mapping.source_fingerprint if mapping else None,
-                "reserve_mapping_target_id": prior.target_id if prior else None,
-                "reserve_mapping_source_fingerprint": prior.source_fingerprint if prior else None,
             }
         )
     payload = {
