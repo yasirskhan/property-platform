@@ -39,7 +39,7 @@ def _admin(db):
         email="buildium-quick-deposit-admin@example.com",
         hashed_password=hash_password("test-password"),
         first_name="Buildium",
-        last_name="Withdrawal",
+        last_name="QuickDeposit",
         role=PlatformUserRole.PLATFORM_ADMIN,
         is_active=True,
     )
@@ -49,7 +49,7 @@ def _admin(db):
 
 
 def _fixture(db):
-    org = Organization(name="Buildium Withdrawal Org", slug="buildium-quick-deposit-org", is_active=True)
+    org = Organization(name="Buildium Quick Deposit Org", slug="buildium-quick-deposit-org", is_active=True)
     db.add(org)
     db.flush()
     bank_gl = GLAccount(organization_id=org.id, gl_number="1100", name="Operating Cash", account_type="ASSET", is_active=True)
@@ -103,7 +103,7 @@ def _record(**changes):
         "Id": 9101,
         "SourceBankAccountId": 7001,
         "EntryDate": "2026-10-02",
-        "Memo": "DO-NOT-PERSIST-RAW-WITHDRAWAL",
+        "Memo": "DO-NOT-PERSIST-RAW-QUICK-DEPOSIT",
         "TotalAmount": 75.25,
         "AccountingEntity": {
             "Id": 44,
@@ -184,7 +184,7 @@ def test_buildium_quick_deposit_maps_exact_existing_adjustment_and_replays_witho
 
         response = Response()
         items = base_api.list_migration_items(
-            run.id, response=response, resource="bank_quick deposits", limit=20,
+            run.id, response=response, resource="bank_quick_deposits", limit=20,
             db=db, current_user=admin,
         )
         assert items[0].target_exists is True
@@ -195,7 +195,7 @@ def test_buildium_quick_deposit_maps_exact_existing_adjustment_and_replays_witho
             str(row.new_value or "")
             for row in db.query(AuditLog).filter(AuditLog.entity_type == "platform_migration_run").all()
         )
-        assert "DO-NOT-PERSIST-RAW-WITHDRAWAL" not in audit_text
+        assert "DO-NOT-PERSIST-RAW-QUICK-DEPOSIT" not in audit_text
     finally:
         db.close()
         engine.dispose()
