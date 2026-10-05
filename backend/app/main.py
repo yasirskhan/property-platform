@@ -66,6 +66,7 @@ from app.routers import buildium_migrations as buildium_migrations_router
 from app.routers import buildium_budget_migrations as buildium_budget_migrations_router
 from app.routers import buildium_lease_payment_migrations as buildium_lease_payment_migrations_router
 from app.routers import buildium_bank_reconciliation_migrations as buildium_bank_reconciliation_migrations_router
+from app.routers import buildium_bank_transfer_migrations as buildium_bank_transfer_migrations_router
 from app.routers import observability as observability_router
 from app.routers import billing_checkout as billing_checkout_router
 from app.routers import features as features_router
@@ -241,6 +242,7 @@ app.include_router(buildium_migrations_router.router)
 app.include_router(buildium_budget_migrations_router.router)
 app.include_router(buildium_lease_payment_migrations_router.router)
 app.include_router(buildium_bank_reconciliation_migrations_router.router)
+app.include_router(buildium_bank_transfer_migrations_router.router)
 app.include_router(observability_router.router)
 app.include_router(billing_checkout_router.router)
 app.include_router(features_router.router)
