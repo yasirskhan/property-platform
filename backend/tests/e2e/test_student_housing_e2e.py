@@ -88,25 +88,32 @@ def _student_housing_fixture():
         yield unit.id, tenant.id
     finally:
         db.rollback()
-        lease_ids = [
-            row[0]
-            for row in db.query(Lease.id)
-            .join(Unit, Unit.id == Lease.unit_id)
-            .filter(Unit.property_id == PROPERTY_ID, Lease.student_bed_id.isnot(None))
-            .all()
-        ]
-        if lease_ids:
-            (
-                db.query(StudentGuarantor)
-                .filter(StudentGuarantor.lease_id.in_(lease_ids))
-                .delete(synchronize_session=False)
+        e2e_bed = (
+            db.query(StudentBed)
+            .filter(
+                StudentBed.property_id == PROPERTY_ID,
+                StudentBed.bed_label == "Bed E2E-A",
             )
-            db.query(Lease).filter(Lease.id.in_(lease_ids)).delete(synchronize_session=False)
-
-        db.query(StudentBed).filter(
-            StudentBed.property_id == PROPERTY_ID,
-            StudentBed.bed_label == "Bed E2E-A",
-        ).delete(synchronize_session=False)
+            .one_or_none()
+        )
+        if e2e_bed is not None:
+            lease_ids = [
+                row[0]
+                for row in db.query(Lease.id)
+                .filter(Lease.student_bed_id == e2e_bed.id)
+                .all()
+            ]
+            if lease_ids:
+                (
+                    db.query(StudentGuarantor)
+                    .filter(StudentGuarantor.lease_id.in_(lease_ids))
+                    .delete(synchronize_session=False)
+                )
+                db.query(Lease).filter(Lease.id.in_(lease_ids)).delete(
+                    synchronize_session=False
+                )
+                db.flush()
+            db.delete(e2e_bed)
         db.query(StudentAcademicCycle).filter(
             StudentAcademicCycle.property_id == PROPERTY_ID,
             StudentAcademicCycle.name == "E2E Academic Year",
