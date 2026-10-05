@@ -1,3 +1,104 @@
+# AI_HANDOFF.md — 2026-10-05 PHASE 4.14 BUILDIUM BANK TRANSFERS VERIFIED
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `15a4f5d9d1ef346d4c4caab470d57a224f5d306a`.
+- GitHub Actions run: `37321803342` — **SUCCESS**.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **1059 passed, 21 deselected, 27411 warnings in 322.87s**.
+- Authenticated E2E: **21 passed, 278 warnings in 112.28s**.
+- Alembic head remains `1b8d3f6a9c20`; expected model tables remain **202**.
+- No migration was added.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains **AUTHORIZED BUT NOT ACTIVE**.
+
+## Verified Buildium bank-transfer existing-target reconciliation
+
+This bounded batch uses the documented Buildium Bank Account transfer response plus the
+source Bank Account ID supplied by the provider request path. It reconciles only the
+explicit Rental/property subset to an already-existing target immutable GL transfer.
+
+Verified behavior:
+
+1. Stable positive Buildium transfer `Id` is the durable source identity.
+2. The source Buildium Bank Account ID is explicit retrieval-path context and is
+   fingerprint-bound with the returned transfer record.
+3. `TransferToBankAccountId`, `EntryDate`, positive two-decimal `TotalAmount`,
+   and a Rental `AccountingEntity` Property are required.
+4. Optional Buildium Unit identity is supported only when the same-run
+   `UNITS -> UNIT` mapping exists under the mapped Property.
+5. Both source and destination Buildium bank identities must already resolve through
+   same-run durable `BANK_ACCOUNTS -> BANK_ACCOUNT` mappings.
+6. Source and destination target Bank Accounts and their target GL accounts must be
+   distinct and active in the target organization.
+7. A target match must be an already-existing, unreversed `GLTransaction` with
+   `transaction_type=TRANSFER`, exact business date, and exactly two GL lines:
+   source bank GL credit for the exact amount and destination bank GL debit for the
+   exact amount, carrying the exact mapped Rental Property/Unit scope and no owner tag.
+8. Review supports only `MATCH_EXISTING` or `SKIP`; no target transfer is created.
+9. Exact fingerprinting binds provider/source account, raw reviewed source record,
+   review decisions, current dependency target IDs/source fingerprints, and the exact
+   reviewed target transfer snapshot.
+10. Commit writes only durable `BUILDIUM / BANK_TRANSFERS /
+    GL_TRANSACTION_TRANSFER_RELATIONSHIP` migration metadata.
+11. Replay is idempotent. Dependency drift, transfer direction/amount/date changes,
+    target reversal, property/unit drift, cross-organization scope or stale review
+    fail closed.
+12. Association and Company accounting-entity transfer semantics remain blocked in
+    this bounded batch rather than being inferred.
+13. No BankAccount, GLTransaction, GLEntry, balance, cleared state, reconciliation
+    record or synthetic accounting history is created or modified.
+14. Raw provider response bodies, Memo text and provider credentials are not stored
+    in migration audit metadata.
+
+The GitHub connector's atomic `update_ref` action rejected its advertised ref-update
+argument shape in this session. To avoid creating another branch or touching main, the
+same bounded source was written through the supported GitHub Contents API in sequential
+feature-branch commits; intermediate CI runs were superseded/cancelled. Only final
+source SHA `15a4f5d9...` and exact run `37321803342` are verification evidence.
+
+## Phase 4.14 verified resource progress
+
+Properties; Units; Owners; Owner/property relationships; Vendors; Tenants; Leases;
+GL Accounts; Work Orders; Bills; Bank Accounts; bounded single-bill check-backed Bill
+Payments; Property Groups; Property Reserves; Rental Lease Charges; Budgets; Rental
+Lease Payments; Bank Reconciliations; and now bounded Rental Bank Transfers are
+verified through the shared provider-labelled migration architecture, subject to each
+resource's recorded create-vs-existing-target limitations.
+
+The general Buildium General Ledger blocker remains: do not infer debit/credit
+direction for arbitrary historical journal lines when the authoritative provider
+shape does not prove it.
+
+## Exact NEXT Phase 4.14 batch
+
+Inspect the documented Buildium Bank Account transaction resource as the next
+independent candidate. Reconcile only a subset whose provider fields plus already
+verified dependency mappings can prove one exact existing target relationship without
+inventing debit/credit direction, payee identity, payment history, cleared state or
+accounting history. If a generic bank-transaction shape cannot prove the target
+semantics exactly, leave that subset blocked and move to the next independently
+documented Buildium resource.
+
+Continue the same provider-labelled migration run, explicit review, exact fingerprint,
+durable mapping, replay/idempotency and organization-isolation architecture. The
+outbound Buildium credential/transport adapter remains deferred and must eventually
+feed this same pipeline. Provider secrets/raw response bodies remain outside migration
+rows and audit.
+
+Do not reopen Phase 4.13, start general UX/navigation work, touch main, create another
+branch, or add the optional AppFolio API adapter.
+
+---
+
 # AI_HANDOFF.md — 2026-10-05 PHASE 4.14 BUILDIUM PROPERTY RESERVES VERIFIED
 
 ## Current verified checkpoint
