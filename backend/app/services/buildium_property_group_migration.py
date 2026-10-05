@@ -180,7 +180,7 @@ def _fingerprint(db: Session, run: PlatformMigrationRun, records, resolutions):
     review = _resolutions(resolutions)
     dependencies, targets = [], []
     for record in records:
-        source_properties, error = _property_ids(record.get("Properties")
+        source_properties, error = _property_ids(record.get("Properties"))
         deps = []
         if not error:
             for source_id in source_properties:
