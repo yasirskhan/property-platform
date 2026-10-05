@@ -1,3 +1,148 @@
+# AI_HANDOFF.md — 2026-10-05 PHASE 4.14 BUILDIUM QUICK DEPOSITS VERIFIED
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `c99f88ebd1beb2d6e0129fbd9ebe9a9cebd96f77`.
+- GitHub Actions run: `37381750973` — **SUCCESS**.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **1065 passed, 21 deselected, 27559 warnings in 423.21s**.
+- Authenticated E2E: **21 passed, 278 warnings in 115.24s**.
+- Alembic head remains `1b8d3f6a9c20`; expected model tables remain **202**.
+- No migration was added.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains **AUTHORIZED BUT NOT ACTIVE**.
+
+## Buildium bank withdrawals independently verified
+
+The immediately preceding Buildium Bank Withdrawal batch is independently verified
+at source `33ce39c74894e4ddc52f7b823ebc251783d1e9e3`, GitHub Actions
+`37347397482` SUCCESS all six jobs: **1062 backend passed, 21 deselected**
+and **21 authenticated E2E passed**. The prior source run
+`37345020291` failed an unrelated Student Housing E2E fixture teardown;
+`33ce39c7` corrected only that fixture cleanup. Do not attribute that red run
+to a Buildium withdrawal product defect.
+
+The verified withdrawal subset is Company-scoped only and reconciles a documented
+Buildium bank withdrawal to an already-existing immutable target
+`BANK_ADJUSTMENT` decrease after exact Bank Account and offset GL mappings.
+Review supports `MATCH_EXISTING` or `SKIP`; commit creates migration metadata
+only. No BankAccount, GLTransaction, GLEntry, balance, clearing state or
+reconciliation history is created or changed.
+
+## Verified Buildium Quick Deposit existing-target reconciliation
+
+This bounded batch consumes the documented Buildium Quick Deposit response plus
+the source Bank Account ID supplied by the provider request path and reconciles
+only the Company-scoped subset to an already-existing target immutable
+`BANK_ADJUSTMENT` increase.
+
+Verified behavior:
+
+1. Stable positive Buildium Quick Deposit `Id` is durable source identity.
+2. The source Buildium Bank Account ID is explicit retrieval-path context and is
+   fingerprint-bound with the returned Quick Deposit record.
+3. `EntryDate`, positive two-decimal `TotalAmount`, `OffsetGLAccountId`,
+   and a Company `AccountingEntity` are required.
+4. The source bank identity must resolve through the same-run
+   `BANK_ACCOUNTS -> BANK_ACCOUNT` mapping and the offset account through the
+   same-run `GL_ACCOUNTS -> GL_ACCOUNT` mapping.
+5. The mapped Bank Account and offset target GL account must remain active,
+   same-organization and distinct.
+6. An exact target match must be an already-existing, unreversed
+   `GLTransaction` with `transaction_type=BANK_ADJUSTMENT`,
+   `source_type=bank_adjustment`, exact target Bank Account source, exact
+   business date and exactly two lines: bank GL debit for the source amount and
+   offset GL credit for the same amount, with no property/unit/owner tags.
+7. Review supports only `MATCH_EXISTING` or `SKIP`; no target adjustment is
+   created.
+8. Exact fingerprinting binds provider/run/source account, source records,
+   explicit review decisions, current Bank Account/GL dependency mapping target
+   IDs/source fingerprints and the reviewed target transaction snapshot.
+9. Commit writes only durable `BUILDIUM / BANK_QUICK_DEPOSITS /
+   GL_TRANSACTION_BANK_ADJUSTMENT_RELATIONSHIP` migration metadata.
+10. Replay is idempotent. Source changes, dependency drift, target accounting
+    drift/reversal, cross-organization scope or stale review fail closed.
+11. Rental and Association Quick Deposit scopes remain blocked because the
+    current target Bank Adjustment contract does not preserve those entity tags.
+12. No BankAccount, GLTransaction, GLEntry, Deposit, Receipt, balance, cleared
+    state, reconciliation record or synthetic accounting history is created or
+    modified.
+13. Raw provider Memo/body content and Buildium credentials are not stored in
+    migration audit metadata.
+
+Initial Quick Deposit source `5d8b752d38227a278b5ac3f6227cc5960b7116c2`
+ran CI `37380996799`: frontend/security/platform-admin passed, but backend had
+one new regression-test typo while **1064 other backend tests passed**. The
+mapping visibility test used a malformed resource filter string. Final source
+`c99f88eb` corrected only the regression fixture/labels and passed all six
+jobs. Do not represent the first run as green.
+
+## Phase 4.14 verified resource progress
+
+Properties; Units; Owners; Owner/property relationships; Vendors; Tenants;
+Leases; GL Accounts; Work Orders; Bills; Bank Accounts; bounded single-bill
+check-backed Bill Payments; Property Groups; Property Reserves; Rental Lease
+Charges; Budgets; Rental Lease Payments; Bank Reconciliations; bounded Rental
+Bank Transfers; bounded Company Bank Withdrawals; and bounded Company Quick
+Deposits are verified through the shared provider-labelled migration
+architecture, subject to each resource's recorded create-vs-existing-target
+limitations.
+
+The general Buildium General Ledger blocker remains: do not infer debit/credit
+direction for arbitrary historical journal lines when the authoritative
+provider shape does not prove it.
+
+## Exact NEXT Phase 4.14 batch
+
+Proceed with **Buildium full Bank Deposit existing-target reconciliation** as the
+next independent documented candidate, but only for a subset whose complete
+provider and target relationship can be proven without inventing accounting or
+settlement history.
+
+Required boundaries:
+
+- use stable Buildium Deposit `Id` plus explicit source Bank Account retrieval
+  context;
+- require the current same-run `BANK_ACCOUNTS -> BANK_ACCOUNT` mapping;
+- require every Buildium `PaymentTransactionId` to resolve through an existing
+  same-run `LEASE_PAYMENTS -> RECEIPT_RELATIONSHIP` mapping;
+- require the exact target Deposit to use the mapped Bank Account's GL account,
+  exact deposit date and total, and contain exactly the mapped target Receipt
+  membership;
+- revalidate mapped target Receipts as active, unreversed, same-organization
+  and already-posted to the expected cash GL;
+- validate source line/amount totals conservatively where the documented fields
+  can be proven; do not infer debit/credit direction or create payment history
+  from Buildium deposit lines;
+- review only `MATCH_EXISTING` or `SKIP`; do not create or edit target
+  Deposits or DepositLines in this bounded batch;
+- fingerprint source records, review decisions, all dependency mappings and the
+  exact reviewed target Deposit/receipt-membership snapshot;
+- preserve replay/idempotency, organization isolation and audit redaction;
+- do not treat a Buildium Deposit as proof of external bank settlement,
+  reconciliation or cleared status.
+
+If the documented full Deposit source cannot prove the target grouping exactly,
+leave it explicitly blocked and move to the next independently documented
+Buildium resource.
+
+The outbound Buildium credential/transport adapter remains deferred and must
+eventually feed this same provider-labelled migration pipeline. Provider secrets
+and raw response bodies remain outside migration rows and audit.
+
+Do not reopen Phase 4.13, start general UX/navigation work, touch main, create
+another branch, or add the optional AppFolio API adapter.
+
+---
+
 # AI_HANDOFF.md — 2026-10-05 PHASE 4.14 BUILDIUM BANK TRANSFERS VERIFIED
 
 ## Current verified checkpoint
