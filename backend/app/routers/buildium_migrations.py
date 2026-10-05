@@ -22,6 +22,7 @@ from app.models.vendor import Vendor
 from app.models.work_order import WorkOrder
 from app.models.bill import Bill
 from app.models.bank_account import BankAccount
+from app.models.bank_reconciliation import BankReconciliation
 from app.models.check import Check
 from app.models.charge import Charge
 from app.models.user import Organization
@@ -2153,6 +2154,20 @@ def list_migration_items(
             if target is not None:
                 target_exists = True
                 target_label = target.name
+        elif item.target_entity == "BANK_RECONCILIATION":
+            target = (
+                db.query(BankReconciliation)
+                .filter(
+                    BankReconciliation.id == item.target_id,
+                    BankReconciliation.organization_id == row.organization_id,
+                )
+                .first()
+            )
+            if target is not None:
+                target_exists = True
+                target_label = (
+                    f"Bank Reconciliation #{target.id}: {target.statement_date.isoformat()}"
+                )
         elif item.target_entity == "GL_ACCOUNT":
             target = (
                 db.query(GLAccount)
