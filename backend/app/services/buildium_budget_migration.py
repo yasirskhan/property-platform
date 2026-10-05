@@ -264,6 +264,7 @@ def _target_line(
             Property.is_active.is_(True),
             Property.deleted_at.is_(None),
             GLAccount.organization_id == run.organization_id,
+            GLAccount.is_active.is_(True),
             GLAccount.deleted_at.is_(None),
             GLAccount.account_type.in_(("INCOME", "EXPENSE")),
         )
@@ -383,6 +384,7 @@ def _normalized_lines(
                 .filter(
                     GLAccount.id == gl_mapping.target_id,
                     GLAccount.organization_id == run.organization_id,
+                    GLAccount.is_active.is_(True),
                     GLAccount.deleted_at.is_(None),
                     GLAccount.account_type.in_(("INCOME", "EXPENSE")),
                 )

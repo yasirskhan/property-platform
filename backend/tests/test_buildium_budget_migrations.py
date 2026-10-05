@@ -324,6 +324,18 @@ def test_buildium_budget_rejects_bad_total_foreign_dependency_and_route_is_expos
         assert result.invalid == 1
         assert "TotalAmount" in result.rows[0].reason
 
+        gl.is_active = False
+        db.commit()
+        inactive = api.dry_run_buildium_budgets(
+            run.id,
+            BuildiumBudgetDryRunIn(records=[_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert inactive.invalid == 1
+        assert "INCOME or EXPENSE" in inactive.rows[0].reason
+
+        gl.is_active = True
         foreign = _org(db, "Foreign Budget Org")
         gl.organization_id = foreign.id
         db.commit()
