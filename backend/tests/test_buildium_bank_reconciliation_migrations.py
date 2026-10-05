@@ -11,7 +11,7 @@ from sqlalchemy.orm import sessionmaker
 import init_db  # noqa: F401
 from app.core.database import Base
 from app.core.security import hash_password
-from app.models.audit import AuditLog
+from app.models.audit_log import AuditLog
 from app.models.bank_account import BankAccount
 from app.models.bank_reconciliation import BankReconciliation
 from app.models.gl_account import GLAccount
