@@ -18,6 +18,7 @@ from app.models.property_group import PropertyGroup
 from app.models.property_budget import PropertyBudgetLine
 from app.models.lease import Lease
 from app.models.gl_account import GLAccount
+from app.models.gl_transaction import GLTransaction
 from app.models.vendor import Vendor
 from app.models.work_order import WorkOrder
 from app.models.bill import Bill
@@ -2167,6 +2168,22 @@ def list_migration_items(
                 target_exists = True
                 target_label = (
                     f"Bank Reconciliation #{target.id}: {target.statement_date.isoformat()}"
+                )
+        elif item.target_entity == "GL_TRANSACTION_TRANSFER_RELATIONSHIP":
+            target = (
+                db.query(GLTransaction)
+                .filter(
+                    GLTransaction.id == item.target_id,
+                    GLTransaction.organization_id == row.organization_id,
+                    GLTransaction.transaction_type == "TRANSFER",
+                )
+                .first()
+            )
+            if target is not None:
+                target_exists = True
+                target_label = (
+                    f"Transfer GL transaction #{target.id}: "
+                    f"{target.transaction_date.isoformat()}"
                 )
         elif item.target_entity == "GL_ACCOUNT":
             target = (
