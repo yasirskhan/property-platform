@@ -176,11 +176,6 @@ def _fingerprint(
                 "property_mapping_source_fingerprint": mapping.source_fingerprint if mapping else None,
                 "reserve_mapping_target_id": prior.target_id if prior else None,
                 "reserve_mapping_source_fingerprint": prior.source_fingerprint if prior else None,
-                "target_current_reserve": (
-                    _money_text(Decimal(target.required_reserve_amount or 0).quantize(Decimal("0.01")))
-                    if target is not None
-                    else None
-                ),
             }
         )
     payload = {

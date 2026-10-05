@@ -5419,6 +5419,13 @@ def test_buildium_property_reserve_match_existing_skip_validation_and_routes():
         )
         assert invalid.invalid == 1
 
+        _buildium_property_mapping(
+            db,
+            run,
+            org,
+            source_id="1003",
+            name="Skipped Reserve Property",
+        )
         skip = BuildiumPropertyReserveResolutionIn(source_id=1003, action="SKIP")
         skipped = api.dry_run_buildium_property_reserves(
             run.id,
