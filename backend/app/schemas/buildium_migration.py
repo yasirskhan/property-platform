@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -1027,3 +1028,84 @@ class BuildiumPropertyGroupCommitOut(BaseModel):
     skipped_review: int
     warning_count: int
     rows: list[BuildiumPropertyGroupCommitRow]
+
+
+class BuildiumPropertyReserveResolutionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_id: int = Field(ge=1)
+    action: str = Field(pattern=r"^(MATCH_EXISTING|APPLY_SOURCE|SKIP)$")
+    expected_target_reserve: Decimal | None = Field(
+        default=None,
+        ge=Decimal("0"),
+        max_digits=14,
+        decimal_places=2,
+    )
+
+    @model_validator(mode="after")
+    def validate_expected_target(self):
+        if self.action in {"MATCH_EXISTING", "APPLY_SOURCE"} and self.expected_target_reserve is None:
+            raise ValueError("expected_target_reserve is required for MATCH_EXISTING or APPLY_SOURCE")
+        if self.action == "SKIP" and self.expected_target_reserve is not None:
+            raise ValueError("expected_target_reserve is not valid for SKIP")
+        return self
+
+
+class BuildiumPropertyReserveDryRunIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    records: list[dict[str, Any]] = Field(min_length=1, max_length=500)
+    resolutions: list[BuildiumPropertyReserveResolutionIn] = Field(default_factory=list, max_length=500)
+
+
+class BuildiumPropertyReservePreviewRow(BaseModel):
+    source_id: str | None
+    reviewable: bool
+    reason: str | None
+    mapped: dict[str, Any] | None
+    warnings: list[str] = Field(default_factory=list)
+    resolution_action: str | None = None
+
+
+class BuildiumPropertyReserveDryRunOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    fingerprint: str
+    replayed: bool
+    total: int
+    reviewable: int
+    matched_existing: int
+    apply_source: int
+    skipped_review: int
+    invalid: int
+    warning_count: int
+    rows: list[BuildiumPropertyReservePreviewRow]
+
+
+class BuildiumPropertyReserveCommitIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    records: list[dict[str, Any]] = Field(min_length=1, max_length=500)
+    resolutions: list[BuildiumPropertyReserveResolutionIn] = Field(default_factory=list, max_length=500)
+
+
+class BuildiumPropertyReserveCommitRow(BaseModel):
+    source_id: str
+    target_property_id: int
+    action: str
+    replayed: bool
+
+
+class BuildiumPropertyReserveCommitOut(BaseModel):
+    run_id: int
+    organization_id: int
+    provider: str
+    fingerprint: str
+    replayed: bool
+    updated: int
+    matched_existing: int
+    skipped_review: int
+    warning_count: int
+    rows: list[BuildiumPropertyReserveCommitRow]

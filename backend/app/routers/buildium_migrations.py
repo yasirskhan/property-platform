@@ -80,6 +80,10 @@ from app.schemas.buildium_migration import (
     BuildiumPropertyGroupCommitOut,
     BuildiumPropertyGroupDryRunIn,
     BuildiumPropertyGroupDryRunOut,
+    BuildiumPropertyReserveCommitIn,
+    BuildiumPropertyReserveCommitOut,
+    BuildiumPropertyReserveDryRunIn,
+    BuildiumPropertyReserveDryRunOut,
 )
 from app.services.audit import append_audit_log
 from app.services.buildium_migration import (
@@ -146,6 +150,11 @@ from app.services.buildium_property_group_migration import (
     BuildiumPropertyGroupMigrationError,
     commit_property_groups,
     dry_run_property_groups,
+)
+from app.services.buildium_property_reserve_migration import (
+    BuildiumPropertyReserveMigrationError,
+    commit_property_reserves,
+    dry_run_property_reserves,
 )
 
 
@@ -2164,3 +2173,128 @@ def list_migration_items(
         )
     response.headers["Cache-Control"] = "no-store"
     return result
+
+
+
+@router.post(
+    "/runs/{run_id}/property-reserves/dry-run",
+    response_model=BuildiumPropertyReserveDryRunOut,
+)
+def dry_run_buildium_property_reserves(
+    run_id: int,
+    payload: BuildiumPropertyReserveDryRunIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = dry_run_property_reserves(
+            db,
+            run=row,
+            records=payload.records,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+    except BuildiumPropertyReserveMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=row.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=row.id,
+            action="buildium_property_reserves_dry_run",
+            new_value={
+                "fingerprint": result.fingerprint,
+                **result.summary,
+                "target_mutation": False,
+                "reserve_amounts_audited": False,
+            },
+        )
+        db.commit()
+        db.refresh(row)
+
+    return BuildiumPropertyReserveDryRunOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        reviewable=result.reviewable,
+        matched_existing=result.matched_existing,
+        apply_source=result.apply_source,
+        skipped_review=result.skipped_review,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/property-reserves/commit",
+    response_model=BuildiumPropertyReserveCommitOut,
+)
+def commit_buildium_property_reserves(
+    run_id: int,
+    payload: BuildiumPropertyReserveCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = commit_property_reserves(
+            db,
+            run=row,
+            records=payload.records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=row.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=row.id,
+                action="buildium_property_reserves_committed",
+                new_value={
+                    "fingerprint": result.fingerprint,
+                    "updated": result.updated,
+                    "matched_existing": result.matched_existing,
+                    "skipped_review": result.skipped_review,
+                    "target_property_ids": [item["target_property_id"] for item in result.rows],
+                    "explicit_review_required": True,
+                    "reserve_amounts_audited": False,
+                    "gl_history_created": False,
+                    "raw_payload_stored": False,
+                    "provider_credentials_stored": False,
+                },
+            )
+            db.commit()
+            db.refresh(row)
+    except BuildiumPropertyReserveMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Buildium Property Reserve commit conflicted with an existing migration mapping.",
+        ) from exc
+
+    return BuildiumPropertyReserveCommitOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        updated=result.updated,
+        matched_existing=result.matched_existing,
+        skipped_review=result.skipped_review,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )

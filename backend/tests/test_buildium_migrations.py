@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 from datetime import date, datetime
 
 import pytest
@@ -71,6 +72,9 @@ from app.schemas.buildium_migration import (
     BuildiumPropertyGroupCommitIn,
     BuildiumPropertyGroupDryRunIn,
     BuildiumPropertyGroupResolutionIn,
+    BuildiumPropertyReserveCommitIn,
+    BuildiumPropertyReserveDryRunIn,
+    BuildiumPropertyReserveResolutionIn,
 )
 
 
@@ -5181,6 +5185,255 @@ def test_buildium_property_group_fingerprint_fails_closed_on_target_or_dependenc
                 current_user=admin,
             )
         assert exc.value.status_code == 409
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+def _property_reserve_record(**changes):
+    record = {"Id": 1001, "Reserve": 125.50}
+    record.update(changes)
+    return record
+
+
+def test_buildium_property_reserve_requires_explicit_review_and_applies_without_gl_mutation():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Property Reserve Apply")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="property-reserve-apply",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        target, _ = _buildium_property_mapping(db, run, org)
+        assert Decimal(target.required_reserve_amount) == Decimal("0.00")
+
+        unreviewed = api.dry_run_buildium_property_reserves(
+            run.id,
+            BuildiumPropertyReserveDryRunIn(records=[_property_reserve_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert unreviewed.reviewable == 1
+        assert unreviewed.apply_source == 0
+        assert unreviewed.rows[0].mapped["source_reserve"] == "125.50"
+        assert unreviewed.rows[0].mapped["target_required_reserve"] == "0.00"
+
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_property_reserves(
+                run.id,
+                BuildiumPropertyReserveCommitIn(
+                    fingerprint=unreviewed.fingerprint,
+                    records=[_property_reserve_record()],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        resolution = BuildiumPropertyReserveResolutionIn(
+            source_id=1001,
+            action="APPLY_SOURCE",
+            expected_target_reserve=Decimal("0.00"),
+        )
+        preview = api.dry_run_buildium_property_reserves(
+            run.id,
+            BuildiumPropertyReserveDryRunIn(
+                records=[_property_reserve_record()],
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.apply_source == 1
+
+        committed = api.commit_buildium_property_reserves(
+            run.id,
+            BuildiumPropertyReserveCommitIn(
+                fingerprint=preview.fingerprint,
+                records=[_property_reserve_record()],
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.updated == 1
+        assert committed.matched_existing == 0
+        db.refresh(target)
+        assert Decimal(target.required_reserve_amount) == Decimal("125.50")
+        assert db.query(GLTransaction).count() == 0
+
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "PROPERTY_RESERVES",
+            PlatformMigrationItem.source_id == "1001",
+        ).one()
+        assert mapping.target_entity == "PROPERTY"
+        assert mapping.target_id == target.id
+
+        replay = api.commit_buildium_property_reserves(
+            run.id,
+            BuildiumPropertyReserveCommitIn(
+                fingerprint=preview.fingerprint,
+                records=[_property_reserve_record()],
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "PROPERTY_RESERVES"
+        ).count() == 1
+
+        audit_text = "\n".join(
+            row.new_value or ""
+            for row in db.query(AuditLog)
+            .filter(AuditLog.entity_type == "platform_migration_run")
+            .all()
+        )
+        assert "125.50" not in audit_text
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_property_reserve_stale_target_value_fails_closed():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Property Reserve Stale")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="property-reserve-stale",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        target, _ = _buildium_property_mapping(db, run, org)
+        resolution = BuildiumPropertyReserveResolutionIn(
+            source_id=1001,
+            action="APPLY_SOURCE",
+            expected_target_reserve=Decimal("0.00"),
+        )
+        preview = api.dry_run_buildium_property_reserves(
+            run.id,
+            BuildiumPropertyReserveDryRunIn(
+                records=[_property_reserve_record()],
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        target.required_reserve_amount = Decimal("10.00")
+        db.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_property_reserves(
+                run.id,
+                BuildiumPropertyReserveCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=[_property_reserve_record()],
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "stale" in exc.value.detail.lower() or "changed" in exc.value.detail.lower()
+        db.refresh(target)
+        assert Decimal(target.required_reserve_amount) == Decimal("10.00")
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "PROPERTY_RESERVES"
+        ).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_property_reserve_match_existing_skip_validation_and_routes():
+    from app.main import app
+
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Property Reserve Existing")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="property-reserve-existing",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        target, _ = _buildium_property_mapping(db, run, org)
+        target.required_reserve_amount = Decimal("80.00")
+        db.commit()
+
+        match = BuildiumPropertyReserveResolutionIn(
+            source_id=1001,
+            action="MATCH_EXISTING",
+            expected_target_reserve=Decimal("80.00"),
+        )
+        preview = api.dry_run_buildium_property_reserves(
+            run.id,
+            BuildiumPropertyReserveDryRunIn(
+                records=[_property_reserve_record(Reserve=80)],
+                resolutions=[match],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.matched_existing == 1
+        committed = api.commit_buildium_property_reserves(
+            run.id,
+            BuildiumPropertyReserveCommitIn(
+                fingerprint=preview.fingerprint,
+                records=[_property_reserve_record(Reserve=80)],
+                resolutions=[match],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.matched_existing == 1
+        assert committed.updated == 0
+        db.refresh(target)
+        assert Decimal(target.required_reserve_amount) == Decimal("80.00")
+
+        invalid = api.dry_run_buildium_property_reserves(
+            run.id,
+            BuildiumPropertyReserveDryRunIn(
+                records=[_property_reserve_record(Id=1002, Reserve=-1)],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert invalid.invalid == 1
+
+        skip = BuildiumPropertyReserveResolutionIn(source_id=1003, action="SKIP")
+        skipped = api.dry_run_buildium_property_reserves(
+            run.id,
+            BuildiumPropertyReserveDryRunIn(
+                records=[_property_reserve_record(Id=1003, Reserve=250)],
+                resolutions=[skip],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert skipped.skipped_review == 1
+
+        paths = set(app.openapi()["paths"])
+        assert "/api/platform/migrations/buildium/runs/{run_id}/property-reserves/dry-run" in paths
+        assert "/api/platform/migrations/buildium/runs/{run_id}/property-reserves/commit" in paths
         assert db.query(GLTransaction).count() == 0
     finally:
         db.close()
