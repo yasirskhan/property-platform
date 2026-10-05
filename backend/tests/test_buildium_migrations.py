@@ -75,6 +75,9 @@ from app.schemas.buildium_migration import (
     BuildiumPropertyReserveCommitIn,
     BuildiumPropertyReserveDryRunIn,
     BuildiumPropertyReserveResolutionIn,
+    BuildiumLeaseChargeCommitIn,
+    BuildiumLeaseChargeDryRunIn,
+    BuildiumLeaseChargeResolutionIn,
 )
 
 
@@ -5442,6 +5445,346 @@ def test_buildium_property_reserve_match_existing_skip_validation_and_routes():
         assert "/api/platform/migrations/buildium/runs/{run_id}/property-reserves/dry-run" in paths
         assert "/api/platform/migrations/buildium/runs/{run_id}/property-reserves/commit" in paths
         assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+def _lease_charge_record(**changes):
+    record = {
+        "Id": 8001,
+        "LeaseId": 6001,
+        "Date": "2026-02-05",
+        "TotalAmount": 75,
+        "Memo": "Late fee",
+        "BillId": None,
+        "Lines": [
+            {
+                "Amount": 75,
+                "GLAccountId": 7001,
+                "UnitId": 2001,
+            }
+        ],
+    }
+    record.update(changes)
+    return record
+
+
+def _lease_charge_dependencies(db, run, org):
+    target_property, unit, tenant, lease = _lease_dependencies(db, run, org)
+    db.add(
+        PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=org.id,
+            provider="BUILDIUM",
+            resource="LEASES",
+            source_id="6001",
+            target_entity="LEASE_RELATIONSHIP",
+            target_id=lease.id,
+            source_fingerprint="e" * 64,
+            created_by_platform_user_id=run.created_by_platform_user_id,
+        )
+    )
+    gl = GLAccount(
+        organization_id=org.id,
+        gl_number="4105",
+        name="Late Fee Income",
+        account_type="INCOME",
+        is_active=True,
+    )
+    db.add(gl)
+    db.flush()
+    gl_mapping = PlatformMigrationItem(
+        run_id=run.id,
+        organization_id=org.id,
+        provider="BUILDIUM",
+        resource="GL_ACCOUNTS",
+        source_id="7001",
+        target_entity="GL_ACCOUNT",
+        target_id=gl.id,
+        source_fingerprint="f" * 64,
+        created_by_platform_user_id=run.created_by_platform_user_id,
+    )
+    db.add(gl_mapping)
+    charge = Charge(
+        organization_id=org.id,
+        tenant_user_id=tenant.id,
+        unit_id=unit.id,
+        property_id=target_property.id,
+        gl_account_id=gl.id,
+        charge_date=date(2026, 2, 5),
+        description="Late fee",
+        amount=Decimal("75.00"),
+        amount_paid=Decimal("25.00"),
+        is_paid=False,
+        is_active=True,
+    )
+    db.add(charge)
+    db.commit()
+    db.refresh(charge)
+    db.refresh(gl_mapping)
+    return target_property, unit, tenant, lease, gl, gl_mapping, charge
+
+
+def test_buildium_lease_charge_reconciles_exact_existing_charge_without_financial_mutation():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Lease Charge Reconciliation")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="lease-charge-reconcile",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _, unit, tenant, lease, gl, _, charge = _lease_charge_dependencies(
+            db, run, org
+        )
+
+        preview = api.dry_run_buildium_lease_charges(
+            run.id,
+            BuildiumLeaseChargeDryRunIn(records=[_lease_charge_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.invalid == 0
+        assert preview.reviewable == 1
+        assert preview.rows[0].mapped["target_lease_id"] == lease.id
+        assert preview.rows[0].mapped["target_tenant_user_id"] == tenant.id
+        assert preview.rows[0].mapped["target_unit_id"] == unit.id
+        assert preview.rows[0].mapped["target_gl_account_id"] == gl.id
+        assert any(
+            "payment" in warning.lower()
+            for warning in preview.rows[0].warnings
+        )
+
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_lease_charges(
+                run.id,
+                BuildiumLeaseChargeCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=[_lease_charge_record()],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        resolution = BuildiumLeaseChargeResolutionIn(
+            source_id=8001,
+            action="MATCH_EXISTING",
+            target_charge_id=charge.id,
+        )
+        reviewed = api.dry_run_buildium_lease_charges(
+            run.id,
+            BuildiumLeaseChargeDryRunIn(
+                records=[_lease_charge_record()],
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        committed = api.commit_buildium_lease_charges(
+            run.id,
+            BuildiumLeaseChargeCommitIn(
+                fingerprint=reviewed.fingerprint,
+                records=[_lease_charge_record()],
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.matched_existing == 1
+        assert committed.replayed is False
+        assert db.query(Charge).count() == 1
+        db.refresh(charge)
+        assert Decimal(charge.amount) == Decimal("75.00")
+        assert Decimal(charge.amount_paid) == Decimal("25.00")
+        assert charge.is_paid is False
+        assert db.query(GLTransaction).count() == 0
+
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "LEASE_CHARGES",
+        ).one()
+        assert mapping.target_entity == "CHARGE_RELATIONSHIP"
+        assert mapping.target_id == charge.id
+
+        replay = api.commit_buildium_lease_charges(
+            run.id,
+            BuildiumLeaseChargeCommitIn(
+                fingerprint=reviewed.fingerprint,
+                records=[_lease_charge_record()],
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "LEASE_CHARGES"
+        ).count() == 1
+
+        response = Response()
+        items = api.list_migration_items(
+            run.id,
+            response=response,
+            resource="lease_charges",
+            limit=200,
+            db=db,
+            current_user=admin,
+        )
+        assert len(items) == 1
+        assert items[0].target_exists is True
+        assert items[0].target_label == f"Charge #{charge.id}: Late fee"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_lease_charge_blocks_unsupported_source_shapes_and_stale_dependencies():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Lease Charge Safety")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="lease-charge-safety",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _, _, _, _, _, gl_mapping, charge = _lease_charge_dependencies(
+            db, run, org
+        )
+
+        bill_linked = api.dry_run_buildium_lease_charges(
+            run.id,
+            BuildiumLeaseChargeDryRunIn(
+                records=[_lease_charge_record(BillId=999)]
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert bill_linked.invalid == 1
+        assert "linked to a Bill" in bill_linked.rows[0].reason
+
+        multi_line = _lease_charge_record(
+            Lines=[
+                {"Amount": 50, "GLAccountId": 7001, "UnitId": 2001},
+                {"Amount": 25, "GLAccountId": 7001, "UnitId": 2001},
+            ]
+        )
+        invalid = api.dry_run_buildium_lease_charges(
+            run.id,
+            BuildiumLeaseChargeDryRunIn(records=[multi_line]),
+            db=db,
+            current_user=admin,
+        )
+        assert invalid.invalid == 1
+        assert "exactly one" in invalid.rows[0].reason
+
+        resolution = BuildiumLeaseChargeResolutionIn(
+            source_id=8001,
+            action="MATCH_EXISTING",
+            target_charge_id=charge.id,
+        )
+        reviewed = api.dry_run_buildium_lease_charges(
+            run.id,
+            BuildiumLeaseChargeDryRunIn(
+                records=[_lease_charge_record()],
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        gl_mapping.source_fingerprint = "1" * 64
+        db.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_lease_charges(
+                run.id,
+                BuildiumLeaseChargeCommitIn(
+                    fingerprint=reviewed.fingerprint,
+                    records=[_lease_charge_record()],
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "stale" in exc.value.detail.lower()
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "LEASE_CHARGES"
+        ).count() == 0
+        assert db.query(Charge).count() == 1
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_lease_charge_skip_routes_and_sensitive_audit_boundary():
+    from app.main import app
+
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Lease Charge Skip")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="lease-charge-skip",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _lease_charge_dependencies(db, run, org)
+        record = _lease_charge_record(Memo="DO-NOT-AUDIT-MEMO")
+        resolution = BuildiumLeaseChargeResolutionIn(
+            source_id=8001,
+            action="SKIP",
+        )
+        preview = api.dry_run_buildium_lease_charges(
+            run.id,
+            BuildiumLeaseChargeDryRunIn(
+                records=[record],
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.skipped_review == 1
+        result = api.commit_buildium_lease_charges(
+            run.id,
+            BuildiumLeaseChargeCommitIn(
+                fingerprint=preview.fingerprint,
+                records=[record],
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert result.skipped_review == 1
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "LEASE_CHARGES"
+        ).count() == 0
+
+        audit_text = "\n".join(
+            row.new_value or ""
+            for row in db.query(AuditLog)
+            .filter(AuditLog.entity_type == "platform_migration_run")
+            .all()
+        )
+        assert "DO-NOT-AUDIT-MEMO" not in audit_text
+
+        paths = set(app.openapi()["paths"])
+        assert "/api/platform/migrations/buildium/runs/{run_id}/lease-charges/dry-run" in paths
+        assert "/api/platform/migrations/buildium/runs/{run_id}/lease-charges/commit" in paths
     finally:
         db.close()
         engine.dispose()
