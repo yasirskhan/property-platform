@@ -15,6 +15,7 @@ from app.models.audit_log import AuditLog
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.property import Property, PropertyOwner, PropertyType, Unit
+from app.models.property_group import PropertyGroup, PropertyGroupMembership
 from app.models.lease import Lease, LeaseStatus
 from app.models.charge import Charge
 from app.models.gl_transaction import GLTransaction
@@ -67,6 +68,9 @@ from app.schemas.buildium_migration import (
     BuildiumOwnerPropertyCommitIn,
     BuildiumOwnerPropertyDryRunIn,
     BuildiumOwnerPropertyResolutionIn,
+    BuildiumPropertyGroupCommitIn,
+    BuildiumPropertyGroupDryRunIn,
+    BuildiumPropertyGroupResolutionIn,
 )
 
 
@@ -4887,6 +4891,297 @@ def test_buildium_owner_property_skip_visibility_and_tax_audit_boundary():
         paths = set(app.openapi()["paths"])
         assert "/api/platform/migrations/buildium/runs/{run_id}/owner-property-relationships/dry-run" in paths
         assert "/api/platform/migrations/buildium/runs/{run_id}/owner-property-relationships/commit" in paths
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def _property_group_record(**changes):
+    record = {
+        "Id": 4401,
+        "Name": "Cleveland Portfolio",
+        "Description": "Buildium source description",
+        "Properties": [{"Id": 1001}],
+        "CreatedByUser": {"Id": 77, "Name": "Provider User"},
+    }
+    record.update(changes)
+    return record
+
+
+def test_buildium_property_group_maps_only_exact_existing_group_without_mutation():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Property Group Exact")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="property-group-exact",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        prop, _ = _buildium_property_mapping(db, run, org)
+        group = PropertyGroup(
+            organization_id=org.id,
+            name="Cleveland Portfolio",
+            name_key="cleveland portfolio",
+            description="Target description stays intact",
+            created_by_id=None,
+        )
+        db.add(group)
+        db.flush()
+        db.add(PropertyGroupMembership(
+            organization_id=org.id,
+            group_id=group.id,
+            property_id=prop.id,
+        ))
+        db.commit()
+        db.refresh(group)
+
+        resolution = BuildiumPropertyGroupResolutionIn(
+            source_id=4401,
+            action="MATCH_EXISTING",
+            target_property_group_id=group.id,
+        )
+        preview = api.dry_run_buildium_property_groups(
+            run.id,
+            BuildiumPropertyGroupDryRunIn(
+                records=[_property_group_record()],
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.invalid == 0
+        assert preview.reviewable == 1
+        assert preview.rows[0].mapped["candidate_property_group_id"] == group.id
+        assert preview.rows[0].mapped["target_property_ids"] == [prop.id]
+        assert any("description differs" in warning for warning in preview.rows[0].warnings)
+
+        committed = api.commit_buildium_property_groups(
+            run.id,
+            BuildiumPropertyGroupCommitIn(
+                fingerprint=preview.fingerprint,
+                records=[_property_group_record()],
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.matched_existing == 1
+        assert committed.rows[0].target_property_group_id == group.id
+        assert db.query(PropertyGroup).count() == 1
+        assert db.query(PropertyGroupMembership).count() == 1
+        db.refresh(group)
+        assert group.description == "Target description stays intact"
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "PROPERTY_GROUPS",
+            PlatformMigrationItem.source_id == "4401",
+        ).one()
+        assert mapping.target_entity == "PROPERTY_GROUP"
+        assert mapping.target_id == group.id
+        assert db.query(GLTransaction).count() == 0
+
+        replay = api.commit_buildium_property_groups(
+            run.id,
+            BuildiumPropertyGroupCommitIn(
+                fingerprint=preview.fingerprint,
+                records=[_property_group_record()],
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "PROPERTY_GROUPS"
+        ).count() == 1
+
+        listed = api.list_migration_items(
+            run.id,
+            response=Response(),
+            resource="PROPERTY_GROUPS",
+            limit=100,
+            db=db,
+            current_user=admin,
+        )
+        assert len(listed) == 1
+        assert listed[0].target_exists is True
+        assert listed[0].target_label == "Cleveland Portfolio"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_property_group_requires_exact_membership_or_explicit_skip():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Property Group Skip")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="property-group-skip",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        _buildium_property_mapping(db, run, org)
+        group = PropertyGroup(
+            organization_id=org.id,
+            name="Cleveland Portfolio",
+            name_key="cleveland portfolio",
+            description=None,
+        )
+        db.add(group)
+        db.commit()
+        db.refresh(group)
+
+        preview = api.dry_run_buildium_property_groups(
+            run.id,
+            BuildiumPropertyGroupDryRunIn(records=[_property_group_record()]),
+            db=db,
+            current_user=admin,
+        )
+        assert preview.invalid == 0
+        assert preview.rows[0].mapped["candidate_property_group_id"] is None
+        assert any("membership differs" in warning for warning in preview.rows[0].warnings)
+
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_buildium_property_groups(
+                run.id,
+                BuildiumPropertyGroupDryRunIn(
+                    records=[_property_group_record()],
+                    resolutions=[BuildiumPropertyGroupResolutionIn(
+                        source_id=4401,
+                        action="MATCH_EXISTING",
+                        target_property_group_id=group.id,
+                    )],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        skip = BuildiumPropertyGroupResolutionIn(source_id=4401, action="SKIP")
+        reviewed = api.dry_run_buildium_property_groups(
+            run.id,
+            BuildiumPropertyGroupDryRunIn(
+                records=[_property_group_record()],
+                resolutions=[skip],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        committed = api.commit_buildium_property_groups(
+            run.id,
+            BuildiumPropertyGroupCommitIn(
+                fingerprint=reviewed.fingerprint,
+                records=[_property_group_record()],
+                resolutions=[skip],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.skipped_review == 1
+        assert committed.matched_existing == 0
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "PROPERTY_GROUPS"
+        ).count() == 0
+        assert db.query(PropertyGroupMembership).count() == 0
+        assert db.query(GLTransaction).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_property_group_fingerprint_fails_closed_on_target_or_dependency_change():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, name="Property Group Stale")
+        run = api.create_run(
+            BuildiumMigrationRunCreateIn(
+                organization_id=org.id,
+                source_account_ref="property-group-stale",
+            ),
+            db=db,
+            current_user=admin,
+        )
+        prop, mapping = _buildium_property_mapping(db, run, org)
+        group = PropertyGroup(
+            organization_id=org.id,
+            name="Cleveland Portfolio",
+            name_key="cleveland portfolio",
+            description="Buildium source description",
+        )
+        db.add(group)
+        db.flush()
+        db.add(PropertyGroupMembership(
+            organization_id=org.id,
+            group_id=group.id,
+            property_id=prop.id,
+        ))
+        db.commit()
+        db.refresh(group)
+
+        resolution = BuildiumPropertyGroupResolutionIn(
+            source_id=4401,
+            action="MATCH_EXISTING",
+            target_property_group_id=group.id,
+        )
+        preview = api.dry_run_buildium_property_groups(
+            run.id,
+            BuildiumPropertyGroupDryRunIn(
+                records=[_property_group_record()],
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        mapping.source_fingerprint = "b" * 64
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.commit_buildium_property_groups(
+                run.id,
+                BuildiumPropertyGroupCommitIn(
+                    fingerprint=preview.fingerprint,
+                    records=[_property_group_record()],
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert "stale" in exc.value.detail.lower()
+
+        foreign = _org(db, name="Foreign Property Group")
+        foreign_group = PropertyGroup(
+            organization_id=foreign.id,
+            name="Cleveland Portfolio",
+            name_key="cleveland portfolio",
+        )
+        db.add(foreign_group)
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.dry_run_buildium_property_groups(
+                run.id,
+                BuildiumPropertyGroupDryRunIn(
+                    records=[_property_group_record()],
+                    resolutions=[BuildiumPropertyGroupResolutionIn(
+                        source_id=4401,
+                        action="MATCH_EXISTING",
+                        target_property_group_id=foreign_group.id,
+                    )],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(GLTransaction).count() == 0
     finally:
         db.close()
         engine.dispose()

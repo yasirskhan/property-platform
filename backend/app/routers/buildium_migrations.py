@@ -14,6 +14,7 @@ from app.core.database import get_db
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.property import Property, PropertyOwner, Unit
+from app.models.property_group import PropertyGroup
 from app.models.lease import Lease
 from app.models.gl_account import GLAccount
 from app.models.vendor import Vendor
@@ -75,6 +76,10 @@ from app.schemas.buildium_migration import (
     BuildiumOwnerPropertyCommitOut,
     BuildiumOwnerPropertyDryRunIn,
     BuildiumOwnerPropertyDryRunOut,
+    BuildiumPropertyGroupCommitIn,
+    BuildiumPropertyGroupCommitOut,
+    BuildiumPropertyGroupDryRunIn,
+    BuildiumPropertyGroupDryRunOut,
 )
 from app.services.audit import append_audit_log
 from app.services.buildium_migration import (
@@ -136,6 +141,11 @@ from app.services.buildium_owner_property_migration import (
     BuildiumOwnerPropertyMigrationError,
     commit_owner_property_relationships,
     dry_run_owner_property_relationships,
+)
+from app.services.buildium_property_group_migration import (
+    BuildiumPropertyGroupMigrationError,
+    commit_property_groups,
+    dry_run_property_groups,
 )
 
 
@@ -1792,6 +1802,128 @@ def commit_buildium_owner_property_relationships(
     )
 
 
+
+
+@router.post(
+    "/runs/{run_id}/property-groups/dry-run",
+    response_model=BuildiumPropertyGroupDryRunOut,
+)
+def dry_run_buildium_property_groups(
+    run_id: int,
+    payload: BuildiumPropertyGroupDryRunIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = dry_run_property_groups(
+            db,
+            run=row,
+            records=payload.records,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+    except BuildiumPropertyGroupMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=row.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=row.id,
+            action="buildium_property_groups_dry_run",
+            new_value={
+                "fingerprint": result.fingerprint,
+                **result.summary,
+                "target_mutation": False,
+            },
+        )
+        db.commit()
+        db.refresh(row)
+    return BuildiumPropertyGroupDryRunOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        reviewable=result.reviewable,
+        skipped_review=result.skipped_review,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/property-groups/commit",
+    response_model=BuildiumPropertyGroupCommitOut,
+)
+def commit_buildium_property_groups(
+    run_id: int,
+    payload: BuildiumPropertyGroupCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        result = commit_property_groups(
+            db,
+            run=row,
+            records=payload.records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=row.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=row.id,
+                action="buildium_property_groups_reconciled",
+                new_value={
+                    "fingerprint": result.fingerprint,
+                    "matched_existing": result.matched_existing,
+                    "skipped_review": result.skipped_review,
+                    "warning_count": result.warning_count,
+                    "target_property_group_ids": [
+                        item["target_property_group_id"] for item in result.rows
+                    ],
+                    "property_groups_created": False,
+                    "property_groups_updated": False,
+                    "property_group_memberships_changed": False,
+                    "gl_history_created": False,
+                    "raw_payload_stored": False,
+                    "provider_credentials_stored": False,
+                },
+            )
+            db.commit()
+            db.refresh(row)
+    except BuildiumPropertyGroupMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Buildium Property Group mapping conflicted with an existing migration mapping.",
+        ) from exc
+    return BuildiumPropertyGroupCommitOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        matched_existing=result.matched_existing,
+        skipped_review=result.skipped_review,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
 @router.get(
     "/runs/{run_id}/items",
     response_model=list[BuildiumMigrationItemOut],
@@ -1965,6 +2097,18 @@ def list_migration_items(
             if target is not None:
                 target_exists = True
                 target_label = f"PropertyOwner #{target.id}: property {target.property_id} / owner {target.user_id}"
+        elif item.target_entity == "PROPERTY_GROUP":
+            target = (
+                db.query(PropertyGroup)
+                .filter(
+                    PropertyGroup.id == item.target_id,
+                    PropertyGroup.organization_id == row.organization_id,
+                )
+                .first()
+            )
+            if target is not None:
+                target_exists = True
+                target_label = target.name
         elif item.target_entity == "CHECK_PAYMENT_RELATIONSHIP":
             target = (
                 db.query(Check)
