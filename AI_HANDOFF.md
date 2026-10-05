@@ -1,3 +1,111 @@
+# AI_HANDOFF.md — 2026-10-05 PHASE 4.14 BUILDIUM PROPERTY RESERVES VERIFIED
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `ba8aa4e00699470fbce1cf84b07724fb36be12b6`.
+- GitHub Actions run: `37267999293` — **SUCCESS**.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **1043 passed, 21 deselected, 26907 warnings in 302.45s**.
+- Authenticated E2E: **21 passed, 278 warnings in 104.58s**.
+- Alembic head remains `1b8d3f6a9c20`; expected model tables remain **202**.
+- No migration was added.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains **AUTHORIZED BUT NOT ACTIVE**.
+
+## Verified Buildium Property Groups
+
+The immediately preceding Buildium Property Group batch is independently verified at source
+`ec063286797d1c639ff82eb25728eab71179c84c`, GitHub Actions
+`37255361394` SUCCESS all six jobs: **1040 backend passed, 21 deselected** and
+**21 authenticated E2E passed**.
+
+That batch reconciles Buildium Property Group identity and membership only after current
+Buildium Property mappings exist. Review is explicit; durable provider mappings are replay-safe;
+group membership is not silently created or changed when the exact target relationship cannot
+be established.
+
+## Verified Buildium Property Reserve reconciliation
+
+This bounded batch consumes the documented Buildium Rental Property `Reserve` value only after
+the Buildium Property itself is already durably mapped in the same migration run.
+
+Verified behavior:
+
+1. Stable positive Buildium Property `Id` remains the source identity.
+2. The existing current `PROPERTIES -> PROPERTY` mapping is mandatory and its target ID plus
+   source fingerprint are bound into the Property Reserve dry-run fingerprint.
+3. Buildium `Reserve` must be an explicit finite nonnegative two-decimal amount.
+4. The target field is the existing same-organization active
+   `Property.required_reserve_amount`; this batch does not create a Property.
+5. Review supports only `MATCH_EXISTING`, `APPLY_SOURCE`, or `SKIP`.
+6. `MATCH_EXISTING` requires the current target reserve to equal the source exactly.
+7. `APPLY_SOURCE` requires an explicit reviewer-supplied snapshot of the current target reserve;
+   that exact value is rechecked at commit so concurrent target changes fail closed.
+8. Successful commit writes the reviewed target reserve only for `APPLY_SOURCE` and records a
+   durable `BUILDIUM / PROPERTY_RESERVES / PROPERTY` migration mapping.
+9. The exact source records, review decisions, organization/source account identity and current
+   underlying Property mapping are fingerprint-bound.
+10. The replay fix at `ba8aa4e0` deliberately excludes the newly created Property Reserve
+    migration mapping itself from the fingerprint, so a successful first commit does not make an
+    otherwise identical idempotent replay look stale.
+11. Replay still fails closed if the source amount, explicit review decision, underlying Property
+    mapping, expected target reserve, organization scope or active target state no longer matches.
+12. No GLTransaction, GLEntry, bank balance, owner distribution, historical reserve balance,
+    reconciliation record or synthetic accounting history is created.
+13. Raw Buildium provider bodies and API credentials are not stored in migration rows or audit.
+
+The initial Property Reserve source `53736f385313d43deca71e08b358abd5f3f16cc9`
+and first guard correction `0fd0f3771d974fbb8f087fb9adb6358bcef9a146` both had red backend CI.
+The final replay-stable source above is the verified product checkpoint; do not attribute those
+earlier red runs as successful.
+
+## Phase 4.14 verified resource progress
+
+Properties; Units; Owners; Owner/property relationships; Vendors; Tenants; Leases; GL Accounts;
+Work Orders; Bills; Bank Accounts; bounded single-bill check-backed Bill Payment relationships;
+Property Groups; and Property Reserves are verified through the shared provider-labelled migration
+architecture, subject to each resource's create-vs-existing-target limitations recorded below.
+
+## General Ledger transaction blocker remains
+
+Buildium's documented General Ledger transaction retrieval shape still does not independently
+establish the debit-versus-credit direction needed to prove this platform's immutable
+`GLEntry.debit` versus `GLEntry.credit` posting lines. Do not infer direction from amount sign,
+transaction type, GL account type, cash flags or balances. Historical GL transaction reconciliation
+remains blocked unless authoritative source evidence proves complete posting direction and line semantics.
+
+## Exact NEXT Phase 4.14 batch
+
+Proceed with **Buildium Rental Lease ledger Charge existing-target reconciliation** as the next
+independent documented resource, provided the source contract can be matched exactly without
+inventing payment or accounting history.
+
+Use the existing durable `LEASES -> LEASE_RELATIONSHIP`, `GL_ACCOUNTS -> GL_ACCOUNT`,
+`PROPERTIES -> PROPERTY`, `UNITS -> UNIT`, and tenant identity dependencies where applicable.
+Prefer a deliberately bounded subset that can map one documented Buildium charge to one already-
+existing target standalone `Charge`. Require explicit review and exact fingerprinting. Do not
+create target Charges, RentInvoices, receipts, payments, GL history or inferred balances. If the
+documented source shape cannot establish the target Charge semantics exactly, leave that subset
+blocked and move to the next independent resource.
+
+The outbound Buildium credential/transport adapter remains deferred and must eventually feed the
+same provider-labelled migration run, explicit-review, exact-fingerprint, durable-mapping,
+replay/idempotency and organization-isolation architecture. Provider secrets/raw response bodies
+must remain outside migration rows and audit.
+
+Do not reopen Phase 4.13, start general UX/navigation work, touch main, create another branch, or
+add the optional AppFolio API adapter.
+
+---
+
 # AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM OWNER/PROPERTY RELATIONSHIPS VERIFIED
 
 ## Current verified checkpoint
