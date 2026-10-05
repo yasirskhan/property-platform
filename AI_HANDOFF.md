@@ -1,3 +1,51 @@
+# AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM OWNER/PROPERTY RELATIONSHIPS VERIFIED
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Verified PRODUCT SHA: `344760a7119187f9672b0b281560155848a35f0f`.
+- GitHub Actions run: `37240083323` — **SUCCESS**.
+- All six required CI jobs passed.
+- Backend/PostgreSQL: **1037 passed, 21 deselected, 26797 warnings in 530.17s**.
+- Authenticated E2E: **21 passed, 278 warnings in 112.90s**.
+- Alembic head remains `1b8d3f6a9c20`; expected model tables remain **202**.
+- No migration was added. Navigation integrity and the HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains AUTHORIZED BUT NOT ACTIVE.
+
+## Verified Buildium owner/property relationship reconciliation
+
+This bounded batch uses Buildium Rental Owner `PropertyIds` only as relationship evidence after the owner and property identities are already durably mapped in the same run.
+
+- Stable Buildium owner ID plus property ID is durable relationship identity.
+- Requires current `OWNERS -> OWNER_USER` and `PROPERTIES -> PROPERTY` mappings.
+- Maps only an already-existing exact same-organization `PropertyOwner` row.
+- Review supports only `MATCH_EXISTING` or `SKIP`; no ownership creation or mutation.
+- Exact fingerprints bind source relationships, review decisions and current dependency mapping target IDs/source fingerprints.
+- Commit writes only `BUILDIUM / OWNER_PROPERTY_RELATIONSHIPS / PROPERTY_OWNER_RELATIONSHIP` migration metadata.
+- Replay is idempotent; stale, mismatched and cross-organization relationships fail closed.
+- Buildium `PropertyIds` does not prove ownership percentage or primary-owner semantics, so `ownership_pct`, `is_primary`, and `Property.owner_id` are never changed.
+- Tax information, alternate contact data, comments, management agreement fields, raw provider bodies and credentials are not persisted in migration audit metadata.
+- No GL, receipt, bill, payment, bank movement, tax record or synthetic accounting history is created or updated.
+
+## Phase 4.14 verified resource progress
+
+Properties; Units; Owners; **Owner/property relationships**; Vendors; Tenants; Leases; GL Accounts; Work Orders; Bills; Bank Accounts; and the bounded single-bill check-backed Bill Payment relationship are verified through the shared migration architecture, with the resource-specific create-vs-existing-target limits recorded in the preceding sections.
+
+## General Ledger transaction blocker
+
+Buildium's documented General Ledger transaction retrieval shape exposes transaction identity/date/type/amount and journal-line GL/property/unit evidence, but does not independently expose the debit-versus-credit posting direction needed to prove this platform's immutable `GLEntry.debit` versus `GLEntry.credit` lines.
+
+Do not infer debit/credit direction from amount sign, transaction type, cash-posting flags, GL account type or balances. General Ledger existing-target relationship reconciliation remains **BLOCKED** until authoritative retrieved source evidence proves posting direction and full line semantics. Do not create journal history, balances, opening entries or balancing data to work around this.
+
+## Exact NEXT Phase 4.14 batch
+
+Move to the next independent documented Buildium resource that can be reconciled without inventing accounting or identity semantics. Reuse the same provider-labelled run, explicit review, exact fingerprint, durable mapping, replay/idempotency and organization isolation. The outbound Buildium credential/transport adapter remains deferred and must eventually feed this same pipeline.
+
+Do not reopen Phase 4.13, start general UX/navigation work, touch main, create another branch, or add the optional AppFolio API adapter.
+
+---
+
 # AI_HANDOFF.md — 2026-10-04 PHASE 4.14 BUILDIUM BILL PAYMENTS VERIFIED
 
 ## Current verified checkpoint
