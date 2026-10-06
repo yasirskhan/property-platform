@@ -576,6 +576,12 @@ def test_buildium_api_owner_commit_refetch_detects_source_drift_and_routes_exist
         paths = set(app.openapi()["paths"])
         assert "/api/platform/migrations/buildium/runs/{run_id}/owners/api-dry-run" in paths
         assert "/api/platform/migrations/buildium/runs/{run_id}/owners/api-commit" in paths
+        monkeypatch.setattr(transport.settings, "BUILDIUM_API_MODE", "sandbox")
+        monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_ID", "client-id")
+        monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_SECRET", "owner-secret")
+        monkeypatch.setattr(
+            transport.settings, "BUILDIUM_API_SOURCE_ACCOUNT_REF", "sandbox-account-A"
+        )
         status = api.get_buildium_transport_status(current_user=admin)
         assert "OWNERS" in status.supported_resources
     finally:
