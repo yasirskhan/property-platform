@@ -28,7 +28,7 @@ from app.models.check import Check
 from app.models.charge import Charge
 from app.models.deposit import Deposit
 from app.models.tenant_insurance import TenantInsurance
-from app.models.user import Organization
+from app.models.user import Organization, User, UserRole
 from app.routers.platform_auth import get_current_platform_user
 from app.schemas.buildium_migration import (
     BuildiumMigrationItemOut,
@@ -2060,6 +2060,19 @@ def list_migration_items(
                     User.id == item.target_id,
                     User.organization_id == row.organization_id,
                     User.role == UserRole.TENANT,
+                )
+                .first()
+            )
+            if target is not None:
+                target_exists = True
+                target_label = target.email
+        elif item.target_entity == "APPLICANT_USER":
+            target = (
+                db.query(User)
+                .filter(
+                    User.id == item.target_id,
+                    User.organization_id == row.organization_id,
+                    User.role == UserRole.APPLICANT,
                 )
                 .first()
             )
