@@ -17,7 +17,8 @@ from app.core.config import settings
 _SANDBOX_BASE = "https://apisandbox.buildium.com"
 _PRODUCTION_BASE = "https://api.buildium.com"
 _PROPERTY_PATH = "/v1/rentals"
-_MAX_PROPERTY_RECORDS = 500
+_UNIT_PATH = "/v1/rentals/units"
+_MAX_REVIEW_RECORDS = 500
 _PAGE_LIMIT = 500
 _TIMEOUT_SECONDS = 20
 
@@ -92,10 +93,17 @@ def _profile(expected_source_account_ref: str) -> _Profile:
     )
 
 
-def _get_json_list(profile: _Profile, *, offset: int, limit: int) -> list[dict[str, Any]]:
+def _get_json_list(
+    profile: _Profile,
+    *,
+    path: str,
+    resource_label: str,
+    offset: int,
+    limit: int,
+) -> list[dict[str, Any]]:
     try:
         response = requests.get(
-            f"{profile.base_url}{_PROPERTY_PATH}",
+            f"{profile.base_url}{path}",
             headers={
                 "x-buildium-client-id": profile.client_id,
                 "x-buildium-client-secret": profile.client_secret,
@@ -115,15 +123,18 @@ def _get_json_list(profile: _Profile, *, offset: int, limit: int) -> list[dict[s
         )
     if response.status_code == 403:
         raise BuildiumApiTransportError(
-            "forbidden", "Buildium API credentials lack permission for rental properties."
+            "forbidden",
+            f"Buildium API credentials lack permission for {resource_label}.",
         )
     if response.status_code == 429:
         raise BuildiumApiTransportError(
-            "rate_limited", "Buildium API rate limit was reached; retry the migration transport request."
+            "rate_limited",
+            "Buildium API rate limit was reached; retry the migration transport request.",
         )
     if response.status_code != 200:
         raise BuildiumApiTransportError(
-            "upstream_error", f"Buildium API request failed with HTTP {response.status_code}."
+            "upstream_error",
+            f"Buildium API request failed with HTTP {response.status_code}.",
         )
     try:
         payload = response.json()
@@ -133,35 +144,66 @@ def _get_json_list(profile: _Profile, *, offset: int, limit: int) -> list[dict[s
         ) from exc
     if not isinstance(payload, list) or any(not isinstance(item, dict) for item in payload):
         raise BuildiumApiTransportError(
-            "invalid_response", "Buildium API returned an unexpected rental-property response."
+            "invalid_response",
+            f"Buildium API returned an unexpected {resource_label} response.",
         )
     return payload
 
 
-def fetch_rental_properties(*, expected_source_account_ref: str) -> BuildiumApiFetchResult:
-    """Fetch one bounded complete rental-property set for the existing pipeline.
-
-    The current Buildium property schema accepts at most 500 reviewed records.
-    If the provider account has more than 500 rentals, fail rather than silently
-    truncate. A later batch can add explicit chunk/cursor review semantics.
-    """
-    profile = _profile(expected_source_account_ref)
-    first = _get_json_list(profile, offset=0, limit=_PAGE_LIMIT)
+def _fetch_bounded_collection(
+    *,
+    profile: _Profile,
+    path: str,
+    resource_label: str,
+) -> BuildiumApiFetchResult:
+    first = _get_json_list(
+        profile,
+        path=path,
+        resource_label=resource_label,
+        offset=0,
+        limit=_PAGE_LIMIT,
+    )
     requests_made = 1
     if len(first) == _PAGE_LIMIT:
-        probe = _get_json_list(profile, offset=_PAGE_LIMIT, limit=1)
+        probe = _get_json_list(
+            profile,
+            path=path,
+            resource_label=resource_label,
+            offset=_PAGE_LIMIT,
+            limit=1,
+        )
         requests_made += 1
         if probe:
             raise BuildiumApiTransportError(
                 "source_too_large",
-                f"Buildium rental-property source exceeds the bounded {_MAX_PROPERTY_RECORDS}-record API migration review.",
+                f"Buildium {resource_label} source exceeds the bounded "
+                f"{_MAX_REVIEW_RECORDS}-record API migration review.",
             )
     if not first:
         raise BuildiumApiTransportError(
-            "empty_source", "Buildium API returned no rental properties for this source account."
+            "empty_source",
+            f"Buildium API returned no {resource_label} for this source account.",
         )
     return BuildiumApiFetchResult(
         records=first,
         mode=profile.mode,
         request_count=requests_made,
+    )
+
+
+def fetch_rental_properties(*, expected_source_account_ref: str) -> BuildiumApiFetchResult:
+    """Fetch one bounded complete rental-property set for the existing pipeline."""
+    return _fetch_bounded_collection(
+        profile=_profile(expected_source_account_ref),
+        path=_PROPERTY_PATH,
+        resource_label="rental properties",
+    )
+
+
+def fetch_rental_units(*, expected_source_account_ref: str) -> BuildiumApiFetchResult:
+    """Fetch one bounded complete rental-unit set for the existing Unit pipeline."""
+    return _fetch_bounded_collection(
+        profile=_profile(expected_source_account_ref),
+        path=_UNIT_PATH,
+        resource_label="rental units",
     )

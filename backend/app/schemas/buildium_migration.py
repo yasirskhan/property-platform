@@ -181,6 +181,23 @@ class BuildiumUnitResolutionIn(BaseModel):
         return self
 
 
+class BuildiumApiUnitDryRunIn(BaseModel):
+    """Server-side Buildium API Unit preview; credentials are never request fields."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resolutions: list[BuildiumUnitResolutionIn] = Field(default_factory=list, max_length=500)
+
+
+class BuildiumApiUnitCommitIn(BaseModel):
+    """Commit a fresh server-side Unit API fetch only when review still matches."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolutions: list[BuildiumUnitResolutionIn] = Field(default_factory=list, max_length=500)
+
+
 class BuildiumUnitDryRunIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

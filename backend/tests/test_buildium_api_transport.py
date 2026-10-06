@@ -12,10 +12,15 @@ from app.core.security import hash_password
 from app.models.audit_log import AuditLog
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
-from app.models.property import Property
+from app.models.property import Property, PropertyType, Unit
 from app.models.user import Organization
 from app.routers import buildium_migrations as api
-from app.schemas.buildium_migration import BuildiumApiPropertyCommitIn, BuildiumApiPropertyDryRunIn
+from app.schemas.buildium_migration import (
+    BuildiumApiPropertyCommitIn,
+    BuildiumApiPropertyDryRunIn,
+    BuildiumApiUnitCommitIn,
+    BuildiumApiUnitDryRunIn,
+)
 from app.services import buildium_api_transport as transport
 from app.services.buildium_api_transport import BuildiumApiFetchResult, BuildiumApiTransportError
 
@@ -70,6 +75,62 @@ def _record(**changes):
         "YearBuilt": 2000,
         "RentalType": "Residential",
         "RentalSubType": "MultiFamily",
+    }
+    row.update(changes)
+    return row
+
+
+def _target_property_mapping(db, run):
+    prop = Property(
+        organization_id=run.organization_id,
+        name="API Lake Apartments",
+        property_type=PropertyType.MULTI_FAMILY,
+        address_line1="10 Lake Ave",
+        address_line2=None,
+        city="Cleveland",
+        state="OH",
+        zip_code="44113",
+        country="United States",
+        is_active=True,
+    )
+    db.add(prop)
+    db.flush()
+    db.add(PlatformMigrationItem(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider="BUILDIUM",
+        resource="PROPERTIES",
+        source_id="6001",
+        target_entity="PROPERTY",
+        target_id=prop.id,
+        source_fingerprint="a" * 64,
+    ))
+    db.commit()
+    return prop
+
+
+def _unit_record(**changes):
+    row = {
+        "Id": 6101,
+        "PropertyId": 6001,
+        "BuildingName": "API Lake Apartments",
+        "UnitNumber": "A-1",
+        "Description": None,
+        "MarketRent": 1200,
+        "Address": {
+            "AddressLine1": "10 Lake Ave",
+            "AddressLine2": "",
+            "AddressLine3": "",
+            "City": "Cleveland",
+            "State": "OH",
+            "PostalCode": "44113",
+            "Country": "United States",
+        },
+        "UnitBedrooms": "TwoBed",
+        "UnitBathrooms": "OneBath",
+        "UnitSize": 900,
+        "IsUnitListed": True,
+        "IsUnitOccupied": True,
     }
     row.update(changes)
     return row
@@ -209,5 +270,116 @@ def test_buildium_api_commit_refetch_detects_source_drift_and_routes_exist(monke
         assert "/api/platform/migrations/buildium/transport/status" in paths
         assert "/api/platform/migrations/buildium/runs/{run_id}/properties/api-dry-run" in paths
         assert "/api/platform/migrations/buildium/runs/{run_id}/properties/api-commit" in paths
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_buildium_transport_fetches_units_from_fixed_endpoint(monkeypatch):
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_MODE", "sandbox")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_ID", "client-id")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_SECRET", "unit-secret")
+    monkeypatch.setattr(
+        transport.settings, "BUILDIUM_API_SOURCE_ACCOUNT_REF", "sandbox-account-A"
+    )
+    calls = []
+    def fake_get(url, *, headers, params, timeout):
+        calls.append((url, headers.copy(), params.copy(), timeout))
+        return _Response(200, [_unit_record()])
+    monkeypatch.setattr(transport.requests, "get", fake_get)
+
+    result = transport.fetch_rental_units(
+        expected_source_account_ref="sandbox-account-A"
+    )
+    assert result.records[0]["Id"] == 6101
+    assert calls[0][0] == "https://apisandbox.buildium.com/v1/rentals/units"
+    assert calls[0][1]["x-buildium-client-secret"] == "unit-secret"
+    assert calls[0][2] == {"offset": 0, "limit": 500}
+
+
+def test_buildium_api_unit_route_reuses_property_mapping_and_does_not_infer_occupancy(monkeypatch):
+    db, engine = _session()
+    try:
+        admin = _admin(db); org = _org(db); run = _run(db, org)
+        _target_property_mapping(db, run)
+        def fetched(*, expected_source_account_ref):
+            assert expected_source_account_ref == "sandbox-account-A"
+            return BuildiumApiFetchResult(
+                records=[_unit_record()], mode="sandbox", request_count=1
+            )
+        monkeypatch.setattr(api, "fetch_rental_units", fetched)
+
+        reviewed = api.api_dry_run_buildium_units(
+            run.id, BuildiumApiUnitDryRunIn(), db=db, current_user=admin
+        )
+        assert reviewed.invalid == 0 and reviewed.importable == 1
+        assert any("source evidence only" in warning for warning in reviewed.rows[0].warnings)
+
+        committed = api.api_commit_buildium_units(
+            run.id,
+            BuildiumApiUnitCommitIn(fingerprint=reviewed.fingerprint),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.committed == 1
+        unit = db.query(Unit).one()
+        assert unit.unit_number == "A-1"
+        assert unit.is_available is None
+        mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(PlatformMigrationItem.resource == "UNITS")
+            .one()
+        )
+        assert mapping.target_entity == "UNIT"
+        assert mapping.target_id == unit.id
+
+        with pytest.raises(ValidationError):
+            BuildiumApiUnitDryRunIn(client_secret="secret")
+        with pytest.raises(ValidationError):
+            BuildiumApiUnitCommitIn(
+                fingerprint=reviewed.fingerprint, records=[_unit_record()]
+            )
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_buildium_api_unit_commit_refetch_detects_source_drift_and_routes_exist(monkeypatch):
+    from app.main import app
+    db, engine = _session()
+    try:
+        admin = _admin(db); org = _org(db); run = _run(db, org)
+        _target_property_mapping(db, run)
+        state = {"changed": False}
+        def fetched(*, expected_source_account_ref):
+            record = (
+                _unit_record(MarketRent=1300)
+                if state["changed"] else _unit_record()
+            )
+            return BuildiumApiFetchResult(
+                records=[record], mode="sandbox", request_count=1
+            )
+        monkeypatch.setattr(api, "fetch_rental_units", fetched)
+        reviewed = api.api_dry_run_buildium_units(
+            run.id, BuildiumApiUnitDryRunIn(), db=db, current_user=admin
+        )
+        state["changed"] = True
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_units(
+                run.id,
+                BuildiumApiUnitCommitIn(fingerprint=reviewed.fingerprint),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(Unit).count() == 0
+        assert (
+            db.query(PlatformMigrationItem)
+            .filter(PlatformMigrationItem.resource == "UNITS")
+            .count()
+            == 0
+        )
+
+        paths = set(app.openapi()["paths"])
+        assert "/api/platform/migrations/buildium/runs/{run_id}/units/api-dry-run" in paths
+        assert "/api/platform/migrations/buildium/runs/{run_id}/units/api-commit" in paths
     finally:
         db.close(); engine.dispose()
