@@ -80,21 +80,11 @@ def _source_identity(record: dict[str, Any]) -> tuple[dict[str, Any] | None, str
         or not re.fullmatch(r"[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+", email)
     ):
         return None, "Buildium Association Tenant Email must contain one valid email address."
-    tenant_id = None
-    if record.get("TenantId") is not None:
-        tenant_id = _positive_id(record.get("TenantId"))
-        if tenant_id is None:
-            return None, "Buildium Association Tenant TenantId must be a positive integer when supplied."
-    status = _clean(record.get("Status"))
-    if status is not None and len(status) > 100:
-        return None, "Buildium Association Tenant Status exceeds 100 characters."
     return {
         "source_id": source_id,
         "first_name": first_name,
         "last_name": last_name,
         "email": email.lower(),
-        "status": status,
-        "tenant_id": tenant_id,
     }, None
 
 
@@ -216,7 +206,7 @@ def dry_run_association_tenants(
         raise BuildiumAssociationTenantMigrationError("Migration run is not a Buildium run.")
     if not records:
         raise BuildiumAssociationTenantMigrationError(
-            "At least one Buildium Rental Applicant record is required."
+            "At least one Buildium Association Tenant record is required."
         )
 
     review = _normalize_resolutions(resolutions)
@@ -255,15 +245,6 @@ def dry_run_association_tenants(
             "Association Tenant identity reconciliation creates no customer login, lease, occupancy, ownership account, charge, payment, or accounting history.",
             "Source addresses, phone numbers, comments, emergency contact, ownership accounts, move dates and other private tenant details are not promoted or stored by this identity batch.",
         ]
-        if identity["tenant_id"] is not None:
-            warnings.append(
-                "Buildium TenantId is source evidence only; no applicant-to-tenant relationship is inferred."
-            )
-        if identity["status"] is not None:
-            warnings.append(
-                "Buildium Association Tenant Status is source context only and does not change target application state."
-            )
-
         candidate = db.query(User).filter(
             User.organization_id == run.organization_id,
             User.role == UserRole.TENANT,
@@ -315,7 +296,7 @@ def dry_run_association_tenants(
                 )
             if not _identity_matches(target, identity):
                 raise BuildiumAssociationTenantMigrationError(
-                    "Reviewed APPLICANT identity no longer matches the Buildium source name/email."
+                    "Reviewed TENANT identity no longer matches the Buildium source name/email."
                 )
             warnings.append(
                 f"Reviewed MATCH_EXISTING target: local TENANT #{target.id}; commit creates migration metadata only."
@@ -337,8 +318,6 @@ def dry_run_association_tenants(
                 "first_name": identity["first_name"],
                 "last_name": identity["last_name"],
                 "email": identity["email"],
-                "source_status": identity["status"],
-                "source_tenant_id": identity["tenant_id"],
                 "target_tenant_user_id": target_id,
             },
             "warnings": warnings, "resolution_action": action,
@@ -359,9 +338,10 @@ def dry_run_association_tenants(
         "total": len(records), "reviewable": reviewable,
         "skipped_review": skipped, "invalid": invalid,
         "warning_count": warning_count, "tenant_users_created": False,
-        "leases_created_from_identity_legacy_from_identity": False, "ownership_accounts_created": False,
-        "occupancy_created": False, "payments_created_from_identity": False, "leases_created_from_identity_legacy": False,
-        "move_history_created": False, "raw_payload_stored": False,
+        "leases_created_from_identity": False, "ownership_accounts_created": False,
+        "occupancy_created": False, "charges_created": False,
+        "payments_created_from_identity": False, "move_history_created": False,
+        "accounting_history_created": False, "raw_payload_stored": False,
         "provider_credentials_stored": False,
     }
     if not replayed:
@@ -447,7 +427,7 @@ def commit_association_tenants(
             )
         if not _identity_matches(target, row["mapped"]):
             raise BuildiumAssociationTenantMigrationError(
-                "Reviewed target APPLICANT identity changed after dry run."
+                "Reviewed target TENANT identity changed after dry run."
             )
         db.add(PlatformMigrationItem(
             run_id=run.id, organization_id=run.organization_id,
@@ -466,10 +446,10 @@ def commit_association_tenants(
 
     review_recorded = False
     if changed:
-        run.status = "APPLICANTS_MAPPED"
+        run.status = "HOA_TENANTS_MAPPED"
         db.flush()
     elif preview.skipped_review and not rows and run.status == "DRY_RUN_READY":
-        run.status = "APPLICANTS_REVIEWED"
+        run.status = "HOA_TENANTS_REVIEWED"
         db.flush()
         review_recorded = True
     return AssociationTenantCommitResult(
