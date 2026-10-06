@@ -28,9 +28,9 @@ def _session():
 
 def _admin(db):
     row = PlatformUser(
-        email="buildium-applicant-admin@example.com",
+        email="buildium-hoa-tenant-admin@example.com",
         hashed_password=hash_password("test-password"),
-        first_name="Buildium", last_name="Applicant",
+        first_name="Buildium", last_name="HoaTenant",
         role=PlatformUserRole.PLATFORM_ADMIN, is_active=True,
     )
     db.add(row); db.commit(); return row
@@ -39,7 +39,7 @@ def _org(db, name="HOA Tenant Org"):
     row = Organization(name=name, slug=name.lower().replace(" ", "-"), is_active=True)
     db.add(row); db.commit(); return row
 
-def _tenant(db, org, *, email="jane.hoa.tenant@example.com", role=UserRole.OWNER):
+def _tenant(db, org, *, email="jane.hoa.tenant@example.com", role=UserRole.TENANT):
     row = User(
         organization_id=org.id, email=email,
         hashed_password=hash_password("test-password"),
@@ -51,16 +51,20 @@ def _tenant(db, org, *, email="jane.hoa.tenant@example.com", role=UserRole.OWNER
 def _run(db, org):
     row = PlatformMigrationRun(
         organization_id=org.id, provider="BUILDIUM",
-        source_account_ref="buildium-applicants", status="DRAFT",
+        source_account_ref="buildium-hoa-tenants", status="DRAFT",
     )
     db.add(row); db.commit(); return row
 
 def _record(**changes):
     row = {
         "Id": 8801, "FirstName": "Jane", "LastName": "Tenant",
-        "Email": "jane.hoa.tenant@example.com", "Status": "Submitted",
-        "TenantId": None, "DateOfBirth": "PRIVATE-PHONE",
-        "PrivateNote": "PRIVATE ADDRESS",
+        "Email": "jane.hoa.tenant@example.com",
+        "AlternateEmail": "PRIVATE-ALT@example.com",
+        "PhoneNumbers": [{"Number": "PRIVATE-PHONE", "Type": "Mobile"}],
+        "PrimaryAddress": {"AddressLine1": "PRIVATE ADDRESS"},
+        "OwnershipAccounts": [{"Id": 501, "AssociationId": 7, "UnitId": 9}],
+        "MoveInDate": "2025-01-01", "MoveOutDate": None,
+        "EmergencyContact": {"Name": "PRIVATE EMERGENCY"},
     }
     row.update(changes)
     return row
@@ -73,6 +77,8 @@ def test_buildium_association_tenant_existing_identity_reconciles_and_replays_wi
         apps_before = db.query(LeaseApplication).count()
         payments_before = db.query(ApplicationPayment).count()
         leases_before = db.query(Lease).count()
+        charges_before = db.query(Charge).count()
+        gl_before = db.query(GLTransaction).count()
 
         preview = api.dry_run_buildium_association_tenants(
             run.id, BuildiumAssociationTenantDryRunIn(records=[_record()]),
@@ -107,6 +113,8 @@ def test_buildium_association_tenant_existing_identity_reconciles_and_replays_wi
         assert db.query(LeaseApplication).count() == apps_before
         assert db.query(ApplicationPayment).count() == payments_before
         assert db.query(Lease).count() == leases_before
+        assert db.query(Charge).count() == charges_before
+        assert db.query(GLTransaction).count() == gl_before
 
         replay_preview = api.dry_run_buildium_association_tenants(
             run.id,
@@ -125,7 +133,7 @@ def test_buildium_association_tenant_existing_identity_reconciles_and_replays_wi
         assert replay.rows[0].replayed is True
 
         items = base_api.list_migration_items(
-            run.id, response=Response(), resource="applicants", limit=20,
+            run.id, response=Response(), resource="hoa_tenants", limit=20,
             db=db, current_user=admin,
         )
         assert len(items) == 1
@@ -148,7 +156,7 @@ def test_buildium_association_tenant_review_is_scoped_and_target_drift_invalidat
     try:
         admin = _admin(db); org = _org(db); target = _tenant(db, org); run = _run(db, org)
         foreign_org = _org(db, "Foreign HOA Tenant Org")
-        foreign = _tenant(db, foreign_org, email="foreign.applicant@example.com")
+        foreign = _tenant(db, foreign_org, email="foreign.hoa.tenant@example.com")
         wrong_role = _tenant(db, org, email="owner-shaped@example.com", role=UserRole.OWNER)
 
         for bad_target in (foreign.id, wrong_role.id):
