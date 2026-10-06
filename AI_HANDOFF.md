@@ -1,3 +1,100 @@
+# AI_HANDOFF.md — 2026-10-06 PHASE 4.14 BUILDIUM SERVER API PROPERTY TRANSPORT VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+- Current VERIFIED product source:
+  `a0bd42fb26ae9adbead6c63f4bacfbd62c2f4b98`.
+- GitHub Actions run **37530916040 SUCCESS**, all six required jobs:
+  frontend, backend, security, platform-admin, staging-config, authenticated E2E.
+- Backend/PostgreSQL: **1093 passed, 21 deselected, 28161 warnings in 486.88s**.
+- Authenticated E2E: **21 passed, 278 warnings in 113.07s**.
+- Alembic remains `1b8d3f6a9c20`; expected model tables remain **202**.
+  This batch adds no migration or target business table.
+- Initial transport source `544e1622b5653c61f0d74ac46ab6a48f38119471`
+  failed exactly one new test assertion because append-only audit JSON is compact
+  (`"credentials_stored":false`) while the test expected a space after the colon.
+  Backend otherwise reported **1092 passed, 21 deselected**. Corrective
+  `a0bd42fb` changes only those serialization assertions; no product behavior changed.
+
+## Buildium server-to-server API property transport
+
+Verified routes:
+- `GET /api/platform/migrations/buildium/transport/status`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/properties/api-dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/properties/api-commit`
+
+Verified transport contract:
+- Buildium Open API remains disabled by default;
+- fixed official sandbox and production hosts only; no caller-controlled base URL;
+- server settings hold Buildium client ID/secret and one operator-bound
+  `BUILDIUM_API_SOURCE_ACCOUNT_REF`; migration request bodies cannot accept credentials;
+- source-account mismatch fails before provider retrieval;
+- Buildium authentication uses server-to-server `x-buildium-client-id` and
+  `x-buildium-client-secret` headers;
+- provider response bodies and secrets are never copied into migration rows, audit,
+  error details or browser payloads;
+- rental-property API retrieval is bounded to the existing 500-row reviewed property
+  contract and explicitly fails rather than silently truncating a larger source;
+- provider 401/403/429/invalid-response failures are sanitized;
+- API dry run feeds the existing verified Buildium Property mapping/review/fingerprint
+  pipeline rather than creating a transport-specific migration system;
+- API commit performs a fresh provider fetch and reuses the exact reviewed fingerprint,
+  so provider-source drift fails closed before target mutation;
+- successful commit still uses the existing Property commit/mapping/idempotency rules.
+
+Official Buildium v1 documentation currently confirms production
+`https://api.buildium.com/`, sandbox `https://apisandbox.buildium.com/`, API-key
+headers, server-to-server access, v1 rental property `GET /v1/rentals`, and bounded
+`offset`/`limit` collection retrieval. No browser-side credential flow was added.
+
+## Association ownership-account blocker preserved
+
+The next Association-side ownership-account record is intentionally **not** mapped to
+`PropertyOwner` or `HOAContactLink`: Buildium ownership accounts are unit-scoped and
+carry `AssociationId`, `UnitId`, owner IDs, purchase/sale dates, status and delinquency
+state. The current `PropertyOwner` target is property-scoped, while `HOAContactLink`
+explicitly does not establish ownership. Mapping either would invent semantics.
+Board-member and architectural-request records that depend on ownership relationships
+remain blocked until a verified target ownership-account relationship exists.
+
+## Phase 4.14 cumulative direction
+
+Preserve all previously verified Buildium resources and do not repeat them:
+Properties, Units, Owners, owner/property relationships, Vendors, Tenants, Leases,
+GL Accounts, Work Orders, Bills, Bank Accounts, bounded Bill Payments, Property Groups,
+Property Reserves, Lease Charges, Budgets, Lease Payments, Bank Reconciliations,
+bounded Bank Transfers, Company Bank Withdrawals, Company Quick Deposits, full
+payment-only Bank Deposits, bounded Bank Checks, renters-insurance reconciliation,
+Rental Applicant identity, HOA Association identity, HOA Association Unit
+reconciliation, HOA Association Owner identity, HOA Association Tenant identity, and
+now server-side Buildium API transport for Properties.
+
+General historical GL posting remains blocked where Buildium source evidence does not
+prove debit/credit direction and target posting semantics. Never fabricate balancing
+entries or infer accounting direction from an amount.
+
+## Exact next action
+
+Continue Phase 4.14 by extending the **same** server-side transport to the already
+verified Buildium Unit pipeline. Current official Buildium v1 documentation exposes
+`GET /v1/rentals/units` with stable `Id`, `PropertyId`, `UnitNumber`, market rent,
+address/layout and occupancy/listing fields. Preserve the existing Unit migration rule
+that the source parent Property must resolve through the same Buildium migration run.
+Use the same source-account binding, bounded retrieval, sanitized errors, exact
+fingerprint, fresh-fetch commit and no credential/raw-response persistence. Do not
+promote provider occupancy flags into lease/tenant facts beyond the existing verified
+Unit contract.
+
+Do not start Phase 4.15 Yardi until Phase 4.14 is explicitly closed.
+Do not start general UX work. Preserve `docs/NAVIGATION_INTEGRITY_PLAN.md` and the
+complete HIDDEN MENU / UNHIDE ROADMAP.
+
+---
+
 # AI_HANDOFF.md — 2026-10-06 PHASE 4.14 BUILDIUM ASSOCIATION TENANT IDENTITY VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
