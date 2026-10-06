@@ -1,3 +1,131 @@
+# AI_HANDOFF.md — 2026-10-06 PHASE 4.14 BUILDIUM ASSOCIATION UNIT + OWNER IDENTITY VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+- Current VERIFIED product source:
+  `e79caf8f09455d4d848b83fa8c9120f704eeae4c`.
+- GitHub Actions run **37505503821 SUCCESS**, all six required jobs:
+  frontend, backend, security, platform-admin, staging-config, authenticated E2E.
+- Backend/PostgreSQL: **1086 passed, 21 deselected, 28091 warnings in 535.66s**.
+- Authenticated E2E: **21 passed, 278 warnings in 72.03s**.
+- Alembic remains `1b8d3f6a9c20`; expected model tables remain **202**.
+  These batches add no migration or target business table.
+
+## Buildium Association Unit existing-target reconciliation
+
+Verified bounded routes:
+- `POST /api/platform/migrations/buildium/runs/{run_id}/hoa-units/dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/hoa-units/commit`
+
+Verified safety contract:
+- stable positive Buildium Association Unit `Id` is durable source identity;
+- `AssociationId` must already resolve through the same-run
+  `HOA_ASSOCIATIONS -> HOA_ASSOCIATION` mapping;
+- optional `AssociationName` must agree with the already-mapped target;
+- `UnitNumber` is required and reviewed against an already-existing active
+  same-organization target Unit;
+- the target Unit's Property must already have an explicit
+  `HOAPropertyMembership` to the mapped target Association;
+- review supports only explicit `MATCH_EXISTING` or `SKIP`;
+- the Association mapping, target Unit/Property and membership snapshots are
+  fingerprint-bound so dependency or target drift fails closed before commit;
+- commit creates only durable
+  `BUILDIUM / HOA_UNITS / HOA_UNIT_RELATIONSHIP` migration metadata;
+- replay is idempotent and mapping visibility resolves the current Unit label.
+
+Explicit exclusions:
+- no Unit, Property, HOAPropertyMembership, owner/tenant relationship, dues,
+  assessment, board right, reserve, bank mapping, Charge or GL history is
+  created or changed;
+- source address, size, bedroom and bathroom fields remain source evidence only
+  in this bounded relationship batch and are not promoted to target fields.
+
+## Buildium Association Owner identity reconciliation
+
+Verified bounded routes:
+- `POST /api/platform/migrations/buildium/runs/{run_id}/hoa-owners/dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/hoa-owners/commit`
+
+Verified safety contract:
+- stable positive Buildium Association Owner `Id` is durable source identity;
+- positive `UserLeaseId`, first name, last name and a bounded normalized email
+  are required source identity facts;
+- review supports only explicit `MATCH_EXISTING` or `SKIP`;
+- `MATCH_EXISTING` requires an already-existing active same-organization
+  target User with role `OWNER` and exact supported identity match;
+- current target identity is fingerprint-bound so name/email/status drift fails
+  closed before commit;
+- commit creates only durable
+  `BUILDIUM / HOA_OWNERS / OWNER_USER` migration metadata;
+- replay is idempotent.
+
+Explicit exclusions:
+- owner identity alone does not create or prove an Association/Unit ownership
+  account, PropertyOwner row, occupancy, dues liability, board authority or
+  voting rights;
+- Buildium alternate email, phone, address and BoardMemberTerm data are not
+  persisted into migration audit metadata and are not promoted by this batch;
+- no User, HOA membership, Charge, GLTransaction, GLEntry or accounting history
+  is created or changed.
+
+## Current Association-side source boundary
+
+The current official Buildium v1 contract separately exposes Association
+ownership accounts and owner-to-unit occupancy. Those records contain explicit
+Association/Unit/Owner relationship facts and must not be inferred merely from
+the Association Owner identity record. The target currently lacks a verified
+one-to-one ownership-account contract for blindly importing those records, so
+do not synthesize unit ownership or occupancy.
+
+The official Association Tenant resource does expose stable tenant identity
+fields independently of its ownership/move-date context. The next bounded
+candidate may reconcile **Association Tenant identity only** to an already-
+existing same-organization target TENANT user, with explicit review and exact
+fingerprinting. Do not create a tenant login, Lease, occupancy, ownership
+account, move-in/out history, charge, payment or GL history from that identity
+record.
+
+## Phase 4.14 cumulative direction
+
+Preserve all previously verified Buildium resources and do not repeat them:
+Properties, Units, Owners, owner/property relationships, Vendors, Tenants,
+Leases, GL Accounts, Work Orders, Bills, Bank Accounts, bounded Bill Payments,
+Property Groups, Property Reserves, Lease Charges, Budgets, Lease Payments,
+Bank Reconciliations, bounded Bank Transfers, Company Bank Withdrawals, Company
+Quick Deposits, full payment-only Bank Deposits, bounded Bank Checks,
+renters-insurance reconciliation, Rental Applicant identity, HOA Association
+identity, HOA Association Unit reconciliation and HOA Association Owner identity.
+
+General Buildium historical GL posting remains blocked where the provider source
+does not independently prove debit/credit direction and target posting semantics.
+Never fabricate balancing data or infer accounting direction from an amount.
+
+Buildium API credentials/transport remain deferred and must eventually feed the
+same verified provider-labelled migration pipeline. Provider secrets and raw
+response bodies must stay outside migration rows, audit and browser code.
+
+## Exact next action
+
+Continue Phase 4.14 with **Buildium Association Tenant identity
+existing-target reconciliation** as the next independently supportable bounded
+candidate, after rechecking the current official source contract against the
+target User/TENANT contract.
+
+Use the same provider-labelled run, explicit review, exact fingerprint, durable
+mapping, replay/idempotency and organization-isolation architecture. Keep
+ownership-account, unit occupancy, move dates, emergency contact and financial
+semantics explicitly out of the identity-only batch.
+
+Do not start Phase 4.15 Yardi until Phase 4.14 is explicitly closed.
+Do not start general UX work. Preserve `docs/NAVIGATION_INTEGRITY_PLAN.md`
+and the complete HIDDEN MENU / UNHIDE ROADMAP.
+
+---
+
 # AI_HANDOFF.md — 2026-10-06 PHASE 4.14 BUILDIUM HOA ASSOCIATION IDENTITY VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
