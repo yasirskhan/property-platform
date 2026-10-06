@@ -1,4 +1,4 @@
-"""Buildium Rental Applicant identity reconciliation routes."""
+"""Buildium Association Tenant identity reconciliation routes."""
 from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
@@ -74,10 +74,10 @@ def commit_buildium_association_tenants(
                     "matched_existing": result.matched_existing,
                     "skipped_review": result.skipped_review,
                     "tenant_users_created": False,
-                    "leases_created_from_identity_legacy_from_identity": False,
+                    "leases_created_from_identity": False,
                     "ownership_accounts_created": False, "occupancy_created": False,
-                    "payments_created_from_identity": False, "leases_created_from_identity_legacy": False,
-                    "move_history_created": False,
+                    "charges_created": False, "payments_created_from_identity": False,
+                    "move_history_created": False, "accounting_history_created": False,
                     "raw_payload_stored": False,
                     "provider_credentials_stored": False,
                 },
