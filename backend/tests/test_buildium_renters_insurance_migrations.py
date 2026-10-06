@@ -364,7 +364,7 @@ def test_buildium_renters_insurance_skip_cross_org_and_routes():
     db, engine = _session()
     try:
         admin = _admin(db)
-        _, _, _, _, _, policy, run, _, _ = _fixture(db)
+        _, prop, _, _, _, policy, run, _, _ = _fixture(db)
 
         skip = BuildiumRentersInsuranceResolutionIn(
             source_id=9701,
