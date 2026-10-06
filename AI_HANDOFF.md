@@ -1,3 +1,101 @@
+# AI_HANDOFF.md — 2026-10-06 PHASE 4.14 BUILDIUM RENTERS INSURANCE VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+- Current VERIFIED product source:
+  `4bb49b37c4d5b62a20f506c46a0a27f77e0065cd`.
+- GitHub Actions run **37424594146 SUCCESS**, all six required jobs:
+  frontend, backend, security, platform-admin, staging-config, authenticated E2E.
+- Backend/PostgreSQL: **1074 passed, 21 deselected, 27882 warnings in 542.31s**.
+- Authenticated E2E: **21 passed, 278 warnings in 116.44s**.
+- Alembic remains `1b8d3f6a9c20`; expected model tables remain **202**.
+  This batch adds no migration or target business table.
+- Initial renters-insurance source `391c8a73bd4078e30acf21d679a6782e7ca5b008`
+  ran CI **37423636219** and failed exactly one new regression fixture with
+  `NameError: prop is not defined`; **1073 other backend tests passed**.
+  Corrective source `4bb49b37` changes only that test fixture binding and the
+  exact-head CI is fully green. Do not represent the first run as green.
+
+## Latest verified Phase 4.14 batch — Buildium renters insurance
+
+Verified bounded endpoints:
+- `POST /api/platform/migrations/buildium/runs/{run_id}/renters-insurance/dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/renters-insurance/commit`
+
+This is an **existing-target reconciliation**, not an insurance importer.
+It reuses the same provider-labelled `PlatformMigrationRun` /
+`PlatformMigrationItem`, exact-fingerprint, explicit-review,
+replay/idempotency and organization-isolation architecture.
+
+Verified contract:
+- stable positive Buildium policy `Id` is durable source identity;
+- the source Lease ID is required as explicit retrieval-path context;
+- the same-run Buildium Lease and Tenant mappings are mandatory;
+- exactly one documented insured tenant is supported because the target
+  `TenantInsurance` row is tenant-specific;
+- cancelled source policies are blocked because the target has no
+  cancellation-date field and the source fact must not be discarded;
+- effective/expiration dates are validated conservatively;
+- review supports only explicit `MATCH_EXISTING` or `SKIP`;
+- the reviewed target must already exist in the same organization and exactly
+  match the mapped Lease/Tenant and supported policy facts;
+- source/dependency/target snapshots are fingerprint-bound so mapping or target
+  drift fails closed before commit;
+- commit writes only durable
+  `BUILDIUM / RENTERS_INSURANCE / TENANT_INSURANCE_RELATIONSHIP` migration
+  metadata; replay is idempotent.
+
+Explicitly NOT supported / NOT inferred:
+- no `TenantInsurance`, Lease, User, document, Receipt, payment,
+  `GLTransaction`, `GLEntry`, balance or accounting history is created or
+  edited;
+- no coverage amount is inferred where the source does not safely prove it;
+- no target verification status is inferred from the provider record;
+- no policy document is copied;
+- multi-insured policies and cancelled-policy semantics remain blocked rather
+  than flattened;
+- raw source notes/policy text and provider credentials are not stored in audit.
+
+## Phase 4.14 cumulative direction
+
+Preserve all previously verified Buildium resources and do not repeat them:
+Properties, Units, Owners, owner/property relationships, Vendors, Tenants,
+Leases, GL Accounts, Work Orders, Bills, Bank Accounts, bounded Bill Payments,
+Property Groups, Property Reserves, Lease Charges, Budgets, Lease Payments,
+Bank Reconciliations, bounded Bank Transfers, Company Bank Withdrawals, Company
+Quick Deposits, full payment-only Bank Deposits, bounded Bank Checks, and now
+renters-insurance reconciliation.
+
+General Buildium historical GL posting remains blocked where the provider source
+does not independently prove debit/credit direction and target posting semantics.
+Never fabricate balancing data or infer accounting direction from an amount.
+
+Buildium API credentials/transport remain a later transport concern and must feed
+the same verified provider-labelled pipeline. Never store provider secrets or raw
+response bodies in migration rows or audit.
+
+## Exact next action
+
+Continue Phase 4.14 with the next independently supportable documented Buildium
+resource after comparing the current official Buildium source contract with the
+existing target contract. The next selected bounded candidate is **Rental
+Applicant identity reconciliation**, existing-target only: stable Buildium
+Applicant identity to an existing same-organization `APPLICANT` user with
+explicit review and exact fingerprinting. Do not create login users, rental
+applications, screening/SSN data, payments, leases, or infer applicant-to-tenant
+relationships. If the current official source cannot safely prove the necessary
+identity fields, leave it blocked and select the next independent candidate.
+
+Do not start Phase 4.15 Yardi until Phase 4.14 is explicitly closed.
+Do not start general UX work. Preserve `docs/NAVIGATION_INTEGRITY_PLAN.md`
+and the complete HIDDEN MENU / UNHIDE ROADMAP.
+
+---
+
 # AI_HANDOFF.md — 2026-10-06 PHASE 4.14 BUILDIUM BANK CHECKS VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
