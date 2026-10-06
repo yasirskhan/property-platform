@@ -231,7 +231,7 @@ def test_buildium_hoa_owner_identity_scope_and_fingerprint_stability():
         foreign_owner = _owner(
             db,
             foreign_org,
-            email="jamie.owner@example.com",
+            email="foreign.jamie.owner@example.com",
             first="Jamie",
             last="Owner",
         )
