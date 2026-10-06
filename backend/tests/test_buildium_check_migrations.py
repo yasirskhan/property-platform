@@ -13,7 +13,7 @@ from app.core.database import Base
 from app.core.security import hash_password
 from app.models.audit_log import AuditLog
 from app.models.bank_account import BankAccount
-from app.models.check import Check, CheckBillAllocation
+from app.models.check import Check
 from app.models.gl_account import GLAccount
 from app.models.gl_entry import GLEntry
 from app.models.gl_transaction import GLTransaction
@@ -289,14 +289,6 @@ def test_buildium_bank_check_fails_closed_for_allocations_scope_and_drift():
         )
         assert wrong_total.invalid == 1
         assert "exactly equal" in wrong_total.rows[0].reason
-
-        check.allocations.append(CheckBillAllocation(bill_id=999999, amount=Decimal("1.00")))
-        with pytest.raises(Exception):
-            db.flush()
-        db.rollback()
-        # Use a persisted allocation-like relationship only after a real Bill exists is
-        # impossible in this focused fixture; the service boundary is covered by
-        # target drift and source-scope assertions below.
 
         resolution = BuildiumCheckResolutionIn(
             source_id=9301, action="MATCH_EXISTING", target_check_id=check.id,
