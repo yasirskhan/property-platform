@@ -9,8 +9,10 @@ import init_db  # noqa: F401
 from app.core.database import Base
 from app.core.security import hash_password
 from app.models.application import ApplicationPayment, LeaseApplication
+from app.models.charge import Charge
 from app.models.audit_log import AuditLog
 from app.models.lease import Lease
+from app.models.gl_transaction import GLTransaction
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.user import Organization, User, UserRole
