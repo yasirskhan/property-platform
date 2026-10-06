@@ -1,3 +1,108 @@
+# AI_HANDOFF.md — 2026-10-06 PHASE 4.14 BUILDIUM HOA ASSOCIATION IDENTITY VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+- Current VERIFIED product source:
+  `604594c9cdadcc970a5cdc05ca33948f899ecda9`.
+- GitHub Actions run **37492934639 SUCCESS**, all six required jobs:
+  frontend, backend, security, platform-admin, staging-config, authenticated E2E.
+- Backend/PostgreSQL: **1080 passed, 21 deselected, 27976 warnings in 483.06s**.
+- Authenticated E2E: **21 passed, 278 warnings in 117.03s**.
+- Alembic remains `1b8d3f6a9c20`; expected model tables remain **202**.
+  This batch adds no migration or target business table.
+
+## Immediately preceding verified Phase 4.14 batch — Rental Applicant identity
+
+The branch had advanced before this session resumed Phase 4.14. The applicant
+identity batch is independently VERIFIED at source
+`b36fec05386c4448da528d0c061fe31288ed8e01`, GitHub Actions
+**37489134208 SUCCESS** all six jobs: **1077 backend passed, 21 deselected,
+27928 warnings** and **21 authenticated E2E passed, 278 warnings**.
+
+That batch maps a stable Buildium Applicant identity to an already-existing
+same-organization `APPLICANT` user through explicit `MATCH_EXISTING` review.
+It creates no customer login, LeaseApplication, screening/SSN record, payment,
+lease or inferred applicant-to-tenant relationship. Durable mapping:
+`BUILDIUM / APPLICANTS / APPLICANT_USER`.
+
+## Latest verified Phase 4.14 batch — Buildium HOA Association identity
+
+Verified bounded routes:
+- `POST /api/platform/migrations/buildium/runs/{run_id}/hoa-associations/dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/hoa-associations/commit`
+
+This is an **existing-target identity reconciliation**, not an HOA importer.
+It reuses the shared provider-labelled `PlatformMigrationRun` /
+`PlatformMigrationItem`, exact-fingerprint, explicit-review,
+replay/idempotency and organization-isolation architecture.
+
+Verified contract:
+- stable positive Buildium Association `Id` is durable source identity;
+- source `Name` is required and bounded to the target name limit;
+- source `IsActive` must be an explicit boolean;
+- review supports only explicit `MATCH_EXISTING` or `SKIP`;
+- `MATCH_EXISTING` requires an existing same-organization
+  `HOAAssociation` with exact case-insensitive name and identical active state;
+- the reviewed target snapshot is fingerprint-bound so name/status drift fails
+  closed before commit;
+- commit writes only durable
+  `BUILDIUM / HOA_ASSOCIATIONS / HOA_ASSOCIATION` migration metadata;
+- replay is idempotent and mapping visibility resolves the current target label.
+
+Explicitly NOT supported / NOT inferred:
+- no `HOAAssociation`, Property, `HOAPropertyMembership`, owner/contact
+  relationship, assessment, dues, board record, notice, reserve movement,
+  bank mapping, `Charge`, `GLTransaction`, `GLEntry` or accounting history
+  is created or edited;
+- Buildium address, reserve, operating-bank, description, year-built, tax or
+  other source fields are not promoted by this identity-only batch;
+- raw provider descriptions, addresses, tax-like values, response bodies and
+  credentials are not stored in migration audit metadata.
+
+## Phase 4.14 cumulative direction
+
+Preserve all previously verified Buildium resources and do not repeat them:
+Properties, Units, Owners, owner/property relationships, Vendors, Tenants,
+Leases, GL Accounts, Work Orders, Bills, Bank Accounts, bounded Bill Payments,
+Property Groups, Property Reserves, Lease Charges, Budgets, Lease Payments,
+Bank Reconciliations, bounded Bank Transfers, Company Bank Withdrawals, Company
+Quick Deposits, full payment-only Bank Deposits, bounded Bank Checks,
+renters-insurance reconciliation, Rental Applicant identity and now HOA
+Association identity reconciliation.
+
+General Buildium historical GL posting remains blocked where the provider source
+does not independently prove debit/credit direction and target posting semantics.
+Never fabricate balancing data or infer accounting direction from an amount.
+
+Buildium API credentials/transport remain a later transport concern and must feed
+the same verified provider-labelled pipeline. Never store provider secrets or raw
+response bodies in migration rows or audit.
+
+## Exact next action
+
+Continue Phase 4.14 with the next independently supportable documented Buildium
+resource only after comparing the current official source contract with the
+existing target contract.
+
+For Association-side data, do **not** infer an
+`HOAPropertyMembership` merely from the Association identity. A next
+Association property/unit relationship batch is allowed only if the official
+source supplies stable Association-side property/unit identity that can be
+reconciled explicitly to an already-mapped target Property/Unit without
+inventing ownership, dues liability, board authority, reserve accounting or
+bank semantics. Otherwise leave that relationship blocked and select another
+independent documented Buildium candidate.
+
+Do not start Phase 4.15 Yardi until Phase 4.14 is explicitly closed.
+Do not start general UX work. Preserve `docs/NAVIGATION_INTEGRITY_PLAN.md`
+and the complete HIDDEN MENU / UNHIDE ROADMAP.
+
+---
+
 # AI_HANDOFF.md — 2026-10-06 PHASE 4.14 BUILDIUM RENTERS INSURANCE VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
