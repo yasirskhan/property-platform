@@ -2090,6 +2090,19 @@ def list_migration_items(
             if target is not None:
                 target_exists = True
                 target_label = target.name
+        elif item.target_entity == "HOA_UNIT_RELATIONSHIP":
+            target = (
+                db.query(Unit)
+                .join(Property, Property.id == Unit.property_id)
+                .filter(
+                    Unit.id == item.target_id,
+                    Property.organization_id == row.organization_id,
+                )
+                .first()
+            )
+            if target is not None:
+                target_exists = True
+                target_label = f"HOA Unit #{target.id}: {target.unit_number}"
         elif item.target_entity == "LEASE_RELATIONSHIP":
             target = (
                 db.query(Lease)
