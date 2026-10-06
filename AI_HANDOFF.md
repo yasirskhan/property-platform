@@ -1,3 +1,109 @@
+# AI_HANDOFF.md — 2026-10-06 PHASE 4.14 BUILDIUM ASSOCIATION TENANT IDENTITY VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+- Current VERIFIED product source:
+  `0b42933ac4e3792a5687791f6291b925199a50cc`.
+- GitHub Actions run **37524072233 SUCCESS**, all six required jobs:
+  frontend, backend, security, platform-admin, staging-config, authenticated E2E.
+- Backend/PostgreSQL: **1089 passed, 21 deselected, 28137 warnings in 377.07s**.
+- Authenticated E2E: **21 passed, 278 warnings in 114.49s**.
+- Alembic remains `1b8d3f6a9c20`; expected model tables remain **202**.
+  This batch adds no migration or target business table.
+- The preceding association-tenant registration source
+  `c4f5ffee4468f3feb73d1460ebca6423c557f2f5` failed exactly one new
+  regression because the test referenced `Charge` without importing it.
+  The corrective commit `0b42933a` adds the missing `Charge` and
+  `GLTransaction` test imports only; no product behavior changed.
+
+## Buildium Association Tenant existing-target identity reconciliation
+
+Verified bounded routes:
+- `POST /api/platform/migrations/buildium/runs/{run_id}/hoa-tenants/dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/hoa-tenants/commit`
+
+Verified safety contract:
+- stable positive Buildium Association Tenant `Id` is durable source identity;
+- first name, last name and one bounded valid primary email are required source
+  identity facts;
+- review supports only explicit `MATCH_EXISTING` or `SKIP`;
+- `MATCH_EXISTING` requires an already-existing active same-organization
+  target User with role `TENANT` and exact supported name/email identity;
+- the reviewed target snapshot is fingerprint-bound so identity, active/deleted
+  state or review drift fails closed before commit;
+- commit creates only durable
+  `BUILDIUM / HOA_TENANTS / TENANT_USER` migration metadata;
+- replay is idempotent and mapping visibility resolves the current target email.
+
+Explicit exclusions:
+- no customer login, User, LeaseApplication, Lease, ownership account,
+  occupancy, move-in/out history, Charge, payment, Receipt, GLTransaction,
+  GLEntry or accounting history is created or changed;
+- alternate email, phone numbers, addresses, comments, emergency contact,
+  ownership-account contents and move dates remain provider source evidence
+  only and are not persisted by this identity batch;
+- source identity alone does not prove HOA unit occupancy, dues liability,
+  ownership rights or any financial obligation.
+
+## Current official Buildium source boundary
+
+Current Buildium v1 documentation confirms Association Tenant records expose
+stable tenant identity fields separately from `OwnershipAccounts`, move dates
+and private contact details. Association ownership accounts separately expose
+`Id`, `AssociationId`, `UnitId`, status, purchase/sale dates,
+`AssociationOwnerIds` and delinquency state. Board members are separately tied
+to an Association Owner and have board position and term dates.
+
+Do not infer target unit ownership, occupancy, board authority, dues liability
+or ARC rights from tenant/owner identity rows. Any later Association ownership,
+board or ARC migration must have an explicit target contract and all required
+same-run dependency mappings.
+
+## Phase 4.14 cumulative direction
+
+Preserve all previously verified Buildium resources and do not repeat them:
+Properties, Units, Owners, owner/property relationships, Vendors, Tenants,
+Leases, GL Accounts, Work Orders, Bills, Bank Accounts, bounded Bill Payments,
+Property Groups, Property Reserves, Lease Charges, Budgets, Lease Payments,
+Bank Reconciliations, bounded Bank Transfers, Company Bank Withdrawals, Company
+Quick Deposits, full payment-only Bank Deposits, bounded Bank Checks,
+renters-insurance reconciliation, Rental Applicant identity, HOA Association
+identity, HOA Association Unit reconciliation, HOA Association Owner identity
+and now HOA Association Tenant identity.
+
+General Buildium historical GL posting remains blocked where provider source
+does not independently prove debit/credit direction and target posting
+semantics. Never fabricate balancing data or infer accounting direction from an
+amount.
+
+Buildium API credentials/transport must eventually feed this same
+provider-labelled migration pipeline. Provider secrets and raw response bodies
+must stay outside migration rows, audit and browser code. Do not create a
+parallel transport-specific migration architecture.
+
+## Exact next action
+
+Continue Phase 4.14 by comparing the next official Buildium Association-side
+resource against the verified target contract before implementation.
+
+Ownership accounts are not automatically equivalent to the target
+`PropertyOwner` or HOA contact/member records because Buildium ownership is
+unit-scoped and carries purchase/sale/delinquency semantics. Board-member and
+architectural-request records also depend on ownership relationships that must
+not be invented. If those contracts cannot be reconciled safely to existing
+targets, keep them explicitly blocked and move to the next independently
+supportable documented Buildium resource.
+
+Do not start Phase 4.15 Yardi until Phase 4.14 is explicitly closed.
+Do not start general UX work. Preserve `docs/NAVIGATION_INTEGRITY_PLAN.md`
+and the complete HIDDEN MENU / UNHIDE ROADMAP.
+
+---
+
 # AI_HANDOFF.md — 2026-10-06 PHASE 4.14 BUILDIUM ASSOCIATION UNIT + OWNER IDENTITY VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
