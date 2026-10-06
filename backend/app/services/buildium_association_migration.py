@@ -206,9 +206,14 @@ def _identity_matches(
     target: HOAAssociation,
     identity: dict[str, Any],
 ) -> bool:
+    source_is_active = identity.get(
+        "is_active",
+        identity.get("source_is_active"),
+    )
     return (
         target.name.strip().casefold() == identity["name"].casefold()
-        and bool(target.is_active) is identity["is_active"]
+        and isinstance(source_is_active, bool)
+        and bool(target.is_active) is source_is_active
     )
 
 
