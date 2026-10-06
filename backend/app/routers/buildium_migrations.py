@@ -26,6 +26,7 @@ from app.models.bank_account import BankAccount
 from app.models.bank_reconciliation import BankReconciliation
 from app.models.check import Check
 from app.models.charge import Charge
+from app.models.deposit import Deposit
 from app.models.user import Organization
 from app.routers.platform_auth import get_current_platform_user
 from app.schemas.buildium_migration import (
@@ -2201,6 +2202,23 @@ def list_migration_items(
                 target_label = (
                     f"Bank adjustment GL transaction #{target.id}: "
                     f"{target.transaction_date.isoformat()}"
+                )
+        elif item.target_entity == "DEPOSIT_RELATIONSHIP":
+            target = (
+                db.query(Deposit)
+                .filter(
+                    Deposit.id == item.target_id,
+                    Deposit.organization_id == row.organization_id,
+                    Deposit.is_active.is_(True),
+                    Deposit.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target is not None:
+                target_exists = True
+                target_label = (
+                    f"Deposit #{target.id}: {target.deposit_date.isoformat()} "
+                    f"{target.total}"
                 )
         elif item.target_entity == "GL_ACCOUNT":
             target = (
