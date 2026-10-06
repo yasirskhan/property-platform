@@ -89,6 +89,14 @@ class Settings(BaseSettings):
     AVALARA_1099_ISSUER_ID: str = ""
     AVALARA_1099_API_VERSION: str = "2.0.0"
 
+    # --- Buildium Phase 4.14 server-to-server migration transport ---
+    # Disabled by default. Credentials remain server-side and are never accepted
+    # from browser/API migration payloads or stored on migration rows.
+    BUILDIUM_API_MODE: str = "disabled"  # disabled | sandbox | production
+    BUILDIUM_API_CLIENT_ID: str = ""
+    BUILDIUM_API_CLIENT_SECRET: str = ""
+    BUILDIUM_API_SOURCE_ACCOUNT_REF: str = ""
+
     @model_validator(mode="after")
     def reject_development_secrets_outside_development(self) -> "Settings":
         env = self.ENVIRONMENT.strip().lower()
@@ -154,6 +162,23 @@ class Settings(BaseSettings):
                 raise ValueError("Avalara sandbox requires client id, client secret, and issuer id")
             if not self.AVALARA_1099_API_VERSION.strip():
                 raise ValueError("Avalara API version is required")
+
+        buildium_mode = self.BUILDIUM_API_MODE.strip().lower()
+        if buildium_mode not in {"disabled", "sandbox", "production"}:
+            raise ValueError("BUILDIUM_API_MODE must be disabled, sandbox, or production")
+        buildium_client_id = self.BUILDIUM_API_CLIENT_ID.strip()
+        buildium_client_secret = self.BUILDIUM_API_CLIENT_SECRET.strip()
+        if bool(buildium_client_id) != bool(buildium_client_secret):
+            raise ValueError("Buildium API client id and secret must be configured together")
+        if buildium_mode != "disabled":
+            if not all((
+                buildium_client_id,
+                buildium_client_secret,
+                self.BUILDIUM_API_SOURCE_ACCOUNT_REF.strip(),
+            )):
+                raise ValueError(
+                    "Enabled Buildium API transport requires client id, client secret, and source account reference"
+                )
 
         if not 0.0 <= self.SENTRY_TRACES_SAMPLE_RATE <= 1.0:
             raise ValueError("SENTRY_TRACES_SAMPLE_RATE must be between 0 and 1")

@@ -62,6 +62,35 @@ class BuildiumPropertyDryRunIn(BaseModel):
     resolutions: list[BuildiumPropertyResolutionIn] = Field(default_factory=list, max_length=500)
 
 
+class BuildiumApiPropertyDryRunIn(BaseModel):
+    """Server-side Buildium API property preview; credentials are never request fields."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    include_inactive: bool = False
+    resolutions: list[BuildiumPropertyResolutionIn] = Field(default_factory=list, max_length=500)
+
+
+class BuildiumApiPropertyCommitIn(BaseModel):
+    """Commit a fresh server-side API fetch only when its fingerprint still matches review."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    include_inactive: bool = False
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolutions: list[BuildiumPropertyResolutionIn] = Field(default_factory=list, max_length=500)
+
+
+class BuildiumApiTransportStatusOut(BaseModel):
+    provider: str = "BUILDIUM"
+    mode: str
+    configured: bool
+    source_account_bound: bool
+    credentials_stored_on_migration_run: bool = False
+    browser_credentials_accepted: bool = False
+    supported_resources: list[str] = Field(default_factory=list)
+
+
 class BuildiumPropertyPreviewRow(BaseModel):
     source_id: str | None
     importable: bool

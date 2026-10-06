@@ -39,6 +39,9 @@ from app.schemas.buildium_migration import (
     BuildiumPropertyCommitOut,
     BuildiumPropertyDryRunIn,
     BuildiumPropertyDryRunOut,
+    BuildiumApiPropertyDryRunIn,
+    BuildiumApiPropertyCommitIn,
+    BuildiumApiTransportStatusOut,
     BuildiumUnitCommitIn,
     BuildiumUnitCommitOut,
     BuildiumUnitDryRunIn,
@@ -101,6 +104,11 @@ from app.services.buildium_migration import (
     BuildiumMigrationError,
     commit_properties,
     dry_run_properties,
+)
+from app.services.buildium_api_transport import (
+    BuildiumApiTransportError,
+    fetch_rental_properties,
+    transport_status,
 )
 from app.services.buildium_unit_migration import (
     BuildiumUnitMigrationError,
@@ -322,6 +330,158 @@ def get_run(
     row = _run(db, run_id=run_id, current_user=current_user, write=False)
     response.headers["Cache-Control"] = "no-store"
     return row
+
+
+def _transport_http_error(exc: BuildiumApiTransportError) -> HTTPException:
+    if exc.code in {"source_account_mismatch", "source_too_large"}:
+        return HTTPException(status_code=409, detail=str(exc))
+    if exc.code in {"not_configured", "empty_source"}:
+        return HTTPException(status_code=503, detail=str(exc))
+    return HTTPException(status_code=502, detail=str(exc))
+
+
+@router.get("/transport/status", response_model=BuildiumApiTransportStatusOut)
+def get_buildium_transport_status(
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    _require_role(current_user, _VIEW_ROLES, "Platform migration access required.")
+    state = transport_status()
+    return BuildiumApiTransportStatusOut(
+        mode=state.mode,
+        configured=state.configured,
+        source_account_bound=state.source_account_bound,
+        supported_resources=["PROPERTIES"] if state.configured else [],
+    )
+
+
+@router.post(
+    "/runs/{run_id}/properties/api-dry-run",
+    response_model=BuildiumPropertyDryRunOut,
+)
+def api_dry_run_buildium_properties(
+    run_id: int,
+    payload: BuildiumApiPropertyDryRunIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        fetched = fetch_rental_properties(expected_source_account_ref=row.source_account_ref)
+        result = dry_run_properties(
+            db,
+            run=row,
+            include_inactive=payload.include_inactive,
+            records=fetched.records,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+    except BuildiumApiTransportError as exc:
+        db.rollback()
+        raise _transport_http_error(exc) from exc
+    except BuildiumMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=row.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=row.id,
+            action="buildium_properties_api_dry_run",
+            new_value={
+                "fingerprint": result.fingerprint,
+                **result.summary,
+                "target_mutation": False,
+                "transport": "SERVER_TO_SERVER",
+                "transport_mode": fetched.mode.upper(),
+                "transport_request_count": fetched.request_count,
+                "credentials_stored": False,
+                "raw_response_stored": False,
+            },
+        )
+        db.commit()
+        db.refresh(row)
+    return BuildiumPropertyDryRunOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        importable=result.importable,
+        skipped_inactive=result.skipped_inactive,
+        skipped_review=result.skipped_review,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/properties/api-commit",
+    response_model=BuildiumPropertyCommitOut,
+)
+def api_commit_buildium_properties(
+    run_id: int,
+    payload: BuildiumApiPropertyCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        fetched = fetch_rental_properties(expected_source_account_ref=row.source_account_ref)
+        result = commit_properties(
+            db,
+            run=row,
+            include_inactive=payload.include_inactive,
+            records=fetched.records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=row.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=row.id,
+                action="buildium_properties_api_committed",
+                new_value={
+                    "fingerprint": result.fingerprint,
+                    "committed": result.committed,
+                    "matched_existing": result.matched_existing,
+                    "skipped_inactive": result.skipped_inactive,
+                    "skipped_review": result.skipped_review,
+                    "warning_count": result.warning_count,
+                    "transport": "SERVER_TO_SERVER",
+                    "transport_mode": fetched.mode.upper(),
+                    "transport_request_count": fetched.request_count,
+                    "credentials_stored": False,
+                    "raw_response_stored": False,
+                },
+            )
+            db.commit()
+            db.refresh(row)
+    except BuildiumApiTransportError as exc:
+        db.rollback()
+        raise _transport_http_error(exc) from exc
+    except (BuildiumMigrationError, IntegrityError) as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return BuildiumPropertyCommitOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        committed=result.committed,
+        matched_existing=result.matched_existing,
+        skipped_inactive=result.skipped_inactive,
+        skipped_review=result.skipped_review,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
 
 
 @router.post(
