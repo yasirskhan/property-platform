@@ -1,3 +1,115 @@
+# AI_HANDOFF.md — 2026-10-06 PHASE 4.14 BUILDIUM BANK CHECKS VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+- Current VERIFIED product source:
+  `deab848d9fd4e5a8b961aadaae87b6ca80e6a918`.
+- GitHub Actions run **37414949138 SUCCESS on attempt 2**, all six required jobs:
+  frontend, backend, security, platform-admin, staging-config, authenticated E2E.
+- Backend/PostgreSQL: **1071 passed, 21 deselected, 27805 warnings in 572.04s**.
+- Authenticated E2E retry: **21 passed, 278 warnings in 117.46s**.
+- First E2E attempt had exactly one pre-existing smoke-login navigation timeout
+  in `test_every_visible_sidebar_destination_resolves`: **20 passed, 1 failed**.
+  Backend, frontend, security, platform-admin and staging were green. The failed
+  E2E job was rerun without product-code changes and passed. Do not describe the
+  first attempt as green.
+- Alembic remains `1b8d3f6a9c20`; expected model tables remain **202**.
+  This batch adds no migration or target business table.
+- The immediately preceding live Buildium full bank-deposit source
+  `a3de2bf0ca0d8dbe466f9cbe9a6b57b5c3e8f2a0`, followed by dependency-security
+  patches through `21493921c33083afd6d074d61052fd097da91e56`, is also covered
+  by exact-head CI **37410962429 SUCCESS**: **1068 backend passed,
+  21 deselected; 21 E2E passed**. The older handoff that stopped at Quick
+  Deposits is therefore superseded.
+
+## Latest verified Phase 4.14 batch — Buildium bank Checks
+
+New bounded routes:
+- `POST /api/platform/migrations/buildium/runs/{run_id}/bank-checks/dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/bank-checks/commit`
+
+Verified source files:
+- `backend/app/services/buildium_check_migration.py`
+- `backend/app/schemas/buildium_check_migration.py`
+- `backend/app/routers/buildium_check_migrations.py`
+- `backend/tests/test_buildium_check_migrations.py`
+- router registration in `backend/app/main.py`
+
+This is an **existing-target reconciliation**, not a Check importer. It uses the
+same `PlatformMigrationRun` / `PlatformMigrationItem`, exact-fingerprint,
+explicit review, replay/idempotency and organization-isolation architecture as
+the earlier verified Buildium batches. No parallel migration system was added.
+
+Supported bounded source contract:
+- source Check `Id` is the durable Buildium identity;
+- source Bank Account comes from explicit retrieval-path context;
+- payee must be a mapped **Vendor**;
+- each line must use documented **Rental** accounting-entity semantics;
+- Property, optional Unit, Bank Account, Vendor and GL Account must already have
+  durable same-run Buildium mappings;
+- Check number, entry date, total amount and the complete source line total must
+  be exact;
+- the reviewed target must be an existing same-organization **ISSUED** Check
+  with exact bank, number, date, payee, amount and immutable CHECK GL source;
+- target GL lines must exactly equal the reviewed Buildium source debit lines
+  plus the mapped bank-cash GL credit;
+- exact target and dependency snapshots are fingerprint-bound so target or
+  mapping drift makes commit stale/fail-closed;
+- review supports only explicit `MATCH_EXISTING` or `SKIP`;
+- replay never creates duplicate mapping or mutates target accounting.
+
+Explicitly NOT supported / NOT inferred:
+- no new target Check, CheckBillAllocation, Bill, GLTransaction, GLEntry, bank
+  movement, clearing/settlement status or provider credential is created;
+- a target Check that has Bill allocations is rejected because the Buildium
+  bank Check source does not prove those target Bill relationships;
+- Company or Association accounting-entity check lines remain blocked in this
+  bounded batch;
+- non-Vendor payees remain blocked;
+- raw provider memo/line text is not persisted to audit;
+- no bank clearing, reconciliation or external settlement is claimed.
+
+The durable mapping is:
+`resource=BANK_CHECKS -> target_entity=CHECK_PAYMENT_RELATIONSHIP`.
+
+## Phase 4.14 cumulative direction
+
+Preserve all previously verified Buildium resources and do not repeat them,
+including Properties, Units, Owners, owner/property relationships, Vendors,
+Tenants, Leases, GL Accounts, Work Orders, Bills, Bank Accounts, bounded Bill
+Payments, Property Groups, Property Reserves, Lease Charges, Budgets, Lease
+Payments, Bank Reconciliations, bounded Bank Transfers, Company Bank
+Withdrawals, Company Quick Deposits, full payment-only Bank Deposits and this
+bounded Bank Check reconciliation.
+
+General Buildium historical GL posting remains blocked where the provider source
+does not independently prove debit/credit direction and target posting semantics.
+Do not fabricate balancing data or infer accounting direction from an amount
+alone.
+
+Buildium API transport/credentials remain a later transport concern. If added,
+it must feed the same verified provider-labelled migration pipeline. Never store
+client secrets in migration rows or audit payloads.
+
+## Exact next action
+
+Continue Phase 4.14 with the **next independently supportable documented
+Buildium resource only after comparing the current official Buildium source
+contract to an existing target business/accounting contract**. Prefer a
+resource-specific endpoint over the broad bank-transaction feed. If the source
+cannot prove target identity, relationships or accounting semantics, leave that
+resource explicitly blocked and move to the next independent candidate.
+
+Do not start Phase 4.15 Yardi until Phase 4.14 is explicitly closed.
+Do not start general UX work. Preserve NAVIGATION_INTEGRITY_PLAN.md and the
+HIDDEN MENU / UNHIDE ROADMAP.
+
+---
+
 # AI_HANDOFF.md — 2026-10-05 PHASE 4.14 BUILDIUM QUICK DEPOSITS VERIFIED
 
 ## Current verified checkpoint
