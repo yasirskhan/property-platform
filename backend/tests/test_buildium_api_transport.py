@@ -174,8 +174,8 @@ def test_buildium_api_property_route_reuses_existing_fingerprint_commit_without_
         )
         assert "PRIVATE PROVIDER ADDRESS" not in audit
         assert "TOP-SECRET" not in audit
-        assert '"credentials_stored": false' in audit.lower()
-        assert '"raw_response_stored": false' in audit.lower()
+        assert '"credentials_stored":false' in audit.lower()
+        assert '"raw_response_stored":false' in audit.lower()
     finally:
         db.close(); engine.dispose()
 
