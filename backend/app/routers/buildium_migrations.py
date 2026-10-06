@@ -2027,7 +2027,6 @@ def list_migration_items(
                 target_exists = True
                 target_label = target.unit_number
         elif item.target_entity == "OWNER_USER":
-            from app.models.user import User, UserRole
             target = (
                 db.query(User)
                 .filter(
@@ -2053,7 +2052,6 @@ def list_migration_items(
                 target_exists = True
                 target_label = target.company_name
         elif item.target_entity == "TENANT_USER":
-            from app.models.user import User, UserRole
             target = (
                 db.query(User)
                 .filter(
