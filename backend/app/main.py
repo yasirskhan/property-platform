@@ -74,6 +74,7 @@ from app.routers import buildium_check_migrations as buildium_check_migrations_r
 from app.routers import buildium_renters_insurance_migrations as buildium_renters_insurance_migrations_router
 from app.routers import buildium_applicant_migrations as buildium_applicant_migrations_router
 from app.routers import buildium_association_migrations as buildium_association_migrations_router
+from app.routers import buildium_association_unit_migrations as buildium_association_unit_migrations_router
 from app.routers import observability as observability_router
 from app.routers import billing_checkout as billing_checkout_router
 from app.routers import features as features_router
@@ -257,6 +258,7 @@ app.include_router(buildium_check_migrations_router.router)
 app.include_router(buildium_renters_insurance_migrations_router.router)
 app.include_router(buildium_applicant_migrations_router.router)
 app.include_router(buildium_association_migrations_router.router)
+app.include_router(buildium_association_unit_migrations_router.router)
 app.include_router(observability_router.router)
 app.include_router(billing_checkout_router.router)
 app.include_router(features_router.router)
