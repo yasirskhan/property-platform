@@ -27,6 +27,7 @@ from app.models.bank_reconciliation import BankReconciliation
 from app.models.check import Check
 from app.models.charge import Charge
 from app.models.deposit import Deposit
+from app.models.tenant_insurance import TenantInsurance
 from app.models.user import Organization
 from app.routers.platform_auth import get_current_platform_user
 from app.schemas.buildium_migration import (
@@ -2079,6 +2080,24 @@ def list_migration_items(
             if target is not None:
                 target_exists = True
                 target_label = f"Lease #{target.id}"
+        elif item.target_entity == "TENANT_INSURANCE_RELATIONSHIP":
+            target = (
+                db.query(TenantInsurance)
+                .join(Lease, Lease.id == TenantInsurance.lease_id)
+                .join(Unit, Unit.id == Lease.unit_id)
+                .join(Property, Property.id == Unit.property_id)
+                .filter(
+                    TenantInsurance.id == item.target_id,
+                    Property.organization_id == row.organization_id,
+                )
+                .first()
+            )
+            if target is not None:
+                target_exists = True
+                target_label = (
+                    f"Tenant Insurance #{target.id}: "
+                    f"{target.policy_number or 'unidentified'}"
+                )
         elif item.target_entity == "WORK_ORDER_RELATIONSHIP":
             target = (
                 db.query(WorkOrder)
