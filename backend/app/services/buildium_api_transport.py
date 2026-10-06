@@ -18,6 +18,7 @@ _SANDBOX_BASE = "https://apisandbox.buildium.com"
 _PRODUCTION_BASE = "https://api.buildium.com"
 _PROPERTY_PATH = "/v1/rentals"
 _UNIT_PATH = "/v1/rentals/units"
+_OWNER_PATH = "/v1/rentals/owners"
 _MAX_REVIEW_RECORDS = 500
 _PAGE_LIMIT = 500
 _TIMEOUT_SECONDS = 20
@@ -206,4 +207,13 @@ def fetch_rental_units(*, expected_source_account_ref: str) -> BuildiumApiFetchR
         profile=_profile(expected_source_account_ref),
         path=_UNIT_PATH,
         resource_label="rental units",
+    )
+
+
+def fetch_rental_owners(*, expected_source_account_ref: str) -> BuildiumApiFetchResult:
+    """Fetch one bounded complete rental-owner set for the existing Owner pipeline."""
+    return _fetch_bounded_collection(
+        profile=_profile(expected_source_account_ref),
+        path=_OWNER_PATH,
+        resource_label="rental owners",
     )

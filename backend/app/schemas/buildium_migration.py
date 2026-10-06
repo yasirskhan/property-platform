@@ -281,6 +281,25 @@ class BuildiumOwnerDryRunIn(BaseModel):
     resolutions: list[BuildiumOwnerResolutionIn] = Field(default_factory=list, max_length=500)
 
 
+class BuildiumApiOwnerDryRunIn(BaseModel):
+    """Server-side Buildium API Owner preview; credentials are never request fields."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    include_inactive: bool = False
+    resolutions: list[BuildiumOwnerResolutionIn] = Field(default_factory=list, max_length=500)
+
+
+class BuildiumApiOwnerCommitIn(BaseModel):
+    """Commit a fresh server-side Owner API fetch only when review still matches."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    include_inactive: bool = False
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolutions: list[BuildiumOwnerResolutionIn] = Field(default_factory=list, max_length=500)
+
+
 class BuildiumOwnerPreviewRow(BaseModel):
     source_id: str | None
     reviewable: bool
