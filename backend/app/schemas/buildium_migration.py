@@ -376,6 +376,23 @@ class BuildiumVendorDryRunIn(BaseModel):
     resolutions: list[BuildiumVendorResolutionIn] = Field(default_factory=list, max_length=500)
 
 
+class BuildiumApiVendorDryRunIn(BaseModel):
+    """Server-side Buildium API Vendor preview; credentials are never request fields."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resolutions: list[BuildiumVendorResolutionIn] = Field(default_factory=list, max_length=500)
+
+
+class BuildiumApiVendorCommitIn(BaseModel):
+    """Commit a fresh server-side Vendor API fetch only when review still matches."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolutions: list[BuildiumVendorResolutionIn] = Field(default_factory=list, max_length=500)
+
+
 class BuildiumVendorPreviewRow(BaseModel):
     source_id: str | None
     reviewable: bool

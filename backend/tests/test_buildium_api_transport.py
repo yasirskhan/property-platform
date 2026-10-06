@@ -13,6 +13,7 @@ from app.models.audit_log import AuditLog
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.property import Property, PropertyType, Unit
+from app.models.vendor import Vendor
 from app.models.user import Organization, User, UserRole
 from app.routers import buildium_migrations as api
 from app.schemas.buildium_migration import (
@@ -23,6 +24,9 @@ from app.schemas.buildium_migration import (
     BuildiumApiOwnerCommitIn,
     BuildiumApiOwnerDryRunIn,
     BuildiumOwnerResolutionIn,
+    BuildiumApiVendorCommitIn,
+    BuildiumApiVendorDryRunIn,
+    BuildiumVendorResolutionIn,
 )
 from app.services import buildium_api_transport as transport
 from app.services.buildium_api_transport import BuildiumApiFetchResult, BuildiumApiTransportError
@@ -182,6 +186,34 @@ def _target_owner(db, run):
         organization_id=run.organization_id,
         is_active=True,
         is_verified=True,
+    )
+    db.add(row)
+    db.commit()
+    return row
+
+
+def _vendor_record(**changes):
+    row = {
+        "Id": 6301,
+        "FirstName": "",
+        "LastName": "",
+        "CompanyName": "API Lake Plumbing",
+        "PrimaryEmail": "service.api@lakeplumbing.example.com",
+        "AlternateEmail": "PRIVATE-VENDOR-ALTERNATE@example.com",
+        "PhoneNumbers": [{"Number": "PRIVATE-VENDOR-PHONE", "Type": "Work"}],
+        "Website": "https://private-vendor.example.com",
+        "IsCompany": True,
+    }
+    row.update(changes)
+    return row
+
+
+def _target_vendor(db, run):
+    row = Vendor(
+        organization_id=run.organization_id,
+        company_name="API Lake Plumbing",
+        business_email="service.api@lakeplumbing.example.com",
+        is_active=True,
     )
     db.add(row)
     db.commit()
@@ -584,5 +616,153 @@ def test_buildium_api_owner_commit_refetch_detects_source_drift_and_routes_exist
         )
         status = api.get_buildium_transport_status(current_user=admin)
         assert "OWNERS" in status.supported_resources
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_buildium_transport_fetches_vendors_from_fixed_endpoint(monkeypatch):
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_MODE", "sandbox")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_ID", "client-id")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_SECRET", "vendor-secret")
+    monkeypatch.setattr(
+        transport.settings, "BUILDIUM_API_SOURCE_ACCOUNT_REF", "sandbox-account-A"
+    )
+    calls = []
+    def fake_get(url, *, headers, params, timeout):
+        calls.append((url, headers.copy(), params.copy(), timeout))
+        return _Response(200, [_vendor_record()])
+    monkeypatch.setattr(transport.requests, "get", fake_get)
+
+    result = transport.fetch_vendors(expected_source_account_ref="sandbox-account-A")
+    assert result.records[0]["Id"] == 6301
+    assert calls[0][0] == "https://apisandbox.buildium.com/v1/vendors"
+    assert calls[0][1]["x-buildium-client-secret"] == "vendor-secret"
+    assert calls[0][2] == {"offset": 0, "limit": 500}
+
+
+def test_buildium_api_vendor_route_reuses_existing_vendor_mapping_without_mutation(monkeypatch):
+    db, engine = _session()
+    try:
+        admin = _admin(db); org = _org(db); run = _run(db, org)
+        vendor = _target_vendor(db, run)
+        def fetched(*, expected_source_account_ref):
+            assert expected_source_account_ref == "sandbox-account-A"
+            return BuildiumApiFetchResult(
+                records=[_vendor_record()], mode="sandbox", request_count=1
+            )
+        monkeypatch.setattr(api, "fetch_vendors", fetched)
+
+        resolution = BuildiumVendorResolutionIn(
+            source_id=6301,
+            action="MATCH_EXISTING",
+            target_vendor_id=vendor.id,
+        )
+        reviewed = api.api_dry_run_buildium_vendors(
+            run.id,
+            BuildiumApiVendorDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+        assert reviewed.invalid == 0 and reviewed.reviewable == 1
+
+        committed = api.api_commit_buildium_vendors(
+            run.id,
+            BuildiumApiVendorCommitIn(
+                fingerprint=reviewed.fingerprint,
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.matched_existing == 1
+        mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(PlatformMigrationItem.resource == "VENDORS")
+            .one()
+        )
+        assert mapping.target_entity == "VENDOR"
+        assert mapping.target_id == vendor.id
+        assert db.query(Vendor).count() == 1
+
+        with pytest.raises(ValidationError):
+            BuildiumApiVendorDryRunIn(client_secret="secret")
+        with pytest.raises(ValidationError):
+            BuildiumApiVendorCommitIn(
+                fingerprint=reviewed.fingerprint, records=[_vendor_record()]
+            )
+
+        audit = "\n".join(
+            str(row.new_value or "")
+            for row in db.query(AuditLog)
+            .filter(AuditLog.entity_type == "platform_migration_run")
+            .all()
+        )
+        assert "PRIVATE-VENDOR-ALTERNATE" not in audit
+        assert "PRIVATE-VENDOR-PHONE" not in audit
+        assert "private-vendor.example.com" not in audit
+        assert '"credentials_stored":false' in audit.lower()
+        assert '"raw_response_stored":false' in audit.lower()
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_buildium_api_vendor_commit_refetch_detects_source_drift_and_routes_exist(monkeypatch):
+    from app.main import app
+    db, engine = _session()
+    try:
+        admin = _admin(db); org = _org(db); run = _run(db, org)
+        vendor = _target_vendor(db, run)
+        resolution = BuildiumVendorResolutionIn(
+            source_id=6301,
+            action="MATCH_EXISTING",
+            target_vendor_id=vendor.id,
+        )
+        state = {"changed": False}
+        def fetched(*, expected_source_account_ref):
+            record = (
+                _vendor_record(PrimaryEmail="changed.vendor@example.com", CompanyName="Changed Vendor")
+                if state["changed"] else _vendor_record()
+            )
+            return BuildiumApiFetchResult(
+                records=[record], mode="sandbox", request_count=1
+            )
+        monkeypatch.setattr(api, "fetch_vendors", fetched)
+        reviewed = api.api_dry_run_buildium_vendors(
+            run.id,
+            BuildiumApiVendorDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+        state["changed"] = True
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_vendors(
+                run.id,
+                BuildiumApiVendorCommitIn(
+                    fingerprint=reviewed.fingerprint,
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert (
+            db.query(PlatformMigrationItem)
+            .filter(PlatformMigrationItem.resource == "VENDORS")
+            .count()
+            == 0
+        )
+        assert db.query(Vendor).count() == 1
+
+        paths = set(app.openapi()["paths"])
+        assert "/api/platform/migrations/buildium/runs/{run_id}/vendors/api-dry-run" in paths
+        assert "/api/platform/migrations/buildium/runs/{run_id}/vendors/api-commit" in paths
+        monkeypatch.setattr(transport.settings, "BUILDIUM_API_MODE", "sandbox")
+        monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_ID", "client-id")
+        monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_SECRET", "vendor-secret")
+        monkeypatch.setattr(
+            transport.settings, "BUILDIUM_API_SOURCE_ACCOUNT_REF", "sandbox-account-A"
+        )
+        status = api.get_buildium_transport_status(current_user=admin)
+        assert "VENDORS" in status.supported_resources
     finally:
         db.close(); engine.dispose()
