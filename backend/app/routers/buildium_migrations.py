@@ -124,6 +124,8 @@ from app.schemas.buildium_migration import (
     BuildiumLeaseChargeCommitOut,
     BuildiumLeaseChargeDryRunIn,
     BuildiumLeaseChargeDryRunOut,
+    BuildiumApiLeaseChargeDryRunIn,
+    BuildiumApiLeaseChargeCommitIn,
 )
 from app.services.audit import append_audit_log
 from app.services.buildium_migration import (
@@ -145,7 +147,9 @@ from app.services.buildium_api_transport import (
     fetch_bank_accounts,
     fetch_bill_payments,
     fetch_property_groups,
+    fetch_lease_charges,
     MAX_BILL_PAYMENT_PARENT_BILLS,
+    MAX_LEASE_CHARGE_PARENT_LEASES,
     transport_status,
 )
 from app.services.buildium_unit_migration import (
@@ -408,6 +412,7 @@ def get_buildium_transport_status(
             "OWNER_PROPERTY_RELATIONSHIPS",
             "PROPERTY_GROUPS",
             "PROPERTY_RESERVES",
+            "LEASE_CHARGES",
         ] if state.configured else [],
     )
 
@@ -4444,6 +4449,188 @@ def commit_buildium_property_reserves(
         rows=result.rows,
     )
 
+
+
+def _lease_charge_api_parent_source_ids(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+) -> list[str]:
+    mappings = (
+        db.query(PlatformMigrationItem)
+        .filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "BUILDIUM",
+            PlatformMigrationItem.resource == "LEASES",
+        )
+        .order_by(PlatformMigrationItem.id.asc())
+        .limit(MAX_LEASE_CHARGE_PARENT_LEASES + 1)
+        .all()
+    )
+    if len(mappings) > MAX_LEASE_CHARGE_PARENT_LEASES:
+        raise BuildiumApiTransportError(
+            "source_too_large",
+            "Buildium Lease Charge API migration exceeds the bounded "
+            f"{MAX_LEASE_CHARGE_PARENT_LEASES}-parent-Lease review scope.",
+        )
+    for mapping in mappings:
+        if mapping.target_entity != "LEASE_RELATIONSHIP":
+            raise BuildiumLeaseChargeMigrationError(
+                "Buildium Lease mapping is inconsistent and cannot define Lease Charge parent scope."
+            )
+    return [mapping.source_id for mapping in mappings]
+
+
+@router.post(
+    "/runs/{run_id}/lease-charges/api-dry-run",
+    response_model=BuildiumLeaseChargeDryRunOut,
+)
+def api_dry_run_buildium_lease_charges(
+    run_id: int,
+    payload: BuildiumApiLeaseChargeDryRunIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        parent_lease_ids = _lease_charge_api_parent_source_ids(db, run=row)
+        fetched = fetch_lease_charges(
+            expected_source_account_ref=row.source_account_ref,
+            parent_lease_ids=parent_lease_ids,
+        )
+        result = dry_run_lease_charges(
+            db,
+            run=row,
+            records=fetched.records,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+    except BuildiumApiTransportError as exc:
+        db.rollback()
+        raise _transport_http_error(exc) from exc
+    except BuildiumLeaseChargeMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=row.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=row.id,
+            action="buildium_lease_charges_api_dry_run",
+            new_value={
+                "fingerprint": result.fingerprint,
+                **result.summary,
+                "target_mutation": False,
+                "transport": "SERVER_TO_SERVER",
+                "transport_mode": fetched.mode.upper(),
+                "transport_request_count": fetched.request_count,
+                "transport_parent_lease_count": fetched.parent_record_count,
+                "transport_lease_charge_count": len(fetched.records),
+                "parent_scope": "DURABLE_LEASE_MAPPINGS",
+                "credentials_stored": False,
+                "raw_response_stored": False,
+                "provider_memo_stored": False,
+            },
+        )
+        db.commit()
+        db.refresh(row)
+
+    return BuildiumLeaseChargeDryRunOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        reviewable=result.reviewable,
+        skipped_review=result.skipped_review,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/lease-charges/api-commit",
+    response_model=BuildiumLeaseChargeCommitOut,
+)
+def api_commit_buildium_lease_charges(
+    run_id: int,
+    payload: BuildiumApiLeaseChargeCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        parent_lease_ids = _lease_charge_api_parent_source_ids(db, run=row)
+        fetched = fetch_lease_charges(
+            expected_source_account_ref=row.source_account_ref,
+            parent_lease_ids=parent_lease_ids,
+        )
+        result = commit_lease_charges(
+            db,
+            run=row,
+            records=fetched.records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=row.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=row.id,
+                action="buildium_lease_charges_api_reconciled",
+                new_value={
+                    "fingerprint": result.fingerprint,
+                    "matched_existing": result.matched_existing,
+                    "skipped_review": result.skipped_review,
+                    "warning_count": result.warning_count,
+                    "target_charge_ids": [
+                        item["target_charge_id"] for item in result.rows
+                    ],
+                    "charge_created": False,
+                    "charge_updated": False,
+                    "rent_invoice_created": False,
+                    "receipt_created": False,
+                    "payment_history_reconciled": False,
+                    "gl_history_created": False,
+                    "transport": "SERVER_TO_SERVER",
+                    "transport_mode": fetched.mode.upper(),
+                    "transport_request_count": fetched.request_count,
+                    "transport_parent_lease_count": fetched.parent_record_count,
+                    "transport_lease_charge_count": len(fetched.records),
+                    "parent_scope": "DURABLE_LEASE_MAPPINGS",
+                    "credentials_stored": False,
+                    "raw_response_stored": False,
+                    "provider_memo_stored": False,
+                },
+            )
+            db.commit()
+            db.refresh(row)
+    except BuildiumApiTransportError as exc:
+        db.rollback()
+        raise _transport_http_error(exc) from exc
+    except (BuildiumLeaseChargeMigrationError, IntegrityError) as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    return BuildiumLeaseChargeCommitOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        matched_existing=result.matched_existing,
+        skipped_review=result.skipped_review,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
 
 
 @router.post(
