@@ -1,3 +1,174 @@
+# AI_HANDOFF.md — 2026-10-07 PHASE 4.14 BUILDIUM SERVER API BILL PAYMENT TRANSPORT VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Current VERIFIED product source:
+  `fbc4685b09171ea6a973b4fa8ef8d38da58f277a`.
+- Product chain:
+  - `45417990536576a161b7901829ffd20975e87409` — `Phase 4.14: add Buildium API Bill Payment transport`
+  - `ab1cb04589a92df38558288f4afbc12406c2d97b` — `Fix Buildium Bill Payment API replay fingerprint`
+  - `fbc4685b09171ea6a973b4fa8ef8d38da58f277a` — `Test Buildium Bill Payment API replay result`
+- Exact GitHub Actions run **37570900983 — SUCCESS**.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **1124 passed, 21 deselected, 28588 warnings in 574.51s**.
+- Authenticated E2E: **21 passed, 278 warnings in 112.43s**.
+- Alembic remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- No database migration or new target business table was added.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains **AUTHORIZED BUT NOT ACTIVE**.
+
+The immediately preceding API Bank Account transport source
+`3fe19d60977807ccd42666f24bbd0e49e48041fe` remains independently verified
+by GitHub Actions **37565311761 SUCCESS**.
+
+## Verified Buildium server-to-server API Bill Payment transport
+
+Verified routes:
+
+- `POST /api/platform/migrations/buildium/runs/{run_id}/bill-payments/api-dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/bill-payments/api-commit`
+
+Verified transport contract:
+
+1. Official Buildium v1 nested retrieval
+   `GET /v1/bills/{billId}/payments` feeds the already-verified bounded
+   Bill Payment reconciliation service. No flat retrieval collection and no
+   second payment architecture were introduced.
+2. Parent scope comes only from durable same-run
+   `BILLS -> BILL_RELATIONSHIP` mappings. Parent Buildium Bill IDs are
+   validated, deduplicated and bounded to at most **100** parent Bills.
+3. Total accepted provider Bill Payment records are independently bounded to
+   the existing **500-record** review contract. Each parent request probes only
+   the remaining bounded capacity plus one record so overflow fails closed
+   without unbounded paging/fan-out.
+4. The nested parent Buildium Bill identity is attached to each provider record
+   as transport-only source evidence and is included in reconciliation and the
+   exact fingerprint.
+5. The transport preserves the existing verified Bill Payment subset only:
+   stable positive payment ID; same-run Bank Account mapping; exactly one
+   positive `PaidBillIds` entry; same-run Bill mapping; bounded nonblank
+   CheckNumber; valid EntryDate; check-backed payment; no applied Vendor
+   Credits; Rental accounting-entity lines only; required Property/optional
+   Unit/GL mappings; exact mapped allocation multiset; source line total equal
+   to the mapped Bill amount; target Bill already fully PAID; and one exact
+   already-existing target Check/payment relationship.
+6. Review remains explicit `MATCH_EXISTING` or `SKIP`. No target Check is
+   silently selected.
+7. API request bodies contain only review decisions and commit fingerprint.
+   Caller-supplied provider records or Buildium credentials are rejected.
+8. `BUILDIUM_API_SOURCE_ACCOUNT_REF` remains bound to the migration run before
+   provider retrieval.
+9. API commit fresh-fetches the same bounded nested provider source and requires
+   the exact reviewed fingerprint. Provider drift, parent identity drift,
+   dependency mapping drift, review drift, target Bill drift, target Check/GL
+   drift or source-account drift fails closed.
+10. The fingerprint binds provider records, parent Bill identity, review
+    decisions, current Bill/Bank Account/Property/Unit/GL mapping fingerprints,
+    and a detailed current snapshot of the reviewed target Check, its single Bill
+    allocation, target Bill state, Bank Account state and immutable Check GL
+    transaction/entries.
+11. Successful commit creates only the durable
+    `BUILDIUM / BILL_PAYMENTS / CHECK_PAYMENT_RELATIONSHIP` migration mapping.
+    Replay remains idempotent and returns the existing mapping without creating
+    another Check or accounting record.
+12. Provider Memo/raw response, credentials, local routing/account values and
+    other sensitive provider content are not copied into migration audit.
+13. No Check, payment, Bill, BillLine, GLTransaction, GLEntry, bank movement,
+    Vendor Credit application, settlement history, partial payment, multi-bill
+    expansion, balance, cleared state or synthetic accounting history is created
+    or changed.
+
+## Phase 4.14 cumulative server API transport
+
+Server-side Buildium API transport now feeds the SAME reviewed
+provider-labelled migration architecture for:
+
+- Properties
+- Units
+- Owners
+- Vendors
+- Tenants
+- Leases
+- GL Accounts
+- Work Orders
+- Bills
+- Bank Accounts
+- Bill Payments
+
+Preserve provider-labelled migration runs, organization isolation, exact
+fingerprints, explicit review, durable source-to-target mappings, fresh-fetch
+commit protection, stale-preview rejection, replay/idempotency, redacted audit,
+fixed sandbox/production endpoints, server-held credentials, source-account
+binding, bounded retrieval and no raw-response persistence.
+
+The permanent historical GL blocker remains. Never infer debit-versus-credit
+direction or fabricate balancing entries, opening balances, payment history,
+settlement history or synthetic accounting records when the authoritative
+Buildium source does not prove target semantics.
+
+## Exact NEXT Phase 4.14 batch
+
+Continue the original verified resource order with **Buildium Owner/Property
+relationship server API transport**. Do not rebuild the already-verified
+Owner/Property reconciliation contract.
+
+Before changing code:
+
+1. Re-read live `backend/app/services/buildium_owner_property_migration.py`
+   and its tests.
+2. Re-read `backend/app/services/buildium_api_transport.py`, current API
+   router/schemas/tests and the existing Owner API transport.
+3. Re-check the current official Buildium v1 Rental Owner and Rental Property
+   retrieval contract and use only provider relationships the API can prove.
+
+Required boundaries:
+
+- feed the SAME existing Owner/Property relationship reconciliation service;
+- require current same-run `OWNERS -> OWNER` and `PROPERTIES -> PROPERTY`
+  mappings exactly as the verified reconciliation contract already requires;
+- preserve explicit review, exact fingerprint, fresh-fetch commit,
+  replay/idempotency, source-account binding and organization isolation;
+- do not infer ownership from target Property.owner_id, tenant identities,
+  owner display names, mailing addresses, tax fields, contact fields or any
+  other heuristic;
+- do not create or mutate target Owner, Property, PropertyOwner, ownership
+  percentage, payout preference, tax profile, GL, Charge, Lease or accounting
+  history unless the existing verified relationship contract explicitly permits
+  that exact relationship metadata;
+- keep provider comments, tax identifiers, bank/payment information, credentials
+  and raw responses out of migration audit;
+- bound provider retrieval and fail closed if the official API source cannot
+  prove the same relationship identity used by the existing reconciliation
+  contract;
+- if Buildium exposes only filters or indirect evidence rather than an
+  authoritative owner/property relationship field, do not manufacture a
+  relationship. Leave the unsupported source blocked.
+
+After Owner/Property API transport is VERIFIED, continue the original resource
+order to Property Groups, then Property Reserves. Do not start Phase 4.15 Yardi
+until Phase 4.14 is explicitly closed.
+
+Do not start general UX work. Preserve `docs/NAVIGATION_INTEGRITY_PLAN.md`,
+the complete HIDDEN MENU / UNHIDE ROADMAP, and
+`docs/UX_STANDARDS.md` = **AUTHORIZED BUT NOT ACTIVE**.
+
+---
+
 # AI_HANDOFF.md — 2026-10-06 PHASE 4.14 BUILDIUM SERVER API BANK ACCOUNT TRANSPORT VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
