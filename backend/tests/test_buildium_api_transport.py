@@ -864,8 +864,8 @@ def test_buildium_api_tenant_route_maps_existing_identity_only_and_redacts_provi
             current_user=admin,
         )
         assert reviewed.invalid == 0 and reviewed.reviewable == 1
-        assert reviewed.rows[0]["mapped"]["user_lease_id"] == "7401"
-        assert any("source membership evidence" in warning for warning in reviewed.rows[0]["warnings"])
+        assert reviewed.rows[0].mapped["user_lease_id"] == "7401"
+        assert any("source membership evidence" in warning for warning in reviewed.rows[0].warnings)
 
         committed = api.api_commit_buildium_tenants(
             run.id,
