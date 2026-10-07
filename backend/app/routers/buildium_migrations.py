@@ -106,6 +106,8 @@ from app.schemas.buildium_migration import (
     BuildiumOwnerPropertyCommitOut,
     BuildiumOwnerPropertyDryRunIn,
     BuildiumOwnerPropertyDryRunOut,
+    BuildiumApiOwnerPropertyDryRunIn,
+    BuildiumApiOwnerPropertyCommitIn,
     BuildiumPropertyGroupCommitIn,
     BuildiumPropertyGroupCommitOut,
     BuildiumPropertyGroupDryRunIn,
@@ -398,6 +400,7 @@ def get_buildium_transport_status(
             "BILLS",
             "BANK_ACCOUNTS",
             "BILL_PAYMENTS",
+            "OWNER_PROPERTY_RELATIONSHIPS",
         ] if state.configured else [],
     )
 
@@ -3227,6 +3230,151 @@ def commit_buildium_bill_payments(
         ) from exc
 
     return BuildiumBillPaymentCommitOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        matched_existing=result.matched_existing,
+        skipped_review=result.skipped_review,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/owner-property-relationships/api-dry-run",
+    response_model=BuildiumOwnerPropertyDryRunOut,
+)
+def api_dry_run_buildium_owner_property_relationships(
+    run_id: int,
+    payload: BuildiumApiOwnerPropertyDryRunIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        fetched = fetch_rental_owners(
+            expected_source_account_ref=row.source_account_ref,
+        )
+        result = dry_run_owner_property_relationships(
+            db,
+            run=row,
+            records=fetched.records,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+    except BuildiumApiTransportError as exc:
+        db.rollback()
+        raise _transport_http_error(exc) from exc
+    except BuildiumOwnerPropertyMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=row.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=row.id,
+            action="buildium_owner_properties_api_dry_run",
+            new_value={
+                "fingerprint": result.fingerprint,
+                **result.summary,
+                "target_mutation": False,
+                "transport": "SERVER_TO_SERVER",
+                "transport_mode": fetched.mode.upper(),
+                "transport_request_count": fetched.request_count,
+                "relationship_source": "RENTAL_OWNER_PROPERTY_IDS",
+                "credentials_stored": False,
+                "raw_response_stored": False,
+                "tax_information_stored": False,
+                "owner_comments_stored": False,
+            },
+        )
+        db.commit()
+        db.refresh(row)
+
+    return BuildiumOwnerPropertyDryRunOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        reviewable=result.reviewable,
+        skipped_review=result.skipped_review,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/owner-property-relationships/api-commit",
+    response_model=BuildiumOwnerPropertyCommitOut,
+)
+def api_commit_buildium_owner_property_relationships(
+    run_id: int,
+    payload: BuildiumApiOwnerPropertyCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        fetched = fetch_rental_owners(
+            expected_source_account_ref=row.source_account_ref,
+        )
+        result = commit_owner_property_relationships(
+            db,
+            run=row,
+            records=fetched.records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=row.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=row.id,
+                action="buildium_owner_properties_api_reconciled",
+                new_value={
+                    "fingerprint": result.fingerprint,
+                    "matched_existing": result.matched_existing,
+                    "skipped_review": result.skipped_review,
+                    "warning_count": result.warning_count,
+                    "target_property_owner_ids": [
+                        item["target_property_owner_id"] for item in result.rows
+                    ],
+                    "property_owner_rows_created": False,
+                    "property_owner_rows_updated": False,
+                    "ownership_percentage_imported": False,
+                    "primary_owner_imported": False,
+                    "tax_information_imported": False,
+                    "gl_history_created": False,
+                    "transport": "SERVER_TO_SERVER",
+                    "transport_mode": fetched.mode.upper(),
+                    "transport_request_count": fetched.request_count,
+                    "relationship_source": "RENTAL_OWNER_PROPERTY_IDS",
+                    "credentials_stored": False,
+                    "raw_response_stored": False,
+                    "tax_information_stored": False,
+                    "owner_comments_stored": False,
+                },
+            )
+            db.commit()
+            db.refresh(row)
+    except BuildiumApiTransportError as exc:
+        db.rollback()
+        raise _transport_http_error(exc) from exc
+    except (BuildiumOwnerPropertyMigrationError, IntegrityError) as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    return BuildiumOwnerPropertyCommitOut(
         run_id=row.id,
         organization_id=row.organization_id,
         provider=row.provider,

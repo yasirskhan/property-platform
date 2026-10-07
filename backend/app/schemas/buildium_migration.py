@@ -1111,6 +1111,14 @@ class BuildiumOwnerPropertyDryRunIn(BaseModel):
     resolutions: list[BuildiumOwnerPropertyResolutionIn] = Field(default_factory=list, max_length=1000)
 
 
+class BuildiumApiOwnerPropertyDryRunIn(BaseModel):
+    """Server-side Rental Owner relationship preview without caller-supplied provider records."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resolutions: list[BuildiumOwnerPropertyResolutionIn] = Field(default_factory=list, max_length=1000)
+
+
 class BuildiumOwnerPropertyPreviewRow(BaseModel):
     source_owner_id: str | None
     source_property_id: str | None
@@ -1141,6 +1149,15 @@ class BuildiumOwnerPropertyCommitIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     records: list[dict[str, Any]] = Field(min_length=1, max_length=500)
+    resolutions: list[BuildiumOwnerPropertyResolutionIn] = Field(default_factory=list, max_length=1000)
+
+
+class BuildiumApiOwnerPropertyCommitIn(BaseModel):
+    """Commit a fresh Rental Owner relationship fetch only when exact review still matches."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     resolutions: list[BuildiumOwnerPropertyResolutionIn] = Field(default_factory=list, max_length=1000)
 
 
