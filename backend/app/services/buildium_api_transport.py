@@ -24,6 +24,7 @@ _TENANT_PATH = "/v1/leases/tenants"
 _LEASE_PATH = "/v1/leases"
 _GL_ACCOUNT_PATH = "/v1/glaccounts"
 _WORK_ORDER_PATH = "/v1/workorders"
+_BILL_PATH = "/v1/bills"
 _MAX_REVIEW_RECORDS = 500
 _PAGE_LIMIT = 500
 _TIMEOUT_SECONDS = 20
@@ -267,4 +268,14 @@ def fetch_work_orders(*, expected_source_account_ref: str) -> BuildiumApiFetchRe
         profile=_profile(expected_source_account_ref),
         path=_WORK_ORDER_PATH,
         resource_label="work orders",
+    )
+
+
+
+def fetch_bills(*, expected_source_account_ref: str) -> BuildiumApiFetchResult:
+    """Fetch one bounded complete Bill set for the existing Bill reconciliation pipeline."""
+    return _fetch_bounded_collection(
+        profile=_profile(expected_source_account_ref),
+        path=_BILL_PATH,
+        resource_label="bills",
     )

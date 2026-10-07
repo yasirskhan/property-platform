@@ -864,6 +864,23 @@ class BuildiumBillCommitIn(BaseModel):
     resolutions: list[BuildiumBillResolutionIn] = Field(default_factory=list, max_length=500)
 
 
+class BuildiumApiBillDryRunIn(BaseModel):
+    """Server-side Buildium API Bill preview without caller-supplied provider records."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resolutions: list[BuildiumBillResolutionIn] = Field(default_factory=list, max_length=500)
+
+
+class BuildiumApiBillCommitIn(BaseModel):
+    """Commit a fresh server-side Bill fetch only when exact review still matches."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolutions: list[BuildiumBillResolutionIn] = Field(default_factory=list, max_length=500)
+
+
 class BuildiumBillCommitRow(BaseModel):
     source_id: str
     target_bill_id: int
