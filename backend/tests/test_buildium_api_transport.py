@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -10,6 +12,7 @@ import init_db  # noqa: F401
 from app.core.database import Base
 from app.core.security import hash_password
 from app.models.audit_log import AuditLog
+from app.models.lease import Lease
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.property import Property, PropertyType, Unit
@@ -30,6 +33,9 @@ from app.schemas.buildium_migration import (
     BuildiumApiTenantCommitIn,
     BuildiumApiTenantDryRunIn,
     BuildiumTenantResolutionIn,
+    BuildiumApiLeaseCommitIn,
+    BuildiumApiLeaseDryRunIn,
+    BuildiumLeaseResolutionIn,
 )
 from app.services import buildium_api_transport as transport
 from app.services.buildium_api_transport import BuildiumApiFetchResult, BuildiumApiTransportError
@@ -269,6 +275,72 @@ def _target_tenant(db, run):
     db.add(row)
     db.commit()
     return row
+
+
+def _lease_record(**changes):
+    row = {
+        "Id": 6501,
+        "PropertyId": 6001,
+        "UnitId": 6101,
+        "LeaseFromDate": "2026-01-15",
+        "LeaseToDate": "2026-12-31",
+        "PaymentDueDay": 1,
+        "Tenants": [{"Id": 6401, "Status": "Current", "TaxId": "PRIVATE-LEASE-TAX-ID"}],
+        "Rent": 1200,
+        "SecurityDeposit": 1200,
+        "Status": "Active",
+        "Notes": "PRIVATE LEASE NOTES",
+    }
+    row.update(changes)
+    return row
+
+
+def _target_lease_with_dependencies(db, run):
+    prop = _target_property_mapping(db, run)
+    unit = Unit(
+        property_id=prop.id,
+        unit_number="A-1",
+        bedrooms=2,
+        bathrooms=1,
+        square_feet=900,
+        monthly_rent=1200,
+        is_active=True,
+    )
+    db.add(unit)
+    db.flush()
+    db.add(PlatformMigrationItem(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider="BUILDIUM",
+        resource="UNITS",
+        source_id="6101",
+        target_entity="UNIT",
+        target_id=unit.id,
+        source_fingerprint="b" * 64,
+    ))
+    tenant = _target_tenant(db, run)
+    db.add(PlatformMigrationItem(
+        run_id=run.id,
+        organization_id=run.organization_id,
+        provider="BUILDIUM",
+        resource="TENANTS",
+        source_id="6401",
+        target_entity="TENANT_USER",
+        target_id=tenant.id,
+        source_fingerprint="c" * 64,
+    ))
+    lease = Lease(
+        unit_id=unit.id,
+        tenant_id=tenant.id,
+        start_date=date(2026, 1, 15),
+        end_date=date(2026, 12, 31),
+        monthly_rent=1200,
+        security_deposit=1200,
+        due_day=1,
+    )
+    db.add(lease)
+    db.commit()
+    return lease
 
 
 class _Response:
@@ -967,5 +1039,153 @@ def test_buildium_api_tenant_commit_refetch_detects_source_drift_and_routes_exis
         )
         status = api.get_buildium_transport_status(current_user=admin)
         assert "TENANTS" in status.supported_resources
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_buildium_transport_fetches_leases_from_fixed_endpoint(monkeypatch):
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_MODE", "sandbox")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_ID", "client-id")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_SECRET", "lease-secret")
+    monkeypatch.setattr(
+        transport.settings, "BUILDIUM_API_SOURCE_ACCOUNT_REF", "sandbox-account-A"
+    )
+    calls = []
+    def fake_get(url, *, headers, params, timeout):
+        calls.append((url, headers.copy(), params.copy(), timeout))
+        return _Response(200, [_lease_record()])
+    monkeypatch.setattr(transport.requests, "get", fake_get)
+
+    result = transport.fetch_rental_leases(expected_source_account_ref="sandbox-account-A")
+    assert result.records[0]["Id"] == 6501
+    assert calls[0][0] == "https://apisandbox.buildium.com/v1/leases"
+    assert calls[0][1]["x-buildium-client-secret"] == "lease-secret"
+    assert calls[0][2] == {"offset": 0, "limit": 500}
+
+
+def test_buildium_api_lease_route_reconciles_existing_relationship_only_and_redacts_provider_fields(monkeypatch):
+    db, engine = _session()
+    try:
+        admin = _admin(db); org = _org(db); run = _run(db, org)
+        lease = _target_lease_with_dependencies(db, run)
+        def fetched(*, expected_source_account_ref):
+            assert expected_source_account_ref == "sandbox-account-A"
+            return BuildiumApiFetchResult(
+                records=[_lease_record()], mode="sandbox", request_count=1
+            )
+        monkeypatch.setattr(api, "fetch_rental_leases", fetched)
+
+        resolution = BuildiumLeaseResolutionIn(
+            source_id=6501,
+            action="MATCH_EXISTING",
+            target_lease_id=lease.id,
+        )
+        reviewed = api.api_dry_run_buildium_leases(
+            run.id,
+            BuildiumApiLeaseDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+        assert reviewed.invalid == 0 and reviewed.reviewable == 1
+        assert reviewed.rows[0].mapped["target_lease_id"] == lease.id
+
+        committed = api.api_commit_buildium_leases(
+            run.id,
+            BuildiumApiLeaseCommitIn(
+                fingerprint=reviewed.fingerprint,
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.matched_existing == 1
+        mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(PlatformMigrationItem.resource == "LEASES")
+            .one()
+        )
+        assert mapping.target_entity == "LEASE_RELATIONSHIP"
+        assert mapping.target_id == lease.id
+        assert db.query(Lease).count() == 1
+
+        with pytest.raises(ValidationError):
+            BuildiumApiLeaseDryRunIn(client_secret="secret")
+        with pytest.raises(ValidationError):
+            BuildiumApiLeaseCommitIn(
+                fingerprint=reviewed.fingerprint, records=[_lease_record()]
+            )
+
+        audit = "\n".join(
+            str(row.new_value or "")
+            for row in db.query(AuditLog)
+            .filter(AuditLog.entity_type == "platform_migration_run")
+            .all()
+        )
+        assert "PRIVATE LEASE NOTES" not in audit
+        assert "PRIVATE-LEASE-TAX-ID" not in audit
+        assert '"credentials_stored":false' in audit.lower()
+        assert '"raw_response_stored":false' in audit.lower()
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_buildium_api_lease_commit_refetch_detects_source_drift_and_routes_exist(monkeypatch):
+    from app.main import app
+    db, engine = _session()
+    try:
+        admin = _admin(db); org = _org(db); run = _run(db, org)
+        lease = _target_lease_with_dependencies(db, run)
+        resolution = BuildiumLeaseResolutionIn(
+            source_id=6501,
+            action="MATCH_EXISTING",
+            target_lease_id=lease.id,
+        )
+        state = {"changed": False}
+        def fetched(*, expected_source_account_ref):
+            record = (
+                _lease_record(PaymentDueDay=2)
+                if state["changed"] else _lease_record()
+            )
+            return BuildiumApiFetchResult(
+                records=[record], mode="sandbox", request_count=1
+            )
+        monkeypatch.setattr(api, "fetch_rental_leases", fetched)
+        reviewed = api.api_dry_run_buildium_leases(
+            run.id,
+            BuildiumApiLeaseDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+        state["changed"] = True
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_leases(
+                run.id,
+                BuildiumApiLeaseCommitIn(
+                    fingerprint=reviewed.fingerprint,
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert (
+            db.query(PlatformMigrationItem)
+            .filter(PlatformMigrationItem.resource == "LEASES")
+            .count()
+            == 0
+        )
+        assert db.query(Lease).count() == 1
+
+        paths = set(app.openapi()["paths"])
+        assert "/api/platform/migrations/buildium/runs/{run_id}/leases/api-dry-run" in paths
+        assert "/api/platform/migrations/buildium/runs/{run_id}/leases/api-commit" in paths
+        monkeypatch.setattr(transport.settings, "BUILDIUM_API_MODE", "sandbox")
+        monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_ID", "client-id")
+        monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_SECRET", "lease-secret")
+        monkeypatch.setattr(
+            transport.settings, "BUILDIUM_API_SOURCE_ACCOUNT_REF", "sandbox-account-A"
+        )
+        status = api.get_buildium_transport_status(current_user=admin)
+        assert "LEASES" in status.supported_resources
     finally:
         db.close(); engine.dispose()

@@ -587,6 +587,23 @@ class BuildiumLeaseCommitIn(BaseModel):
     resolutions: list[BuildiumLeaseResolutionIn] = Field(default_factory=list, max_length=500)
 
 
+class BuildiumApiLeaseDryRunIn(BaseModel):
+    """Server-side Buildium API Lease preview; credentials and raw records are never request fields."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resolutions: list[BuildiumLeaseResolutionIn] = Field(default_factory=list, max_length=500)
+
+
+class BuildiumApiLeaseCommitIn(BaseModel):
+    """Commit a fresh server-side Lease API fetch only when review still matches."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolutions: list[BuildiumLeaseResolutionIn] = Field(default_factory=list, max_length=500)
+
+
 class BuildiumLeaseCommitRow(BaseModel):
     source_id: str
     target_lease_id: int
