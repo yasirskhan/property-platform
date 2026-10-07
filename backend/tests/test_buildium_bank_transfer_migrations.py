@@ -5,6 +5,7 @@ from decimal import Decimal
 
 import pytest
 from fastapi import HTTPException, Response
+from pydantic import ValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -23,9 +24,16 @@ from app.models.user import Organization
 from app.routers import buildium_bank_transfer_migrations as api
 from app.routers import buildium_migrations as base_api
 from app.schemas.buildium_bank_transfer_migration import (
+    BuildiumApiBankTransferCommitIn,
+    BuildiumApiBankTransferDryRunIn,
     BuildiumBankTransferCommitIn,
     BuildiumBankTransferDryRunIn,
     BuildiumBankTransferResolutionIn,
+)
+from app.services import buildium_api_transport as transport
+from app.services.buildium_api_transport import (
+    BuildiumApiFetchResult,
+    BuildiumApiTransportError,
 )
 
 
@@ -454,6 +462,319 @@ def test_buildium_bank_transfer_blocks_unsupported_entity_allows_skip_and_regist
         paths = set(app.openapi()["paths"])
         assert "/api/platform/migrations/buildium/runs/{run_id}/bank-transfers/dry-run" in paths
         assert "/api/platform/migrations/buildium/runs/{run_id}/bank-transfers/commit" in paths
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+class _BankTransferApiResponse:
+    def __init__(self, status_code, payload):
+        self.status_code = status_code
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
+def _configure_bank_transfer_api_transport(monkeypatch):
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_MODE", "sandbox")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_ID", "bank-transfer-client")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_SECRET", "bank-transfer-secret")
+    monkeypatch.setattr(
+        transport.settings,
+        "BUILDIUM_API_SOURCE_ACCOUNT_REF",
+        "buildium-bank-transfer-source",
+    )
+
+
+def test_buildium_transport_fetches_bounded_nested_bank_transfers(monkeypatch):
+    _configure_bank_transfer_api_transport(monkeypatch)
+    calls = []
+
+    def fake_get(url, *, headers, timeout, params=None):
+        calls.append((url, headers.copy(), None if params is None else params.copy(), timeout))
+        if url.endswith("/v1/bankaccounts/7001/transfers"):
+            row = _record()
+            row["SourceBankAccountId"] = 999999
+            return _BankTransferApiResponse(200, [row])
+        if url.endswith("/v1/bankaccounts/7002/transfers"):
+            return _BankTransferApiResponse(200, [])
+        raise AssertionError(url)
+
+    monkeypatch.setattr(transport.requests, "get", fake_get)
+    result = transport.fetch_bank_transfers(
+        expected_source_account_ref="buildium-bank-transfer-source",
+        parent_bank_account_ids=["7002", "7001"],
+    )
+    assert result.records[0]["Id"] == 9001
+    assert result.records[0]["SourceBankAccountId"] == 7001
+    assert result.parent_record_count == 2
+    assert result.request_count == 2
+    assert calls[0][0] == "https://apisandbox.buildium.com/v1/bankaccounts/7001/transfers"
+    assert calls[0][2] == {
+        "offset": 0,
+        "limit": transport.MAX_BANK_TRANSFER_RECORDS + 1,
+    }
+    assert calls[0][1]["x-buildium-client-secret"] == "bank-transfer-secret"
+
+    with pytest.raises(BuildiumApiTransportError) as exc:
+        transport.fetch_bank_transfers(
+            expected_source_account_ref="buildium-bank-transfer-source",
+            parent_bank_account_ids=list(
+                range(1, transport.MAX_BANK_TRANSFER_PARENT_BANK_ACCOUNTS + 2)
+            ),
+        )
+    assert exc.value.code == "source_too_large"
+
+    def too_many(url, *, headers, timeout, params=None):
+        return _BankTransferApiResponse(
+            200,
+            [
+                {
+                    "Id": 10000 + index,
+                    "EntryDate": "2026-10-01",
+                    "AccountingEntity": {
+                        "Id": 501,
+                        "AccountingEntityType": "Rental",
+                    },
+                    "TotalAmount": 250,
+                    "TransferToBankAccountId": 7002,
+                }
+                for index in range(transport.MAX_BANK_TRANSFER_RECORDS + 1)
+            ],
+        )
+
+    monkeypatch.setattr(transport.requests, "get", too_many)
+    with pytest.raises(BuildiumApiTransportError) as exc:
+        transport.fetch_bank_transfers(
+            expected_source_account_ref="buildium-bank-transfer-source",
+            parent_bank_account_ids=[7001],
+        )
+    assert exc.value.code == "source_too_large"
+
+
+def test_buildium_api_bank_transfer_maps_existing_only_replays_and_redacts(monkeypatch):
+    db, engine = _session()
+    try:
+        admin = _admin(db)
+        _, _, _, _, txn, run, _ = _fixture(db)
+        before = {
+            "transactions": db.query(GLTransaction).count(),
+            "entries": db.query(GLEntry).count(),
+            "banks": db.query(BankAccount).count(),
+        }
+
+        def fetched(*, expected_source_account_ref, parent_bank_account_ids):
+            assert expected_source_account_ref == "buildium-bank-transfer-source"
+            assert parent_bank_account_ids == ["7001", "7002"]
+            return BuildiumApiFetchResult(
+                records=[_record()],
+                mode="sandbox",
+                request_count=2,
+                parent_record_count=2,
+            )
+
+        monkeypatch.setattr(api, "fetch_bank_transfers", fetched)
+        resolution = BuildiumBankTransferResolutionIn(
+            source_id=9001,
+            action="MATCH_EXISTING",
+            target_gl_transaction_id=txn.id,
+        )
+        reviewed = api.api_dry_run_buildium_bank_transfers(
+            run.id,
+            BuildiumApiBankTransferDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+        assert reviewed.invalid == 0
+        assert reviewed.reviewable == 1
+
+        committed = api.api_commit_buildium_bank_transfers(
+            run.id,
+            BuildiumApiBankTransferCommitIn(
+                fingerprint=reviewed.fingerprint,
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.matched_existing == 1
+        assert committed.replayed is False
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "BANK_TRANSFERS"
+        ).count() == 1
+
+        replay = api.api_commit_buildium_bank_transfers(
+            run.id,
+            BuildiumApiBankTransferCommitIn(
+                fingerprint=reviewed.fingerprint,
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert {
+            "transactions": db.query(GLTransaction).count(),
+            "entries": db.query(GLEntry).count(),
+            "banks": db.query(BankAccount).count(),
+        } == before
+
+        with pytest.raises(ValidationError):
+            BuildiumApiBankTransferDryRunIn(records=[_record()])
+        with pytest.raises(ValidationError):
+            BuildiumApiBankTransferCommitIn(
+                fingerprint=reviewed.fingerprint,
+                client_secret="secret",
+            )
+
+        audit = "\n".join(
+            str(row.new_value or "")
+            for row in db.query(AuditLog)
+            .filter(AuditLog.entity_type == "platform_migration_run")
+            .all()
+        )
+        assert "DO-NOT-PERSIST-RAW" not in audit
+        assert "bank-transfer-secret" not in audit
+        assert "raw_payload_stored" in audit
+        assert "provider_credentials_stored" in audit
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_api_bank_transfer_provider_dependency_and_target_drift_fail_closed(monkeypatch):
+    db, engine = _session()
+    try:
+        admin = _admin(db)
+        _, _, _, _, txn, run, mappings = _fixture(db)
+        state = {"amount": 250}
+
+        def fetched(*, expected_source_account_ref, parent_bank_account_ids):
+            return BuildiumApiFetchResult(
+                records=[_record(TotalAmount=state["amount"])],
+                mode="sandbox",
+                request_count=2,
+                parent_record_count=2,
+            )
+
+        monkeypatch.setattr(api, "fetch_bank_transfers", fetched)
+        resolution = BuildiumBankTransferResolutionIn(
+            source_id=9001,
+            action="MATCH_EXISTING",
+            target_gl_transaction_id=txn.id,
+        )
+        reviewed = api.api_dry_run_buildium_bank_transfers(
+            run.id,
+            BuildiumApiBankTransferDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+
+        state["amount"] = 251
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_bank_transfers(
+                run.id,
+                BuildiumApiBankTransferCommitIn(
+                    fingerprint=reviewed.fingerprint,
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "BANK_TRANSFERS"
+        ).count() == 0
+
+        state["amount"] = 250
+        reviewed = api.api_dry_run_buildium_bank_transfers(
+            run.id,
+            BuildiumApiBankTransferDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+        mappings[0].source_fingerprint = "9" * 64
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_bank_transfers(
+                run.id,
+                BuildiumApiBankTransferCommitIn(
+                    fingerprint=reviewed.fingerprint,
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        mappings[0].source_fingerprint = "1" * 64
+        db.commit()
+        reviewed = api.api_dry_run_buildium_bank_transfers(
+            run.id,
+            BuildiumApiBankTransferDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+        db.query(GLEntry).filter(
+            GLEntry.transaction_id == txn.id,
+            GLEntry.credit > 0,
+        ).one().credit = Decimal("249.00")
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_bank_transfers(
+                run.id,
+                BuildiumApiBankTransferCommitIn(
+                    fingerprint=reviewed.fingerprint,
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "BANK_TRANSFERS"
+        ).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_api_bank_transfer_parent_scope_routes_and_status(monkeypatch):
+    from app.main import app
+
+    db, engine = _session()
+    try:
+        admin = _admin(db)
+        _, _, _, _, _, run, _ = _fixture(db)
+        assert api._bank_transfer_api_parent_source_ids(db, run=run) == ["7001", "7002"]
+
+        bad = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "BANK_ACCOUNTS",
+            PlatformMigrationItem.source_id == "7001",
+        ).one()
+        bad.target_entity = "WRONG"
+        db.commit()
+        with pytest.raises(Exception) as exc:
+            api._bank_transfer_api_parent_source_ids(db, run=run)
+        assert "inconsistent" in str(exc.value).lower()
+
+        monkeypatch.setattr(
+            base_api,
+            "transport_status",
+            lambda: type(
+                "TransportState",
+                (),
+                {"mode": "sandbox", "configured": True, "source_account_bound": True},
+            )(),
+        )
+        status = base_api.get_buildium_transport_status(current_user=admin)
+        assert "BANK_TRANSFERS" in status.supported_resources
+
+        paths = set(app.openapi()["paths"])
+        assert "/api/platform/migrations/buildium/runs/{run_id}/bank-transfers/api-dry-run" in paths
+        assert "/api/platform/migrations/buildium/runs/{run_id}/bank-transfers/api-commit" in paths
     finally:
         db.close()
         engine.dispose()

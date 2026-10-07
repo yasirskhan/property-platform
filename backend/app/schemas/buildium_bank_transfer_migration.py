@@ -28,6 +28,17 @@ class BuildiumBankTransferDryRunIn(BaseModel):
     resolutions: list[BuildiumBankTransferResolutionIn] = Field(default_factory=list, max_length=500)
 
 
+class BuildiumApiBankTransferDryRunIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    resolutions: list[BuildiumBankTransferResolutionIn] = Field(default_factory=list, max_length=500)
+
+
+class BuildiumApiBankTransferCommitIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolutions: list[BuildiumBankTransferResolutionIn] = Field(default_factory=list, max_length=500)
+
+
 class BuildiumBankTransferPreviewRow(BaseModel):
     source_id: str | None
     reviewable: bool

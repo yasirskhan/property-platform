@@ -40,6 +40,8 @@ MAX_LEASE_PAYMENT_PARENT_LEASES = 100
 MAX_LEASE_PAYMENT_RECORDS = _MAX_REVIEW_RECORDS
 MAX_BANK_RECONCILIATION_PARENT_BANK_ACCOUNTS = 100
 MAX_BANK_RECONCILIATION_RECORDS = _MAX_REVIEW_RECORDS
+MAX_BANK_TRANSFER_PARENT_BANK_ACCOUNTS = 100
+MAX_BANK_TRANSFER_RECORDS = _MAX_REVIEW_RECORDS
 
 
 class BuildiumApiTransportError(Exception):
@@ -779,4 +781,89 @@ def fetch_bank_reconciliations(
         request_count=requests_made,
         parent_record_count=len(normalized_parent_ids),
         detail_request_count=detail_requests,
+    )
+
+
+def fetch_bank_transfers(
+    *,
+    expected_source_account_ref: str,
+    parent_bank_account_ids: list[int | str],
+) -> BuildiumApiFetchResult:
+    """Fetch bounded nested Bank Transfers for already-mapped source Bank Accounts."""
+    profile = _profile(expected_source_account_ref)
+
+    normalized_parent_ids: list[int] = []
+    seen_parent_ids: set[int] = set()
+    for raw_parent_id in parent_bank_account_ids:
+        if isinstance(raw_parent_id, bool):
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Bank Transfer parent Bank Account scope contains an invalid source ID.",
+            )
+        try:
+            parent_id = int(str(raw_parent_id).strip())
+        except (TypeError, ValueError):
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Bank Transfer parent Bank Account scope contains an invalid source ID.",
+            )
+        if parent_id < 1:
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Bank Transfer parent Bank Account scope contains an invalid source ID.",
+            )
+        if parent_id in seen_parent_ids:
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Bank Transfer parent Bank Account scope contains a duplicate source ID.",
+            )
+        seen_parent_ids.add(parent_id)
+        normalized_parent_ids.append(parent_id)
+
+    if not normalized_parent_ids:
+        raise BuildiumApiTransportError(
+            "empty_parent_scope",
+            "Buildium Bank Transfer API migration requires at least one durably mapped parent Bank Account.",
+        )
+    if len(normalized_parent_ids) > MAX_BANK_TRANSFER_PARENT_BANK_ACCOUNTS:
+        raise BuildiumApiTransportError(
+            "source_too_large",
+            "Buildium Bank Transfer API migration exceeds the bounded "
+            f"{MAX_BANK_TRANSFER_PARENT_BANK_ACCOUNTS}-parent-Bank-Account review scope.",
+        )
+
+    records: list[dict[str, Any]] = []
+    requests_made = 0
+    for parent_bank_account_id in sorted(normalized_parent_ids):
+        remaining = MAX_BANK_TRANSFER_RECORDS - len(records)
+        request_limit = max(1, min(1000, remaining + 1))
+        page = _get_json_list(
+            profile,
+            path=f"/v1/bankaccounts/{parent_bank_account_id}/transfers",
+            resource_label=f"bank transfers for source Bank Account {parent_bank_account_id}",
+            offset=0,
+            limit=request_limit,
+        )
+        requests_made += 1
+        if len(page) > remaining:
+            raise BuildiumApiTransportError(
+                "source_too_large",
+                "Buildium Bank Transfer source exceeds the bounded "
+                f"{MAX_BANK_TRANSFER_RECORDS}-record API migration review.",
+            )
+        for provider_record in page:
+            record = dict(provider_record)
+            record["SourceBankAccountId"] = parent_bank_account_id
+            records.append(record)
+
+    if not records:
+        raise BuildiumApiTransportError(
+            "empty_source",
+            "Buildium API returned no Bank Transfers for the mapped parent Bank Accounts.",
+        )
+    return BuildiumApiFetchResult(
+        records=records,
+        mode=profile.mode,
+        request_count=requests_made,
+        parent_record_count=len(normalized_parent_ids),
     )
