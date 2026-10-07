@@ -679,6 +679,25 @@ class BuildiumGLAccountCommitIn(BaseModel):
     resolutions: list[BuildiumGLAccountResolutionIn] = Field(default_factory=list, max_length=1000)
 
 
+class BuildiumApiGLAccountDryRunIn(BaseModel):
+    """Server-side Buildium API GL-account preview; credentials and raw records are never request fields."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    include_inactive: bool = False
+    resolutions: list[BuildiumGLAccountResolutionIn] = Field(default_factory=list, max_length=500)
+
+
+class BuildiumApiGLAccountCommitIn(BaseModel):
+    """Commit a fresh server-side GL-account API fetch only when review still matches."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    include_inactive: bool = False
+    resolutions: list[BuildiumGLAccountResolutionIn] = Field(default_factory=list, max_length=500)
+
+
 class BuildiumGLAccountCommitRow(BaseModel):
     source_id: str
     target_gl_account_id: int

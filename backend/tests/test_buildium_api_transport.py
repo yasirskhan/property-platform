@@ -13,6 +13,8 @@ from app.core.database import Base
 from app.core.security import hash_password
 from app.models.audit_log import AuditLog
 from app.models.lease import Lease
+from app.models.gl_account import GLAccount
+from app.models.gl_transaction import GLTransaction
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.property import Property, PropertyType, Unit
@@ -36,6 +38,9 @@ from app.schemas.buildium_migration import (
     BuildiumApiLeaseCommitIn,
     BuildiumApiLeaseDryRunIn,
     BuildiumLeaseResolutionIn,
+    BuildiumApiGLAccountCommitIn,
+    BuildiumApiGLAccountDryRunIn,
+    BuildiumGLAccountResolutionIn,
 )
 from app.services import buildium_api_transport as transport
 from app.services.buildium_api_transport import BuildiumApiFetchResult, BuildiumApiTransportError
@@ -341,6 +346,42 @@ def _target_lease_with_dependencies(db, run):
     db.add(lease)
     db.commit()
     return lease
+
+
+def _gl_record(**changes):
+    row = {
+        "Id": 7001,
+        "AccountNumber": "4100",
+        "Name": "Rental Income",
+        "Description": "PRIVATE PROVIDER GL DESCRIPTION",
+        "Type": "Income",
+        "SubType": "Income",
+        "IsDefaultGLAccount": True,
+        "DefaultAccountName": "Rental Income",
+        "IsContraAccount": False,
+        "IsBankAccount": False,
+        "CashFlowClassification": "OperatingActivities",
+        "ExcludeFromCashBalances": False,
+        "SubAccounts": [],
+        "IsActive": True,
+        "ParentGLAccountId": None,
+        "IsCreditCardAccount": False,
+    }
+    row.update(changes)
+    return row
+
+
+def _target_gl(db, run):
+    row = GLAccount(
+        organization_id=run.organization_id,
+        gl_number="4100",
+        name="Rental Income",
+        account_type="INCOME",
+        is_active=True,
+    )
+    db.add(row)
+    db.commit()
+    return row
 
 
 class _Response:
@@ -1187,5 +1228,154 @@ def test_buildium_api_lease_commit_refetch_detects_source_drift_and_routes_exist
         )
         status = api.get_buildium_transport_status(current_user=admin)
         assert "LEASES" in status.supported_resources
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_buildium_transport_fetches_gl_accounts_from_fixed_endpoint(monkeypatch):
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_MODE", "sandbox")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_ID", "client-id")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_SECRET", "gl-secret")
+    monkeypatch.setattr(
+        transport.settings, "BUILDIUM_API_SOURCE_ACCOUNT_REF", "sandbox-account-A"
+    )
+    calls = []
+    def fake_get(url, *, headers, params, timeout):
+        calls.append((url, headers.copy(), params.copy(), timeout))
+        return _Response(200, [_gl_record()])
+    monkeypatch.setattr(transport.requests, "get", fake_get)
+
+    result = transport.fetch_gl_accounts(expected_source_account_ref="sandbox-account-A")
+    assert result.records[0]["Id"] == 7001
+    assert calls[0][0] == "https://apisandbox.buildium.com/v1/glaccounts"
+    assert calls[0][1]["x-buildium-client-secret"] == "gl-secret"
+    assert calls[0][2] == {"offset": 0, "limit": 500}
+
+
+def test_buildium_api_gl_account_route_maps_existing_identity_only_and_redacts_provider_fields(monkeypatch):
+    db, engine = _session()
+    try:
+        admin = _admin(db); org = _org(db); run = _run(db, org)
+        target = _target_gl(db, run)
+        def fetched(*, expected_source_account_ref):
+            assert expected_source_account_ref == "sandbox-account-A"
+            return BuildiumApiFetchResult(
+                records=[_gl_record()], mode="sandbox", request_count=1
+            )
+        monkeypatch.setattr(api, "fetch_gl_accounts", fetched)
+
+        resolution = BuildiumGLAccountResolutionIn(
+            source_id=7001,
+            action="MATCH_EXISTING",
+            target_gl_account_id=target.id,
+        )
+        reviewed = api.api_dry_run_buildium_gl_accounts(
+            run.id,
+            BuildiumApiGLAccountDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+        assert reviewed.invalid == 0 and reviewed.reviewable == 1
+        assert reviewed.rows[0].mapped["account_number"] == "4100"
+
+        committed = api.api_commit_buildium_gl_accounts(
+            run.id,
+            BuildiumApiGLAccountCommitIn(
+                fingerprint=reviewed.fingerprint,
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.matched_existing == 1
+        mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(PlatformMigrationItem.resource == "GL_ACCOUNTS")
+            .one()
+        )
+        assert mapping.target_entity == "GL_ACCOUNT"
+        assert mapping.target_id == target.id
+        assert db.query(GLAccount).count() == 1
+        assert db.query(GLTransaction).count() == 0
+
+        with pytest.raises(ValidationError):
+            BuildiumApiGLAccountDryRunIn(client_secret="secret")
+        with pytest.raises(ValidationError):
+            BuildiumApiGLAccountCommitIn(
+                fingerprint=reviewed.fingerprint, records=[_gl_record()]
+            )
+
+        audit = "\n".join(
+            str(row.new_value or "")
+            for row in db.query(AuditLog)
+            .filter(AuditLog.entity_type == "platform_migration_run")
+            .all()
+        )
+        assert "PRIVATE PROVIDER GL DESCRIPTION" not in audit
+        assert '"credentials_stored":false' in audit.lower()
+        assert '"raw_response_stored":false' in audit.lower()
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_buildium_api_gl_account_commit_refetch_detects_source_drift_and_routes_exist(monkeypatch):
+    from app.main import app
+    db, engine = _session()
+    try:
+        admin = _admin(db); org = _org(db); run = _run(db, org)
+        target = _target_gl(db, run)
+        resolution = BuildiumGLAccountResolutionIn(
+            source_id=7001,
+            action="MATCH_EXISTING",
+            target_gl_account_id=target.id,
+        )
+        state = {"changed": False}
+        def fetched(*, expected_source_account_ref):
+            record = (
+                _gl_record(Name="Changed Provider Name")
+                if state["changed"] else _gl_record()
+            )
+            return BuildiumApiFetchResult(
+                records=[record], mode="sandbox", request_count=1
+            )
+        monkeypatch.setattr(api, "fetch_gl_accounts", fetched)
+        reviewed = api.api_dry_run_buildium_gl_accounts(
+            run.id,
+            BuildiumApiGLAccountDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+        state["changed"] = True
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_gl_accounts(
+                run.id,
+                BuildiumApiGLAccountCommitIn(
+                    fingerprint=reviewed.fingerprint,
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert (
+            db.query(PlatformMigrationItem)
+            .filter(PlatformMigrationItem.resource == "GL_ACCOUNTS")
+            .count()
+            == 0
+        )
+        assert db.query(GLAccount).count() == 1
+        assert db.query(GLTransaction).count() == 0
+
+        paths = set(app.openapi()["paths"])
+        assert "/api/platform/migrations/buildium/runs/{run_id}/gl-accounts/api-dry-run" in paths
+        assert "/api/platform/migrations/buildium/runs/{run_id}/gl-accounts/api-commit" in paths
+        monkeypatch.setattr(transport.settings, "BUILDIUM_API_MODE", "sandbox")
+        monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_ID", "client-id")
+        monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_SECRET", "gl-secret")
+        monkeypatch.setattr(
+            transport.settings, "BUILDIUM_API_SOURCE_ACCOUNT_REF", "sandbox-account-A"
+        )
+        status = api.get_buildium_transport_status(current_user=admin)
+        assert "GL_ACCOUNTS" in status.supported_resources
     finally:
         db.close(); engine.dispose()
