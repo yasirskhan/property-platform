@@ -1020,6 +1020,23 @@ class BuildiumBillPaymentDryRunIn(BaseModel):
     resolutions: list[BuildiumBillPaymentResolutionIn] = Field(default_factory=list, max_length=500)
 
 
+class BuildiumApiBillPaymentDryRunIn(BaseModel):
+    """Server-side nested Bill Payment preview without caller-supplied provider records."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resolutions: list[BuildiumBillPaymentResolutionIn] = Field(default_factory=list, max_length=500)
+
+
+class BuildiumApiBillPaymentCommitIn(BaseModel):
+    """Commit a fresh nested Bill Payment fetch only when exact review still matches."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolutions: list[BuildiumBillPaymentResolutionIn] = Field(default_factory=list, max_length=500)
+
+
 class BuildiumBillPaymentPreviewRow(BaseModel):
     source_id: str | None
     reviewable: bool

@@ -268,6 +268,7 @@ def _dependency_snapshot(
         snapshot.append(
             {
                 "payment_source_id": _positive_id(record.get("Id")),
+                "parent_bill_source_id": _positive_id(record.get("_ParentBillId")),
                 "bank_account_source_id": bank_source_id,
                 "bank_account": (
                     {
@@ -282,6 +283,210 @@ def _dependency_snapshot(
             }
         )
     return snapshot
+
+
+def _snapshot_money(value: Any) -> str | None:
+    if value is None:
+        return None
+    try:
+        return f"{Decimal(value).quantize(Decimal('0.01')):.2f}"
+    except (InvalidOperation, TypeError, ValueError):
+        return str(value)
+
+
+def _target_check_snapshot(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    target_check_id: int,
+) -> dict[str, Any]:
+    check = (
+        db.query(Check)
+        .filter(
+            Check.id == target_check_id,
+            Check.organization_id == run.organization_id,
+        )
+        .first()
+    )
+    if check is None:
+        return {"target_check_id": target_check_id, "exists": False}
+
+    bank = (
+        db.query(BankAccount)
+        .filter(
+            BankAccount.id == check.bank_account_id,
+            BankAccount.organization_id == run.organization_id,
+        )
+        .first()
+    )
+    allocations = (
+        db.query(CheckBillAllocation)
+        .filter(CheckBillAllocation.check_id == check.id)
+        .order_by(CheckBillAllocation.id.asc())
+        .all()
+    )
+    allocation_snapshots: list[dict[str, Any]] = []
+    for allocation in allocations:
+        bill = (
+            db.query(Bill)
+            .filter(
+                Bill.id == allocation.bill_id,
+                Bill.organization_id == run.organization_id,
+            )
+            .first()
+        )
+        allocation_snapshots.append(
+            {
+                "allocation_id": allocation.id,
+                "bill_id": allocation.bill_id,
+                "amount": _snapshot_money(allocation.amount),
+                "bill": (
+                    {
+                        "id": bill.id,
+                        "status": bill.status,
+                        "amount": _snapshot_money(bill.amount),
+                        "amount_paid": _snapshot_money(bill.amount_paid),
+                        "payee_name": bill.payee_name,
+                        "payable_gl_account_id": bill.payable_gl_account_id,
+                        "property_id": bill.property_id,
+                        "unit_id": bill.unit_id,
+                        "owner_id": bill.owner_id,
+                        "is_active": bool(bill.is_active),
+                        "is_reversed": bool(bill.is_reversed),
+                        "deleted_at": (
+                            bill.deleted_at.isoformat() if bill.deleted_at else None
+                        ),
+                    }
+                    if bill is not None
+                    else None
+                ),
+            }
+        )
+
+    txn = check.gl_transaction
+    transaction_snapshot: dict[str, Any] | None = None
+    if txn is not None:
+        transaction_snapshot = {
+            "id": txn.id,
+            "organization_id": txn.organization_id,
+            "transaction_date": (
+                txn.transaction_date.isoformat() if txn.transaction_date else None
+            ),
+            "transaction_type": txn.transaction_type,
+            "reference_number": txn.reference_number,
+            "memo": txn.memo,
+            "source_type": txn.source_type,
+            "source_id": txn.source_id,
+            "is_reversed": bool(txn.is_reversed),
+            "reversal_of_id": txn.reversal_of_id,
+            "entries": [
+                {
+                    "id": entry.id,
+                    "gl_account_id": entry.gl_account_id,
+                    "debit": _snapshot_money(entry.debit),
+                    "credit": _snapshot_money(entry.credit),
+                    "property_id": entry.property_id,
+                    "unit_id": entry.unit_id,
+                    "owner_id": entry.owner_id,
+                }
+                for entry in sorted(
+                    list(txn.entries),
+                    key=lambda item: item.id or 0,
+                )
+            ],
+        }
+
+    return {
+        "target_check_id": check.id,
+        "exists": True,
+        "status": check.status,
+        "bank_account_id": check.bank_account_id,
+        "check_number": check.check_number,
+        "check_date": check.check_date.isoformat(),
+        "payee_name": check.payee_name,
+        "memo": check.memo,
+        "amount": _snapshot_money(check.amount),
+        "gl_transaction_id": check.gl_transaction_id,
+        "void_gl_transaction_id": check.void_gl_transaction_id,
+        "voided_at": check.voided_at.isoformat() if check.voided_at else None,
+        "bank": (
+            {
+                "id": bank.id,
+                "gl_account_id": bank.gl_account_id,
+                "is_active": bool(bank.is_active),
+                "deleted_at": bank.deleted_at.isoformat() if bank.deleted_at else None,
+            }
+            if bank is not None
+            else None
+        ),
+        "allocations": allocation_snapshots,
+        "gl_transaction": transaction_snapshot,
+    }
+
+
+def _reviewed_target_snapshots(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    records: list[dict[str, Any]],
+    resolutions: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    resolution_map = _normalize_resolutions(resolutions)
+    snapshots: list[dict[str, Any]] = []
+    for record in records:
+        source_id = _positive_id(record.get("Id"))
+        if source_id is None:
+            continue
+        resolution = resolution_map.get(source_id)
+        durable = (
+            db.query(PlatformMigrationItem)
+            .filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "BUILDIUM",
+                PlatformMigrationItem.resource == "BILL_PAYMENTS",
+                PlatformMigrationItem.source_id == source_id,
+            )
+            .first()
+        )
+        reviewed_target_id = (
+            resolution["target_check_id"]
+            if resolution is not None and resolution["action"] == "MATCH_EXISTING"
+            else None
+        )
+        snapshot_target_id = (
+            reviewed_target_id
+            if reviewed_target_id is not None
+            else durable.target_id if durable is not None else None
+        )
+        snapshots.append(
+            {
+                "source_id": source_id,
+                "resolution_action": (
+                    resolution["action"] if resolution is not None else None
+                ),
+                "review_target_check_id": reviewed_target_id,
+                "durable_mapping": (
+                    {
+                        "target_entity": durable.target_entity,
+                        "target_id": durable.target_id,
+                        "source_fingerprint": durable.source_fingerprint,
+                    }
+                    if durable is not None
+                    else None
+                ),
+                "target_check": (
+                    _target_check_snapshot(
+                        db,
+                        run=run,
+                        target_check_id=snapshot_target_id,
+                    )
+                    if snapshot_target_id is not None
+                    else None
+                ),
+            }
+        )
+    return sorted(snapshots, key=lambda item: int(item["source_id"]))
 
 
 def _fingerprint(
@@ -302,6 +507,12 @@ def _fingerprint(
             resolution_map[key] for key in sorted(resolution_map, key=int)
         ],
         "dependency_mappings": _dependency_snapshot(db, run=run, records=records),
+        "reviewed_target_checks": _reviewed_target_snapshots(
+            db,
+            run=run,
+            records=records,
+            resolutions=resolutions,
+        ),
     }
     return hashlib.sha256(
         json.dumps(
@@ -482,6 +693,17 @@ def _map_record(
     bill_source_id = _positive_id(paid_bill_ids[0])
     if bill_source_id is None:
         return None, "PaidBillIds must contain one positive Buildium Bill ID.", []
+
+    parent_bill_source_id: str | None = None
+    if "_ParentBillId" in record:
+        parent_bill_source_id = _positive_id(record.get("_ParentBillId"))
+        if parent_bill_source_id is None:
+            return None, "Buildium Bill Payment nested parent Bill ID is invalid.", []
+        if parent_bill_source_id != bill_source_id:
+            return None, (
+                "Buildium Bill Payment nested parent Bill does not match the single PaidBillIds relationship."
+            ), []
+
     bill_mapping = _mapping(
         db,
         run=run,
@@ -681,6 +903,7 @@ def _map_record(
     return (
         {
             "source_id": source_id,
+            "parent_bill_source_id": parent_bill_source_id,
             "target_bank_account_id": bank.id,
             "target_bill_id": bill.id,
             "entry_date": entry_date.isoformat(),

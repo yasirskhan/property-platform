@@ -100,6 +100,8 @@ from app.schemas.buildium_migration import (
     BuildiumBillPaymentCommitOut,
     BuildiumBillPaymentDryRunIn,
     BuildiumBillPaymentDryRunOut,
+    BuildiumApiBillPaymentDryRunIn,
+    BuildiumApiBillPaymentCommitIn,
     BuildiumOwnerPropertyCommitIn,
     BuildiumOwnerPropertyCommitOut,
     BuildiumOwnerPropertyDryRunIn,
@@ -135,6 +137,8 @@ from app.services.buildium_api_transport import (
     fetch_work_orders,
     fetch_bills,
     fetch_bank_accounts,
+    fetch_bill_payments,
+    MAX_BILL_PAYMENT_PARENT_BILLS,
     transport_status,
 )
 from app.services.buildium_unit_migration import (
@@ -360,7 +364,12 @@ def get_run(
 
 
 def _transport_http_error(exc: BuildiumApiTransportError) -> HTTPException:
-    if exc.code in {"source_account_mismatch", "source_too_large"}:
+    if exc.code in {
+        "source_account_mismatch",
+        "source_too_large",
+        "invalid_parent_scope",
+        "empty_parent_scope",
+    }:
         return HTTPException(status_code=409, detail=str(exc))
     if exc.code in {"not_configured", "empty_source"}:
         return HTTPException(status_code=503, detail=str(exc))
@@ -377,7 +386,19 @@ def get_buildium_transport_status(
         mode=state.mode,
         configured=state.configured,
         source_account_bound=state.source_account_bound,
-        supported_resources=["PROPERTIES", "UNITS", "OWNERS", "VENDORS", "TENANTS", "LEASES", "GL_ACCOUNTS", "WORK_ORDERS", "BILLS", "BANK_ACCOUNTS"] if state.configured else [],
+        supported_resources=[
+            "PROPERTIES",
+            "UNITS",
+            "OWNERS",
+            "VENDORS",
+            "TENANTS",
+            "LEASES",
+            "GL_ACCOUNTS",
+            "WORK_ORDERS",
+            "BILLS",
+            "BANK_ACCOUNTS",
+            "BILL_PAYMENTS",
+        ] if state.configured else [],
     )
 
 
@@ -2906,6 +2927,187 @@ def commit_buildium_bank_accounts(
         replayed=result.replayed,
         matched_existing=result.matched_existing,
         skipped_inactive=result.skipped_inactive,
+        skipped_review=result.skipped_review,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+def _bill_payment_api_parent_source_ids(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+) -> list[str]:
+    mappings = (
+        db.query(PlatformMigrationItem)
+        .filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "BUILDIUM",
+            PlatformMigrationItem.resource == "BILLS",
+        )
+        .order_by(PlatformMigrationItem.id.asc())
+        .limit(MAX_BILL_PAYMENT_PARENT_BILLS + 1)
+        .all()
+    )
+    if len(mappings) > MAX_BILL_PAYMENT_PARENT_BILLS:
+        raise BuildiumApiTransportError(
+            "source_too_large",
+            "Buildium Bill Payment API migration exceeds the bounded "
+            f"{MAX_BILL_PAYMENT_PARENT_BILLS}-parent-Bill review scope.",
+        )
+    for mapping in mappings:
+        if mapping.target_entity != "BILL_RELATIONSHIP":
+            raise BuildiumBillPaymentMigrationError(
+                "Buildium Bill mapping is inconsistent and cannot define Bill Payment parent scope."
+            )
+    return [mapping.source_id for mapping in mappings]
+
+
+@router.post(
+    "/runs/{run_id}/bill-payments/api-dry-run",
+    response_model=BuildiumBillPaymentDryRunOut,
+)
+def api_dry_run_buildium_bill_payments(
+    run_id: int,
+    payload: BuildiumApiBillPaymentDryRunIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        parent_bill_ids = _bill_payment_api_parent_source_ids(db, run=row)
+        fetched = fetch_bill_payments(
+            expected_source_account_ref=row.source_account_ref,
+            parent_bill_ids=parent_bill_ids,
+        )
+        result = dry_run_bill_payments(
+            db,
+            run=row,
+            records=fetched.records,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+    except BuildiumApiTransportError as exc:
+        db.rollback()
+        raise _transport_http_error(exc) from exc
+    except BuildiumBillPaymentMigrationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    if not result.replayed:
+        append_audit_log(
+            db,
+            platform_user_id=current_user.id,
+            organization_id=row.organization_id,
+            entity_type="platform_migration_run",
+            entity_id=row.id,
+            action="buildium_bill_payments_api_dry_run",
+            new_value={
+                "fingerprint": result.fingerprint,
+                **result.summary,
+                "target_mutation": False,
+                "transport": "SERVER_TO_SERVER",
+                "transport_mode": fetched.mode.upper(),
+                "transport_request_count": fetched.request_count,
+                "transport_parent_bill_count": fetched.parent_record_count,
+                "transport_bill_payment_count": len(fetched.records),
+                "parent_scope": "DURABLE_BILL_MAPPINGS",
+                "credentials_stored": False,
+                "raw_response_stored": False,
+            },
+        )
+        db.commit()
+        db.refresh(row)
+
+    return BuildiumBillPaymentDryRunOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        total=result.total,
+        reviewable=result.reviewable,
+        skipped_review=result.skipped_review,
+        invalid=result.invalid,
+        warning_count=result.warning_count,
+        rows=result.rows,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/bill-payments/api-commit",
+    response_model=BuildiumBillPaymentCommitOut,
+)
+def api_commit_buildium_bill_payments(
+    run_id: int,
+    payload: BuildiumApiBillPaymentCommitIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    row = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        parent_bill_ids = _bill_payment_api_parent_source_ids(db, run=row)
+        fetched = fetch_bill_payments(
+            expected_source_account_ref=row.source_account_ref,
+            parent_bill_ids=parent_bill_ids,
+        )
+        result = commit_bill_payments(
+            db,
+            run=row,
+            records=fetched.records,
+            expected_fingerprint=payload.fingerprint,
+            platform_user_id=current_user.id,
+            resolutions=[item.model_dump() for item in payload.resolutions],
+        )
+        if not result.replayed:
+            append_audit_log(
+                db,
+                platform_user_id=current_user.id,
+                organization_id=row.organization_id,
+                entity_type="platform_migration_run",
+                entity_id=row.id,
+                action="buildium_bill_payments_api_reconciled",
+                new_value={
+                    "fingerprint": result.fingerprint,
+                    "matched_existing": result.matched_existing,
+                    "skipped_review": result.skipped_review,
+                    "warning_count": result.warning_count,
+                    "target_check_ids": [
+                        item["target_check_id"] for item in result.rows
+                    ],
+                    "checks_created": False,
+                    "checks_updated": False,
+                    "bills_updated": False,
+                    "payments_posted": False,
+                    "bank_movements_created": False,
+                    "vendor_credits_applied": False,
+                    "gl_history_created": False,
+                    "transport": "SERVER_TO_SERVER",
+                    "transport_mode": fetched.mode.upper(),
+                    "transport_request_count": fetched.request_count,
+                    "transport_parent_bill_count": fetched.parent_record_count,
+                    "transport_bill_payment_count": len(fetched.records),
+                    "parent_scope": "DURABLE_BILL_MAPPINGS",
+                    "credentials_stored": False,
+                    "raw_response_stored": False,
+                },
+            )
+            db.commit()
+            db.refresh(row)
+    except BuildiumApiTransportError as exc:
+        db.rollback()
+        raise _transport_http_error(exc) from exc
+    except (BuildiumBillPaymentMigrationError, IntegrityError) as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    return BuildiumBillPaymentCommitOut(
+        run_id=row.id,
+        organization_id=row.organization_id,
+        provider=row.provider,
+        fingerprint=result.fingerprint,
+        replayed=result.replayed,
+        matched_existing=result.matched_existing,
         skipped_review=result.skipped_review,
         warning_count=result.warning_count,
         rows=result.rows,

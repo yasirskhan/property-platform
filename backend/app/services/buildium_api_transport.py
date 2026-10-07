@@ -29,6 +29,8 @@ _BANK_ACCOUNT_PATH = "/v1/bankaccounts"
 _MAX_REVIEW_RECORDS = 500
 _PAGE_LIMIT = 500
 _TIMEOUT_SECONDS = 20
+MAX_BILL_PAYMENT_PARENT_BILLS = 100
+MAX_BILL_PAYMENT_RECORDS = _MAX_REVIEW_RECORDS
 
 
 class BuildiumApiTransportError(Exception):
@@ -49,6 +51,7 @@ class BuildiumApiFetchResult:
     records: list[dict[str, Any]]
     mode: str
     request_count: int
+    parent_record_count: int | None = None
 
 
 @dataclass(frozen=True)
@@ -289,4 +292,92 @@ def fetch_bank_accounts(*, expected_source_account_ref: str) -> BuildiumApiFetch
         profile=_profile(expected_source_account_ref),
         path=_BANK_ACCOUNT_PATH,
         resource_label="bank accounts",
+    )
+
+
+
+def fetch_bill_payments(
+    *,
+    expected_source_account_ref: str,
+    parent_bill_ids: list[int | str],
+) -> BuildiumApiFetchResult:
+    """Fetch a bounded nested Bill Payment source for already-mapped parent Bills."""
+    profile = _profile(expected_source_account_ref)
+
+    normalized_parent_ids: list[int] = []
+    seen_parent_ids: set[int] = set()
+    for raw_parent_id in parent_bill_ids:
+        if isinstance(raw_parent_id, bool):
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Bill Payment parent Bill scope contains an invalid source ID.",
+            )
+        try:
+            parent_id = int(str(raw_parent_id).strip())
+        except (TypeError, ValueError):
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Bill Payment parent Bill scope contains an invalid source ID.",
+            )
+        if parent_id < 1:
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Bill Payment parent Bill scope contains an invalid source ID.",
+            )
+        if parent_id in seen_parent_ids:
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Bill Payment parent Bill scope contains a duplicate source ID.",
+            )
+        seen_parent_ids.add(parent_id)
+        normalized_parent_ids.append(parent_id)
+
+    if not normalized_parent_ids:
+        raise BuildiumApiTransportError(
+            "empty_parent_scope",
+            "Buildium Bill Payment API migration requires at least one durably mapped parent Bill.",
+        )
+    if len(normalized_parent_ids) > MAX_BILL_PAYMENT_PARENT_BILLS:
+        raise BuildiumApiTransportError(
+            "source_too_large",
+            "Buildium Bill Payment API migration exceeds the bounded "
+            f"{MAX_BILL_PAYMENT_PARENT_BILLS}-parent-Bill review scope.",
+        )
+
+    records: list[dict[str, Any]] = []
+    requests_made = 0
+    for parent_bill_id in sorted(normalized_parent_ids):
+        remaining = MAX_BILL_PAYMENT_RECORDS - len(records)
+        # Ask for one more than the remaining review capacity so overflow is
+        # detected on the same bounded parent request without paging forever.
+        request_limit = max(1, min(1000, remaining + 1))
+        page = _get_json_list(
+            profile,
+            path=f"/v1/bills/{parent_bill_id}/payments",
+            resource_label=f"bill payments for parent Bill {parent_bill_id}",
+            offset=0,
+            limit=request_limit,
+        )
+        requests_made += 1
+        if len(page) > remaining:
+            raise BuildiumApiTransportError(
+                "source_too_large",
+                "Buildium Bill Payment source exceeds the bounded "
+                f"{MAX_BILL_PAYMENT_RECORDS}-record API migration review.",
+            )
+        for provider_record in page:
+            record = dict(provider_record)
+            record["_ParentBillId"] = parent_bill_id
+            records.append(record)
+
+    if not records:
+        raise BuildiumApiTransportError(
+            "empty_source",
+            "Buildium API returned no Bill Payments for the mapped parent Bills.",
+        )
+    return BuildiumApiFetchResult(
+        records=records,
+        mode=profile.mode,
+        request_count=requests_made,
+        parent_record_count=len(normalized_parent_ids),
     )
