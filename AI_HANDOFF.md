@@ -1,3 +1,140 @@
+# AI_HANDOFF.md — 2026-10-07 PHASE 4.14 BUILDIUM SERVER API BUDGET TRANSPORT VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Current VERIFIED product source:
+  `cf3610f42557b38aca40986afab0ef1bca7bc288`.
+- Exact GitHub Actions run **37636561293 — SUCCESS**.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **1142 passed, 21 deselected, 28864 warnings in 584.23s**.
+- Authenticated E2E: **21 passed, 278 warnings in 101.65s**.
+- Alembic remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- No database migration or new target business table was added.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains **AUTHORIZED BUT NOT ACTIVE**.
+
+The immediately preceding API Lease Charge product source
+`79cff7cc8b5cd963cad885d36c9f563c302434c9` remains independently verified
+by GitHub Actions **37620555937 SUCCESS**.
+
+## Verified Buildium server-to-server API Budget transport
+
+Verified routes:
+
+- `POST /api/platform/migrations/buildium/runs/{run_id}/budgets/api-dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/budgets/api-commit`
+
+Verified transport contract:
+
+1. Official Buildium v1 `GET /v1/budgets` feeds the already-verified bounded
+   `buildium_budget_migration.py` reconciliation service.
+2. The API source bound is **100 Budget records**, matching the existing verified
+   Budget request contract rather than widening it to the generic 500-record transport bound.
+3. Retrieval probes beyond the 100-record boundary and fails closed instead of silently
+   truncating a larger provider Budget source.
+4. Request bodies contain only explicit monthly-line review decisions and, for commit,
+   the reviewed fingerprint. Caller-supplied provider records or credentials are rejected.
+5. Only the existing verified calendar-year Rental-property Budget subset is reviewable.
+   Association budgets, unsupported fiscal periods, malformed monthly arrays and inconsistent
+   totals remain blocked by the existing service.
+6. Current same-run `PROPERTIES -> PROPERTY` and
+   `GL_ACCOUNTS -> GL_ACCOUNT` mappings remain mandatory dependencies.
+7. Review remains explicit `MATCH_EXISTING` or `SKIP` for each normalized monthly
+   Budget line. The transport does not create or edit customer Budget targets.
+8. API commit fresh-fetches Buildium and requires the exact reviewed fingerprint.
+   Provider Budget drift, dependency mapping drift, review drift or reviewed target
+   PropertyBudgetLine drift fails closed.
+9. Successful commit creates only durable
+   `BUILDIUM / BUDGET_LINES / PROPERTY_BUDGET_LINE` migration metadata.
+10. Replay/idempotency and organization isolation remain preserved.
+11. Provider Budget names/free text, credentials and raw response bodies are not persisted
+    merely because Buildium returned them.
+12. No PropertyBudgetLine, GLTransaction, GLEntry, actual, forecast, opening balance,
+    payment, bank movement or synthetic accounting history is created or changed.
+
+## Phase 4.14 cumulative server API transport
+
+Server-side Buildium API transport now feeds the SAME reviewed provider-labelled
+migration architecture for:
+
+- Properties
+- Units
+- Owners
+- Vendors
+- Tenants
+- Leases
+- GL Accounts
+- Work Orders
+- Bills
+- Bank Accounts
+- Bill Payments
+- Owner/Property relationships
+- Property Groups
+- Property Reserves
+- Rental Lease Charges
+- Budgets
+
+Preserve exact fingerprints, explicit review, durable mappings, fresh-fetch commit,
+stale-preview rejection, replay/idempotency, organization isolation, bounded retrieval,
+source-account binding, server-held credentials and no raw-response persistence.
+
+The permanent historical GL blocker remains. Never infer debit-versus-credit direction
+or fabricate balancing entries, opening balances, settlement history, payment history,
+cleared state or synthetic accounting history.
+
+## Exact NEXT Phase 4.14 batch
+
+Continue the original verified resource order with **Buildium Rental Lease Payment
+server API transport**. Do not rebuild the already-verified Lease Payment reconciliation
+contract.
+
+Before changing code:
+
+1. Re-read the live Lease Payment migration service and regression coverage.
+2. Re-read `backend/app/services/buildium_api_transport.py`, the current API
+   router/schemas/tests, and the dependency patterns used by the existing service.
+3. Re-check the current official Buildium v1 Rental Lease ledger Payment retrieval
+   contract. Preserve any required parent Lease identity and do not invent a flat endpoint
+   if the provider contract is nested.
+
+Required boundaries:
+
+- feed the SAME existing Lease Payment reconciliation pipeline;
+- preserve every currently verified Lease, Tenant, Property, Unit, Bank Account and other
+  dependency mapping required by that service;
+- preserve explicit review, exact fingerprint, fresh-fetch commit, replay/idempotency,
+  organization isolation and source-account binding;
+- bound both provider records and request fan-out if retrieval is nested;
+- do not create target Receipts/payments, mutate Lease balances, post GL transactions,
+  create bank movements, infer settlement/cleared state or manufacture payment history;
+- keep provider memo/free text, credentials and raw responses out of migration audit;
+- if the provider source cannot prove the existing target Lease Payment contract exactly,
+  leave the record blocked rather than weakening the verified reconciliation rules.
+
+After Lease Payment API transport is VERIFIED, continue in the original verified resource
+order. Do not start Phase 4.15 Yardi until Phase 4.14 is explicitly closed.
+
+Do not start general UX work. Preserve `docs/NAVIGATION_INTEGRITY_PLAN.md`, the complete
+HIDDEN MENU / UNHIDE ROADMAP, and `docs/UX_STANDARDS.md` =
+**AUTHORIZED BUT NOT ACTIVE**.
+
+---
+
 # AI_HANDOFF.md — 2026-10-07 PHASE 4.14 BUILDIUM SERVER API LEASE CHARGE TRANSPORT VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
