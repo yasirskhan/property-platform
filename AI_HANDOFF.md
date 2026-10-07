@@ -1,3 +1,85 @@
+# AI_HANDOFF.md — 2026-10-06 PHASE 4.14 BUILDIUM SERVER API LEASE TRANSPORT VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+- Current VERIFIED product source:
+  `4b390aa5d62e4a7eb4807376f51fba89fbe85332`.
+- GitHub Actions run **37557049816 SUCCESS**, all six required jobs:
+  frontend, backend, security, platform-admin, staging-config, authenticated E2E.
+- Backend/PostgreSQL: **1108 passed, 21 deselected, 28305 warnings in 569.79s**.
+- Authenticated E2E: **21 passed, 278 warnings in 89.80s**.
+- Alembic remains `1b8d3f6a9c20`; expected model tables remain **202**.
+  This batch adds no migration or target business table.
+
+## Buildium server-to-server API Lease transport
+
+Verified routes:
+- `POST /api/platform/migrations/buildium/runs/{run_id}/leases/api-dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/leases/api-commit`
+
+Verified transport contract:
+- official Buildium v1 `GET /v1/leases` is retrieved only through the existing
+  fixed sandbox/production server-side transport and server-held API credentials;
+- the request body accepts review decisions only, never credentials or raw
+  provider records;
+- source-account binding, the 500-record complete-source bound, sanitized provider
+  failures and no raw-response persistence are preserved;
+- API dry run feeds the already-verified Buildium Lease relationship pipeline;
+- the same-run Buildium Property, Unit and Tenant mappings remain mandatory;
+- commit performs a fresh provider fetch and requires the exact reviewed
+  fingerprint, so source or dependency drift fails closed;
+- successful commit creates only durable
+  `BUILDIUM / LEASES / LEASE_RELATIONSHIP` migration metadata for an
+  already-existing target Lease;
+- no Lease, rent history, security-deposit history, RentInvoice, Charge, Receipt,
+  payment, occupancy fact, GLTransaction or GLEntry is created or changed;
+- Buildium private notes, tenant tax identifiers and provider response bodies do
+  not enter migration audit metadata.
+
+Current official Buildium v1 documentation confirms the lease resource, the
+`PaymentDueDay` field and the lease `Tenants` collection. The existing target
+contract remains deliberately relationship-only and does not promote provider
+rent/deposit/status/history fields into target financial or occupancy facts.
+
+## Phase 4.14 cumulative API transport
+
+Server-side Buildium API transport now feeds the SAME reviewed migration
+architecture for:
+- Properties
+- Units
+- Owners
+- Vendors
+- Tenants
+- Leases
+
+Do not create a transport-specific migration architecture. Preserve all earlier
+verified file/manual provider-labelled Buildium resource pipelines, exact
+fingerprints, durable mappings, organization isolation, review, replay and audit.
+
+General historical GL posting remains blocked where provider evidence does not
+prove target debit/credit and posting semantics. Never fabricate balancing data.
+
+## Exact next action
+
+Continue Phase 4.14 by extending the SAME server-side transport to the already
+verified Buildium **GL Account** reconciliation pipeline, after rechecking the
+current official Buildium v1 GL-account endpoint/fields against that target
+contract. Preserve existing explicit MATCH_EXISTING review, organization scope,
+bounded source retrieval, fresh-fetch commit, source-account binding and
+fingerprint protections. Do not create or update target GL accounts through the
+API transport unless the already-verified GL Account migration contract
+explicitly permits it.
+
+Do not start Phase 4.15 Yardi until Phase 4.14 is explicitly closed.
+Do not start general UX work. Preserve `docs/NAVIGATION_INTEGRITY_PLAN.md`
+and the complete HIDDEN MENU / UNHIDE ROADMAP.
+
+---
+
 # AI_HANDOFF.md — 2026-10-06 PHASE 4.14 BUILDIUM SERVER API PROPERTY TRANSPORT VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
