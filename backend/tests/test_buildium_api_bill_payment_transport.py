@@ -392,7 +392,9 @@ def test_buildium_api_bill_payment_maps_existing_check_only_and_redacts(monkeypa
             current_user=admin,
         )
         assert replay.replayed is True
-        assert replay.matched_existing == 1
+        assert replay.matched_existing == 0
+        assert replay.rows[0].replayed is True
+        assert replay.rows[0].target_check_id == check.id
         assert db.query(Check).count() == 1
         assert db.query(GLTransaction).count() == gl_count
 
