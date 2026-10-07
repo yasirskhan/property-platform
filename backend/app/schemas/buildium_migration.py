@@ -1391,6 +1391,14 @@ class BuildiumLeaseChargeDryRunIn(BaseModel):
     resolutions: list[BuildiumLeaseChargeResolutionIn] = Field(default_factory=list, max_length=500)
 
 
+class BuildiumApiLeaseChargeDryRunIn(BaseModel):
+    """Server-side nested Lease Charge preview without caller-supplied provider records."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resolutions: list[BuildiumLeaseChargeResolutionIn] = Field(default_factory=list, max_length=500)
+
+
 class BuildiumLeaseChargePreviewRow(BaseModel):
     source_id: str | None
     reviewable: bool
@@ -1420,6 +1428,15 @@ class BuildiumLeaseChargeCommitIn(BaseModel):
 
     fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     records: list[dict[str, Any]] = Field(min_length=1, max_length=500)
+    resolutions: list[BuildiumLeaseChargeResolutionIn] = Field(default_factory=list, max_length=500)
+
+
+class BuildiumApiLeaseChargeCommitIn(BaseModel):
+    """Commit a fresh nested Lease Charge fetch only when exact review still matches."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     resolutions: list[BuildiumLeaseChargeResolutionIn] = Field(default_factory=list, max_length=500)
 
 
