@@ -1,3 +1,151 @@
+# AI_HANDOFF.md — 2026-10-07 PHASE 4.14 BUILDIUM SERVER API OWNER/PROPERTY RELATIONSHIP TRANSPORT VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Current VERIFIED product source:
+  `f6262be5c2cc1c1cfb4001a74117d38d630fc967`.
+- Commit: `Phase 4.14: add Buildium API owner property transport`.
+- Exact GitHub Actions run **37610926866 — SUCCESS**.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **1127 passed, 21 deselected, 28629 warnings in 371.22s**.
+- Authenticated E2E: **21 passed, 278 warnings in 116.09s**.
+- Alembic remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- No database migration or new target business table was added.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains **AUTHORIZED BUT NOT ACTIVE**.
+
+The immediately preceding API Bill Payment product source
+`fbc4685b09171ea6a973b4fa8ef8d38da58f277a` is independently verified by
+GitHub Actions **37570900983 SUCCESS**.
+
+## Verified Buildium server-to-server API Owner/Property relationship transport
+
+Verified routes:
+
+- `POST /api/platform/migrations/buildium/runs/{run_id}/owner-property-relationships/api-dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/owner-property-relationships/api-commit`
+
+Verified transport contract:
+
+1. Official Buildium Rental Owner retrieval through the existing bounded
+   `GET /v1/rentals/owners` server transport feeds the already-verified
+   Owner/Property reconciliation service.
+2. Relationship evidence comes only from the provider Rental Owner
+   `PropertyIds` field. No relationship is inferred from names, addresses,
+   target `Property.owner_id`, tenant identity, tax fields, contacts or other
+   heuristics.
+3. The existing complete-source bound remains 500 Rental Owner records.
+   Fixed sandbox/production endpoints, server-held credentials and
+   `BUILDIUM_API_SOURCE_ACCOUNT_REF` binding are preserved.
+4. Request bodies accept only explicit review decisions and, for commit, the
+   reviewed fingerprint. Caller-supplied provider records or credentials are
+   rejected.
+5. Every source relationship still requires durable same-run
+   `OWNERS -> OWNER_USER` and `PROPERTIES -> PROPERTY` mappings.
+6. Review remains explicit `MATCH_EXISTING` or `SKIP`; the transport never
+   creates a missing target `PropertyOwner` relationship and never silently
+   chooses a target relationship.
+7. Existing `PropertyOwner.ownership_pct` and `is_primary` values remain
+   target-owned. Buildium `PropertyIds` prove only association, not percentage
+   or primary-owner semantics.
+8. Exact fingerprinting continues to bind provider Owner records, review
+   decisions, current Owner/Property mapping fingerprints and the current target
+   relationship snapshot. A fresh provider fetch is performed at API commit, so
+   provider relationship drift, mapping drift or target relationship drift
+   fails closed.
+9. Successful commit creates only durable
+   `BUILDIUM / OWNER_PROPERTY_RELATIONSHIPS / PROPERTY_OWNER_RELATIONSHIP`
+   migration metadata for an already-existing exact target relationship.
+10. No Owner, Property, PropertyOwner, ownership percentage, primary-owner
+    designation, tax profile, 1099 setting, payout preference, Charge, Lease,
+    GL transaction or accounting history is created or changed.
+11. Provider email, alternate email, comments, TaxInformation, credentials and
+    raw response content are not copied into migration audit.
+12. Replay/idempotency, organization isolation, sanitized provider failures and
+    redacted audit remain preserved.
+
+## Phase 4.14 cumulative server API transport
+
+Server-side Buildium API transport now feeds the SAME reviewed
+provider-labelled migration architecture for:
+
+- Properties
+- Units
+- Owners
+- Vendors
+- Tenants
+- Leases
+- GL Accounts
+- Work Orders
+- Bills
+- Bank Accounts
+- Bill Payments
+- Owner/Property relationships
+
+Preserve exact fingerprints, explicit review, durable mappings, fresh-fetch
+commit, stale-preview rejection, replay/idempotency, organization isolation,
+bounded retrieval, source-account binding, server-held credentials and no raw
+provider-response persistence.
+
+The permanent historical GL blocker remains. Never infer debit-versus-credit
+direction or fabricate balancing entries, opening balances, settlement history,
+payment history, cleared state or synthetic accounting history.
+
+## Exact NEXT Phase 4.14 batch
+
+Continue the original verified resource order with **Buildium Property Group
+server API transport**. Do not rebuild the already-verified Property Group
+reconciliation contract.
+
+Before changing code:
+
+1. Re-read live `backend/app/services/buildium_property_group_migration.py`
+   and its current regression coverage.
+2. Re-read `backend/app/services/buildium_api_transport.py`, current API
+   router/schemas/tests and existing Property API transport patterns.
+3. Re-check the current official Buildium v1 Property Group retrieval contract
+   and use only provider relationships the API proves.
+
+Required boundaries:
+
+- feed the SAME existing Property Group reconciliation service;
+- preserve same-run Property mapping dependencies and exact group membership
+  evidence required by the verified contract;
+- preserve explicit review, organization isolation, exact fingerprint,
+  fresh-fetch commit, replay/idempotency and source-account binding;
+- do not infer group membership from property names, addresses, owner
+  relationships or any target-side grouping;
+- do not create or modify target Property Group membership unless the existing
+  verified reconciliation contract explicitly permits that exact operation;
+- do not persist provider descriptions, creator metadata, credentials or raw
+  provider responses in migration audit;
+- use bounded complete-source retrieval and fail closed rather than silently
+  truncating or inventing membership.
+
+After Property Group API transport is VERIFIED, continue to Property Reserves.
+Do not start Phase 4.15 Yardi until Phase 4.14 is explicitly closed.
+
+Do not start general UX work. Preserve `docs/NAVIGATION_INTEGRITY_PLAN.md`,
+the complete HIDDEN MENU / UNHIDE ROADMAP, and
+`docs/UX_STANDARDS.md` = **AUTHORIZED BUT NOT ACTIVE**.
+
+---
+
 # AI_HANDOFF.md — 2026-10-07 PHASE 4.14 BUILDIUM SERVER API BILL PAYMENT TRANSPORT VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
