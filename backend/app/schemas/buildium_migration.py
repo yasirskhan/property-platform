@@ -773,6 +773,23 @@ class BuildiumWorkOrderCommitIn(BaseModel):
     resolutions: list[BuildiumWorkOrderResolutionIn] = Field(default_factory=list, max_length=500)
 
 
+class BuildiumApiWorkOrderDryRunIn(BaseModel):
+    """Server-side Buildium API Work Order preview without caller-supplied provider records."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resolutions: list[BuildiumWorkOrderResolutionIn] = Field(default_factory=list, max_length=500)
+
+
+class BuildiumApiWorkOrderCommitIn(BaseModel):
+    """Commit a fresh server-side Work Order fetch only when exact review still matches."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolutions: list[BuildiumWorkOrderResolutionIn] = Field(default_factory=list, max_length=500)
+
+
 class BuildiumWorkOrderCommitRow(BaseModel):
     source_id: str
     target_work_order_id: int
