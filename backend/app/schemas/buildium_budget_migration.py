@@ -29,6 +29,23 @@ class BuildiumBudgetDryRunIn(BaseModel):
     resolutions: list[BuildiumBudgetResolutionIn] = Field(default_factory=list, max_length=1200)
 
 
+class BuildiumApiBudgetDryRunIn(BaseModel):
+    """Server-side Buildium Budget preview without caller-supplied provider records."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resolutions: list[BuildiumBudgetResolutionIn] = Field(default_factory=list, max_length=1200)
+
+
+class BuildiumApiBudgetCommitIn(BaseModel):
+    """Commit a fresh server-side Budget API fetch only when exact review still matches."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolutions: list[BuildiumBudgetResolutionIn] = Field(default_factory=list, max_length=1200)
+
+
 class BuildiumBudgetPreviewRow(BaseModel):
     source_id: str | None
     reviewable: bool
