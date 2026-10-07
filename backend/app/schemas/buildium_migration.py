@@ -1202,6 +1202,14 @@ class BuildiumPropertyGroupDryRunIn(BaseModel):
     resolutions: list[BuildiumPropertyGroupResolutionIn] = Field(default_factory=list, max_length=500)
 
 
+class BuildiumApiPropertyGroupDryRunIn(BaseModel):
+    """Server-side Property Group preview without caller-supplied provider records."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resolutions: list[BuildiumPropertyGroupResolutionIn] = Field(default_factory=list, max_length=500)
+
+
 class BuildiumPropertyGroupPreviewRow(BaseModel):
     source_id: str | None
     reviewable: bool
@@ -1231,6 +1239,15 @@ class BuildiumPropertyGroupCommitIn(BaseModel):
 
     fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     records: list[dict[str, Any]] = Field(min_length=1, max_length=500)
+    resolutions: list[BuildiumPropertyGroupResolutionIn] = Field(default_factory=list, max_length=500)
+
+
+class BuildiumApiPropertyGroupCommitIn(BaseModel):
+    """Commit a fresh server-side Property Group fetch only when exact review still matches."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     resolutions: list[BuildiumPropertyGroupResolutionIn] = Field(default_factory=list, max_length=500)
 
 

@@ -26,6 +26,7 @@ _GL_ACCOUNT_PATH = "/v1/glaccounts"
 _WORK_ORDER_PATH = "/v1/workorders"
 _BILL_PATH = "/v1/bills"
 _BANK_ACCOUNT_PATH = "/v1/bankaccounts"
+_PROPERTY_GROUP_PATH = "/v1/propertygroups"
 _MAX_REVIEW_RECORDS = 500
 _PAGE_LIMIT = 500
 _TIMEOUT_SECONDS = 20
@@ -292,6 +293,16 @@ def fetch_bank_accounts(*, expected_source_account_ref: str) -> BuildiumApiFetch
         profile=_profile(expected_source_account_ref),
         path=_BANK_ACCOUNT_PATH,
         resource_label="bank accounts",
+    )
+
+
+
+def fetch_property_groups(*, expected_source_account_ref: str) -> BuildiumApiFetchResult:
+    """Fetch one bounded complete Property Group set for the existing reconciliation pipeline."""
+    return _fetch_bounded_collection(
+        profile=_profile(expected_source_account_ref),
+        path=_PROPERTY_GROUP_PATH,
+        resource_label="property groups",
     )
 
 
