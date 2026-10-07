@@ -466,15 +466,6 @@ def _reviewed_target_snapshots(
                     resolution["action"] if resolution is not None else None
                 ),
                 "review_target_check_id": reviewed_target_id,
-                "durable_mapping": (
-                    {
-                        "target_entity": durable.target_entity,
-                        "target_id": durable.target_id,
-                        "source_fingerprint": durable.source_fingerprint,
-                    }
-                    if durable is not None
-                    else None
-                ),
                 "target_check": (
                     _target_check_snapshot(
                         db,

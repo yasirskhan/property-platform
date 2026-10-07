@@ -382,6 +382,20 @@ def test_buildium_api_bill_payment_maps_existing_check_only_and_redacts(monkeypa
         assert db.query(Check).count() == 1
         assert db.query(GLTransaction).count() == gl_count
 
+        replay = api.api_commit_buildium_bill_payments(
+            run.id,
+            BuildiumApiBillPaymentCommitIn(
+                fingerprint=reviewed.fingerprint,
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert replay.matched_existing == 1
+        assert db.query(Check).count() == 1
+        assert db.query(GLTransaction).count() == gl_count
+
         with pytest.raises(ValidationError):
             BuildiumApiBillPaymentDryRunIn(records=[_api_record()])
         with pytest.raises(ValidationError):
