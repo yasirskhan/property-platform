@@ -1297,6 +1297,14 @@ class BuildiumPropertyReserveDryRunIn(BaseModel):
     resolutions: list[BuildiumPropertyReserveResolutionIn] = Field(default_factory=list, max_length=500)
 
 
+class BuildiumApiPropertyReserveDryRunIn(BaseModel):
+    """Server-side Property Reserve preview from the bounded Rental Property source."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resolutions: list[BuildiumPropertyReserveResolutionIn] = Field(default_factory=list, max_length=500)
+
+
 class BuildiumPropertyReservePreviewRow(BaseModel):
     source_id: str | None
     reviewable: bool
@@ -1327,6 +1335,15 @@ class BuildiumPropertyReserveCommitIn(BaseModel):
 
     fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     records: list[dict[str, Any]] = Field(min_length=1, max_length=500)
+    resolutions: list[BuildiumPropertyReserveResolutionIn] = Field(default_factory=list, max_length=500)
+
+
+class BuildiumApiPropertyReserveCommitIn(BaseModel):
+    """Commit a fresh bounded Rental Property fetch only when reserve review still matches."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     resolutions: list[BuildiumPropertyReserveResolutionIn] = Field(default_factory=list, max_length=500)
 
 
