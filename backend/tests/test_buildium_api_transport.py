@@ -27,6 +27,9 @@ from app.schemas.buildium_migration import (
     BuildiumApiVendorCommitIn,
     BuildiumApiVendorDryRunIn,
     BuildiumVendorResolutionIn,
+    BuildiumApiTenantCommitIn,
+    BuildiumApiTenantDryRunIn,
+    BuildiumTenantResolutionIn,
 )
 from app.services import buildium_api_transport as transport
 from app.services.buildium_api_transport import BuildiumApiFetchResult, BuildiumApiTransportError
@@ -214,6 +217,54 @@ def _target_vendor(db, run):
         company_name="API Lake Plumbing",
         business_email="service.api@lakeplumbing.example.com",
         is_active=True,
+    )
+    db.add(row)
+    db.commit()
+    return row
+
+
+def _tenant_record(**changes):
+    row = {
+        "Id": 6401,
+        "UserLeaseId": 7401,
+        "FirstName": "Tanya",
+        "LastName": "Tenant",
+        "Email": "tanya.api.tenant@example.com",
+        "AlternateEmail": "PRIVATE-TENANT-ALTERNATE@example.com",
+        "PhoneNumbers": [{"Number": "PRIVATE-TENANT-PHONE", "Type": "Mobile"}],
+        "PrimaryAddress": {
+            "AddressLine1": "PRIVATE TENANT ADDRESS",
+            "AddressLine2": "",
+            "AddressLine3": "",
+            "City": "Cleveland",
+            "State": "OH",
+            "PostalCode": "44113",
+            "Country": "United States",
+        },
+        "EmergencyContact": {
+            "Name": "PRIVATE EMERGENCY",
+            "RelationshipDescription": "Friend",
+            "Phone": "PRIVATE-EMERGENCY-PHONE",
+            "Email": "private-emergency@example.com",
+        },
+        "TaxId": "PRIVATE-TENANT-TAX-ID",
+        "MoveInDate": "2026-01-15",
+        "MoveOutDate": None,
+    }
+    row.update(changes)
+    return row
+
+
+def _target_tenant(db, run):
+    row = User(
+        email="tanya.api.tenant@example.com",
+        hashed_password=hash_password("tenant-password"),
+        first_name="Tanya",
+        last_name="Tenant",
+        role=UserRole.TENANT,
+        organization_id=run.organization_id,
+        is_active=True,
+        is_verified=True,
     )
     db.add(row)
     db.commit()
@@ -764,5 +815,157 @@ def test_buildium_api_vendor_commit_refetch_detects_source_drift_and_routes_exis
         )
         status = api.get_buildium_transport_status(current_user=admin)
         assert "VENDORS" in status.supported_resources
+    finally:
+        db.close(); engine.dispose()
+
+
+
+def test_buildium_transport_fetches_tenants_from_fixed_endpoint(monkeypatch):
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_MODE", "sandbox")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_ID", "client-id")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_SECRET", "tenant-secret")
+    monkeypatch.setattr(
+        transport.settings, "BUILDIUM_API_SOURCE_ACCOUNT_REF", "sandbox-account-A"
+    )
+    calls = []
+    def fake_get(url, *, headers, params, timeout):
+        calls.append((url, headers.copy(), params.copy(), timeout))
+        return _Response(200, [_tenant_record()])
+    monkeypatch.setattr(transport.requests, "get", fake_get)
+
+    result = transport.fetch_rental_tenants(expected_source_account_ref="sandbox-account-A")
+    assert result.records[0]["Id"] == 6401
+    assert calls[0][0] == "https://apisandbox.buildium.com/v1/leases/tenants"
+    assert calls[0][1]["x-buildium-client-secret"] == "tenant-secret"
+    assert calls[0][2] == {"offset": 0, "limit": 500}
+
+
+def test_buildium_api_tenant_route_maps_existing_identity_only_and_redacts_provider_fields(monkeypatch):
+    db, engine = _session()
+    try:
+        admin = _admin(db); org = _org(db); run = _run(db, org)
+        tenant = _target_tenant(db, run)
+        def fetched(*, expected_source_account_ref):
+            assert expected_source_account_ref == "sandbox-account-A"
+            return BuildiumApiFetchResult(
+                records=[_tenant_record()], mode="sandbox", request_count=1
+            )
+        monkeypatch.setattr(api, "fetch_rental_tenants", fetched)
+
+        resolution = BuildiumTenantResolutionIn(
+            source_id=6401,
+            action="MATCH_EXISTING",
+            target_tenant_user_id=tenant.id,
+        )
+        reviewed = api.api_dry_run_buildium_tenants(
+            run.id,
+            BuildiumApiTenantDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+        assert reviewed.invalid == 0 and reviewed.reviewable == 1
+        assert reviewed.rows[0]["mapped"]["user_lease_id"] == "7401"
+        assert any("source membership evidence" in warning for warning in reviewed.rows[0]["warnings"])
+
+        committed = api.api_commit_buildium_tenants(
+            run.id,
+            BuildiumApiTenantCommitIn(
+                fingerprint=reviewed.fingerprint,
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.matched_existing == 1
+        mapping = (
+            db.query(PlatformMigrationItem)
+            .filter(PlatformMigrationItem.resource == "TENANTS")
+            .one()
+        )
+        assert mapping.target_entity == "TENANT_USER"
+        assert mapping.target_id == tenant.id
+        assert db.query(User).filter(User.role == UserRole.TENANT).count() == 1
+
+        with pytest.raises(ValidationError):
+            BuildiumApiTenantDryRunIn(client_secret="secret")
+        with pytest.raises(ValidationError):
+            BuildiumApiTenantCommitIn(
+                fingerprint=reviewed.fingerprint, records=[_tenant_record()]
+            )
+
+        audit = "\n".join(
+            str(row.new_value or "")
+            for row in db.query(AuditLog)
+            .filter(AuditLog.entity_type == "platform_migration_run")
+            .all()
+        )
+        assert "PRIVATE TENANT ADDRESS" not in audit
+        assert "PRIVATE-TENANT-TAX-ID" not in audit
+        assert "PRIVATE EMERGENCY" not in audit
+        assert "PRIVATE-TENANT-PHONE" not in audit
+        assert '"credentials_stored":false' in audit.lower()
+        assert '"raw_response_stored":false' in audit.lower()
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_buildium_api_tenant_commit_refetch_detects_source_drift_and_routes_exist(monkeypatch):
+    from app.main import app
+    db, engine = _session()
+    try:
+        admin = _admin(db); org = _org(db); run = _run(db, org)
+        tenant = _target_tenant(db, run)
+        resolution = BuildiumTenantResolutionIn(
+            source_id=6401,
+            action="MATCH_EXISTING",
+            target_tenant_user_id=tenant.id,
+        )
+        state = {"changed": False}
+        def fetched(*, expected_source_account_ref):
+            record = (
+                _tenant_record(UserLeaseId=7402)
+                if state["changed"] else _tenant_record()
+            )
+            return BuildiumApiFetchResult(
+                records=[record], mode="sandbox", request_count=1
+            )
+        monkeypatch.setattr(api, "fetch_rental_tenants", fetched)
+        reviewed = api.api_dry_run_buildium_tenants(
+            run.id,
+            BuildiumApiTenantDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+        state["changed"] = True
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_tenants(
+                run.id,
+                BuildiumApiTenantCommitIn(
+                    fingerprint=reviewed.fingerprint,
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert (
+            db.query(PlatformMigrationItem)
+            .filter(PlatformMigrationItem.resource == "TENANTS")
+            .count()
+            == 0
+        )
+        assert db.query(User).filter(User.role == UserRole.TENANT).count() == 1
+
+        paths = set(app.openapi()["paths"])
+        assert "/api/platform/migrations/buildium/runs/{run_id}/tenants/api-dry-run" in paths
+        assert "/api/platform/migrations/buildium/runs/{run_id}/tenants/api-commit" in paths
+        monkeypatch.setattr(transport.settings, "BUILDIUM_API_MODE", "sandbox")
+        monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_ID", "client-id")
+        monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_SECRET", "tenant-secret")
+        monkeypatch.setattr(
+            transport.settings, "BUILDIUM_API_SOURCE_ACCOUNT_REF", "sandbox-account-A"
+        )
+        status = api.get_buildium_transport_status(current_user=admin)
+        assert "TENANTS" in status.supported_resources
     finally:
         db.close(); engine.dispose()

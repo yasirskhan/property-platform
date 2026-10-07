@@ -498,6 +498,23 @@ class BuildiumTenantCommitIn(BaseModel):
     resolutions: list[BuildiumTenantResolutionIn] = Field(default_factory=list, max_length=500)
 
 
+class BuildiumApiTenantDryRunIn(BaseModel):
+    """Server-side Buildium API Tenant preview; credentials and raw records are never request fields."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resolutions: list[BuildiumTenantResolutionIn] = Field(default_factory=list, max_length=500)
+
+
+class BuildiumApiTenantCommitIn(BaseModel):
+    """Commit a fresh server-side Tenant API fetch only when review still matches."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolutions: list[BuildiumTenantResolutionIn] = Field(default_factory=list, max_length=500)
+
+
 class BuildiumTenantCommitRow(BaseModel):
     source_id: str
     target_tenant_user_id: int

@@ -20,6 +20,7 @@ _PROPERTY_PATH = "/v1/rentals"
 _UNIT_PATH = "/v1/rentals/units"
 _OWNER_PATH = "/v1/rentals/owners"
 _VENDOR_PATH = "/v1/vendors"
+_TENANT_PATH = "/v1/leases/tenants"
 _MAX_REVIEW_RECORDS = 500
 _PAGE_LIMIT = 500
 _TIMEOUT_SECONDS = 20
@@ -226,4 +227,13 @@ def fetch_vendors(*, expected_source_account_ref: str) -> BuildiumApiFetchResult
         profile=_profile(expected_source_account_ref),
         path=_VENDOR_PATH,
         resource_label="vendors",
+    )
+
+
+def fetch_rental_tenants(*, expected_source_account_ref: str) -> BuildiumApiFetchResult:
+    """Fetch one bounded complete rental-tenant set for the existing Tenant pipeline."""
+    return _fetch_bounded_collection(
+        profile=_profile(expected_source_account_ref),
+        path=_TENANT_PATH,
+        resource_label="rental tenants",
     )
