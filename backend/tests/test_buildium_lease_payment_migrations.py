@@ -5,12 +5,14 @@ from decimal import Decimal
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 import init_db  # noqa: F401
 from app.core.database import Base
 from app.core.security import hash_password
+from app.models.audit_log import AuditLog
 from app.models.gl_account import GLAccount
 from app.models.gl_entry import GLEntry
 from app.models.gl_transaction import GLTransaction
@@ -22,10 +24,18 @@ from app.models.receipt import Receipt
 from app.models.receipt_line import ReceiptLine
 from app.models.user import Organization, User, UserRole
 from app.routers import buildium_lease_payment_migrations as api
+from app.routers import buildium_migrations as core_api
 from app.schemas.buildium_lease_payment_migration import (
+    BuildiumApiLeasePaymentCommitIn,
+    BuildiumApiLeasePaymentDryRunIn,
     BuildiumLeasePaymentCommitIn,
     BuildiumLeasePaymentDryRunIn,
     BuildiumLeasePaymentResolutionIn,
+)
+from app.services import buildium_api_transport as transport
+from app.services.buildium_api_transport import (
+    BuildiumApiFetchResult,
+    BuildiumApiTransportError,
 )
 
 
@@ -410,3 +420,328 @@ def test_buildium_lease_payment_routes_are_exposed():
     paths = set(app.openapi()["paths"])
     assert "/api/platform/migrations/buildium/runs/{run_id}/lease-payments/dry-run" in paths
     assert "/api/platform/migrations/buildium/runs/{run_id}/lease-payments/commit" in paths
+
+
+class _ApiResponse:
+    def __init__(self, status_code, payload):
+        self.status_code = status_code
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
+def _configure_api_transport(monkeypatch):
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_MODE", "sandbox")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_ID", "client-id")
+    monkeypatch.setattr(
+        transport.settings, "BUILDIUM_API_CLIENT_SECRET", "lease-payment-secret"
+    )
+    monkeypatch.setattr(
+        transport.settings,
+        "BUILDIUM_API_SOURCE_ACCOUNT_REF",
+        "buildium-payment-source",
+    )
+
+
+def test_buildium_transport_fetches_bounded_nested_lease_payments(monkeypatch):
+    _configure_api_transport(monkeypatch)
+    calls = []
+
+    def fake_get(url, *, headers, params, timeout):
+        calls.append((url, headers.copy(), params.copy(), timeout))
+        if url.endswith("/v1/leases/4001/transactions"):
+            return _ApiResponse(200, [{**_record(), "LeaseId": 999999}])
+        if url.endswith("/v1/leases/4002/transactions"):
+            return _ApiResponse(200, [])
+        raise AssertionError(url)
+
+    monkeypatch.setattr(transport.requests, "get", fake_get)
+    result = transport.fetch_lease_payments(
+        expected_source_account_ref="buildium-payment-source",
+        parent_lease_ids=["4002", "4001"],
+    )
+    assert result.records[0]["Id"] == 9001
+    assert result.records[0]["LeaseId"] == 4001
+    assert result.parent_record_count == 2
+    assert result.request_count == 2
+    assert calls[0][0] == "https://apisandbox.buildium.com/v1/leases/4001/transactions"
+    assert calls[0][2] == {
+        "offset": 0,
+        "limit": transport.MAX_LEASE_PAYMENT_RECORDS + 1,
+        "transactiontypes": "Payment",
+    }
+    assert calls[0][1]["x-buildium-client-secret"] == "lease-payment-secret"
+
+    with pytest.raises(BuildiumApiTransportError) as exc:
+        transport.fetch_lease_payments(
+            expected_source_account_ref="buildium-payment-source",
+            parent_lease_ids=list(
+                range(1, transport.MAX_LEASE_PAYMENT_PARENT_LEASES + 2)
+            ),
+        )
+    assert exc.value.code == "source_too_large"
+
+    def too_many(url, *, headers, params, timeout):
+        return _ApiResponse(
+            200,
+            [
+                {**_record(), "Id": 10000 + index}
+                for index in range(transport.MAX_LEASE_PAYMENT_RECORDS + 1)
+            ],
+        )
+
+    monkeypatch.setattr(transport.requests, "get", too_many)
+    with pytest.raises(BuildiumApiTransportError) as exc:
+        transport.fetch_lease_payments(
+            expected_source_account_ref="buildium-payment-source",
+            parent_lease_ids=[4001],
+        )
+    assert exc.value.code == "source_too_large"
+
+
+def test_buildium_api_lease_payment_maps_existing_only_replays_and_redacts(monkeypatch):
+    db, engine = _session()
+    try:
+        admin = _platform_admin(db)
+        org, tenant, prop, unit, lease, cash, income, receipt, run = _fixture(db)
+        before = {
+            "receipts": db.query(Receipt).count(),
+            "lines": db.query(ReceiptLine).count(),
+            "txns": db.query(GLTransaction).count(),
+            "entries": db.query(GLEntry).count(),
+        }
+
+        def fetched(*, expected_source_account_ref, parent_lease_ids):
+            assert expected_source_account_ref == "buildium-payment-source"
+            assert parent_lease_ids == ["4001"]
+            return BuildiumApiFetchResult(
+                records=[_record()],
+                mode="sandbox",
+                request_count=1,
+                parent_record_count=1,
+            )
+
+        monkeypatch.setattr(api, "fetch_lease_payments", fetched)
+        resolution = BuildiumLeasePaymentResolutionIn(
+            source_id=9001,
+            action="MATCH_EXISTING",
+            target_receipt_id=receipt.id,
+        )
+        reviewed = api.api_dry_run_buildium_lease_payments(
+            run.id,
+            BuildiumApiLeasePaymentDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+        assert reviewed.invalid == 0
+        assert reviewed.reviewable == 1
+
+        committed = api.api_commit_buildium_lease_payments(
+            run.id,
+            BuildiumApiLeasePaymentCommitIn(
+                fingerprint=reviewed.fingerprint,
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.matched_existing == 1
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "LEASE_PAYMENTS"
+        ).one()
+        assert mapping.target_entity == "RECEIPT_RELATIONSHIP"
+        assert mapping.target_id == receipt.id
+
+        replay = api.api_commit_buildium_lease_payments(
+            run.id,
+            BuildiumApiLeasePaymentCommitIn(
+                fingerprint=reviewed.fingerprint,
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "LEASE_PAYMENTS"
+        ).count() == 1
+        after = {
+            "receipts": db.query(Receipt).count(),
+            "lines": db.query(ReceiptLine).count(),
+            "txns": db.query(GLTransaction).count(),
+            "entries": db.query(GLEntry).count(),
+        }
+        assert after == before
+
+        with pytest.raises(ValidationError):
+            BuildiumApiLeasePaymentDryRunIn(records=[_record()])
+        with pytest.raises(ValidationError):
+            BuildiumApiLeasePaymentCommitIn(
+                fingerprint=reviewed.fingerprint,
+                client_secret="secret",
+            )
+
+        audit = "\n".join(
+            row.new_value or ""
+            for row in db.query(AuditLog)
+            .filter(AuditLog.entity_type == "platform_migration_run")
+            .all()
+        )
+        assert "Rent payment" not in audit
+        assert "lease-payment-secret" not in audit
+        assert '"raw_response_stored":false' in audit.lower()
+        assert '"provider_memo_stored":false' in audit.lower()
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_api_lease_payment_provider_dependency_and_target_drift_fail_closed(monkeypatch):
+    db, engine = _session()
+    try:
+        admin = _platform_admin(db)
+        org, tenant, prop, unit, lease, cash, income, receipt, run = _fixture(db)
+        state = {"amount": 1000}
+
+        def fetched(*, expected_source_account_ref, parent_lease_ids):
+            record = _record()
+            record["TotalAmount"] = state["amount"]
+            record["Journal"]["Lines"][0]["Amount"] = state["amount"]
+            record["Journal"]["Lines"][1]["Amount"] = state["amount"]
+            return BuildiumApiFetchResult(
+                records=[record],
+                mode="sandbox",
+                request_count=1,
+                parent_record_count=1,
+            )
+
+        monkeypatch.setattr(api, "fetch_lease_payments", fetched)
+        resolution = BuildiumLeasePaymentResolutionIn(
+            source_id=9001,
+            action="MATCH_EXISTING",
+            target_receipt_id=receipt.id,
+        )
+        reviewed = api.api_dry_run_buildium_lease_payments(
+            run.id,
+            BuildiumApiLeasePaymentDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+
+        state["amount"] = 999
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_lease_payments(
+                run.id,
+                BuildiumApiLeasePaymentCommitIn(
+                    fingerprint=reviewed.fingerprint,
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "LEASE_PAYMENTS"
+        ).count() == 0
+
+        state["amount"] = 1000
+        reviewed = api.api_dry_run_buildium_lease_payments(
+            run.id,
+            BuildiumApiLeasePaymentDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+        lease_mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "LEASES"
+        ).one()
+        lease_mapping.source_fingerprint = "z" * 64
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_lease_payments(
+                run.id,
+                BuildiumApiLeasePaymentCommitIn(
+                    fingerprint=reviewed.fingerprint,
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        lease_mapping.source_fingerprint = "4" * 64
+        db.commit()
+        reviewed = api.api_dry_run_buildium_lease_payments(
+            run.id,
+            BuildiumApiLeasePaymentDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+        receipt.amount = Decimal("999.00")
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_lease_payments(
+                run.id,
+                BuildiumApiLeasePaymentCommitIn(
+                    fingerprint=reviewed.fingerprint,
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "LEASE_PAYMENTS"
+        ).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_api_lease_payment_parent_scope_routes_and_status(monkeypatch):
+    from app.main import app
+
+    db, engine = _session()
+    try:
+        admin = _platform_admin(db)
+        org, tenant, prop, unit, lease, cash, income, receipt, run = _fixture(db)
+
+        assert api._lease_payment_api_parent_source_ids(db, run=run) == ["4001"]
+
+        bad = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "LEASES"
+        ).one()
+        bad.target_entity = "WRONG"
+        db.commit()
+        with pytest.raises(Exception) as exc:
+            api._lease_payment_api_parent_source_ids(db, run=run)
+        assert "inconsistent" in str(exc.value).lower()
+
+        monkeypatch.setattr(
+            core_api,
+            "transport_status",
+            lambda: type(
+                "TransportState",
+                (),
+                {
+                    "mode": "sandbox",
+                    "configured": True,
+                    "source_account_bound": True,
+                },
+            )(),
+        )
+        status = core_api.get_buildium_transport_status(current_user=admin)
+        assert "LEASE_PAYMENTS" in status.supported_resources
+
+        paths = set(app.openapi()["paths"])
+        assert (
+            "/api/platform/migrations/buildium/runs/{run_id}/lease-payments/api-dry-run"
+            in paths
+        )
+        assert (
+            "/api/platform/migrations/buildium/runs/{run_id}/lease-payments/api-commit"
+            in paths
+        )
+    finally:
+        db.close()
+        engine.dispose()
