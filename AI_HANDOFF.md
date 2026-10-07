@@ -1,3 +1,109 @@
+# AI_HANDOFF.md — 2026-10-06 PHASE 4.14 BUILDIUM SERVER API BILL TRANSPORT VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+- Current VERIFIED product source:
+  `4a42a7718105903af57fb2045bb460bdba882237`.
+- GitHub Actions run **37563769794 SUCCESS**, all six required jobs:
+  frontend, backend, security, platform-admin, staging-config, authenticated E2E.
+- Backend/PostgreSQL: **1117 passed, 21 deselected, 28428 warnings in 567.60s**.
+- Authenticated E2E: **21 passed, 278 warnings in 111.61s**.
+- Alembic remains `1b8d3f6a9c20`; expected model tables remain **202**.
+  This batch adds no migration or target business table.
+
+## Buildium server-to-server API Bill transport
+
+Verified routes:
+- `POST /api/platform/migrations/buildium/runs/{run_id}/bills/api-dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/bills/api-commit`
+
+Verified transport contract:
+- official Buildium v1 `GET /v1/bills` feeds the existing Bill reconciliation
+  pipeline through fixed sandbox/production server endpoints and server-held
+  credentials only;
+- caller request bodies contain only review decisions and commit fingerprint;
+  provider credentials and raw Buildium Bill records are rejected;
+- source-account binding, bounded complete-source retrieval, sanitized provider
+  failures and no raw-response persistence remain enforced;
+- each valid source Bill requires a durable same-run Vendor mapping and one or
+  more supported Rental lines; every line requires durable Property and
+  GL Account mappings and a durable Unit mapping when Unit is supplied;
+- optional WorkOrderId requires an already durable
+  `WORK_ORDER_RELATIONSHIP` mapping;
+- line identity, dates, reference number, amounts and target line allocation
+  signature must match an existing same-organization target Bill exactly;
+- review remains explicit `MATCH_EXISTING` or `SKIP`; no candidate target
+  Bill is auto-selected;
+- commit performs a fresh Buildium fetch and requires the exact latest reviewed
+  fingerprint, including dependency-mapping state, so provider or mapping drift
+  fails closed;
+- successful commit creates only
+  `BUILDIUM / BILLS / BILL_RELATIONSHIP` migration metadata for an existing
+  Bill;
+- no Bill, BillLine, payable GL posting, payment, check, bank movement, vendor
+  credit, markup, attachment, Receipt, GLTransaction or GLEntry is created or
+  changed;
+- Buildium Bill memo, line memo, provider GL description and raw response body
+  do not enter migration audit metadata;
+- PaidDate/paid status, approval status, files, payments and vendor-credit
+  details remain source evidence only and are not promoted into target state.
+
+## Phase 4.14 cumulative API transport
+
+Server-side Buildium API transport now feeds the SAME reviewed migration
+architecture for:
+- Properties
+- Units
+- Owners
+- Vendors
+- Tenants
+- Leases
+- GL Accounts
+- Work Orders
+- Bills
+
+The preceding Work Order transport source
+`0c0618e6f788dd5b4731e71722ad6a01d1bd92a2` is independently verified
+by CI **37562777867**: 1114 backend passed / 21 deselected and
+21 authenticated E2E passed. Preserve that relationship-only contract.
+
+Do not create a transport-specific migration architecture. Preserve exact
+fingerprints, durable mappings, organization isolation, explicit review,
+fresh-fetch commit, replay/idempotency and redacted audit.
+
+Buildium Bill Payments remain a separate resource and must not be inferred from
+Bill PaidDate/status or Bill headers. Never infer bank settlement or payment
+history from a retrieved Bill.
+
+## Exact next action
+
+Continue Phase 4.14 with the existing Buildium **Bank Account** reconciliation
+contract. Official Buildium v1 exposes `GET /v1/bankaccounts` and returns bank
+account identity plus its GL Account relationship and status. Before
+implementation, re-read the live `buildium_bank_account_migration.py` contract
+and preserve its existing-target-only mapping, same-run GL Account dependency,
+organization isolation, inactive handling and privacy rules.
+
+Server API transport MUST NOT copy routing numbers, full account numbers,
+check-printing data, bank credentials, balances, reconciliation state or
+transaction history into migration audit or target state merely because the
+provider response exposes those fields. Use the same bounded, source-account-
+bound, exact-fingerprint, fresh-fetch review pipeline.
+
+Do not conflate Bank Account transport with checks, deposits, quick deposits,
+withdrawals, transfers or reconciliation endpoints; those remain separate
+verified resources.
+
+Do not start Phase 4.15 Yardi until Phase 4.14 is explicitly closed.
+Do not start general UX work. Preserve navigation integrity and the full
+HIDDEN MENU / UNHIDE ROADMAP.
+
+---
+
 # AI_HANDOFF.md — 2026-10-06 PHASE 4.14 BUILDIUM SERVER API WORK ORDER TRANSPORT VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
