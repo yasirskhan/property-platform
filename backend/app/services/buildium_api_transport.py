@@ -36,6 +36,8 @@ MAX_BILL_PAYMENT_RECORDS = _MAX_REVIEW_RECORDS
 MAX_LEASE_CHARGE_PARENT_LEASES = 100
 MAX_LEASE_CHARGE_RECORDS = _MAX_REVIEW_RECORDS
 MAX_BUDGET_RECORDS = 100
+MAX_LEASE_PAYMENT_PARENT_LEASES = 100
+MAX_LEASE_PAYMENT_RECORDS = _MAX_REVIEW_RECORDS
 
 
 class BuildiumApiTransportError(Exception):
@@ -116,6 +118,7 @@ def _get_json_list(
     resource_label: str,
     offset: int,
     limit: int,
+    extra_params: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     try:
         response = requests.get(
@@ -125,7 +128,7 @@ def _get_json_list(
                 "x-buildium-client-secret": profile.client_secret,
                 "Accept": "application/json",
             },
-            params={"offset": offset, "limit": limit},
+            params={"offset": offset, "limit": limit, **(extra_params or {})},
             timeout=_TIMEOUT_SECONDS,
         )
     except requests.RequestException as exc:
@@ -424,6 +427,92 @@ def fetch_lease_charges(
         raise BuildiumApiTransportError(
             "empty_source",
             "Buildium API returned no Lease Charges for the mapped parent Leases.",
+        )
+    return BuildiumApiFetchResult(
+        records=records,
+        mode=profile.mode,
+        request_count=requests_made,
+        parent_record_count=len(normalized_parent_ids),
+    )
+
+
+def fetch_lease_payments(
+    *,
+    expected_source_account_ref: str,
+    parent_lease_ids: list[int | str],
+) -> BuildiumApiFetchResult:
+    """Fetch bounded Payment transactions from already-mapped parent Lease ledgers."""
+    profile = _profile(expected_source_account_ref)
+
+    normalized_parent_ids: list[int] = []
+    seen_parent_ids: set[int] = set()
+    for raw_parent_id in parent_lease_ids:
+        if isinstance(raw_parent_id, bool):
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Lease Payment parent Lease scope contains an invalid source ID.",
+            )
+        try:
+            parent_id = int(str(raw_parent_id).strip())
+        except (TypeError, ValueError):
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Lease Payment parent Lease scope contains an invalid source ID.",
+            )
+        if parent_id < 1:
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Lease Payment parent Lease scope contains an invalid source ID.",
+            )
+        if parent_id in seen_parent_ids:
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Lease Payment parent Lease scope contains a duplicate source ID.",
+            )
+        seen_parent_ids.add(parent_id)
+        normalized_parent_ids.append(parent_id)
+
+    if not normalized_parent_ids:
+        raise BuildiumApiTransportError(
+            "empty_parent_scope",
+            "Buildium Lease Payment API migration requires at least one durably mapped parent Lease.",
+        )
+    if len(normalized_parent_ids) > MAX_LEASE_PAYMENT_PARENT_LEASES:
+        raise BuildiumApiTransportError(
+            "source_too_large",
+            "Buildium Lease Payment API migration exceeds the bounded "
+            f"{MAX_LEASE_PAYMENT_PARENT_LEASES}-parent-Lease review scope.",
+        )
+
+    records: list[dict[str, Any]] = []
+    requests_made = 0
+    for parent_lease_id in sorted(normalized_parent_ids):
+        remaining = MAX_LEASE_PAYMENT_RECORDS - len(records)
+        request_limit = max(1, min(1000, remaining + 1))
+        page = _get_json_list(
+            profile,
+            path=f"/v1/leases/{parent_lease_id}/transactions",
+            resource_label=f"lease Payment transactions for parent Lease {parent_lease_id}",
+            offset=0,
+            limit=request_limit,
+            extra_params={"transactiontypes": "Payment"},
+        )
+        requests_made += 1
+        if len(page) > remaining:
+            raise BuildiumApiTransportError(
+                "source_too_large",
+                "Buildium Lease Payment source exceeds the bounded "
+                f"{MAX_LEASE_PAYMENT_RECORDS}-record API migration review.",
+            )
+        for provider_record in page:
+            record = dict(provider_record)
+            record["LeaseId"] = parent_lease_id
+            records.append(record)
+
+    if not records:
+        raise BuildiumApiTransportError(
+            "empty_source",
+            "Buildium API returned no Lease Payments for the mapped parent Leases.",
         )
     return BuildiumApiFetchResult(
         records=records,
