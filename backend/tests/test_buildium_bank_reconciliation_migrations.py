@@ -5,6 +5,7 @@ from decimal import Decimal
 
 import pytest
 from fastapi import HTTPException, Response
+from pydantic import ValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -20,11 +21,18 @@ from app.models.platform_migration import PlatformMigrationItem, PlatformMigrati
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.user import Organization
 from app.routers import buildium_bank_reconciliation_migrations as api
+from app.services import buildium_api_transport as transport
 from app.routers import buildium_migrations as base_api
 from app.schemas.buildium_bank_reconciliation_migration import (
+    BuildiumApiBankReconciliationCommitIn,
+    BuildiumApiBankReconciliationDryRunIn,
     BuildiumBankReconciliationCommitIn,
     BuildiumBankReconciliationDryRunIn,
     BuildiumBankReconciliationResolutionIn,
+)
+from app.services.buildium_api_transport import (
+    BuildiumApiFetchResult,
+    BuildiumApiTransportError,
 )
 
 
@@ -378,6 +386,325 @@ def test_buildium_bank_reconciliation_skip_missing_dependency_and_routes():
         paths = set(app.openapi()["paths"])
         assert "/api/platform/migrations/buildium/runs/{run_id}/bank-reconciliations/dry-run" in paths
         assert "/api/platform/migrations/buildium/runs/{run_id}/bank-reconciliations/commit" in paths
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+class _BankReconApiResponse:
+    def __init__(self, status_code, payload):
+        self.status_code = status_code
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
+def _configure_bank_reconciliation_api_transport(monkeypatch):
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_MODE", "sandbox")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_ID", "client-id")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_SECRET", "bank-recon-secret")
+    monkeypatch.setattr(
+        transport.settings,
+        "BUILDIUM_API_SOURCE_ACCOUNT_REF",
+        "buildium-bank-reconciliation-source",
+    )
+
+
+def test_buildium_transport_fetches_bounded_nested_bank_reconciliations(monkeypatch):
+    _configure_bank_reconciliation_api_transport(monkeypatch)
+    calls = []
+
+    def fake_get(url, *, headers, timeout, params=None):
+        calls.append((url, headers.copy(), None if params is None else params.copy(), timeout))
+        if url.endswith("/v1/bankaccounts/7001/reconciliations"):
+            return _BankReconApiResponse(200, [{
+                "Id": 8001,
+                "IsFinished": True,
+                "StatementEndingDate": "2026-09-30",
+                "BankAccountId": 999999,
+                "ProviderDebugMemo": "RAW-DO-NOT-PERSIST",
+            }])
+        if url.endswith("/v1/bankaccounts/7001/reconciliations/8001/balances"):
+            return _BankReconApiResponse(200, _record()["Balance"])
+        if url.endswith("/v1/bankaccounts/7002/reconciliations"):
+            return _BankReconApiResponse(200, [])
+        raise AssertionError(url)
+
+    monkeypatch.setattr(transport.requests, "get", fake_get)
+    result = transport.fetch_bank_reconciliations(
+        expected_source_account_ref="buildium-bank-reconciliation-source",
+        parent_bank_account_ids=["7002", "7001"],
+    )
+    assert result.records[0]["Id"] == 8001
+    assert result.records[0]["BankAccountId"] == 7001
+    assert result.records[0]["Balance"]["Difference"] == 0
+    assert result.parent_record_count == 2
+    assert result.detail_request_count == 1
+    assert result.request_count == 3
+    assert calls[0][0] == "https://apisandbox.buildium.com/v1/bankaccounts/7001/reconciliations"
+    assert calls[0][2] == {
+        "offset": 0,
+        "limit": transport.MAX_BANK_RECONCILIATION_RECORDS + 1,
+    }
+    assert calls[1][0].endswith("/v1/bankaccounts/7001/reconciliations/8001/balances")
+    assert calls[1][2] is None
+    assert calls[0][1]["x-buildium-client-secret"] == "bank-recon-secret"
+
+    with pytest.raises(BuildiumApiTransportError) as exc:
+        transport.fetch_bank_reconciliations(
+            expected_source_account_ref="buildium-bank-reconciliation-source",
+            parent_bank_account_ids=list(
+                range(1, transport.MAX_BANK_RECONCILIATION_PARENT_BANK_ACCOUNTS + 2)
+            ),
+        )
+    assert exc.value.code == "source_too_large"
+
+    def too_many(url, *, headers, timeout, params=None):
+        if url.endswith("/reconciliations"):
+            return _BankReconApiResponse(
+                200,
+                [
+                    {"Id": 10000 + index, "IsFinished": True, "StatementEndingDate": "2026-09-30"}
+                    for index in range(transport.MAX_BANK_RECONCILIATION_RECORDS + 1)
+                ],
+            )
+        raise AssertionError("balance detail must not be fetched after overflow")
+
+    monkeypatch.setattr(transport.requests, "get", too_many)
+    with pytest.raises(BuildiumApiTransportError) as exc:
+        transport.fetch_bank_reconciliations(
+            expected_source_account_ref="buildium-bank-reconciliation-source",
+            parent_bank_account_ids=[7001],
+        )
+    assert exc.value.code == "source_too_large"
+
+
+def test_buildium_api_bank_reconciliation_maps_existing_only_replays_and_redacts(monkeypatch):
+    db, engine = _session()
+    try:
+        admin = _admin(db)
+        _, _, _, target, run, _ = _fixture(db)
+        before = {
+            "reconciliations": db.query(BankReconciliation).count(),
+            "gl": db.query(GLTransaction).count(),
+        }
+
+        def fetched(*, expected_source_account_ref, parent_bank_account_ids):
+            assert expected_source_account_ref == "buildium-bank-reconciliation-source"
+            assert parent_bank_account_ids == ["7001"]
+            return BuildiumApiFetchResult(
+                records=[_record()],
+                mode="sandbox",
+                request_count=2,
+                parent_record_count=1,
+                detail_request_count=1,
+            )
+
+        monkeypatch.setattr(api, "fetch_bank_reconciliations", fetched)
+        resolution = BuildiumBankReconciliationResolutionIn(
+            source_id=8001,
+            action="MATCH_EXISTING",
+            target_reconciliation_id=target.id,
+        )
+        reviewed = api.api_dry_run_buildium_bank_reconciliations(
+            run.id,
+            BuildiumApiBankReconciliationDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+        assert reviewed.invalid == 0
+        assert reviewed.reviewable == 1
+
+        committed = api.api_commit_buildium_bank_reconciliations(
+            run.id,
+            BuildiumApiBankReconciliationCommitIn(
+                fingerprint=reviewed.fingerprint,
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.matched_existing == 1
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "BANK_RECONCILIATIONS"
+        ).one()
+        assert mapping.target_entity == "BANK_RECONCILIATION"
+        assert mapping.target_id == target.id
+
+        replay = api.api_commit_buildium_bank_reconciliations(
+            run.id,
+            BuildiumApiBankReconciliationCommitIn(
+                fingerprint=reviewed.fingerprint,
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "BANK_RECONCILIATIONS"
+        ).count() == 1
+        assert {
+            "reconciliations": db.query(BankReconciliation).count(),
+            "gl": db.query(GLTransaction).count(),
+        } == before
+
+        with pytest.raises(ValidationError):
+            BuildiumApiBankReconciliationDryRunIn(records=[_record()])
+        with pytest.raises(ValidationError):
+            BuildiumApiBankReconciliationCommitIn(
+                fingerprint=reviewed.fingerprint,
+                client_secret="secret",
+            )
+
+        audit = "\n".join(
+            str(row.new_value or "")
+            for row in db.query(AuditLog)
+            .filter(AuditLog.entity_type == "platform_migration_run")
+            .all()
+        )
+        assert "DO-NOT-PERSIST-RAW" not in audit
+        assert "bank-recon-secret" not in audit
+        assert "raw_payload_stored" in audit
+        assert "provider_credentials_stored" in audit
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_api_bank_reconciliation_provider_dependency_and_target_drift_fail_closed(monkeypatch):
+    db, engine = _session()
+    try:
+        admin = _admin(db)
+        _, _, _, target, run, bank_mapping = _fixture(db)
+        state = {"ending": 100}
+
+        def fetched(*, expected_source_account_ref, parent_bank_account_ids):
+            record = _record()
+            record["Balance"]["StatementBalance"]["EndingBalance"] = state["ending"]
+            record["Balance"]["ClearedBalance"]["EndingBalance"] = state["ending"]
+            return BuildiumApiFetchResult(
+                records=[record],
+                mode="sandbox",
+                request_count=2,
+                parent_record_count=1,
+                detail_request_count=1,
+            )
+
+        monkeypatch.setattr(api, "fetch_bank_reconciliations", fetched)
+        resolution = BuildiumBankReconciliationResolutionIn(
+            source_id=8001,
+            action="MATCH_EXISTING",
+            target_reconciliation_id=target.id,
+        )
+        reviewed = api.api_dry_run_buildium_bank_reconciliations(
+            run.id,
+            BuildiumApiBankReconciliationDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+
+        state["ending"] = 99
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_bank_reconciliations(
+                run.id,
+                BuildiumApiBankReconciliationCommitIn(
+                    fingerprint=reviewed.fingerprint,
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "BANK_RECONCILIATIONS"
+        ).count() == 0
+
+        state["ending"] = 100
+        reviewed = api.api_dry_run_buildium_bank_reconciliations(
+            run.id,
+            BuildiumApiBankReconciliationDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+        bank_mapping.source_fingerprint = "b" * 64
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_bank_reconciliations(
+                run.id,
+                BuildiumApiBankReconciliationCommitIn(
+                    fingerprint=reviewed.fingerprint,
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        bank_mapping.source_fingerprint = "a" * 64
+        db.commit()
+        reviewed = api.api_dry_run_buildium_bank_reconciliations(
+            run.id,
+            BuildiumApiBankReconciliationDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+        target.ending_statement_balance = Decimal("99.00")
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_bank_reconciliations(
+                run.id,
+                BuildiumApiBankReconciliationCommitIn(
+                    fingerprint=reviewed.fingerprint,
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "BANK_RECONCILIATIONS"
+        ).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_api_bank_reconciliation_parent_scope_routes_and_status(monkeypatch):
+    from app.main import app
+
+    db, engine = _session()
+    try:
+        admin = _admin(db)
+        _, _, _, _, run, _ = _fixture(db)
+        assert api._bank_reconciliation_api_parent_source_ids(db, run=run) == ["7001"]
+
+        bad = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "BANK_ACCOUNTS"
+        ).one()
+        bad.target_entity = "WRONG"
+        db.commit()
+        with pytest.raises(Exception) as exc:
+            api._bank_reconciliation_api_parent_source_ids(db, run=run)
+        assert "inconsistent" in str(exc.value).lower()
+
+        monkeypatch.setattr(
+            base_api,
+            "transport_status",
+            lambda: type(
+                "TransportState",
+                (),
+                {"mode": "sandbox", "configured": True, "source_account_bound": True},
+            )(),
+        )
+        status = base_api.get_buildium_transport_status(current_user=admin)
+        assert "BANK_RECONCILIATIONS" in status.supported_resources
+
+        paths = set(app.openapi()["paths"])
+        assert "/api/platform/migrations/buildium/runs/{run_id}/bank-reconciliations/api-dry-run" in paths
+        assert "/api/platform/migrations/buildium/runs/{run_id}/bank-reconciliations/api-commit" in paths
     finally:
         db.close()
         engine.dispose()

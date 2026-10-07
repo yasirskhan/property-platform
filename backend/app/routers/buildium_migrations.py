@@ -415,6 +415,7 @@ def get_buildium_transport_status(
             "LEASE_CHARGES",
             "BUDGETS",
             "LEASE_PAYMENTS",
+            "BANK_RECONCILIATIONS",
         ] if state.configured else [],
     )
 

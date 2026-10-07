@@ -38,6 +38,8 @@ MAX_LEASE_CHARGE_RECORDS = _MAX_REVIEW_RECORDS
 MAX_BUDGET_RECORDS = 100
 MAX_LEASE_PAYMENT_PARENT_LEASES = 100
 MAX_LEASE_PAYMENT_RECORDS = _MAX_REVIEW_RECORDS
+MAX_BANK_RECONCILIATION_PARENT_BANK_ACCOUNTS = 100
+MAX_BANK_RECONCILIATION_RECORDS = _MAX_REVIEW_RECORDS
 
 
 class BuildiumApiTransportError(Exception):
@@ -59,6 +61,7 @@ class BuildiumApiFetchResult:
     mode: str
     request_count: int
     parent_record_count: int | None = None
+    detail_request_count: int | None = None
 
 
 @dataclass(frozen=True)
@@ -606,4 +609,174 @@ def fetch_bill_payments(
         mode=profile.mode,
         request_count=requests_made,
         parent_record_count=len(normalized_parent_ids),
+    )
+
+
+def _get_json_object(
+    profile: _Profile,
+    *,
+    path: str,
+    resource_label: str,
+) -> dict[str, Any]:
+    try:
+        response = requests.get(
+            f"{profile.base_url}{path}",
+            headers={
+                "x-buildium-client-id": profile.client_id,
+                "x-buildium-client-secret": profile.client_secret,
+                "Accept": "application/json",
+            },
+            timeout=_TIMEOUT_SECONDS,
+        )
+    except requests.RequestException as exc:
+        raise BuildiumApiTransportError(
+            "unavailable", "Buildium API transport is unavailable."
+        ) from exc
+
+    if response.status_code == 401:
+        raise BuildiumApiTransportError(
+            "unauthorized", "Buildium rejected the configured API credentials."
+        )
+    if response.status_code == 403:
+        raise BuildiumApiTransportError(
+            "forbidden",
+            f"Buildium API credentials lack permission for {resource_label}.",
+        )
+    if response.status_code == 429:
+        raise BuildiumApiTransportError(
+            "rate_limited",
+            "Buildium API rate limit was reached; retry the migration transport request.",
+        )
+    if response.status_code != 200:
+        raise BuildiumApiTransportError(
+            "upstream_error",
+            f"Buildium API request failed with HTTP {response.status_code}.",
+        )
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise BuildiumApiTransportError(
+            "invalid_response", "Buildium API returned an invalid JSON response."
+        ) from exc
+    if not isinstance(payload, dict):
+        raise BuildiumApiTransportError(
+            "invalid_response",
+            f"Buildium API returned an unexpected {resource_label} response.",
+        )
+    return payload
+
+
+def fetch_bank_reconciliations(
+    *,
+    expected_source_account_ref: str,
+    parent_bank_account_ids: list[int | str],
+) -> BuildiumApiFetchResult:
+    """Fetch bounded nested Bank Reconciliations and documented balance payloads."""
+    profile = _profile(expected_source_account_ref)
+
+    normalized_parent_ids: list[int] = []
+    seen_parent_ids: set[int] = set()
+    for raw_parent_id in parent_bank_account_ids:
+        if isinstance(raw_parent_id, bool):
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Bank Reconciliation parent Bank Account scope contains an invalid source ID.",
+            )
+        try:
+            parent_id = int(str(raw_parent_id).strip())
+        except (TypeError, ValueError):
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Bank Reconciliation parent Bank Account scope contains an invalid source ID.",
+            )
+        if parent_id < 1:
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Bank Reconciliation parent Bank Account scope contains an invalid source ID.",
+            )
+        if parent_id in seen_parent_ids:
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Bank Reconciliation parent Bank Account scope contains a duplicate source ID.",
+            )
+        seen_parent_ids.add(parent_id)
+        normalized_parent_ids.append(parent_id)
+
+    if not normalized_parent_ids:
+        raise BuildiumApiTransportError(
+            "empty_parent_scope",
+            "Buildium Bank Reconciliation API migration requires at least one durably mapped parent Bank Account.",
+        )
+    if len(normalized_parent_ids) > MAX_BANK_RECONCILIATION_PARENT_BANK_ACCOUNTS:
+        raise BuildiumApiTransportError(
+            "source_too_large",
+            "Buildium Bank Reconciliation API migration exceeds the bounded "
+            f"{MAX_BANK_RECONCILIATION_PARENT_BANK_ACCOUNTS}-parent-Bank-Account review scope.",
+        )
+
+    records: list[dict[str, Any]] = []
+    requests_made = 0
+    detail_requests = 0
+    for parent_bank_account_id in sorted(normalized_parent_ids):
+        remaining = MAX_BANK_RECONCILIATION_RECORDS - len(records)
+        request_limit = max(1, min(1000, remaining + 1))
+        page = _get_json_list(
+            profile,
+            path=f"/v1/bankaccounts/{parent_bank_account_id}/reconciliations",
+            resource_label=f"bank reconciliations for parent Bank Account {parent_bank_account_id}",
+            offset=0,
+            limit=request_limit,
+        )
+        requests_made += 1
+        if len(page) > remaining:
+            raise BuildiumApiTransportError(
+                "source_too_large",
+                "Buildium Bank Reconciliation source exceeds the bounded "
+                f"{MAX_BANK_RECONCILIATION_RECORDS}-record API migration review.",
+            )
+        for provider_record in page:
+            raw_reconciliation_id = provider_record.get("Id")
+            if isinstance(raw_reconciliation_id, bool):
+                raise BuildiumApiTransportError(
+                    "invalid_response",
+                    "Buildium API returned a Bank Reconciliation without a valid positive identifier.",
+                )
+            try:
+                reconciliation_id = int(raw_reconciliation_id)
+            except (TypeError, ValueError):
+                raise BuildiumApiTransportError(
+                    "invalid_response",
+                    "Buildium API returned a Bank Reconciliation without a valid positive identifier.",
+                )
+            if reconciliation_id < 1:
+                raise BuildiumApiTransportError(
+                    "invalid_response",
+                    "Buildium API returned a Bank Reconciliation without a valid positive identifier.",
+                )
+            balance = _get_json_object(
+                profile,
+                path=(
+                    f"/v1/bankaccounts/{parent_bank_account_id}/reconciliations/"
+                    f"{reconciliation_id}/balances"
+                ),
+                resource_label=f"bank reconciliation balance for parent Bank Account {parent_bank_account_id}",
+            )
+            requests_made += 1
+            detail_requests += 1
+            record = dict(provider_record)
+            record["BankAccountId"] = parent_bank_account_id
+            record["Balance"] = balance
+            records.append(record)
+
+    if not records:
+        raise BuildiumApiTransportError(
+            "empty_source",
+            "Buildium API returned no Bank Reconciliations for the mapped parent Bank Accounts.",
+        )
+    return BuildiumApiFetchResult(
+        records=records,
+        mode=profile.mode,
+        request_count=requests_made,
+        parent_record_count=len(normalized_parent_ids),
+        detail_request_count=detail_requests,
     )

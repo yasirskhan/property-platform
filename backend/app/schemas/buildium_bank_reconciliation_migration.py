@@ -32,6 +32,21 @@ class BuildiumBankReconciliationDryRunIn(BaseModel):
     )
 
 
+class BuildiumApiBankReconciliationDryRunIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    resolutions: list[BuildiumBankReconciliationResolutionIn] = Field(
+        default_factory=list, max_length=500
+    )
+
+
+class BuildiumApiBankReconciliationCommitIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolutions: list[BuildiumBankReconciliationResolutionIn] = Field(
+        default_factory=list, max_length=500
+    )
+
+
 class BuildiumBankReconciliationPreviewRow(BaseModel):
     source_id: str | None
     reviewable: bool
