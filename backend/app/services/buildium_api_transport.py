@@ -35,6 +35,7 @@ MAX_BILL_PAYMENT_PARENT_BILLS = 100
 MAX_BILL_PAYMENT_RECORDS = _MAX_REVIEW_RECORDS
 MAX_LEASE_CHARGE_PARENT_LEASES = 100
 MAX_LEASE_CHARGE_RECORDS = _MAX_REVIEW_RECORDS
+MAX_BUDGET_RECORDS = 100
 
 
 class BuildiumApiTransportError(Exception):
@@ -310,11 +311,40 @@ def fetch_property_groups(*, expected_source_account_ref: str) -> BuildiumApiFet
 
 
 def fetch_budgets(*, expected_source_account_ref: str) -> BuildiumApiFetchResult:
-    """Fetch one bounded complete Budget set for the existing reconciliation pipeline."""
-    return _fetch_bounded_collection(
-        profile=_profile(expected_source_account_ref),
+    """Fetch the existing Budget contract's bounded complete provider set."""
+    profile = _profile(expected_source_account_ref)
+    records = _get_json_list(
+        profile,
         path=_BUDGET_PATH,
         resource_label="budgets",
+        offset=0,
+        limit=MAX_BUDGET_RECORDS,
+    )
+    requests_made = 1
+    if len(records) == MAX_BUDGET_RECORDS:
+        probe = _get_json_list(
+            profile,
+            path=_BUDGET_PATH,
+            resource_label="budgets",
+            offset=MAX_BUDGET_RECORDS,
+            limit=1,
+        )
+        requests_made += 1
+        if probe:
+            raise BuildiumApiTransportError(
+                "source_too_large",
+                "Buildium budgets source exceeds the bounded "
+                f"{MAX_BUDGET_RECORDS}-record API migration review.",
+            )
+    if not records:
+        raise BuildiumApiTransportError(
+            "empty_source",
+            "Buildium API returned no budgets for this source account.",
+        )
+    return BuildiumApiFetchResult(
+        records=records,
+        mode=profile.mode,
+        request_count=requests_made,
     )
 
 
