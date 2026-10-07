@@ -30,6 +30,23 @@ class BuildiumLeasePaymentDryRunIn(BaseModel):
     resolutions: list[BuildiumLeasePaymentResolutionIn] = Field(default_factory=list, max_length=500)
 
 
+class BuildiumApiLeasePaymentDryRunIn(BaseModel):
+    """Server-side nested Lease Payment preview without caller-supplied provider records."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resolutions: list[BuildiumLeasePaymentResolutionIn] = Field(default_factory=list, max_length=500)
+
+
+class BuildiumApiLeasePaymentCommitIn(BaseModel):
+    """Commit a fresh nested Lease Payment fetch only when exact review still matches."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolutions: list[BuildiumLeasePaymentResolutionIn] = Field(default_factory=list, max_length=500)
+
+
 class BuildiumLeasePaymentPreviewRow(BaseModel):
     source_id: str | None
     reviewable: bool
