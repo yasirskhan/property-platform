@@ -1,3 +1,150 @@
+# AI_HANDOFF.md — 2026-10-07 PHASE 4.14 BUILDIUM SERVER API PROPERTY RESERVE TRANSPORT VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Current VERIFIED product source:
+  `ac93347ad20e9aa24aa9619971dc9c6decafa1d5`.
+- Product chain:
+  - `66c9fbebafc8cb5e40f06bcedd2e8b89b58cb11a` — `Phase 4.14: add Buildium API reserve schemas`
+  - `d97bd45189a8c7c00f30577abd3275bdad02f829` — `Phase 4.14: add Buildium API reserve routes`
+  - `ac93347ad20e9aa24aa9619971dc9c6decafa1d5` — `Phase 4.14: test Buildium API reserve transport`
+- Exact GitHub Actions run **37618169404 — SUCCESS**.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **1134 passed, 21 deselected, 28694 warnings in 596.33s**.
+- Authenticated E2E: **21 passed, 278 warnings in 120.40s**.
+- Alembic remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- No database migration or new target business table was added.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains **AUTHORIZED BUT NOT ACTIVE**.
+
+The immediately preceding API Property Group product source
+`dd8bef613e150e8d8d641a5ab4eaba5450b19d53` remains independently verified
+by GitHub Actions **37612644293 SUCCESS**.
+
+## Verified Buildium server-to-server API Property Reserve transport
+
+Verified routes:
+
+- `POST /api/platform/migrations/buildium/runs/{run_id}/property-reserves/api-dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/property-reserves/api-commit`
+
+Verified transport contract:
+
+1. The transport reuses the existing bounded Buildium Rental Property source,
+   official v1 `GET /v1/rentals`. It does not invent a Property Reserve provider endpoint
+   or a parallel migration system.
+2. The provider Rental Property `Reserve` field feeds the already-verified
+   `buildium_property_reserve_migration.py` reconciliation contract.
+3. Retrieval preserves the existing complete-source 500-record bound and fails closed
+   rather than silently truncating an oversized Rental Property source.
+4. `BUILDIUM_API_SOURCE_ACCOUNT_REF` remains bound to the migration run before provider retrieval.
+5. Request bodies contain only explicit reserve review decisions and, for commit, the
+   reviewed fingerprint. Caller-supplied provider records or credentials are rejected.
+6. Every source reserve still requires the current durable same-run
+   `PROPERTIES -> PROPERTY` mapping and an active same-organization target Property.
+7. Review remains explicit `MATCH_EXISTING`, `APPLY_SOURCE`, or `SKIP`.
+   There is no silent overwrite.
+8. `MATCH_EXISTING` requires the current target `required_reserve_amount` to equal the
+   Buildium source reserve exactly.
+9. `APPLY_SOURCE` requires the reviewer-supplied exact current target reserve snapshot.
+   If the target reserve changes before commit, the commit fails closed.
+10. API commit fresh-fetches the bounded Rental Property source and requires the exact
+    reviewed fingerprint. Provider Reserve drift, Property mapping drift, review drift,
+    target reserve drift, organization drift or source-account drift fails closed.
+11. Successful commit may update only `Property.required_reserve_amount` for explicitly
+    reviewed `APPLY_SOURCE`, then records durable
+    `BUILDIUM / PROPERTY_RESERVES / PROPERTY` migration metadata.
+12. Replay remains idempotent; an already-mapped reserve does not create a duplicate
+    migration item or reapply unrelated target state.
+13. Reserve amounts are not copied into migration audit. Provider property descriptions,
+    addresses, manager metadata, bank metadata, credentials and raw responses are not
+    persisted merely because they are present in the Rental Property payload.
+14. No GLTransaction, GLEntry, bank balance, bank movement, owner distribution,
+    reserve transaction, opening balance, reconciliation history, settlement history or
+    synthetic accounting history is created or inferred.
+
+## Phase 4.14 cumulative server API transport
+
+Server-side Buildium API transport now feeds the SAME reviewed provider-labelled
+migration architecture for:
+
+- Properties
+- Units
+- Owners
+- Vendors
+- Tenants
+- Leases
+- GL Accounts
+- Work Orders
+- Bills
+- Bank Accounts
+- Bill Payments
+- Owner/Property relationships
+- Property Groups
+- Property Reserves
+
+Preserve exact fingerprints, explicit review, durable mappings, fresh-fetch commit,
+stale-preview rejection, replay/idempotency, organization isolation, bounded retrieval,
+source-account binding, server-held credentials and no raw-response persistence.
+
+The permanent historical GL blocker remains. Never infer debit-versus-credit direction
+or fabricate balancing entries, opening balances, settlement history, payment history,
+cleared state or synthetic accounting history.
+
+## Exact NEXT Phase 4.14 batch
+
+Continue the original verified resource order with **Buildium Rental Lease Charge
+server API transport**. Do not rebuild the already-verified Lease Charge reconciliation
+contract.
+
+Before changing code:
+
+1. Re-read live `backend/app/services/buildium_lease_charge_migration.py` and its
+   current regression coverage.
+2. Re-read `backend/app/services/buildium_api_transport.py`, current API
+   router/schemas/tests, and the existing Lease transport/dependency patterns.
+3. Re-check the current official Buildium v1 Rental Lease ledger Charge retrieval
+   contract. Do not invent an endpoint or flatten parent context the provider requires.
+
+Required boundaries:
+
+- feed the SAME existing Lease Charge existing-target reconciliation service;
+- preserve all current same-run Lease, Property, Unit, Tenant and GL Account dependencies
+  required by the verified contract;
+- preserve explicit review, exact fingerprint, fresh-fetch commit, replay/idempotency,
+  organization isolation and source-account binding;
+- reconcile only the already-supported bounded exact-existing-target Charge subset;
+- do not create target Charges, RentInvoices, receipts, payments, GL history, balances,
+  late-fee history or synthetic ledger data;
+- do not infer payment status, accounting direction or balances from a ledger amount;
+- preserve any provider parent Lease identity required by the official retrieval shape;
+- bound provider retrieval and request fan-out if retrieval is nested;
+- keep provider memo/free text, credentials and raw responses out of migration audit.
+
+After Lease Charge API transport is VERIFIED, continue in the original verified resource
+order. Do not start Phase 4.15 Yardi until Phase 4.14 is explicitly closed.
+
+Do not start general UX work. Preserve `docs/NAVIGATION_INTEGRITY_PLAN.md`, the complete
+HIDDEN MENU / UNHIDE ROADMAP, and `docs/UX_STANDARDS.md` =
+**AUTHORIZED BUT NOT ACTIVE**.
+
+---
+
 # AI_HANDOFF.md — 2026-10-07 PHASE 4.14 BUILDIUM SERVER API PROPERTY GROUP TRANSPORT VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
