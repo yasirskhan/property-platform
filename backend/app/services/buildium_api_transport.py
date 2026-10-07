@@ -25,6 +25,7 @@ _LEASE_PATH = "/v1/leases"
 _GL_ACCOUNT_PATH = "/v1/glaccounts"
 _WORK_ORDER_PATH = "/v1/workorders"
 _BILL_PATH = "/v1/bills"
+_BANK_ACCOUNT_PATH = "/v1/bankaccounts"
 _MAX_REVIEW_RECORDS = 500
 _PAGE_LIMIT = 500
 _TIMEOUT_SECONDS = 20
@@ -278,4 +279,14 @@ def fetch_bills(*, expected_source_account_ref: str) -> BuildiumApiFetchResult:
         profile=_profile(expected_source_account_ref),
         path=_BILL_PATH,
         resource_label="bills",
+    )
+
+
+
+def fetch_bank_accounts(*, expected_source_account_ref: str) -> BuildiumApiFetchResult:
+    """Fetch one bounded complete Bank Account set for the existing identity pipeline."""
+    return _fetch_bounded_collection(
+        profile=_profile(expected_source_account_ref),
+        path=_BANK_ACCOUNT_PATH,
+        resource_label="bank accounts",
     )

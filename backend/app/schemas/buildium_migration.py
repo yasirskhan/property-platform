@@ -958,6 +958,25 @@ class BuildiumBankAccountCommitIn(BaseModel):
     resolutions: list[BuildiumBankAccountResolutionIn] = Field(default_factory=list, max_length=500)
 
 
+class BuildiumApiBankAccountDryRunIn(BaseModel):
+    """Server-side Buildium API Bank Account preview without caller-supplied provider records."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    include_inactive: bool = False
+    resolutions: list[BuildiumBankAccountResolutionIn] = Field(default_factory=list, max_length=500)
+
+
+class BuildiumApiBankAccountCommitIn(BaseModel):
+    """Commit a fresh server-side Bank Account fetch only when exact review still matches."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    include_inactive: bool = False
+    resolutions: list[BuildiumBankAccountResolutionIn] = Field(default_factory=list, max_length=500)
+
+
 class BuildiumBankAccountCommitRow(BaseModel):
     source_id: str
     target_bank_account_id: int
