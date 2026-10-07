@@ -219,12 +219,12 @@ def test_buildium_transport_fetches_bounded_budgets(monkeypatch):
     assert result.mode == "sandbox"
     assert result.request_count == 1
     assert calls[0][0] == "https://apisandbox.buildium.com/v1/budgets"
-    assert calls[0][2] == {"offset": 0, "limit": 500}
+    assert calls[0][2] == {"offset": 0, "limit": transport.MAX_BUDGET_RECORDS}
     assert calls[0][1]["x-buildium-client-secret"] == "budget-secret"
 
     def too_many(url, *, headers, params, timeout):
         if params["offset"] == 0:
-            return _Response(200, [_record(Id=index + 1) for index in range(500)])
+            return _Response(200, [_record(Id=index + 1) for index in range(transport.MAX_BUDGET_RECORDS)])
         return _Response(200, [_record(Id=9999)])
 
     monkeypatch.setattr(transport.requests, "get", too_many)
