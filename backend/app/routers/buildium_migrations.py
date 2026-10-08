@@ -423,6 +423,7 @@ def get_buildium_transport_status(
             "BANK_CHECKS",
             "RENTERS_INSURANCE",
             "APPLICANTS",
+            "HOA_ASSOCIATIONS",
         ] if state.configured else [],
     )
 
