@@ -424,6 +424,7 @@ def get_buildium_transport_status(
             "RENTERS_INSURANCE",
             "APPLICANTS",
             "HOA_ASSOCIATIONS",
+            "HOA_UNITS",
         ] if state.configured else [],
     )
 
