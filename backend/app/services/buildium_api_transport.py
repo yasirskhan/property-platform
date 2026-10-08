@@ -33,6 +33,7 @@ _APPLICANT_PATH = "/v1/applicants"
 _ASSOCIATION_PATH = "/v1/associations"
 _ASSOCIATION_UNIT_PATH = "/v1/associations/units"
 _ASSOCIATION_OWNER_PATH = "/v1/associations/owners"
+_ASSOCIATION_TENANT_PATH = "/v1/associations/tenants"
 _MAX_REVIEW_RECORDS = 500
 _PAGE_LIMIT = 500
 _TIMEOUT_SECONDS = 20
@@ -299,6 +300,15 @@ def fetch_association_owners(*, expected_source_account_ref: str) -> BuildiumApi
         profile=_profile(expected_source_account_ref),
         path=_ASSOCIATION_OWNER_PATH,
         resource_label="association owners",
+    )
+
+
+def fetch_association_tenants(*, expected_source_account_ref: str) -> BuildiumApiFetchResult:
+    """Fetch one bounded complete Association Tenant set for the existing identity pipeline."""
+    return _fetch_bounded_collection(
+        profile=_profile(expected_source_account_ref),
+        path=_ASSOCIATION_TENANT_PATH,
+        resource_label="association tenants",
     )
 
 

@@ -22,6 +22,15 @@ class BuildiumAssociationTenantDryRunIn(BaseModel):
     records: list[dict[str, Any]] = Field(min_length=1, max_length=500)
     resolutions: list[BuildiumAssociationTenantResolutionIn] = Field(default_factory=list, max_length=500)
 
+class BuildiumApiAssociationTenantDryRunIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    resolutions: list[BuildiumAssociationTenantResolutionIn] = Field(default_factory=list, max_length=500)
+
+class BuildiumApiAssociationTenantCommitIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolutions: list[BuildiumAssociationTenantResolutionIn] = Field(default_factory=list, max_length=500)
+
 class BuildiumAssociationTenantPreviewRow(BaseModel):
     source_id: str | None
     reviewable: bool
