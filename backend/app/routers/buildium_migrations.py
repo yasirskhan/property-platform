@@ -419,6 +419,7 @@ def get_buildium_transport_status(
             "BANK_TRANSFERS",
             "BANK_WITHDRAWALS",
             "BANK_QUICK_DEPOSITS",
+            "BANK_DEPOSITS",
         ] if state.configured else [],
     )
 

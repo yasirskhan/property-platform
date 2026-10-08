@@ -1,6 +1,7 @@
 """Schemas for bounded Buildium full bank-deposit reconciliation."""
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -29,6 +30,41 @@ class BuildiumDepositDryRunIn(BaseModel):
     resolutions: list[BuildiumDepositResolutionIn] = Field(
         default_factory=list, max_length=500
     )
+
+
+class BuildiumApiDepositDryRunIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    start_date: date
+    end_date: date
+    resolutions: list[BuildiumDepositResolutionIn] = Field(
+        default_factory=list, max_length=500
+    )
+
+    @model_validator(mode="after")
+    def validate_date_window(self):
+        if self.start_date > self.end_date:
+            raise ValueError("start_date must not be after end_date")
+        if (self.end_date - self.start_date).days > 366:
+            raise ValueError("date window must not exceed 366 days")
+        return self
+
+
+class BuildiumApiDepositCommitIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    start_date: date
+    end_date: date
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolutions: list[BuildiumDepositResolutionIn] = Field(
+        default_factory=list, max_length=500
+    )
+
+    @model_validator(mode="after")
+    def validate_date_window(self):
+        if self.start_date > self.end_date:
+            raise ValueError("start_date must not be after end_date")
+        if (self.end_date - self.start_date).days > 366:
+            raise ValueError("date window must not exceed 366 days")
+        return self
 
 
 class BuildiumDepositPreviewRow(BaseModel):
