@@ -51,6 +51,8 @@ MAX_BANK_DEPOSIT_PARENT_BANK_ACCOUNTS = 100
 MAX_BANK_DEPOSIT_RECORDS = _MAX_REVIEW_RECORDS
 MAX_BANK_CHECK_PARENT_BANK_ACCOUNTS = 100
 MAX_BANK_CHECK_RECORDS = _MAX_REVIEW_RECORDS
+MAX_RENTERS_INSURANCE_PARENT_LEASES = 100
+MAX_RENTERS_INSURANCE_RECORDS = _MAX_REVIEW_RECORDS
 
 
 class BuildiumApiTransportError(Exception):
@@ -1301,6 +1303,91 @@ def fetch_bank_checks(
         raise BuildiumApiTransportError(
             "empty_source",
             "Buildium API returned no Bank Checks for the mapped Bank Accounts and reviewed date window.",
+        )
+    return BuildiumApiFetchResult(
+        records=records,
+        mode=profile.mode,
+        request_count=requests_made,
+        parent_record_count=len(normalized_parent_ids),
+    )
+
+
+def fetch_renters_insurance(
+    *,
+    expected_source_account_ref: str,
+    parent_lease_ids: list[int | str],
+) -> BuildiumApiFetchResult:
+    """Fetch bounded renters-insurance policies for already-mapped parent Leases."""
+    profile = _profile(expected_source_account_ref)
+
+    normalized_parent_ids: list[int] = []
+    seen_parent_ids: set[int] = set()
+    for raw_parent_id in parent_lease_ids:
+        if isinstance(raw_parent_id, bool):
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium renters-insurance parent Lease scope contains an invalid source ID.",
+            )
+        try:
+            parent_id = int(str(raw_parent_id).strip())
+        except (TypeError, ValueError):
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium renters-insurance parent Lease scope contains an invalid source ID.",
+            )
+        if parent_id < 1:
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium renters-insurance parent Lease scope contains an invalid source ID.",
+            )
+        if parent_id in seen_parent_ids:
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium renters-insurance parent Lease scope contains a duplicate source ID.",
+            )
+        seen_parent_ids.add(parent_id)
+        normalized_parent_ids.append(parent_id)
+
+    if not normalized_parent_ids:
+        raise BuildiumApiTransportError(
+            "empty_parent_scope",
+            "Buildium renters-insurance API migration requires at least one durably mapped parent Lease.",
+        )
+    if len(normalized_parent_ids) > MAX_RENTERS_INSURANCE_PARENT_LEASES:
+        raise BuildiumApiTransportError(
+            "source_too_large",
+            "Buildium renters-insurance API migration exceeds the bounded "
+            f"{MAX_RENTERS_INSURANCE_PARENT_LEASES}-parent-Lease review scope.",
+        )
+
+    records: list[dict[str, Any]] = []
+    requests_made = 0
+    for parent_lease_id in sorted(normalized_parent_ids):
+        remaining = MAX_RENTERS_INSURANCE_RECORDS - len(records)
+        request_limit = max(1, min(1000, remaining + 1))
+        page = _get_json_list(
+            profile,
+            path=f"/v1/leases/{parent_lease_id}/rentersinsurance",
+            resource_label=f"renters-insurance policies for parent Lease {parent_lease_id}",
+            offset=0,
+            limit=request_limit,
+        )
+        requests_made += 1
+        if len(page) > remaining:
+            raise BuildiumApiTransportError(
+                "source_too_large",
+                "Buildium renters-insurance source exceeds the bounded "
+                f"{MAX_RENTERS_INSURANCE_RECORDS}-record API migration review.",
+            )
+        for provider_record in page:
+            record = dict(provider_record)
+            record["SourceLeaseId"] = parent_lease_id
+            records.append(record)
+
+    if not records:
+        raise BuildiumApiTransportError(
+            "empty_source",
+            "Buildium API returned no renters-insurance policies for the mapped parent Leases.",
         )
     return BuildiumApiFetchResult(
         records=records,
