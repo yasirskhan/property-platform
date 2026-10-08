@@ -30,6 +30,23 @@ class BuildiumRentersInsuranceDryRunIn(BaseModel):
     )
 
 
+class BuildiumApiRentersInsuranceDryRunIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    resolutions: list[BuildiumRentersInsuranceResolutionIn] = Field(
+        default_factory=list,
+        max_length=500,
+    )
+
+
+class BuildiumApiRentersInsuranceCommitIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolutions: list[BuildiumRentersInsuranceResolutionIn] = Field(
+        default_factory=list,
+        max_length=500,
+    )
+
+
 class BuildiumRentersInsurancePreviewRow(BaseModel):
     source_id: str | None
     reviewable: bool
