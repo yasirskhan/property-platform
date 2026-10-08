@@ -17,9 +17,12 @@ from app.models.user import Organization, User, UserRole
 from app.routers import buildium_applicant_migrations as api
 from app.routers import buildium_migrations as base_api
 from app.schemas.buildium_applicant_migration import (
+    BuildiumApiApplicantCommitIn, BuildiumApiApplicantDryRunIn,
     BuildiumApplicantCommitIn, BuildiumApplicantDryRunIn,
     BuildiumApplicantResolutionIn,
 )
+from app.services import buildium_api_transport as transport
+from app.services.buildium_api_transport import BuildiumApiFetchResult, BuildiumApiTransportError
 
 def _session():
     engine = create_engine("sqlite+pysqlite:///:memory:")
@@ -231,5 +234,146 @@ def test_buildium_applicant_skip_validation_and_routes():
         paths = set(app.openapi()["paths"])
         assert "/api/platform/migrations/buildium/runs/{run_id}/applicants/dry-run" in paths
         assert "/api/platform/migrations/buildium/runs/{run_id}/applicants/commit" in paths
+    finally:
+        db.close(); engine.dispose()
+
+
+
+class _ApplicantApiResponse:
+    def __init__(self, status_code, payload):
+        self.status_code = status_code
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
+def _configure_applicant_transport(monkeypatch):
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_MODE", "sandbox")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_ID", "test-client")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_SECRET", "test-value")
+    monkeypatch.setattr(
+        transport.settings, "BUILDIUM_API_SOURCE_ACCOUNT_REF", "buildium-applicants"
+    )
+
+
+def test_buildium_api_fetches_bounded_applicant_collection(monkeypatch):
+    _configure_applicant_transport(monkeypatch)
+    calls = []
+
+    def fake_get(url, *, headers, params, timeout):
+        calls.append((url, params.copy()))
+        return _ApplicantApiResponse(200, [_record()])
+
+    monkeypatch.setattr(transport.requests, "get", fake_get)
+    fetched = transport.fetch_applicants(
+        expected_source_account_ref="buildium-applicants"
+    )
+    assert fetched.records == [_record()]
+    assert fetched.request_count == 1
+    assert calls == [
+        ("https://apisandbox.buildium.com/v1/applicants", {"offset": 0, "limit": 500})
+    ]
+
+    def full_page(url, *, headers, params, timeout):
+        if params["offset"] == 0:
+            return _ApplicantApiResponse(200, [{"Id": i + 1} for i in range(500)])
+        return _ApplicantApiResponse(200, [{"Id": 501}])
+
+    monkeypatch.setattr(transport.requests, "get", full_page)
+    with pytest.raises(BuildiumApiTransportError) as exc:
+        transport.fetch_applicants(expected_source_account_ref="buildium-applicants")
+    assert exc.value.code == "source_too_large"
+
+
+def test_buildium_api_applicant_reconciles_replays_redacts_and_fails_closed(monkeypatch):
+    db, engine = _session()
+    try:
+        admin = _admin(db); org = _org(db); target = _applicant(db, org); run = _run(db, org)
+        state = {"first_name": "Jane"}
+
+        def fetched(*, expected_source_account_ref):
+            assert expected_source_account_ref == "buildium-applicants"
+            return BuildiumApiFetchResult(
+                records=[_record(FirstName=state["first_name"])],
+                mode="sandbox", request_count=1,
+            )
+
+        monkeypatch.setattr(api, "fetch_applicants", fetched)
+        resolution = BuildiumApplicantResolutionIn(
+            source_id=8801, action="MATCH_EXISTING",
+            target_applicant_user_id=target.id,
+        )
+        reviewed = api.api_dry_run_buildium_applicants(
+            run.id, BuildiumApiApplicantDryRunIn(resolutions=[resolution]),
+            db=db, current_user=admin,
+        )
+        assert reviewed.invalid == 0
+        committed = api.api_commit_buildium_applicants(
+            run.id,
+            BuildiumApiApplicantCommitIn(
+                fingerprint=reviewed.fingerprint, resolutions=[resolution]
+            ),
+            db=db, current_user=admin,
+        )
+        assert committed.matched_existing == 1
+
+        replay_reviewed = api.api_dry_run_buildium_applicants(
+            run.id, BuildiumApiApplicantDryRunIn(resolutions=[resolution]),
+            db=db, current_user=admin,
+        )
+        replay = api.api_commit_buildium_applicants(
+            run.id,
+            BuildiumApiApplicantCommitIn(
+                fingerprint=replay_reviewed.fingerprint, resolutions=[resolution]
+            ),
+            db=db, current_user=admin,
+        )
+        assert replay.replayed is True
+
+        state["first_name"] = "Janet"
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_applicants(
+                run.id,
+                BuildiumApiApplicantCommitIn(
+                    fingerprint=replay_reviewed.fingerprint, resolutions=[resolution]
+                ),
+                db=db, current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        audit = "\n".join(
+            str(row.new_value or "")
+            for row in db.query(AuditLog)
+            .filter(AuditLog.entity_type == "platform_migration_run").all()
+        )
+        assert "DO-NOT-AUDIT-APPLICANT-PRIVATE" not in audit
+        assert "1990-01-01" not in audit
+        assert target.email not in audit
+        with pytest.raises(ValidationError):
+            BuildiumApiApplicantDryRunIn(records=[_record()])
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_buildium_api_applicant_routes_and_status(monkeypatch):
+    from app.main import app
+    db, engine = _session()
+    try:
+        admin = _admin(db); org = _org(db); _applicant(db, org); _run(db, org)
+        monkeypatch.setattr(
+            base_api, "transport_status",
+            lambda: type(
+                "TransportState", (), {
+                    "mode": "sandbox", "configured": True, "source_account_bound": True
+                }
+            )(),
+        )
+        assert "APPLICANTS" in base_api.get_buildium_transport_status(
+            current_user=admin
+        ).supported_resources
+        paths = set(app.openapi()["paths"])
+        assert "/api/platform/migrations/buildium/runs/{run_id}/applicants/api-dry-run" in paths
+        assert "/api/platform/migrations/buildium/runs/{run_id}/applicants/api-commit" in paths
     finally:
         db.close(); engine.dispose()

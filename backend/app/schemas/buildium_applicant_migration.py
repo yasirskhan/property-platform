@@ -22,6 +22,15 @@ class BuildiumApplicantDryRunIn(BaseModel):
     records: list[dict[str, Any]] = Field(min_length=1, max_length=500)
     resolutions: list[BuildiumApplicantResolutionIn] = Field(default_factory=list, max_length=500)
 
+class BuildiumApiApplicantDryRunIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    resolutions: list[BuildiumApplicantResolutionIn] = Field(default_factory=list, max_length=500)
+
+class BuildiumApiApplicantCommitIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolutions: list[BuildiumApplicantResolutionIn] = Field(default_factory=list, max_length=500)
+
 class BuildiumApplicantPreviewRow(BaseModel):
     source_id: str | None
     reviewable: bool

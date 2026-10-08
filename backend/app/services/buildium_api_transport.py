@@ -29,6 +29,7 @@ _BILL_PATH = "/v1/bills"
 _BANK_ACCOUNT_PATH = "/v1/bankaccounts"
 _PROPERTY_GROUP_PATH = "/v1/propertygroups"
 _BUDGET_PATH = "/v1/budgets"
+_APPLICANT_PATH = "/v1/applicants"
 _MAX_REVIEW_RECORDS = 500
 _PAGE_LIMIT = 500
 _TIMEOUT_SECONDS = 20
@@ -259,6 +260,15 @@ def fetch_vendors(*, expected_source_account_ref: str) -> BuildiumApiFetchResult
         profile=_profile(expected_source_account_ref),
         path=_VENDOR_PATH,
         resource_label="vendors",
+    )
+
+
+def fetch_applicants(*, expected_source_account_ref: str) -> BuildiumApiFetchResult:
+    """Fetch one bounded complete Applicant set for the existing identity pipeline."""
+    return _fetch_bounded_collection(
+        profile=_profile(expected_source_account_ref),
+        path=_APPLICANT_PATH,
+        resource_label="applicants",
     )
 
 
