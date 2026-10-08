@@ -4,6 +4,7 @@ from datetime import date
 
 import pytest
 from fastapi import HTTPException, Response
+from pydantic import ValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -20,9 +21,16 @@ from app.models.user import Organization, User, UserRole
 from app.routers import buildium_migrations as base_api
 from app.routers import buildium_renters_insurance_migrations as api
 from app.schemas.buildium_renters_insurance_migration import (
+    BuildiumApiRentersInsuranceCommitIn,
+    BuildiumApiRentersInsuranceDryRunIn,
     BuildiumRentersInsuranceCommitIn,
     BuildiumRentersInsuranceDryRunIn,
     BuildiumRentersInsuranceResolutionIn,
+)
+from app.services import buildium_api_transport as transport
+from app.services.buildium_api_transport import (
+    BuildiumApiFetchResult,
+    BuildiumApiTransportError,
 )
 
 
@@ -431,6 +439,190 @@ def test_buildium_renters_insurance_skip_cross_org_and_routes():
         )
         assert (
             "/api/platform/migrations/buildium/runs/{run_id}/renters-insurance/commit"
+            in paths
+        )
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+class _InsuranceApiResponse:
+    def __init__(self, status_code, payload):
+        self.status_code = status_code
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
+def _configure_insurance_transport(monkeypatch):
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_MODE", "sandbox")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_ID", "test-client")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_SECRET", "test-value")
+    monkeypatch.setattr(
+        transport.settings,
+        "BUILDIUM_API_SOURCE_ACCOUNT_REF",
+        "buildium-renters-insurance",
+    )
+
+
+def test_buildium_api_fetches_bounded_nested_renters_insurance(monkeypatch):
+    _configure_insurance_transport(monkeypatch)
+    calls = []
+
+    def fake_get(url, *, headers, timeout, params=None):
+        calls.append((url, params.copy()))
+        if url.endswith("/v1/leases/5001/rentersinsurance"):
+            row = _record()
+            row["SourceLeaseId"] = 999999
+            return _InsuranceApiResponse(200, [row])
+        raise AssertionError(url)
+
+    monkeypatch.setattr(transport.requests, "get", fake_get)
+    fetched = transport.fetch_renters_insurance(
+        expected_source_account_ref="buildium-renters-insurance",
+        parent_lease_ids=["5001"],
+    )
+    assert fetched.records[0]["Id"] == 9701
+    assert fetched.records[0]["SourceLeaseId"] == 5001
+    assert fetched.parent_record_count == 1
+    assert fetched.request_count == 1
+    assert calls[0] == (
+        "https://apisandbox.buildium.com/v1/leases/5001/rentersinsurance",
+        {"offset": 0, "limit": transport.MAX_RENTERS_INSURANCE_RECORDS + 1},
+    )
+
+    with pytest.raises(BuildiumApiTransportError) as exc:
+        transport.fetch_renters_insurance(
+            expected_source_account_ref="buildium-renters-insurance",
+            parent_lease_ids=list(
+                range(1, transport.MAX_RENTERS_INSURANCE_PARENT_LEASES + 2)
+            ),
+        )
+    assert exc.value.code == "source_too_large"
+
+
+def test_buildium_api_renters_insurance_reconciles_replays_and_fails_closed(monkeypatch):
+    db, engine = _session()
+    try:
+        admin = _admin(db)
+        _, _, _, _, _, policy, run, lease_mapping, _ = _fixture(db)
+        state = {"expiration": "2026-12-31"}
+
+        def fetched(*, expected_source_account_ref, parent_lease_ids):
+            assert expected_source_account_ref == "buildium-renters-insurance"
+            assert parent_lease_ids == ["5001"]
+            return BuildiumApiFetchResult(
+                records=[_record(ExpirationDate=state["expiration"])],
+                mode="sandbox",
+                request_count=1,
+                parent_record_count=1,
+            )
+
+        monkeypatch.setattr(api, "fetch_renters_insurance", fetched)
+        resolution = BuildiumRentersInsuranceResolutionIn(
+            source_id=9701,
+            action="MATCH_EXISTING",
+            target_tenant_insurance_id=policy.id,
+        )
+        reviewed = api.api_dry_run_buildium_renters_insurance(
+            run.id,
+            BuildiumApiRentersInsuranceDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+        assert reviewed.invalid == 0
+        committed = api.api_commit_buildium_renters_insurance(
+            run.id,
+            BuildiumApiRentersInsuranceCommitIn(
+                fingerprint=reviewed.fingerprint,
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.matched_existing == 1
+        replay = api.api_commit_buildium_renters_insurance(
+            run.id,
+            BuildiumApiRentersInsuranceCommitIn(
+                fingerprint=reviewed.fingerprint,
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+
+        state["expiration"] = "2027-01-31"
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_renters_insurance(
+                run.id,
+                BuildiumApiRentersInsuranceCommitIn(
+                    fingerprint=reviewed.fingerprint,
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        state["expiration"] = "2026-12-31"
+        reviewed = api.api_dry_run_buildium_renters_insurance(
+            run.id,
+            BuildiumApiRentersInsuranceDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
+        lease_mapping.source_fingerprint = "9" * 64
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_renters_insurance(
+                run.id,
+                BuildiumApiRentersInsuranceCommitIn(
+                    fingerprint=reviewed.fingerprint,
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        with pytest.raises(ValidationError):
+            BuildiumApiRentersInsuranceDryRunIn(records=[_record()])
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_api_renters_insurance_scope_routes_and_status(monkeypatch):
+    from app.main import app
+
+    db, engine = _session()
+    try:
+        admin = _admin(db)
+        _, _, _, _, _, _, run, _, _ = _fixture(db)
+        assert api._renters_insurance_api_parent_source_ids(db, run=run) == ["5001"]
+
+        monkeypatch.setattr(
+            base_api,
+            "transport_status",
+            lambda: type(
+                "TransportState",
+                (),
+                {"mode": "sandbox", "configured": True, "source_account_bound": True},
+            )(),
+        )
+        status = base_api.get_buildium_transport_status(current_user=admin)
+        assert "RENTERS_INSURANCE" in status.supported_resources
+
+        paths = set(app.openapi()["paths"])
+        assert (
+            "/api/platform/migrations/buildium/runs/{run_id}/renters-insurance/api-dry-run"
+            in paths
+        )
+        assert (
+            "/api/platform/migrations/buildium/runs/{run_id}/renters-insurance/api-commit"
             in paths
         )
     finally:
