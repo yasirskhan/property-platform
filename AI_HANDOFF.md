@@ -1,3 +1,79 @@
+# AI_HANDOFF.md — 2026-10-08 PHASE 4.14 BUILDIUM SERVER API RENTERS INSURANCE TRANSPORT VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+## Current verified checkpoint
+
+- Phase 4.13 AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED**.
+- Phase 4.14 Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Current VERIFIED product source: `41ac84bff77a117049e187ae797fde2efab54f20`.
+- Exact GitHub Actions run **37737867070 — SUCCESS**.
+- All six required jobs passed.
+- Backend/PostgreSQL: **1174 passed, 21 deselected, 29495 warnings in 367.40s**.
+- Authenticated E2E: **21 passed, 278 warnings in 114.44s**.
+- Alembic remains `1b8d3f6a9c20`; expected model tables remain **202**.
+- No database migration or target business table was added.
+- Navigation/hidden-menu state remains unchanged; general UX remains inactive.
+
+## Verified Renters Insurance API transport
+
+Verified routes:
+- `POST /api/platform/migrations/buildium/runs/{run_id}/renters-insurance/api-dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/renters-insurance/api-commit`
+
+Official nested provider retrieval is
+`GET /v1/leases/{leaseId}/rentersinsurance`. Parent Lease IDs come only from
+same-run `LEASES -> LEASE_RELATIONSHIP` mappings. Parent fan-out is bounded to
+100 Leases and total accepted policies to the shared 500-record review bound.
+`SourceLeaseId` is injected from retrieval context.
+
+The API transport feeds the existing verified renters-insurance existing-target
+reconciliation contract unchanged: exactly one insured tenant, same-run Lease and
+Tenant mappings, cancelled-policy and multi-insured shapes remain blocked, explicit
+`MATCH_EXISTING` / `SKIP`, fresh-fetch commit, exact fingerprint, target snapshot
+drift protection and replay/idempotency.
+
+No TenantInsurance, Lease, User, document, Receipt/payment, GL transaction/entry,
+balance or accounting history is created or changed. Raw provider response, policy
+free text and credentials are not persisted merely because Buildium returned them.
+
+The first product source `c308b01cfba13a43007e88399dac233dec4dc157`
+ran CI **37736908313** and had exactly one new regression-fixture failure: the API
+replay assertion reused the pre-commit fingerprint even though the durable mapping is
+intentionally fingerprint-bound. **1173 other backend tests passed.** Corrective source
+`41ac84bf` changes only that regression fixture to obtain a fresh reviewed fingerprint
+before replay; exact-head CI is fully green.
+
+## Exact NEXT Phase 4.14 batch
+
+Continue with **Rental Applicant identity server API transport**. Do not rebuild the
+already-verified existing-target Applicant identity reconciliation contract.
+
+Official provider retrieval to preserve:
+`GET /v1/applicants`.
+
+Required boundaries:
+- feed the SAME existing Applicant identity reconciliation pipeline;
+- bounded provider retrieval, no caller-supplied provider records or credentials;
+- preserve stable Buildium Applicant identity and every identity field/restriction already
+  enforced by the existing service;
+- explicit `MATCH_EXISTING` / `SKIP`, fresh-fetch commit, exact fingerprint,
+  replay/idempotency, organization isolation and source-account binding;
+- no creation of APPLICANT users, RentalApplication, screening/SSN data, payments,
+  leases or applicant-to-tenant relationships;
+- do not promote unsupported status/application facts into target identity semantics;
+- keep provider notes/free text, credentials and raw responses out of migration audit.
+
+After Applicant API transport is VERIFIED, continue the remaining already-verified
+Association identity transports required for Phase 4.14 closeout. Explicitly close
+Phase 4.14 before starting Phase 4.15 Yardi.
+
+---
+
 # AI_HANDOFF.md — 2026-10-08 PHASE 4.14 BUILDIUM SERVER API BANK CHECK TRANSPORT VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
