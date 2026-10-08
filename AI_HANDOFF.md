@@ -1,3 +1,97 @@
+# AI_HANDOFF.md — 2026-10-08 PHASE 4.14 COMPLETE | VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+## Phase status
+
+- Phase 4.13 AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED**.
+- Phase 4.14 Buildium direct/API-assisted migration: **COMPLETE | VERIFIED**.
+- Final verified Phase 4.14 product source:
+  `cdc4d1ac460d9a2244fec289db8ab285f7c529e2`.
+- Exact GitHub Actions run **37811752433 — SUCCESS**.
+- All six required jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **1191 passed, 21 deselected, 29614 warnings in 538.74s**.
+- Authenticated E2E: **21 passed, 278 warnings in 115.32s**.
+- Alembic remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- No database migration or target business table was added by the final transport batch.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains **AUTHORIZED BUT NOT ACTIVE**.
+
+## Final verified Buildium Association Tenant API transport
+
+Verified routes:
+- `POST /api/platform/migrations/buildium/runs/{run_id}/hoa-tenants/api-dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/hoa-tenants/api-commit`
+
+Official provider retrieval:
+- `GET /v1/associations/tenants`
+
+The transport is bounded and feeds the existing
+`buildium_association_tenant_migration.py` identity reconciliation pipeline.
+Only the already-verified stable source identity plus FirstName, LastName and Email
+contract is promoted. Explicit `MATCH_EXISTING` / `SKIP`, exact fingerprinting,
+fresh-fetch commit, target-snapshot drift protection, replay/idempotency, organization
+isolation and source-account binding remain preserved.
+
+No TENANT login, Lease, occupancy, ownership account, HOA membership, move history,
+Charge, payment or GL history is created or changed. Provider alternate email, phone,
+address, emergency-contact, ownership-account, move-date, credential and raw-response
+data is not persisted merely because Buildium returned it.
+
+## Phase 4.14 closeout
+
+Phase 4.14 is complete because every Buildium resource selected and verified in the
+Phase 4.14 reconciliation sequence now has its authorized server-side/API-assisted
+transport where the provider contract safely supports it, all through the SAME
+provider-labelled migration architecture.
+
+The completed Buildium path preserves:
+- organization isolation;
+- provider-labelled migration runs;
+- durable source-to-target mappings;
+- explicit human review;
+- exact fingerprints;
+- fresh-fetch commit protection;
+- stale-preview rejection;
+- replay/idempotency;
+- bounded retrieval and bounded nested fan-out;
+- source-account binding;
+- fixed server-side Buildium sandbox/production endpoints;
+- server-held credentials only;
+- sanitized upstream errors;
+- no provider raw-response persistence;
+- no automatic overwrite of existing customer records;
+- no fabricated accounting, settlement, balance or cleared-state history.
+
+The permanent historical GL blocker remains in force. Never infer debit-versus-credit
+direction for arbitrary historical Buildium General Ledger lines when the authoritative
+source does not prove it. Never manufacture balancing entries, opening balances,
+settlement history, payment history, cleared state or synthetic accounting history.
+
+## Exact NEXT action
+
+Phase 4.14 is now explicitly closed. Continue with **Phase 4.15 Yardi** only after
+re-reading the current roadmap/planning documents and identifying the exact first
+bounded Yardi migration task from the live source of truth.
+
+Do not reopen Phase 4.14 unless a specific regression is discovered.
+Do not start general UX work. Preserve `docs/NAVIGATION_INTEGRITY_PLAN.md`, the complete
+HIDDEN MENU / UNHIDE ROADMAP, and `docs/UX_STANDARDS.md` =
+**AUTHORIZED BUT NOT ACTIVE**.
+
+---
+
 # AI_HANDOFF.md — 2026-10-08 PHASE 4.14 BUILDIUM SERVER API ASSOCIATION OWNER TRANSPORT VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
