@@ -1,3 +1,73 @@
+# AI_HANDOFF.md — 2026-10-08 PHASE 4.15 YARDI MIGRATION FOUNDATION STARTED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+## Current verified checkpoint
+
+- Phase 4.14 Buildium direct/API-assisted migration: **COMPLETE | VERIFIED**.
+- Final Phase 4.14 product source:
+  `cdc4d1ac460d9a2244fec289db8ab285f7c529e2`.
+- Exact Phase 4.14 CI: **37811752433 — SUCCESS**.
+- Backend/PostgreSQL: **1191 passed, 21 deselected, 29614 warnings**.
+- Authenticated E2E: **21 passed, 278 warnings**.
+- Phase 4.15 Yardi direct/API-assisted migration: **IN PROGRESS**.
+- New source-of-truth plan:
+  `docs/YARDI_MIGRATION_PLAN.md`.
+- No Phase 4.15 product code has been marked verified yet.
+
+## Phase 4.15 transport decision
+
+Do not invent a general Voyager REST contract. Official Yardi third-party API
+access is interface-program/client-contract specific, while Yardi also supports
+ETL/import templates and conversion services.
+
+Therefore:
+
+- supported Yardi export/ETL files are the immediate migration transport;
+- a later direct/API-assisted adapter is allowed only from an official Yardi
+  contract and must feed the SAME migration staging/review/fingerprint pipeline;
+- no browser-session scraping, private endpoint reverse engineering or production
+  cookie-based transport;
+- preserve provider-labelled runs, exact fingerprints, explicit review, durable
+  mappings, replay/idempotency, organization isolation, stale-preview protection
+  and redacted audit.
+
+## Exact NEXT Phase 4.15 batch
+
+Implement the **Yardi migration-run foundation** described in
+`docs/YARDI_MIGRATION_PLAN.md`.
+
+Required bounded scope:
+
+1. Create/list/get Yardi provider-labelled migration runs.
+2. Reuse `PlatformMigrationRun`; do not add a parallel migration model.
+3. Provider is server-assigned `YARDI`.
+4. Require organization scope and a bounded non-secret `source_account_ref`.
+5. Reject credentials, passwords, tokens, cookies and raw provider payloads.
+6. No customer business record, accounting record or target mapping is created
+   merely by creating the run.
+7. Preserve role/org isolation, no-store reads and redacted append-only audit.
+8. Preserve all existing AppFolio and Buildium behavior.
+9. Add focused regression coverage before marking the product batch verified.
+10. Do not add outbound Yardi API transport in this first product batch.
+
+After the run foundation is verified, continue with shared Yardi CSV/XLSX
+ingestion/staging using the existing proven migration file controls.
+
+The permanent accounting blocker remains: do not infer debit/credit direction,
+opening balances, settlement, cleared state or synthetic history from incomplete
+Yardi source data.
+
+Do not start general UX work. Preserve `docs/NAVIGATION_INTEGRITY_PLAN.md`,
+the complete HIDDEN MENU / UNHIDE ROADMAP, and
+`docs/UX_STANDARDS.md` = **AUTHORIZED BUT NOT ACTIVE**.
+
+---
+
 # AI_HANDOFF.md — 2026-10-08 PHASE 4.14 COMPLETE | VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
