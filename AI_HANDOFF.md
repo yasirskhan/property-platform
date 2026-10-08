@@ -1,3 +1,29 @@
+# AI_HANDOFF.md — 2026-10-08 PHASE 4.15 YARDI RUN FOUNDATION COMPLETE | VERIFIED
+
+**CURRENT HEAD-OF-HANDOFF ENTRY. This supersedes older NEXT labels below.**
+
+Repository: `yasirskhan/property-platform`. ONLY branch: `chatgpt/checkpoint-005-safety`. Never touch `main` or create another branch.
+
+## Verified product checkpoint
+
+- Phase 4.15 Yardi migration-run foundation: **COMPLETE | VERIFIED**.
+- Exact verified product SHA: `2a03529efbfe47d30f3ee12891bd2f4f1ce8344f`.
+- Exact GitHub Actions CI run: **37831281329 — SUCCESS**. Six required jobs green.
+- Backend/PostgreSQL: **1194 passed, 21 deselected, 29642 warnings**.
+- Authenticated E2E: **21 passed, 278 warnings**.
+- Phase 4.15 remains **IN PROGRESS** overall. Phases 4.13 and 4.14 remain COMPLETE | VERIFIED.
+- This entry corrects the now-stale statement below that no Phase 4.15 product code was verified. Do not rebuild the existing run foundation.
+
+## Exact NEXT Phase 4.15 batch
+
+Implement **shared Yardi CSV/XLSX ingestion and staging foundation** using `docs/YARDI_MIGRATION_PLAN.md` and the already-verified AppFolio/shared migration file controls. Reuse `PlatformMigrationRun`, `PlatformMigrationUpload`, `PlatformMigrationStagedRow`, and `PlatformMigrationItem`; never create a parallel Yardi system.
+
+Require bounded file size/rows, data-only XLSX, deterministic normalized headers, explicit uncertain mapping, preserved genuine source IDs, duplicate detection, no synthesized source IDs, staging-only writes, exact fingerprints, replay-safe re-uploads, YARDI provider and organization isolation, review on possible matches, and no inferred missing accounting data. No API scraping, private transport, secret/raw provider audit exposure or business-record mutation during upload.
+
+Workflow: implement → applicable tests → commit → exact-SHA hosted CI → fix failures → verify → update this handoff. Mark product code VERIFIED only after exact-SHA CI is green. Continue one bounded batch at a time. Preserve navigation and hidden menu roadmap; general UX remains AUTHORIZED BUT NOT ACTIVE.
+
+---
+
 # AI_HANDOFF.md — 2026-10-08 PHASE 4.15 YARDI MIGRATION FOUNDATION STARTED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
