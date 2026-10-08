@@ -543,6 +543,12 @@ def test_buildium_api_renters_insurance_reconciles_replays_and_fails_closed(monk
             current_user=admin,
         )
         assert committed.matched_existing == 1
+        reviewed = api.api_dry_run_buildium_renters_insurance(
+            run.id,
+            BuildiumApiRentersInsuranceDryRunIn(resolutions=[resolution]),
+            db=db,
+            current_user=admin,
+        )
         replay = api.api_commit_buildium_renters_insurance(
             run.id,
             BuildiumApiRentersInsuranceCommitIn(
