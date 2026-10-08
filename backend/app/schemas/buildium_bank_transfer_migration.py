@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -30,13 +31,29 @@ class BuildiumBankTransferDryRunIn(BaseModel):
 
 class BuildiumApiBankTransferDryRunIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    start_date: date
+    end_date: date
     resolutions: list[BuildiumBankTransferResolutionIn] = Field(default_factory=list, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_date_window(self):
+        if self.start_date > self.end_date:
+            raise ValueError("start_date must not be after end_date")
+        return self
 
 
 class BuildiumApiBankTransferCommitIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    start_date: date
+    end_date: date
     fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     resolutions: list[BuildiumBankTransferResolutionIn] = Field(default_factory=list, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_date_window(self):
+        if self.start_date > self.end_date:
+            raise ValueError("start_date must not be after end_date")
+        return self
 
 
 class BuildiumBankTransferPreviewRow(BaseModel):
