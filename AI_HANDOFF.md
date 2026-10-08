@@ -1,3 +1,82 @@
+# AI_HANDOFF.md — 2026-10-08 PHASE 4.14 BUILDIUM SERVER API BANK TRANSFER TRANSPORT VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+## Current verified checkpoint
+
+- Phase 4.13 AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED**.
+- Phase 4.14 Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Current VERIFIED product source:
+  `44e6f91395e63a43f981648d56fcd1386e29b619`.
+- Exact GitHub Actions run **37659696202 — SUCCESS**.
+- All six required jobs passed: frontend, backend, security, platform-admin,
+  staging-config and authenticated E2E.
+- Backend/PostgreSQL: **1154 passed, 21 deselected, 29109 warnings in 607.03s**.
+- Authenticated E2E: **21 passed, 278 warnings in 68.68s**.
+- Alembic remains `1b8d3f6a9c20`; expected model tables remain **202**.
+- No database migration or target business table was added.
+- Navigation/hidden-menu state is unchanged; `docs/UX_STANDARDS.md` remains
+  **AUTHORIZED BUT NOT ACTIVE**.
+
+## Verified Buildium server API Bank Transfer transport
+
+Verified API routes:
+
+- `POST /api/platform/migrations/buildium/runs/{run_id}/bank-transfers/api-dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/bank-transfers/api-commit`
+
+The transport uses official nested retrieval
+`GET /v1/bankaccounts/{bankAccountId}/transfers`, takes parent Bank Account IDs
+only from same-run `BANK_ACCOUNTS -> BANK_ACCOUNT` mappings, injects
+`SourceBankAccountId` from retrieval context, bounds parent fan-out and total
+review records, and feeds the existing verified Rental-only Bank Transfer
+reconciliation service.
+
+Explicit review remains `MATCH_EXISTING` or `SKIP`. API commit fresh-fetches
+Buildium and requires the exact reviewed fingerprint. Provider drift, source or
+destination Bank Account mapping drift, Property/Unit mapping drift, review drift,
+or reviewed immutable target TRANSFER GLTransaction drift fails closed.
+
+No Bank Account, GLTransaction, GLEntry, balance, clearing state, reconciliation
+state or bank movement is created or changed. Provider memo/free text, credentials,
+bank metadata and raw responses are not persisted merely because Buildium returned them.
+
+## Exact NEXT Phase 4.14 batch
+
+Continue with **Buildium Bank Withdrawal server API transport** using the already
+verified Company-only existing-target withdrawal reconciliation contract.
+
+Official provider retrieval to preserve:
+`GET /v1/bankaccounts/{bankAccountId}/withdrawals`.
+
+Buildium requires `startdate` and `enddate` on this endpoint. The API migration
+request may carry only a bounded explicit date window plus review decisions; it must
+not accept caller-supplied provider records or credentials. Bind that date window into
+the reviewed source/fingerprint so changing the window between dry run and commit
+fails closed.
+
+Required boundaries:
+- parent Bank Accounts only from same-run `BANK_ACCOUNTS -> BANK_ACCOUNT` mappings;
+- source Bank Account identity injected from retrieval context;
+- bounded parent fan-out and bounded total accepted withdrawal records;
+- preserve Company-only scope and same-run Bank Account / GL Account dependencies;
+- explicit `MATCH_EXISTING` / `SKIP` only;
+- fresh-fetch commit, exact fingerprint, replay/idempotency and source-account binding;
+- no target Bank Adjustment, GLTransaction/GLEntry, Bank Account, balance, clearing,
+  reconciliation or synthetic history mutation;
+- no widening to Rental/Association withdrawal semantics;
+- no raw provider response, memo, credential or sensitive bank metadata persistence.
+
+After Bank Withdrawal API transport is VERIFIED, continue with the next already-verified
+resource in order, beginning with Quick Deposit API transport. Do not start Phase 4.15
+Yardi until Phase 4.14 is explicitly closed.
+
+---
+
 # AI_HANDOFF.md — 2026-10-08 PHASE 4.14 BANK TRANSFER PROVIDER CONTRACT CORRECTED + BANK DEPOSIT TRANSPORT VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
