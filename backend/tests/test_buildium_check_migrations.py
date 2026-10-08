@@ -5,6 +5,7 @@ from decimal import Decimal
 
 import pytest
 from fastapi import HTTPException, Response
+from pydantic import ValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -25,9 +26,16 @@ from app.models.vendor import Vendor
 from app.routers import buildium_check_migrations as api
 from app.routers import buildium_migrations as base_api
 from app.schemas.buildium_check_migration import (
+    BuildiumApiCheckCommitIn,
+    BuildiumApiCheckDryRunIn,
     BuildiumCheckCommitIn,
     BuildiumCheckDryRunIn,
     BuildiumCheckResolutionIn,
+)
+from app.services import buildium_api_transport as transport
+from app.services.buildium_api_transport import (
+    BuildiumApiFetchResult,
+    BuildiumApiTransportError,
 )
 
 
@@ -381,6 +389,372 @@ def test_buildium_bank_check_skip_cross_org_and_routes():
         paths = set(app.openapi()["paths"])
         assert "/api/platform/migrations/buildium/runs/{run_id}/bank-checks/dry-run" in paths
         assert "/api/platform/migrations/buildium/runs/{run_id}/bank-checks/commit" in paths
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+class _BankCheckApiResponse:
+    def __init__(self, status_code, payload):
+        self.status_code = status_code
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
+def _configure_bank_check_api_transport(monkeypatch):
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_MODE", "sandbox")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_ID", "bank-check-client")
+    monkeypatch.setattr(transport.settings, "BUILDIUM_API_CLIENT_SECRET", "bank-check-secret")
+    monkeypatch.setattr(
+        transport.settings,
+        "BUILDIUM_API_SOURCE_ACCOUNT_REF",
+        "buildium-check-source",
+    )
+
+
+def test_buildium_transport_fetches_bounded_nested_bank_checks(monkeypatch):
+    _configure_bank_check_api_transport(monkeypatch)
+    calls = []
+
+    def fake_get(url, *, headers, timeout, params=None):
+        calls.append((url, headers.copy(), None if params is None else params.copy(), timeout))
+        if url.endswith("/v1/bankaccounts/7001/checks"):
+            row = _record()
+            row["SourceBankAccountId"] = 999999
+            return _BankCheckApiResponse(200, [row])
+        raise AssertionError(url)
+
+    monkeypatch.setattr(transport.requests, "get", fake_get)
+    result = transport.fetch_bank_checks(
+        expected_source_account_ref="buildium-check-source",
+        parent_bank_account_ids=["7001"],
+        start_date=date(2026, 10, 1),
+        end_date=date(2026, 10, 31),
+    )
+    assert result.records[0]["Id"] == 9301
+    assert result.records[0]["SourceBankAccountId"] == 7001
+    assert result.records[0]["_ApiStartDate"] == "2026-10-01"
+    assert result.records[0]["_ApiEndDate"] == "2026-10-31"
+    assert result.parent_record_count == 1
+    assert result.request_count == 1
+    assert calls[0][0] == "https://apisandbox.buildium.com/v1/bankaccounts/7001/checks"
+    assert calls[0][2] == {
+        "offset": 0,
+        "limit": transport.MAX_BANK_CHECK_RECORDS + 1,
+        "startdate": "2026-10-01",
+        "enddate": "2026-10-31",
+    }
+    assert calls[0][1]["x-buildium-client-secret"] == "bank-check-secret"
+
+    with pytest.raises(BuildiumApiTransportError) as exc:
+        transport.fetch_bank_checks(
+            expected_source_account_ref="buildium-check-source",
+            parent_bank_account_ids=list(
+                range(1, transport.MAX_BANK_CHECK_PARENT_BANK_ACCOUNTS + 2)
+            ),
+            start_date=date(2026, 10, 1),
+            end_date=date(2026, 10, 31),
+        )
+    assert exc.value.code == "source_too_large"
+
+    def too_many(url, *, headers, timeout, params=None):
+        return _BankCheckApiResponse(
+            200,
+            [
+                {
+                    "Id": 10000 + index,
+                    "Payee": {"Id": 3001, "Type": "Vendor"},
+                    "CheckNumber": str(10000 + index),
+                    "EntryDate": "2026-10-05",
+                    "TotalAmount": 125.50,
+                    "Lines": [],
+                }
+                for index in range(transport.MAX_BANK_CHECK_RECORDS + 1)
+            ],
+        )
+
+    monkeypatch.setattr(transport.requests, "get", too_many)
+    with pytest.raises(BuildiumApiTransportError) as exc:
+        transport.fetch_bank_checks(
+            expected_source_account_ref="buildium-check-source",
+            parent_bank_account_ids=[7001],
+            start_date=date(2026, 10, 1),
+            end_date=date(2026, 10, 31),
+        )
+    assert exc.value.code == "source_too_large"
+
+
+def test_buildium_api_bank_check_maps_existing_only_replays_and_redacts(monkeypatch):
+    db, engine = _session()
+    try:
+        admin = _admin(db)
+        _, _, _, _, _, check, _, run, _ = _fixture(db)
+        before = {
+            "checks": db.query(Check).count(),
+            "transactions": db.query(GLTransaction).count(),
+            "entries": db.query(GLEntry).count(),
+        }
+
+        def fetched(*, expected_source_account_ref, parent_bank_account_ids, start_date, end_date):
+            assert expected_source_account_ref == "buildium-check-source"
+            assert parent_bank_account_ids == ["7001"]
+            assert start_date == date(2026, 10, 1)
+            assert end_date == date(2026, 10, 31)
+            record = _record()
+            record["_ApiStartDate"] = start_date.isoformat()
+            record["_ApiEndDate"] = end_date.isoformat()
+            return BuildiumApiFetchResult(
+                records=[record],
+                mode="sandbox",
+                request_count=1,
+                parent_record_count=1,
+            )
+
+        monkeypatch.setattr(api, "fetch_bank_checks", fetched)
+        resolution = BuildiumCheckResolutionIn(
+            source_id=9301,
+            action="MATCH_EXISTING",
+            target_check_id=check.id,
+        )
+        reviewed = api.api_dry_run_buildium_bank_checks(
+            run.id,
+            BuildiumApiCheckDryRunIn(
+                start_date=date(2026, 10, 1),
+                end_date=date(2026, 10, 31),
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert reviewed.invalid == 0
+        assert reviewed.reviewable == 1
+
+        committed = api.api_commit_buildium_bank_checks(
+            run.id,
+            BuildiumApiCheckCommitIn(
+                start_date=date(2026, 10, 1),
+                end_date=date(2026, 10, 31),
+                fingerprint=reviewed.fingerprint,
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert committed.matched_existing == 1
+        mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "BANK_CHECKS"
+        ).one()
+        assert mapping.target_entity == "CHECK_PAYMENT_RELATIONSHIP"
+        assert mapping.target_id == check.id
+
+        replay = api.api_commit_buildium_bank_checks(
+            run.id,
+            BuildiumApiCheckCommitIn(
+                start_date=date(2026, 10, 1),
+                end_date=date(2026, 10, 31),
+                fingerprint=reviewed.fingerprint,
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        assert replay.replayed is True
+        assert {
+            "checks": db.query(Check).count(),
+            "transactions": db.query(GLTransaction).count(),
+            "entries": db.query(GLEntry).count(),
+        } == before
+
+        with pytest.raises(ValidationError):
+            BuildiumApiCheckDryRunIn(
+                start_date=date(2026, 10, 1),
+                end_date=date(2026, 10, 31),
+                records=[_record()],
+            )
+        with pytest.raises(ValidationError):
+            BuildiumApiCheckCommitIn(
+                start_date=date(2026, 10, 1),
+                end_date=date(2026, 10, 31),
+                fingerprint=reviewed.fingerprint,
+                client_secret="secret",
+            )
+
+        audit = "\n".join(
+            str(row.new_value or "")
+            for row in db.query(AuditLog)
+            .filter(AuditLog.entity_type == "platform_migration_run")
+            .all()
+        )
+        assert "DO-NOT-PERSIST-RAW-BUILDIUM-CHECK" not in audit
+        assert "bank-check-secret" not in audit
+        assert "raw_payload_stored" in audit
+        assert "check_files_fetched" in audit
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_api_bank_check_provider_dependency_and_target_drift_fail_closed(monkeypatch):
+    db, engine = _session()
+    try:
+        admin = _admin(db)
+        _, _, _, _, _, check, txn, run, mappings = _fixture(db)
+        state = {"amount": 125.50}
+
+        def fetched(*, expected_source_account_ref, parent_bank_account_ids, start_date, end_date):
+            record = _record(TotalAmount=state["amount"])
+            record["Lines"][0]["Amount"] = state["amount"]
+            record["_ApiStartDate"] = start_date.isoformat()
+            record["_ApiEndDate"] = end_date.isoformat()
+            return BuildiumApiFetchResult(
+                records=[record],
+                mode="sandbox",
+                request_count=1,
+                parent_record_count=1,
+            )
+
+        monkeypatch.setattr(api, "fetch_bank_checks", fetched)
+        resolution = BuildiumCheckResolutionIn(
+            source_id=9301,
+            action="MATCH_EXISTING",
+            target_check_id=check.id,
+        )
+        reviewed = api.api_dry_run_buildium_bank_checks(
+            run.id,
+            BuildiumApiCheckDryRunIn(
+                start_date=date(2026, 10, 1),
+                end_date=date(2026, 10, 31),
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+
+        state["amount"] = 126.00
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_bank_checks(
+                run.id,
+                BuildiumApiCheckCommitIn(
+                    start_date=date(2026, 10, 1),
+                    end_date=date(2026, 10, 31),
+                    fingerprint=reviewed.fingerprint,
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "BANK_CHECKS"
+        ).count() == 0
+
+        state["amount"] = 125.50
+        reviewed = api.api_dry_run_buildium_bank_checks(
+            run.id,
+            BuildiumApiCheckDryRunIn(
+                start_date=date(2026, 10, 1),
+                end_date=date(2026, 10, 31),
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        mappings[4].source_fingerprint = "9" * 64
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_bank_checks(
+                run.id,
+                BuildiumApiCheckCommitIn(
+                    start_date=date(2026, 10, 1),
+                    end_date=date(2026, 10, 31),
+                    fingerprint=reviewed.fingerprint,
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+
+        mappings[4].source_fingerprint = "5" * 64
+        db.commit()
+        reviewed = api.api_dry_run_buildium_bank_checks(
+            run.id,
+            BuildiumApiCheckDryRunIn(
+                start_date=date(2026, 10, 1),
+                end_date=date(2026, 10, 31),
+                resolutions=[resolution],
+            ),
+            db=db,
+            current_user=admin,
+        )
+        db.query(GLEntry).filter(
+            GLEntry.transaction_id == txn.id,
+            GLEntry.credit > 0,
+        ).one().credit = Decimal("125.49")
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            api.api_commit_buildium_bank_checks(
+                run.id,
+                BuildiumApiCheckCommitIn(
+                    start_date=date(2026, 10, 1),
+                    end_date=date(2026, 10, 31),
+                    fingerprint=reviewed.fingerprint,
+                    resolutions=[resolution],
+                ),
+                db=db,
+                current_user=admin,
+            )
+        assert exc.value.status_code == 409
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "BANK_CHECKS"
+        ).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_buildium_api_bank_check_parent_scope_routes_status_and_date_validation(monkeypatch):
+    from app.main import app
+
+    db, engine = _session()
+    try:
+        admin = _admin(db)
+        _, _, _, _, _, _, _, run, _ = _fixture(db)
+        assert api._bank_check_api_parent_source_ids(db, run=run) == ["7001"]
+
+        bad = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.resource == "BANK_ACCOUNTS"
+        ).one()
+        bad.target_entity = "WRONG"
+        db.commit()
+        with pytest.raises(Exception) as exc:
+            api._bank_check_api_parent_source_ids(db, run=run)
+        assert "inconsistent" in str(exc.value).lower()
+
+        monkeypatch.setattr(
+            base_api,
+            "transport_status",
+            lambda: type(
+                "TransportState",
+                (),
+                {"mode": "sandbox", "configured": True, "source_account_bound": True},
+            )(),
+        )
+        status = base_api.get_buildium_transport_status(current_user=admin)
+        assert "BANK_CHECKS" in status.supported_resources
+
+        paths = set(app.openapi()["paths"])
+        assert "/api/platform/migrations/buildium/runs/{run_id}/bank-checks/api-dry-run" in paths
+        assert "/api/platform/migrations/buildium/runs/{run_id}/bank-checks/api-commit" in paths
+
+        with pytest.raises(ValidationError):
+            BuildiumApiCheckDryRunIn(
+                start_date=date(2026, 11, 1),
+                end_date=date(2026, 10, 31),
+            )
     finally:
         db.close()
         engine.dispose()
