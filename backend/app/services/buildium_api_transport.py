@@ -795,9 +795,21 @@ def fetch_bank_transfers(
     *,
     expected_source_account_ref: str,
     parent_bank_account_ids: list[int | str],
+    start_date: date,
+    end_date: date,
 ) -> BuildiumApiFetchResult:
     """Fetch bounded nested Bank Transfers for already-mapped source Bank Accounts."""
     profile = _profile(expected_source_account_ref)
+    if not isinstance(start_date, date) or not isinstance(end_date, date):
+        raise BuildiumApiTransportError(
+            "invalid_date_window",
+            "Buildium Bank Transfer API migration requires explicit start and end dates.",
+        )
+    if start_date > end_date:
+        raise BuildiumApiTransportError(
+            "invalid_date_window",
+            "Buildium Bank Transfer API migration start date must not be after end date.",
+        )
 
     normalized_parent_ids: list[int] = []
     seen_parent_ids: set[int] = set()
@@ -841,6 +853,8 @@ def fetch_bank_transfers(
 
     records: list[dict[str, Any]] = []
     requests_made = 0
+    start_text = start_date.isoformat()
+    end_text = end_date.isoformat()
     for parent_bank_account_id in sorted(normalized_parent_ids):
         remaining = MAX_BANK_TRANSFER_RECORDS - len(records)
         request_limit = max(1, min(1000, remaining + 1))
@@ -850,6 +864,7 @@ def fetch_bank_transfers(
             resource_label=f"bank transfers for source Bank Account {parent_bank_account_id}",
             offset=0,
             limit=request_limit,
+            extra_params={"startdate": start_text, "enddate": end_text},
         )
         requests_made += 1
         if len(page) > remaining:
@@ -861,6 +876,8 @@ def fetch_bank_transfers(
         for provider_record in page:
             record = dict(provider_record)
             record["SourceBankAccountId"] = parent_bank_account_id
+            record["_ApiStartDate"] = start_text
+            record["_ApiEndDate"] = end_text
             records.append(record)
 
     if not records:
