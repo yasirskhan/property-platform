@@ -1,3 +1,66 @@
+# AI_HANDOFF.md — 2026-10-08 PHASE 4.14 BUILDIUM SERVER API BANK CHECK TRANSPORT VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+## Current verified checkpoint
+
+- Phase 4.13 AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED**.
+- Phase 4.14 Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Current VERIFIED product source: `6db5325d7f58c968b336e3e2c0789bec2e0347e6`.
+- Exact GitHub Actions run **37732101116 — SUCCESS**.
+- All six required jobs passed.
+- Backend/PostgreSQL: **1171 passed, 21 deselected, 29452 warnings in 472.20s**.
+- Authenticated E2E: **21 passed, 278 warnings in 105.84s**.
+- Alembic remains `1b8d3f6a9c20`; expected model tables remain **202**.
+- No database migration or target business table was added.
+
+## Verified Bank Check API transport
+
+Verified routes:
+- `POST /api/platform/migrations/buildium/runs/{run_id}/bank-checks/api-dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/bank-checks/api-commit`
+
+Official nested retrieval is `GET /v1/bankaccounts/{bankAccountId}/checks`
+with required `startdate` / `enddate`. Parent Bank Accounts come only from
+same-run durable Bank Account mappings. The retrieval Bank Account identity and
+reviewed date scope are fingerprint-bound, and commit fresh-fetches the same scope.
+
+The existing bounded Rental-only Vendor-payee Check reconciliation remains unchanged.
+No target Check, Check allocation, Bill, Bank Account, GL transaction/entry, balance,
+clearing/reconciliation state or bank movement is created or changed.
+
+## Phase 4.14 cumulative API transport verified
+
+Server API transport is now verified through the previously recorded resources plus:
+Bank Transfers, Company Bank Withdrawals, Company Quick Deposits, full payment-only
+Bank Deposits, and bounded Bank Checks.
+
+## Exact NEXT Phase 4.14 batch
+
+Continue only the remaining already-verified resource transports needed for closeout.
+Next: **Renters Insurance server API transport**.
+
+Re-read the existing renters-insurance reconciliation service/router/schemas/tests and
+the current official Buildium v1 renters-insurance retrieval contract. Feed the SAME
+existing-target reconciliation pipeline only.
+
+Preserve stable provider identity, explicit review, same-run Lease/Tenant dependencies,
+bounded retrieval, fresh-fetch exact-fingerprint commit, replay/idempotency, organization
+isolation, source-account binding, and the current blocked semantics for cancelled or
+multi-insured policies. Do not create or modify TenantInsurance, Lease, User, document,
+Receipt/payment, GL, balance or accounting history. Keep provider free text, credentials
+and raw responses out of migration rows and audit.
+
+After Renters Insurance API transport is VERIFIED, continue the remaining already-verified
+identity transports required for Phase 4.14 closeout, then explicitly close Phase 4.14
+before starting Phase 4.15 Yardi.
+
+---
+
 # AI_HANDOFF.md — 2026-10-08 PHASE 4.14 BUILDIUM SERVER API BANK TRANSFER TRANSPORT VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
