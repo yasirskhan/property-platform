@@ -1,3 +1,104 @@
+# AI_HANDOFF.md — 2026-10-07 PHASE 4.14 BUILDIUM SERVER API BANK WITHDRAWAL TRANSPORT VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Current VERIFIED product source:
+  `86c7489a708ba96e8052f24a42c50d439f812100`.
+- Exact GitHub Actions run **37713255952 — SUCCESS**.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **1158 passed, 21 deselected, 29173 warnings in 338.03s**.
+- Authenticated E2E: **21 passed, 278 warnings in 93.57s**.
+- Alembic remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- No database migration or new target business table was added.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains **AUTHORIZED BUT NOT ACTIVE**.
+
+The immediately preceding API Bank Transfer source
+`44e6f91395e63a43f981648d56fcd1386e29b619` remains independently verified
+by GitHub Actions **37659696202 SUCCESS**.
+
+## Verified Buildium server-to-server API Company Bank Withdrawal transport
+
+Verified routes:
+
+- `POST /api/platform/migrations/buildium/runs/{run_id}/bank-withdrawals/api-dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/bank-withdrawals/api-commit`
+
+Verified transport contract:
+
+1. Official Buildium v1 nested retrieval is used:
+   `GET /v1/bankaccounts/{bankAccountId}/withdrawals`.
+2. Buildium-required `startdate` and `enddate` are explicit API request fields.
+   The migration does not invent a historical date range.
+3. Parent Bank Account identity comes only from same-run
+   `BANK_ACCOUNTS -> BANK_ACCOUNT` mappings and is injected as
+   `SourceBankAccountId` from retrieval scope.
+4. Parent fan-out is bounded at 100 and total accepted withdrawal records are bounded
+   at the shared 500-record review limit.
+5. The reviewed date window is injected into fingerprint-only source context, so changing
+   the provider query scope between dry run and commit makes the fingerprint stale.
+6. The transport feeds the existing verified
+   `buildium_bank_withdrawal_migration.py` Company-only existing-target service.
+7. Same-run Bank Account and Offset GL Account mappings remain mandatory.
+8. Review remains explicit `MATCH_EXISTING` or `SKIP`; no target BANK_ADJUSTMENT
+   transaction is created.
+9. API commit fresh-fetches Buildium and fails closed on provider, date-window,
+   dependency, review, or immutable target GL drift.
+10. Successful commit writes only durable
+    `BUILDIUM / BANK_WITHDRAWALS / GL_TRANSACTION_BANK_ADJUSTMENT_RELATIONSHIP`
+    migration metadata.
+11. No Bank Account, GLTransaction, GLEntry, balance, cleared state, reconciliation
+    state or bank movement is created or changed.
+12. Rental and Association withdrawal scopes remain blocked rather than inferred.
+13. Provider memo/free text, credentials and raw response bodies remain out of audit
+    and migration rows.
+
+## Exact NEXT Phase 4.14 batch
+
+Continue with **Buildium Company Quick Deposit server API transport**. Do not rebuild
+the already-verified Quick Deposit existing-target reconciliation contract.
+
+Official provider shape to preserve:
+
+- `GET /v1/bankaccounts/{bankAccountId}/quickdeposits`
+- Buildium requires explicit `startdate` and `enddate`.
+
+Use the same bounded parent-Bank-Account and explicit date-window pattern as the
+verified Bank Withdrawal API transport. Preserve source Bank Account retrieval context,
+same-run Bank Account + Offset GL Account mappings, Company-only scope, explicit
+`MATCH_EXISTING` / `SKIP` review, exact fingerprint, fresh-fetch commit,
+replay/idempotency, source-account binding and no target accounting mutation.
+
+Do not create or modify Bank Accounts, BANK_ADJUSTMENT transactions, GL entries,
+balances, clearing/reconciliation state or bank movements. Do not broaden to Rental or
+Association quick deposits. Keep provider memo/free text, credentials and raw response
+bodies out of audit and migration rows.
+
+After Quick Deposit API transport is VERIFIED, continue the remaining already-verified
+Buildium resources in their original order. Do not start Phase 4.15 Yardi until
+Phase 4.14 is explicitly closed.
+
+Do not start general UX work. Preserve `docs/NAVIGATION_INTEGRITY_PLAN.md`, the complete
+HIDDEN MENU / UNHIDE ROADMAP, and `docs/UX_STANDARDS.md` =
+**AUTHORIZED BUT NOT ACTIVE**.
+
+---
+
 # AI_HANDOFF.md — 2026-10-07 PHASE 4.14 BUILDIUM SERVER API BANK TRANSFER TRANSPORT VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
