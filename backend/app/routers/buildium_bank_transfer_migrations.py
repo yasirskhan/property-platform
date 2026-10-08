@@ -81,6 +81,8 @@ def api_dry_run_buildium_bank_transfers(
         fetched = fetch_bank_transfers(
             expected_source_account_ref=run.source_account_ref,
             parent_bank_account_ids=_bank_transfer_api_parent_source_ids(db, run=run),
+            start_date=payload.start_date,
+            end_date=payload.end_date,
         )
         result = dry_run_bank_transfers(
             db, run=run, records=fetched.records, resolutions=resolutions
@@ -111,6 +113,8 @@ def api_dry_run_buildium_bank_transfers(
                     "transport_request_count": fetched.request_count,
                     "transport_parent_bank_account_count": fetched.parent_record_count,
                     "transport_transfer_count": len(fetched.records),
+                    "transport_start_date": payload.start_date.isoformat(),
+                    "transport_end_date": payload.end_date.isoformat(),
                     "parent_scope": "DURABLE_BANK_ACCOUNT_MAPPINGS",
                     "raw_payload_stored": False,
                     "provider_credentials_stored": False,
@@ -156,6 +160,8 @@ def api_commit_buildium_bank_transfers(
         fetched = fetch_bank_transfers(
             expected_source_account_ref=run.source_account_ref,
             parent_bank_account_ids=_bank_transfer_api_parent_source_ids(db, run=run),
+            start_date=payload.start_date,
+            end_date=payload.end_date,
         )
         result = commit_bank_transfers(
             db,
@@ -189,6 +195,8 @@ def api_commit_buildium_bank_transfers(
                     "transport_request_count": fetched.request_count,
                     "transport_parent_bank_account_count": fetched.parent_record_count,
                     "transport_transfer_count": len(fetched.records),
+                    "transport_start_date": payload.start_date.isoformat(),
+                    "transport_end_date": payload.end_date.isoformat(),
                     "parent_scope": "DURABLE_BANK_ACCOUNT_MAPPINGS",
                     "raw_payload_stored": False,
                     "provider_credentials_stored": False,
