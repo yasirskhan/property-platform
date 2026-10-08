@@ -1,4 +1,4 @@
-# AI_HANDOFF.md — 2026-10-08 PHASE 4.14 BUILDIUM SERVER API BANK TRANSFER TRANSPORT VERIFIED
+# AI_HANDOFF.md — 2026-10-08 PHASE 4.14 BUILDIUM SERVER API ASSOCIATION UNIT TRANSPORT VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
 
@@ -8,142 +8,64 @@ force-push, or repeat verified work.
 
 ## Current verified checkpoint
 
-- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
-- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
-- Current VERIFIED product source:
-  `44e6f91395e63a43f981648d56fcd1386e29b619`.
-- Exact GitHub Actions run **37659696202 — SUCCESS**.
-- All six required CI jobs passed:
-  - frontend: PASS
-  - backend: PASS
-  - security: PASS
-  - platform-admin: PASS
-  - staging-config: PASS
-  - authenticated E2E: PASS
-- Backend/PostgreSQL: **1154 passed, 21 deselected, 29109 warnings in 607.03s**.
-- Authenticated E2E: **21 passed, 278 warnings in 68.68s**.
-- Alembic remains `1b8d3f6a9c20`.
-- Expected model tables remain **202**.
-- No database migration or new target business table was added.
-- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
-- `docs/UX_STANDARDS.md` remains **AUTHORIZED BUT NOT ACTIVE**.
+- Phase 4.13 AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED**.
+- Phase 4.14 Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Current VERIFIED product source: `eab346173cfc19a9c7a5e4780d5445e0911e9739`.
+- Exact GitHub Actions run **37800498985 — SUCCESS**.
+- All six required jobs passed.
+- Backend/PostgreSQL: **1183 passed, 21 deselected, 29562 warnings in 597.46s**.
+- Authenticated E2E: **21 passed, 278 warnings in 116.09s**.
+- Alembic remains `1b8d3f6a9c20`; expected model tables remain **202**.
+- No database migration or target business table was added.
+- Navigation/hidden-menu state remains unchanged; general UX remains inactive.
 
-The immediately preceding API Bank Reconciliation source
-`0956aec0faf20e6610e4978e03caf2e0d68dc827` remains independently verified
-by GitHub Actions **37653233576 SUCCESS**.
+The immediately preceding HOA Association API source
+`a16227f43df02d99d68daf2280f309c3c1be034b` remains independently verified
+by GitHub Actions **37798079965 SUCCESS**.
 
-## Verified Buildium server-to-server API Bank Transfer transport
+## Verified Association Unit API transport
 
 Verified routes:
+- `POST /api/platform/migrations/buildium/runs/{run_id}/hoa-units/api-dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/hoa-units/api-commit`
 
-- `POST /api/platform/migrations/buildium/runs/{run_id}/bank-transfers/api-dry-run`
-- `POST /api/platform/migrations/buildium/runs/{run_id}/bank-transfers/api-commit`
+Official provider retrieval is `GET /v1/associations/units`. The transport uses bounded
+server-side collection retrieval and feeds the existing verified
+`buildium_association_unit_migration.py` existing-target reconciliation service.
 
-Verified transport contract:
+The stable Buildium Association Unit identity and AssociationId remain source evidence.
+The current same-run `HOA_ASSOCIATIONS -> HOA_ASSOCIATION` mapping and the existing
+target HOAPropertyMembership required by the reconciliation service remain mandatory.
+Review stays explicit `MATCH_EXISTING` / `SKIP`, with exact fingerprint,
+fresh-fetch commit, replay/idempotency, organization isolation and source-account binding.
 
-1. Official Buildium v1 nested Bank Transfer retrieval is used:
-   `GET /v1/bankaccounts/{bankAccountId}/transfers`.
-2. Parent Buildium source Bank Account identity comes only from current same-run
-   `BANK_ACCOUNTS -> BANK_ACCOUNT` mappings and is injected into each fetched record as
-   retrieval context rather than trusted from provider payload content.
-3. Parent Bank Account fan-out is bounded at 100 and total accepted transfer records are
-   bounded at the shared 500-record review limit.
-4. The transport feeds the existing verified `buildium_bank_transfer_migration.py`
-   existing-target reconciliation service.
-5. The existing Rental-only subset and same-run source/destination Bank Account,
-   Property and optional Unit mapping dependencies remain mandatory.
-6. Review remains explicit `MATCH_EXISTING` or `SKIP`; no target transfer is created.
-7. API commit fresh-fetches Buildium and requires the exact reviewed fingerprint.
-   Provider drift, dependency mapping drift, review drift or reviewed immutable target
-   TRANSFER GLTransaction drift fails closed.
-8. Successful commit creates only durable
-   `BUILDIUM / BANK_TRANSFERS / GL_TRANSACTION_TRANSFER_RELATIONSHIP` migration metadata.
-9. Replay/idempotency, organization isolation, source-account binding, fixed Buildium
-   endpoints, server-held credentials and sanitized upstream errors remain preserved.
-10. Provider memo/free text, credentials, bank metadata and raw response bodies are not
-    persisted merely because Buildium returned them.
-11. No BankAccount, GLTransaction, GLEntry, balance, cleared state, reconciliation state
-    or bank movement is created or modified.
-12. Association and Company transfer semantics remain blocked rather than being inferred.
-
-## Phase 4.14 cumulative server API transport
-
-Server-side Buildium API transport now feeds the SAME reviewed provider-labelled
-migration architecture for:
-
-- Properties
-- Units
-- Owners
-- Vendors
-- Tenants
-- Leases
-- GL Accounts
-- Work Orders
-- Bills
-- Bank Accounts
-- Bill Payments
-- Owner/Property relationships
-- Property Groups
-- Property Reserves
-- Rental Lease Charges
-- Budgets
-- Rental Lease Payments
-- Bank Reconciliations
-- Bank Transfers
-
-Preserve exact fingerprints, explicit review, durable mappings, fresh-fetch commit,
-stale-preview rejection, replay/idempotency, organization isolation, bounded retrieval,
-source-account binding, server-held credentials and no raw-response persistence.
-
-The permanent historical GL blocker remains. Never infer debit-versus-credit direction
-or fabricate balancing entries, opening balances, settlement history, payment history,
-cleared state or synthetic accounting history.
+No Unit, Property, HOAPropertyMembership, owner/tenant relationship, dues/assessment,
+reserve/bank mapping, Charge or GL history is created or changed. Provider address,
+size, bed/bath, free text, credentials and raw responses are not promoted or persisted
+by the API transport.
 
 ## Exact NEXT Phase 4.14 batch
 
-Continue the original verified resource order with **Buildium Company Bank Withdrawal
-server API transport**. Do not rebuild the already-verified Bank Withdrawal
-existing-target reconciliation contract.
-
-Before changing code:
-
-1. Re-read `backend/app/services/buildium_bank_withdrawal_migration.py` and current
-   regression coverage.
-2. Re-read `backend/app/services/buildium_api_transport.py`, current API
-   router/schemas/tests, and Bank Account / GL Account dependency patterns.
-3. Re-check the current official Buildium v1 Bank Withdrawal retrieval contract.
-
-Official provider shape to preserve:
-
-- `GET /v1/bankaccounts/{bankAccountId}/withdrawals`
-- this endpoint requires explicit `startdate` and `enddate` query parameters.
-
-Withdrawals are nested under Bank Account. Do not invent a flat withdrawal collection.
-Preserve source Bank Account identity from retrieval scope rather than trusting provider
-payload content.
+Continue with **Buildium Association Owner identity server API transport** using official
+`GET /v1/associations/owners`. Feed the SAME existing
+`buildium_association_owner_migration.py` pipeline.
 
 Required boundaries:
-
-- feed the SAME existing Bank Withdrawal reconciliation pipeline;
-- parent Bank Account IDs must come only from current same-run
-  `BANK_ACCOUNTS -> BANK_ACCOUNT` mappings;
-- preserve source Bank Account identity from retrieval context on every fetched withdrawal;
-- use an explicit bounded review date window and bind that window into reviewed source state;
-- bound parent Bank Accounts inspected and total Bank Withdrawal records accepted for review;
-- preserve the verified Company-only subset and same-run Bank Account and GL Account mapping
-  dependencies;
-- preserve explicit `MATCH_EXISTING` / `SKIP` review, exact fingerprint,
-  fresh-fetch commit, replay/idempotency, organization isolation and source-account binding;
-- do not create or modify Bank Accounts, GLTransaction/GLEntry rows, balances,
-  cleared state, reconciliation state or bank movements;
-- do not broaden into Rental or Association withdrawal semantics;
-- keep provider memo/free text, credentials, bank metadata and raw response bodies out of
-  migration rows and audit;
-- if provider source or dependency state cannot prove the existing target Withdrawal
-  contract exactly, leave the record blocked rather than weakening the verified service.
-
-After Bank Withdrawal API transport is VERIFIED, continue in the original verified
-resource order. Do not start Phase 4.15 Yardi until Phase 4.14 is explicitly closed.
+- bounded server-side provider retrieval;
+- no caller-supplied provider records or credentials;
+- preserve stable Buildium Association Owner identity;
+- preserve FirstName / LastName / Email identity-only semantics already enforced by the
+  existing reconciliation service;
+- `UserLeaseId` remains source context only and must not create or infer ownership,
+  unit, lease or occupancy relationships;
+- explicit `MATCH_EXISTING` / `SKIP`, exact fingerprint, fresh-fetch commit,
+  replay/idempotency, organization isolation and source-account binding;
+- no OWNER login, ownership account, HOA membership, board role, dues/delinquency state,
+  lease/occupancy relationship, Charge, payment or GL history creation or mutation;
+- provider alternate email, phone, addresses, board-term fields, notes and raw responses
+  remain private source data and must not be persisted to migration audit;
+- after Association Owner API transport is VERIFIED, continue **Association Tenant API
+  transport**, then explicitly close Phase 4.14 before Phase 4.15 Yardi.
 
 Do not start general UX work. Preserve `docs/NAVIGATION_INTEGRITY_PLAN.md`, the complete
 HIDDEN MENU / UNHIDE ROADMAP, and `docs/UX_STANDARDS.md` =
