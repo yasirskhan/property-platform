@@ -1,3 +1,81 @@
+# AI_HANDOFF.md — 2026-10-08 PHASE 4.14 BUILDIUM SERVER API ASSOCIATION OWNER TRANSPORT VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+## Current verified checkpoint
+
+- Phase 4.13 AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED**.
+- Phase 4.14 Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Current VERIFIED product source: `b3f2e444d2222977b29e89fd6b92f2e7fbd33caf`.
+- Exact GitHub Actions run **37809318910 — SUCCESS**.
+- All six required jobs passed.
+- Backend/PostgreSQL: **1187 passed, 21 deselected, 29588 warnings in 614.70s**.
+- Authenticated E2E: **21 passed, 278 warnings in 118.96s**.
+- Alembic remains `1b8d3f6a9c20`; expected model tables remain **202**.
+- No database migration or target business table was added.
+- Navigation/hidden-menu state remains unchanged; general UX remains inactive.
+
+The immediately preceding Association Unit API source
+`eab346173cfc19a9c7a5e4780d5445e0911e9739` remains independently verified
+by GitHub Actions **37800498985 SUCCESS**.
+
+## Verified Association Owner API transport
+
+Verified routes:
+- `POST /api/platform/migrations/buildium/runs/{run_id}/hoa-owners/api-dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/hoa-owners/api-commit`
+
+Official provider retrieval is `GET /v1/associations/owners`. The transport uses bounded
+server-side collection retrieval and feeds the already-verified Association Owner
+identity reconciliation service.
+
+Only stable source identity plus FirstName, LastName and Email are promoted into the
+existing identity contract. `UserLeaseId` remains source context only. Review stays
+explicit `MATCH_EXISTING` / `SKIP` with exact fingerprint, fresh-fetch commit,
+target-snapshot drift protection, replay/idempotency, organization isolation and
+source-account binding.
+
+No OWNER login, ownership account, HOA membership, board role, dues/delinquency state,
+lease/occupancy relationship, Charge, payment or GL history is created or changed.
+Provider alternate email, phone, addresses, board-term fields, notes, credentials and
+raw responses are not persisted to migration audit.
+
+## Exact NEXT Phase 4.14 batch
+
+Complete the final remaining already-verified identity transport:
+**Buildium Association Tenant server API transport** using official
+`GET /v1/associations/tenants`. Feed the SAME existing
+`buildium_association_tenant_migration.py` reconciliation pipeline.
+
+Required boundaries:
+- bounded server-side provider retrieval;
+- no caller-supplied provider records or credentials;
+- stable Buildium Association Tenant identity only;
+- preserve the exact FirstName / LastName / Email identity contract already verified;
+- ownership-account, Association/Unit, move-in/out, emergency-contact and other provider
+  relationship/private fields remain source context only and must not create or infer
+  occupancy, lease, ownership, dues or financial semantics;
+- explicit `MATCH_EXISTING` / `SKIP`, exact fingerprint, fresh-fetch commit,
+  target snapshot drift protection, replay/idempotency, organization isolation and
+  source-account binding;
+- no TENANT login, Lease, occupancy, ownership account, HOA membership, Charge, payment
+  or GL history creation or mutation;
+- keep provider alternate email, phones, addresses, comments, emergency contacts,
+  ownership account payloads, move dates, credentials and raw responses out of migration audit.
+
+After Association Tenant API transport is VERIFIED, explicitly mark **Phase 4.14
+COMPLETE | VERIFIED**, update this handoff, and only then proceed to Phase 4.15 Yardi.
+
+Do not start general UX work. Preserve `docs/NAVIGATION_INTEGRITY_PLAN.md`, the complete
+HIDDEN MENU / UNHIDE ROADMAP, and `docs/UX_STANDARDS.md` =
+**AUTHORIZED BUT NOT ACTIVE**.
+
+---
+
 # AI_HANDOFF.md — 2026-10-08 PHASE 4.14 BUILDIUM SERVER API ASSOCIATION UNIT TRANSPORT VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
