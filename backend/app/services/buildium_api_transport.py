@@ -45,6 +45,8 @@ MAX_BANK_TRANSFER_PARENT_BANK_ACCOUNTS = 100
 MAX_BANK_TRANSFER_RECORDS = _MAX_REVIEW_RECORDS
 MAX_BANK_WITHDRAWAL_PARENT_BANK_ACCOUNTS = 100
 MAX_BANK_WITHDRAWAL_RECORDS = _MAX_REVIEW_RECORDS
+MAX_QUICK_DEPOSIT_PARENT_BANK_ACCOUNTS = 100
+MAX_QUICK_DEPOSIT_RECORDS = _MAX_REVIEW_RECORDS
 
 
 class BuildiumApiTransportError(Exception):
@@ -967,6 +969,108 @@ def fetch_bank_withdrawals(
         raise BuildiumApiTransportError(
             "empty_source",
             "Buildium API returned no Bank Withdrawals for the mapped Bank Accounts and reviewed date window.",
+        )
+    return BuildiumApiFetchResult(
+        records=records,
+        mode=profile.mode,
+        request_count=requests_made,
+        parent_record_count=len(normalized_parent_ids),
+    )
+
+
+def fetch_quick_deposits(
+    *,
+    expected_source_account_ref: str,
+    parent_bank_account_ids: list[int | str],
+    start_date: date,
+    end_date: date,
+) -> BuildiumApiFetchResult:
+    """Fetch bounded nested Quick Deposits for mapped source Bank Accounts."""
+    profile = _profile(expected_source_account_ref)
+    if not isinstance(start_date, date) or not isinstance(end_date, date):
+        raise BuildiumApiTransportError(
+            "invalid_date_window",
+            "Buildium Quick Deposit API migration requires explicit start and end dates.",
+        )
+    if start_date > end_date:
+        raise BuildiumApiTransportError(
+            "invalid_date_window",
+            "Buildium Quick Deposit API migration start date must not be after end date.",
+        )
+
+    normalized_parent_ids: list[int] = []
+    seen_parent_ids: set[int] = set()
+    for raw_parent_id in parent_bank_account_ids:
+        if isinstance(raw_parent_id, bool):
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Quick Deposit parent Bank Account scope contains an invalid source ID.",
+            )
+        try:
+            parent_id = int(str(raw_parent_id).strip())
+        except (TypeError, ValueError):
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Quick Deposit parent Bank Account scope contains an invalid source ID.",
+            )
+        if parent_id < 1:
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Quick Deposit parent Bank Account scope contains an invalid source ID.",
+            )
+        if parent_id in seen_parent_ids:
+            raise BuildiumApiTransportError(
+                "invalid_parent_scope",
+                "Buildium Quick Deposit parent Bank Account scope contains a duplicate source ID.",
+            )
+        seen_parent_ids.add(parent_id)
+        normalized_parent_ids.append(parent_id)
+
+    if not normalized_parent_ids:
+        raise BuildiumApiTransportError(
+            "empty_parent_scope",
+            "Buildium Quick Deposit API migration requires at least one durably mapped parent Bank Account.",
+        )
+    if len(normalized_parent_ids) > MAX_QUICK_DEPOSIT_PARENT_BANK_ACCOUNTS:
+        raise BuildiumApiTransportError(
+            "source_too_large",
+            "Buildium Quick Deposit API migration exceeds the bounded "
+            f"{MAX_QUICK_DEPOSIT_PARENT_BANK_ACCOUNTS}-parent-Bank-Account review scope.",
+        )
+
+    records: list[dict[str, Any]] = []
+    requests_made = 0
+    start_text = start_date.isoformat()
+    end_text = end_date.isoformat()
+    for parent_bank_account_id in sorted(normalized_parent_ids):
+        remaining = MAX_QUICK_DEPOSIT_RECORDS - len(records)
+        request_limit = max(1, min(1000, remaining + 1))
+        page = _get_json_list(
+            profile,
+            path=f"/v1/bankaccounts/{parent_bank_account_id}/quickdeposits",
+            resource_label=f"quick deposits for source Bank Account {parent_bank_account_id}",
+            offset=0,
+            limit=request_limit,
+            extra_params={"startdate": start_text, "enddate": end_text},
+        )
+        requests_made += 1
+        if len(page) > remaining:
+            raise BuildiumApiTransportError(
+                "source_too_large",
+                "Buildium Quick Deposit source exceeds the bounded "
+                f"{MAX_QUICK_DEPOSIT_RECORDS}-record API migration review.",
+            )
+        for provider_record in page:
+            record = dict(provider_record)
+            record["SourceBankAccountId"] = parent_bank_account_id
+            record["_ApiStartDate"] = start_text
+            record["_ApiEndDate"] = end_text
+            records.append(record)
+
+    if not records:
+        raise BuildiumApiTransportError(
+            "empty_source",
+            "Buildium API returned no Quick Deposits for the mapped Bank Accounts and reviewed date window.",
         )
     return BuildiumApiFetchResult(
         records=records,
