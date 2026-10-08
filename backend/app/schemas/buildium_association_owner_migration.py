@@ -31,6 +31,23 @@ class BuildiumAssociationOwnerDryRunIn(BaseModel):
     )
 
 
+class BuildiumApiAssociationOwnerDryRunIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    resolutions: list[BuildiumAssociationOwnerResolutionIn] = Field(
+        default_factory=list, max_length=500
+    )
+
+
+class BuildiumApiAssociationOwnerCommitIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolutions: list[BuildiumAssociationOwnerResolutionIn] = Field(
+        default_factory=list, max_length=500
+    )
+
+
 class BuildiumAssociationOwnerPreviewRow(BaseModel):
     source_id: str | None
     reviewable: bool
