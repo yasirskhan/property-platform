@@ -1,3 +1,70 @@
+# AI_HANDOFF.md — 2026-10-08 PHASE 4.14 BUILDIUM SERVER API HOA ASSOCIATION TRANSPORT VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+## Current verified checkpoint
+
+- Phase 4.13 AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED**.
+- Phase 4.14 Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Current VERIFIED product source: `a16227f43df02d99d68daf2280f309c3c1be034b`.
+- Exact GitHub Actions run **37798079965 — SUCCESS**.
+- All six required jobs passed.
+- Backend/PostgreSQL: **1180 passed, 21 deselected, 29537 warnings in 600.72s**.
+- Authenticated E2E: **21 passed, 278 warnings in 76.88s**.
+- Alembic remains `1b8d3f6a9c20`; expected model tables remain **202**.
+- No database migration or target business table was added.
+- Navigation/hidden-menu state remains unchanged; general UX remains inactive.
+
+## Verified HOA Association API transport
+
+Verified routes:
+- `POST /api/platform/migrations/buildium/runs/{run_id}/hoa-associations/api-dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/hoa-associations/api-commit`
+
+Official provider retrieval is `GET /v1/associations`. Retrieval is bounded to the
+shared 500-record review scope and feeds the existing HOA Association identity
+existing-target reconciliation service unchanged.
+
+Explicit `MATCH_EXISTING` / `SKIP`, exact fingerprinting, fresh-fetch commit,
+target snapshot drift protection, organization isolation, source-account binding and
+replay/idempotency remain preserved.
+
+No HOAAssociation, Property, HOAPropertyMembership, owner/contact relationship,
+dues/assessment, reserve/bank mapping, board record, notice, Charge, GL history or
+other customer business data is created or changed. Provider address, reserve,
+operating-bank, description, tax and raw response fields are not promoted or persisted.
+
+## Exact NEXT Phase 4.14 batch
+
+Continue with **Buildium Association Unit server API transport**. Reuse the existing
+`buildium_association_unit_migration.py` reconciliation service.
+
+Official provider retrieval to preserve:
+`GET /v1/associations/units`.
+
+Required boundaries:
+- bounded provider retrieval; no caller-supplied provider records or credentials;
+- preserve stable Buildium Association Unit ID and AssociationId;
+- current same-run `HOA_ASSOCIATIONS -> HOA_ASSOCIATION` dependency remains mandatory;
+- target Property must already have the verified HOAPropertyMembership to the mapped
+  HOA Association, exactly as required by the existing service;
+- explicit `MATCH_EXISTING` / `SKIP`, exact fingerprint, fresh-fetch commit,
+  replay/idempotency, organization isolation and source-account binding;
+- no Unit, Property, HOAPropertyMembership, owner/tenant relationship, dues/assessment,
+  reserve/bank mapping, Charge or GL history creation or mutation;
+- provider address/size/bed/bath fields remain source evidence only and must not be
+  promoted by API transport;
+- keep provider free text, credentials and raw responses out of migration rows and audit.
+
+After Association Unit API transport is VERIFIED, continue Association Owner and
+Association Tenant API transports, then explicitly close Phase 4.14 before Phase 4.15.
+
+---
+
 # AI_HANDOFF.md — 2026-10-08 PHASE 4.14 BUILDIUM SERVER API APPLICANT TRANSPORT VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
