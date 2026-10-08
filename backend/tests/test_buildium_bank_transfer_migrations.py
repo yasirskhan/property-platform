@@ -701,6 +701,8 @@ def test_buildium_api_bank_transfer_provider_dependency_and_target_drift_fail_cl
             api.api_commit_buildium_bank_transfers(
                 run.id,
                 BuildiumApiBankTransferCommitIn(
+                    start_date=date(2026, 10, 1),
+                    end_date=date(2026, 10, 31),
                     fingerprint=reviewed.fingerprint,
                     resolutions=[resolution],
                 ),
@@ -729,6 +731,8 @@ def test_buildium_api_bank_transfer_provider_dependency_and_target_drift_fail_cl
             api.api_commit_buildium_bank_transfers(
                 run.id,
                 BuildiumApiBankTransferCommitIn(
+                    start_date=date(2026, 10, 1),
+                    end_date=date(2026, 10, 31),
                     fingerprint=reviewed.fingerprint,
                     resolutions=[resolution],
                 ),
@@ -758,6 +762,8 @@ def test_buildium_api_bank_transfer_provider_dependency_and_target_drift_fail_cl
             api.api_commit_buildium_bank_transfers(
                 run.id,
                 BuildiumApiBankTransferCommitIn(
+                    start_date=date(2026, 10, 1),
+                    end_date=date(2026, 10, 31),
                     fingerprint=reviewed.fingerprint,
                     resolutions=[resolution],
                 ),
