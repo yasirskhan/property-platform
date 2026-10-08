@@ -1,3 +1,165 @@
+# AI_HANDOFF.md — 2026-10-08 PHASE 4.14 BANK TRANSFER PROVIDER CONTRACT CORRECTED + BANK DEPOSIT TRANSPORT VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+## Current verified checkpoint
+
+- Phase 4.13 — AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED for the authorized file-based path**.
+- Phase 4.14 — Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Current VERIFIED product source:
+  `3b2eade322772640e449a6e156ae011f28be76b4`.
+- Exact GitHub Actions run **37730901085 — SUCCESS**.
+- All six required CI jobs passed:
+  - frontend: PASS
+  - backend: PASS
+  - security: PASS
+  - platform-admin: PASS
+  - staging-config: PASS
+  - authenticated E2E: PASS
+- Backend/PostgreSQL: **1167 passed, 21 deselected, 29350 warnings in 366.19s**.
+- Authenticated E2E: **21 passed, 278 warnings in 90.25s**.
+- Alembic remains `1b8d3f6a9c20`.
+- Expected model tables remain **202**.
+- No database migration or new target business table was added.
+- Navigation integrity and the complete HIDDEN MENU / UNHIDE ROADMAP remain unchanged.
+- `docs/UX_STANDARDS.md` remains **AUTHORIZED BUT NOT ACTIVE**.
+
+## Provider-contract correction closed
+
+The original Bank Transfer API product source
+`44e6f91395e63a43f981648d56fcd1386e29b619` had exact hosted CI green, but
+the current official Buildium v1 provider contract was rechecked and requires
+`startdate` and `enddate` for
+`GET /v1/bankaccounts/{bankAccountId}/transfers`.
+
+Correction chain on top of the later live transport work:
+
+- `d6b0fbd8cb7fac6a44f56c146392ca299fdcfc5f` — provider fetch requires explicit date scope
+- `989f2f8de2910c11b37f92925a6e0efe995b39c4` — API schemas require start/end dates
+- `f8d95c971846b2f4815ef0b4033e767b38f2cbe3` — routes bind date scope into fetch/audit
+- `b169f08ad1f1c647e1ad486573daaab2731af10a` — regression coverage update
+- `3b2eade322772640e449a6e156ae011f28be76b4` — fix three missed drift-test fixtures
+
+CI `37729868990` for `b169f08a` had exactly one new test-fixture validation
+failure while **1166 other backend tests passed**. The product transport did not fail.
+`3b2eade3` corrected only those missed API request fixtures and exact-SHA CI
+`37730901085` is fully green.
+
+The corrected Bank Transfer transport now:
+- requires caller-reviewed `start_date` / `end_date`;
+- passes them to Buildium as required `startdate` / `enddate`;
+- injects the reviewed date scope into the fingerprint-bound source context;
+- fresh-fetches the exact same date scope on commit;
+- preserves the existing Rental-only, existing-target TRANSFER reconciliation contract;
+- still creates no Bank Account, GLTransaction, GLEntry, balance, cleared state,
+  reconciliation state or bank movement.
+
+## Additional server API transport already live and exact-CI green
+
+The live branch also advanced through these already-verified existing-target transports.
+Do not rebuild them:
+
+1. **Company Bank Withdrawals**
+   - product source `86c7489a708ba96e8052f24a42c50d439f812100`
+   - CI **37713255952 SUCCESS**
+   - official nested `GET /v1/bankaccounts/{bankAccountId}/withdrawals`
+   - explicit required start/end date scope; Company-only reconciliation
+2. **Company Quick Deposits**
+   - product source `ae350b077d8b68a8e3ed024c6d1cb9f99f149dfe`
+   - CI **37714409935 SUCCESS**
+   - official nested `GET /v1/bankaccounts/{bankAccountId}/quickdeposits`
+   - explicit required start/end date scope; Company-only reconciliation
+3. **Full payment-only Bank Deposits**
+   - product source `659530217ed64371c6859eea72ff55aae2e1c271`
+   - CI **37721523724 SUCCESS**
+   - Backend/PostgreSQL at that source: **1166 passed, 21 deselected, 29350 warnings**
+   - Authenticated E2E: **21 passed, 278 warnings**
+   - official nested `GET /v1/bankaccounts/{bankAccountId}/deposits`
+   - explicit bounded date scope and existing Receipt/deposit relationship only
+
+All preserve the SAME provider-labelled migration run, exact fingerprint,
+explicit review, fresh-fetch commit, durable mappings, replay/idempotency,
+organization isolation, source-account binding, server-held credentials,
+sanitized upstream errors and no raw-response persistence.
+
+## Phase 4.14 cumulative API transport now verified
+
+Server-side API transport feeds the existing reviewed Buildium migration architecture for:
+
+- Properties
+- Units
+- Owners
+- Vendors
+- Tenants
+- Leases
+- GL Accounts
+- Work Orders
+- Bills
+- Bank Accounts
+- Bill Payments
+- Owner/Property relationships
+- Property Groups
+- Property Reserves
+- Rental Lease Charges
+- Budgets
+- Rental Lease Payments
+- Bank Reconciliations
+- Bank Transfers
+- Company Bank Withdrawals
+- Company Quick Deposits
+- full payment-only Bank Deposits
+
+The permanent historical GL blocker remains. Never infer debit-versus-credit direction
+or fabricate balancing entries, opening balances, settlement history, payment history,
+cleared state or synthetic accounting history.
+
+## Exact NEXT Phase 4.14 batch
+
+Continue with **Buildium Bank Check server API transport**. Do not rebuild the
+already-verified Bank Check existing-target reconciliation contract.
+
+Official Buildium v1 source shape:
+
+- `GET /v1/bankaccounts/{bankAccountId}/checks`
+- `startdate` and `enddate` are required provider query parameters.
+
+Required boundaries:
+
+- feed the SAME existing `buildium_check_migration.py` pipeline;
+- parent Bank Account IDs come only from current same-run
+  `BANK_ACCOUNTS -> BANK_ACCOUNT` mappings;
+- preserve `SourceBankAccountId` from retrieval context;
+- require an explicit reviewed API date window and bind it into the exact fingerprint;
+- bound parent Bank Accounts and total accepted Check records;
+- preserve the verified Rental-only Vendor-payee subset and current Bank Account,
+  Vendor, Property, optional Unit and GL Account mappings;
+- preserve explicit `MATCH_EXISTING` / `SKIP` review, fresh-fetch commit,
+  replay/idempotency, organization isolation and source-account binding;
+- the reviewed target must remain an already-existing exact ISSUED Check with its
+  immutable CHECK GL transaction;
+- do not create or modify Checks, Bill allocations, Bills, Bank Accounts,
+  GLTransaction/GLEntry rows, balances, cleared state, reconciliation state or bank movements;
+- do not broaden Company/Association check semantics or non-Vendor payees;
+- do not fetch/copy check files in this transport batch;
+- keep provider memo/free text, credentials and raw response bodies out of audit and
+  migration rows;
+- if provider data cannot prove the existing target Check contract exactly, leave it
+  blocked rather than weakening the reconciliation rules.
+
+After Bank Check API transport is VERIFIED, continue only the remaining already-verified
+Buildium resource transports needed for Phase 4.14 closeout. Do not add unrelated new
+migration scope. Do not start Phase 4.15 Yardi until Phase 4.14 is explicitly closed.
+
+Do not start general UX work. Preserve `docs/NAVIGATION_INTEGRITY_PLAN.md`, the complete
+HIDDEN MENU / UNHIDE ROADMAP, and `docs/UX_STANDARDS.md` =
+**AUTHORIZED BUT NOT ACTIVE**.
+
+---
+
 # AI_HANDOFF.md — 2026-10-07 PHASE 4.14 BUILDIUM SERVER API BANK TRANSFER TRANSPORT VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
