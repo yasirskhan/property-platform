@@ -506,6 +506,8 @@ def test_buildium_transport_fetches_bounded_nested_bank_transfers(monkeypatch):
     result = transport.fetch_bank_transfers(
         expected_source_account_ref="buildium-bank-transfer-source",
         parent_bank_account_ids=["7002", "7001"],
+        start_date=date(2026, 10, 1),
+        end_date=date(2026, 10, 31),
     )
     assert result.records[0]["Id"] == 9001
     assert result.records[0]["SourceBankAccountId"] == 7001
@@ -515,6 +517,8 @@ def test_buildium_transport_fetches_bounded_nested_bank_transfers(monkeypatch):
     assert calls[0][2] == {
         "offset": 0,
         "limit": transport.MAX_BANK_TRANSFER_RECORDS + 1,
+        "startdate": "2026-10-01",
+        "enddate": "2026-10-31",
     }
     assert calls[0][1]["x-buildium-client-secret"] == "bank-transfer-secret"
 
@@ -524,6 +528,8 @@ def test_buildium_transport_fetches_bounded_nested_bank_transfers(monkeypatch):
             parent_bank_account_ids=list(
                 range(1, transport.MAX_BANK_TRANSFER_PARENT_BANK_ACCOUNTS + 2)
             ),
+            start_date=date(2026, 10, 1),
+            end_date=date(2026, 10, 31),
         )
     assert exc.value.code == "source_too_large"
 
@@ -550,6 +556,8 @@ def test_buildium_transport_fetches_bounded_nested_bank_transfers(monkeypatch):
         transport.fetch_bank_transfers(
             expected_source_account_ref="buildium-bank-transfer-source",
             parent_bank_account_ids=[7001],
+            start_date=date(2026, 10, 1),
+            end_date=date(2026, 10, 31),
         )
     assert exc.value.code == "source_too_large"
 
@@ -565,9 +573,11 @@ def test_buildium_api_bank_transfer_maps_existing_only_replays_and_redacts(monke
             "banks": db.query(BankAccount).count(),
         }
 
-        def fetched(*, expected_source_account_ref, parent_bank_account_ids):
+        def fetched(*, expected_source_account_ref, parent_bank_account_ids, start_date, end_date):
             assert expected_source_account_ref == "buildium-bank-transfer-source"
             assert parent_bank_account_ids == ["7001", "7002"]
+            assert start_date == date(2026, 10, 1)
+            assert end_date == date(2026, 10, 31)
             return BuildiumApiFetchResult(
                 records=[_record()],
                 mode="sandbox",
@@ -583,7 +593,11 @@ def test_buildium_api_bank_transfer_maps_existing_only_replays_and_redacts(monke
         )
         reviewed = api.api_dry_run_buildium_bank_transfers(
             run.id,
-            BuildiumApiBankTransferDryRunIn(resolutions=[resolution]),
+            BuildiumApiBankTransferDryRunIn(
+                start_date=date(2026, 10, 1),
+                end_date=date(2026, 10, 31),
+                resolutions=[resolution],
+            ),
             db=db,
             current_user=admin,
         )
@@ -593,6 +607,8 @@ def test_buildium_api_bank_transfer_maps_existing_only_replays_and_redacts(monke
         committed = api.api_commit_buildium_bank_transfers(
             run.id,
             BuildiumApiBankTransferCommitIn(
+                start_date=date(2026, 10, 1),
+                end_date=date(2026, 10, 31),
                 fingerprint=reviewed.fingerprint,
                 resolutions=[resolution],
             ),
@@ -608,6 +624,8 @@ def test_buildium_api_bank_transfer_maps_existing_only_replays_and_redacts(monke
         replay = api.api_commit_buildium_bank_transfers(
             run.id,
             BuildiumApiBankTransferCommitIn(
+                start_date=date(2026, 10, 1),
+                end_date=date(2026, 10, 31),
                 fingerprint=reviewed.fingerprint,
                 resolutions=[resolution],
             ),
@@ -625,6 +643,8 @@ def test_buildium_api_bank_transfer_maps_existing_only_replays_and_redacts(monke
             BuildiumApiBankTransferDryRunIn(records=[_record()])
         with pytest.raises(ValidationError):
             BuildiumApiBankTransferCommitIn(
+                start_date=date(2026, 10, 1),
+                end_date=date(2026, 10, 31),
                 fingerprint=reviewed.fingerprint,
                 client_secret="secret",
             )
@@ -651,7 +671,7 @@ def test_buildium_api_bank_transfer_provider_dependency_and_target_drift_fail_cl
         _, _, _, _, txn, run, mappings = _fixture(db)
         state = {"amount": 250}
 
-        def fetched(*, expected_source_account_ref, parent_bank_account_ids):
+        def fetched(*, expected_source_account_ref, parent_bank_account_ids, start_date, end_date):
             return BuildiumApiFetchResult(
                 records=[_record(TotalAmount=state["amount"])],
                 mode="sandbox",
@@ -667,7 +687,11 @@ def test_buildium_api_bank_transfer_provider_dependency_and_target_drift_fail_cl
         )
         reviewed = api.api_dry_run_buildium_bank_transfers(
             run.id,
-            BuildiumApiBankTransferDryRunIn(resolutions=[resolution]),
+            BuildiumApiBankTransferDryRunIn(
+                start_date=date(2026, 10, 1),
+                end_date=date(2026, 10, 31),
+                resolutions=[resolution],
+            ),
             db=db,
             current_user=admin,
         )
@@ -691,7 +715,11 @@ def test_buildium_api_bank_transfer_provider_dependency_and_target_drift_fail_cl
         state["amount"] = 250
         reviewed = api.api_dry_run_buildium_bank_transfers(
             run.id,
-            BuildiumApiBankTransferDryRunIn(resolutions=[resolution]),
+            BuildiumApiBankTransferDryRunIn(
+                start_date=date(2026, 10, 1),
+                end_date=date(2026, 10, 31),
+                resolutions=[resolution],
+            ),
             db=db,
             current_user=admin,
         )
@@ -713,7 +741,11 @@ def test_buildium_api_bank_transfer_provider_dependency_and_target_drift_fail_cl
         db.commit()
         reviewed = api.api_dry_run_buildium_bank_transfers(
             run.id,
-            BuildiumApiBankTransferDryRunIn(resolutions=[resolution]),
+            BuildiumApiBankTransferDryRunIn(
+                start_date=date(2026, 10, 1),
+                end_date=date(2026, 10, 31),
+                resolutions=[resolution],
+            ),
             db=db,
             current_user=admin,
         )
@@ -778,3 +810,11 @@ def test_buildium_api_bank_transfer_parent_scope_routes_and_status(monkeypatch):
     finally:
         db.close()
         engine.dispose()
+
+
+def test_buildium_api_bank_transfer_rejects_reversed_date_window():
+    with pytest.raises(ValidationError):
+        BuildiumApiBankTransferDryRunIn(
+            start_date=date(2026, 11, 1),
+            end_date=date(2026, 10, 31),
+        )
