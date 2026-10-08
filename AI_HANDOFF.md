@@ -1,3 +1,66 @@
+# AI_HANDOFF.md — 2026-10-08 PHASE 4.14 BUILDIUM SERVER API APPLICANT TRANSPORT VERIFIED
+
+**READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
+
+Repository `yasirskhan/property-platform`; ONLY branch
+`chatgpt/checkpoint-005-safety`. Never touch `main`, create another branch,
+force-push, or repeat verified work.
+
+## Current verified checkpoint
+
+- Phase 4.13 AppFolio CSV/XLSX migration: **COMPLETE | VERIFIED**.
+- Phase 4.14 Buildium direct/API-assisted migration: **IN PROGRESS**.
+- Current VERIFIED product source: `5406e9873f1bbd2c889cf49f6fa878a296551236`.
+- Exact GitHub Actions run **37739220910 — SUCCESS**.
+- All six required jobs passed.
+- Backend/PostgreSQL: **1177 passed, 21 deselected, 29516 warnings in 610.03s**.
+- Authenticated E2E: **21 passed, 278 warnings in 113.48s**.
+- Alembic remains `1b8d3f6a9c20`; expected model tables remain **202**.
+- No database migration or target business table was added.
+- Navigation/hidden-menu state remains unchanged; general UX remains inactive.
+
+## Verified Applicant API transport
+
+Verified routes:
+- `POST /api/platform/migrations/buildium/runs/{run_id}/applicants/api-dry-run`
+- `POST /api/platform/migrations/buildium/runs/{run_id}/applicants/api-commit`
+
+Official provider retrieval is `GET /v1/applicants`. The transport uses bounded
+server-side collection retrieval and feeds the already-verified Applicant identity
+existing-target reconciliation service. Caller-supplied provider rows and credentials
+remain rejected.
+
+Explicit `MATCH_EXISTING` / `SKIP`, exact fingerprinting, fresh-fetch commit,
+target snapshot drift protection, organization isolation, source-account binding and
+replay/idempotency remain preserved.
+
+No APPLICANT user, RentalApplication, screening/SSN data, payment, lease or
+applicant-to-tenant relationship is created or inferred. Provider private notes, DOB,
+credentials and raw responses are not persisted merely because Buildium returned them.
+
+## Exact NEXT Phase 4.14 batch
+
+Continue the remaining already-verified Association identity transports required for
+Phase 4.14 closeout.
+
+Next: **Buildium HOA Association identity server API transport** using official
+`GET /v1/associations`. Feed the SAME existing
+`buildium_association_migration.py` pipeline. Preserve bounded provider retrieval,
+explicit `MATCH_EXISTING` / `SKIP`, exact fingerprint, fresh-fetch commit,
+replay/idempotency, organization isolation and source-account binding.
+
+Do not create or modify HOAAssociation, Property, HOAPropertyMembership, owner/contact
+relationships, dues/assessments, reserve/bank mappings, board records, notices,
+Charge/GL history or any other customer business data. Do not promote provider address,
+reserve, bank, description, tax or other unsupported fields into target semantics.
+Keep provider free text, credentials and raw responses out of migration rows and audit.
+
+After HOA Association API transport is VERIFIED, continue the existing verified
+Association Unit, Association Owner and Association Tenant transports in that order,
+then explicitly close Phase 4.14 before starting Phase 4.15 Yardi.
+
+---
+
 # AI_HANDOFF.md — 2026-10-08 PHASE 4.14 BUILDIUM SERVER API RENTERS INSURANCE TRANSPORT VERIFIED
 
 **READ THIS ENTRY FIRST; it supersedes older NEXT labels below.**
