@@ -62,6 +62,7 @@ from app.routers import platform_jobs as platform_jobs_router
 from app.routers import platform_fraud as platform_fraud_router
 from app.routers import platform_admin as platform_admin_router
 from app.routers import platform_migrations as platform_migrations_router
+from app.routers import yardi_migrations as yardi_migrations_router
 from app.routers import buildium_migrations as buildium_migrations_router
 from app.routers import buildium_budget_migrations as buildium_budget_migrations_router
 from app.routers import buildium_lease_payment_migrations as buildium_lease_payment_migrations_router
@@ -248,6 +249,7 @@ app.include_router(platform_jobs_router.router)
 app.include_router(platform_fraud_router.router)
 app.include_router(platform_admin_router.router)
 app.include_router(platform_migrations_router.router)
+app.include_router(yardi_migrations_router.router)
 app.include_router(buildium_migrations_router.router)
 app.include_router(buildium_budget_migrations_router.router)
 app.include_router(buildium_lease_payment_migrations_router.router)
