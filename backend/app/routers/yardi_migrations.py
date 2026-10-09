@@ -12,8 +12,8 @@ from pathlib import Path
 
 from fastapi import File, Form, UploadFile
 from sqlalchemy.exc import IntegrityError
-from app.models.platform_migration import PlatformMigrationUpload
-from app.schemas.platform_migration import AppFolioMigrationUploadOut
+from app.models.platform_migration import PlatformMigrationUpload, PlatformMigrationStagedRow
+from app.schemas.platform_migration import AppFolioMigrationUploadOut, AppFolioMigrationStagedRowOut
 from app.services.appfolio_file_ingestion import MAX_FILE_BYTES, AppFolioFileIngestionError
 from app.services.yardi_file_ingestion import stage_yardi_file
 
@@ -256,3 +256,35 @@ def list_yardi_uploads(
         )
         .order_by(PlatformMigrationUpload.id.desc()).all()
     )
+
+
+@router.get("/runs/{run_id}/uploads/{upload_id}/rows", response_model=list[AppFolioMigrationStagedRowOut])
+def list_yardi_staged_rows(
+    run_id: int,
+    upload_id: int,
+    response: Response,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=200, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=False)
+    upload = db.query(PlatformMigrationUpload).filter(
+        PlatformMigrationUpload.id == upload_id,
+        PlatformMigrationUpload.run_id == run.id,
+        PlatformMigrationUpload.organization_id == run.organization_id,
+        PlatformMigrationUpload.provider == "YARDI",
+    ).first()
+    if upload is None:
+        raise HTTPException(status_code=404, detail="Yardi upload not found.")
+    rows = db.query(PlatformMigrationStagedRow).filter(
+        PlatformMigrationStagedRow.upload_id == upload.id,
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+    ).order_by(
+        PlatformMigrationStagedRow.row_number.asc(),
+        PlatformMigrationStagedRow.id.asc(),
+    ).offset(offset).limit(limit).all()
+    response.headers["Cache-Control"] = "no-store"
+    return rows
