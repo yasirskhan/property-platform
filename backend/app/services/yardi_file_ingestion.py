@@ -23,6 +23,9 @@ from app.services.appfolio_file_ingestion import (
     _safe_filename, PROPERTY_REQUIRED,
 )
 
+OWNER_FIELDS = frozenset(("source_id", "name", "email"))
+OWNER_REQUIRED = ("source_id", "name")
+
 UNIT_FIELDS = frozenset(("source_id", "source_property_id", "unit_name"))
 UNIT_REQUIRED = ("source_id", "source_property_id", "unit_name")
 
@@ -40,12 +43,12 @@ def stage_yardi_file(
     if run.provider != "YARDI":
         raise AppFolioFileIngestionError("Migration run is not a Yardi run.")
     resource = (resource_override or "").strip().upper()
-    if resource not in {"PROPERTIES", "UNITS"}:
+    if resource not in {"PROPERTIES", "UNITS", "OWNERS"}:
         raise AppFolioFileIngestionError(
-            "Choose resource PROPERTIES or UNITS; other Yardi resources require verified source contracts."
+            "Choose resource PROPERTIES, UNITS or OWNERS; other Yardi resources require verified source contracts."
         )
-    fields = PROPERTY_FIELDS if resource == "PROPERTIES" else UNIT_FIELDS
-    required = PROPERTY_REQUIRED if resource == "PROPERTIES" else UNIT_REQUIRED
+    fields = {"PROPERTIES": PROPERTY_FIELDS, "UNITS": UNIT_FIELDS, "OWNERS": OWNER_FIELDS}[resource]
+    required = {"PROPERTIES": PROPERTY_REQUIRED, "UNITS": UNIT_REQUIRED, "OWNERS": OWNER_REQUIRED}[resource]
     filename = _safe_filename(filename)
     parsed = _parse_file(filename, content, sheet_name)
     mapping = explicit_mapping or {}
@@ -130,6 +133,9 @@ def stage_yardi_file(
             if mapped:
                 disposition = "ALREADY_MAPPED"
                 warnings.append("Source identity is already mapped; review before action.")
+            elif resource == "OWNERS":
+                disposition = "REVIEW"
+                warnings.append("Owner identity is staged for review only; no ownership, login or Property relationship inferred.")
             elif resource == "UNITS":
                 source_property_id = str(data.get("source_property_id") or "").strip()
                 parent = db.query(PlatformMigrationItem).filter(
@@ -175,6 +181,7 @@ def stage_yardi_file(
         "missing_required_columns": missing,
         "target_mutation": False, "requires_explicit_review": True,
         "unit_relationships_auto_created": False,
+        "ownership_relationships_auto_created": False,
     }
     upload.status = "MAPPING_REQUIRED" if missing else (
         "STAGED_WITH_ERRORS" if invalid else "REVIEW_REQUIRED"
