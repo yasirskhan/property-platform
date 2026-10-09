@@ -1,3 +1,21 @@
+# AI_HANDOFF.md — 2026-10-09 YARDI DUPLICATE-ID / REPLAY REGRESSION VERIFIED
+
+**CURRENT verified checkpoint; supersedes historical NEXT entries.** Repository `yasirskhan/property-platform`; ONLY branch `chatgpt/checkpoint-005-safety`.
+
+- Latest verified product SHA: `05958bbde240752218c37fce0c650cac7ea0309b`.
+- Exact GitHub Actions run **37899250853 — SUCCESS**, all six jobs PASS (frontend, backend, security, platform-admin, staging-config, authenticated E2E).
+- Yardi migration-run foundation, Yardi property CSV/XLSX explicit-mapping staging, staged-row review, and duplicate-ID/replay/nonmutation regression coverage are verified bounded batches.
+- Phase 4.15 overall: **IN PROGRESS**.
+- Previous docs-only CI runs may be cancelled due to rapid follow-up commits; use the exact product SHA/CI above.
+
+## NEXT work
+
+Proceed with the next dependency-safe Yardi batch under `docs/YARDI_MIGRATION_PLAN.md`: source-contract-gated Units staging, only where stable Unit and Property source IDs are explicitly supplied and verified; never fabricate identity or infer occupancy/lease/accounting facts. Reuse the same provider-labelled upload/staging/review/fingerprint/replay architecture. First verify live HEAD/CI and source code; implement, test, commit, verify exact-SHA hosted CI, fix reds, update handoff and continue.
+
+Do not touch `main`, create branches, reopen verified AppFolio/Buildium, add an unofficial Yardi API or general UX. Preserve navigation integrity/hidden-menu roadmap and `docs/UX_STANDARDS.md` AUTHORIZED BUT NOT ACTIVE.
+
+---
+
 # AI_HANDOFF.md — 2026-10-09 YARDI STAGED-ROW REVIEW VERIFIED
 
 **Current entry supersedes older next tasks.** ONLY branch `chatgpt/checkpoint-005-safety`; never touch main or create branches.
