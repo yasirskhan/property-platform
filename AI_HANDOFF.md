@@ -1,3 +1,18 @@
+# AI_HANDOFF.md — 2026-10-09 YARDI STAGED-ROW REVIEW VERIFIED
+
+**Current entry supersedes older next tasks.** ONLY branch `chatgpt/checkpoint-005-safety`; never touch main or create branches.
+
+Verified product SHA: `7ffa79cff1ca5dfe4270ac7406969b8bd1ba9418`.
+Exact GitHub Actions CI: **37891251491 SUCCESS**; backend, frontend, platform-admin, security, staging-config, authenticated E2E all passed.
+Phase 4.15 remains IN PROGRESS. Yardi run foundation, Yardi property CSV/XLSX staging, and scoped staged-row list/review visibility are COMPLETE | VERIFIED as bounded batches.
+Staged rows are read-only; no target Property/Unit or accounting mutation.
+
+**NEXT:** Expand focused ingestion regressions for replay, duplicate source IDs, missing mapping, possible matches, isolation, and nonmutation. Then source-contract-gated Yardi Units after validated Property mappings. Never fabricate Yardi IDs/fields, relationships or accounting history. No unofficial Yardi API. Follow implement → tests → commit → exact SHA CI → fix reds → verify → handoff → continue.
+
+General UX remains AUTHORIZED BUT NOT ACTIVE. Preserve navigation integrity/hidden menu roadmap.
+
+---
+
 # AI_HANDOFF.md — 2026-10-09 PHASE 4.15 YARDI PROPERTY FILE STAGING VERIFIED
 
 **CURRENT ENTRY: supersedes older NEXT items.** Repository `yasirskhan/property-platform`; ONLY branch `chatgpt/checkpoint-005-safety`. Do not touch main or create another branch.
