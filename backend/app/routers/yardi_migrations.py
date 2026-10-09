@@ -7,6 +7,16 @@ It does not implement outbound Yardi API transport or mutate customer business d
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+import json
+from pathlib import Path
+
+from fastapi import File, Form, UploadFile
+from sqlalchemy.exc import IntegrityError
+from app.models.platform_migration import PlatformMigrationUpload
+from app.schemas.platform_migration import AppFolioMigrationUploadOut
+from app.services.appfolio_file_ingestion import MAX_FILE_BYTES, AppFolioFileIngestionError
+from app.services.yardi_file_ingestion import stage_yardi_file
+
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -169,3 +179,80 @@ def create_yardi_run(
     db.commit()
     db.refresh(row)
     return row
+
+
+@router.post(
+    "/runs/{run_id}/uploads",
+    response_model=AppFolioMigrationUploadOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def stage_yardi_upload(
+    run_id: int,
+    file: UploadFile = File(...),
+    resource: str | None = Form(default=None),
+    sheet_name: str | None = Form(default=None),
+    column_mapping_json: str | None = Form(default=None),
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    filename = Path(file.filename or "").name.strip()
+    if not filename:
+        raise HTTPException(status_code=422, detail="A source filename is required.")
+    try:
+        mapping = json.loads(column_mapping_json) if column_mapping_json else None
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=422, detail="Invalid column mapping JSON.") from exc
+    content = await file.read(MAX_FILE_BYTES + 1)
+    try:
+        result = stage_yardi_file(
+            db, run=run, filename=filename, content=content,
+            resource_override=resource, sheet_name=sheet_name,
+            explicit_mapping=mapping, platform_user_id=current_user.id,
+        )
+        if not result.replayed:
+            append_audit_log(
+                db, platform_user_id=current_user.id,
+                organization_id=run.organization_id,
+                entity_type="platform_migration_run", entity_id=run.id,
+                action="yardi_file_staged",
+                new_value={
+                    "upload_id": result.upload.id,
+                    "provider": "YARDI",
+                    "resource": result.upload.detected_resource,
+                    "row_count": result.upload.row_count,
+                    "normalized_fingerprint": result.upload.normalized_fingerprint,
+                    "raw_file_stored": False, "target_mutation": False,
+                },
+            )
+            db.commit()
+            db.refresh(result.upload)
+    except AppFolioFileIngestionError as exc:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Upload replay conflicted.") from exc
+    return AppFolioMigrationUploadOut.model_validate(result.upload).model_copy(
+        update={"replayed": result.replayed}
+    )
+
+
+@router.get("/runs/{run_id}/uploads", response_model=list[AppFolioMigrationUploadOut])
+def list_yardi_uploads(
+    run_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    run = _run(db, run_id=run_id, current_user=current_user, write=False)
+    response.headers["Cache-Control"] = "no-store"
+    return (
+        db.query(PlatformMigrationUpload)
+        .filter(
+            PlatformMigrationUpload.run_id == run.id,
+            PlatformMigrationUpload.organization_id == run.organization_id,
+            PlatformMigrationUpload.provider == "YARDI",
+        )
+        .order_by(PlatformMigrationUpload.id.desc()).all()
+    )
