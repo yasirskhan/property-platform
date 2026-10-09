@@ -56,11 +56,10 @@ def test_duplicate_yardi_source_ids_stay_invalid_without_target_mutation():
         db.add(run)
         db.commit()
         before = db.query(Property).count()
-        content = (
-            b"Property ID,Name,Street,City,State,Zip\\n"
-            b"P-01,First,1 Main,Cleveland,OH,44113\\n"
-            b"P-01,Second,2 Main,Cleveland,OH,44113\\n"
-        ).replace(b"\\\\n", b"\\n")
+        content = ("Property ID,Name,Street,City,State,Zip\\n"
+            "P-01,First,1 Main,Cleveland,OH,44113\\n"
+            "P-01,Second,2 Main,Cleveland,OH,44113\\n"
+        ).encode("utf-8")
         mapping = {
             "source_id": "Property ID", "name": "Name",
             "address_line1": "Street", "city": "City",
