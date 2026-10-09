@@ -1,3 +1,26 @@
+# AI_HANDOFF.md — 2026-10-09 PHASE 4.15 YARDI PROPERTY FILE STAGING VERIFIED
+
+**CURRENT ENTRY: supersedes older NEXT items.** Repository `yasirskhan/property-platform`; ONLY branch `chatgpt/checkpoint-005-safety`. Do not touch main or create another branch.
+
+## Exact verified checkpoint
+
+- Verified product SHA: `0f2c3e2a9a9babf7bf59a9c45f815c7ccefda5e3`.
+- Exact GitHub Actions CI: **37885431311 — SUCCESS**; backend, frontend, security, platform-admin, staging-config and authenticated E2E all SUCCESS.
+- Phase 4.15 overall remains **IN PROGRESS**. The Yardi migration-run foundation and the first Yardi property CSV/XLSX staging batch are **COMPLETE | VERIFIED** as bounded batches.
+- Existing shared AppFolio file parsing limits and data-only CSV/XLSX controls reused.
+- YARDI provider-specific upload/list routes: `POST /api/platform/migrations/yardi/runs/{run_id}/uploads` and `GET /api/platform/migrations/yardi/runs/{run_id}/uploads`.
+- Current Yardi stage supports **PROPERTIES only** with explicit mapping. Missing required fields, duplicate stable source IDs and ambiguous source semantics are blocked/reviewable; no identity is synthesized.
+- Uploads store staging metadata and normalized rows only; no Property, accounting, lease or target mapping is created. No Yardi API transport.
+- Regression tests are present; exact SHA's entire CI succeeded. Do not repeat either verified batch.
+
+## Exact NEXT Phase 4.15 batch
+
+Add Yardi staged-row review/list visibility plus focused provider/org isolation, replay, invalid-ID, duplicate-ID, match and nonmutation tests. Then assess the next separately verified resource source contract; do not invent undocumented Yardi columns. Preserve explicit review, exact fingerprints and no automatic target overwrite. Keep historical accounting blocked without authoritative debit/credit source and target semantics.
+
+For every product batch: implement → test → commit → exact-SHA CI → fix reds → verify → update handoff. General UX remains AUTHORIZED BUT NOT ACTIVE. Preserve navigation integrity and hidden menu roadmap.
+
+---
+
 # AI_HANDOFF.md — 2026-10-08 PHASE 4.15 YARDI RUN FOUNDATION COMPLETE | VERIFIED
 
 **CURRENT HEAD-OF-HANDOFF ENTRY. This supersedes older NEXT labels below.**
