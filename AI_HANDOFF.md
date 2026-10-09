@@ -1,3 +1,17 @@
+# AI_HANDOFF.md — 2026-10-09 YARDI UNITS STAGING VERIFIED
+
+**CURRENT checkpoint; supersedes older NEXT entries.** Only branch `chatgpt/checkpoint-005-safety`.
+
+- Phase 4.15 Yardi Units staging bounded batch **COMPLETE | VERIFIED**.
+- Exact verified product SHA: `839f4f00ef8ed8d012d42b88bbaa03da78220c33`.
+- Exact GitHub Actions: **37998781358 SUCCESS**; all six CI jobs green.
+- Units CSV/XLSX staging uses explicit Unit and source Property IDs, duplicate detection and replay protections through existing provider-labelled migration tables. Missing same-run verified parent Property mapping leaves Unit relationship blocked/reviewable. No target Unit creation, lease/occupancy inference or accounting mutation.
+- Phase 4.15 overall remains **IN PROGRESS**.
+
+**NEXT:** Independently verify resource semantics and implement next bounded Yardi owner/ownership identity staging using explicit source identity only. Missing source contracts remain blocked; do not invent endpoints, owner identity or relationships. Preserve AppFolio/Buildium and UX/navigation checkpoints. Never touch main or create branches. Implement → test → commit → exact CI → fix reds → verify → update handoff → continue.
+
+---
+
 # AI_HANDOFF.md — 2026-10-09 YARDI DUPLICATE-ID / REPLAY REGRESSION VERIFIED
 
 **CURRENT verified checkpoint; supersedes historical NEXT entries.** Repository `yasirskhan/property-platform`; ONLY branch `chatgpt/checkpoint-005-safety`.
