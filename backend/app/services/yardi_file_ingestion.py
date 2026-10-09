@@ -23,6 +23,9 @@ from app.services.appfolio_file_ingestion import (
     _safe_filename, PROPERTY_REQUIRED,
 )
 
+UNIT_FIELDS = frozenset(("source_id", "source_property_id", "unit_name"))
+UNIT_REQUIRED = ("source_id", "source_property_id", "unit_name")
+
 PROPERTY_FIELDS = frozenset((
     "source_id", "name", "address_line1", "address_line2",
     "city", "state", "zip_code", "property_type",
@@ -36,10 +39,13 @@ def stage_yardi_file(
 ) -> StagedUploadResult:
     if run.provider != "YARDI":
         raise AppFolioFileIngestionError("Migration run is not a Yardi run.")
-    if (resource_override or "").strip().upper() != "PROPERTIES":
+    resource = (resource_override or "").strip().upper()
+    if resource not in {"PROPERTIES", "UNITS"}:
         raise AppFolioFileIngestionError(
-            "Choose resource PROPERTIES; other Yardi resources require verified source contracts."
+            "Choose resource PROPERTIES or UNITS; other Yardi resources require verified source contracts."
         )
+    fields = PROPERTY_FIELDS if resource == "PROPERTIES" else UNIT_FIELDS
+    required = PROPERTY_REQUIRED if resource == "PROPERTIES" else UNIT_REQUIRED
     filename = _safe_filename(filename)
     parsed = _parse_file(filename, content, sheet_name)
     mapping = explicit_mapping or {}
@@ -47,18 +53,18 @@ def stage_yardi_file(
         isinstance(k, str) and isinstance(v, str) for k, v in mapping.items()
     ):
         raise AppFolioFileIngestionError("Column mapping must contain string fields and headers.")
-    if set(mapping) - PROPERTY_FIELDS:
-        raise AppFolioFileIngestionError("Unknown Yardi property mapping field.")
+    if set(mapping) - fields:
+        raise AppFolioFileIngestionError("Unknown Yardi resource mapping field.")
     if len(set(mapping.values())) != len(mapping):
         raise AppFolioFileIngestionError("Each source column may map to only one field.")
     if any(header not in parsed.headers for header in mapping.values()):
         raise AppFolioFileIngestionError("Column mapping references an unknown source header.")
-    missing = sorted(set(PROPERTY_REQUIRED) - set(mapping))
+    missing = sorted(set(required) - set(mapping))
     # Preserve unambiguous manual mappings, but block incomplete source contracts.
     canonical = {
         "provider": "YARDI", "organization_id": run.organization_id,
         "source_account_ref": run.source_account_ref,
-        "resource": "PROPERTIES", "sheet_name": parsed.sheet_name,
+        "resource": resource, "sheet_name": parsed.sheet_name,
         "mapping": {k: _normalize_header(v) for k, v in sorted(mapping.items())},
         "rows": [{"row_number": n, "data": {
             _normalize_header(k): _clean_cell(v) for k, v in row.items()
@@ -82,7 +88,7 @@ def stage_yardi_file(
         file_format=parsed.file_format,
         file_sha256=hashlib.sha256(content).hexdigest(),
         normalized_fingerprint=fingerprint,
-        detected_resource="PROPERTIES", sheet_name=parsed.sheet_name,
+        detected_resource=resource, sheet_name=parsed.sheet_name,
         headers=parsed.headers, column_mapping=mapping,
         validation_summary={}, status="STAGING",
         row_count=len(parsed.rows),
@@ -95,10 +101,10 @@ def stage_yardi_file(
     for row_number, source in parsed.rows:
         data: dict[str, Any] = {
             field: _mapped_value(source, mapping, field)
-            for field in PROPERTY_FIELDS if field in mapping
+            for field in fields if field in mapping
         }
         errors = [f"Missing required source column: {field}" for field in missing]
-        for field in PROPERTY_REQUIRED:
+        for field in required:
             if not data.get(field) or not str(data[field]).strip():
                 errors.append(f"{field} is required.")
         source_id = str(data.get("source_id") or "").strip() or None
@@ -118,12 +124,27 @@ def stage_yardi_file(
                 PlatformMigrationItem.run_id == run.id,
                 PlatformMigrationItem.organization_id == run.organization_id,
                 PlatformMigrationItem.provider == "YARDI",
-                PlatformMigrationItem.resource == "PROPERTIES",
+                PlatformMigrationItem.resource == resource,
                 PlatformMigrationItem.source_id == source_id,
             ).first()
             if mapped:
                 disposition = "ALREADY_MAPPED"
                 warnings.append("Source identity is already mapped; review before action.")
+            elif resource == "UNITS":
+                source_property_id = str(data.get("source_property_id") or "").strip()
+                parent = db.query(PlatformMigrationItem).filter(
+                    PlatformMigrationItem.run_id == run.id,
+                    PlatformMigrationItem.organization_id == run.organization_id,
+                    PlatformMigrationItem.provider == "YARDI",
+                    PlatformMigrationItem.resource == "PROPERTIES",
+                    PlatformMigrationItem.source_id == source_property_id,
+                    PlatformMigrationItem.target_entity == "PROPERTY",
+                ).first()
+                disposition = "REVIEW"
+                if parent is None:
+                    warnings.append("Source Property ID has no verified same-run Property mapping; relationship blocked.")
+                else:
+                    warnings.append("Parent Property mapping exists; Unit identity and relationship require explicit review.")
             else:
                 possible = db.query(Property.id).filter(
                     Property.organization_id == run.organization_id,
@@ -143,7 +164,7 @@ def stage_yardi_file(
         db.add(PlatformMigrationStagedRow(
             upload_id=upload.id, run_id=run.id,
             organization_id=run.organization_id, provider="YARDI",
-            resource="PROPERTIES", row_number=row_number,
+            resource=resource, row_number=row_number,
             source_id=source_id, disposition=disposition,
             row_fingerprint=_row_fingerprint(source),
             normalized_data=data, warnings=warnings, errors=errors,
@@ -153,6 +174,7 @@ def stage_yardi_file(
         "duplicates": duplicates, "possible_existing_matches": matches,
         "missing_required_columns": missing,
         "target_mutation": False, "requires_explicit_review": True,
+        "unit_relationships_auto_created": False,
     }
     upload.status = "MAPPING_REQUIRED" if missing else (
         "STAGED_WITH_ERRORS" if invalid else "REVIEW_REQUIRED"
