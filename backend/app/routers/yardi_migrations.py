@@ -14,7 +14,7 @@ from pathlib import Path
 from fastapi import File, Form, UploadFile
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from app.models.platform_migration import PlatformMigrationUpload, PlatformMigrationStagedRow
+from app.models.platform_migration import PlatformMigrationUpload, PlatformMigrationStagedRow, PlatformMigrationItem
 from app.schemas.platform_migration import AppFolioMigrationUploadOut, AppFolioMigrationStagedRowOut
 from app.services.appfolio_file_ingestion import MAX_FILE_BYTES, AppFolioFileIngestionError
 from app.services.yardi_file_ingestion import stage_yardi_file
@@ -360,6 +360,62 @@ def preview_yardi_staging(
         "dispositions_by_resource": resources,
         "preview_fingerprint": preview_fingerprint,
         "reconciliation_authorized": False,
+        "controlled_commit_enabled": False,
+        "customer_business_mutation": False,
+    }
+
+
+@router.get("/runs/{run_id}/reconciliation")
+def get_yardi_reconciliation(
+    run_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Read-only source coverage; does not authorize any migration commit."""
+    run = _run(db, run_id=run_id, current_user=current_user, write=False)
+    rows = db.query(PlatformMigrationStagedRow).filter(
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+    ).order_by(PlatformMigrationStagedRow.id.asc()).all()
+    items = db.query(PlatformMigrationItem).filter(
+        PlatformMigrationItem.run_id == run.id,
+        PlatformMigrationItem.organization_id == run.organization_id,
+        PlatformMigrationItem.provider == "YARDI",
+    ).order_by(PlatformMigrationItem.id.asc()).all()
+    existing = {(item.resource, item.source_id) for item in items}
+    resources: dict[str, dict[str, int]] = {}
+    unresolved = invalid = 0
+    for row in rows:
+        stats = resources.setdefault(row.resource, {
+            "total": 0, "invalid": 0, "mapped": 0, "needs_review": 0,
+        })
+        stats["total"] += 1
+        if row.errors or row.disposition == "INVALID":
+            invalid += 1
+            stats["invalid"] += 1
+        elif row.source_id and (row.resource, row.source_id) in existing:
+            stats["mapped"] += 1
+        else:
+            unresolved += 1
+            stats["needs_review"] += 1
+    evidence = {
+        "staged": [(r.id, r.resource, r.source_id, r.row_fingerprint, r.disposition,
+                    r.resolution_action) for r in rows],
+        "mapped": [(i.id, i.resource, i.source_id, i.target_entity, i.target_id,
+                    i.source_fingerprint) for i in items],
+    }
+    digest = hashlib.sha256(
+        json.dumps(evidence, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "run_id": run.id, "provider": "YARDI",
+        "resource_coverage": resources,
+        "staged_rows": len(rows), "durable_mapping_count": len(items),
+        "invalid_rows": invalid, "unresolved_rows": unresolved,
+        "review_fingerprint": digest,
         "controlled_commit_enabled": False,
         "customer_business_mutation": False,
     }
