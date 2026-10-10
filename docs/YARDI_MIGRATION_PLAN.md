@@ -203,3 +203,7 @@ Phase 4.15 is complete when:
 - `AI_HANDOFF.md` records the final supported resource matrix and blockers;
 - no undocumented Yardi endpoint or synthetic accounting history was introduced.
 
+
+## Financial source gate checkpoint (2026-10-10)
+
+GL accounts, open receivables, lease charges, payables, bank accounts, budgets, outstanding checks and historical accounting remain blocked until an independently verified Yardi export establishes source identifiers, row grain, period, debit/credit and settlement semantics and target reconciliation. Do not infer missing balances or post synthetic history.
