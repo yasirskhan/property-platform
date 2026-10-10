@@ -1,3 +1,16 @@
+# AI_HANDOFF.md — 2026-10-10 YARDI LEASE IDENTITY STAGING VERIFIED
+
+**Latest verified product checkpoint, supersedes older NEXT entries.** ONLY branch `chatgpt/checkpoint-005-safety`.
+
+- Verified product SHA: `b27fda19306d4641173564bfbb564c15f93f949d`.
+- Exact GitHub Actions run: **38022003774 SUCCESS**; all six required jobs passed.
+- Yardi LEASE_OCCUPANCY CSV/XLSX staging, explicit stable lease/tenant/property/unit source identities, duplicate/replay protection, relationship warnings and no Lease/customer/accounting writes: **COMPLETE | VERIFIED** as a bounded staging batch.
+- Phase 4.15 overall **IN PROGRESS**. Earlier Yardi run/Properties/Units/Owners/Vendors/Residents stages remain verified.
+
+**NEXT:** Check `docs/YARDI_MIGRATION_PLAN.md` for accounting dependencies; add independently validated financial-source ingestion only where debit/credit/account identity and period semantics are explicitly supported. Do not fabricate GL, receivables, transaction history, rent balances or deposits. If blocked by missing real Yardi export source contracts, document exact dependencies and proceed to the next independent, safe roadmap item. Keep provider isolation, deterministic staged fingerprints, no mutations on upload. Continue implement → test → commit → exact-SHA CI → fix reds → verify → update handoff → continue. Never touch main or create another branch. General UX inactive.
+
+---
+
 # AI_HANDOFF.md — 2026-10-10 YARDI RESIDENT IDENTITY STAGING VERIFIED
 
 **Current checkpoint overrides previous NEXT entries.** Repository `yasirskhan/property-platform`; ONLY branch `chatgpt/checkpoint-005-safety`.
