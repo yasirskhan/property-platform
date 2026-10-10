@@ -8,9 +8,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 import json
+import hashlib
 from pathlib import Path
 
 from fastapi import File, Form, UploadFile
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from app.models.platform_migration import PlatformMigrationUpload, PlatformMigrationStagedRow
 from app.schemas.platform_migration import AppFolioMigrationUploadOut, AppFolioMigrationStagedRowOut
@@ -312,4 +314,52 @@ def yardi_resource_readiness(
         "customer_records_created_by_upload": False,
         "financial_posting_enabled": False,
         "official_api_adapter_enabled": False,
+    }
+
+
+@router.get("/runs/{run_id}/staging-preview")
+def preview_yardi_staging(
+    run_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Read-only, provider-scoped inventory; never authorizes a commit."""
+    run = _run(db, run_id=run_id, current_user=current_user, write=False)
+    uploads = db.query(PlatformMigrationUpload).filter(
+        PlatformMigrationUpload.run_id == run.id,
+        PlatformMigrationUpload.organization_id == run.organization_id,
+        PlatformMigrationUpload.provider == "YARDI",
+    ).order_by(PlatformMigrationUpload.id.asc()).all()
+    counts = db.query(
+        PlatformMigrationStagedRow.resource,
+        PlatformMigrationStagedRow.disposition,
+        func.count(PlatformMigrationStagedRow.id),
+    ).filter(
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+    ).group_by(
+        PlatformMigrationStagedRow.resource,
+        PlatformMigrationStagedRow.disposition,
+    ).all()
+    resources: dict[str, dict[str, int]] = {}
+    for resource, disposition, count in counts:
+        resources.setdefault(resource, {})[disposition] = count
+    fingerprint_input = json.dumps(
+        [(upload.id, upload.normalized_fingerprint) for upload in uploads],
+        separators=(",", ":"),
+    )
+    preview_fingerprint = hashlib.sha256(fingerprint_input.encode("utf-8")).hexdigest()
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "run_id": run.id,
+        "provider": "YARDI",
+        "upload_count": len(uploads),
+        "staged_row_count": sum(count for _, _, count in counts),
+        "dispositions_by_resource": resources,
+        "preview_fingerprint": preview_fingerprint,
+        "reconciliation_authorized": False,
+        "controlled_commit_enabled": False,
+        "customer_business_mutation": False,
     }
