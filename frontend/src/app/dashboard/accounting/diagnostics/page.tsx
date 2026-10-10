@@ -19,13 +19,17 @@ import {
   getDiagnostics,
   DiagnosticsReport,
   DiagnosticCheck,
+  refundNegativeDiagnostic,
 } from "@/lib/diagnostics";
+import Flag from "@/components/features/Flag";
 
 export default function DiagnosticsPage() {
   const [data, setData] = useState<DiagnosticsReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [runAt, setRunAt] = useState<string>("");
+  const [fixingAccountId, setFixingAccountId] = useState<number | null>(null);
+  const [actionMessage, setActionMessage] = useState("");
 
   async function load() {
     setLoading(true);
@@ -38,6 +42,27 @@ export default function DiagnosticsPage() {
       setError(err instanceof Error ? err.message : "Load failed");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fixNegative(glAccountId: number) {
+    setFixingAccountId(glAccountId);
+    setActionMessage("");
+    try {
+      const result = await refundNegativeDiagnostic(
+        glAccountId,
+        new Date().toISOString().slice(0, 10)
+      );
+      setActionMessage(
+        `Posted Refund Negative Diagnostic #${result.transaction_id} for ${result.gl_number} (${result.amount}).`
+      );
+      await load();
+    } catch (err) {
+      setActionMessage(
+        err instanceof Error ? err.message : "Could not post diagnostic correction."
+      );
+    } finally {
+      setFixingAccountId(null);
     }
   }
 
@@ -110,10 +135,21 @@ export default function DiagnosticsPage() {
         </div>
       </div>
 
+      {actionMessage && (
+        <div className="mb-4 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+          {actionMessage}
+        </div>
+      )}
+
       {/* Checks */}
       <div className="space-y-4">
         {data.checks.map((check) => (
-          <CheckCard key={check.key} check={check} />
+          <CheckCard
+            key={check.key}
+            check={check}
+            fixingAccountId={fixingAccountId}
+            onFixNegative={fixNegative}
+          />
         ))}
       </div>
     </div>
@@ -123,7 +159,15 @@ export default function DiagnosticsPage() {
 // ------------------------------------------------------------
 // One diagnostic card
 // ------------------------------------------------------------
-function CheckCard({ check }: { check: DiagnosticCheck }) {
+function CheckCard({
+  check,
+  fixingAccountId,
+  onFixNegative,
+}: {
+  check: DiagnosticCheck;
+  fixingAccountId: number | null;
+  onFixNegative: (glAccountId: number) => Promise<void>;
+}) {
   const border =
     check.severity === "error"
       ? "border-red-200"
@@ -165,6 +209,42 @@ function CheckCard({ check }: { check: DiagnosticCheck }) {
           <div className="text-sm text-slate-600 mt-1 whitespace-pre-wrap">
             {check.message}
           </div>
+
+          {check.key === "NEGATIVE_FEE_ACCOUNTS" &&
+            check.details.some((detail) => Number(detail.gl_account_id) > 0) && (
+              <Flag name="release.accounting.diagnostics.refund_negative">
+                <div className="mt-3 space-y-2">
+                  {check.details
+                    .filter((detail) => Number(detail.gl_account_id) > 0)
+                    .map((detail) => {
+                      const accountId = Number(detail.gl_account_id);
+                      const offset = String(detail.offset_account || "");
+                      return (
+                        <div
+                          key={accountId}
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-100 bg-white px-3 py-2 text-xs"
+                        >
+                          <span className="text-slate-600">
+                            {offset
+                              ? `Offset ${offset} is configured.`
+                              : "Configure an offset account on this fee GL before correcting it."}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={!offset || fixingAccountId === accountId}
+                            onClick={() => void onFixNegative(accountId)}
+                            className="rounded-md bg-slate-900 px-3 py-1.5 font-medium text-white disabled:opacity-40"
+                          >
+                            {fixingAccountId === accountId
+                              ? "Posting…"
+                              : "Refund Negative Diagnostic"}
+                          </button>
+                        </div>
+                      );
+                    })}
+                </div>
+              </Flag>
+            )}
 
           {check.details.length > 0 && (
             <div className="mt-3 bg-white/60 border border-slate-200 rounded p-3 text-xs">

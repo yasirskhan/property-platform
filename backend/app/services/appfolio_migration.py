@@ -1,0 +1,2675 @@
+"""AppFolio migration mapping foundation.
+
+This module intentionally does not perform network calls and does not persist raw
+AppFolio payloads. Phase 4.13 uses it to validate/map provider records before a
+later verified transport and commit step.
+
+Public AppFolio Stack documentation exposes Property fields including Id, Name,
+Address1/2, City, State, Zip, HiddenAt and PropertyType. Authentication and
+customer-specific API access remain external prerequisites and are not guessed
+here.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+from dataclasses import dataclass
+from typing import Any
+
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from app.models.gl_account import GLAccount
+from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
+from app.models.property import Property, PropertyType, Unit
+from app.models.vendor import Vendor
+from app.models.user import User, UserRole
+from app.services.plan_limits import PlanUnitLimitExceeded, require_unit_capacity
+
+
+class AppFolioMigrationError(ValueError):
+    pass
+
+
+@dataclass(frozen=True)
+class PropertyDryRunResult:
+    fingerprint: str
+    replayed: bool
+    total: int
+    importable: int
+    skipped_hidden: int
+    invalid: int
+    warning_count: int
+    rows: list[dict[str, Any]]
+    summary: dict[str, Any]
+
+
+def _normalized(record: dict[str, Any]) -> dict[str, Any]:
+    return {
+        re.sub(r"[^a-z0-9]", "", str(key).strip().lower()): value
+        for key, value in record.items()
+    }
+
+
+def _value(record: dict[str, Any], *names: str) -> Any:
+    normalized = _normalized(record)
+    for name in names:
+        key = re.sub(r"[^a-z0-9]", "", name.strip().lower())
+        if key in normalized:
+            return normalized[key]
+    return None
+
+
+def _clean_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _is_hidden(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    return text not in {"", "none", "null", "false", "0"}
+
+
+def _property_type(value: Any) -> tuple[str, list[str]]:
+    raw = (_clean_text(value) or "").lower()
+    compact = re.sub(r"[^a-z0-9]", "", raw)
+    mappings = {
+        "singlefamily": PropertyType.SINGLE_FAMILY.value,
+        "singlefamilyhome": PropertyType.SINGLE_FAMILY.value,
+        "multifamily": PropertyType.MULTI_FAMILY.value,
+        "multifamilyhome": PropertyType.MULTI_FAMILY.value,
+        "apartment": PropertyType.APARTMENT.value,
+        "apartments": PropertyType.APARTMENT.value,
+        "condo": PropertyType.CONDO.value,
+        "condominium": PropertyType.CONDO.value,
+        "townhouse": PropertyType.TOWNHOUSE.value,
+        "townhome": PropertyType.TOWNHOUSE.value,
+        "commercial": PropertyType.COMMERCIAL.value,
+    }
+    if compact in mappings:
+        return mappings[compact], []
+    if not compact:
+        return PropertyType.OTHER.value, [
+            "AppFolio PropertyType is not recorded; target preview uses OTHER."
+        ]
+    return PropertyType.OTHER.value, [
+        f"Unrecognized AppFolio PropertyType {value!r}; target preview uses OTHER."
+    ]
+
+
+def _required(
+    record: dict[str, Any],
+    *,
+    field: str,
+    aliases: tuple[str, ...],
+    max_length: int,
+) -> tuple[str | None, str | None]:
+    value = _clean_text(_value(record, *aliases))
+    if value is None:
+        return None, f"{field} is required."
+    if len(value) > max_length:
+        return None, f"{field} exceeds {max_length} characters."
+    return value, None
+
+
+def _optional(
+    record: dict[str, Any],
+    *,
+    aliases: tuple[str, ...],
+    max_length: int,
+) -> tuple[str | None, str | None]:
+    value = _clean_text(_value(record, *aliases))
+    if value is None:
+        return None, None
+    if len(value) > max_length:
+        return None, f"{aliases[0]} exceeds {max_length} characters."
+    return value, None
+
+
+def _fingerprint(
+    *,
+    organization_id: int,
+    source_account_ref: str,
+    include_hidden: bool,
+    records: list[dict[str, Any]],
+    source_context_fingerprint: str | None = None,
+) -> str:
+    canonical = json.dumps(
+        {
+            "provider": "APPFOLIO",
+            "organization_id": organization_id,
+            "source_account_ref": source_account_ref,
+            "include_hidden": include_hidden,
+            "source_context_fingerprint": source_context_fingerprint,
+            "records": records,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def dry_run_properties(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    include_hidden: bool,
+    records: list[dict[str, Any]],
+    source_context_fingerprint: str | None = None,
+) -> PropertyDryRunResult:
+    if run.provider != "APPFOLIO":
+        raise AppFolioMigrationError("Migration run is not an AppFolio run.")
+    if not records:
+        raise AppFolioMigrationError("At least one AppFolio property record is required.")
+
+    fingerprint = _fingerprint(
+        organization_id=run.organization_id,
+        source_account_ref=run.source_account_ref,
+        include_hidden=include_hidden,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    replayed = run.last_dry_run_fingerprint == fingerprint
+
+    rows: list[dict[str, Any]] = []
+    seen_source_ids: set[str] = set()
+    importable = 0
+    skipped_hidden = 0
+    invalid = 0
+    warning_count = 0
+
+    for record in records:
+        source_id = _clean_text(_value(record, "Id", "PropertyId"))
+        row_warnings: list[str] = []
+
+        if source_id is None:
+            rows.append(
+                {
+                    "source_id": None,
+                    "importable": False,
+                    "reason": "AppFolio property Id is required.",
+                    "mapped": None,
+                    "warnings": [],
+                }
+            )
+            invalid += 1
+            continue
+        if source_id in seen_source_ids:
+            rows.append(
+                {
+                    "source_id": source_id,
+                    "importable": False,
+                    "reason": "Duplicate AppFolio property Id in this dry run.",
+                    "mapped": None,
+                    "warnings": [],
+                }
+            )
+            invalid += 1
+            continue
+        seen_source_ids.add(source_id)
+
+        if _is_hidden(_value(record, "HiddenAt")) and not include_hidden:
+            rows.append(
+                {
+                    "source_id": source_id,
+                    "importable": False,
+                    "reason": "Hidden AppFolio property excluded by dry-run settings.",
+                    "mapped": None,
+                    "warnings": [],
+                }
+            )
+            skipped_hidden += 1
+            continue
+
+        name, name_error = _required(
+            record, field="Name", aliases=("Name",), max_length=255
+        )
+        address1, address1_error = _required(
+            record, field="Address1", aliases=("Address1", "Address 1"), max_length=255
+        )
+        city, city_error = _required(
+            record, field="City", aliases=("City",), max_length=100
+        )
+        state, state_error = _required(
+            record, field="State", aliases=("State",), max_length=50
+        )
+        zip_code, zip_error = _required(
+            record, field="Zip", aliases=("Zip", "ZipCode", "PostalCode"), max_length=20
+        )
+        address2, address2_error = _optional(
+            record, aliases=("Address2", "Address 2"), max_length=255
+        )
+
+        errors = [
+            error
+            for error in (
+                name_error,
+                address1_error,
+                city_error,
+                state_error,
+                zip_error,
+                address2_error,
+            )
+            if error is not None
+        ]
+        if errors:
+            rows.append(
+                {
+                    "source_id": source_id,
+                    "importable": False,
+                    "reason": " ".join(errors),
+                    "mapped": None,
+                    "warnings": [],
+                }
+            )
+            invalid += 1
+            continue
+
+        property_type, type_warnings = _property_type(_value(record, "PropertyType"))
+        row_warnings.extend(type_warnings)
+
+        existing = (
+            db.query(Property)
+            .filter(
+                Property.organization_id == run.organization_id,
+                Property.name == name,
+                Property.address_line1 == address1,
+                Property.city == city,
+                Property.state == state,
+                Property.zip_code == zip_code,
+            )
+            .first()
+        )
+        if existing is not None:
+            row_warnings.append(
+                f"Possible existing target property match: local property #{existing.id}; "
+                "a later commit step must resolve rather than duplicate it."
+            )
+
+        mapped = {
+            "name": name,
+            "property_type": property_type,
+            "address_line1": address1,
+            "address_line2": address2,
+            "city": city,
+            "state": state,
+            "zip_code": zip_code,
+            "country": "USA",
+        }
+        rows.append(
+            {
+                "source_id": source_id,
+                "importable": True,
+                "reason": None,
+                "mapped": mapped,
+                "warnings": row_warnings,
+            }
+        )
+        importable += 1
+        warning_count += len(row_warnings)
+
+    summary = {
+        "resource": "PROPERTIES",
+        "source_context_fingerprint": source_context_fingerprint,
+        "total": len(records),
+        "importable": importable,
+        "skipped_hidden": skipped_hidden,
+        "invalid": invalid,
+        "warning_count": warning_count,
+    }
+
+    if not replayed:
+        run.last_dry_run_fingerprint = fingerprint
+        run.last_dry_run_summary = summary
+        run.status = "DRY_RUN_READY"
+
+    return PropertyDryRunResult(
+        fingerprint=fingerprint,
+        replayed=replayed,
+        total=len(records),
+        importable=importable,
+        skipped_hidden=skipped_hidden,
+        invalid=invalid,
+        warning_count=warning_count,
+        rows=rows,
+        summary=summary,
+    )
+
+
+
+@dataclass(frozen=True)
+class PropertyCommitResult:
+    fingerprint: str
+    replayed: bool
+    committed: int
+    matched_existing: int
+    skipped_hidden: int
+    warning_count: int
+    rows: list[dict[str, Any]]
+
+
+def commit_properties(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    include_hidden: bool,
+    records: list[dict[str, Any]],
+    expected_fingerprint: str,
+    platform_user_id: int,
+    source_context_fingerprint: str | None = None,
+    resolved_existing_matches: dict[str, int] | None = None,
+    force_create_new_source_ids: set[str] | None = None,
+) -> PropertyCommitResult:
+    """Atomically apply the exact reviewed property dry run.
+
+    Existing durable mappings replay safely. Explicit staged MATCH_EXISTING
+    decisions create migration metadata only; CREATE_NEW decisions may override
+    only the exact possible-match warning for their reviewed source row.
+    """
+    resolved_existing_matches = {
+        str(source_id): int(target_id)
+        for source_id, target_id in (resolved_existing_matches or {}).items()
+    }
+    force_create_new_source_ids = {
+        str(source_id) for source_id in (force_create_new_source_ids or set())
+    }
+    fingerprint = _fingerprint(
+        organization_id=run.organization_id,
+        source_account_ref=run.source_account_ref,
+        include_hidden=include_hidden,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    if expected_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit payload does not match the supplied dry-run fingerprint."
+        )
+    if run.last_dry_run_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit requires the exact latest successful property dry run."
+        )
+
+    preview = dry_run_properties(
+        db,
+        run=run,
+        include_hidden=include_hidden,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    if preview.invalid:
+        raise AppFolioMigrationError(
+            "Property commit is blocked while the dry run contains invalid records."
+        )
+
+    importable_rows = [row for row in preview.rows if row["importable"]]
+    source_ids = [str(row["source_id"]) for row in importable_rows]
+    source_id_set = set(source_ids)
+    resolution_ids = set(resolved_existing_matches) | force_create_new_source_ids
+    if resolution_ids - source_id_set:
+        raise AppFolioMigrationError(
+            "Property resolution state does not match the reviewed dry-run rows."
+        )
+    if set(resolved_existing_matches) & force_create_new_source_ids:
+        raise AppFolioMigrationError(
+            "A property source row cannot both match existing and create new."
+        )
+
+    mappings = (
+        db.query(PlatformMigrationItem)
+        .filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "APPFOLIO",
+            PlatformMigrationItem.resource == "PROPERTIES",
+            PlatformMigrationItem.source_id.in_(source_ids),
+        )
+        .order_by(PlatformMigrationItem.id.asc())
+        .all()
+        if source_ids
+        else []
+    )
+    by_source = {item.source_id: item for item in mappings}
+
+    result_rows: list[dict[str, Any]] = []
+    committed = 0
+    matched_existing = 0
+    changed = False
+
+    for preview_row in importable_rows:
+        source_id = str(preview_row["source_id"])
+        prior = by_source.get(source_id)
+        if prior is not None:
+            if prior.target_entity != "PROPERTY":
+                raise AppFolioMigrationError(
+                    "Property commit mapping is inconsistent and requires manual review."
+                )
+            target = (
+                db.query(Property)
+                .filter(
+                    Property.id == prior.target_id,
+                    Property.organization_id == run.organization_id,
+                )
+                .first()
+            )
+            if target is None:
+                raise AppFolioMigrationError(
+                    "A previously committed target property is missing; manual review required."
+                )
+            result_rows.append(
+                {
+                    "source_id": source_id,
+                    "target_property_id": target.id,
+                    "replayed": True,
+                }
+            )
+            continue
+
+        resolved_target_id = resolved_existing_matches.get(source_id)
+        if resolved_target_id is not None:
+            target = (
+                db.query(Property)
+                .filter(
+                    Property.id == resolved_target_id,
+                    Property.organization_id == run.organization_id,
+                    Property.is_active.is_(True),
+                    Property.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target is None:
+                raise AppFolioMigrationError(
+                    "Resolved existing property target is no longer available."
+                )
+            db.add(
+                PlatformMigrationItem(
+                    run_id=run.id,
+                    organization_id=run.organization_id,
+                    provider="APPFOLIO",
+                    resource="PROPERTIES",
+                    source_id=source_id,
+                    target_entity="PROPERTY",
+                    target_id=target.id,
+                    source_fingerprint=fingerprint,
+                    created_by_platform_user_id=platform_user_id,
+                )
+            )
+            result_rows.append(
+                {
+                    "source_id": source_id,
+                    "target_property_id": target.id,
+                    "replayed": False,
+                }
+            )
+            matched_existing += 1
+            changed = True
+            continue
+
+        has_possible_match = any(
+            warning.startswith("Possible existing target property match:")
+            for warning in preview_row["warnings"]
+        )
+        if has_possible_match and source_id not in force_create_new_source_ids:
+            raise AppFolioMigrationError(
+                "Property commit is blocked by possible existing target matches; "
+                "resolve those conflicts before committing."
+            )
+
+        target = Property(
+            organization_id=run.organization_id,
+            **preview_row["mapped"],
+        )
+        db.add(target)
+        db.flush()
+        db.add(
+            PlatformMigrationItem(
+                run_id=run.id,
+                organization_id=run.organization_id,
+                provider="APPFOLIO",
+                resource="PROPERTIES",
+                source_id=source_id,
+                target_entity="PROPERTY",
+                target_id=target.id,
+                source_fingerprint=fingerprint,
+                created_by_platform_user_id=platform_user_id,
+            )
+        )
+        result_rows.append(
+            {
+                "source_id": source_id,
+                "target_property_id": target.id,
+                "replayed": False,
+            }
+        )
+        committed += 1
+        changed = True
+
+    if changed:
+        run.status = "PROPERTIES_COMMITTED"
+        db.flush()
+
+    return PropertyCommitResult(
+        fingerprint=fingerprint,
+        replayed=not changed,
+        committed=committed,
+        matched_existing=matched_existing,
+        skipped_hidden=preview.skipped_hidden,
+        warning_count=preview.warning_count,
+        rows=result_rows,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Unit Directory staged dry run / controlled commit
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class UnitDryRunResult:
+    fingerprint: str
+    replayed: bool
+    total: int
+    importable: int
+    invalid: int
+    warning_count: int
+    rows: list[dict[str, Any]]
+    summary: dict[str, Any]
+
+
+def _unit_fingerprint(
+    *,
+    organization_id: int,
+    source_account_ref: str,
+    records: list[dict[str, Any]],
+    source_context_fingerprint: str | None,
+) -> str:
+    canonical = json.dumps(
+        {
+            "provider": "APPFOLIO",
+            "resource": "UNITS",
+            "organization_id": organization_id,
+            "source_account_ref": source_account_ref,
+            "source_context_fingerprint": source_context_fingerprint,
+            "records": records,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def dry_run_units(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    records: list[dict[str, Any]],
+    source_context_fingerprint: str | None,
+    resolved_existing_matches: dict[str, int] | None = None,
+    force_create_new_source_ids: set[str] | None = None,
+) -> UnitDryRunResult:
+    if run.provider != "APPFOLIO":
+        raise AppFolioMigrationError("Migration run is not an AppFolio run.")
+    resolved_existing_matches = dict(resolved_existing_matches or {})
+    force_create_new_source_ids = set(force_create_new_source_ids or set())
+    if not records:
+        raise AppFolioMigrationError("At least one staged AppFolio Unit record is required.")
+
+    fingerprint = _unit_fingerprint(
+        organization_id=run.organization_id,
+        source_account_ref=run.source_account_ref,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    replayed = run.last_dry_run_fingerprint == fingerprint
+
+    rows: list[dict[str, Any]] = []
+    seen_source_ids: set[str] = set()
+    importable = 0
+    invalid = 0
+    warning_count = 0
+
+    for record in records:
+        source_id = _clean_text(_value(record, "Id", "UnitId", "Unit ID"))
+        property_source_id = _clean_text(
+            _value(record, "PropertyId", "Property ID")
+        )
+        unit_number = _clean_text(_value(record, "UnitName", "Unit Name", "Unit"))
+        row_warnings: list[str] = []
+
+        reasons: list[str] = []
+        if source_id is None:
+            reasons.append("AppFolio Unit ID is required for controlled commit.")
+        elif source_id in seen_source_ids:
+            reasons.append("Duplicate AppFolio Unit ID in this dry run.")
+        else:
+            seen_source_ids.add(source_id)
+        if property_source_id is None:
+            reasons.append("AppFolio Property ID is required for Unit linkage.")
+        if unit_number is None:
+            reasons.append("Unit Name is required.")
+        elif len(unit_number) > 50:
+            reasons.append("Unit Name exceeds the 50-character target unit-number limit.")
+
+        property_mapping = None
+        target_property = None
+        if property_source_id is not None:
+            property_mapping = (
+                db.query(PlatformMigrationItem)
+                .filter(
+                    PlatformMigrationItem.run_id == run.id,
+                    PlatformMigrationItem.organization_id == run.organization_id,
+                    PlatformMigrationItem.provider == "APPFOLIO",
+                    PlatformMigrationItem.resource == "PROPERTIES",
+                    PlatformMigrationItem.source_id == property_source_id,
+                )
+                .first()
+            )
+            if property_mapping is None:
+                reasons.append(
+                    "Referenced AppFolio Property ID has no durable Property mapping."
+                )
+            elif property_mapping.target_entity != "PROPERTY":
+                reasons.append("Referenced Property mapping is inconsistent.")
+            else:
+                target_property = (
+                    db.query(Property)
+                    .filter(
+                        Property.id == property_mapping.target_id,
+                        Property.organization_id == run.organization_id,
+                        Property.is_active.is_(True),
+                        Property.deleted_at.is_(None),
+                    )
+                    .first()
+                )
+                if target_property is None:
+                    reasons.append(
+                        "Referenced Property mapping target is not an active same-organization Property."
+                    )
+
+        if reasons:
+            rows.append(
+                {
+                    "source_id": source_id,
+                    "importable": False,
+                    "reason": " ".join(reasons),
+                    "mapped": None,
+                    "warnings": [],
+                }
+            )
+            invalid += 1
+            continue
+
+        prior = (
+            db.query(PlatformMigrationItem)
+            .filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "APPFOLIO",
+                PlatformMigrationItem.resource == "UNITS",
+                PlatformMigrationItem.source_id == source_id,
+            )
+            .first()
+        )
+        if prior is not None:
+            if prior.target_entity != "UNIT":
+                rows.append(
+                    {
+                        "source_id": source_id,
+                        "importable": False,
+                        "reason": "Existing Unit source mapping is inconsistent.",
+                        "mapped": None,
+                        "warnings": [],
+                    }
+                )
+                invalid += 1
+                continue
+            prior_target = (
+                db.query(Unit)
+                .join(Property, Property.id == Unit.property_id)
+                .filter(
+                    Unit.id == prior.target_id,
+                    Property.organization_id == run.organization_id,
+                )
+                .first()
+            )
+            if prior_target is None or prior_target.property_id != target_property.id:
+                rows.append(
+                    {
+                        "source_id": source_id,
+                        "importable": False,
+                        "reason": "Previously mapped Unit target is missing or belongs to a different mapped Property.",
+                        "mapped": None,
+                        "warnings": [],
+                    }
+                )
+                invalid += 1
+                continue
+            row_warnings.append(
+                f"Source Unit ID is already mapped to local unit #{prior_target.id}; commit replay will not create a duplicate."
+            )
+        elif source_id in resolved_existing_matches:
+            resolved_target = (
+                db.query(Unit)
+                .join(Property, Property.id == Unit.property_id)
+                .filter(
+                    Unit.id == resolved_existing_matches[source_id],
+                    Unit.property_id == target_property.id,
+                    Unit.is_active.is_(True),
+                    Unit.deleted_at.is_(None),
+                    Property.organization_id == run.organization_id,
+                )
+                .first()
+            )
+            if resolved_target is None:
+                rows.append(
+                    {
+                        "source_id": source_id,
+                        "importable": False,
+                        "reason": "Resolved existing Unit target is missing or no longer belongs to the mapped Property.",
+                        "mapped": None,
+                        "warnings": [],
+                    }
+                )
+                invalid += 1
+                continue
+            row_warnings.append(
+                f"Explicitly matched existing target unit #{resolved_target.id}; commit will create the durable source mapping without overwriting the Unit."
+            )
+        else:
+            existing = (
+                db.query(Unit)
+                .filter(
+                    Unit.property_id == target_property.id,
+                    Unit.unit_number == unit_number,
+                    Unit.is_active.is_(True),
+                    Unit.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if existing is not None and source_id in force_create_new_source_ids:
+                rows.append(
+                    {
+                        "source_id": source_id,
+                        "importable": False,
+                        "reason": (
+                            "CREATE_NEW cannot create an exact duplicate property/unit-number target; "
+                            "choose MATCH_EXISTING or SKIP. No source data will be renamed or invented."
+                        ),
+                        "mapped": None,
+                        "warnings": [],
+                    }
+                )
+                invalid += 1
+                continue
+            if existing is not None:
+                row_warnings.append(
+                    f"Possible existing target unit match: local unit #{existing.id}; explicit match resolution is required before commit."
+                )
+            elif source_id in force_create_new_source_ids:
+                row_warnings.append(
+                    "Explicit CREATE_NEW resolution accepted for a reviewed same-property possible match; no existing Unit will be overwritten."
+                )
+
+        # The verified basic Unit Directory source contract does not require
+        # layout/rent fields. Existing Unit defaults may therefore apply, but
+        # they are disclosed as target defaults rather than AppFolio facts.
+        row_warnings.append(
+            "Bedrooms, bathrooms and monthly rent are not sourced by this basic Unit Directory contract; target Unit defaults apply unless a later verified source supplies them."
+        )
+        mapped = {
+            "property_id": target_property.id,
+            "unit_number": unit_number,
+            "source_property_id": property_source_id,
+        }
+        rows.append(
+            {
+                "source_id": source_id,
+                "importable": True,
+                "reason": None,
+                "mapped": mapped,
+                "warnings": row_warnings,
+            }
+        )
+        importable += 1
+        warning_count += len(row_warnings)
+
+    summary = {
+        "resource": "UNITS",
+        "source_context_fingerprint": source_context_fingerprint,
+        "total": len(records),
+        "importable": importable,
+        "invalid": invalid,
+        "warning_count": warning_count,
+    }
+    if not replayed:
+        run.last_dry_run_fingerprint = fingerprint
+        run.last_dry_run_summary = summary
+        run.status = "DRY_RUN_READY"
+
+    return UnitDryRunResult(
+        fingerprint=fingerprint,
+        replayed=replayed,
+        total=len(records),
+        importable=importable,
+        invalid=invalid,
+        warning_count=warning_count,
+        rows=rows,
+        summary=summary,
+    )
+
+
+@dataclass(frozen=True)
+class UnitCommitResult:
+    fingerprint: str
+    replayed: bool
+    committed: int
+    matched_existing: int
+    warning_count: int
+    rows: list[dict[str, Any]]
+
+
+def commit_units(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    records: list[dict[str, Any]],
+    expected_fingerprint: str,
+    platform_user_id: int,
+    source_context_fingerprint: str | None,
+    resolved_existing_matches: dict[str, int] | None = None,
+    force_create_new_source_ids: set[str] | None = None,
+) -> UnitCommitResult:
+    fingerprint = _unit_fingerprint(
+        organization_id=run.organization_id,
+        source_account_ref=run.source_account_ref,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    if expected_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit payload does not match the supplied Unit dry-run fingerprint."
+        )
+    if run.last_dry_run_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit requires the exact latest successful Unit dry run."
+        )
+
+    resolved_existing_matches = dict(resolved_existing_matches or {})
+    force_create_new_source_ids = set(force_create_new_source_ids or set())
+    preview = dry_run_units(
+        db,
+        run=run,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+        resolved_existing_matches=resolved_existing_matches,
+        force_create_new_source_ids=force_create_new_source_ids,
+    )
+    if preview.invalid:
+        raise AppFolioMigrationError(
+            "Unit commit is blocked while the dry run contains invalid records."
+        )
+
+    importable_rows = [row for row in preview.rows if row["importable"]]
+    source_ids = [str(row["source_id"]) for row in importable_rows]
+    mappings = (
+        db.query(PlatformMigrationItem)
+        .filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "APPFOLIO",
+            PlatformMigrationItem.resource == "UNITS",
+            PlatformMigrationItem.source_id.in_(source_ids),
+        )
+        .all()
+        if source_ids
+        else []
+    )
+    by_source = {item.source_id: item for item in mappings}
+
+    new_rows = []
+    for row in importable_rows:
+        source_id = str(row["source_id"])
+        if source_id in by_source:
+            continue
+        if source_id in resolved_existing_matches:
+            continue
+        if any(
+            warning.startswith("Possible existing target unit match:")
+            for warning in row["warnings"]
+        ) and source_id not in force_create_new_source_ids:
+            raise AppFolioMigrationError(
+                "Unit commit is blocked by possible existing target matches; "
+                "explicit Unit match/create/skip resolution is required before committing those rows."
+            )
+        new_rows.append(row)
+
+    if new_rows:
+        try:
+            require_unit_capacity(
+                db,
+                organization_id=run.organization_id,
+                additional_units=len(new_rows),
+            )
+        except PlanUnitLimitExceeded as exc:
+            raise AppFolioMigrationError(f"PLAN_UNIT_LIMIT_REACHED: {exc}") from exc
+
+    result_rows: list[dict[str, Any]] = []
+    committed = 0
+    matched_existing = 0
+    changed = False
+
+    for row in importable_rows:
+        source_id = str(row["source_id"])
+        mapped = dict(row["mapped"] or {})
+        prior = by_source.get(source_id)
+        if prior is not None:
+            if prior.target_entity != "UNIT":
+                raise AppFolioMigrationError(
+                    "Unit commit mapping is inconsistent and requires manual review."
+                )
+            target = (
+                db.query(Unit)
+                .join(Property, Property.id == Unit.property_id)
+                .filter(
+                    Unit.id == prior.target_id,
+                    Property.organization_id == run.organization_id,
+                )
+                .first()
+            )
+            if (
+                target is None
+                or target.property_id != int(mapped["property_id"])
+            ):
+                raise AppFolioMigrationError(
+                    "A previously committed target Unit is missing or relationship-inconsistent; manual review required."
+                )
+            result_rows.append(
+                {
+                    "source_id": source_id,
+                    "target_unit_id": target.id,
+                    "replayed": True,
+                }
+            )
+            continue
+
+        resolved_target_id = resolved_existing_matches.get(source_id)
+        if resolved_target_id is not None:
+            target = (
+                db.query(Unit)
+                .join(Property, Property.id == Unit.property_id)
+                .filter(
+                    Unit.id == resolved_target_id,
+                    Unit.property_id == int(mapped["property_id"]),
+                    Unit.is_active.is_(True),
+                    Unit.deleted_at.is_(None),
+                    Property.organization_id == run.organization_id,
+                )
+                .first()
+            )
+            if target is None:
+                raise AppFolioMigrationError(
+                    "Resolved existing Unit target is missing or relationship-inconsistent; manual review required."
+                )
+            db.add(
+                PlatformMigrationItem(
+                    run_id=run.id,
+                    organization_id=run.organization_id,
+                    provider="APPFOLIO",
+                    resource="UNITS",
+                    source_id=source_id,
+                    target_entity="UNIT",
+                    target_id=target.id,
+                    source_fingerprint=fingerprint,
+                    created_by_platform_user_id=platform_user_id,
+                )
+            )
+            result_rows.append(
+                {
+                    "source_id": source_id,
+                    "target_unit_id": target.id,
+                    "replayed": False,
+                }
+            )
+            matched_existing += 1
+            changed = True
+            continue
+
+        target = Unit(
+            property_id=int(mapped["property_id"]),
+            unit_number=str(mapped["unit_number"]),
+        )
+        db.add(target)
+        db.flush()
+        db.add(
+            PlatformMigrationItem(
+                run_id=run.id,
+                organization_id=run.organization_id,
+                provider="APPFOLIO",
+                resource="UNITS",
+                source_id=source_id,
+                target_entity="UNIT",
+                target_id=target.id,
+                source_fingerprint=fingerprint,
+                created_by_platform_user_id=platform_user_id,
+            )
+        )
+        result_rows.append(
+            {
+                "source_id": source_id,
+                "target_unit_id": target.id,
+                "replayed": False,
+            }
+        )
+        committed += 1
+        changed = True
+
+    if changed:
+        run.status = "UNITS_COMMITTED"
+        db.flush()
+
+    return UnitCommitResult(
+        fingerprint=fingerprint,
+        replayed=not changed,
+        committed=committed,
+        matched_existing=matched_existing,
+        warning_count=preview.warning_count,
+        rows=result_rows,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Owner Directory staged dry run / controlled mapping commit
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class OwnerDryRunResult:
+    fingerprint: str
+    replayed: bool
+    total: int
+    importable: int
+    invalid: int
+    warning_count: int
+    rows: list[dict[str, Any]]
+    summary: dict[str, Any]
+
+
+def _owner_fingerprint(
+    *,
+    organization_id: int,
+    source_account_ref: str,
+    records: list[dict[str, Any]],
+    source_context_fingerprint: str | None,
+) -> str:
+    canonical = json.dumps(
+        {
+            "provider": "APPFOLIO",
+            "resource": "OWNERS",
+            "organization_id": organization_id,
+            "source_account_ref": source_account_ref,
+            "source_context_fingerprint": source_context_fingerprint,
+            "records": records,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def dry_run_owners(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    records: list[dict[str, Any]],
+    source_context_fingerprint: str | None,
+    resolved_existing_matches: dict[str, int] | None = None,
+) -> OwnerDryRunResult:
+    if run.provider != "APPFOLIO":
+        raise AppFolioMigrationError("Migration run is not an AppFolio run.")
+    if not records:
+        raise AppFolioMigrationError("At least one staged AppFolio Owner record is required.")
+
+    resolved_existing_matches = {
+        str(source_id): int(target_id)
+        for source_id, target_id in (resolved_existing_matches or {}).items()
+    }
+    fingerprint = _owner_fingerprint(
+        organization_id=run.organization_id,
+        source_account_ref=run.source_account_ref,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    replayed = run.last_dry_run_fingerprint == fingerprint
+
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    importable = 0
+    invalid = 0
+    warning_count = 0
+
+    for record in records:
+        source_id = _clean_text(_value(record, "Owner ID", "OwnerId", "Id"))
+        owner_name = _clean_text(_value(record, "Name", "Owner", "Owner Name"))
+        email = _clean_text(_value(record, "Email", "Email Address", "Owner Email"))
+        reasons: list[str] = []
+        warnings: list[str] = []
+        target: User | None = None
+
+        if source_id is None:
+            reasons.append("AppFolio Owner ID is required for controlled mapping commit.")
+        elif source_id in seen:
+            reasons.append("Duplicate AppFolio Owner ID in this dry run.")
+        else:
+            seen.add(source_id)
+        if owner_name is None:
+            reasons.append("Owner display Name is required.")
+        elif len(owner_name) > 255:
+            reasons.append("Owner display Name exceeds 255 characters.")
+        if email and len(email) > 255:
+            reasons.append("Owner Email exceeds the 255-character target limit.")
+
+        if not reasons and source_id is not None:
+            prior = (
+                db.query(PlatformMigrationItem)
+                .filter(
+                    PlatformMigrationItem.run_id == run.id,
+                    PlatformMigrationItem.organization_id == run.organization_id,
+                    PlatformMigrationItem.provider == "APPFOLIO",
+                    PlatformMigrationItem.resource == "OWNERS",
+                    PlatformMigrationItem.source_id == source_id,
+                )
+                .first()
+            )
+            if prior is not None:
+                if prior.target_entity != "OWNER_USER":
+                    reasons.append("Existing Owner source mapping is inconsistent.")
+                else:
+                    target = (
+                        db.query(User)
+                        .filter(
+                            User.id == prior.target_id,
+                            User.organization_id == run.organization_id,
+                            User.role == UserRole.OWNER,
+                            User.is_active.is_(True),
+                            User.deleted_at.is_(None),
+                        )
+                        .first()
+                    )
+                    if target is None:
+                        reasons.append(
+                            "Previously mapped Owner target is missing, inactive or no longer an OWNER."
+                        )
+                    else:
+                        warnings.append(
+                            f"Source Owner ID is already mapped to local OWNER user #{target.id}; commit replay will not mutate that user."
+                        )
+            elif source_id in resolved_existing_matches:
+                target = (
+                    db.query(User)
+                    .filter(
+                        User.id == resolved_existing_matches[source_id],
+                        User.organization_id == run.organization_id,
+                        User.role == UserRole.OWNER,
+                        User.is_active.is_(True),
+                        User.deleted_at.is_(None),
+                    )
+                    .first()
+                )
+                if target is None:
+                    reasons.append(
+                        "Resolved existing Owner target is missing, inactive or no longer an OWNER."
+                    )
+                else:
+                    warnings.append(
+                        f"Reviewed source Owner ID will map to existing local OWNER user #{target.id}; target profile fields will not be overwritten."
+                    )
+            else:
+                reasons.append(
+                    "Owner controlled commit requires an existing durable mapping or explicit MATCH_EXISTING resolution. CREATE_NEW is not supported because the source export does not provide safe login-backed OWNER identity/credential semantics."
+                )
+
+        if reasons:
+            rows.append({
+                "source_id": source_id,
+                "importable": False,
+                "reason": " ".join(reasons),
+                "mapped": None,
+                "warnings": warnings,
+            })
+            invalid += 1
+            warning_count += len(warnings)
+            continue
+
+        source_only_fields = [
+            name for name, aliases in (
+                ("display name", ("Name", "Owner", "Owner Name")),
+                ("phone numbers", ("Phone Numbers", "Phone Number", "Phone")),
+                ("email", ("Email", "Email Address", "Owner Email")),
+                ("property display list", ("Properties Owned",)),
+                ("property source IDs", ("Properties Owned IDs", "Property IDs")),
+            )
+            if any(_clean_text(_value(record, alias)) for alias in aliases)
+        ]
+        if source_only_fields:
+            warnings.append(
+                "Owner source values remain staging/review evidence and are not applied to the existing OWNER user or property ownership: "
+                + ", ".join(source_only_fields)
+                + "."
+            )
+
+        rows.append({
+            "source_id": source_id,
+            "importable": True,
+            "reason": None,
+            "mapped": {"target_owner_user_id": target.id if target is not None else None},
+            "warnings": warnings,
+        })
+        importable += 1
+        warning_count += len(warnings)
+
+    summary = {
+        "total": len(records),
+        "importable": importable,
+        "invalid": invalid,
+        "warning_count": warning_count,
+        "resource": "OWNERS",
+        "target_mutation": False,
+        "owner_user_creation": False,
+        "property_ownership_mutation": False,
+    }
+    if not replayed:
+        run.last_dry_run_fingerprint = fingerprint
+        run.last_dry_run_summary = summary
+        run.status = "DRY_RUN_READY"
+
+    return OwnerDryRunResult(
+        fingerprint=fingerprint,
+        replayed=replayed,
+        total=len(records),
+        importable=importable,
+        invalid=invalid,
+        warning_count=warning_count,
+        rows=rows,
+        summary=summary,
+    )
+
+
+@dataclass(frozen=True)
+class OwnerCommitResult:
+    fingerprint: str
+    replayed: bool
+    mapped_existing: int
+    warning_count: int
+    rows: list[dict[str, Any]]
+
+
+def commit_owners(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    records: list[dict[str, Any]],
+    expected_fingerprint: str,
+    platform_user_id: int,
+    source_context_fingerprint: str | None,
+    resolved_existing_matches: dict[str, int] | None = None,
+) -> OwnerCommitResult:
+    fingerprint = _owner_fingerprint(
+        organization_id=run.organization_id,
+        source_account_ref=run.source_account_ref,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    if expected_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit payload does not match the supplied Owner dry-run fingerprint."
+        )
+    if run.last_dry_run_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit requires the exact latest successful Owner dry run."
+        )
+
+    resolved_existing_matches = {
+        str(source_id): int(target_id)
+        for source_id, target_id in (resolved_existing_matches or {}).items()
+    }
+    preview = dry_run_owners(
+        db,
+        run=run,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+        resolved_existing_matches=resolved_existing_matches,
+    )
+    if preview.invalid:
+        raise AppFolioMigrationError(
+            "Owner commit is blocked while the dry run contains invalid or unresolved records."
+        )
+
+    importable_rows = [row for row in preview.rows if row["importable"]]
+    source_ids = [str(row["source_id"]) for row in importable_rows]
+    if set(resolved_existing_matches) - set(source_ids):
+        raise AppFolioMigrationError(
+            "Owner resolution state does not match the reviewed dry-run rows."
+        )
+
+    mappings = (
+        db.query(PlatformMigrationItem)
+        .filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "APPFOLIO",
+            PlatformMigrationItem.resource == "OWNERS",
+            PlatformMigrationItem.source_id.in_(source_ids),
+        )
+        .all()
+        if source_ids else []
+    )
+    by_source = {item.source_id: item for item in mappings}
+
+    result_rows: list[dict[str, Any]] = []
+    mapped_existing = 0
+    changed = False
+
+    for row in importable_rows:
+        source_id = str(row["source_id"])
+        prior = by_source.get(source_id)
+        if prior is not None:
+            if prior.target_entity != "OWNER_USER":
+                raise AppFolioMigrationError(
+                    "Owner commit mapping is inconsistent and requires manual review."
+                )
+            target = (
+                db.query(User)
+                .filter(
+                    User.id == prior.target_id,
+                    User.organization_id == run.organization_id,
+                    User.role == UserRole.OWNER,
+                    User.is_active.is_(True),
+                    User.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target is None:
+                raise AppFolioMigrationError(
+                    "A previously committed target OWNER user is missing or inactive; manual review required."
+                )
+            result_rows.append({
+                "source_id": source_id,
+                "target_owner_user_id": target.id,
+                "replayed": True,
+            })
+            continue
+
+        resolved_target_id = resolved_existing_matches.get(source_id)
+        if resolved_target_id is None:
+            raise AppFolioMigrationError(
+                "Owner commit cannot create customer OWNER users; resolve the staged row to an existing OWNER or skip it."
+            )
+        target = (
+            db.query(User)
+            .filter(
+                User.id == resolved_target_id,
+                User.organization_id == run.organization_id,
+                User.role == UserRole.OWNER,
+                User.is_active.is_(True),
+                User.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if target is None:
+            raise AppFolioMigrationError(
+                "Resolved existing OWNER user is no longer available."
+            )
+        db.add(PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=run.organization_id,
+            provider="APPFOLIO",
+            resource="OWNERS",
+            source_id=source_id,
+            target_entity="OWNER_USER",
+            target_id=target.id,
+            source_fingerprint=fingerprint,
+            created_by_platform_user_id=platform_user_id,
+        ))
+        result_rows.append({
+            "source_id": source_id,
+            "target_owner_user_id": target.id,
+            "replayed": False,
+        })
+        mapped_existing += 1
+        changed = True
+
+    if changed:
+        run.status = "OWNERS_MAPPED"
+        db.flush()
+
+    return OwnerCommitResult(
+        fingerprint=fingerprint,
+        replayed=not changed,
+        mapped_existing=mapped_existing,
+        warning_count=preview.warning_count,
+        rows=result_rows,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tenant Directory staged dry run / controlled mapping commit
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class TenantDryRunResult:
+    fingerprint: str
+    replayed: bool
+    total: int
+    importable: int
+    invalid: int
+    warning_count: int
+    rows: list[dict[str, Any]]
+    summary: dict[str, Any]
+
+
+def _tenant_fingerprint(
+    *,
+    organization_id: int,
+    source_account_ref: str,
+    records: list[dict[str, Any]],
+    source_context_fingerprint: str | None,
+) -> str:
+    canonical = json.dumps(
+        {
+            "provider": "APPFOLIO",
+            "resource": "TENANTS",
+            "organization_id": organization_id,
+            "source_account_ref": source_account_ref,
+            "source_context_fingerprint": source_context_fingerprint,
+            "records": records,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def dry_run_tenants(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    records: list[dict[str, Any]],
+    source_context_fingerprint: str | None,
+    resolved_existing_matches: dict[str, int] | None = None,
+) -> TenantDryRunResult:
+    if run.provider != "APPFOLIO":
+        raise AppFolioMigrationError("Migration run is not an AppFolio run.")
+    if not records:
+        raise AppFolioMigrationError("At least one staged AppFolio Tenant record is required.")
+
+    resolved_existing_matches = {
+        str(source_id): int(target_id)
+        for source_id, target_id in (resolved_existing_matches or {}).items()
+    }
+    fingerprint = _tenant_fingerprint(
+        organization_id=run.organization_id,
+        source_account_ref=run.source_account_ref,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    replayed = run.last_dry_run_fingerprint == fingerprint
+
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    importable = 0
+    invalid = 0
+    warning_count = 0
+
+    for record in records:
+        source_id = _clean_text(_value(record, "Tenant ID", "TenantId", "Id"))
+        tenant_name = _clean_text(_value(record, "Tenant", "Tenant Name", "Name"))
+        reasons: list[str] = []
+        warnings: list[str] = []
+        target: User | None = None
+
+        if source_id is None:
+            reasons.append("AppFolio Tenant ID is required for controlled mapping commit.")
+        elif source_id in seen:
+            reasons.append("Duplicate AppFolio Tenant ID in this dry run.")
+        else:
+            seen.add(source_id)
+        if tenant_name is None:
+            reasons.append("Tenant display Name is required.")
+        elif len(tenant_name) > 255:
+            reasons.append("Tenant display Name exceeds 255 characters.")
+
+        if not reasons and source_id is not None:
+            prior = (
+                db.query(PlatformMigrationItem)
+                .filter(
+                    PlatformMigrationItem.run_id == run.id,
+                    PlatformMigrationItem.organization_id == run.organization_id,
+                    PlatformMigrationItem.provider == "APPFOLIO",
+                    PlatformMigrationItem.resource == "TENANTS",
+                    PlatformMigrationItem.source_id == source_id,
+                )
+                .first()
+            )
+            if prior is not None:
+                if prior.target_entity != "TENANT_USER":
+                    reasons.append("Existing Tenant source mapping is inconsistent.")
+                else:
+                    target = (
+                        db.query(User)
+                        .filter(
+                            User.id == prior.target_id,
+                            User.organization_id == run.organization_id,
+                            User.role == UserRole.TENANT,
+                            User.is_active.is_(True),
+                            User.deleted_at.is_(None),
+                        )
+                        .first()
+                    )
+                    if target is None:
+                        reasons.append(
+                            "Previously mapped Tenant target is missing, inactive or no longer a TENANT."
+                        )
+                    else:
+                        warnings.append(
+                            f"Source Tenant ID is already mapped to local TENANT user #{target.id}; commit replay will not mutate that user."
+                        )
+            elif source_id in resolved_existing_matches:
+                target = (
+                    db.query(User)
+                    .filter(
+                        User.id == resolved_existing_matches[source_id],
+                        User.organization_id == run.organization_id,
+                        User.role == UserRole.TENANT,
+                        User.is_active.is_(True),
+                        User.deleted_at.is_(None),
+                    )
+                    .first()
+                )
+                if target is None:
+                    reasons.append(
+                        "Resolved existing Tenant target is missing, inactive or no longer a TENANT."
+                    )
+                else:
+                    warnings.append(
+                        f"Reviewed source Tenant ID will map to existing local TENANT user #{target.id}; target profile fields will not be overwritten."
+                    )
+            else:
+                reasons.append(
+                    "Tenant controlled commit requires an existing durable mapping or explicit MATCH_EXISTING resolution. CREATE_NEW is not supported because the verified Tenant Directory does not provide safe first/last identity and credential semantics for a login-backed TENANT account."
+                )
+
+        if reasons:
+            rows.append({
+                "source_id": source_id,
+                "importable": False,
+                "reason": " ".join(reasons),
+                "mapped": None,
+                "warnings": warnings,
+            })
+            invalid += 1
+            warning_count += len(warnings)
+            continue
+
+        warnings.append(
+            "Tenant source identity/contact and Unit/Property relationship fields remain migration evidence only; this mapping does not create occupancy, a Lease, rent liability, Charges, Receipts or GL postings."
+        )
+        rows.append({
+            "source_id": source_id,
+            "importable": True,
+            "reason": None,
+            "mapped": {"target_tenant_user_id": target.id if target is not None else None},
+            "warnings": warnings,
+        })
+        importable += 1
+        warning_count += len(warnings)
+
+    summary = {
+        "total": len(records),
+        "importable": importable,
+        "invalid": invalid,
+        "warning_count": warning_count,
+        "resource": "TENANTS",
+        "target_mutation": False,
+        "tenant_user_creation": False,
+        "tenant_user_update": False,
+        "lease_or_occupancy_mutation": False,
+        "accounting_mutation": False,
+    }
+    if not replayed:
+        run.last_dry_run_fingerprint = fingerprint
+        run.last_dry_run_summary = summary
+        run.status = "DRY_RUN_READY"
+
+    return TenantDryRunResult(
+        fingerprint=fingerprint,
+        replayed=replayed,
+        total=len(records),
+        importable=importable,
+        invalid=invalid,
+        warning_count=warning_count,
+        rows=rows,
+        summary=summary,
+    )
+
+
+@dataclass(frozen=True)
+class TenantCommitResult:
+    fingerprint: str
+    replayed: bool
+    mapped_existing: int
+    warning_count: int
+    rows: list[dict[str, Any]]
+
+
+def commit_tenants(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    records: list[dict[str, Any]],
+    expected_fingerprint: str,
+    platform_user_id: int,
+    source_context_fingerprint: str | None,
+    resolved_existing_matches: dict[str, int] | None = None,
+) -> TenantCommitResult:
+    fingerprint = _tenant_fingerprint(
+        organization_id=run.organization_id,
+        source_account_ref=run.source_account_ref,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    if expected_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit payload does not match the supplied Tenant dry-run fingerprint."
+        )
+    if run.last_dry_run_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit requires the exact latest successful Tenant dry run."
+        )
+
+    resolved_existing_matches = {
+        str(source_id): int(target_id)
+        for source_id, target_id in (resolved_existing_matches or {}).items()
+    }
+    preview = dry_run_tenants(
+        db,
+        run=run,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+        resolved_existing_matches=resolved_existing_matches,
+    )
+    if preview.invalid:
+        raise AppFolioMigrationError(
+            "Tenant commit is blocked while the dry run contains invalid or unresolved records."
+        )
+
+    importable_rows = [row for row in preview.rows if row["importable"]]
+    source_ids = [str(row["source_id"]) for row in importable_rows]
+    if set(resolved_existing_matches) - set(source_ids):
+        raise AppFolioMigrationError(
+            "Tenant resolution state does not match the reviewed dry-run rows."
+        )
+
+    mappings = (
+        db.query(PlatformMigrationItem)
+        .filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "APPFOLIO",
+            PlatformMigrationItem.resource == "TENANTS",
+            PlatformMigrationItem.source_id.in_(source_ids),
+        )
+        .all()
+        if source_ids else []
+    )
+    by_source = {item.source_id: item for item in mappings}
+
+    result_rows: list[dict[str, Any]] = []
+    mapped_existing = 0
+    changed = False
+
+    for row in importable_rows:
+        source_id = str(row["source_id"])
+        prior = by_source.get(source_id)
+        if prior is not None:
+            if prior.target_entity != "TENANT_USER":
+                raise AppFolioMigrationError(
+                    "Tenant commit mapping is inconsistent and requires manual review."
+                )
+            target = (
+                db.query(User)
+                .filter(
+                    User.id == prior.target_id,
+                    User.organization_id == run.organization_id,
+                    User.role == UserRole.TENANT,
+                    User.is_active.is_(True),
+                    User.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target is None:
+                raise AppFolioMigrationError(
+                    "A previously committed target TENANT user is missing or inactive; manual review required."
+                )
+            result_rows.append({
+                "source_id": source_id,
+                "target_tenant_user_id": target.id,
+                "replayed": True,
+            })
+            continue
+
+        resolved_target_id = resolved_existing_matches.get(source_id)
+        if resolved_target_id is None:
+            raise AppFolioMigrationError(
+                "Tenant commit cannot create customer TENANT users; resolve the staged row to an existing TENANT or skip it."
+            )
+        target = (
+            db.query(User)
+            .filter(
+                User.id == resolved_target_id,
+                User.organization_id == run.organization_id,
+                User.role == UserRole.TENANT,
+                User.is_active.is_(True),
+                User.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if target is None:
+            raise AppFolioMigrationError(
+                "Resolved existing TENANT user is no longer available."
+            )
+        db.add(PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=run.organization_id,
+            provider="APPFOLIO",
+            resource="TENANTS",
+            source_id=source_id,
+            target_entity="TENANT_USER",
+            target_id=target.id,
+            source_fingerprint=fingerprint,
+            created_by_platform_user_id=platform_user_id,
+        ))
+        result_rows.append({
+            "source_id": source_id,
+            "target_tenant_user_id": target.id,
+            "replayed": False,
+        })
+        mapped_existing += 1
+        changed = True
+
+    if changed:
+        run.status = "TENANTS_MAPPED"
+        db.flush()
+
+    return TenantCommitResult(
+        fingerprint=fingerprint,
+        replayed=not changed,
+        mapped_existing=mapped_existing,
+        warning_count=preview.warning_count,
+        rows=result_rows,
+    )
+
+
+# ---------------------------------------------------------------------------
+# GL Account staged dry run / controlled existing-account mapping commit
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class GLAccountDryRunResult:
+    fingerprint: str
+    replayed: bool
+    total: int
+    importable: int
+    invalid: int
+    warning_count: int
+    rows: list[dict[str, Any]]
+    summary: dict[str, Any]
+
+
+def _gl_account_fingerprint(
+    *,
+    organization_id: int,
+    source_account_ref: str,
+    records: list[dict[str, Any]],
+    source_context_fingerprint: str | None,
+) -> str:
+    canonical = json.dumps(
+        {
+            "provider": "APPFOLIO",
+            "resource": "GL_ACCOUNTS",
+            "organization_id": organization_id,
+            "source_account_ref": source_account_ref,
+            "source_context_fingerprint": source_context_fingerprint,
+            "records": records,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def dry_run_gl_accounts(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    records: list[dict[str, Any]],
+    source_context_fingerprint: str | None,
+    resolved_existing_matches: dict[str, int] | None = None,
+) -> GLAccountDryRunResult:
+    if run.provider != "APPFOLIO":
+        raise AppFolioMigrationError("Migration run is not an AppFolio run.")
+    if not records:
+        raise AppFolioMigrationError(
+            "At least one staged AppFolio GL Account record is required."
+        )
+
+    resolved_existing_matches = {
+        str(source_id): int(target_id)
+        for source_id, target_id in (resolved_existing_matches or {}).items()
+    }
+    fingerprint = _gl_account_fingerprint(
+        organization_id=run.organization_id,
+        source_account_ref=run.source_account_ref,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    replayed = run.last_dry_run_fingerprint == fingerprint
+
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    importable = 0
+    invalid = 0
+    warning_count = 0
+
+    for record in records:
+        source_id = _clean_text(
+            _value(record, "GL Account ID", "GlAccountId", "Id")
+        )
+        account_number = _clean_text(
+            _value(record, "Number", "Account Number", "GL Number")
+        )
+        account_name = _clean_text(
+            _value(record, "Name", "Account Name", "GL Account Name")
+        )
+        source_type = _clean_text(_value(record, "Type", "Account Type"))
+        reasons: list[str] = []
+        warnings: list[str] = []
+        target: GLAccount | None = None
+
+        if source_id is None:
+            reasons.append(
+                "Stable AppFolio GL Account ID is required for controlled mapping commit."
+            )
+        elif source_id in seen:
+            reasons.append("Duplicate AppFolio GL Account ID in this dry run.")
+        else:
+            seen.add(source_id)
+        if account_number is None:
+            reasons.append("AppFolio GL Account Number is required.")
+        if account_name is None:
+            reasons.append("AppFolio GL Account Name is required.")
+        if source_type is None:
+            reasons.append("AppFolio GL Account Type is required.")
+
+        if not reasons and source_id is not None:
+            prior = (
+                db.query(PlatformMigrationItem)
+                .filter(
+                    PlatformMigrationItem.run_id == run.id,
+                    PlatformMigrationItem.organization_id == run.organization_id,
+                    PlatformMigrationItem.provider == "APPFOLIO",
+                    PlatformMigrationItem.resource == "GL_ACCOUNTS",
+                    PlatformMigrationItem.source_id == source_id,
+                )
+                .first()
+            )
+            if prior is not None:
+                if prior.target_entity != "GL_ACCOUNT":
+                    reasons.append("Existing GL Account source mapping is inconsistent.")
+                else:
+                    target = (
+                        db.query(GLAccount)
+                        .filter(
+                            GLAccount.id == prior.target_id,
+                            GLAccount.organization_id == run.organization_id,
+                            GLAccount.is_active.is_(True),
+                            GLAccount.deleted_at.is_(None),
+                        )
+                        .first()
+                    )
+                    if target is None:
+                        reasons.append(
+                            "Previously mapped GL Account target is missing or inactive."
+                        )
+                    else:
+                        warnings.append(
+                            f"Source GL Account ID is already mapped to local GL Account #{target.id}; commit replay will not mutate that account."
+                        )
+            elif source_id in resolved_existing_matches:
+                target = (
+                    db.query(GLAccount)
+                    .filter(
+                        GLAccount.id == resolved_existing_matches[source_id],
+                        GLAccount.organization_id == run.organization_id,
+                        GLAccount.is_active.is_(True),
+                        GLAccount.deleted_at.is_(None),
+                    )
+                    .first()
+                )
+                if target is None:
+                    reasons.append(
+                        "Resolved existing GL Account target is missing or inactive."
+                    )
+                else:
+                    warnings.append(
+                        f"Reviewed source GL Account ID will map to existing local GL Account #{target.id}; number, name and account type will not be overwritten."
+                    )
+            else:
+                reasons.append(
+                    "GL Account controlled commit requires an existing durable mapping or explicit MATCH_EXISTING resolution. Automatic account creation/classification is not supported in this batch."
+                )
+
+        if reasons:
+            rows.append(
+                {
+                    "source_id": source_id,
+                    "importable": False,
+                    "reason": " ".join(reasons),
+                    "mapped": None,
+                    "warnings": warnings,
+                }
+            )
+            invalid += 1
+            warning_count += len(warnings)
+            continue
+
+        warnings.append(
+            "AppFolio Type/FundAccount and related source fields remain source evidence only; this mapping does not translate target GL classification, key-account roles, posting behavior or accounting history."
+        )
+        rows.append(
+            {
+                "source_id": source_id,
+                "importable": True,
+                "reason": None,
+                "mapped": {
+                    "target_gl_account_id": target.id if target is not None else None
+                },
+                "warnings": warnings,
+            }
+        )
+        importable += 1
+        warning_count += len(warnings)
+
+    summary = {
+        "total": len(records),
+        "importable": importable,
+        "invalid": invalid,
+        "warning_count": warning_count,
+        "resource": "GL_ACCOUNTS",
+        "target_mutation": False,
+        "gl_account_creation": False,
+        "gl_account_update": False,
+        "classification_translation": False,
+        "key_account_mutation": False,
+        "accounting_history_mutation": False,
+    }
+    if not replayed:
+        run.last_dry_run_fingerprint = fingerprint
+        run.last_dry_run_summary = summary
+        run.status = "DRY_RUN_READY"
+
+    return GLAccountDryRunResult(
+        fingerprint=fingerprint,
+        replayed=replayed,
+        total=len(records),
+        importable=importable,
+        invalid=invalid,
+        warning_count=warning_count,
+        rows=rows,
+        summary=summary,
+    )
+
+
+@dataclass(frozen=True)
+class GLAccountCommitResult:
+    fingerprint: str
+    replayed: bool
+    mapped_existing: int
+    warning_count: int
+    rows: list[dict[str, Any]]
+
+
+def commit_gl_accounts(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    records: list[dict[str, Any]],
+    expected_fingerprint: str,
+    platform_user_id: int,
+    source_context_fingerprint: str | None,
+    resolved_existing_matches: dict[str, int] | None = None,
+) -> GLAccountCommitResult:
+    fingerprint = _gl_account_fingerprint(
+        organization_id=run.organization_id,
+        source_account_ref=run.source_account_ref,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    if expected_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit payload does not match the supplied GL Account dry-run fingerprint."
+        )
+    if run.last_dry_run_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit requires the exact latest successful GL Account dry run."
+        )
+
+    resolved_existing_matches = {
+        str(source_id): int(target_id)
+        for source_id, target_id in (resolved_existing_matches or {}).items()
+    }
+    preview = dry_run_gl_accounts(
+        db,
+        run=run,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+        resolved_existing_matches=resolved_existing_matches,
+    )
+    if preview.invalid:
+        raise AppFolioMigrationError(
+            "GL Account commit is blocked while the dry run contains invalid or unresolved records."
+        )
+
+    importable_rows = [row for row in preview.rows if row["importable"]]
+    source_ids = [str(row["source_id"]) for row in importable_rows]
+    if set(resolved_existing_matches) - set(source_ids):
+        raise AppFolioMigrationError(
+            "GL Account resolution state does not match the reviewed dry-run rows."
+        )
+
+    mappings = (
+        db.query(PlatformMigrationItem)
+        .filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "APPFOLIO",
+            PlatformMigrationItem.resource == "GL_ACCOUNTS",
+            PlatformMigrationItem.source_id.in_(source_ids),
+        )
+        .all()
+        if source_ids
+        else []
+    )
+    by_source = {item.source_id: item for item in mappings}
+
+    result_rows: list[dict[str, Any]] = []
+    mapped_existing = 0
+    changed = False
+
+    for row in importable_rows:
+        source_id = str(row["source_id"])
+        prior = by_source.get(source_id)
+        if prior is not None:
+            if prior.target_entity != "GL_ACCOUNT":
+                raise AppFolioMigrationError(
+                    "GL Account commit mapping is inconsistent and requires manual review."
+                )
+            target = (
+                db.query(GLAccount)
+                .filter(
+                    GLAccount.id == prior.target_id,
+                    GLAccount.organization_id == run.organization_id,
+                    GLAccount.is_active.is_(True),
+                    GLAccount.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target is None:
+                raise AppFolioMigrationError(
+                    "A previously committed target GL Account is missing or inactive; manual review required."
+                )
+            result_rows.append(
+                {
+                    "source_id": source_id,
+                    "target_gl_account_id": target.id,
+                    "replayed": True,
+                }
+            )
+            continue
+
+        resolved_target_id = resolved_existing_matches.get(source_id)
+        if resolved_target_id is None:
+            raise AppFolioMigrationError(
+                "GL Account commit cannot create GL Accounts; resolve the staged row to an existing active GL Account or skip it."
+            )
+        target = (
+            db.query(GLAccount)
+            .filter(
+                GLAccount.id == resolved_target_id,
+                GLAccount.organization_id == run.organization_id,
+                GLAccount.is_active.is_(True),
+                GLAccount.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if target is None:
+            raise AppFolioMigrationError(
+                "Resolved existing GL Account is no longer available."
+            )
+        db.add(
+            PlatformMigrationItem(
+                run_id=run.id,
+                organization_id=run.organization_id,
+                provider="APPFOLIO",
+                resource="GL_ACCOUNTS",
+                source_id=source_id,
+                target_entity="GL_ACCOUNT",
+                target_id=target.id,
+                source_fingerprint=fingerprint,
+                created_by_platform_user_id=platform_user_id,
+            )
+        )
+        result_rows.append(
+            {
+                "source_id": source_id,
+                "target_gl_account_id": target.id,
+                "replayed": False,
+            }
+        )
+        mapped_existing += 1
+        changed = True
+
+    if changed:
+        run.status = "GL_ACCOUNTS_MAPPED"
+        db.flush()
+
+    return GLAccountCommitResult(
+        fingerprint=fingerprint,
+        replayed=not changed,
+        mapped_existing=mapped_existing,
+        warning_count=preview.warning_count,
+        rows=result_rows,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Vendor Directory staged dry run / controlled commit
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class VendorDryRunResult:
+    fingerprint: str
+    replayed: bool
+    total: int
+    importable: int
+    invalid: int
+    warning_count: int
+    rows: list[dict[str, Any]]
+    summary: dict[str, Any]
+
+
+def _vendor_fingerprint(
+    *,
+    organization_id: int,
+    source_account_ref: str,
+    records: list[dict[str, Any]],
+    source_context_fingerprint: str | None,
+) -> str:
+    canonical = json.dumps(
+        {
+            "provider": "APPFOLIO",
+            "resource": "VENDORS",
+            "organization_id": organization_id,
+            "source_account_ref": source_account_ref,
+            "source_context_fingerprint": source_context_fingerprint,
+            "records": records,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _vendor_candidate(
+    db: Session,
+    *,
+    organization_id: int,
+    company_name: str,
+    business_email: str | None,
+) -> Vendor | None:
+    if business_email:
+        row = (
+            db.query(Vendor)
+            .filter(
+                Vendor.organization_id == organization_id,
+                Vendor.is_active.is_(True),
+                Vendor.deleted_at.is_(None),
+                func.lower(Vendor.business_email) == business_email.lower(),
+            )
+            .order_by(Vendor.id.asc())
+            .first()
+        )
+        if row is not None:
+            return row
+    return (
+        db.query(Vendor)
+        .filter(
+            Vendor.organization_id == organization_id,
+            Vendor.is_active.is_(True),
+            Vendor.deleted_at.is_(None),
+            func.lower(Vendor.company_name) == company_name.lower(),
+        )
+        .order_by(Vendor.id.asc())
+        .first()
+    )
+
+
+def dry_run_vendors(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    records: list[dict[str, Any]],
+    source_context_fingerprint: str | None,
+    resolved_existing_matches: dict[str, int] | None = None,
+    force_create_new_source_ids: set[str] | None = None,
+) -> VendorDryRunResult:
+    if run.provider != "APPFOLIO":
+        raise AppFolioMigrationError("Migration run is not an AppFolio run.")
+    if not records:
+        raise AppFolioMigrationError("At least one staged AppFolio Vendor record is required.")
+
+    resolved_existing_matches = {
+        str(source_id): int(target_id)
+        for source_id, target_id in (resolved_existing_matches or {}).items()
+    }
+    force_create_new_source_ids = {
+        str(source_id) for source_id in (force_create_new_source_ids or set())
+    }
+    fingerprint = _vendor_fingerprint(
+        organization_id=run.organization_id,
+        source_account_ref=run.source_account_ref,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    replayed = run.last_dry_run_fingerprint == fingerprint
+
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    importable = 0
+    invalid = 0
+    warning_count = 0
+
+    for record in records:
+        source_id = _clean_text(_value(record, "Vendor ID", "VendorId", "Id"))
+        company_name = _clean_text(_value(record, "Company Name", "Vendor Name", "Vendor"))
+        business_email = _clean_text(_value(record, "Email", "Email Address"))
+        reasons: list[str] = []
+        warnings: list[str] = []
+
+        if source_id is None:
+            reasons.append("AppFolio Vendor ID is required for controlled commit.")
+        elif source_id in seen:
+            reasons.append("Duplicate AppFolio Vendor ID in this dry run.")
+        else:
+            seen.add(source_id)
+        if company_name is None:
+            reasons.append("Vendor Company Name is required.")
+        elif len(company_name) > 255:
+            reasons.append("Vendor Company Name exceeds the 255-character target limit.")
+        if business_email and len(business_email) > 255:
+            reasons.append("Vendor Email exceeds the 255-character target limit.")
+
+        if reasons:
+            rows.append({
+                "source_id": source_id,
+                "importable": False,
+                "reason": " ".join(reasons),
+                "mapped": None,
+                "warnings": [],
+            })
+            invalid += 1
+            continue
+
+        prior = (
+            db.query(PlatformMigrationItem)
+            .filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "APPFOLIO",
+                PlatformMigrationItem.resource == "VENDORS",
+                PlatformMigrationItem.source_id == source_id,
+            )
+            .first()
+        )
+        if prior is not None:
+            if prior.target_entity != "VENDOR":
+                reasons.append("Existing Vendor source mapping is inconsistent.")
+            else:
+                target = (
+                    db.query(Vendor)
+                    .filter(
+                        Vendor.id == prior.target_id,
+                        Vendor.organization_id == run.organization_id,
+                        Vendor.is_active.is_(True),
+                        Vendor.deleted_at.is_(None),
+                    )
+                    .first()
+                )
+                if target is None:
+                    reasons.append("Previously mapped Vendor target is missing or inactive.")
+                else:
+                    warnings.append(
+                        f"Source Vendor ID is already mapped to local vendor #{target.id}; commit replay will not create a duplicate."
+                    )
+        elif source_id in resolved_existing_matches:
+            target = (
+                db.query(Vendor)
+                .filter(
+                    Vendor.id == resolved_existing_matches[source_id],
+                    Vendor.organization_id == run.organization_id,
+                    Vendor.is_active.is_(True),
+                    Vendor.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target is None:
+                reasons.append("Resolved existing Vendor target is missing or inactive.")
+            else:
+                warnings.append(
+                    f"Reviewed source Vendor ID will map to existing local vendor #{target.id}; target fields will not be overwritten."
+                )
+        else:
+            candidate = _vendor_candidate(
+                db,
+                organization_id=run.organization_id,
+                company_name=company_name,
+                business_email=business_email,
+            )
+            if candidate is not None and source_id not in force_create_new_source_ids:
+                reasons.append(
+                    "Possible existing target Vendor now exists; explicit staged resolution is required before commit."
+                )
+
+        if reasons:
+            rows.append({
+                "source_id": source_id,
+                "importable": False,
+                "reason": " ".join(reasons),
+                "mapped": None,
+                "warnings": warnings,
+            })
+            invalid += 1
+            warning_count += len(warnings)
+            continue
+
+        source_only_fields = [
+            name for name, aliases in (
+                ("formatted address", ("Address", "Vendor Address")),
+                ("plural phone values", ("Phone Numbers", "Phone Number", "Phone")),
+                ("Send 1099 indicator", ("Send 1099?", "Send 1099", "Send1099")),
+                ("liability insurance expiration", ("Liability Insurance Expiration",)),
+                ("workers comp expiration", ("Workers Comp Expiration",)),
+                ("EPA certification expiration", ("EPA Certification Expiration",)),
+                ("state license expiration", ("State License Expiration",)),
+                ("contract expiration", ("Contract Expiration",)),
+            )
+            if any(_clean_text(_value(record, alias)) for alias in aliases)
+        ]
+        if source_only_fields:
+            warnings.append(
+                "Staging-only source values are preserved but not applied to the target Vendor: "
+                + ", ".join(source_only_fields)
+                + "."
+            )
+
+        mapped = {
+            "company_name": company_name,
+            "business_email": business_email,
+        }
+        rows.append({
+            "source_id": source_id,
+            "importable": True,
+            "reason": None,
+            "mapped": mapped,
+            "warnings": warnings,
+        })
+        importable += 1
+        warning_count += len(warnings)
+
+    summary = {
+        "total": len(records),
+        "importable": importable,
+        "invalid": invalid,
+        "warning_count": warning_count,
+        "resource": "VENDORS",
+        "target_mutation": False,
+    }
+    if not replayed:
+        run.last_dry_run_fingerprint = fingerprint
+        run.last_dry_run_summary = summary
+        run.status = "DRY_RUN_READY"
+
+    return VendorDryRunResult(
+        fingerprint=fingerprint,
+        replayed=replayed,
+        total=len(records),
+        importable=importable,
+        invalid=invalid,
+        warning_count=warning_count,
+        rows=rows,
+        summary=summary,
+    )
+
+
+@dataclass(frozen=True)
+class VendorCommitResult:
+    fingerprint: str
+    replayed: bool
+    committed: int
+    matched_existing: int
+    warning_count: int
+    rows: list[dict[str, Any]]
+
+
+def commit_vendors(
+    db: Session,
+    *,
+    run: PlatformMigrationRun,
+    records: list[dict[str, Any]],
+    expected_fingerprint: str,
+    platform_user_id: int,
+    source_context_fingerprint: str | None,
+    resolved_existing_matches: dict[str, int] | None = None,
+    force_create_new_source_ids: set[str] | None = None,
+) -> VendorCommitResult:
+    fingerprint = _vendor_fingerprint(
+        organization_id=run.organization_id,
+        source_account_ref=run.source_account_ref,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+    )
+    if expected_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit payload does not match the supplied Vendor dry-run fingerprint."
+        )
+    if run.last_dry_run_fingerprint != fingerprint:
+        raise AppFolioMigrationError(
+            "Commit requires the exact latest successful Vendor dry run."
+        )
+
+    resolved_existing_matches = {
+        str(source_id): int(target_id)
+        for source_id, target_id in (resolved_existing_matches or {}).items()
+    }
+    force_create_new_source_ids = {
+        str(source_id) for source_id in (force_create_new_source_ids or set())
+    }
+    preview = dry_run_vendors(
+        db,
+        run=run,
+        records=records,
+        source_context_fingerprint=source_context_fingerprint,
+        resolved_existing_matches=resolved_existing_matches,
+        force_create_new_source_ids=force_create_new_source_ids,
+    )
+    if preview.invalid:
+        raise AppFolioMigrationError(
+            "Vendor commit is blocked while the dry run contains invalid or unresolved records."
+        )
+
+    importable_rows = [row for row in preview.rows if row["importable"]]
+    source_ids = [str(row["source_id"]) for row in importable_rows]
+    source_id_set = set(source_ids)
+    resolution_ids = set(resolved_existing_matches) | force_create_new_source_ids
+    if resolution_ids - source_id_set:
+        raise AppFolioMigrationError(
+            "Vendor resolution state does not match the reviewed dry-run rows."
+        )
+    if set(resolved_existing_matches) & force_create_new_source_ids:
+        raise AppFolioMigrationError(
+            "A Vendor source row cannot both match existing and create new."
+        )
+
+    mappings = (
+        db.query(PlatformMigrationItem)
+        .filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "APPFOLIO",
+            PlatformMigrationItem.resource == "VENDORS",
+            PlatformMigrationItem.source_id.in_(source_ids),
+        )
+        .all()
+        if source_ids else []
+    )
+    by_source = {item.source_id: item for item in mappings}
+
+    result_rows: list[dict[str, Any]] = []
+    committed = 0
+    matched_existing = 0
+    changed = False
+
+    for row in importable_rows:
+        source_id = str(row["source_id"])
+        prior = by_source.get(source_id)
+        if prior is not None:
+            if prior.target_entity != "VENDOR":
+                raise AppFolioMigrationError(
+                    "Vendor commit mapping is inconsistent and requires manual review."
+                )
+            target = (
+                db.query(Vendor)
+                .filter(
+                    Vendor.id == prior.target_id,
+                    Vendor.organization_id == run.organization_id,
+                    Vendor.is_active.is_(True),
+                    Vendor.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target is None:
+                raise AppFolioMigrationError(
+                    "A previously committed target Vendor is missing or inactive; manual review required."
+                )
+            result_rows.append({
+                "source_id": source_id,
+                "target_vendor_id": target.id,
+                "replayed": True,
+            })
+            continue
+
+        resolved_target_id = resolved_existing_matches.get(source_id)
+        if resolved_target_id is not None:
+            target = (
+                db.query(Vendor)
+                .filter(
+                    Vendor.id == resolved_target_id,
+                    Vendor.organization_id == run.organization_id,
+                    Vendor.is_active.is_(True),
+                    Vendor.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if target is None:
+                raise AppFolioMigrationError(
+                    "Resolved existing Vendor target is no longer available."
+                )
+            db.add(PlatformMigrationItem(
+                run_id=run.id,
+                organization_id=run.organization_id,
+                provider="APPFOLIO",
+                resource="VENDORS",
+                source_id=source_id,
+                target_entity="VENDOR",
+                target_id=target.id,
+                source_fingerprint=fingerprint,
+                created_by_platform_user_id=platform_user_id,
+            ))
+            result_rows.append({
+                "source_id": source_id,
+                "target_vendor_id": target.id,
+                "replayed": False,
+            })
+            matched_existing += 1
+            changed = True
+            continue
+
+        mapped = row["mapped"] or {}
+        candidate = _vendor_candidate(
+            db,
+            organization_id=run.organization_id,
+            company_name=str(mapped["company_name"]),
+            business_email=mapped.get("business_email"),
+        )
+        if candidate is not None and source_id not in force_create_new_source_ids:
+            raise AppFolioMigrationError(
+                "Vendor commit is blocked by a possible existing target; explicit staged resolution is required."
+            )
+
+        target = Vendor(
+            organization_id=run.organization_id,
+            company_name=str(mapped["company_name"]),
+            business_email=mapped.get("business_email"),
+        )
+        db.add(target)
+        db.flush()
+        db.add(PlatformMigrationItem(
+            run_id=run.id,
+            organization_id=run.organization_id,
+            provider="APPFOLIO",
+            resource="VENDORS",
+            source_id=source_id,
+            target_entity="VENDOR",
+            target_id=target.id,
+            source_fingerprint=fingerprint,
+            created_by_platform_user_id=platform_user_id,
+        ))
+        result_rows.append({
+            "source_id": source_id,
+            "target_vendor_id": target.id,
+            "replayed": False,
+        })
+        committed += 1
+        changed = True
+
+    if changed:
+        run.status = "VENDORS_COMMITTED"
+        db.flush()
+
+    return VendorCommitResult(
+        fingerprint=fingerprint,
+        replayed=not changed,
+        committed=committed,
+        matched_existing=matched_existing,
+        warning_count=preview.warning_count,
+        rows=result_rows,
+    )

@@ -58,6 +58,9 @@ class StatementPropertyBlock(BaseModel):
     income: Decimal
     expense: Decimal
     net: Decimal
+    required_reserves: Decimal = Decimal("0")
+    prepaid_rent: Decimal = Decimal("0")
+    available_cash: Decimal = Decimal("0")
     transactions: List[StatementTransactionLine] = []
 
 
@@ -74,6 +77,9 @@ class StatementPreviewOut(BaseModel):
     total_income: Decimal
     total_expense: Decimal
     total_net: Decimal
+    total_required_reserves: Decimal = Decimal("0")
+    total_prepaid_rent: Decimal = Decimal("0")
+    total_available_cash: Decimal = Decimal("0")
 
     properties: List[StatementPropertyBlock] = []
 
@@ -113,8 +119,57 @@ class OwnerStatementOut(BaseModel):
 class OwnerStatementDetailOut(OwnerStatementOut):
     """Statement WITH the frozen property_data block expanded."""
     properties: List[StatementPropertyBlock] = []
+    total_required_reserves: Decimal = Decimal("0")
+    total_prepaid_rent: Decimal = Decimal("0")
+    total_available_cash: Decimal = Decimal("0")
+
+
+class PropertyCashSummaryLine(BaseModel):
+    property_id: int
+    property_name: str
+    ending_cash: Decimal
+    required_reserves: Decimal
+    prepaid_rent: Decimal
+    available_cash: Decimal
+
+
+class OwnerStatementCashSummaryOut(BaseModel):
+    statement_id: int
+    total_ending_cash: Decimal
+    total_required_reserves: Decimal
+    total_prepaid_rent: Decimal
+    total_available_cash: Decimal
+    properties: List[PropertyCashSummaryLine] = []
 
 
 class OwnerStatementListOut(BaseModel):
     items: List[OwnerStatementOut]
     total: int
+
+OWNER_PACKET_REPORTS = {"OWNER_STATEMENT", "PROPERTY_CASH_SUMMARY"}
+
+
+class OwnerPacketSettingsUpdate(BaseModel):
+    included_reports: List[str] = Field(
+        default_factory=lambda: ["OWNER_STATEMENT", "PROPERTY_CASH_SUMMARY"]
+    )
+    email_owner: bool = False
+    cover_message: Optional[str] = Field(default=None, max_length=2000)
+
+    @field_validator("included_reports")
+    @classmethod
+    def _validate_reports(cls, value: List[str]) -> List[str]:
+        normalized = []
+        for item in value:
+            key = str(item).strip().upper()
+            if key not in OWNER_PACKET_REPORTS:
+                raise ValueError(f"Unsupported owner packet report: {item}")
+            if key not in normalized:
+                normalized.append(key)
+        if not normalized:
+            raise ValueError("Select at least one owner packet report")
+        return normalized
+
+
+class OwnerPacketSettingsOut(OwnerPacketSettingsUpdate):
+    organization_id: int

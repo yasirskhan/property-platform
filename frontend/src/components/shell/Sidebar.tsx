@@ -164,29 +164,50 @@ export default function Sidebar({ orgName }: SidebarProps) {
 
           return (
             <div key={entry.key}>
-              {/* Parent row */}
-              <button
-                onClick={() => (hasChildren ? toggle(entry.key) : undefined)}
-                className={`w-full flex items-center gap-3 px-5 py-2.5 text-sm transition-colors ${
-                  isActive
-                    ? "bg-blue-600 text-white"
-                    : "text-slate-300 hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                <Icon className="w-4 h-4 flex-shrink-0" />
-                <span className="flex-1 text-left">{entry.label}</span>
-                {entry.badge && (
-                  <span className="text-[10px] px-1.5 py-0.5 bg-red-500 rounded-full">
-                    {entry.badge}
-                  </span>
-                )}
-                {hasChildren &&
-                  (isOpen ? (
+              {/* Parent row: containers expand; real leaf destinations navigate. */}
+              {hasChildren ? (
+                <button
+                  type="button"
+                  onClick={() => toggle(entry.key)}
+                  aria-expanded={isOpen}
+                  className={`w-full flex items-center gap-3 px-5 py-2.5 text-sm transition-colors ${
+                    isActive
+                      ? "bg-blue-600 text-white"
+                      : "text-slate-300 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="flex-1 text-left">{entry.label}</span>
+                  {entry.badge && (
+                    <span className="text-[10px] px-1.5 py-0.5 bg-red-500 rounded-full">
+                      {entry.badge}
+                    </span>
+                  )}
+                  {isOpen ? (
                     <ChevronDown className="w-3 h-3 flex-shrink-0" />
                   ) : (
                     <ChevronRight className="w-3 h-3 flex-shrink-0" />
-                  ))}
-              </button>
+                  )}
+                </button>
+              ) : (
+                <Link
+                  href={entry.href}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`w-full flex items-center gap-3 px-5 py-2.5 text-sm transition-colors ${
+                    isActive
+                      ? "bg-blue-600 text-white"
+                      : "text-slate-300 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="flex-1 text-left">{entry.label}</span>
+                  {entry.badge && (
+                    <span className="text-[10px] px-1.5 py-0.5 bg-red-500 rounded-full">
+                      {entry.badge}
+                    </span>
+                  )}
+                </Link>
+              )}
 
               {/* Sub-items (when open) */}
               {hasChildren && isOpen && (

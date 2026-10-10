@@ -110,6 +110,7 @@ class OwnerStatement(Base):
     notes = Column(Text, nullable=True)
 
     is_active = Column(Boolean, nullable=False, default=True, index=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
 
     generated_by_id = Column(
         Integer,
@@ -130,3 +131,31 @@ class OwnerStatement(Base):
             f"<OwnerStatement {self.id} owner={self.owner_id} "
             f"{self.period_start}..{self.period_end}>"
         )
+
+class OwnerPacketSettings(Base):
+    """Organization-level presentation settings for future owner packets."""
+
+    __tablename__ = "owner_packet_settings"
+
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    included_reports = Column(
+        Text,
+        nullable=False,
+        default='["OWNER_STATEMENT","PROPERTY_CASH_SUMMARY"]',
+        server_default='["OWNER_STATEMENT","PROPERTY_CASH_SUMMARY"]',
+    )
+    email_owner = Column(Boolean, nullable=False, default=False, server_default="0")
+    cover_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
+
+    organization = relationship("Organization")

@@ -33,6 +33,7 @@ class ScreeningProvider(Base):
     pricing_info = Column(String(255), nullable=True)
     api_docs_url = Column(String(500), nullable=True)
     is_active = Column(Boolean, default=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     def __repr__(self):

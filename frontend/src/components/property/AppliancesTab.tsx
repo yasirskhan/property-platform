@@ -87,6 +87,7 @@ export default function AppliancesTab({
 
   const [confirmingDelete, setConfirmingDelete] =
     useState<PropertyAppliance | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
 
   async function load() {
     setLoading(true);
@@ -176,6 +177,7 @@ export default function AppliancesTab({
   }
 
   function askDelete(a: PropertyAppliance) {
+    setDeleteReason("");
     setConfirmingDelete(a);
   }
 
@@ -183,8 +185,9 @@ export default function AppliancesTab({
     setWorking(true);
     setError("");
     try {
-      await deleteAppliance(propertyId, a.id);
+      await deleteAppliance(propertyId, a.id, deleteReason);
       setConfirmingDelete(null);
+      setDeleteReason("");
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Delete failed");
@@ -378,10 +381,21 @@ export default function AppliancesTab({
                   Remove appliance?
                 </div>
               </div>
-              <div className="px-6 py-5 text-sm text-slate-700">
+              <div className="px-6 py-5 text-sm text-slate-700 space-y-3">
                 Remove <strong>{confirmingDelete.name}</strong> from this
                 property?
-              </div>
+                <div>
+    <label className="block text-xs font-medium text-slate-600 mb-1">Reason for removal *</label>
+    <textarea
+      value={deleteReason}
+      onChange={(e) => setDeleteReason(e.target.value)}
+      rows={3}
+      maxLength={1000}
+      placeholder="Explain why this item is being removed"
+      className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+    />
+  </div>
+</div>
               <div className="border-t border-slate-200 p-4 flex items-center justify-end gap-3">
                 <button
                   onClick={() => setConfirmingDelete(null)}
@@ -392,7 +406,7 @@ export default function AppliancesTab({
                 </button>
                 <button
                   onClick={() => reallyDelete(confirmingDelete)}
-                  disabled={working}
+                  disabled={working || !deleteReason.trim()}
                   className="text-sm px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                 >
                   {working ? "Removing…" : "Remove"}

@@ -18,6 +18,7 @@
 
 import { useEffect, useState } from "react";
 import { apiGet, apiPost, apiDelete } from "@/lib/api";
+import { useDisplay } from "@/contexts/DisplayContext";
 
 // ------------------------------------------------------------
 // Types
@@ -31,6 +32,10 @@ interface Currency {
   decimal_places: number;
   is_system: boolean;
   is_active: boolean;
+}
+
+interface Me {
+  role: string;
 }
 
 interface NewCurrency {
@@ -53,6 +58,8 @@ const EMPTY_NEW: NewCurrency = {
 // Page
 // ------------------------------------------------------------
 export default function CurrenciesSettingsPage() {
+  const { prefs } = useDisplay();
+  const [me, setMe] = useState<Me | null>(null);
   const [rows, setRows] = useState<Currency[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +82,9 @@ export default function CurrenciesSettingsPage() {
   }
 
   useEffect(() => {
+    apiGet("/auth/me")
+      .then((data) => setMe(data as Me))
+      .catch(() => setMe(null));
     load();
   }, []);
 
@@ -109,17 +119,26 @@ export default function CurrenciesSettingsPage() {
     }
   }
 
+  const role = String(me?.role || "").toUpperCase();
+  const canWrite = role === "ADMIN" || role === "OWNER";
+
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div
+      className="max-w-4xl mx-auto p-6"
+      data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()}
+      data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}
+    >
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-xl font-semibold text-slate-900">Currencies</h1>
-        <button
-          type="button"
-          onClick={() => setShowAdd((v) => !v)}
-          className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
-        >
-          {showAdd ? "Cancel" : "+ Add currency"}
-        </button>
+        {canWrite && (
+          <button
+            type="button"
+            onClick={() => setShowAdd((v) => !v)}
+            className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+          >
+            {showAdd ? "Cancel" : "+ Add currency"}
+          </button>
+        )}
       </div>
       <p className="text-sm text-slate-500 mb-6">
         What your organization can pick from when choosing a currency. Each org
@@ -127,7 +146,7 @@ export default function CurrenciesSettingsPage() {
       </p>
 
       {/* Add form */}
-      {showAdd && (
+      {canWrite && showAdd && (
         <div className="bg-white rounded-lg border border-slate-200 p-5 mb-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -287,7 +306,7 @@ export default function CurrenciesSettingsPage() {
                   )}
                 </td>
                 <td className="px-4 py-2 text-right">
-                  {!c.is_system && (
+                  {canWrite && !c.is_system && (
                     <button
                       type="button"
                       onClick={() => remove(c.id)}

@@ -26,9 +26,10 @@ router = APIRouter(tags=["Screening"])
 
 
 def _check_org_access(current_user: User, org_id: int):
-    if current_user.role == UserRole.ADMIN:
-        return
-    if current_user.role == UserRole.OWNER and current_user.organization_id == org_id:
+    if (
+        current_user.role in (UserRole.ADMIN, UserRole.OWNER)
+        and current_user.organization_id == org_id
+    ):
         return
     raise HTTPException(status_code=403, detail="Not allowed")
 

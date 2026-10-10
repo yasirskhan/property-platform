@@ -31,7 +31,7 @@ export default function ForgotPasswordPage() {
           <div className="text-5xl mb-4">📧</div>
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Check your email</h1>
           <p className="text-slate-600">
-            If an account exists for <strong>{email}</strong>, we've sent a password reset link.
+            If an account exists for <strong>{email}</strong>, we&apos;ve sent a password reset link.
           </p>
           <Link href="/login" className="mt-6 inline-block text-slate-900 font-medium hover:underline">
             ← Back to login
@@ -45,7 +45,7 @@ export default function ForgotPasswordPage() {
     <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-200 p-6">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
         <h1 className="text-2xl font-bold text-slate-900 mb-2">Forgot your password?</h1>
-        <p className="text-slate-500 mb-6">Enter your email and we'll send you a reset link.</p>
+        <p className="text-slate-500 mb-6">Enter your email and we&apos;ll send you a reset link.</p>
         <form onSubmit={handleSubmit} className="space-y-5">
           <input
             type="email"

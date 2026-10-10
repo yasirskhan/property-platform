@@ -1,0 +1,101 @@
+name: property-platform-staging
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-property_platform_staging}
+      POSTGRES_USER: ${POSTGRES_USER:-property_platform}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/staging/.env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-property_platform} -d ${POSTGRES_DB:-property_platform_staging}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: ../../backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: staging
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-property_platform}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-property_platform_staging}
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in deploy/staging/.env}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY in deploy/staging/.env}
+      JOBS_ENABLED: "true"
+      REDIS_URL: redis://redis:6379/0
+      JOB_QUEUE_NAME: arq:queue
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: staging
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0}
+      EMAIL_MODE: ${EMAIL_MODE:-console}
+      STRIPE_ENABLED: ${STRIPE_ENABLED:-false}
+      FRONTEND_URL: ${FRONTEND_URL:-http://127.0.0.1:3000}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  worker:
+    build:
+      context: ../../backend
+    restart: unless-stopped
+    command: ["arq", "app.jobs.worker.WorkerSettings"]
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: staging
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-property_platform}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-property_platform_staging}
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in deploy/staging/.env}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY in deploy/staging/.env}
+      JOBS_ENABLED: "true"
+      REDIS_URL: redis://redis:6379/0
+      JOB_QUEUE_NAME: arq:queue
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: staging
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0}
+      EMAIL_MODE: ${EMAIL_MODE:-console}
+      STRIPE_ENABLED: ${STRIPE_ENABLED:-false}
+      FRONTEND_URL: ${FRONTEND_URL:-http://127.0.0.1:3000}
+
+  frontend:
+    build:
+      context: ../../frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://127.0.0.1:8000}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+
+volumes:
+  postgres_data:
+  redis_data:

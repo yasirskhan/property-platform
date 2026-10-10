@@ -14,6 +14,7 @@
 
 import { useEffect, useState } from "react";
 import { apiGet } from "@/lib/api";
+import Link from "next/link";
 
 type User = {
   id: number;
@@ -25,9 +26,13 @@ type User = {
 
 export default function DashboardHome() {
   const [user, setUser] = useState<User | null>(null);
+  const [boardMeetings, setBoardMeetings] = useState(false);
 
   useEffect(() => {
     apiGet("/auth/me").then(setUser).catch(() => setUser(null));
+    void (apiGet("/api/hoa/board/my-meetings") as Promise<unknown[]>)
+      .then(rows => setBoardMeetings(rows.length > 0))
+      .catch(() => setBoardMeetings(false));
   }, []);
 
   return (
@@ -38,6 +43,17 @@ export default function DashboardHome() {
       <p className="text-sm text-slate-500 mb-8">
         Pick a module from the sidebar to get started.
       </p>
+
+      {boardMeetings && (
+        <Link href="/dashboard/hoa/board" className="mb-5 inline-block rounded border border-teal-300 bg-teal-50 px-4 py-2 text-sm font-medium">
+          My HOA board meetings
+        </Link>
+      )}
+      {user?.role === "APPLICANT" && (
+        <Link href="/dashboard/leasing/applications" className="mb-5 inline-block rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium">
+          My rental applications
+        </Link>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="p-5 bg-white border border-slate-200 rounded-lg">

@@ -21,8 +21,10 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
 from app.routers.auth import get_current_user
-from app.models.user import User
+from app.models.user import Organization, User
 from app.models.management_fee_run import ManagementFeeRun
+from app.models.property import Property
+from app.models.receipt import Receipt
 from app.schemas.management_fee import (
     FeePreviewIn,
     FeePreviewOut,
@@ -31,6 +33,16 @@ from app.schemas.management_fee import (
     ManagementFeeRunListOut,
     ManagementFeeRunOut,
     EligibleIncomeLine,
+    OvercollectionStrategyOut,
+    OvercollectionStrategyUpdate,
+    ManagementFeeExclusionOut,
+    ManagementFeeExclusionListOut,
+)
+from app.schemas.journal_entry import (
+    GPRCandidateListOut,
+    GPRCandidateOut,
+    GPRPostIn,
+    GPRPostResultOut,
 )
 from app.services.gl_posting import PostingError
 from app.services.management_fee_posting import (
@@ -38,12 +50,22 @@ from app.services.management_fee_posting import (
     run_management_fee,
     reverse_management_fee_run,
 )
+from app.services.audit import append_audit_log
+from app.services.customer_features import resolve_customer_features
+from app.services.menu_resolver import permission_allows_user
+from app.services.gpr_posting import list_gpr_candidates, month_bounds, post_gpr
 
 
 router = APIRouter(
     prefix="/api/accounting/management-fees",
     tags=["Management Fees"],
 )
+
+WRITE_ROLES = {"ADMIN", "OWNER", "MANAGER"}
+OVERCOLLECTION_FEATURE_KEY = "release.accounting.management_fees.overcollection"
+MANAGEMENT_FEE_GPR_FEATURE_KEY = "release.accounting.management_fees.post_gpr"
+EXCLUSIONS_FEATURE_KEY = "release.accounting.management_fees.exclusions"
+DEFAULT_OVERCOLLECTION_STRATEGY = "CREDITS_THEN_RECEIPTS"
 
 
 # ------------------------------------------------------------
@@ -57,6 +79,103 @@ def _require_org(current_user: User) -> int:
             detail="User has no organization.",
         )
     return current_user.organization_id
+
+
+def _norm_role(role) -> str:
+    if role is None:
+        return ""
+    value = role.value if hasattr(role, "value") else str(role)
+    return value.upper()
+
+
+def _require_management_fees_access(db: Session, current_user: User) -> int:
+    org_id = _require_org(current_user)
+    if not permission_allows_user(
+        db, user=current_user, menu_key="ACCOUNTING.MANAGEMENT_FEES"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Management Fees permission required.",
+        )
+    return org_id
+
+
+def _require_write(current_user: User) -> None:
+    if _norm_role(current_user.role) not in WRITE_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not allowed to run or reverse management fees.",
+        )
+
+
+def _require_overcollection_feature(db: Session, current_user: User) -> int:
+    org_id = _require_management_fees_access(db, current_user)
+    decision = next(
+        (
+            item
+            for item in resolve_customer_features(db, user=current_user)
+            if item.key == OVERCOLLECTION_FEATURE_KEY
+        ),
+        None,
+    )
+    if decision is None or not decision.allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Management fee overcollection strategy is not enabled.",
+        )
+    return org_id
+
+
+def _require_management_fee_gpr_feature(db: Session, current_user: User) -> int:
+    org_id = _require_management_fees_access(db, current_user)
+    decision = next(
+        (
+            item
+            for item in resolve_customer_features(db, user=current_user)
+            if item.key == MANAGEMENT_FEE_GPR_FEATURE_KEY
+        ),
+        None,
+    )
+    if decision is None or not decision.allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Management Fees Post GPR is not enabled.",
+        )
+    return org_id
+
+
+def _require_exclusions_feature(db: Session, current_user: User) -> int:
+    org_id = _require_management_fees_access(db, current_user)
+    decision = next(
+        (
+            item
+            for item in resolve_customer_features(db, user=current_user)
+            if item.key == EXCLUSIONS_FEATURE_KEY
+        ),
+        None,
+    )
+    if decision is None or not decision.allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Management Fee Exclusions is not enabled.",
+        )
+    return org_id
+
+
+def _overcollection_out(org: Organization) -> OvercollectionStrategyOut:
+    strategy = (
+        org.management_fee_overcollection_strategy
+        or DEFAULT_OVERCOLLECTION_STRATEGY
+    )
+    return OvercollectionStrategyOut(
+        strategy=strategy,
+        label=(
+            "Credits then Receipts"
+            if strategy == "CREDITS_THEN_RECEIPTS"
+            else "Receipts then Credits"
+        ),
+        recommended=strategy == "CREDITS_THEN_RECEIPTS",
+    )
 
 
 def _run_to_out(run: ManagementFeeRun) -> ManagementFeeRunOut:
@@ -109,7 +228,8 @@ def preview_fee(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    _require_write(current_user)
+    org_id = _require_management_fees_access(db, current_user)
     try:
         preview = preview_management_fee(
             db,
@@ -154,7 +274,8 @@ def run_fee(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    _require_write(current_user)
+    org_id = _require_management_fees_access(db, current_user)
     try:
         run = run_management_fee(
             db,
@@ -197,7 +318,7 @@ def list_runs(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_management_fees_access(db, current_user)
 
     q = (
         db.query(ManagementFeeRun)
@@ -234,6 +355,191 @@ def list_runs(
 
 
 # ============================================================
+# GET/PUT /overcollection-strategy
+# ============================================================
+
+@router.get(
+    "/overcollection-strategy",
+    response_model=OvercollectionStrategyOut,
+)
+def get_overcollection_strategy(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_overcollection_feature(db, current_user)
+    org = db.get(Organization, org_id)
+    if org is None:
+        raise HTTPException(status_code=404, detail="Organization not found.")
+    return _overcollection_out(org)
+
+
+@router.put(
+    "/overcollection-strategy",
+    response_model=OvercollectionStrategyOut,
+)
+def update_overcollection_strategy(
+    payload: OvercollectionStrategyUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_write(current_user)
+    org_id = _require_overcollection_feature(db, current_user)
+    org = db.get(Organization, org_id)
+    if org is None:
+        raise HTTPException(status_code=404, detail="Organization not found.")
+
+    old_strategy = (
+        org.management_fee_overcollection_strategy
+        or DEFAULT_OVERCOLLECTION_STRATEGY
+    )
+    org.management_fee_overcollection_strategy = payload.strategy
+    db.flush()
+    append_audit_log(
+        db,
+        user_id=current_user.id,
+        organization_id=org_id,
+        entity_type="organization",
+        entity_id=org_id,
+        action="management_fee_overcollection_strategy_updated",
+        field_name="management_fee_overcollection_strategy",
+        old_value=old_strategy,
+        new_value=payload.strategy,
+    )
+    db.commit()
+    db.refresh(org)
+    return _overcollection_out(org)
+
+
+# ============================================================
+# GET/POST /post-gpr
+# ============================================================
+
+@router.get("/post-gpr", response_model=GPRCandidateListOut)
+def get_management_fee_gpr_candidates(
+    month: date = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_management_fee_gpr_feature(db, current_user)
+    normalized, _ = month_bounds(month)
+    try:
+        rows = list_gpr_candidates(db, organization_id=org_id, month=normalized)
+    except PostingError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    items = [
+        GPRCandidateOut(
+            unit_id=row.unit_id,
+            property_id=row.property_id,
+            property_name=row.property_name,
+            unit_number=row.unit_number,
+            lease_id=row.lease_id,
+            market_rent=row.market_rent,
+            scheduled_rent=row.scheduled_rent,
+            loss_gain=row.loss_gain,
+            already_posted=row.already_posted,
+            transaction_id=row.transaction_id,
+        )
+        for row in rows
+    ]
+    return GPRCandidateListOut(
+        month=normalized,
+        items=items,
+        total=len(items),
+        unposted=sum(1 for row in rows if not row.already_posted),
+    )
+
+
+@router.post("/post-gpr", response_model=GPRPostResultOut)
+def post_management_fee_gpr(
+    payload: GPRPostIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_write(current_user)
+    org_id = _require_management_fee_gpr_feature(db, current_user)
+    normalized, _ = month_bounds(payload.month)
+    try:
+        transactions = post_gpr(
+            db,
+            organization_id=org_id,
+            month=normalized,
+            unit_ids=payload.unit_ids,
+            created_by=current_user,
+        )
+    except PostingError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return GPRPostResultOut(
+        month=normalized,
+        posted=len(transactions),
+        transaction_ids=[row.id for row in transactions],
+    )
+
+
+# ============================================================
+# GET /exclusions
+# ============================================================
+
+@router.get("/exclusions", response_model=ManagementFeeExclusionListOut)
+def list_management_fee_exclusions(
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    property_id: Optional[int] = Query(None),
+    include_reversed: bool = Query(True),
+    limit: int = Query(200, ge=1, le=2000),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _require_exclusions_feature(db, current_user)
+    q = (
+        db.query(Receipt, Property)
+        .outerjoin(Property, Property.id == Receipt.property_id)
+        .filter(
+            Receipt.organization_id == org_id,
+            Receipt.exclude_from_mgmt_fee.is_(True),
+            Receipt.is_active.is_(True),
+            Receipt.reversal_of_id.is_(None),
+        )
+    )
+    if date_from is not None:
+        q = q.filter(Receipt.receipt_date >= date_from)
+    if date_to is not None:
+        q = q.filter(Receipt.receipt_date <= date_to)
+    if property_id is not None:
+        q = q.filter(Receipt.property_id == property_id)
+    if not include_reversed:
+        q = q.filter(Receipt.is_reversed.is_(False))
+
+    total = q.count()
+    rows = (
+        q.order_by(Receipt.receipt_date.desc(), Receipt.id.desc())
+        .limit(limit)
+        .all()
+    )
+    return ManagementFeeExclusionListOut(
+        items=[
+            ManagementFeeExclusionOut(
+                receipt_id=receipt.id,
+                receipt_date=receipt.receipt_date,
+                receipt_type=receipt.type,
+                amount=receipt.amount,
+                property_id=receipt.property_id,
+                property_name=prop.name if prop else None,
+                reference_number=receipt.reference_number,
+                source_name=(
+                    receipt.received_from
+                    or receipt.payer_name
+                    or ("Tenant receipt" if receipt.tenant_user_id else None)
+                ),
+                remarks=receipt.remarks,
+                is_reversed=receipt.is_reversed,
+            )
+            for receipt, prop in rows
+        ],
+        total=total,
+    )
+
+
+# ============================================================
 # GET /{run_id}
 # ============================================================
 
@@ -243,7 +549,7 @@ def get_run(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    org_id = _require_management_fees_access(db, current_user)
     run = (
         db.query(ManagementFeeRun)
         .options(
@@ -277,7 +583,8 @@ def reverse_fee(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_org(current_user)
+    _require_write(current_user)
+    org_id = _require_management_fees_access(db, current_user)
     original = (
         db.query(ManagementFeeRun)
         .filter(

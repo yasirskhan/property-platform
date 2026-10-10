@@ -1,0 +1,2128 @@
+"""Browser contract: HOA evidence remains a private, unverified staff reference.
+
+This test uses a synthetic document in the disposable E2E database. It does
+not supply, approve, or interpret any actual HOA governing instrument.
+"""
+from __future__ import annotations
+
+from contextlib import contextmanager
+import os
+from datetime import date
+from decimal import Decimal
+import re
+
+import pytest
+
+import init_db  # noqa: F401 - register all SQLAlchemy models for live DB counts
+
+playwright_sync = pytest.importorskip("playwright.sync_api")
+expect = playwright_sync.expect
+sync_playwright = playwright_sync.sync_playwright
+
+from app.core.database import SessionLocal
+from app.models.charge import Charge
+from app.models.letter_template import LetterTemplate
+from app.models.gl_transaction import GLTransaction
+from app.models.gl_account import GLAccount
+from app.models.contact import Contact
+from app.models.entity_attachment import EntityAttachment
+from app.models.commercial_operating_charge import CommercialOperatingCharge
+from app.models.commercial_cam_reconciliation import CommercialCAMReconciliation
+from app.models.commercial_percentage_rent import CommercialPercentageRentCharge
+from app.models.commercial_ti_allowance import CommercialTIAllowanceUse
+from app.models.lease import Lease, LeaseStatus, RentInvoice
+from app.models.property import Property, PropertyType, Unit
+from app.services.attachment_storage import attachment_path
+from app.models.hoa_association import HOAAssociation, HOAContactLink
+from app.models.hoa_board import HOABoardSeat
+from app.models.release_gate import ReleaseGate, ReleaseStage
+from app.models.billing import Module, Plan, Subscription, SubscriptionItem, SubscriptionStatus
+from app.models.user import User, UserRole
+
+pytestmark = pytest.mark.e2e
+
+BASE_URL = os.environ.get("E2E_BASE_URL", "http://127.0.0.1:3000")
+EMAIL = os.environ.get("E2E_ADMIN_EMAIL", "e2e-admin@example.com")
+PASSWORD = os.environ.get("E2E_ADMIN_PASSWORD", "test1234")
+PROPERTY_ID = 900001
+ASSOCIATION_NAME = "E2E Staff-Only Association"
+DOCUMENT_NAME = "e2e-unverified-fixture.pdf"
+
+
+@contextmanager
+def _temporarily_release_hoa_ui():
+    """Only the disposable E2E run may enable these otherwise hidden features."""
+    if os.environ.get("E2E_SEED_ALLOWED", "").lower() != "true":
+        raise RuntimeError("HOA browser test requires an explicitly disposable E2E database")
+    db = SessionLocal()
+    previous = {}
+    subscription = None
+    created_subscription = False
+    created_item = None
+    created_plan = None
+    try:
+        for key in ("release.properties.compliance", "release.properties.hoa", "release.documents.attachments"):
+            gate = db.query(ReleaseGate).filter(ReleaseGate.key == key).one_or_none()
+            if gate is None:
+                gate = ReleaseGate(key=key, stage=ReleaseStage.ALL_ORGS)
+                db.add(gate)
+                db.flush()
+                previous[key] = (gate.id, None)
+            else:
+                previous[key] = (gate.id, gate.stage)
+                gate.stage = ReleaseStage.ALL_ORGS
+        # Disposable E2E org only. Does not start billing or grant a real customer.
+        actor = db.query(User).filter(User.email == EMAIL).one()
+        module = db.query(Module).filter(Module.key == "hoa", Module.is_core.is_(False)).one()
+        subscription = db.query(Subscription).filter(
+            Subscription.organization_id == actor.organization_id,
+        ).one_or_none()
+        if subscription is None:
+            created_plan = Plan(code="e2e-hoa-planning-entitlement", name="Synthetic HOA E2E Plan")
+            db.add(created_plan)
+            db.flush()
+            subscription = Subscription(
+                organization_id=actor.organization_id, plan_id=created_plan.id,
+                status=SubscriptionStatus.ACTIVE,
+            )
+            db.add(subscription)
+            db.flush()
+            created_subscription = True
+        elif subscription.status != SubscriptionStatus.ACTIVE:
+            raise RuntimeError("Disposable HOA E2E subscription must be ACTIVE")
+        previous_item = db.query(SubscriptionItem).filter(
+            SubscriptionItem.subscription_id == subscription.id,
+            SubscriptionItem.module_id == module.id,
+        ).one_or_none()
+        if previous_item is None:
+            created_item = SubscriptionItem(
+                subscription_id=subscription.id, module_id=module.id,
+                unit_price_cents=7900,
+            )
+            db.add(created_item)
+        db.commit()
+        yield
+    finally:
+        db.rollback()
+        if created_subscription and subscription is not None:
+            db.delete(subscription)
+            db.flush()
+            if created_plan is not None:
+                db.delete(created_plan)
+        elif created_item is not None:
+            db.delete(created_item)
+        for identifier, prior_stage in previous.values():
+            gate = db.get(ReleaseGate, identifier)
+            if gate is not None:
+                if prior_stage is None:
+                    db.delete(gate)
+                else:
+                    gate.stage = prior_stage
+        db.commit()
+        db.close()
+
+
+@contextmanager
+def _temporarily_release_commercial_ui():
+    """Release only disposable Commercial compliance/document gates for E2E."""
+    if os.environ.get("E2E_SEED_ALLOWED", "").lower() != "true":
+        raise RuntimeError("Commercial browser test requires a disposable E2E database")
+    db = SessionLocal()
+    previous = {}
+    try:
+        for key in ("release.properties.compliance", "release.documents.attachments"):
+            gate = db.query(ReleaseGate).filter(ReleaseGate.key == key).one_or_none()
+            if gate is None:
+                gate = ReleaseGate(key=key, stage=ReleaseStage.ALL_ORGS)
+                db.add(gate)
+                db.flush()
+                previous[key] = (gate.id, None)
+            else:
+                previous[key] = (gate.id, gate.stage)
+                gate.stage = ReleaseStage.ALL_ORGS
+        db.commit()
+        yield
+    finally:
+        db.rollback()
+        for identifier, prior_stage in previous.values():
+            gate = db.get(ReleaseGate, identifier)
+            if gate is not None:
+                if prior_stage is None:
+                    db.delete(gate)
+                else:
+                    gate.stage = prior_stage
+        db.commit()
+        db.close()
+
+
+def _financial_counts() -> tuple[int, int]:
+    db = SessionLocal()
+    try:
+        return db.query(Charge).count(), db.query(GLTransaction).count()
+    finally:
+        db.close()
+
+
+def _commercial_financial_counts() -> tuple[int, int, int]:
+    db = SessionLocal()
+    try:
+        return (
+            db.query(Charge).count(),
+            db.query(RentInvoice).count(),
+            db.query(GLTransaction).count(),
+        )
+    finally:
+        db.close()
+
+
+def test_hoa_staff_evidence_upload_link_download_and_archive() -> None:
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page(accept_downloads=True)
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
+
+                page.goto(
+                    f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                    wait_until="domcontentloaded",
+                )
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                expect(page.get_by_role("heading", name="HOA — recorded associations")).to_be_visible()
+
+                page.get_by_label("Association name").fill(ASSOCIATION_NAME)
+                page.get_by_role("button", name="Record association").click()
+                expect(page.get_by_text(ASSOCIATION_NAME, exact=True)).to_be_visible()
+                expect(page.get_by_text(re.compile("no dues or legal status established"))).to_be_visible()
+
+                page.get_by_role("button", name="Governing evidence").click()
+                expect(page.get_by_role("heading", name="Governing document evidence")).to_be_visible()
+                expect(page.get_by_text(re.compile("not verification of governing authority"))).to_be_visible()
+                expect(page.get_by_text("No governing documents have been indexed for this property.")).to_be_visible()
+
+                page.get_by_role("button", name="Upload private file").click()
+                page.locator("#entity-attachment-file").set_input_files({
+                    "name": DOCUMENT_NAME,
+                    "mimeType": "application/pdf",
+                    "buffer": b"%PDF-1.4\n% E2E synthetic fixture, NOT a governing instrument\n%%EOF\n",
+                })
+                page.get_by_role("button", name="Upload", exact=True).click()
+                expect(page.get_by_role("button", name=DOCUMENT_NAME, exact=True)).to_be_visible()
+                page.get_by_role("button", name="Refresh files").click()
+
+                document = page.get_by_label("Document", exact=True)
+                expect(document.locator("option")).to_have_count(2)
+                document.select_option(index=1)
+                page.get_by_label("Staff-supplied document category").select_option(label="Bylaws")
+                page.get_by_role("button", name="Record evidence reference").click()
+                expect(page.get_by_text("STAFF-SUPPLIED / UNVERIFIED")).to_be_visible()
+                expect(page.get_by_text(re.compile("Document authority remains unverified"))).to_be_visible()
+
+                with page.expect_download() as downloaded:
+                    page.get_by_role("button", name="Download", exact=True).click()
+                assert downloaded.value.suggested_filename == DOCUMENT_NAME
+
+                # An explicitly verified same-association login receives only a
+                # TEST_ONLY console attempt in the disposable E2E environment.
+                _seed_governing_delivery_recipient()
+                page.get_by_role("button", name="Email copy").click()
+                delivery = page.get_by_role("heading", name="Email document copy").locator("..").locator("..")
+                delivery.get_by_label("Verified association contact").select_option(
+                    label="E2E Governing Recipient",
+                )
+                page.once("dialog", lambda dialog: dialog.accept())
+                delivery.get_by_role("button", name="Email document copy").click()
+                expect(delivery.get_by_text(
+                    "Test mode: no document attachment was emailed.",
+                )).to_be_visible()
+                expect(delivery.get_by_text(
+                    re.compile("TEST ONLY"),
+                )).to_be_visible()
+                assert _financial_counts() == before
+                delivery.get_by_role("button", name="Close delivery").click()
+
+                page.goto(f"{BASE_URL}/dashboard/hoa/board", wait_until="domcontentloaded")
+                board_docs = page.get_by_role(
+                    "heading", name="My HOA board documents",
+                ).locator("..")
+                expect(board_docs.get_by_text(DOCUMENT_NAME, exact=True)).to_be_visible()
+                with page.expect_download() as board_download:
+                    board_docs.get_by_role(
+                        "button", name="Download private board document",
+                    ).click()
+                assert board_download.value.suggested_filename == DOCUMENT_NAME
+                assert board_download.value.path().stat().st_size > 0
+                assert _financial_counts() == before
+
+                page.goto(
+                    f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                    wait_until="domcontentloaded",
+                )
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                page.get_by_role("button", name="Governing evidence").click()
+                expect(page.get_by_role("heading", name="Governing document evidence")).to_be_visible()
+
+                # Upload a different private source, supersede the original,
+                # and inspect immutable staff-only version metadata.
+                second_name = "e2e-unverified-version-2.pdf"
+                page.get_by_role("button", name="Upload private file").click()
+                page.locator("#entity-attachment-file").set_input_files({
+                    "name": second_name,
+                    "mimeType": "application/pdf",
+                    "buffer": b"%PDF-1.4\\n% E2E replacement fixture, NOT adopted rules\\n%%EOF\\n",
+                })
+                page.get_by_role("button", name="Upload", exact=True).click()
+                expect(page.get_by_role("button", name=second_name, exact=True)).to_be_visible()
+                page.get_by_role("button", name="Refresh files").click()
+                page.get_by_role("button", name="Replace version").click()
+                page.get_by_label("Replacement private document").select_option(index=1)
+                page.once("dialog", lambda dialog: dialog.accept())
+                page.get_by_role("button", name="Record next version").click()
+                expect(page.get_by_text(
+                    re.compile("New private document version recorded"),
+                )).to_be_visible()
+                page.get_by_role("button", name="Show document version history").click()
+                expect(page.get_by_text(
+                    re.compile("Archived reference"),
+                )).to_be_visible()
+                expect(page.get_by_text(
+                    re.compile("Current reference"),
+                )).to_be_visible()
+                assert _financial_counts() == before
+
+                page.goto(f"{BASE_URL}/dashboard/hoa/board", wait_until="domcontentloaded")
+                board_docs = page.get_by_role(
+                    "heading", name="My HOA board documents",
+                ).locator("..")
+                expect(board_docs.get_by_text(second_name, exact=True)).to_be_visible()
+                expect(board_docs.get_by_text(DOCUMENT_NAME, exact=True)).to_have_count(0)
+                with page.expect_download() as current_version:
+                    board_docs.get_by_role("button", name="Download private board document").click()
+                assert current_version.value.suggested_filename == second_name
+                assert current_version.value.path().stat().st_size > 0
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                          wait_until="domcontentloaded")
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                page.get_by_role("button", name="Governing evidence").click()
+                expect(page.get_by_role("heading", name="Governing document evidence")).to_be_visible()
+
+                page.once("dialog", lambda dialog: dialog.accept())
+                page.get_by_role("button", name="Archive link").click()
+                expect(page.get_by_text(re.compile("Reference archived; no legal action"))).to_be_visible()
+                expect(page.get_by_text("No governing documents have been indexed for this property.")).to_be_visible()
+                page.goto(f"{BASE_URL}/dashboard/hoa/board", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="My HOA board documents")).to_be_visible()
+                expect(page.get_by_text(second_name, exact=True)).to_have_count(0)
+                assert _financial_counts() == before
+            finally:
+                browser.close()
+        assert _financial_counts() == before
+
+
+
+
+def _seed_governing_delivery_recipient() -> None:
+    """The customer login is verified only inside the disposable E2E database."""
+    if os.environ.get("E2E_SEED_ALLOWED", "").lower() != "true":
+        raise RuntimeError("Document delivery browser seed requires a disposable E2E database")
+    db = SessionLocal()
+    try:
+        association = db.query(HOAAssociation).filter(
+            HOAAssociation.name == ASSOCIATION_NAME,
+            HOAAssociation.is_active.is_(True),
+        ).one()
+        user = db.query(User).filter(
+            User.organization_id == association.organization_id,
+            User.email == EMAIL,
+        ).one()
+        user.is_verified = True
+        contact = Contact(
+            organization_id=association.organization_id,
+            display_name="E2E Governing Recipient",
+            email=user.email, contact_type="PERSON", is_active=True,
+        )
+        db.add(contact)
+        db.flush()
+        link = HOAContactLink(
+            organization_id=association.organization_id,
+            association_id=association.id, property_id=PROPERTY_ID,
+            contact_id=contact.id, is_active=True,
+        )
+        db.add(link); db.flush()
+        db.add(HOABoardSeat(
+            organization_id=association.organization_id,
+            association_id=association.id, property_id=PROPERTY_ID,
+            contact_link_id=link.id, proposed_role="CHAIR",
+            staff_voting_eligible=True, is_active=True,
+            authorized_user_id=user.id, decision_authorized=True,
+            authorized_by_id=user.id, can_record_offline=True,
+        ))
+        db.commit()
+    finally:
+        db.rollback()
+        db.close()
+
+def test_hoa_staff_procedure_and_case_browser_flow_no_finance() -> None:
+    """Exercise the actual staff UI, not an official notice/fine delivery."""
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
+                page.goto(
+                    f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                    wait_until="domcontentloaded",
+                )
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                expect(page.get_by_role("heading", name="HOA — recorded associations")).to_be_visible()
+                association_name = "E2E Procedure and Case Association"
+                page.get_by_label("Association name").fill(association_name)
+                page.get_by_role("button", name="Record association").click()
+                association = (
+                    page.get_by_text(association_name, exact=True).locator("..").locator("..")
+                )
+                expect(association).to_be_visible()
+
+                _seed_case_recipient(association_name)
+
+                association.get_by_role("button", name="Procedure settings").click()
+                policy = association.get_by_role("heading", name="HOA staff procedure configuration").locator("..").locator("..")
+                expect(policy.get_by_text("Legal issuance remains disabled")).to_be_visible()
+                policy.get_by_label("Proposed cure-tracking days").fill("5")
+                policy.get_by_label("Proposed hearing request days").fill("7")
+                policy.get_by_label("Proposed fine cap (not assessed)").fill("45.00")
+                policy.get_by_label("Staff draft notice language (not delivered)").fill(
+                    "Internal TEST DRAFT only, do not send."
+                )
+                policy.get_by_role("button", name="Save staff procedure settings").click()
+                expect(policy.get_by_text("Staff revision 1")).to_be_visible()
+                expect(policy.get_by_text(re.compile("no legal notices, fines or dues are enabled"))).to_be_visible()
+                policy.get_by_role("button", name="Close").click()
+
+                association.get_by_role("button", name="Staff observations").click()
+                observations = association.get_by_role("heading", name="HOA staff observations").locator("..").locator("..")
+                observations.get_by_label("Observation summary").fill("E2E unverified site observation")
+                observations.get_by_label("Date observed").fill("2026-09-01")
+                observations.get_by_role("button", name="Save staff record").click()
+                expect(observations.get_by_text("E2E unverified site observation", exact=False)).to_be_visible()
+                observations.get_by_role("button", name="Close").click()
+
+                association.get_by_role("button", name="Staff cases").click()
+                cases = association.get_by_role("heading", name="HOA internal review cases").locator("..").locator("..")
+                cases.locator("select").last.select_option(index=1)
+                cases.get_by_role("button", name="Open internal case").click()
+                expect(cases.get_by_text(re.compile("Open staff review"))).to_be_visible()
+                cases.get_by_role("button", name="Case follow-ups").click()
+                tasks = cases.get_by_role("heading", name=re.compile("Case follow-ups")).locator("..").locator("..")
+                tasks.get_by_label("Task title").fill("Inspect synthetic case condition")
+                tasks.get_by_label("Assigned staff").select_option(index=1)
+                tasks.get_by_label("Internal target date").fill("2026-10-09")
+                tasks.get_by_role("button", name="Assign follow-up").click()
+                expect(tasks.get_by_text(re.compile("INSPECTION.*Inspect synthetic case condition.*OPEN"))).to_be_visible()
+                tasks.get_by_role("button", name="Start follow-up").click()
+                tasks.get_by_role("button", name="Complete follow-up").click()
+                tasks.get_by_label("Completion note").fill("Synthetic inspection complete")
+                tasks.get_by_role("button", name="Save completion").click()
+                expect(tasks.get_by_text("Result: Synthetic inspection complete")).to_be_visible()
+                assert _financial_counts() == before
+                tasks.get_by_role("button", name="Close follow-ups").click()
+                cases.get_by_role("button", name="Private case evidence").click()
+                evidence = cases.get_by_role("heading", name=re.compile("Private violation evidence")).locator("..").locator("..")
+                evidence.get_by_label("Private property evidence file").select_option(label="e2e-private-case-photo.png")
+                evidence.get_by_role("button", name="Link private case evidence").click()
+                expect(evidence.get_by_text(re.compile("PHOTO.*e2e-private-case-photo"))).to_be_visible()
+                assert _financial_counts() == before
+                evidence.get_by_role("button", name="Close evidence").click()
+                cases.get_by_role("button", name="Potential recipient").click()
+                candidate = cases.get_by_role("heading", name=re.compile("Potential violation recipient")).locator("..").locator("..")
+                candidate.get_by_label("Potential recipient contact").select_option(label="E2E Verified Case Recipient")
+                candidate.get_by_role("button", name="Record potential recipient").click()
+                expect(candidate.get_by_text(re.compile("Notice delivery DISABLED"))).to_be_visible()
+                assert _financial_counts() == before
+                candidate.get_by_role("button", name="Close recipient").click()
+                cases.get_by_role("button", name="Advance internal case").click()
+                cases.get_by_label("Staff-planned date").fill("2026-09-02")
+                cases.get_by_role("button", name="Record staff stage").click()
+                expect(cases.get_by_text(re.compile("Notice draft prepared \\(not sent\\)"))).to_be_visible()
+                cases.get_by_role("button", name="Private correspondence").click()
+                letters = cases.get_by_role("heading", name=re.compile("Private case correspondence")).locator("..").locator("..")
+                letters.get_by_label("Internal correspondence subject").fill("Synthetic private reminder")
+                letters.get_by_label("Internal correspondence body (never sent)").fill("Internal staff draft, NOT an issued statutory notice.")
+                letters.get_by_role("button", name="Record private draft only").click()
+                expect(letters.get_by_text(re.compile("STAFF DRAFT.*NOT SENT"))).to_be_visible()
+                page.once("dialog", lambda dialog: dialog.accept())
+                letters.get_by_role("button", name="Board-authorize and email this correspondence").click()
+                expect(letters.get_by_text(re.compile("Console test only"))).to_be_visible()
+                expect(letters.get_by_text(re.compile("Email attempt #.*TEST_ONLY"))).to_be_visible()
+                assert _financial_counts() == before
+                letters.get_by_role("button", name="Close correspondence").click()
+                cases.get_by_role("button", name="Notice service").click()
+                service = cases.get_by_role("heading", name="Association notice-service record").locator("..").locator("..")
+                service.get_by_label("HOA service delivery method").select_option("PERSONAL")
+                service.get_by_label("Actual date served").fill("2026-09-03")
+                service.get_by_label("HOA service proof").select_option(label="e2e-private-case-photo.png")
+                page.once("dialog", lambda dialog: dialog.accept())
+                service.get_by_role("button", name="Record evidenced service").click()
+                expect(service.get_by_text(re.compile("Service record #"))).to_be_visible()
+                expect(service.get_by_text(re.compile("Configured cure calculation: 2026-09-08"))).to_be_visible()
+                assert _financial_counts() == before
+                service.get_by_role("button", name="Close service record").click()
+                cases.get_by_role("button", name="Advance internal case").click()
+                cases.get_by_role("button", name="Record staff stage").click()
+                expect(cases.get_by_text(re.compile("Tentative cure tracking"))).to_be_visible()
+                expect(cases.get_by_text(re.compile("Tentative cure: 2026-09-07"))).to_be_visible()
+                cases.get_by_role("button", name="Case history").click()
+                history = cases.get_by_role("heading", name="Internal case history").locator("..")
+                expect(history.get_by_text(re.compile("NEW.*OPEN"))).to_be_visible()
+                expect(history.get_by_text(re.compile("OPEN.*NOTICE DRAFT"))).to_be_visible()
+                expect(history.get_by_text(re.compile("NOTICE DRAFT.*CURE TRACKING"))).to_be_visible()
+                expect(history.get_by_text(re.compile("Procedure revision 1")).first).to_be_visible()
+                expect(history.get_by_text(re.compile("does not deliver a legal notice"))).to_be_visible()
+                assert _financial_counts() == before
+                # Move the synthetic staff case to a proposed fine. The board
+                # decision is separately recorded, not inferred from the proposal.
+                cases.get_by_role("button", name="Advance internal case").click()
+                cases.get_by_label("Next staff stage").select_option("FINE_PROPOSED")
+                cases.get_by_label("Proposed amount (not assessed)").fill("25.00")
+                cases.get_by_role("button", name="Record staff stage").click()
+                expect(cases.get_by_text(re.compile("Fine proposal \\(unassessed\\)"))).to_be_visible()
+                assert _financial_counts() == before
+                # The delegated board dashboard, without broad staff-accounting
+                # controls, records the standalone hearing outcome and final fine decision.
+                page.goto(f"{BASE_URL}/dashboard/hoa/board", wait_until="domcontentloaded")
+                board_fines = page.get_by_role(
+                    "heading", name="Board violation hearings and fines",
+                ).locator("..")
+                expect(board_fines.get_by_text(re.compile("Violation case #"))).to_be_visible()
+                with page.expect_download() as board_case_download:
+                    board_fines.get_by_role(
+                        "button", name=re.compile("Download e2e-private-case-photo.png"),
+                    ).click()
+                assert board_case_download.value.path().stat().st_size == 100
+                assert _financial_counts() == before
+                page.once("dialog", lambda dialog: dialog.accept())
+                board_fines.get_by_role("button", name="Record board hearing outcome").click()
+                expect(board_fines.get_by_text(
+                    re.compile("Hearing record #.*NO_REQUEST_RECORDED"),
+                )).to_be_visible()
+                assert _financial_counts() == before
+                board_fines.get_by_label(re.compile("Board violation fine amount")).fill("25.00")
+                board_fines.get_by_label(re.compile("Board violation fine explanation")).fill(
+                    "Synthetic delegated board approved fine after evidenced service"
+                )
+                page.once("dialog", lambda dialog: dialog.accept())
+                board_fines.get_by_role(
+                    "button", name="Record final board fine decision",
+                ).click()
+                expect(board_fines.get_by_text(
+                    re.compile("No proposed fines require action"),
+                )).to_be_visible()
+                assert _financial_counts() == before
+
+                # Staff accounting view sees the already-recorded board decision and
+                # may proceed to the separate appeal intake workflow.
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                          wait_until="domcontentloaded")
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                association = (
+                    page.get_by_text(association_name, exact=True).locator("..").locator("..")
+                )
+                association.get_by_role("button", name="Staff cases").click()
+                cases = association.get_by_role(
+                    "heading", name="HOA internal review cases",
+                ).locator("..").locator("..")
+                cases.get_by_role("button", name="Association fine").click()
+                fine = cases.get_by_role(
+                    "heading", name="Association violation fine decision and ledger",
+                ).locator("..").locator("..")
+                expect(fine.get_by_text(re.compile("Board decision #.*APPROVED"))).to_be_visible()
+                fine.get_by_role("button", name="Fine appeals", exact=True).click()
+                appeal = fine.get_by_role(
+                    "heading", name="Fine appeal and correction history",
+                ).locator("..").locator("..")
+                appeal.get_by_label("Fine appeal received date").fill(date.today().isoformat())
+                appeal.get_by_label("Received appeal reason").fill("Synthetic member disputed fine")
+                appeal.get_by_label("Appeal private supporting evidence").select_option(
+                    label="e2e-private-case-photo.png",
+                )
+                page.once("dialog", lambda dialog: dialog.accept())
+                appeal.get_by_role("button", name="Record appeal received").click()
+                expect(appeal.get_by_text(re.compile("Appeal #.*OPEN"))).to_be_visible()
+                assert _financial_counts() == before
+                # The delegated board portal (not the staff accounting panel)
+                # records the direct appeal disposition under the same live seat.
+                page.goto(f"{BASE_URL}/dashboard/hoa/board", wait_until="domcontentloaded")
+                board_appeals = page.get_by_role(
+                    "heading", name="Board fine appeals",
+                ).locator("..")
+                expect(board_appeals.get_by_text(re.compile("Fine appeal #"))).to_be_visible()
+                with page.expect_download() as downloaded:
+                    board_appeals.get_by_role("button", name="Download private appeal evidence").click()
+                assert downloaded.value.suggested_filename.startswith("hoa-appeal-evidence-")
+                assert downloaded.value.path().stat().st_size == 100
+                assert _financial_counts() == before
+                board_appeals.get_by_label(
+                    re.compile("Board portal appeal explanation"),
+                ).fill("Synthetic delegated board upheld the member fine")
+                page.once("dialog", lambda dialog: dialog.accept())
+                board_appeals.get_by_role("button", name="Record my board appeal decision").click()
+                expect(board_appeals.get_by_text(
+                    re.compile("Your direct board appeal disposition was recorded"),
+                )).to_be_visible()
+                expect(board_appeals.get_by_role(
+                    "heading", name=re.compile("Final fine appeal #.*UPHELD"),
+                )).to_be_visible()
+                expect(board_appeals.get_by_text(
+                    re.compile("Outcome email: NOT REQUESTED"),
+                )).to_be_visible()
+                # Finalization preserves only the same scoped private proof.
+                with page.expect_download() as final_evidence:
+                    board_appeals.get_by_role(
+                        "button", name="Download private appeal evidence",
+                    ).click()
+                assert final_evidence.value.path().stat().st_size == 100
+                assert _financial_counts() == before
+                board_appeals.get_by_role("button", name="Open final outcome email").click()
+                expect(board_appeals.get_by_role(
+                    "heading", name="Fine appeal outcome email",
+                )).to_be_visible()
+                board_appeals.get_by_role("button", name="Close appeal email").click()
+                assert _financial_counts() == before
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                          wait_until="domcontentloaded")
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                association = page.get_by_text(
+                    association_name, exact=True,
+                ).locator("..").locator("..")
+                association.get_by_role("button", name="Staff cases").click()
+                cases = association.get_by_role(
+                    "heading", name="HOA internal review cases",
+                ).locator("..").locator("..")
+                cases.get_by_role("button", name="Association fine").click()
+                fine = cases.get_by_role(
+                    "heading", name="Association violation fine decision and ledger",
+                ).locator("..").locator("..")
+                fine.get_by_role("button", name="Fine appeals", exact=True).click()
+                appeal = fine.get_by_role(
+                    "heading", name="Fine appeal and correction history",
+                ).locator("..").locator("..")
+                expect(appeal.get_by_text(re.compile("Appeal #.*UPHELD"))).to_be_visible()
+                # The appeal outcome email is explicitly authorized in the
+                # disposable browser environment. Console-mode sends no email.
+                db = SessionLocal()
+                try:
+                    association = db.query(HOAAssociation).filter(
+                        HOAAssociation.name == association_name,
+                        HOAAssociation.is_active.is_(True),
+                    ).one()
+                    actor = db.query(User).filter(
+                        User.organization_id == association.organization_id,
+                        User.email == EMAIL,
+                    ).one()
+                    db.add(LetterTemplate(
+                        organization_id=association.organization_id,
+                        title="HOA Appeal: synthetic outcome",
+                        category="CUSTOM",
+                        subject="E2E board appeal outcome",
+                        body="Synthetic association-authored appeal outcome message.",
+                        created_by_id=actor.id, is_active=True,
+                    ))
+                    db.commit()
+                finally:
+                    db.rollback(); db.close()
+                appeal.get_by_role("button", name="Appeal outcome email").click()
+                outcome_email = appeal.get_by_role(
+                    "heading", name="Fine appeal outcome email",
+                ).locator("..").locator("..")
+                outcome_email.get_by_label(
+                    "Appeal outcome letter template",
+                ).select_option(label="HOA Appeal: synthetic outcome")
+                page.once("dialog", lambda dialog: dialog.accept())
+                outcome_email.get_by_role(
+                    "button", name="Authorize and email appeal outcome",
+                ).click()
+                expect(outcome_email.get_by_text(
+                    "Test-only: no real email was transmitted.",
+                ).first).to_be_visible()
+                expect(outcome_email.get_by_text(re.compile("TEST ONLY"))).to_be_visible()
+                assert _financial_counts() == before
+                outcome_email.get_by_role("button", name="Close appeal email").click()
+                fine.get_by_label("GL posting date").fill(date.today().isoformat())
+                fine.get_by_label("Fine receivable GL").select_option(
+                    label="E2E-CASE-FINE-AR · E2E Case Fine Receivable",
+                )
+                fine.get_by_label("Fine income GL").select_option(
+                    label="E2E-CASE-FINE-INCOME · E2E Case Fine Income",
+                )
+                page.once("dialog", lambda dialog: dialog.accept())
+                fine.get_by_role(
+                    "button", name="Post approved fine to member GL",
+                ).click()
+                expect(fine.get_by_text(re.compile("POSTED"))).to_be_visible()
+                assert _financial_counts() == (before[0], before[1] + 1)
+                fine.get_by_label("Fine payment cash GL").select_option(
+                    label="E2E-CASE-FINE-CASH · E2E Case Fine Cash",
+                )
+                fine.get_by_label("Fine received on").fill(date.today().isoformat())
+                fine.get_by_label("Fine received amount").fill("25.00")
+                fine.get_by_label("Fine payment reference").fill("SYNTHETIC-FINE-CHECK")
+                page.once("dialog", lambda dialog: dialog.accept())
+                fine.get_by_role("button", name="Record received fine payment").click()
+                expect(fine.get_by_text(re.compile("No bank collection initiated"))).to_be_visible()
+                expect(fine.get_by_text(re.compile(r"Outstanding \$0\.00")).first).to_be_visible()
+                assert _financial_counts() == (before[0], before[1] + 2)
+                expect(fine.get_by_role("button", name="Reverse posted fine")).to_have_count(0)
+                appeal.get_by_label("Fine appeal received date").fill(date.today().isoformat())
+                appeal.get_by_label("Received appeal reason").fill("Second synthetic member appeal")
+                page.once("dialog", lambda dialog: dialog.accept())
+                appeal.get_by_role("button", name="Record appeal received").click()
+                expect(appeal.get_by_text(re.compile("Appeal #.*OPEN"))).to_be_visible()
+                appeal.get_by_label("Fine appeal board outcome").select_option("VACATED")
+                appeal.get_by_label("Board appeal explanation").fill(
+                    "Synthetic board vacated the member fine"
+                )
+                page.once("dialog", lambda dialog: dialog.accept())
+                appeal.get_by_role("button", name="Record final board appeal decision").click()
+                expect(appeal.get_by_text(re.compile("Appeal #.*VACATED"))).to_be_visible()
+                expect(appeal.get_by_text(re.compile("posted GL still requires"))).to_be_visible()
+                assert _financial_counts() == (before[0], before[1] + 2)
+                fine.get_by_label("Fine receipt reversal date").fill(date.today().isoformat())
+                fine.get_by_label("Fine receipt reversal reason").fill("Synthetic receipt correction")
+                page.once("dialog", lambda dialog: dialog.accept())
+                fine.get_by_role("button", name="Reverse fine payment").click()
+                expect(fine.get_by_text(re.compile("receipt reversed in the central GL"))).to_be_visible()
+                assert _financial_counts() == (before[0], before[1] + 3)
+                fine.get_by_label("Fine reversal date").fill(date.today().isoformat())
+                fine.get_by_label("Fine reversal reason").fill("Synthetic accounting correction")
+                page.once("dialog", lambda dialog: dialog.accept())
+                fine.get_by_role("button", name="Reverse posted fine").click()
+                expect(fine.get_by_text(re.compile(r"^Board decision #\d+: APPROVED · REVERSED ·"))).to_be_visible()
+                assert _financial_counts() == (before[0], before[1] + 4)
+                appeal.get_by_role("button", name="Refresh appeal history").click()
+                expect(appeal.get_by_text(re.compile("posted GL still requires"))).to_have_count(0)
+            finally:
+                browser.close()
+        assert _financial_counts() == (before[0], before[1] + 4)
+
+
+def test_hoa_staff_meeting_motion_browser_flow_no_official_vote() -> None:
+    """A real browser can prepare an unapproved motion, but cannot cast an official vote."""
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
+                page.goto(
+                    f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                    wait_until="domcontentloaded",
+                )
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                expect(page.get_by_role("heading", name="HOA — recorded associations")).to_be_visible()
+
+                association_name = "E2E Meeting Workspace Association"
+                page.get_by_label("Association name").fill(association_name)
+                page.get_by_role("button", name="Record association").click()
+                association = page.get_by_text(association_name, exact=True).locator("..").locator("..")
+                association.get_by_role("button", name="Meeting plans").click()
+                plans = association.get_by_role("heading", name="HOA staff meeting plans").locator("..").locator("..")
+                plans.get_by_label("Staff plan title").fill("E2E proposed agenda")
+                plans.get_by_label("Proposed date (not legal notice)").fill("2026-10-14")
+                plans.get_by_role("button", name="Save staff plan").click()
+                expect(plans.get_by_text("E2E proposed agenda", exact=False)).to_be_visible()
+
+                plans.get_by_role("button", name="Meeting workspace").click()
+                workspace = plans.get_by_role(
+                    "heading", name="Staff meeting participation and motion preparation"
+                ).locator("..").locator("..")
+                expect(workspace.get_by_text(re.compile("not official votes"))).to_be_visible()
+                workspace.get_by_label("Proposed staff motion").fill("E2E draft landscaping motion")
+                workspace.get_by_role("button", name="Save motion draft").click()
+                expect(workspace.get_by_text(re.compile("E2E draft landscaping motion"))).to_be_visible()
+                expect(workspace.get_by_text(re.compile("PROPOSED ONLY"))).to_be_visible()
+                expect(workspace.get_by_text(re.compile("No vote has occurred"))).to_be_visible()
+                assert _financial_counts() == before
+            finally:
+                browser.close()
+        assert _financial_counts() == before
+
+
+def _seed_arc_applicant(association_name: str) -> None:
+    if os.environ.get("E2E_SEED_ALLOWED", "").lower() != "true":
+        raise RuntimeError("ARC browser test requires disposable E2E database")
+    db = SessionLocal()
+    try:
+        association = db.query(HOAAssociation).filter(
+            HOAAssociation.name == association_name,
+            HOAAssociation.is_active.is_(True),
+        ).one()
+        contact = Contact(
+            organization_id=association.organization_id,
+            display_name="E2E ARC Applicant",
+            contact_type="PERSON", is_active=True,
+        )
+        db.add(contact); db.flush()
+        db.add(HOAContactLink(
+            organization_id=association.organization_id,
+            association_id=association.id,
+            property_id=PROPERTY_ID,
+            contact_id=contact.id,
+            is_active=True,
+        ))
+        db.commit()
+    finally:
+        db.close()
+
+
+def _seed_case_recipient(association_name: str) -> None:
+    """Disposable verified member login linked only to this association."""
+    if os.environ.get("E2E_SEED_ALLOWED", "").lower() != "true":
+        raise RuntimeError("Violation recipient test requires disposable E2E database")
+    db = SessionLocal()
+    try:
+        association = db.query(HOAAssociation).filter(
+            HOAAssociation.name == association_name,
+            HOAAssociation.is_active.is_(True),
+        ).one()
+        user = db.query(User).filter(
+            User.organization_id == association.organization_id,
+            User.email == EMAIL,
+        ).one()
+        user.is_verified = True
+        contact = Contact(
+            organization_id=association.organization_id,
+            display_name="E2E Verified Case Recipient",
+            email=user.email, contact_type="PERSON", is_active=True,
+        )
+        db.add(contact)
+        db.flush()
+        link = HOAContactLink(
+            organization_id=association.organization_id,
+            association_id=association.id, property_id=PROPERTY_ID,
+            contact_id=contact.id, is_active=True,
+        )
+        db.add(link)
+        db.flush()
+        db.add(HOABoardSeat(
+            organization_id=association.organization_id,
+            association_id=association.id, property_id=PROPERTY_ID,
+            contact_link_id=link.id, proposed_role="CHAIR",
+            staff_voting_eligible=True, is_active=True,
+            authorized_user_id=user.id, decision_authorized=True,
+            authorized_by_id=user.id, can_record_offline=True,
+        ))
+        # Synthetic downloadable file is confined to this disposable E2E run.
+        attachment_path(f"case-evidence-{association.id}.png").write_bytes(
+            bytes([137, 80, 78, 71, 13, 10, 26, 10]) + bytes(92)
+        )
+        db.add(EntityAttachment(
+            organization_id=association.organization_id,
+            entity_type="properties", entity_id=PROPERTY_ID,
+            storage_key=f"case-evidence-{association.id}.png",
+            original_name="e2e-private-case-photo.png",
+            content_type="image/png", size_bytes=100,
+            is_active=True, share_with_tenants=False,
+            share_with_owners=False,
+        ))
+        db.add_all([
+            GLAccount(
+                organization_id=association.organization_id,
+                gl_number="E2E-CASE-FINE-AR", name="E2E Case Fine Receivable",
+                account_type="ASSET", is_active=True,
+            ),
+            GLAccount(
+                organization_id=association.organization_id,
+                gl_number="E2E-CASE-FINE-INCOME", name="E2E Case Fine Income",
+                account_type="INCOME", is_active=True,
+            ),
+            GLAccount(
+                organization_id=association.organization_id,
+                gl_number="E2E-CASE-FINE-CASH", name="E2E Case Fine Cash",
+                account_type="ASSET", include_on_cash_flow=True, is_active=True,
+            ),
+        ])
+        db.commit()
+    finally:
+        db.close()
+
+
+def test_hoa_arc_application_review_browser_records_board_approval() -> None:
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+
+                association_name = "E2E ARC Application Association"
+                page.get_by_label("Association name").fill(association_name)
+                page.get_by_role("button", name="Record association").click()
+                association = page.get_by_text(association_name, exact=True).locator("..").locator("..")
+                expect(association).to_be_visible()
+                _seed_arc_applicant(association_name)
+                # Disposable E2E board login: the actor must be the verified,
+                # same-org email owner of a scoped active eligible seat.
+                db = SessionLocal()
+                try:
+                    board_actor = db.query(User).filter(User.email == EMAIL).one()
+                    board_actor.is_verified = True
+                    assoc = db.query(HOAAssociation).filter(
+                        HOAAssociation.name == association_name,
+                        HOAAssociation.is_active.is_(True),
+                    ).one()
+                    contact = Contact(
+                        organization_id=assoc.organization_id,
+                        display_name="E2E Verified Board Actor",
+                        email=EMAIL, contact_type="PERSON", is_active=True,
+                    )
+                    db.add(contact)
+                    db.flush()
+                    link = HOAContactLink(
+                        organization_id=assoc.organization_id,
+                        association_id=assoc.id, property_id=PROPERTY_ID,
+                        contact_id=contact.id, is_active=True,
+                    )
+                    db.add(link)
+                    db.flush()
+                    db.add(HOABoardSeat(
+                        organization_id=assoc.organization_id,
+                        association_id=assoc.id, property_id=PROPERTY_ID,
+                        contact_link_id=link.id, proposed_role="CHAIR",
+                        staff_voting_eligible=True, is_active=True,
+                        authorized_user_id=board_actor.id,
+                        authorized_by_id=board_actor.id,
+                        decision_authorized=True,
+                        can_record_offline=True,
+                    ))
+                    db.commit()
+                finally:
+                    db.close()
+
+                association.get_by_role("button", name="ARC staff intake").click()
+                intake = association.get_by_role("heading", name="ARC staff project intake").locator("..").locator("..")
+                intake.get_by_label("Project title").fill("E2E fence application")
+                intake.get_by_label("Date noted by staff").fill("2026-09-15")
+                intake.get_by_role("button", name="Save staff intake").click()
+                expect(intake.get_by_text("E2E fence application", exact=False)).to_be_visible()
+                intake.get_by_role("button", name="Application workflow").click()
+
+                workflow = intake.get_by_role("heading", name=re.compile("ARC application and review")).locator("..").locator("..")
+                workflow.get_by_label("Applicant contact").select_option(label="E2E ARC Applicant")
+                workflow.get_by_label("Application received date").fill("2026-09-16")
+                workflow.get_by_role("button", name="Record ARC application").click()
+                expect(workflow.get_by_text(re.compile("Awaiting board decision"))).to_be_visible()
+                workflow.get_by_role("button", name="Start staff review").click()
+                workflow.get_by_role("button", name="Mark ready for decision").click()
+                workflow.get_by_role("button", name="Prepare approval").click()
+                expect(workflow.get_by_text(re.compile("APPROVE PREPARED FOR BOARD REVIEW"))).to_be_visible()
+                workflow.get_by_label("Review note / board decision reason").fill(
+                    "E2E recorded board approval"
+                )
+                workflow.get_by_label("Optional follow-up").select_option("INSPECTION")
+                workflow.get_by_label("Follow-up instructions").fill(
+                    "Inspect the completed E2E fence and record the site condition."
+                )
+                workflow.get_by_role("button", name="Record board approval").click()
+                expect(workflow.get_by_text(re.compile("Board decision: APPROVED"))).to_be_visible()
+                expect(workflow.get_by_text(re.compile("Direct board record"))).to_be_visible()
+                expect(workflow.get_by_text(re.compile("Applicant notification: NO VERIFIED RECIPIENT"))).to_be_visible()
+                expect(workflow.get_by_text(re.compile("HOA INSPECTION follow-up"))).to_be_visible()
+                workflow.get_by_label("ARC inspection completed date").fill(date.today().isoformat())
+                workflow.get_by_label("ARC inspection completion note").fill(
+                    "E2E staff recorded the completed fence inspection without changing the approval."
+                )
+                workflow.get_by_role("button", name="Record inspection completion").click()
+                expect(workflow.get_by_text(re.compile("inspection completion recorded", re.I))).to_be_visible()
+                expect(workflow.get_by_text(re.compile("COMPLETED"))).to_be_visible()
+                expect(workflow.get_by_role("button", name="Record board approval")).to_have_count(0)
+                assert _financial_counts() == before
+            finally:
+                browser.close()
+        assert _financial_counts() == before
+
+
+def test_hoa_board_role_proposals_browser_flow_never_enables_vote() -> None:
+    """Dedicated HOA board UI coverage, using synthetic contacts only."""
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                          wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+
+                association_name = "E2E Board Proposals Association"
+                page.get_by_label("Association name").fill(association_name)
+                page.get_by_role("button", name="Record association").click()
+                association = page.get_by_text(
+                    association_name, exact=True,
+                ).locator("..").locator("..")
+                expect(association).to_be_visible()
+                # Explicitly disposable synthetic contact; no actual board identity.
+                _seed_arc_applicant(association_name)
+                # This disposable E2E fixture explicitly binds the proposed
+                # seat to an authenticated, same-org customer login.
+                db = SessionLocal()
+                try:
+                    admin = db.query(User).filter(User.email == EMAIL).one()
+                    admin.is_verified = True
+                    association_row = db.query(HOAAssociation).filter(
+                        HOAAssociation.name == association_name,
+                        HOAAssociation.organization_id == admin.organization_id,
+                        HOAAssociation.is_active.is_(True),
+                    ).one()
+                    contact = db.query(Contact).join(
+                        HOAContactLink, HOAContactLink.contact_id == Contact.id,
+                    ).filter(
+                        Contact.organization_id == admin.organization_id,
+                        Contact.display_name == "E2E ARC Applicant",
+                        HOAContactLink.organization_id == admin.organization_id,
+                        HOAContactLink.association_id == association_row.id,
+                        HOAContactLink.property_id == PROPERTY_ID,
+                        HOAContactLink.is_active.is_(True),
+                    ).one()
+                    contact.email = admin.email
+                    board_login_id = admin.id
+                    db.commit()
+                finally:
+                    db.close()
+                association.get_by_role("button", name="Board role proposals").click()
+                board = association.get_by_role(
+                    "heading", name="Board role and voting rule proposals",
+                ).locator("..").locator("..")
+                expect(board.get_by_text(re.compile("not themselves authenticated board roles", re.I))).to_be_visible()
+                board.get_by_label("Existing scoped HOA contact").select_option(
+                    label="E2E ARC Applicant",
+                )
+                board.get_by_label("Proposed role").select_option("SECRETARY")
+                board.get_by_label(re.compile("Staff-proposed voting eligibility")).check()
+                board.get_by_role("button", name="Record role proposal").click()
+                expect(board.get_by_text("E2E ARC Applicant: SECRETARY", exact=False)).to_be_visible()
+                expect(board.get_by_text(re.compile("ARC decision role: Not authorized"))).to_be_visible()
+                board.get_by_label("Board login for E2E ARC Applicant").select_option(str(board_login_id))
+                board.get_by_label("Designated officer may record offline decisions").check()
+                board.get_by_role("button", name="Authorize board login").click()
+                expect(board.get_by_text(re.compile("ARC decision role: Authorized login"))).to_be_visible()
+                expect(board.get_by_text(re.compile("May record offline board decisions"))).to_be_visible()
+                board.get_by_role("button", name="Revoke ARC decision role").click()
+                expect(board.get_by_text(re.compile("ARC decision role: Not authorized"))).to_be_visible()
+                board.get_by_label("Proposed minimum quorum").fill("3")
+                board.get_by_label("Proposed approval threshold").fill("2")
+                board.get_by_role("button", name="Save proposed rules").click()
+                expect(board.get_by_text(re.compile("Separate motion ballots require their own adoption records"))).to_be_visible()
+                expect(board.get_by_text(re.compile("Proposed quorum: 3"))).to_be_visible()
+                assert _financial_counts() == before
+            finally:
+                browser.close()
+        assert _financial_counts() == before
+
+
+def test_hoa_staff_ballot_observations_never_become_legal_votes() -> None:
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                          wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+
+                association_name = "E2E Ballot Report Association"
+                page.get_by_label("Association name").fill(association_name)
+                page.get_by_role("button", name="Record association").click()
+                association = page.get_by_text(
+                    association_name, exact=True,
+                ).locator("..").locator("..")
+                expect(association).to_be_visible()
+                _seed_arc_applicant(association_name)
+                association.get_by_role("button", name="Board role proposals").click()
+                board = association.get_by_role(
+                    "heading", name="Board role and voting rule proposals",
+                ).locator("..").locator("..")
+                board.get_by_label("Existing scoped HOA contact").select_option(
+                    label="E2E ARC Applicant",
+                )
+                board.get_by_label(re.compile("Staff-proposed voting eligibility")).check()
+                board.get_by_role("button", name="Record role proposal").click()
+                expect(board.get_by_text(re.compile("ARC decision role: Not authorized"))).to_be_visible()
+                board.get_by_role("button", name="Close").click()
+
+                association.get_by_role("button", name="Meeting plans").click()
+                meetings = association.get_by_role(
+                    "heading", name="HOA staff meeting plans",
+                ).locator("..").locator("..")
+                meetings.get_by_label("Staff plan title").fill("Synthetic ballot meeting")
+                meetings.get_by_label("Proposed date (not legal notice)").fill("2026-11-12")
+                meetings.get_by_role("button", name="Save staff plan").click()
+                meetings.get_by_role("button", name="Meeting workspace").click()
+                workspace = meetings.get_by_role(
+                    "heading", name="Staff meeting participation and motion preparation",
+                ).locator("..").locator("..")
+                workspace.get_by_label("Proposed staff motion").fill(
+                    "Synthetic ballot motion, not an adopted resolution"
+                )
+                workspace.get_by_role("button", name="Save motion draft").click()
+                workspace.get_by_role("button", name="Staff ballot records").click()
+                ballots = workspace.get_by_role(
+                    "heading", name="Staff-reported ballot observations",
+                ).locator("..").locator("..")
+                expect(ballots.get_by_text(re.compile("not a ballot cast", re.I))).to_be_visible()
+                ballots.get_by_label("Staff-proposed eligible contact").select_option(
+                    label="E2E ARC Applicant (DIRECTOR)"
+                )
+                ballots.get_by_label("Staff-reported choice").select_option("FOR")
+                ballots.get_by_role("button", name="Record staff observation").click()
+                expect(ballots.get_by_text("E2E ARC Applicant · FOR · UNVERIFIED")).to_be_visible()
+                expect(ballots.get_by_text(re.compile("No legally effective vote occurred"))).to_be_visible()
+                assert _financial_counts() == before
+            finally:
+                browser.close()
+        assert _financial_counts() == before
+
+
+def _seed_operational_hoa_assessment(association_name: str) -> None:
+    """Only the disposable E2E organization receives synthetic board/member/GL data."""
+    if os.environ.get("E2E_SEED_ALLOWED", "").lower() != "true":
+        raise RuntimeError("HOA posting browser fixture requires a disposable database")
+    db = SessionLocal()
+    try:
+        org_association = db.query(HOAAssociation).filter(
+            HOAAssociation.name == association_name,
+            HOAAssociation.is_active.is_(True),
+        ).one()
+        actor = db.query(User).filter(
+            User.organization_id == org_association.organization_id,
+            User.email == EMAIL,
+        ).one()
+        actor.is_verified = True
+        contact = Contact(
+            organization_id=org_association.organization_id,
+            display_name="E2E Assessment Member",
+            email=actor.email, contact_type="PERSON", is_active=True,
+        )
+        db.add(contact); db.flush()
+        link = HOAContactLink(
+            organization_id=org_association.organization_id,
+            association_id=org_association.id, property_id=PROPERTY_ID,
+            contact_id=contact.id, is_active=True,
+        )
+        db.add(link); db.flush()
+        db.add(HOABoardSeat(
+            organization_id=org_association.organization_id,
+            association_id=org_association.id, property_id=PROPERTY_ID,
+            contact_link_id=link.id, proposed_role="CHAIR",
+            staff_voting_eligible=True, is_active=True,
+            authorized_user_id=actor.id, authorized_by_id=actor.id,
+            decision_authorized=True, can_record_offline=True,
+        ))
+        db.add_all([
+            GLAccount(
+                organization_id=org_association.organization_id,
+                gl_number="E2E-HOA-AR", name="Synthetic HOA receivable",
+                account_type="ASSET", is_active=True,
+            ),
+            GLAccount(
+                organization_id=org_association.organization_id,
+                gl_number="E2E-HOA-INCOME", name="Synthetic HOA income",
+                account_type="INCOME", is_active=True,
+            ),
+            GLAccount(
+                organization_id=org_association.organization_id,
+                gl_number="E2E-HOA-CASH", name="Synthetic HOA received cash",
+                account_type="ASSET", include_on_cash_flow=True, is_active=True,
+            ),
+        ])
+        db.commit()
+    finally:
+        db.rollback()
+        db.close()
+
+
+def test_hoa_operational_member_assessment_browser_posts_and_reverses() -> None:
+    """Only disposable E2E rows are financially posted, never a real customer."""
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                name = "E2E Operational Member Assessments"
+                page.get_by_label("Association name").fill(name)
+                page.get_by_role("button", name="Record association").click()
+                association = page.get_by_text(name, exact=True).locator("..").locator("..")
+                expect(association).to_be_visible()
+                _seed_operational_hoa_assessment(name)
+                association.get_by_role("button", name="Draft assessments").click()
+                drafts = association.get_by_role(
+                    "heading", name="Assessment planning drafts",
+                ).locator("..").locator("..")
+                drafts.get_by_label("Proposal title").fill("E2E approved quarterly dues")
+                drafts.get_by_label("Proposed amount (not billed)").fill("75.00")
+                drafts.get_by_label("Proposed first date (not a due date)").fill("2028-01-31")
+                drafts.get_by_role("button", name="Save draft only").click()
+                drafts.get_by_role("button", name="Suggested payer").click()
+                payer = drafts.get_by_role(
+                    "heading", name="Suggested assessment contact",
+                ).locator("..").locator("..")
+                payer.get_by_label("Staff-suggested contact").select_option(
+                    label="E2E Assessment Member",
+                )
+                payer.get_by_role("button", name="Save staff reference").click()
+                expect(payer.get_by_text(re.compile("Issue charge: DISABLED"))).to_be_visible()
+                drafts.get_by_role("button", name="Planning history").click()
+                history = drafts.get_by_role(
+                    "heading", name="Unissued assessment planning history",
+                ).locator("..").locator("..")
+                history.get_by_label("From").fill("2028-01-01")
+                history.get_by_label("Through").fill("2028-01-31")
+                history.get_by_role("button", name="Record unissued schedule").click()
+                expect(history.get_by_text(re.compile("1 new planning periods"))).to_be_visible()
+                assert _financial_counts() == before
+                drafts.get_by_role("button", name="Board decision / member ledger").click()
+                member_ledger = drafts.get_by_role(
+                    "heading", name="Board-approved member assessments",
+                ).locator("..")
+                member_ledger.get_by_label("Assessment responsible member").select_option(label="E2E Admin · "+EMAIL)
+                member_ledger.get_by_label("Board decision note").fill(
+                    "Synthetic board approved the stated member dues"
+                )
+                page.once("dialog", lambda dialog: dialog.accept())
+                member_ledger.get_by_role("button", name="Record association board decision").click()
+                expect(member_ledger.get_by_text(re.compile("Board decision: APPROVED"))).to_be_visible()
+                assert _financial_counts() == before
+                member_ledger.get_by_label("Assessment due date").fill("2028-02-01")
+                member_ledger.get_by_label("Assessment receivable GL").select_option(label="E2E-HOA-AR · Synthetic HOA receivable")
+                member_ledger.get_by_label("Assessment income GL").select_option(label="E2E-HOA-INCOME · Synthetic HOA income")
+                page.once("dialog", lambda dialog: dialog.accept())
+                member_ledger.get_by_role("button", name="Issue member receivable").click()
+                expect(member_ledger.get_by_text(re.compile("Approved member receivable posted"))).to_be_visible()
+                after_issue = _financial_counts()
+                assert after_issue == (before[0], before[1] + 1)
+                association.get_by_role("button", name="Member statements").click()
+                statement = association.get_by_role(
+                    "heading", name="Posted HOA member statements",
+                ).locator("..").locator("..")
+                expect(statement.get_by_text(re.compile(r"Outstanding: \$75\.00"))).to_be_visible()
+                expect(statement.get_by_text(re.compile("Assessment #"))).to_be_visible()
+                # Synthetic offline receipt is real central-GL accounting
+                # only inside the disposable E2E database.
+                member_ledger.get_by_label("HOA payment cash GL").select_option(
+                    label="E2E-HOA-CASH · Synthetic HOA received cash",
+                )
+                member_ledger.get_by_label("HOA received amount").fill("75.00")
+                member_ledger.get_by_label("HOA received on").fill(date.today().isoformat())
+                member_ledger.get_by_label("HOA payment reference").fill("E2E-CHECK-100")
+                page.once("dialog", lambda dialog: dialog.accept())
+                member_ledger.get_by_role("button", name="Record received HOA payment").click()
+                expect(member_ledger.get_by_text(re.compile("No bank collection was initiated"))).to_be_visible()
+                expect(member_ledger.get_by_text(re.compile("PAID"))).to_be_visible()
+                assert _financial_counts() == (before[0], before[1] + 2)
+                statement.get_by_role("button", name="Refresh member statements").click()
+                expect(statement.get_by_text(re.compile(r"Outstanding: \$0\.00"))).to_be_visible()
+                expect(statement.get_by_text(re.compile("Receipt #"))).to_be_visible()
+                expect(member_ledger.get_by_role(
+                    "button", name="Reverse member assessment via GL",
+                )).to_have_count(0)
+                member_ledger.get_by_label("HOA receipt reversal date").fill(date.today().isoformat())
+                member_ledger.get_by_label("HOA receipt reversal reason").fill("Synthetic cheque correction")
+                page.once("dialog", lambda dialog: dialog.accept())
+                member_ledger.get_by_role("button", name="Reverse HOA payment").click()
+                expect(member_ledger.get_by_text(re.compile("receipt reversed in the central GL"))).to_be_visible()
+                assert _financial_counts() == (before[0], before[1] + 3)
+                statement.get_by_role("button", name="Refresh member statements").click()
+                expect(statement.get_by_text(re.compile(r"Outstanding: \$75\.00"))).to_be_visible()
+                expect(statement.get_by_text(re.compile("REVERSED")).first).to_be_visible()
+                member_ledger.get_by_label("Reversal date").fill(date.today().isoformat())
+                member_ledger.get_by_label("Reversal reason").fill("Synthetic board amendment")
+                page.once("dialog", lambda dialog: dialog.accept())
+                member_ledger.get_by_role("button", name="Reverse member assessment via GL").click()
+                expect(member_ledger.get_by_text(re.compile("Member assessment reversed"))).to_be_visible()
+                expect(member_ledger.get_by_text(re.compile("REVERSED"))).to_be_visible()
+                after_reversal = _financial_counts()
+                assert after_reversal == (before[0], before[1] + 4)
+                statement.get_by_role("button", name="Refresh member statements").click()
+                expect(statement.get_by_text(re.compile(r"Assessed: \$0\.00"))).to_be_visible()
+                expect(statement.get_by_text(re.compile(r"Outstanding: \$0\.00"))).to_be_visible()
+            finally:
+                browser.close()
+        # Posted E2E data is synthetic and remains in this disposable test DB only.
+        assert _financial_counts() == (before[0], before[1] + 4)
+
+
+def test_hoa_unissued_dues_history_browser_replay_and_void() -> None:
+    """A dedicated end-to-end HOA workflow never turns a contact into a debtor."""
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                          wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                association_name = "E2E Unissued Dues History Association"
+                page.get_by_label("Association name").fill(association_name)
+                page.get_by_role("button", name="Record association").click()
+                association = page.get_by_text(
+                    association_name, exact=True,
+                ).locator("..").locator("..")
+                expect(association).to_be_visible()
+                _seed_arc_applicant(association_name)
+
+                association.get_by_role("button", name="Draft assessments").click()
+                drafts = association.get_by_role(
+                    "heading", name="Assessment planning drafts",
+                ).locator("..").locator("..")
+                drafts.get_by_label("Proposal title").fill("Synthetic recurring dues")
+                drafts.get_by_label("Proposed amount (not billed)").fill("75.00")
+                drafts.get_by_label("Proposed first date (not a due date)").fill("2028-01-31")
+                drafts.get_by_role("button", name="Save draft only").click()
+                expect(drafts.get_by_text("Synthetic recurring dues", exact=False)).to_be_visible()
+                drafts.get_by_role("button", name="Suggested payer").click()
+                payer = drafts.get_by_role(
+                    "heading", name="Suggested assessment contact",
+                ).locator("..").locator("..")
+                payer.get_by_label("Staff-suggested contact").select_option(
+                    label="E2E ARC Applicant",
+                )
+                payer.get_by_role("button", name="Save staff reference").click()
+                expect(payer.get_by_text(re.compile("Issue charge: DISABLED"))).to_be_visible()
+
+                drafts.get_by_role("button", name="Planning history").click()
+                history = drafts.get_by_role(
+                    "heading", name="Unissued assessment planning history",
+                ).locator("..").locator("..")
+                history.get_by_label("From").fill("2028-01-01")
+                history.get_by_label("Through").fill("2028-03-31")
+                history.get_by_role("button", name="Record unissued schedule").click()
+                expect(history.get_by_text(re.compile("3 new planning periods"))).to_be_visible()
+                expect(history.get_by_text(re.compile("2028-02-29"))).to_be_visible()
+                history.get_by_role("button", name="Record unissued schedule").click()
+                expect(history.get_by_text(re.compile("0 new planning periods"))).to_be_visible()
+                history.get_by_role("button", name="Posting readiness").first.click()
+                expect(history.get_by_text(re.compile("Posting and reversal DISABLED"))).to_be_visible()
+                expect(history.get_by_text(re.compile("governing authority unverified"))).to_be_visible()
+                assert _financial_counts() == before
+                page.once("dialog", lambda dialog: dialog.accept())
+                history.get_by_role("button", name="Void draft").first.click()
+                expect(history.get_by_text(re.compile("This is not a financial reversal"))).to_be_visible()
+                expect(history.get_by_text(re.compile("2028-01-31.*VOIDED"))).to_be_visible()
+                assert _financial_counts() == before
+            finally:
+                browser.close()
+        assert _financial_counts() == before
+
+
+def test_hoa_reserve_movement_staff_browser_never_posts_transfer() -> None:
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                          wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                name = "E2E Reserve Movement Planning Association"
+                page.get_by_label("Association name").fill(name)
+                page.get_by_role("button", name="Record association").click()
+                association = page.get_by_text(name, exact=True).locator("..").locator("..")
+                expect(association).to_be_visible()
+
+                # Synthetic accounts on disposable E2E DB, never a bank credential.
+                db = SessionLocal()
+                try:
+                    assoc = db.query(HOAAssociation).filter(
+                        HOAAssociation.name == name,
+                        HOAAssociation.is_active.is_(True),
+                    ).one()
+                    db.add_all([
+                        GLAccount(organization_id=assoc.organization_id,
+                                  gl_number="E2ERE1", name="E2E Reserve Cash",
+                                  account_type="ASSET", include_on_cash_flow=True, is_active=True),
+                        GLAccount(organization_id=assoc.organization_id,
+                                  gl_number="E2EOP1", name="E2E Operating Cash",
+                                  account_type="ASSET", include_on_cash_flow=True, is_active=True),
+                    ])
+                    db.commit()
+                finally:
+                    db.close()
+
+                association.get_by_role("button", name="Reserve book").click()
+                book = association.get_by_role(
+                    "heading", name="HOA reserve book readiness",
+                ).locator("..").locator("..")
+                book.get_by_label("Existing same-organization GL").select_option(
+                    label="E2ERE1 · E2E Reserve Cash",
+                )
+                book.get_by_role("button", name="Record reserve GL reference").click()
+                expect(book.get_by_text(re.compile("Staff GL reference recorded"))).to_be_visible()
+                movement = book.get_by_role(
+                    "heading", name="Reserve movement preparation",
+                ).locator("..").locator("..")
+                movement.get_by_label("Existing same-org counterparty cash GL").select_option(
+                    label="E2EOP1 · E2E Operating Cash",
+                )
+                movement.get_by_label("Proposed date").fill("2028-03-01")
+                movement.get_by_label("Proposed amount").fill("250.00")
+                movement.get_by_label("Staff memo").fill("Synthetic unissued reserve transfer")
+                movement.get_by_role("button", name="Prepare unissued movement").click()
+                expect(movement.get_by_text(re.compile("No funds were moved"))).to_be_visible()
+                expect(movement.get_by_text(re.compile("Synthetic unissued reserve transfer"))).to_be_visible()
+                assert _financial_counts() == before
+                page.once("dialog", lambda dialog: dialog.accept())
+                movement.get_by_role("button", name="Cancel draft").click()
+                expect(movement.get_by_text(re.compile("no financial transfer or reversal"))).to_be_visible()
+                assert _financial_counts() == before
+            finally:
+                browser.close()
+        assert _financial_counts() == before
+
+
+def test_hoa_authorized_reserve_book_gl_posting_and_reversal_browser() -> None:
+    """Use synthetic E2E GL only; a book entry is not a bank transfer."""
+    with _temporarily_release_hoa_ui():
+        before_charge, before_gl = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                          wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                name = "E2E Posted Reserve Book Association"
+                page.get_by_label("Association name").fill(name)
+                page.get_by_role("button", name="Record association").click()
+                association = page.get_by_text(name, exact=True).locator("..").locator("..")
+                expect(association).to_be_visible()
+                db = SessionLocal()
+                try:
+                    assoc = db.query(HOAAssociation).filter(
+                        HOAAssociation.name == name,
+                        HOAAssociation.is_active.is_(True),
+                    ).one()
+                    actor = db.query(User).filter(
+                        User.organization_id == assoc.organization_id,
+                        User.email == EMAIL,
+                    ).one()
+                    actor.is_verified = True
+                    contact = Contact(
+                        organization_id=assoc.organization_id,
+                        display_name="E2E Reserve Board", email=actor.email,
+                        contact_type="PERSON", is_active=True,
+                    )
+                    db.add(contact); db.flush()
+                    link = HOAContactLink(
+                        organization_id=assoc.organization_id,
+                        association_id=assoc.id, property_id=PROPERTY_ID,
+                        contact_id=contact.id, is_active=True,
+                    )
+                    db.add(link); db.flush()
+                    db.add(HOABoardSeat(
+                        organization_id=assoc.organization_id,
+                        association_id=assoc.id, property_id=PROPERTY_ID,
+                        contact_link_id=link.id, proposed_role="CHAIR",
+                        staff_voting_eligible=True, is_active=True,
+                        authorized_user_id=actor.id, authorized_by_id=actor.id,
+                        decision_authorized=True, can_record_offline=True,
+                    ))
+                    db.add_all([
+                        GLAccount(organization_id=assoc.organization_id,
+                                  gl_number="E2ERBK1", name="E2E Book Reserve Cash",
+                                  account_type="ASSET", include_on_cash_flow=True, is_active=True),
+                        GLAccount(organization_id=assoc.organization_id,
+                                  gl_number="E2ERBK2", name="E2E Book Operating Cash",
+                                  account_type="ASSET", include_on_cash_flow=True, is_active=True),
+                    ])
+                    db.commit()
+                finally:
+                    db.rollback(); db.close()
+                association.get_by_role("button", name="Reserve book").click()
+                book = association.get_by_role(
+                    "heading", name="HOA reserve book readiness",
+                ).locator("..").locator("..")
+                book.get_by_label("Existing same-organization GL").select_option(
+                    label="E2ERBK1 · E2E Book Reserve Cash",
+                )
+                book.get_by_role("button", name="Record reserve GL reference").click()
+                expect(book.get_by_text(re.compile("Staff GL reference recorded"))).to_be_visible()
+                movement = book.get_by_role(
+                    "heading", name="Reserve movement preparation",
+                ).locator("..").locator("..")
+                movement.get_by_label("Existing same-org counterparty cash GL").select_option(
+                    label="E2ERBK2 · E2E Book Operating Cash",
+                )
+                movement.get_by_label("Proposed date").fill(date.today().isoformat())
+                movement.get_by_label("Proposed amount").fill("25.00")
+                movement.get_by_label("Staff memo").fill("Synthetic approved reserve book transfer")
+                movement.get_by_role("button", name="Prepare unissued movement").click()
+                expect(movement.get_by_text(re.compile("Synthetic approved reserve book transfer"))).to_be_visible()
+                assert _financial_counts() == (before_charge, before_gl)
+                movement.get_by_label("Board decision note").fill("Recorded association approval")
+                page.once("dialog", lambda dialog: dialog.accept())
+                movement.get_by_role("button", name="Record board approval").click()
+                expect(movement.get_by_text(re.compile("Board decision: APPROVED"))).to_be_visible()
+                assert _financial_counts() == (before_charge, before_gl)
+                movement.get_by_label("GL transaction date").fill(date.today().isoformat())
+                page.once("dialog", lambda dialog: dialog.accept())
+                movement.get_by_role("button", name="Post approved reserve book transfer").click()
+                expect(movement.get_by_text(re.compile("Status: POSTED"))).to_be_visible()
+                assert _financial_counts() == (before_charge, before_gl + 1)
+                movement.get_by_label("Reversal reason").fill("Synthetic board-approved correction")
+                page.once("dialog", lambda dialog: dialog.accept())
+                movement.get_by_role("button", name="Reverse posted reserve book transfer").click()
+                expect(movement.get_by_text(re.compile("Status: REVERSED"))).to_be_visible()
+                assert _financial_counts() == (before_charge, before_gl + 2)
+                expect(movement.get_by_text(re.compile("bank transfer", re.IGNORECASE)).first).to_be_visible()
+            finally:
+                browser.close()
+
+
+def test_hoa_annual_budget_board_adoption_browser_without_finance_posting() -> None:
+    """Synthetic board adopts an association budget; no dues or reserve GL move."""
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                          wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                name = "E2E Adopted Annual HOA Budget"
+                page.get_by_label("Association name").fill(name)
+                page.get_by_role("button", name="Record association").click()
+                association = page.get_by_text(name, exact=True).locator("..").locator("..")
+                expect(association).to_be_visible()
+                _seed_operational_hoa_assessment(name)
+                db = SessionLocal()
+                try:
+                    assoc = db.query(HOAAssociation).filter(
+                        HOAAssociation.name == name,
+                        HOAAssociation.is_active.is_(True),
+                    ).one()
+                    db.add(GLAccount(
+                        organization_id=assoc.organization_id,
+                        gl_number="E2E-HOA-EXPENSE",
+                        name="Synthetic HOA budget expense",
+                        account_type="EXPENSE", is_active=True,
+                    ))
+                    db.commit()
+                finally:
+                    db.close()
+                association.get_by_role("button", name="Annual HOA budget").click()
+                annual = association.get_by_role(
+                    "heading", name="HOA annual operating budgets",
+                ).locator("..").locator("..")
+                annual.get_by_label("Budget calendar year").fill("2029")
+                annual.get_by_label("Budget purpose").fill("Synthetic adopted HOA budget")
+                annual.get_by_label(
+                    "Planned reserve allocation (included in annual expenses)",
+                ).fill("20.00")
+                annual.get_by_label("HOA annual budget GL account").select_option(
+                    label="E2E-HOA-INCOME · Synthetic HOA income (INCOME)",
+                )
+                annual.get_by_label("Annual budget line amount").fill("300.00")
+                annual.get_by_role("button", name="Add annual budget line").click()
+                annual.get_by_label("HOA annual budget GL account").select_option(
+                    label="E2E-HOA-EXPENSE · Synthetic HOA budget expense (EXPENSE)",
+                )
+                annual.get_by_label("Annual budget line amount").fill("125.00")
+                annual.get_by_role("button", name="Add annual budget line").click()
+                annual.get_by_role("button", name="Create association budget draft").click()
+                expect(annual.get_by_text("2029 · Revision 1 · DRAFT")).to_be_visible()
+                assert _financial_counts() == before
+                annual.get_by_role("button", name="Record annual budget decision").click()
+                annual.get_by_role("combobox", name="HOA annual board decision").select_option("APPROVED")
+                annual.get_by_label("Budget board decision note").fill(
+                    "Synthetic board adopts the annual budget",
+                )
+                page.once("dialog", lambda dialog: dialog.accept())
+                annual.get_by_role("button", name="Save annual board decision").click()
+                expect(annual.get_by_text("2029 · Revision 1 · APPROVED")).to_be_visible()
+                expect(annual.get_by_text(
+                    re.compile("Association board decision: APPROVED"),
+                )).to_be_visible()
+                expect(annual.get_by_text(
+                    re.compile("Planned reserve allocation: \$20\.00"),
+                )).to_be_visible()
+                annual.get_by_role("button", name="Posted GL budget actuals").click()
+                actuals = annual.get_by_role(
+                    "heading", name="Posted GL budget comparison",
+                ).locator("..").locator("..")
+                expect(actuals.get_by_text(re.compile(
+                    "not an independently allocated HOA-only", re.IGNORECASE,
+                ))).to_be_visible()
+                expect(actuals.get_by_text(re.compile(
+                    r"Budget \$300(?:\.00)?.*Book actual \$0(?:\.00)?",
+                ))).to_be_visible()
+                assert _financial_counts() == before
+                annual.get_by_role("button", name="Annual assessment increases").click()
+                increases = annual.get_by_role(
+                    "heading", name="Annual budget-linked member increases",
+                ).locator("..").locator("..")
+                expect(increases.get_by_text("No unlinked prior recurring member assessments available.")).to_be_visible()
+                expect(increases.get_by_text(re.compile(
+                    "new association board decision", re.IGNORECASE,
+                ))).to_be_visible()
+                assert _financial_counts() == before
+            finally:
+                browser.close()
+        assert _financial_counts() == before
+
+
+def test_hoa_authorized_board_minutes_revision_approval_browser() -> None:
+    """Synthetic board member approves exact staff text, not a certified quorum."""
+    with _temporarily_release_hoa_ui():
+        before = _financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
+                page.goto(f"{BASE_URL}/dashboard/properties/{PROPERTY_ID}",
+                          wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="E2E Test Property")).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                name = "E2E Board Minutes Approved Association"
+                page.get_by_label("Association name").fill(name)
+                page.get_by_role("button", name="Record association").click()
+                association = page.get_by_text(name, exact=True).locator("..").locator("..")
+                expect(association).to_be_visible()
+                db = SessionLocal()
+                try:
+                    assoc = db.query(HOAAssociation).filter(
+                        HOAAssociation.name == name,
+                        HOAAssociation.is_active.is_(True),
+                    ).one()
+                    actor = db.query(User).filter(
+                        User.organization_id == assoc.organization_id,
+                        User.email == EMAIL,
+                    ).one()
+                    actor.is_verified = True
+                    contact = Contact(
+                        organization_id=assoc.organization_id,
+                        display_name="E2E Minutes Board Chair",
+                        email=actor.email, contact_type="PERSON", is_active=True,
+                    )
+                    db.add(contact); db.flush()
+                    link = HOAContactLink(
+                        organization_id=assoc.organization_id,
+                        association_id=assoc.id, property_id=PROPERTY_ID,
+                        contact_id=contact.id, is_active=True,
+                    )
+                    db.add(link); db.flush()
+                    db.add(HOABoardSeat(
+                        organization_id=assoc.organization_id,
+                        association_id=assoc.id, property_id=PROPERTY_ID,
+                        contact_link_id=link.id, proposed_role="CHAIR",
+                        staff_voting_eligible=True, is_active=True,
+                        authorized_user_id=actor.id, authorized_by_id=actor.id,
+                        decision_authorized=True, can_record_offline=True,
+                    ))
+                    db.commit()
+                finally:
+                    db.rollback(); db.close()
+                association.get_by_role("button", name="Meeting plans").click()
+                plans = association.get_by_role(
+                    "heading", name="HOA staff meeting plans",
+                ).locator("..").locator("..")
+                plans.get_by_label("Staff plan title").fill("Synthetic held board meeting")
+                plans.get_by_label("Proposed date (not legal notice)").fill(date.today().isoformat())
+                plans.get_by_role("button", name="Save staff plan").click()
+                expect(plans.get_by_text("Synthetic held board meeting", exact=False)).to_be_visible()
+                plans.get_by_role("button", name="Meeting workspace").click()
+                workspace = plans.get_by_role(
+                    "heading", name="Staff meeting participation and motion preparation",
+                ).locator("..").locator("..")
+                minutes = workspace.get_by_role(
+                    "heading", name="Staff meeting minutes draft",
+                ).locator("..").locator("..")
+                minutes.get_by_label("Staff minutes (not certified)").fill(
+                    "Synthetic board-reviewed meeting text, not production evidence."
+                )
+                minutes.get_by_role("button", name="Save staff minutes").click()
+                expect(minutes.get_by_text(re.compile("Staff minutes saved"))).to_be_visible()
+                workspace.get_by_label("Staff contact reference").select_option(label="E2E Minutes Board Chair")
+                workspace.get_by_label("Staff-reported attendance").select_option("PRESENT")
+                workspace.get_by_role("button", name="Record staff attendance").click()
+                expect(workspace.get_by_text(re.compile("E2E Minutes Board Chair.*PRESENT.*UNVERIFIED"))).to_be_visible()
+                workspace.get_by_label("Proposed staff motion").fill(
+                    "Synthetic member vote on landscaping motion"
+                )
+                workspace.get_by_role("button", name="Save motion draft").click()
+                expect(workspace.get_by_text(re.compile("Synthetic member vote on landscaping motion"))).to_be_visible()
+                association.get_by_role("button", name="Board role proposals").click()
+                rules = association.get_by_role(
+                    "heading", name="Board role and voting rule proposals",
+                ).locator("..").locator("..")
+                rules.get_by_label("Proposed minimum quorum").fill("1")
+                rules.get_by_label("Proposed approval threshold").fill("1")
+                rules.get_by_role("button", name="Save proposed rules").click()
+                expect(rules.get_by_text(re.compile("Proposed thresholds saved"))).to_be_visible()
+                rules.get_by_role("button", name="Close").click()
+                # A board-only scoped portal reuses the verified approval route.
+                page.goto(f"{BASE_URL}/dashboard", wait_until="domcontentloaded")
+                page.get_by_role("link", name="My HOA board meetings").click()
+                expect(page.get_by_role("heading", name="My HOA board meetings")).to_be_visible()
+                expect(page.get_by_role("button", name="Review board minutes")).to_have_count(1)
+                page.get_by_role("button", name="Review board minutes").click()
+                attendance = page.get_by_role("heading", name="Meeting attendance").locator("..")
+                expect(attendance.get_by_text(re.compile("E2E Minutes Board Chair.*PRESENT.*STAFF REPORTED"))).to_be_visible()
+                expect(attendance.get_by_text(re.compile("not a certified quorum record"))).to_be_visible()
+                threshold = page.get_by_role(
+                    "heading", name="Association voting thresholds",
+                ).locator("..").locator("..")
+                expect(threshold.get_by_text(re.compile("Configured quorum: 1"))).to_be_visible()
+                page.once("dialog", lambda dialog: dialog.accept())
+                threshold.get_by_role("button", name="Adopt configured board thresholds").click()
+                expect(threshold.get_by_text(re.compile("Board member adoption recorded"))).to_be_visible()
+                expect(threshold.get_by_text(re.compile("Association board adoption recorded"))).to_be_visible()
+                assert _financial_counts() == before
+                expect(page.get_by_text(
+                    "Synthetic member vote on landscaping motion", exact=True,
+                )).to_be_visible()
+                page.get_by_role("combobox", name=re.compile("Board motion choice")).select_option("FOR")
+                page.once("dialog", lambda dialog: dialog.accept())
+                page.get_by_role("button", name="Record my board vote").click()
+                expect(page.get_by_text(re.compile("authenticated member vote was recorded"))).to_be_visible()
+                expect(page.get_by_text(re.compile("Your authenticated vote: FOR"))).to_be_visible()
+                expect(page.get_by_role("button", name="Record my board vote")).to_have_count(0)
+                expect(page.get_by_text(re.compile("Member choices: 1 FOR"))).to_be_visible()
+                final = page.get_by_role(
+                    "heading", name="Final board motion outcome",
+                ).locator("..").locator("..")
+                expect(final.get_by_text(re.compile("the recorded tally is PASSED"))).to_be_visible()
+                page.once("dialog", lambda dialog: dialog.accept())
+                final.get_by_role("button", name="Record final board motion outcome").click()
+                expect(final.get_by_text(re.compile("Final association board motion outcome recorded"))).to_be_visible()
+                expect(final.get_by_text(re.compile("Board motion outcome: PASSED"))).to_be_visible()
+                expect(final.get_by_role("button", name="Record final board motion outcome")).to_have_count(0)
+                assert _financial_counts() == before
+                page.get_by_text("View recorded member vote register").click()
+                expect(page.get_by_text(re.compile("Board seat #.*FOR"))).to_be_visible()
+                expect(page.get_by_text(re.compile("not a certified resolution"))).to_be_visible()
+                assert _financial_counts() == before
+                expect(page.get_by_text(
+                    "Synthetic board-reviewed meeting text, not production evidence.",
+                    exact=True,
+                )).to_be_visible()
+                page.get_by_label("Portal board approval note").fill(
+                    "I approve this exact text as the authorized association board member."
+                )
+                page.once("dialog", lambda dialog: dialog.accept())
+                page.get_by_role("button", name="Approve exact minutes revision").click()
+                expect(page.get_by_text(
+                    re.compile("board-member approval of this minutes revision was recorded", re.IGNORECASE),
+                )).to_be_visible()
+                expect(page.get_by_text(
+                    re.compile("BOARD MEMBER APPROVED"),
+                )).to_be_visible()
+                expect(page.get_by_role("button", name="Approve exact minutes revision")).to_have_count(0)
+                assert _financial_counts() == before
+            finally:
+                browser.close()
+        assert _financial_counts() == before
+
+def test_commercial_private_lease_source_reference_browser_no_finance() -> None:
+    """Link a private lease attachment without making it an operative contract term."""
+    with _temporarily_release_commercial_ui():
+        db = SessionLocal()
+        try:
+            actor = db.query(User).filter(User.email == EMAIL).one()
+            prop = Property(
+                organization_id=actor.organization_id,
+                name="E2E Commercial Source Property",
+                property_type=PropertyType.COMMERCIAL,
+                address_line1="500 Commerce Ave",
+                city="Cleveland", state="OH", zip_code="44113",
+                is_active=True,
+            )
+            tenant = User(
+                organization_id=actor.organization_id,
+                role=UserRole.TENANT,
+                first_name="Commercial", last_name="Tenant",
+                email="e2e-commercial-source-tenant@example.com",
+                hashed_password="x", is_active=True,
+            )
+            db.add_all([prop, tenant])
+            db.flush()
+            unit = Unit(
+                property_id=prop.id, unit_number="COMM-1",
+                monthly_rent=Decimal("2400.00"), is_active=True,
+            )
+            db.add(unit)
+            db.flush()
+            lease = Lease(
+                unit_id=unit.id, tenant_id=tenant.id,
+                start_date=date(2026, 1, 1), end_date=date(2027, 12, 31),
+                monthly_rent=Decimal("2400.00"),
+                security_deposit=Decimal("0.00"),
+                status=LeaseStatus.ACTIVE,
+            )
+            db.add(lease)
+            db.flush()
+            source = EntityAttachment(
+                organization_id=actor.organization_id,
+                entity_type="leases", entity_id=lease.id,
+                storage_key=f"e2e/commercial/{lease.id}/source.pdf",
+                original_name="e2e-commercial-private-lease-source.pdf",
+                content_type="application/pdf", size_bytes=321,
+                share_with_tenants=False, share_with_owners=False,
+                uploaded_by_id=actor.id, is_active=True,
+            )
+            db.add(source)
+            receivable = GLAccount(
+                organization_id=actor.organization_id,
+                gl_number="1298", name="E2E Commercial Receivable",
+                account_type="ASSET", is_active=True,
+            )
+            recovery_income = GLAccount(
+                organization_id=actor.organization_id,
+                gl_number="4398", name="E2E Commercial Recoveries",
+                account_type="INCOME", is_active=True,
+            )
+            cam_evidence = EntityAttachment(
+                organization_id=actor.organization_id,
+                entity_type="properties", entity_id=prop.id,
+                storage_key=f"e2e/commercial/{prop.id}/cam-actual.pdf",
+                original_name="e2e-commercial-cam-actual.pdf",
+                content_type="application/pdf", size_bytes=456,
+                share_with_tenants=False, share_with_owners=False,
+                uploaded_by_id=actor.id, is_active=True,
+            )
+            sales_evidence = EntityAttachment(
+                organization_id=actor.organization_id,
+                entity_type="leases", entity_id=lease.id,
+                storage_key=f"e2e/commercial/{lease.id}/sales-2026.pdf",
+                original_name="e2e-commercial-sales-2026.pdf",
+                content_type="application/pdf", size_bytes=654,
+                share_with_tenants=False, share_with_owners=False,
+                uploaded_by_id=actor.id, is_active=True,
+            )
+            ti_evidence = EntityAttachment(
+                organization_id=actor.organization_id,
+                entity_type="leases", entity_id=lease.id,
+                storage_key=f"e2e/commercial/{lease.id}/ti-invoice.pdf",
+                original_name="e2e-commercial-ti-invoice.pdf",
+                content_type="application/pdf", size_bytes=777,
+                share_with_tenants=False, share_with_owners=False,
+                uploaded_by_id=actor.id, is_active=True,
+            )
+            db.add_all([receivable, recovery_income, cam_evidence, sales_evidence, ti_evidence])
+            db.commit()
+            property_id = prop.id
+            lease_id = lease.id
+            source_name = source.original_name
+            cam_evidence_name = cam_evidence.original_name
+            sales_evidence_name = sales_evidence.original_name
+            ti_evidence_name = ti_evidence.original_name
+            receivable_id = receivable.id
+            recovery_income_id = recovery_income.id
+        finally:
+            db.rollback()
+            db.close()
+
+        before = _commercial_financial_counts()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            try:
+                page.goto(f"{BASE_URL}/login", wait_until="domcontentloaded")
+                expect(page.get_by_role("heading", name="Welcome back")).to_be_visible()
+                page.locator('input[type="email"]').fill(EMAIL)
+                page.locator('input[type="password"]').fill(PASSWORD)
+                page.get_by_role("button", name="Log In").click()
+                page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+                expect(page.get_by_text(EMAIL, exact=True)).to_be_visible()
+
+                page.goto(
+                    f"{BASE_URL}/dashboard/properties/{property_id}",
+                    wait_until="domcontentloaded",
+                )
+                expect(page.get_by_role(
+                    "heading", name="E2E Commercial Source Property",
+                )).to_be_visible()
+                page.get_by_role("button", name="Compliance", exact=True).click()
+                panel = page.get_by_role(
+                    "heading", name="Commercial lease commencement references",
+                ).locator("..")
+                expect(panel).to_be_visible()
+                panel.get_by_label("Existing recorded lease").select_option(str(lease_id))
+                source_select = panel.get_by_label("Private lease source document (optional)")
+                expect(source_select).to_be_visible()
+                source_select.select_option(label=source_name)
+                panel.get_by_label(
+                    "Staff-recorded rent commencement (optional)",
+                ).fill("2026-03-01")
+                panel.get_by_role("button", name="Record staff reference").click()
+
+                expect(panel.get_by_text(
+                    re.compile(r"Source document: e2e-commercial-private-lease-source\.pdf"),
+                )).to_be_visible()
+                expect(panel.get_by_text(
+                    re.compile(r"STAFF LINKED UNVERIFIED"),
+                )).to_be_visible()
+                expect(panel.get_by_role(
+                    "button", name="Download private lease source",
+                )).to_be_visible()
+
+                terms = panel.get_by_role("heading", name="Commercial lease terms").locator("..")
+                terms.get_by_label("Terms effective date").fill("2026-03-01")
+                terms.get_by_label("Base rent monthly").fill("2500.00")
+                terms.get_by_label("CAM estimate monthly").fill("300.00")
+                terms.get_by_label("Property tax estimate monthly").fill("125.00")
+                terms.get_by_label("Insurance estimate monthly").fill("75.00")
+                terms.get_by_label("CAM share percent").fill("12.5")
+                terms.get_by_label("Percentage rent rate").fill("5")
+                terms.get_by_label("Annual percentage breakpoint").fill("500000")
+                terms.get_by_label("TI allowance total").fill("25000")
+                terms.get_by_label("Co-tenancy summary").fill(
+                    "Synthetic staff abstraction from the linked private source."
+                )
+                terms.get_by_role("button", name="Add escalation").click()
+                terms.get_by_label("Escalation 1 start").fill("2027-01-01")
+                terms.get_by_label("Escalation 1 monthly rent").fill("2625.00")
+                terms.get_by_role("button", name="Add option").click()
+                terms.get_by_label("Option 1 summary").fill("Synthetic renewal option reference.")
+                terms.get_by_role("button", name="Record terms revision").click()
+                expect(terms.get_by_text(re.compile(r"Revision 1.*CURRENT"))).to_be_visible()
+                expect(terms.get_by_text(re.compile(r"STAFF ABSTRACTED UNVERIFIED"))).to_be_visible()
+                expect(terms.get_by_text(re.compile(r"CAM 300\.00.*Tax 125\.00.*Insurance 75\.00"))).to_be_visible()
+                expect(terms.get_by_text("Billing authorization: NOT AUTHORIZED", exact=True)).to_be_visible()
+                terms.get_by_label("Internal billing authorization note").fill(
+                    "Synthetic internal billing approval after reviewing the linked source."
+                )
+                terms.get_by_role("button", name="Authorize current terms for billing").click()
+                expect(terms.get_by_text(
+                    "Billing authorization: INTERNALLY AUTHORIZED", exact=True,
+                )).to_be_visible()
+
+                operating = terms.get_by_role("heading", name="Commercial CAM / NNN charges").locator("..")
+                expect(operating).to_be_visible()
+                operating.get_by_label("Charge type").select_option("CAM")
+                operating.get_by_label("Request key").fill("e2e-commercial-cam-2026-03")
+                operating.get_by_label("Period start").fill("2026-03-01")
+                operating.get_by_label("Period end").fill("2026-03-31")
+                operating.get_by_label("Posting date").fill("2026-03-01")
+                operating.get_by_label("Due date").fill("2026-03-10")
+                operating.get_by_label("Receivable GL").select_option(str(receivable_id))
+                operating.get_by_label("Commercial income GL").select_option(str(recovery_income_id))
+                operating.get_by_role("button", name="Post Commercial charge").click()
+                expect(operating.get_by_text(re.compile(r"CAM · POSTED"))).to_be_visible()
+                expect(operating.get_by_text(re.compile(r"CAM 300\.00.*Total 300\.00"))).to_be_visible()
+                after_post = _commercial_financial_counts()
+                assert after_post == (before[0] + 1, before[1], before[2] + 1)
+
+                db = SessionLocal()
+                try:
+                    row = db.query(CommercialOperatingCharge).filter(
+                        CommercialOperatingCharge.property_id == property_id,
+                        CommercialOperatingCharge.kind == "CAM",
+                    ).order_by(CommercialOperatingCharge.id.desc()).first()
+                    assert row is not None
+                    row_id = row.id
+                finally:
+                    db.close()
+                operating.get_by_label(f"Reversal date {row_id}").fill("2026-03-02")
+                operating.get_by_label(f"Reversal reason {row_id}").fill("Synthetic E2E duplicate")
+                operating.get_by_role("button", name="Reverse Commercial charge").click()
+                expect(operating.get_by_text(re.compile(r"CAM · REVERSED"))).to_be_visible()
+                after_reverse = _commercial_financial_counts()
+                assert after_reverse == (before[0] + 1, before[1], before[2] + 2)
+
+                recon = terms.get_by_role("heading", name="Annual CAM reconciliation").locator("..")
+                expect(recon).to_be_visible()
+                recon.get_by_label("Reconciliation year").fill("2026")
+                recon.get_by_label("Actual CAM total").fill("2000.00")
+                recon.get_by_label("Private CAM evidence").select_option(label=f"{cam_evidence_name} · properties")
+                recon.get_by_label("CAM reconciliation request key").fill("e2e-cam-recon-2026")
+                recon.get_by_label("CAM reconciliation posting date").fill("2026-09-30")
+                recon.get_by_label("CAM reconciliation due date").fill("2026-10-15")
+                recon.get_by_label("CAM receivable GL").select_option(str(receivable_id))
+                recon.get_by_label("CAM income GL").select_option(str(recovery_income_id))
+                recon.get_by_role("button", name="Record annual CAM reconciliation").click()
+                expect(recon.get_by_text(re.compile(r"2026 · POSTED"))).to_be_visible()
+                expect(recon.get_by_text(re.compile(r"True-up 250\.00"))).to_be_visible()
+                after_recon = _commercial_financial_counts()
+                assert after_recon == (before[0] + 2, before[1], before[2] + 3)
+
+                db = SessionLocal()
+                try:
+                    recon_row = db.query(CommercialCAMReconciliation).filter(
+                        CommercialCAMReconciliation.property_id == property_id,
+                    ).order_by(CommercialCAMReconciliation.id.desc()).first()
+                    assert recon_row is not None
+                    recon_id = recon_row.id
+                finally:
+                    db.close()
+                recon.get_by_label(f"CAM reversal date {recon_id}").fill("2026-09-30")
+                recon.get_by_label(f"CAM reversal reason {recon_id}").fill("Synthetic E2E correction")
+                recon.get_by_role("button", name="Reverse CAM reconciliation").click()
+                expect(recon.get_by_text(re.compile(r"2026 · REVERSED"))).to_be_visible()
+                assert _commercial_financial_counts() == (before[0] + 2, before[1], before[2] + 4)
+
+                percentage = terms.get_by_role("heading", name="Percentage rent").locator("..")
+                expect(percentage).to_be_visible()
+                percentage.get_by_label("Percentage rent reporting year").fill("2026")
+                percentage.get_by_label("Tenant gross sales").fill("600000.00")
+                percentage.get_by_label("Private tenant-sales evidence").select_option(
+                    label=f"{sales_evidence_name} · leases"
+                )
+                percentage.get_by_label("Percentage-rent request key").fill("e2e-percentage-rent-2026")
+                percentage.get_by_label("Percentage-rent posting date").fill("2026-09-30")
+                percentage.get_by_label("Percentage-rent due date").fill("2026-10-15")
+                percentage.get_by_label("Percentage-rent receivable GL").select_option(str(receivable_id))
+                percentage.get_by_label("Percentage-rent income GL").select_option(str(recovery_income_id))
+                percentage.get_by_role("button", name="Record percentage rent").click()
+                expect(percentage.get_by_text(re.compile(r"2026 · POSTED"))).to_be_visible()
+                expect(percentage.get_by_text(re.compile(r"Percentage rent due 5000\.00"))).to_be_visible()
+                assert _commercial_financial_counts() == (before[0] + 3, before[1], before[2] + 5)
+
+                db = SessionLocal()
+                try:
+                    pct_row = db.query(CommercialPercentageRentCharge).filter(
+                        CommercialPercentageRentCharge.property_id == property_id,
+                    ).order_by(CommercialPercentageRentCharge.id.desc()).first()
+                    assert pct_row is not None
+                    pct_id = pct_row.id
+                finally:
+                    db.close()
+                percentage.get_by_label(f"Percentage rent reversal date {pct_id}").fill("2026-09-30")
+                percentage.get_by_label(f"Percentage rent reversal reason {pct_id}").fill("Synthetic E2E correction")
+                percentage.get_by_role("button", name="Reverse percentage rent").click()
+                expect(percentage.get_by_text(re.compile(r"2026 · REVERSED"))).to_be_visible()
+                assert _commercial_financial_counts() == (before[0] + 3, before[1], before[2] + 6)
+
+                ti = terms.get_by_role("heading", name="TI allowance tracking").locator("..")
+                expect(ti).to_be_visible()
+                expect(ti.get_by_text(re.compile(r"Allowance 25000\.00.*Remaining 25000\.00"))).to_be_visible()
+                ti.get_by_label("TI incurred date").fill("2026-06-01")
+                ti.get_by_label("TI utilization amount").fill("10000.00")
+                ti.get_by_label("Private TI evidence").select_option(label=f"{ti_evidence_name} · leases")
+                ti.get_by_label("TI request key").fill("e2e-ti-use-2026-001")
+                ti.get_by_label("TI utilization note").fill("Synthetic tenant improvement invoice.")
+                ti.get_by_role("button", name="Record TI utilization").click()
+                expect(ti.get_by_text(re.compile(r"Active utilization 10000\.00.*Remaining 15000\.00"))).to_be_visible()
+                assert _commercial_financial_counts() == (before[0] + 3, before[1], before[2] + 6)
+
+                db = SessionLocal()
+                try:
+                    ti_row = db.query(CommercialTIAllowanceUse).filter(
+                        CommercialTIAllowanceUse.property_id == property_id,
+                    ).order_by(CommercialTIAllowanceUse.id.desc()).first()
+                    assert ti_row is not None
+                    ti_id = ti_row.id
+                finally:
+                    db.close()
+                ti.get_by_label(f"TI void date {ti_id}").fill("2026-06-02")
+                ti.get_by_label(f"TI void reason {ti_id}").fill("Synthetic E2E correction")
+                ti.get_by_role("button", name="Void TI utilization").click()
+                expect(ti.get_by_text(re.compile(r"Active utilization 0\.00.*Remaining 25000\.00"))).to_be_visible()
+                assert _commercial_financial_counts() == (before[0] + 3, before[1], before[2] + 6)
+            finally:
+                browser.close()
+        assert _commercial_financial_counts() == (before[0] + 3, before[1], before[2] + 6)
+

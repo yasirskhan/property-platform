@@ -71,6 +71,10 @@ class Property(Base):
     zip_code = Column(String(20), nullable=False)
     country = Column(String(100), nullable=False, default="USA")
 
+    # Optional property-level residency override. NULL inherits the
+    # owning organization's data_region.
+    data_region = Column(String(32), nullable=True, index=True)
+
     # --- Physical details ---
     year_built = Column(Integer, nullable=True)
     year_renovated = Column(Integer, nullable=True)
@@ -82,6 +86,11 @@ class Property(Base):
     # --- Financial ---
     estimated_rent = Column(Numeric(10, 2), nullable=True)
     security_deposit = Column(Numeric(10, 2), nullable=True)
+    # Minimum property cash retained before owner distributions.
+    # Owner statements freeze this configured amount with the snapshot.
+    required_reserve_amount = Column(
+        Numeric(14, 2), nullable=False, default=0, server_default="0.00"
+    )
     ownership_status = Column(String(50), nullable=True)
 
     # --- Ownership (AppFolio parity, Step 8a) ---
@@ -230,6 +239,149 @@ class Unit(Base):
 
 
 # ------------------------------------------------------------
+# STUDENT HOUSING FOUNDATION
+# ------------------------------------------------------------
+class StudentAcademicCycle(Base):
+    """Explicit property-scoped academic calendar used by student housing.
+
+    A cycle is scheduling metadata only. It does not establish student status,
+    occupancy eligibility, lease liability, rent, or guarantor responsibility.
+    """
+
+    __tablename__ = "student_academic_cycles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    property_id = Column(
+        Integer,
+        ForeignKey("properties.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name = Column(String(120), nullable=False)
+    start_date = Column(Date, nullable=False, index=True)
+    end_date = Column(Date, nullable=False, index=True)
+    is_active = Column(Boolean, nullable=False, default=True, server_default="1")
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "property_id",
+            "name",
+            "start_date",
+            "end_date",
+            name="uq_student_academic_cycle_property_name_dates",
+        ),
+    )
+
+
+class StudentBed(Base):
+    """Explicit rentable-bed inventory within an existing unit.
+
+    Beds are inventory references only until a later verified by-the-bed lease
+    workflow links them to an actual lease.
+    """
+
+    __tablename__ = "student_beds"
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    property_id = Column(
+        Integer,
+        ForeignKey("properties.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    unit_id = Column(
+        Integer,
+        ForeignKey("units.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    bed_label = Column(String(80), nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True, server_default="1")
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
+
+    __table_args__ = (
+        UniqueConstraint("unit_id", "bed_label", name="uq_student_bed_unit_label"),
+    )
+
+
+class StudentGuarantor(Base):
+    """Staff-tracked guarantor workflow for a student bed lease.
+
+    This record tracks outreach/document status only. It does not establish
+    legal guaranty validity, signature, collectability, or financial liability.
+    """
+
+    __tablename__ = "student_guarantors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    property_id = Column(
+        Integer,
+        ForeignKey("properties.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    lease_id = Column(
+        Integer,
+        ForeignKey("leases.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    full_name = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=False)
+    phone = Column(String(50), nullable=True)
+    relationship_to_tenant = Column(String(100), nullable=True)
+    status = Column(String(32), nullable=False, default="DRAFT", server_default="DRAFT")
+    requested_at = Column(DateTime, nullable=True)
+    received_at = Column(DateTime, nullable=True)
+    cancelled_at = Column(DateTime, nullable=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
+
+    __table_args__ = (
+        UniqueConstraint("lease_id", "email", name="uq_student_guarantor_lease_email"),
+    )
+
+
+# ------------------------------------------------------------
 # PROPERTY ASSIGNMENT (staff — manager/crew)
 # ------------------------------------------------------------
 class PropertyAssignment(Base):
@@ -253,6 +405,7 @@ class PropertyAssignment(Base):
     role = Column(SqlEnum(UserRole), nullable=False)
 
     is_active = Column(Boolean, default=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # --- Relationships ---
@@ -313,6 +466,7 @@ class PropertyOwner(Base):
     is_primary = Column(Boolean, nullable=False, default=False)
 
     is_active = Column(Boolean, nullable=False, default=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

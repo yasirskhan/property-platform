@@ -52,6 +52,7 @@ export default function GLAccountDrawer({
   const [includeOnCashFlow, setIncludeOnCashFlow] = useState(
     account?.include_on_cash_flow ?? true
   );
+  const [mustClear, setMustClear] = useState(account?.must_clear ?? false);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -66,6 +67,7 @@ export default function GLAccountDrawer({
     setOffsetAccount(account?.offset_account ?? "");
     setSubjectToMgmtFees(account?.subject_to_mgmt_fees ?? false);
     setIncludeOnCashFlow(account?.include_on_cash_flow ?? true);
+    setMustClear(account?.must_clear ?? false);
     setError("");
   }, [account]);
 
@@ -91,6 +93,7 @@ export default function GLAccountDrawer({
           offset_account: offsetAccount.trim() || null,
           subject_to_mgmt_fees: subjectToMgmtFees,
           include_on_cash_flow: includeOnCashFlow,
+          must_clear: mustClear,
         });
       } else {
         await createGLAccount({
@@ -101,6 +104,7 @@ export default function GLAccountDrawer({
           offset_account: offsetAccount.trim() || null,
           subject_to_mgmt_fees: subjectToMgmtFees,
           include_on_cash_flow: includeOnCashFlow,
+          must_clear: mustClear,
         });
       }
       await onSaved();
@@ -258,6 +262,23 @@ export default function GLAccountDrawer({
               />
               <span className="text-sm text-slate-700">
                 Include on Cash Flow report
+              </span>
+            </label>
+
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={mustClear}
+                onChange={(e) => setMustClear(e.target.checked)}
+                className="w-4 h-4 accent-blue-600 mt-0.5"
+              />
+              <span>
+                <span className="block text-sm text-slate-700">
+                  Must clear to zero
+                </span>
+                <span className="block text-xs text-slate-400">
+                  Use for clearing accounts that diagnostics expect to net to zero.
+                </span>
               </span>
             </label>
           </div>
