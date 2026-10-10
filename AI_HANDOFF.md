@@ -1,3 +1,15 @@
+# AI_HANDOFF.md — 2026-10-10 YARDI STAGING PREVIEW VERIFIED
+
+Current exact verified product checkpoint: `3d9543d4a57b03ad2f805a77fb1cb7788aba40d1`.
+Exact CI: **38063159632 SUCCESS**, all six jobs green (backend, frontend, security, platform-admin, staging-config, E2E).
+Phase 4.15 remains **IN PROGRESS**. Read-only Yardi staging-preview inventory with deterministic upload fingerprint and no target mutation is COMPLETE | VERIFIED. Earlier source-readiness and financial safety batches remain verified.
+
+**NEXT (in progress):** bounded Yardi read-only run-level reconciliation coverage summary using existing `PlatformMigrationStagedRow` and `PlatformMigrationItem`, reporting unresolved/invalid rows and stable review fingerprint, with no controlled commit or financial record writes. After exact CI green, update handoff and continue next independently actionable Phase 4.15 batch.
+
+Only branch `chatgpt/checkpoint-005-safety`; never touch main/new branches. Source contracts for financial Yardi resources remain blocked pending authorized schemas. General UX inactive.
+
+---
+
 # AI_HANDOFF.md — 2026-10-10 YARDI FINANCIAL SOURCE GATES AND READINESS VERIFIED
 
 **Latest verified checkpoint; supersedes historical NEXT entries.** ONLY branch `chatgpt/checkpoint-005-safety`.
