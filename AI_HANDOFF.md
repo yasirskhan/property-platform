@@ -1,3 +1,16 @@
+# AI_HANDOFF.md — 2026-10-09 YARDI OWNER IDENTITY STAGING VERIFIED
+
+**Current entry supersedes prior NEXT labels.** ONLY branch `chatgpt/checkpoint-005-safety`.
+
+- Latest product SHA **3b902257bf5c9b1aaa37c71a15a91aaea6cecd90**: Yardi OWNERS explicit-column CSV/XLSX staging with preserved source IDs, duplicate detection, review-only owner identity and no user-account/ownership creation.
+- Exact GitHub Actions **38001833943 SUCCESS**, all six jobs pass.
+- Phase 4.15 **IN PROGRESS**. Yardi runs, Properties, Units and Owner identity staging batches are verified. Do not repeat verified work.
+- No invented Yardi API or synthetic accounting history.
+
+**NEXT:** Yardi Vendors identity-only staged CSV/XLSX files through same bounded, explicit mapping, duplicate source ID, replay and review-only pipeline. No Vendor/customer mutation on upload. After exact-SHA CI green, update handoff; continue next resource safely. Preserve UX/navigation, no main/new branch.
+
+---
+
 # AI_HANDOFF.md — 2026-10-09 YARDI UNITS STAGING VERIFIED
 
 **CURRENT checkpoint; supersedes older NEXT entries.** Only branch `chatgpt/checkpoint-005-safety`.
