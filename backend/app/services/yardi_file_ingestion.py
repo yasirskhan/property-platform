@@ -23,6 +23,9 @@ from app.services.appfolio_file_ingestion import (
     _safe_filename, PROPERTY_REQUIRED,
 )
 
+TENANT_FIELDS = frozenset(("source_id", "name", "email"))
+TENANT_REQUIRED = ("source_id", "name")
+
 VENDOR_FIELDS = frozenset(("source_id", "name", "email"))
 VENDOR_REQUIRED = ("source_id", "name")
 
@@ -46,12 +49,12 @@ def stage_yardi_file(
     if run.provider != "YARDI":
         raise AppFolioFileIngestionError("Migration run is not a Yardi run.")
     resource = (resource_override or "").strip().upper()
-    if resource not in {"PROPERTIES", "UNITS", "OWNERS", "VENDORS"}:
+    if resource not in {"PROPERTIES", "UNITS", "OWNERS", "VENDORS", "TENANTS"}:
         raise AppFolioFileIngestionError(
-            "Choose resource PROPERTIES, UNITS, OWNERS or VENDORS; other Yardi resources require verified source contracts."
+            "Choose resource PROPERTIES, UNITS, OWNERS, VENDORS or TENANTS; other Yardi resources require verified source contracts."
         )
-    fields = {"PROPERTIES": PROPERTY_FIELDS, "UNITS": UNIT_FIELDS, "OWNERS": OWNER_FIELDS, "VENDORS": VENDOR_FIELDS}[resource]
-    required = {"PROPERTIES": PROPERTY_REQUIRED, "UNITS": UNIT_REQUIRED, "OWNERS": OWNER_REQUIRED, "VENDORS": VENDOR_REQUIRED}[resource]
+    fields = {"PROPERTIES": PROPERTY_FIELDS, "UNITS": UNIT_FIELDS, "OWNERS": OWNER_FIELDS, "VENDORS": VENDOR_FIELDS, "TENANTS": TENANT_FIELDS}[resource]
+    required = {"PROPERTIES": PROPERTY_REQUIRED, "UNITS": UNIT_REQUIRED, "OWNERS": OWNER_REQUIRED, "VENDORS": VENDOR_REQUIRED, "TENANTS": TENANT_REQUIRED}[resource]
     filename = _safe_filename(filename)
     parsed = _parse_file(filename, content, sheet_name)
     mapping = explicit_mapping or {}
@@ -136,6 +139,9 @@ def stage_yardi_file(
             if mapped:
                 disposition = "ALREADY_MAPPED"
                 warnings.append("Source identity is already mapped; review before action.")
+            elif resource == "TENANTS":
+                disposition = "REVIEW"
+                warnings.append("Resident identity staged for review only; no user login, Lease, occupancy or financial relationship inferred.")
             elif resource == "VENDORS":
                 disposition = "REVIEW"
                 warnings.append("Vendor identity is staged for review only; no vendor account, payment or GL relationship inferred.")
@@ -189,6 +195,7 @@ def stage_yardi_file(
         "unit_relationships_auto_created": False,
         "ownership_relationships_auto_created": False,
         "vendor_records_auto_created": False,
+        "resident_accounts_auto_created": False,
     }
     upload.status = "MAPPING_REQUIRED" if missing else (
         "STAGED_WITH_ERRORS" if invalid else "REVIEW_REQUIRED"
