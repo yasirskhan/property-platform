@@ -1,3 +1,16 @@
+# AI_HANDOFF.md — 2026-10-10 YARDI RESIDENT IDENTITY STAGING VERIFIED
+
+**Current checkpoint overrides previous NEXT entries.** Repository `yasirskhan/property-platform`; ONLY branch `chatgpt/checkpoint-005-safety`.
+
+- Product commit `257d595c11164027cc6b8102148428d652728e37` **COMPLETE | VERIFIED** for the bounded Yardi TENANTS resident-identity CSV/XLSX staging batch.
+- Exact GitHub Actions **38019180432 SUCCESS**; all six required jobs PASS.
+- Provider-labelled migration files use explicit source IDs, duplicate validation, replay-safe fingerprints, review-only staging; no customer User login, Lease, occupancy or accounting mutation during upload.
+- Phase 4.15 overall **IN PROGRESS**. Runs, Properties, Units, Owners, Vendors, Residents/Tenants identity staging verified as bounded batches.
+
+**NEXT:** Leases / occupancy relationships. Do not infer lease liability, rent or deposit receipts from statuses. Require authoritative source tenant/property/unit identifiers and verified same-run target mappings; stage-only records until independently validated source/target contracts. Never invent Yardi source schema, provider endpoints or accounting histories. Run implement → applicable tests → commit → exact CI → fixes → verify → handoff → continue. No new branch, no main changes; general UX inactive.
+
+---
+
 # AI_HANDOFF.md — 2026-10-09 YARDI VENDOR IDENTITY STAGING VERIFIED
 
 **Current checkpoint supersedes historical next entries.** Work ONLY on `chatgpt/checkpoint-005-safety`.
