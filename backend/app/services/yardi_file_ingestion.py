@@ -23,6 +23,9 @@ from app.services.appfolio_file_ingestion import (
     _safe_filename, PROPERTY_REQUIRED,
 )
 
+LEASE_FIELDS = frozenset(("source_id", "source_tenant_id", "source_property_id", "source_unit_id", "lease_from", "lease_to"))
+LEASE_REQUIRED = ("source_id", "source_tenant_id", "source_property_id", "source_unit_id")
+
 TENANT_FIELDS = frozenset(("source_id", "name", "email"))
 TENANT_REQUIRED = ("source_id", "name")
 
@@ -49,12 +52,12 @@ def stage_yardi_file(
     if run.provider != "YARDI":
         raise AppFolioFileIngestionError("Migration run is not a Yardi run.")
     resource = (resource_override or "").strip().upper()
-    if resource not in {"PROPERTIES", "UNITS", "OWNERS", "VENDORS", "TENANTS"}:
+    if resource not in {"PROPERTIES", "UNITS", "OWNERS", "VENDORS", "TENANTS", "LEASE_OCCUPANCY"}:
         raise AppFolioFileIngestionError(
-            "Choose resource PROPERTIES, UNITS, OWNERS, VENDORS or TENANTS; other Yardi resources require verified source contracts."
+            "Choose resource PROPERTIES, UNITS, OWNERS, VENDORS, TENANTS or LEASE_OCCUPANCY; other Yardi resources require verified source contracts."
         )
-    fields = {"PROPERTIES": PROPERTY_FIELDS, "UNITS": UNIT_FIELDS, "OWNERS": OWNER_FIELDS, "VENDORS": VENDOR_FIELDS, "TENANTS": TENANT_FIELDS}[resource]
-    required = {"PROPERTIES": PROPERTY_REQUIRED, "UNITS": UNIT_REQUIRED, "OWNERS": OWNER_REQUIRED, "VENDORS": VENDOR_REQUIRED, "TENANTS": TENANT_REQUIRED}[resource]
+    fields = {"PROPERTIES": PROPERTY_FIELDS, "UNITS": UNIT_FIELDS, "OWNERS": OWNER_FIELDS, "VENDORS": VENDOR_FIELDS, "TENANTS": TENANT_FIELDS, "LEASE_OCCUPANCY": LEASE_FIELDS}[resource]
+    required = {"PROPERTIES": PROPERTY_REQUIRED, "UNITS": UNIT_REQUIRED, "OWNERS": OWNER_REQUIRED, "VENDORS": VENDOR_REQUIRED, "TENANTS": TENANT_REQUIRED, "LEASE_OCCUPANCY": LEASE_REQUIRED}[resource]
     filename = _safe_filename(filename)
     parsed = _parse_file(filename, content, sheet_name)
     mapping = explicit_mapping or {}
@@ -139,6 +142,23 @@ def stage_yardi_file(
             if mapped:
                 disposition = "ALREADY_MAPPED"
                 warnings.append("Source identity is already mapped; review before action.")
+            elif resource == "LEASE_OCCUPANCY":
+                disposition = "REVIEW"
+                for parent_resource, field in (
+                    ("TENANTS", "source_tenant_id"),
+                    ("PROPERTIES", "source_property_id"),
+                    ("UNITS", "source_unit_id"),
+                ):
+                    parent = db.query(PlatformMigrationItem).filter(
+                        PlatformMigrationItem.run_id == run.id,
+                        PlatformMigrationItem.organization_id == run.organization_id,
+                        PlatformMigrationItem.provider == "YARDI",
+                        PlatformMigrationItem.resource == parent_resource,
+                        PlatformMigrationItem.source_id == str(data.get(field) or "").strip(),
+                    ).first()
+                    if parent is None:
+                        warnings.append(f"{parent_resource} stable source relationship remains unmapped; commit blocked.")
+                warnings.append("Lease identity staged only; no occupancy, liability, payment, rent or deposit receipt inferred.")
             elif resource == "TENANTS":
                 disposition = "REVIEW"
                 warnings.append("Resident identity staged for review only; no user login, Lease, occupancy or financial relationship inferred.")
@@ -196,6 +216,7 @@ def stage_yardi_file(
         "ownership_relationships_auto_created": False,
         "vendor_records_auto_created": False,
         "resident_accounts_auto_created": False,
+        "lease_occupancy_auto_created": False,
     }
     upload.status = "MAPPING_REQUIRED" if missing else (
         "STAGED_WITH_ERRORS" if invalid else "REVIEW_REQUIRED"
