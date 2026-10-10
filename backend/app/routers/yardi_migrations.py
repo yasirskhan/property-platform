@@ -9,6 +9,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 import json
 import hashlib
+from datetime import datetime
+from typing import Literal
+from pydantic import BaseModel
 from pathlib import Path
 
 from fastapi import File, Form, UploadFile
@@ -419,3 +422,66 @@ def get_yardi_reconciliation(
         "controlled_commit_enabled": False,
         "customer_business_mutation": False,
     }
+
+
+class YardiRowSkipIn(BaseModel):
+    reason_code: Literal["NOT_IN_SCOPE", "DUPLICATE_SOURCE", "ALREADY_HANDLED", "UNSUPPORTED_SOURCE"]
+
+
+@router.post("/runs/{run_id}/staged-rows/{row_id}/skip")
+def skip_yardi_staged_row(
+    run_id: int,
+    row_id: int,
+    payload: YardiRowSkipIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Explicit skip review only; cannot create or change customer records."""
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    row = db.query(PlatformMigrationStagedRow).filter(
+        PlatformMigrationStagedRow.id == row_id,
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Yardi staged row not found.")
+    already_mapped = db.query(PlatformMigrationItem.id).filter(
+        PlatformMigrationItem.run_id == run.id,
+        PlatformMigrationItem.organization_id == run.organization_id,
+        PlatformMigrationItem.provider == "YARDI",
+        PlatformMigrationItem.resource == row.resource,
+        PlatformMigrationItem.source_id == row.source_id,
+    ).first() if row.source_id else None
+    if already_mapped:
+        raise HTTPException(status_code=409, detail="Durably mapped source cannot be skipped.")
+    if row.resolution_action not in (None, "SKIP"):
+        raise HTTPException(status_code=409, detail="A different review decision already exists.")
+    evidence = list(row.correction_evidence or [])
+    if row.resolution_action == "SKIP":
+        return {
+            "id": row.id, "run_id": run.id, "action": "SKIP",
+            "replayed": True,
+        }
+    row.resolution_action = "SKIP"
+    row.resolved_by_platform_user_id = current_user.id
+    row.resolved_at = datetime.utcnow()
+    evidence.append({"action": "SKIP", "reason_code": payload.reason_code})
+    row.correction_evidence = evidence
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    append_audit_log(
+        db,
+        platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_staged_row",
+        entity_id=row.id,
+        action="yardi_row_skipped",
+        new_value={
+            "run_id": run.id, "resource": row.resource,
+            "reason_code": payload.reason_code,
+            "customer_business_mutation": False,
+        },
+    )
+    db.commit()
+    return {"id": row.id, "run_id": run.id, "action": "SKIP", "replayed": False}
