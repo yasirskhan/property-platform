@@ -1,3 +1,12 @@
+# AI_HANDOFF.md — 2026-10-10 YARDI RECONCILIATION COVERAGE VERIFIED
+
+**Latest product verification:** `c6de1652c3e93384162b2ae764572142e416be2b`; exact GitHub Actions **38064148602 SUCCESS** (backend, frontend, security, platform-admin, staging-config, authenticated E2E).
+Yardi provider-scoped read-only reconciliation summary including mapped, unresolved, invalid source rows and review fingerprint is **COMPLETE | VERIFIED** as a bounded Phase 4.15 batch. No customer mutation or financial posting. Phase 4.15 overall **IN PROGRESS**.
+
+**NEXT:** implement safe explicit Yardi staging-row review decisions, initially allow SKIP only with provider/run/organization isolation and no business mutations; ensure deterministic reconciliation fingerprint changes with review decision. Do not enable automated controlled commit until independently verified source/target contracts and dry-run controls exist. Preserve all previously verified batches and no financial inference. Continue same-branch bounded implement/test/commit/exact-CI/fix/handoff workflow; never touch main or create branches. General UX inactive.
+
+---
+
 # AI_HANDOFF.md — 2026-10-10 YARDI STAGING PREVIEW VERIFIED
 
 Current exact verified product checkpoint: `3d9543d4a57b03ad2f805a77fb1cb7788aba40d1`.
