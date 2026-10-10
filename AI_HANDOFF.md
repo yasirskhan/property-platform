@@ -1,3 +1,16 @@
+# AI_HANDOFF.md — 2026-10-09 YARDI VENDOR IDENTITY STAGING VERIFIED
+
+**Current checkpoint supersedes historical next entries.** Work ONLY on `chatgpt/checkpoint-005-safety`.
+
+- Verified product commit `2dbd999c75c3ce672e233576c8eb319ed7e3f827`.
+- Exact CI **38009026603 SUCCESS**; all six jobs passed.
+- Yardi Vendors CSV/XLSX explicit-mapping identity staging, replay and duplicate detection: **COMPLETE | VERIFIED** as bounded batch. No customer Vendor or accounting mutation.
+- Phase 4.15 overall **IN PROGRESS**; do not repeat verified runs, Properties, Units, Owners or Vendors work.
+- **NEXT:** Residents/Tenants identity-only file staging with stable source IDs, explicit mapping, duplicate detection, replay and no login, lease or occupancy creation. Continue subsequent resource batches subject to independently verified source and target semantics. Preserve all accounting safety rules, provider/org isolation, navigation and inactive general UX.
+- Continue implement → test → commit → exact CI → fix reds → verify → update handoff → next bounded batch; never touch main or create another branch.
+
+---
+
 # AI_HANDOFF.md — 2026-10-09 YARDI OWNER IDENTITY STAGING VERIFIED
 
 **Current entry supersedes prior NEXT labels.** ONLY branch `chatgpt/checkpoint-005-safety`.
