@@ -1,3 +1,17 @@
+# AI_HANDOFF.md — 2026-10-10 YARDI FINANCIAL SOURCE GATES AND READINESS VERIFIED
+
+**Latest verified checkpoint; supersedes historical NEXT entries.** ONLY branch `chatgpt/checkpoint-005-safety`.
+
+- Verified product SHA `ae4c1da140db992cbb44af9b9dc49dc8e472387a`; exact CI **38058807264 SUCCESS**, all six jobs PASS.
+- Phase 4.15 Yardi financial-source gate regressions and read-only resource readiness endpoint **COMPLETE | VERIFIED** as bounded batches.
+- Supported provider-labelled staging (not customer import/controlled commit): PROPERTIES, UNITS, OWNERS, VENDORS, TENANTS, LEASE_OCCUPANCY.
+- Financial GL/AR/AP/bank/budget/check/history sources blocked pending verified authorized Yardi export layout, signed accounting semantics, period, reconciliation and target contract. No fake ledger data, balances, or payments.
+- Phase 4.15 **IN PROGRESS**. The remaining critical gap is mapping/review → dry-run → safe controlled commit for actual customer migration; staged data is NOT yet imported to customer business models.
+
+**NEXT bounded step:** Audit existing AppFolio shared migration review, reconciliation, exact-fingerprint dry run and controlled commit. Identify whether YARDI has safe adapter paths; implement a bounded provider-safe review/dry-run foundation WITHOUT automatically writing customer business data. Do not mark Phase 4.15 complete on staging-only checkpoints. Reuse existing provider-labelled models, never fork parallel migration architecture. Then execute tests → commit → CI → fix → verify → handoff and continue. Do not touch main or create another branch. General UX inactive.
+
+---
+
 # AI_HANDOFF.md — 2026-10-10 YARDI LEASE IDENTITY STAGING VERIFIED
 
 **Latest verified product checkpoint, supersedes older NEXT entries.** ONLY branch `chatgpt/checkpoint-005-safety`.
