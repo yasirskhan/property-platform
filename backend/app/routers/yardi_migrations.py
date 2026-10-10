@@ -288,3 +288,28 @@ def list_yardi_staged_rows(
     ).offset(offset).limit(limit).all()
     response.headers["Cache-Control"] = "no-store"
     return rows
+
+
+@router.get("/resource-readiness")
+def yardi_resource_readiness(
+    response: Response,
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Expose source-contract readiness without treating staged data as imported."""
+    _require_role(current_user, _VIEW_ROLES, "Platform migration access required.")
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "provider": "YARDI",
+        "supported_staging_only": [
+            "PROPERTIES", "UNITS", "OWNERS", "VENDORS",
+            "TENANTS", "LEASE_OCCUPANCY",
+        ],
+        "blocked_pending_source_contract": [
+            "GL_ACCOUNTS", "OPEN_RECEIVABLES", "LEASE_CHARGES",
+            "OPEN_PAYABLES", "BANK_ACCOUNTS", "CURRENT_YEAR_BUDGETS",
+            "OUTSTANDING_CHECKS", "TRIAL_BALANCE", "GENERAL_LEDGER",
+        ],
+        "customer_records_created_by_upload": False,
+        "financial_posting_enabled": False,
+        "official_api_adapter_enabled": False,
+    }
