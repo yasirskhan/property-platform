@@ -389,13 +389,16 @@ def get_yardi_reconciliation(
     ).order_by(PlatformMigrationItem.id.asc()).all()
     existing = {(item.resource, item.source_id) for item in items}
     resources: dict[str, dict[str, int]] = {}
-    unresolved = invalid = 0
+    unresolved = invalid = skipped = 0
     for row in rows:
         stats = resources.setdefault(row.resource, {
-            "total": 0, "invalid": 0, "mapped": 0, "needs_review": 0,
+            "total": 0, "invalid": 0, "mapped": 0, "skipped": 0, "needs_review": 0,
         })
         stats["total"] += 1
-        if row.errors or row.disposition == "INVALID":
+        if row.resolution_action == "SKIP":
+            skipped += 1
+            stats["skipped"] += 1
+        elif row.errors or row.disposition == "INVALID":
             invalid += 1
             stats["invalid"] += 1
         elif row.source_id and (row.resource, row.source_id) in existing:
@@ -418,6 +421,7 @@ def get_yardi_reconciliation(
         "resource_coverage": resources,
         "staged_rows": len(rows), "durable_mapping_count": len(items),
         "invalid_rows": invalid, "unresolved_rows": unresolved,
+        "skipped_rows": skipped,
         "review_fingerprint": digest,
         "controlled_commit_enabled": False,
         "customer_business_mutation": False,
