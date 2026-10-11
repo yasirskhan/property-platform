@@ -1,3 +1,11 @@
+# AI_HANDOFF.md — 2026-10-11 YARDI IDENTICAL UPLOAD REPLAY VERIFIED
+
+Exact verified product SHA: `2abefcefdd65bb0d6fc2440e1427053da1594cbf`. GitHub Actions **38110481550 SUCCESS**: backend, frontend, security, platform-admin, staging-config and E2E all PASS. A repeated identical Yardi upload preserves the valid review dry-run snapshot; regression is COMPLETE | VERIFIED. Previously verified snapshot freshness/invalidations and review reconciliation must not be repeated.
+
+Phase 4.15 **IN PROGRESS**. Next: add bounded review/dry-run regression for a changed explicit SKIP decision and/or provider-isolated snapshot, relying on current router. Keep customer controlled commit and financial posting disabled without validated target contracts. Implement → test → commit → exact-SHA CI → fix reds → verify → update handoff → continue. ONLY branch `chatgpt/checkpoint-005-safety`; never touch main/new branches.
+
+---
+
 # AI_HANDOFF.md — 2026-10-11 YARDI UPLOAD INVALIDATES SAVED DRY RUN VERIFIED
 
 **Exact verified product SHA:** `b41780707da8b6f04e5c37d7871a3c77aec0833c`. GitHub Actions **38109850619 SUCCESS**, all six required jobs PASS. Focused regression proves a new non-identical Yardi source upload invalidates the saved review/dry-run fingerprint, generates different live review evidence and keeps controlled commit disabled. **COMPLETE | VERIFIED** as one bounded Phase 4.15 batch; no business mutation.
