@@ -48,6 +48,9 @@ def test_yardi_skip_updates_review_evidence_and_fingerprint_without_customer_mut
         assert db.query(User).count() == before_users
         again = skip_yardi_staged_row(run.id, row.id, payload, db, actor)
         assert again["replayed"] is True
+        with pytest.raises(HTTPException) as mismatch:
+            skip_yardi_staged_row(run.id, row.id, YardiRowSkipIn(reason_code="DUPLICATE_SOURCE"), db, actor)
+        assert mismatch.value.status_code == 409
         with pytest.raises(HTTPException) as err:
             skip_yardi_staged_row(run.id + 10000, row.id, payload, db, actor)
         assert err.value.status_code == 404

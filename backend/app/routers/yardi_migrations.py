@@ -463,6 +463,9 @@ def skip_yardi_staged_row(
         raise HTTPException(status_code=409, detail="A different review decision already exists.")
     evidence = list(row.correction_evidence or [])
     if row.resolution_action == "SKIP":
+        previous_reasons = [e.get("reason_code") for e in (row.correction_evidence or []) if isinstance(e, dict) and e.get("action") == "SKIP"]
+        if not previous_reasons or previous_reasons[-1] != payload.reason_code:
+            raise HTTPException(status_code=409, detail="SKIP review reason differs from recorded decision.")
         return {
             "id": row.id, "run_id": run.id, "action": "SKIP",
             "replayed": True,
