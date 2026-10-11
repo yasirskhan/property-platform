@@ -41,6 +41,10 @@ def test_yardi_skip_updates_review_evidence_and_fingerprint_without_customer_mut
         assert first["action"] == "SKIP" and first["replayed"] is False
         next_review = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert old["review_fingerprint"] != next_review["review_fingerprint"]
+        assert old["unresolved_rows"] == 1
+        assert next_review["unresolved_rows"] == 0
+        assert next_review["skipped_rows"] == 1
+        assert next_review["resource_coverage"]["OWNERS"]["skipped"] == 1
         assert db.query(User).count() == before_users
         again = skip_yardi_staged_row(run.id, row.id, payload, db, actor)
         assert again["replayed"] is True
