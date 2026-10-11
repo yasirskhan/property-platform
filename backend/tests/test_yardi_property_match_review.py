@@ -1,11 +1,11 @@
 """Explicit Yardi property matching is scoped and does not overwrite targets."""
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
 
 from app.models.platform_migration import PlatformMigrationRun, PlatformMigrationStagedRow
 from app.models.platform_user import PlatformUserRole
 from app.models.property import Property
-from app.routers.yardi_migrations import YardiPropertyMatchIn, match_yardi_staged_property
+from app.routers.yardi_migrations import YardiPropertyMatchIn, match_yardi_staged_property, get_yardi_reconciliation
 from app.services.yardi_file_ingestion import stage_yardi_file
 from test_yardi_migrations import _org, _platform_user, _session
 
@@ -48,6 +48,7 @@ def test_yardi_property_match_requires_same_org_and_is_idempotent():
                 db, actor,
             )
         assert error.value.status_code == 404
+        before_review = get_yardi_reconciliation(run.id, Response(), db, actor)
         first = match_yardi_staged_property(
             run.id, row.id, YardiPropertyMatchIn(target_property_id=target.id),
             db, actor,
@@ -58,6 +59,10 @@ def test_yardi_property_match_requires_same_org_and_is_idempotent():
             db, actor,
         )
         assert replay["replayed"] is True
+        after_review = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert before_review["review_fingerprint"] != after_review["review_fingerprint"]
+        assert after_review["resource_coverage"]["PROPERTIES"]["matched_existing"] == 1
+        assert after_review["unresolved_rows"] == 0
         db.refresh(target)
         assert target.name == "Target House"
         assert row.resolution_action == "MATCH_EXISTING"

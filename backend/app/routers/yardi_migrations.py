@@ -394,11 +394,22 @@ def get_yardi_reconciliation(
     for row in rows:
         stats = resources.setdefault(row.resource, {
             "total": 0, "invalid": 0, "mapped": 0, "skipped": 0, "needs_review": 0,
+            "matched_existing": 0,
         })
         stats["total"] += 1
         if row.resolution_action == "SKIP":
             skipped += 1
             stats["skipped"] += 1
+        elif row.resolution_action == "MATCH_EXISTING":
+            target_valid = row.resolution_target_id is not None and db.query(Property.id).filter(
+                Property.id == row.resolution_target_id,
+                Property.organization_id == run.organization_id,
+            ).first() is not None
+            if target_valid:
+                stats["matched_existing"] += 1
+            else:
+                unresolved += 1
+                stats["needs_review"] += 1
         elif row.errors or row.disposition == "INVALID":
             invalid += 1
             stats["invalid"] += 1
@@ -409,7 +420,7 @@ def get_yardi_reconciliation(
             stats["needs_review"] += 1
     evidence = {
         "staged": [(r.id, r.resource, r.source_id, r.row_fingerprint, r.disposition,
-                    r.resolution_action) for r in rows],
+                    r.resolution_action, r.resolution_target_id) for r in rows],
         "mapped": [(i.id, i.resource, i.source_id, i.target_entity, i.target_id,
                     i.source_fingerprint) for i in items],
     }
