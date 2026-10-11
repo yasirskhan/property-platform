@@ -1,3 +1,13 @@
+# AI_HANDOFF.md — 2026-10-11 YARDI SAVED DRY-RUN FRESHNESS VERIFIED
+
+**Exact verified product SHA:** `72edd7f997f384ca8e3524a0d8e5b79a7f570cb5`. GitHub Actions **38109004021 attempt 2 SUCCESS**: all six required jobs passed; initial attempt failed one unrelated HOA browser-login timing test, rerun passed. Read-only Yardi saved-review snapshot freshness endpoint and missing/current/stale regression test **COMPLETE | VERIFIED**. No customer data mutation and no controlled commit enabled.
+
+Phase 4.15 **IN PROGRESS**. Earlier Yardi staging-preview SHA `3d9543d4a57b03ad2f805a77fb1cb7788aba40d1` CI `38063159632` and review dry-run SHA `87868592794ac75816f03c5ad69b6d988328ed82` CI `38100181468` are VERIFIED; do not repeat.
+
+**NEXT:** Add focused regression for stale saved dry-run invalidation after a new Yardi upload. Prepared Git blob `a1ec765adee887c8545a0c2eb3bb0f1c0536a60b`, intended new file `backend/tests/test_yardi_review_upload_invalidation.py`. Review against current source then commit on same branch, hosted exact SHA CI, fix reds, update handoff and continue. Financial source contracts remain blocked; controlled commit disabled. No main/new branch; general UX inactive.
+
+---
+
 # AI_HANDOFF.md — 2026-10-10 YARDI NONMUTATING REVIEW DRY RUN VERIFIED
 
 **Latest checked branch product HEAD:** `87868592794ac75816f03c5ad69b6d988328ed82`. Exact GitHub Actions **38100181468 SUCCESS**, all six required jobs green. Yardi reviewed source snapshot dry-run, idempotent replay, stale review invalidation on SKIP and no customer business mutation **COMPLETE | VERIFIED** as a bounded batch. Earlier staging preview CI **38063159632 SUCCESS** and all preceding reconciliations verified; do not repeat.
