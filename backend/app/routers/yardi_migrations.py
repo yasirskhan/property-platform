@@ -636,6 +636,19 @@ def match_yardi_staged_property(
             status_code=409,
             detail="Another Yardi Property source is already mapped to this target.",
         )
+    cross_run_claim = db.query(PlatformMigrationItem.id).filter(
+        PlatformMigrationItem.run_id != run.id,
+        PlatformMigrationItem.organization_id == run.organization_id,
+        PlatformMigrationItem.provider == "YARDI",
+        PlatformMigrationItem.resource == "PROPERTIES",
+        PlatformMigrationItem.target_entity == "PROPERTY",
+        PlatformMigrationItem.target_id == payload.target_property_id,
+    ).first()
+    if cross_run_claim is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Target Property is already durably mapped in another Yardi run.",
+        )
     collision = db.query(PlatformMigrationStagedRow.id).filter(
         PlatformMigrationStagedRow.run_id == run.id,
         PlatformMigrationStagedRow.organization_id == run.organization_id,
