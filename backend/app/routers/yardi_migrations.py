@@ -28,6 +28,7 @@ from app.core.database import get_db
 from app.models.platform_migration import PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.user import Organization
+from app.models.property import Property
 from app.routers.platform_auth import get_current_platform_user
 from app.schemas.yardi_migration import YardiMigrationRunCreateIn, YardiMigrationRunOut
 from app.services.audit import append_audit_log
@@ -564,3 +565,68 @@ def get_yardi_review_dry_run_status(
         "controlled_commit_enabled": False,
         "customer_business_mutation": False,
     }
+
+
+class YardiPropertyMatchIn(BaseModel):
+    target_property_id: int
+
+
+@router.post("/runs/{run_id}/staged-rows/{row_id}/match-property")
+def match_yardi_staged_property(
+    run_id: int,
+    row_id: int,
+    payload: YardiPropertyMatchIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Record an explicit property match decision, never mutate the property."""
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    row = db.query(PlatformMigrationStagedRow).filter(
+        PlatformMigrationStagedRow.id == row_id,
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "PROPERTIES",
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Yardi property row not found.")
+    if row.errors or row.disposition == "INVALID" or not row.source_id:
+        raise HTTPException(status_code=422, detail="Invalid property source row cannot be matched.")
+    if row.resolution_action is not None:
+        if (row.resolution_action == "MATCH_EXISTING"
+                and row.resolution_target_id == payload.target_property_id):
+            return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": True}
+        raise HTTPException(status_code=409, detail="Conflicting review decision exists.")
+    if db.query(PlatformMigrationItem.id).filter(
+        PlatformMigrationItem.run_id == run.id,
+        PlatformMigrationItem.organization_id == run.organization_id,
+        PlatformMigrationItem.provider == "YARDI",
+        PlatformMigrationItem.resource == "PROPERTIES",
+        PlatformMigrationItem.source_id == row.source_id,
+    ).first():
+        raise HTTPException(status_code=409, detail="Source is already durably mapped.")
+    target = db.query(Property.id).filter(
+        Property.id == payload.target_property_id,
+        Property.organization_id == run.organization_id,
+    ).first()
+    if target is None:
+        raise HTTPException(status_code=404, detail="Target property not found.")
+    row.resolution_action = "MATCH_EXISTING"
+    row.resolution_target_id = payload.target_property_id
+    row.resolved_by_platform_user_id = current_user.id
+    row.resolved_at = datetime.utcnow()
+    row.correction_evidence = list(row.correction_evidence or []) + [{
+        "action": "MATCH_EXISTING", "target_property_id": payload.target_property_id,
+    }]
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    append_audit_log(
+        db, platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_staged_row", entity_id=row.id,
+        action="yardi_property_match_reviewed",
+        new_value={"run_id": run.id, "target_property_id": payload.target_property_id,
+                   "customer_business_mutation": False},
+    )
+    db.commit()
+    return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": False}
