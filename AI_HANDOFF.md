@@ -1,3 +1,13 @@
+# AI_HANDOFF.md — 2026-10-11 YARDI UPLOAD INVALIDATES SAVED DRY RUN VERIFIED
+
+**Exact verified product SHA:** `b41780707da8b6f04e5c37d7871a3c77aec0833c`. GitHub Actions **38109850619 SUCCESS**, all six required jobs PASS. Focused regression proves a new non-identical Yardi source upload invalidates the saved review/dry-run fingerprint, generates different live review evidence and keeps controlled commit disabled. **COMPLETE | VERIFIED** as one bounded Phase 4.15 batch; no business mutation.
+
+Phase 4.15 remains **IN PROGRESS**. Previous review dry-run freshness product SHA `72edd7f997f384ca8e3524a0d8e5b79a7f570cb5` verified at CI **38109004021 attempt 2 SUCCESS**.
+
+**NEXT:** A repeat upload of the identical Yardi file should preserve the currently valid dry-run fingerprint (idempotent replay). Prepared Git blob `12278a6982594f4a40c2a4addb26d382e99b19a2`, intended `backend/tests/test_yardi_review_identical_upload_replay.py`. Apply on the current branch, exact-SHA CI, fix reds, verify, update handoff, continue Phase 4.15. No main/new branches. Financial import and customer controlled commit still blocked absent source/target contracts.
+
+---
+
 # AI_HANDOFF.md — 2026-10-11 YARDI SAVED DRY-RUN FRESHNESS VERIFIED
 
 **Exact verified product SHA:** `72edd7f997f384ca8e3524a0d8e5b79a7f570cb5`. GitHub Actions **38109004021 attempt 2 SUCCESS**: all six required jobs passed; initial attempt failed one unrelated HOA browser-login timing test, rerun passed. Read-only Yardi saved-review snapshot freshness endpoint and missing/current/stale regression test **COMPLETE | VERIFIED**. No customer data mutation and no controlled commit enabled.
