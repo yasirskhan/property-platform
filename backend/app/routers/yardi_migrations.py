@@ -492,3 +492,50 @@ def skip_yardi_staged_row(
     )
     db.commit()
     return {"id": row.id, "run_id": run.id, "action": "SKIP", "replayed": False}
+
+
+@router.post("/runs/{run_id}/review-dry-run")
+def dry_run_yardi_review(
+    run_id: int,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Record a reviewed Yardi source snapshot; never authorize target commit."""
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    review = get_yardi_reconciliation(run_id, Response(), db, current_user)
+    if review["staged_rows"] == 0:
+        raise HTTPException(status_code=422, detail="No Yardi source rows are staged.")
+    summary = {
+        "provider": "YARDI", "staged_rows": review["staged_rows"],
+        "invalid_rows": review["invalid_rows"],
+        "unresolved_rows": review["unresolved_rows"],
+        "skipped_rows": review["skipped_rows"],
+        "durable_mapping_count": review["durable_mapping_count"],
+        "requires_explicit_review": bool(review["invalid_rows"] or review["unresolved_rows"]),
+        "customer_business_mutation": False,
+        "controlled_commit_enabled": False,
+    }
+    fingerprint = review["review_fingerprint"]
+    replayed = (
+        run.last_dry_run_fingerprint == fingerprint
+        and run.last_dry_run_summary == summary
+    )
+    if not replayed:
+        run.last_dry_run_fingerprint = fingerprint
+        run.last_dry_run_summary = summary
+        append_audit_log(
+            db, platform_user_id=current_user.id,
+            organization_id=run.organization_id,
+            entity_type="platform_migration_run", entity_id=run.id,
+            action="yardi_review_dry_run",
+            new_value={
+                "review_fingerprint": fingerprint,
+                "invalid_rows": review["invalid_rows"],
+                "unresolved_rows": review["unresolved_rows"],
+                "controlled_commit_enabled": False,
+                "customer_business_mutation": False,
+            },
+        )
+        db.commit()
+    return {"run_id": run.id, "review_fingerprint": fingerprint,
+            "replayed": replayed, **summary}
