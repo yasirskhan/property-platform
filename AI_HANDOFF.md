@@ -1,3 +1,17 @@
+# AI_HANDOFF.md — 2026-10-11 YARDI DURABLE PROPERTY TARGET COLLISION VERIFIED
+
+**CURRENT CHECKPOINT (supersedes older NEXT labels).** Repository `yasirskhan/property-platform`, ONLY branch `chatgpt/checkpoint-005-safety`. Phase 4.15 **IN PROGRESS**.
+
+- Latest verified product SHA: `ce68aa059b397c62009c032d7453abbf53b149ef`.
+- Exact GitHub Actions CI **38157000848 SUCCESS**: backend, frontend, security, platform-admin, staging-config and authenticated E2E all PASS.
+- Explicit Property MATCH_EXISTING review now rejects a second source identity trying to claim a Property already durably mapped to a different source in this run. Regression passed; no customer Property mutation.
+- Prior Property staged target collision, review/fingerprint and all previously verified Yardi staging/dry-run/reconciliation work remain VERIFIED. Do not repeat.
+- Controlled customer commit still disabled; financial imports blocked without independently verified export/posting contracts.
+
+**NEXT bounded batch:** Check against same provider/org *other Yardi runs* before accepting a Property target match, and establish the intended source-account scoping and replay policy in focused regression tests. Avoid cross-run target takeover. Run exact-SHA CI, fix failures, update handoff and continue Phase 4.15. Never touch main or create another branch; general UX inactive.
+
+---
+
 # AI_HANDOFF.md — 2026-10-11 YARDI PROPERTY REVIEW TARGET COLLISION VERIFIED
 
 **Current verified product SHA:** `65815df5c5108cededff53aa5db4025852eb22eb`. GitHub Actions **38155871022 SUCCESS**; all six jobs passed. Explicit Yardi Property MATCH_EXISTING review now rejects multiple different staged Property source rows claiming the same target within the same run (409). Includes regression and preserves customer Property unchanged. **COMPLETE | VERIFIED** bounded Phase 4.15 batch. Phase 4.15 overall remains **IN PROGRESS**.
