@@ -539,3 +539,28 @@ def dry_run_yardi_review(
         db.commit()
     return {"run_id": run.id, "review_fingerprint": fingerprint,
             "replayed": replayed, **summary}
+
+
+@router.get("/runs/{run_id}/review-dry-run")
+def get_yardi_review_dry_run_status(
+    run_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Recheck saved review evidence against current staging, not cached metadata."""
+    run = _run(db, run_id=run_id, current_user=current_user, write=False)
+    review = get_yardi_reconciliation(run_id, Response(), db, current_user)
+    saved = run.last_dry_run_fingerprint
+    current = review["review_fingerprint"]
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "run_id": run.id,
+        "provider": "YARDI",
+        "saved_review_fingerprint": saved,
+        "current_review_fingerprint": current,
+        "has_saved_dry_run": saved is not None,
+        "is_current": saved is not None and saved == current,
+        "controlled_commit_enabled": False,
+        "customer_business_mutation": False,
+    }
