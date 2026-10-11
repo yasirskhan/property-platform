@@ -783,7 +783,6 @@ def bind_yardi_reviewed_property_matches(
             PlatformMigrationItem.resource == "PROPERTIES",
             PlatformMigrationItem.target_entity == "PROPERTY",
             PlatformMigrationItem.target_id == row.resolution_target_id,
-            PlatformMigrationItem.source_id != row.source_id,
         ).first()
         if conflicting is not None:
             raise HTTPException(status_code=409, detail="Property target has a conflicting durable source mapping.")
