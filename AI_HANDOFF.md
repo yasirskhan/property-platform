@@ -1,3 +1,11 @@
+# AI_HANDOFF.md — 2026-10-10 YARDI SKIP REPLAY REASON VERIFIED
+
+Verified product SHA: `ce81198e4f100b6345c9475a36a07e1a477fd182`; exact CI **38099232568 SUCCESS**, all six required jobs PASS. The SKIP review API rejects replay attempts with a conflicting reason (409) while identical requests remain idempotent. Previous reconciliation counts SHA `5d18f4302626f08a57f3ccda05c7e40c6eedb86e` CI **38098468424 SUCCESS**. Both batches COMPLETE | VERIFIED. Phase 4.15 IN PROGRESS.
+
+NEXT: bounded Yardi review-bound dry-run metadata fingerprint service, with source/review fingerprint stability and no customer business mutation or commit capability. Preserve provider/org scoping, revoke preview on staging/review change and reject accounting without authoritative source data. Commit/tests/exact-SHA CI and handoff, then continue on Phase 4.15. Never touch main/new branches; ONLY `chatgpt/checkpoint-005-safety`.
+
+---
+
 # AI_HANDOFF.md — 2026-10-10 YARDI SKIP COVERAGE RECONCILIATION VERIFIED
 
 Latest verified product SHA: `5d18f4302626f08a57f3ccda05c7e40c6eedb86e`. Exact GitHub Actions **38098468424 SUCCESS**, all six required jobs passed. Yardi reconciliation now counts explicit SKIP review decisions separately from unresolved rows and retains review-fingerprint invalidation; focused regression test passed. Phase 4.15 remains IN PROGRESS.
