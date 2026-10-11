@@ -1,3 +1,11 @@
+# AI_HANDOFF.md — 2026-10-11 YARDI PROPERTY BINDING STALE FINGERPRINT REGRESSION VERIFIED
+
+**LATEST VERIFIED PRODUCT SHA:** `f33e7deee4505b0b2039cb659af9beb0e0da9715`; exact GitHub Actions **38175367220 SUCCESS**, all six required jobs PASS. Stale/wrong reviewed Property binding fingerprint rejects with 409 and creates no durable mapping or customer Property mutation. This bounded Phase 4.15 regression is **COMPLETE | VERIFIED**. Earlier property metadata bindings `da0bcd887cd70fcac48a6ffee775630726d3e502` are also verified (CI 38171221970). Phase 4.15 remains **IN PROGRESS**.
+
+**NEXT:** Strengthen cross-run durable target collision at metadata-only bind time, including same source ID in separate Yardi runs. Prepared against `f33e7dee`: router blob `688c1bee6d42ccc2ff002297b2996ce64f3b8bde`, regression blob `7d8e8c957845fe7d8a6065dee199511908f71ade` targeting `backend/tests/test_yardi_property_cross_run_binding.py`. Preserve row locks, current review snapshot, source/provider/org isolation, no customer record modification. Commit bounded batch, run exact SHA CI, fix reds, verify, update handoff, continue. ONLY branch `chatgpt/checkpoint-005-safety`; no main/new branches or general UX.
+
+---
+
 # AI_HANDOFF.md — 2026-10-11 YARDI REVIEWED PROPERTY BINDINGS VERIFIED
 
 **LATEST VERIFIED PRODUCT:** `da0bcd887cd70fcac48a6ffee775630726d3e502`, exact GitHub Actions **38171221970 SUCCESS**, all six required jobs green. This supersedes the older next-task entry below. Phase 4.15 remains **IN PROGRESS**.
