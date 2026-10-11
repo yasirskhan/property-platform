@@ -1,3 +1,13 @@
+# AI_HANDOFF.md — 2026-10-10 YARDI NONMUTATING REVIEW DRY RUN VERIFIED
+
+**Latest checked branch product HEAD:** `87868592794ac75816f03c5ad69b6d988328ed82`. Exact GitHub Actions **38100181468 SUCCESS**, all six required jobs green. Yardi reviewed source snapshot dry-run, idempotent replay, stale review invalidation on SKIP and no customer business mutation **COMPLETE | VERIFIED** as a bounded batch. Earlier staging preview CI **38063159632 SUCCESS** and all preceding reconciliations verified; do not repeat.
+
+Phase 4.15 overall **IN PROGRESS**. The supported Yardi file flow currently stages and reviews data; customer-side controlled commit stays disabled. Financial/accounting source contracts remain blocked.
+
+**NEXT:** Ensure durable Yardi dry-run fingerprint cannot survive new staging uploads, and that state/review changes invalidate prior dry runs. Test exact-SHA hosted CI then update handoff. After verification, examine the next independently supported review/reconciliation or safe mapping batch. Never touch main or create another branch.
+
+---
+
 # AI_HANDOFF.md — 2026-10-10 YARDI SKIP REPLAY REASON VERIFIED
 
 Verified product SHA: `ce81198e4f100b6345c9475a36a07e1a477fd182`; exact CI **38099232568 SUCCESS**, all six required jobs PASS. The SKIP review API rejects replay attempts with a conflicting reason (409) while identical requests remain idempotent. Previous reconciliation counts SHA `5d18f4302626f08a57f3ccda05c7e40c6eedb86e` CI **38098468424 SUCCESS**. Both batches COMPLETE | VERIFIED. Phase 4.15 IN PROGRESS.
