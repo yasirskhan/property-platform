@@ -1,3 +1,11 @@
+# AI_HANDOFF.md — 2026-10-11 YARDI PROPERTY REVIEW TARGET COLLISION VERIFIED
+
+**Current verified product SHA:** `65815df5c5108cededff53aa5db4025852eb22eb`. GitHub Actions **38155871022 SUCCESS**; all six jobs passed. Explicit Yardi Property MATCH_EXISTING review now rejects multiple different staged Property source rows claiming the same target within the same run (409). Includes regression and preserves customer Property unchanged. **COMPLETE | VERIFIED** bounded Phase 4.15 batch. Phase 4.15 overall remains **IN PROGRESS**.
+
+**NEXT:** Reject another distinct Yardi Property source ID claiming a Property already durably mapped by this run. Prepared router blob `3b32cf7971fde49cbc6a58bd93d2707a62e4f304`; prepared test blob `a873a07d1b329f6e4b975a09a621415db18c6ddd` for `backend/tests/test_yardi_property_durable_target_collision.py`. Review against live source, commit, exact-SHA CI, fix reds, verify, update handoff and continue. Controlled customer commit/financial imports remain blocked pending verified contracts. Do not touch main/new branches.
+
+---
+
 # AI_HANDOFF.md — 2026-10-11 YARDI PROPERTY MATCH RECONCILIATION VERIFIED
 
 Verified product SHA `f64b2a2c860f7a683480d35a42a07ca9b54b4a44`; exact hosted CI **38154781458 SUCCESS**, six required jobs PASS (backend, frontend, security, platform-admin, staging-config, authenticated E2E). Reviewed `MATCH_EXISTING` Property rows now contribute to review coverage and selected targets enter review fingerprints. **COMPLETE | VERIFIED** as a bounded Phase 4.15 batch. Controlled customer commit remains disabled and financial sources are still gated.
