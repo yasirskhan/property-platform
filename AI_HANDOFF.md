@@ -1,3 +1,11 @@
+# AI_HANDOFF.md — 2026-10-11 EXPLICIT YARDI PROPERTY MATCH REVIEW VERIFIED
+
+Exact verified product SHA `d7aaa1d8310d41a5c86c611127cdd68380814e9a`; GitHub Actions **38153692059 SUCCESS**, all six jobs PASS. The explicit same-organization Property MATCH_EXISTING review decision with idempotent replay, conflict/invalid-source rejection, redacted audit and no target overwrite is COMPLETE | VERIFIED as a bounded Phase 4.15 batch. Customer controlled commit and all unsupported accounting remain disabled. Phase 4.15 is **IN PROGRESS**.
+
+**NEXT**: Reconciliation must count reviewed MATCH_EXISTING rows rather than leave them unresolved and include the selected target Property ID in the dry-run review fingerprint. Prepared router blob `ff058bd57fc78e3b649103b6f7494f6c678bbaf2`; prepared focused test blob `0e50593c050a9cf76a5ed69c5cdd26f07a064b25` for `backend/tests/test_yardi_property_match_review.py`. Review/apply to live SHA, commit, exact-SHA CI, fix reds, verify and update handoff. Do not touch main/new branches, no automatic business/accounting posting, do not repeat verified prior work.
+
+---
+
 # AI_HANDOFF.md — 2026-10-11 YARDI REVIEW PROVIDER ISOLATION VERIFIED
 
 **Latest exact verified product SHA:** `daee0cb63ff5f8945035cb5c344b24db5265f8c2`. GitHub Actions **38152659226 SUCCESS**, all six jobs PASS (backend, frontend, security, platform-admin, staging-config, E2E). A foreign APPFOLIO migration run cannot access or record a Yardi review dry-run snapshot, and the foreign run remains unchanged. This focused Phase 4.15 regression is COMPLETE | VERIFIED.
