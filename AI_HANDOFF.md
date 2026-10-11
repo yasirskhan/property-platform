@@ -1,3 +1,11 @@
+# AI_HANDOFF.md — 2026-10-11 YARDI REVIEW PROVIDER ISOLATION VERIFIED
+
+**Latest exact verified product SHA:** `daee0cb63ff5f8945035cb5c344b24db5265f8c2`. GitHub Actions **38152659226 SUCCESS**, all six jobs PASS (backend, frontend, security, platform-admin, staging-config, E2E). A foreign APPFOLIO migration run cannot access or record a Yardi review dry-run snapshot, and the foreign run remains unchanged. This focused Phase 4.15 regression is COMPLETE | VERIFIED.
+
+Phase 4.15 remains **IN PROGRESS**. Next bounded batch: add explicit staged Property MATCH_EXISTING review decision with same-run/provider/organization checks, valid source identity, target Property ownership, idempotent replay and audited evidence. This must not mutate customer business records or enable controlled commit. Pending prepared blobs: router `e9e51682680c006090539f5f5c98a89f2942dfda`, test `c704b9428ed9493090a3305d7a578e6a3fbc70b3`. Confirm live HEAD before applying. Then exact-SHA CI → fix → verify → handoff → continue. Financial-source posting blocked pending authoritative contracts; only branch `chatgpt/checkpoint-005-safety`, never main/new branches.
+
+---
+
 # AI_HANDOFF.md — 2026-10-11 YARDI IDENTICAL UPLOAD REPLAY VERIFIED
 
 Exact verified product SHA: `2abefcefdd65bb0d6fc2440e1427053da1594cbf`. GitHub Actions **38110481550 SUCCESS**: backend, frontend, security, platform-admin, staging-config and E2E all PASS. A repeated identical Yardi upload preserves the valid review dry-run snapshot; regression is COMPLETE | VERIFIED. Previously verified snapshot freshness/invalidations and review reconciliation must not be repeated.
