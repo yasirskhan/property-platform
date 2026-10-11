@@ -1,3 +1,11 @@
+# AI_HANDOFF.md — 2026-10-11 YARDI CROSS-RUN PROPERTY BINDING VERIFIED; LOCK ORDER BATCH PENDING
+
+**LATEST VERIFIED PRODUCT SHA:** `554cd5f8cc0bb920cd6500ae3f8289c22b0b780a`; exact GitHub Actions CI **38176474978 SUCCESS**, all six jobs PASS (backend, frontend, security, platform-admin, authenticated E2E, staging-config). Cross-run durable Yardi Property target takeover regression is **COMPLETE | VERIFIED**. Phase 4.15 remains **IN PROGRESS**. Earlier verified property SHA `f33e7deee4505b0b2039cb659af9beb0e0da9715` and CI 38175367220 remain valid.
+
+**CURRENT NEXT BATCH (PROVISIONAL):** Sort multi-Property binding target row locks by Property ID, with regression asserting stable lock acquisition independent of staging-row order and no customer Property mutation. This product change is **NOT VERIFIED** until the exact new source SHA passes all six CI jobs. Implemented as router blob `03c4717c3a8057fec4ddedafdeaf92cf28850f2d` and test blob `b5cea7c3963bcf816dfa3cbabb5eb2dd4f0b6bf6`. After CI green, record exact verified SHA and continue next bounded review/reconciliation safety task. No Phase 4.16, no main/new branches or general UX.
+
+---
+
 # AI_HANDOFF.md — 2026-10-11 YARDI PROPERTY BINDING STALE FINGERPRINT REGRESSION VERIFIED
 
 **LATEST VERIFIED PRODUCT SHA:** `f33e7deee4505b0b2039cb659af9beb0e0da9715`; exact GitHub Actions **38175367220 SUCCESS**, all six required jobs PASS. Stale/wrong reviewed Property binding fingerprint rejects with 409 and creates no durable mapping or customer Property mutation. This bounded Phase 4.15 regression is **COMPLETE | VERIFIED**. Earlier property metadata bindings `da0bcd887cd70fcac48a6ffee775630726d3e502` are also verified (CI 38171221970). Phase 4.15 remains **IN PROGRESS**.

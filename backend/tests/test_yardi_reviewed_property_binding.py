@@ -82,3 +82,66 @@ def test_reviewed_property_match_binding_is_exact_and_replay_safe():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_reviewed_property_binding_locks_targets_in_stable_order(monkeypatch):
+    from app.routers import yardi_migrations
+
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-stable-lock-order")
+        targets = [Property(
+            organization_id=org.id, name=f"Original {n}",
+            address_line1=f"{n} Main", city="Cleveland", state="OH", zip_code="44113",
+        ) for n in (1, 2)]
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="stable-lock-source", status="DRAFT",
+        )
+        db.add_all([*targets, run])
+        db.commit()
+        upload = stage_yardi_file(
+            db, run=run, filename="properties.csv",
+            content=(b"ID,Name,Street,City,State,Zip\n"
+                     b"Y-01,Other One,10 Main,Cleveland,OH,44113\n"
+                     b"Y-02,Other Two,20 Main,Cleveland,OH,44113\n"),
+            resource_override="PROPERTIES", sheet_name=None,
+            explicit_mapping={
+                "source_id": "ID", "name": "Name", "address_line1": "Street",
+                "city": "City", "state": "State", "zip_code": "Zip",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id
+        ).order_by(PlatformMigrationStagedRow.id.asc()).all()
+        assert len(rows) == 2
+        # Reverse target ID order relative to source row order.
+        for row, target in zip(rows, reversed(targets)):
+            match_yardi_staged_property(
+                run.id, row.id, YardiPropertyMatchIn(target_property_id=target.id),
+                db, actor,
+            )
+        preview = dry_run_yardi_review(run.id, db, actor)
+        original_lock = yardi_migrations._locked_yardi_review_target
+        locked = []
+
+        def record_lock(session, *, organization_id, property_id):
+            locked.append(property_id)
+            return original_lock(session, organization_id=organization_id, property_id=property_id)
+
+        monkeypatch.setattr(yardi_migrations, "_locked_yardi_review_target", record_lock)
+        result = bind_yardi_reviewed_property_matches(
+            run.id, YardiReviewedPropertyBindingIn(
+                review_fingerprint=preview["review_fingerprint"]
+            ), db, actor,
+        )
+        assert result["bound"] == 2
+        assert locked == sorted(locked)
+        for target, original_name in zip(targets, ("Original 1", "Original 2")):
+            db.refresh(target)
+            assert target.name == original_name
+    finally:
+        db.close()
+        engine.dispose()

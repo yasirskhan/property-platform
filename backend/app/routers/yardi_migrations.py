@@ -770,7 +770,8 @@ def bind_yardi_reviewed_property_matches(
     current = get_yardi_reconciliation(run_id, Response(), db, current_user)["review_fingerprint"]
     if not run.last_dry_run_fingerprint or payload.review_fingerprint != current or run.last_dry_run_fingerprint != current:
         raise HTTPException(status_code=409, detail="A current exact-fingerprint review dry run is required.")
-    for row in matches:
+    # Acquire target row locks in a stable order to avoid cross-run lock inversion.
+    for row in sorted(matches, key=lambda candidate: candidate.resolution_target_id):
         target = _locked_yardi_review_target(
             db, organization_id=run.organization_id,
             property_id=row.resolution_target_id,
