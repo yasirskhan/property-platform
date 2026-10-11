@@ -1,3 +1,13 @@
+# AI_HANDOFF.md — 2026-10-10 YARDI SKIP REVIEW VERIFIED
+
+Latest verified product SHA: `32467e8bcfbd2e458009a8eb8b9c758635af96c8`.
+Exact GitHub Actions **38065295202 SUCCESS**: frontend, security, backend, platform-admin, staging-config and authenticated E2E all passed.
+Earlier staging-preview SHA `3d9543d4a57b03ad2f805a77fb1cb7788aba40d1` CI **38063159632 SUCCESS**; reconciliation SHA `c6de1652c3e93384162b2ae764572142e416be2b` CI **38064148602 SUCCESS**. These batches and auditable SKIP decisions are VERIFIED; do not repeat.
+
+Phase 4.15 **IN PROGRESS**. NEXT: reconcile SKIP dispositions as explicitly reviewed rather than unresolved, preserve invalid evidence and fingerprint changes; add focused regression, exact-SHA CI, update handoff, then continue review/dry-run work. Controlled commit remains disabled pending verified target contracts. Financial source imports remain blocked. ONLY branch `chatgpt/checkpoint-005-safety`; never touch main/new branches.
+
+---
+
 # AI_HANDOFF.md — 2026-10-10 YARDI RECONCILIATION COVERAGE VERIFIED
 
 **Latest product verification:** `c6de1652c3e93384162b2ae764572142e416be2b`; exact GitHub Actions **38064148602 SUCCESS** (backend, frontend, security, platform-admin, staging-config, authenticated E2E).
