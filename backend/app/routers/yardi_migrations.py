@@ -663,6 +663,19 @@ def match_yardi_staged_property(
             status_code=409,
             detail="Another Yardi Property source already claims this target in this run.",
         )
+    other_run_review_claim = db.query(PlatformMigrationStagedRow.id).filter(
+        PlatformMigrationStagedRow.run_id != run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "PROPERTIES",
+        PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+        PlatformMigrationStagedRow.resolution_target_id == payload.target_property_id,
+    ).first()
+    if other_run_review_claim is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Target Property is already claimed by another Yardi review run.",
+        )
     row.resolution_action = "MATCH_EXISTING"
     row.resolution_target_id = payload.target_property_id
     row.resolved_by_platform_user_id = current_user.id
