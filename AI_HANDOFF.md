@@ -1,3 +1,11 @@
+# AI_HANDOFF.md — 2026-10-10 YARDI SKIP COVERAGE RECONCILIATION VERIFIED
+
+Latest verified product SHA: `5d18f4302626f08a57f3ccda05c7e40c6eedb86e`. Exact GitHub Actions **38098468424 SUCCESS**, all six required jobs passed. Yardi reconciliation now counts explicit SKIP review decisions separately from unresolved rows and retains review-fingerprint invalidation; focused regression test passed. Phase 4.15 remains IN PROGRESS.
+
+**NEXT bounded batch:** SKIP reason replay integrity: an attempted second SKIP with a different reason must return 409, not silently replay the first. Prepared blobs: router `95101993b936b65964ea58b3bfa5231fc16ca727`; regression test `32e6e4a4133bb62fb036dd2213196a7be4a457c9`. Verify exact source base before applying. Then CI → fix reds → verify → handoff → continue. Keep controlled commit disabled; financial sources need authoritative Yardi contracts. Only branch `chatgpt/checkpoint-005-safety`; never touch main/new branches.
+
+---
+
 # AI_HANDOFF.md — 2026-10-10 YARDI SKIP REVIEW VERIFIED
 
 Latest verified product SHA: `32467e8bcfbd2e458009a8eb8b9c758635af96c8`.
