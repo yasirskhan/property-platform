@@ -1,3 +1,11 @@
+# AI_HANDOFF.md — 2026-10-11 YARDI PROPERTY MATCH RECONCILIATION VERIFIED
+
+Verified product SHA `f64b2a2c860f7a683480d35a42a07ca9b54b4a44`; exact hosted CI **38154781458 SUCCESS**, six required jobs PASS (backend, frontend, security, platform-admin, staging-config, authenticated E2E). Reviewed `MATCH_EXISTING` Property rows now contribute to review coverage and selected targets enter review fingerprints. **COMPLETE | VERIFIED** as a bounded Phase 4.15 batch. Controlled customer commit remains disabled and financial sources are still gated.
+
+Phase 4.15: **IN PROGRESS**. NEXT: guard against distinct Yardi source Property rows in the same run claiming the same target Property during explicit match review, with 409 conflict and no target mutation. Prepared router Git blob `20cf636d1840267f3645c661fe23e10041449976`, test Git blob `eb39be2af11cd3275b517a690fb96a1a4dc73c99` for `backend/tests/test_yardi_property_target_collision.py`. Review/apply against current HEAD; then exact-SHA CI, fix reds, verify handoff, continue. Only branch `chatgpt/checkpoint-005-safety`; never main/new branch.
+
+---
+
 # AI_HANDOFF.md — 2026-10-11 EXPLICIT YARDI PROPERTY MATCH REVIEW VERIFIED
 
 Exact verified product SHA `d7aaa1d8310d41a5c86c611127cdd68380814e9a`; GitHub Actions **38153692059 SUCCESS**, all six jobs PASS. The explicit same-organization Property MATCH_EXISTING review decision with idempotent replay, conflict/invalid-source rejection, redacted audit and no target overwrite is COMPLETE | VERIFIED as a bounded Phase 4.15 batch. Customer controlled commit and all unsupported accounting remain disabled. Phase 4.15 is **IN PROGRESS**.
