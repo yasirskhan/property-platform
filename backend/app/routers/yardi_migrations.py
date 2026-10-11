@@ -622,6 +622,20 @@ def match_yardi_staged_property(
     ).first()
     if target is None:
         raise HTTPException(status_code=404, detail="Target property not found.")
+    mapped_target_collision = db.query(PlatformMigrationItem.id).filter(
+        PlatformMigrationItem.run_id == run.id,
+        PlatformMigrationItem.organization_id == run.organization_id,
+        PlatformMigrationItem.provider == "YARDI",
+        PlatformMigrationItem.resource == "PROPERTIES",
+        PlatformMigrationItem.target_entity == "PROPERTY",
+        PlatformMigrationItem.target_id == payload.target_property_id,
+        PlatformMigrationItem.source_id != row.source_id,
+    ).first()
+    if mapped_target_collision is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Another Yardi Property source is already mapped to this target.",
+        )
     collision = db.query(PlatformMigrationStagedRow.id).filter(
         PlatformMigrationStagedRow.run_id == run.id,
         PlatformMigrationStagedRow.organization_id == run.organization_id,
