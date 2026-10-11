@@ -703,3 +703,113 @@ def match_yardi_staged_property(
     )
     db.commit()
     return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": False}
+
+
+class YardiReviewedPropertyBindingIn(BaseModel):
+    review_fingerprint: str
+
+
+@router.post("/runs/{run_id}/properties/bind-reviewed-matches")
+def bind_yardi_reviewed_property_matches(
+    run_id: int,
+    payload: YardiReviewedPropertyBindingIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Bind explicitly reviewed Yardi Property source IDs to existing targets only.
+
+    No Property rows are created, modified or deleted. Source-to-target mappings
+    are migration metadata, and a fresh reviewed snapshot is mandatory.
+    """
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    rows = db.query(PlatformMigrationStagedRow).filter(
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "PROPERTIES",
+    ).order_by(PlatformMigrationStagedRow.id.asc()).all()
+    if not rows:
+        raise HTTPException(status_code=422, detail="No Yardi Property rows are staged.")
+    matches = []
+    seen_sources = set()
+    seen_targets = set()
+    for row in rows:
+        if row.errors or row.disposition == "INVALID":
+            raise HTTPException(status_code=409, detail="Invalid Property staging blocks binding.")
+        if row.resolution_action == "SKIP":
+            continue
+        if row.resolution_action != "MATCH_EXISTING" or not row.source_id or row.resolution_target_id is None:
+            raise HTTPException(status_code=409, detail="All non-skipped Properties require explicit existing-target review.")
+        if row.source_id in seen_sources or row.resolution_target_id in seen_targets:
+            raise HTTPException(status_code=409, detail="Duplicate source or target Property identity blocks binding.")
+        seen_sources.add(row.source_id)
+        seen_targets.add(row.resolution_target_id)
+        matches.append(row)
+    if not matches:
+        raise HTTPException(status_code=422, detail="No reviewed existing Property matches to bind.")
+    already = 0
+    for row in matches:
+        mapped = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "YARDI",
+            PlatformMigrationItem.resource == "PROPERTIES",
+            PlatformMigrationItem.source_id == row.source_id,
+        ).first()
+        if mapped is not None:
+            if (mapped.target_entity != "PROPERTY" or mapped.target_id != row.resolution_target_id
+                    or mapped.source_fingerprint != row.row_fingerprint):
+                raise HTTPException(status_code=409, detail="Conflicting durable Property source mapping.")
+            already += 1
+    if already == len(matches):
+        return {"run_id": run.id, "provider": "YARDI", "bound": 0,
+                "matched_existing": len(matches), "replayed": True,
+                "customer_business_mutation": False}
+    if already:
+        raise HTTPException(status_code=409, detail="Partial existing bindings require reconciliation.")
+    current = get_yardi_reconciliation(run_id, Response(), db, current_user)["review_fingerprint"]
+    if not run.last_dry_run_fingerprint or payload.review_fingerprint != current or run.last_dry_run_fingerprint != current:
+        raise HTTPException(status_code=409, detail="A current exact-fingerprint review dry run is required.")
+    for row in matches:
+        target = _locked_yardi_review_target(
+            db, organization_id=run.organization_id,
+            property_id=row.resolution_target_id,
+        )
+        if target is None:
+            raise HTTPException(status_code=409, detail="Reviewed Property target no longer exists.")
+        conflicting = db.query(PlatformMigrationItem.id).filter(
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "YARDI",
+            PlatformMigrationItem.resource == "PROPERTIES",
+            PlatformMigrationItem.target_entity == "PROPERTY",
+            PlatformMigrationItem.target_id == row.resolution_target_id,
+            PlatformMigrationItem.source_id != row.source_id,
+        ).first()
+        if conflicting is not None:
+            raise HTTPException(status_code=409, detail="Property target has a conflicting durable source mapping.")
+        db.add(PlatformMigrationItem(
+            run_id=run.id, organization_id=run.organization_id,
+            provider="YARDI", resource="PROPERTIES",
+            source_id=row.source_id, target_entity="PROPERTY",
+            target_id=row.resolution_target_id,
+            source_fingerprint=row.row_fingerprint,
+            created_by_platform_user_id=current_user.id,
+        ))
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    append_audit_log(
+        db, platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_run", entity_id=run.id,
+        action="yardi_property_existing_bindings_committed",
+        new_value={"matched_existing": len(matches), "target_overwrite": False,
+                   "customer_business_mutation": False},
+    )
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Durable Yardi Property mapping conflicted.") from exc
+    return {"run_id": run.id, "provider": "YARDI", "bound": len(matches),
+            "matched_existing": len(matches), "replayed": False,
+            "customer_business_mutation": False}
