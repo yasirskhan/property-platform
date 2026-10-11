@@ -1,3 +1,16 @@
+# AI_HANDOFF.md — 2026-10-11 YARDI CROSS-RUN ACTIVE PROPERTY REVIEW COLLISION VERIFIED
+
+**Current verified checkpoint; supersedes older NEXT entries.** Repository `yasirskhan/property-platform`, ONLY branch `chatgpt/checkpoint-005-safety`.
+
+- Latest verified product SHA: `f05a48b451012227af86bf9d423505793578e675`.
+- Exact GitHub Actions CI run **38163607222 attempt 2 SUCCESS**, all six required jobs passed. Original attempt failed a pre-existing Senior Housing browser-login timeout (1 E2E failed / 20 passed); rerun of failed E2E succeeded with identical source SHA; remaining jobs passed on attempt 1.
+- Yardi Property MATCH_EXISTING review now rejects a Property target already actively MATCH_EXISTING-reviewed by another Yardi run in the same organization, returning 409 without mutating the Property. Cross-run durable target collision guard and earlier review/preview/replay work verified. **COMPLETE | VERIFIED** bounded Phase 4.15 batch.
+- Phase 4.15 overall **IN PROGRESS**. Controlled customer commit and unverified financial migration remain blocked.
+
+**NEXT independently actionable batch:** prevent concurrent Yardi Property target review races by acquiring a PostgreSQL row lock on the chosen target before checking same-run and cross-run durable/review claims. Preserve idempotent review and provider/org isolation. Add focused regression, commit, exact-SHA CI, fix reds, verify, update handoff, continue. Never touch main/new branches; general UX inactive.
+
+---
+
 # AI_HANDOFF.md — 2026-10-11 YARDI CROSS-RUN DURABLE PROPERTY TARGET COLLISION VERIFIED
 
 **Current checkpoint; supersedes historical NEXT entries.** Repository `yasirskhan/property-platform`; ONLY branch `chatgpt/checkpoint-005-safety`.
