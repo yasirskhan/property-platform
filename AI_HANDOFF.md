@@ -1,3 +1,14 @@
+# AI_HANDOFF.md — 2026-10-11 YARDI REVIEWED PROPERTY BINDINGS VERIFIED
+
+**LATEST VERIFIED PRODUCT:** `da0bcd887cd70fcac48a6ffee775630726d3e502`, exact GitHub Actions **38171221970 SUCCESS**, all six required jobs green. This supersedes the older next-task entry below. Phase 4.15 remains **IN PROGRESS**.
+
+- Explicitly reviewed Yardi Property MATCH_EXISTING rows can create replay-safe **migration metadata source-to-existing-Property bindings only** after a current exact fingerprint review dry run; no customer Property creation or overwrite.
+- Prior Yardi run, source staging, review, dry-run, concurrency locking, collision checks, accounting gates and staging preview are verified. Do not repeat.
+- NEXT bounded batch: add stale review-fingerprint and nonmutation regressions for the metadata-only Property binding; then evaluate provider/org collision invariants and review-to-binding completeness. No automatic customer mutation, GL or financial migration.
+- Only branch `chatgpt/checkpoint-005-safety`; never main/new branch. Continue implement → test → commit → exact-SHA CI → repair failures → verify → update handoff → next Phase 4.15 item. General UX remains inactive.
+
+---
+
 # AI_HANDOFF.md — 2026-10-11 YARDI PROPERTY REVIEW TARGET ROW LOCK VERIFIED
 
 **Latest verified product SHA:** `ffe8790b2720c4cfd519ca156ba2433ed23d6fa7`. Exact GitHub Actions **38170037582 SUCCESS**, all six jobs passed. Property MATCH_EXISTING review now locks the target Property row during conflict checks to serialize competing review decisions under PostgreSQL; focused lock query test added. **COMPLETE | VERIFIED** bounded Phase 4.15 batch. Earlier cross-run collision product SHA `f05a48b451012227af86bf9d423505793578e675` CI 38163607222 attempt 2 SUCCESS. No customer Property mutation.
