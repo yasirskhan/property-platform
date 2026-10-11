@@ -1,3 +1,13 @@
+# AI_HANDOFF.md — 2026-10-11 YARDI PROPERTY REVIEW TARGET ROW LOCK VERIFIED
+
+**Latest verified product SHA:** `ffe8790b2720c4cfd519ca156ba2433ed23d6fa7`. Exact GitHub Actions **38170037582 SUCCESS**, all six jobs passed. Property MATCH_EXISTING review now locks the target Property row during conflict checks to serialize competing review decisions under PostgreSQL; focused lock query test added. **COMPLETE | VERIFIED** bounded Phase 4.15 batch. Earlier cross-run collision product SHA `f05a48b451012227af86bf9d423505793578e675` CI 38163607222 attempt 2 SUCCESS. No customer Property mutation.
+
+Phase 4.15 **IN PROGRESS**; customer Property creation/overwrite and unverified financial sources remain blocked.
+
+**NEXT:** Bounded metadata-only binding of explicitly reviewed Yardi Property source IDs to existing target Properties. Must require current exact reviewed dry-run fingerprint, reject unresolved/invalid or conflicting mappings, use target row locks, be replay-safe, and never create/modify a customer Property. Prepared blobs: router `693cff231de2609d3802345b3af028dc392d817e`, test `09e9e8c1dafa79f8797fb73f3f5a5ee3de7b997e` for `backend/tests/test_yardi_reviewed_property_binding.py`. Review against live source, commit, exact-SHA CI, fix reds, update handoff, continue. ONLY branch `chatgpt/checkpoint-005-safety`, no main/new branches; UX inactive.
+
+---
+
 # AI_HANDOFF.md — 2026-10-11 YARDI CROSS-RUN ACTIVE PROPERTY REVIEW COLLISION VERIFIED
 
 **Current verified checkpoint; supersedes older NEXT entries.** Repository `yasirskhan/property-platform`, ONLY branch `chatgpt/checkpoint-005-safety`.
