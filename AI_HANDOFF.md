@@ -1,3 +1,17 @@
+# AI_HANDOFF.md — 2026-10-11 YARDI CROSS-RUN DURABLE PROPERTY TARGET COLLISION VERIFIED
+
+**Current checkpoint; supersedes historical NEXT entries.** Repository `yasirskhan/property-platform`; ONLY branch `chatgpt/checkpoint-005-safety`.
+
+- Exact verified product SHA: `aef064592cafef88fe26971e6e7289ec01b1fe7f`.
+- GitHub Actions **38162663997 SUCCESS**, all six required jobs PASS.
+- A second Yardi migration run in the same organization cannot explicitly match an existing Property target already durably mapped by another Yardi run. Regression confirms 409, no staged decision and no customer Property mutation. **COMPLETE | VERIFIED** bounded Phase 4.15 batch.
+- Earlier same-run durable collision, reviewed collision, review/dry-run, identity staging and accounting source gates are verified. Do not repeat.
+- Phase 4.15 **IN PROGRESS**; controlled customer commit and unsupported accounting still blocked.
+
+**NEXT prepared independent batch:** Prevent a second run from making a MATCH_EXISTING Property review decision for a target already actively reviewed in another Yardi run. Proposed Git blobs: router `32e660b116a5e58f29273711b5f9af9c9911c3c6`, focused test `a641ae3c18dc343ba8404d999af52d3bcb2c2288`, intended test `backend/tests/test_yardi_property_cross_run_review_collision.py`. Review against live HEAD, commit, run exact-SHA hosted CI, fix reds, verify, update handoff and continue. Never touch main/create branch. General UX remains inactive.
+
+---
+
 # AI_HANDOFF.md — 2026-10-11 YARDI DURABLE PROPERTY TARGET COLLISION VERIFIED
 
 **CURRENT CHECKPOINT (supersedes older NEXT labels).** Repository `yasirskhan/property-platform`, ONLY branch `chatgpt/checkpoint-005-safety`. Phase 4.15 **IN PROGRESS**.
