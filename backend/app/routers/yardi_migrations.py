@@ -582,6 +582,14 @@ class YardiPropertyMatchIn(BaseModel):
     target_property_id: int
 
 
+def _locked_yardi_review_target(db: Session, *, organization_id: int, property_id: int):
+    """Serialize competing Yardi review claims on one Property in PostgreSQL."""
+    return db.query(Property.id).filter(
+        Property.id == property_id,
+        Property.organization_id == organization_id,
+    ).with_for_update().first()
+
+
 @router.post("/runs/{run_id}/staged-rows/{row_id}/match-property")
 def match_yardi_staged_property(
     run_id: int,
@@ -616,10 +624,10 @@ def match_yardi_staged_property(
         PlatformMigrationItem.source_id == row.source_id,
     ).first():
         raise HTTPException(status_code=409, detail="Source is already durably mapped.")
-    target = db.query(Property.id).filter(
-        Property.id == payload.target_property_id,
-        Property.organization_id == run.organization_id,
-    ).first()
+    target = _locked_yardi_review_target(
+        db, organization_id=run.organization_id,
+        property_id=payload.target_property_id,
+    )
     if target is None:
         raise HTTPException(status_code=404, detail="Target property not found.")
     mapped_target_collision = db.query(PlatformMigrationItem.id).filter(
