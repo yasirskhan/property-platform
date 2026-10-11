@@ -1,4 +1,6 @@
 """Yardi reviewed Property bindings create durable source maps, never Properties."""
+import pytest
+from fastapi import HTTPException
 from app.models.platform_migration import PlatformMigrationRun, PlatformMigrationItem, PlatformMigrationStagedRow
 from app.models.platform_user import PlatformUserRole
 from app.models.property import Property
@@ -49,6 +51,19 @@ def test_reviewed_property_match_binding_is_exact_and_replay_safe():
         request = YardiReviewedPropertyBindingIn(
             review_fingerprint=summary["review_fingerprint"],
         )
+        with pytest.raises(HTTPException) as stale:
+            bind_yardi_reviewed_property_matches(
+                run.id,
+                YardiReviewedPropertyBindingIn(review_fingerprint="0" * 64),
+                db, actor,
+            )
+        assert stale.value.status_code == 409
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.provider == "YARDI",
+        ).count() == 0
+        db.refresh(target)
+        assert target.name == "Original Property"
         first = bind_yardi_reviewed_property_matches(run.id, request, db, actor)
         assert first["bound"] == 1 and first["replayed"] is False
         mapped = db.query(PlatformMigrationItem).filter(
