@@ -1,3 +1,15 @@
+# AI_HANDOFF.md — 2026-10-12 YARDI UNIT REVIEW BATCH PENDING TEST CI
+
+**LATEST VERIFIED PRODUCT SHA:** `581c83d4c4c2d42b11b8d67d6e1300a5e4ae7fa9`; exact GitHub Actions **38246789311 SUCCESS**, all six required jobs PASS (backend, frontend, security, platform-admin, authenticated E2E, staging-config). This product SHA adds explicitly reviewed existing-Unit target matching, requiring same-run durable parent Property binding, organization/property-scoped target lock, same/cross-run claim checks, replay-safe review, redacted audit, and no customer Unit mutation.
+
+**NEW PROVISIONAL REGRESSION SHA:** `0ed62dfd573454b674c5dffd28a2f765805d9c74` adds a focused Unit missing-parent, review replay and nonmutation regression. **DO NOT MARK VERIFIED** until its own exact-SHA hosted CI completes with all six jobs passing. Latest CI list checked immediately after commit had not yet surfaced this run.
+
+**RESOURCE MATRIX:** `docs/YARDI_MIGRATION_PLAN.md` now records the actual Properties, Units, Owners, Vendors, Tenants, Leases, financial source-contract and API adapter readiness matrix; matrix commit `51fbb009c77b050ff7c91ee0cdc45f26ce411a32` exact CI **38205264416 SUCCESS**. Phase 4.15 **IN PROGRESS**.
+
+**NEXT:** Verify exact-SHA CI for provisional Unit test commit; fix any reds. Reconcile Unit MATCH_EXISTING coverage and review fingerprint (current reconciliation assumes Property target for every MATCH_EXISTING row), then implement reviewed Unit metadata binding with exact current dry-run fingerprint, all-target revalidation, source/target collision protection and no customer record mutation. Do not repeat verified Property micro-regressions. ONLY branch `chatgpt/checkpoint-005-safety`; never main/new branch, Phase 4.16 or general UX.
+
+---
+
 # AI_HANDOFF.md — 2026-10-12 YARDI SAME-RUN AND CROSS-RUN REPLAY COLLISION VERIFIED
 
 **LATEST VERIFIED PRODUCT SHA:** `fce01e99402722bb7af358ee1cda22bcafc88078`; exact GitHub Actions **38200199974 SUCCESS**, all six jobs PASS (backend, frontend, security, platform-admin, authenticated E2E, staging-config). Existing-target replay rejects conflicting Property mappings from either the same Yardi run (different source) or another Yardi run (including identical source ID). This bounded Phase 4.15 batch is **COMPLETE | VERIFIED**. Earlier verified product SHA `d793c4615a9aed0e278abbd21b75ebc09a5a114e` CI 38191236916 SUCCESS. Phase 4.15 remains **IN PROGRESS**.
