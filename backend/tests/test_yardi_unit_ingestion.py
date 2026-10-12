@@ -112,11 +112,21 @@ def test_yardi_unit_match_requires_mapped_parent_and_preserves_customer_unit():
         assert match_yardi_staged_unit(
             run.id, row.id, YardiUnitMatchIn(target_unit_id=target.id), db, actor,
         )["replayed"] is True
+        from app.routers.yardi_migrations import (
+            dry_run_yardi_review, bind_yardi_reviewed_unit_matches,
+            YardiReviewedPropertyBindingIn,
+        )
+        snapshot = dry_run_yardi_review(run.id, db, actor)
+        request = YardiReviewedPropertyBindingIn(
+            review_fingerprint=snapshot["review_fingerprint"],
+        )
+        assert bind_yardi_reviewed_unit_matches(run.id, request, db, actor)["bound"] == 1
+        assert bind_yardi_reviewed_unit_matches(run.id, request, db, actor)["replayed"] is True
         db.refresh(target)
         assert target.unit_number == "101"
         assert db.query(PlatformMigrationItem).filter(
             PlatformMigrationItem.resource == "UNITS",
-        ).count() == 0
+        ).count() == 1
     finally:
         db.close()
         engine.dispose()
