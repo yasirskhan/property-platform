@@ -1,3 +1,11 @@
+# AI_HANDOFF.md — 2026-10-11 YARDI PROPERTY BINDING ATOMICITY VERIFIED
+
+**LATEST VERIFIED PRODUCT SHA:** `d37bb9f69969f3dfaa50612a6cd615102107d857`; exact GitHub Actions **38186748943 SUCCESS**, six required jobs PASS (backend, frontend, security, platform-admin, authenticated E2E, staging-config). The bounded all-target validation before durable Property mapping inserts, disappeared-target regression, stable lock ordering and prior cross-run protections are **COMPLETE | VERIFIED**. Phase 4.15 remains **IN PROGRESS**.
+
+**NEXT:** Inspect Yardi Property binding replay and concurrent review/target drift safeguards from current source; select next separately verifiable batch. Preserve no business-record mutation, strict provider/org isolation, source identity, exact fingerprints and row locking. No Phase 4.16, no main/new branches or general UX.
+
+---
+
 # AI_HANDOFF.md — 2026-10-11 YARDI LOCK ORDER VERIFIED; ATOMICITY BATCH PENDING
 
 **LATEST VERIFIED PRODUCT SHA:** `a20f8613d4af8ac4ccfba0ee95a2d4a70d544ddf`; exact GitHub Actions **38179124204 SUCCESS (attempt 2)**, all six required jobs PASS. Deterministic multi-Property target row lock order and regression are COMPLETE | VERIFIED. Earlier cross-run target protection `554cd5f8cc0bb920cd6500ae3f8289c22b0b780a` CI 38176474978 also verified. Phase 4.15 **IN PROGRESS**.
