@@ -1,3 +1,11 @@
+# AI_HANDOFF.md — 2026-10-11 YARDI PROPERTY CROSS-RUN REPLAY COLLISION VERIFIED
+
+**LATEST VERIFIED PRODUCT SHA:** `d793c4615a9aed0e278abbd21b75ebc09a5a114e`; exact GitHub Actions **38191236916 SUCCESS** with backend, frontend, platform-admin, security, authenticated E2E and staging-config all PASS. A replay of existing Yardi Property bindings now rejects a competing durable target mapping from another Yardi run, preserving customer Property records; corrected CSV test fixture included. Phase 4.15 remains **IN PROGRESS**.
+
+**NEXT:** Continue bounded Yardi reviewed Property mapping recovery and replay-safety work from live source; reuse existing platform migration architecture. No main/new branches, no Phase 4.16, no general UX.
+
+---
+
 # AI_HANDOFF.md — 2026-10-11 YARDI PROPERTY REPLAY TARGET EXISTENCE VERIFIED
 
 **LATEST VERIFIED PRODUCT SHA:** `c8a2ab29b83cbb9be490388a3899d3085334d4dc`; exact GitHub Actions **38189153951 SUCCESS**, all six jobs PASS (backend, frontend, security, platform-admin, authenticated E2E, staging-config). The previously mapped Yardi Property target existence replay regression is COMPLETE | VERIFIED. Cross-run protection SHA `554cd5f8cc0bb920cd6500ae3f8289c22b0b780a` CI `38176474978` SUCCESS; lock ordering `a20f8613d4af8ac4ccfba0ee95a2d4a70d544ddf` CI `38179124204` SUCCESS; atomicity `d37bb9f69969f3dfaa50612a6cd615102107d857` CI `38186748943` SUCCESS. Phase 4.15 remains IN PROGRESS.
