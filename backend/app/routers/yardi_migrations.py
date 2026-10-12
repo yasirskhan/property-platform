@@ -814,6 +814,120 @@ class YardiReviewedPropertyBindingIn(BaseModel):
 
 
 @router.post("/runs/{run_id}/properties/bind-reviewed-matches")
+@router.post("/runs/{run_id}/bind-reviewed-units")
+def bind_yardi_reviewed_unit_matches(
+    run_id: int,
+    payload: YardiReviewedPropertyBindingIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Persist reviewed Unit identity mappings only; never write customer Units."""
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    rows = db.query(PlatformMigrationStagedRow).filter(
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "UNITS",
+    ).order_by(PlatformMigrationStagedRow.id.asc()).all()
+    if not rows:
+        raise HTTPException(status_code=422, detail="No Yardi Units are staged.")
+    matches, sources, targets = [], set(), set()
+    for row in rows:
+        if row.errors or row.disposition == "INVALID":
+            raise HTTPException(status_code=409, detail="Invalid Unit staging blocks binding.")
+        if row.resolution_action == "SKIP":
+            continue
+        if row.resolution_action != "MATCH_EXISTING" or not row.source_id or row.resolution_target_unit_id is None:
+            raise HTTPException(status_code=409, detail="Every non-skipped Unit requires explicit review.")
+        if row.source_id in sources or row.resolution_target_unit_id in targets:
+            raise HTTPException(status_code=409, detail="Duplicate Unit source or target.")
+        sources.add(row.source_id)
+        targets.add(row.resolution_target_unit_id)
+        matches.append(row)
+    if not matches:
+        raise HTTPException(status_code=422, detail="No reviewed Units to bind.")
+    already = 0
+    for row in matches:
+        mapped = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "YARDI",
+            PlatformMigrationItem.resource == "UNITS",
+            PlatformMigrationItem.source_id == row.source_id,
+        ).first()
+        if mapped:
+            if (mapped.target_entity != "UNIT" or mapped.target_id != row.resolution_target_unit_id
+                    or mapped.source_fingerprint != row.row_fingerprint):
+                raise HTTPException(status_code=409, detail="Conflicting durable Unit source mapping.")
+            already += 1
+    if already and already != len(matches):
+        raise HTTPException(status_code=409, detail="Partial Unit bindings require reconciliation.")
+    if not already:
+        current = get_yardi_reconciliation(run_id, Response(), db, current_user)["review_fingerprint"]
+        if (not run.last_dry_run_fingerprint or payload.review_fingerprint != current
+                or run.last_dry_run_fingerprint != current):
+            raise HTTPException(status_code=409, detail="Current exact-fingerprint Unit dry run required.")
+    ordered = sorted(matches, key=lambda row: row.resolution_target_unit_id)
+    for row in ordered:
+        parent_source = str((row.normalized_data or {}).get("source_property_id") or "").strip()
+        parent = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "YARDI",
+            PlatformMigrationItem.resource == "PROPERTIES",
+            PlatformMigrationItem.source_id == parent_source,
+            PlatformMigrationItem.target_entity == "PROPERTY",
+        ).first()
+        if parent is None:
+            raise HTTPException(status_code=409, detail="Durable same-run parent Property mapping missing.")
+        target = db.query(Unit.id).join(Property, Unit.property_id == Property.id).filter(
+            Unit.id == row.resolution_target_unit_id,
+            Unit.property_id == parent.target_id,
+            Property.organization_id == run.organization_id,
+        ).with_for_update(of=Unit).first()
+        if target is None:
+            raise HTTPException(status_code=409, detail="Reviewed Unit target or parent changed.")
+        collision = db.query(PlatformMigrationItem.id).filter(
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "YARDI",
+            PlatformMigrationItem.resource == "UNITS",
+            PlatformMigrationItem.target_entity == "UNIT",
+            PlatformMigrationItem.target_id == row.resolution_target_unit_id,
+            or_(PlatformMigrationItem.run_id != run.id,
+                PlatformMigrationItem.source_id != row.source_id),
+        ).first()
+        if collision:
+            raise HTTPException(status_code=409, detail="Unit target already bound to another source.")
+    if already:
+        return {"run_id": run.id, "provider": "YARDI", "bound": 0,
+                "replayed": True, "customer_business_mutation": False}
+    for row in ordered:
+        db.add(PlatformMigrationItem(
+            run_id=run.id, organization_id=run.organization_id,
+            provider="YARDI", resource="UNITS",
+            source_id=row.source_id, target_entity="UNIT",
+            target_id=row.resolution_target_unit_id,
+            source_fingerprint=row.row_fingerprint,
+            created_by_platform_user_id=current_user.id,
+        ))
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    append_audit_log(
+        db, platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_run", entity_id=run.id,
+        action="yardi_unit_existing_bindings_committed",
+        new_value={"matched_existing": len(matches), "customer_business_mutation": False},
+    )
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Durable Unit mapping conflicted.") from exc
+    return {"run_id": run.id, "provider": "YARDI", "bound": len(matches),
+            "replayed": False, "customer_business_mutation": False}
+
+
 def bind_yardi_reviewed_property_matches(
     run_id: int,
     payload: YardiReviewedPropertyBindingIn,
