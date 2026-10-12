@@ -28,7 +28,7 @@ from app.core.database import get_db
 from app.models.platform_migration import PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.user import Organization
-from app.models.property import Property
+from app.models.property import Property, Unit
 from app.routers.platform_auth import get_current_platform_user
 from app.schemas.yardi_migration import YardiMigrationRunCreateIn, YardiMigrationRunOut
 from app.services.audit import append_audit_log
@@ -700,6 +700,92 @@ def match_yardi_staged_property(
         action="yardi_property_match_reviewed",
         new_value={"run_id": run.id, "target_property_id": payload.target_property_id,
                    "customer_business_mutation": False},
+    )
+    db.commit()
+    return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": False}
+
+
+class YardiUnitMatchIn(BaseModel):
+    target_unit_id: int
+
+
+@router.post("/runs/{run_id}/staged-rows/{row_id}/match-unit")
+def match_yardi_staged_unit(
+    run_id: int,
+    row_id: int,
+    payload: YardiUnitMatchIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Review an existing Unit identity; never mutate customer Unit records."""
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    row = db.query(PlatformMigrationStagedRow).filter(
+        PlatformMigrationStagedRow.id == row_id,
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "UNITS",
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Yardi Unit row not found.")
+    if row.errors or row.disposition == "INVALID" or not row.source_id:
+        raise HTTPException(status_code=422, detail="Invalid Unit source row cannot be matched.")
+    if row.resolution_action is not None:
+        if row.resolution_action == "MATCH_EXISTING" and row.resolution_target_unit_id == payload.target_unit_id:
+            return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": True}
+        raise HTTPException(status_code=409, detail="Conflicting Unit review decision.")
+    source_property_id = str((row.normalized_data or {}).get("source_property_id") or "").strip()
+    parent = db.query(PlatformMigrationItem).filter(
+        PlatformMigrationItem.run_id == run.id,
+        PlatformMigrationItem.organization_id == run.organization_id,
+        PlatformMigrationItem.provider == "YARDI",
+        PlatformMigrationItem.resource == "PROPERTIES",
+        PlatformMigrationItem.source_id == source_property_id,
+        PlatformMigrationItem.target_entity == "PROPERTY",
+    ).first()
+    if parent is None:
+        raise HTTPException(status_code=409, detail="Verified same-run parent Property binding required.")
+    target = db.query(Unit).join(Property, Unit.property_id == Property.id).filter(
+        Unit.id == payload.target_unit_id,
+        Unit.property_id == parent.target_id,
+        Property.organization_id == run.organization_id,
+    ).with_for_update(of=Unit).first()
+    if target is None:
+        raise HTTPException(status_code=404, detail="Unit target is not in the mapped parent Property.")
+    conflict = db.query(PlatformMigrationItem.id).filter(
+        PlatformMigrationItem.organization_id == run.organization_id,
+        PlatformMigrationItem.provider == "YARDI",
+        PlatformMigrationItem.resource == "UNITS",
+        or_(
+            (PlatformMigrationItem.run_id == run.id) & (PlatformMigrationItem.source_id == row.source_id),
+            (PlatformMigrationItem.target_entity == "UNIT") & (PlatformMigrationItem.target_id == target.id),
+        ),
+    ).first()
+    if conflict is not None:
+        raise HTTPException(status_code=409, detail="Conflicting durable Unit source or target mapping.")
+    claim = db.query(PlatformMigrationStagedRow.id).filter(
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "UNITS",
+        PlatformMigrationStagedRow.id != row.id,
+        PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+        PlatformMigrationStagedRow.resolution_target_unit_id == target.id,
+    ).first()
+    if claim is not None:
+        raise HTTPException(status_code=409, detail="Existing Yardi Unit review already claims target.")
+    row.resolution_action = "MATCH_EXISTING"
+    row.resolution_target_unit_id = target.id
+    row.resolved_by_platform_user_id = current_user.id
+    row.resolved_at = datetime.utcnow()
+    row.correction_evidence = list(row.correction_evidence or []) + [{"action": "MATCH_EXISTING", "target_unit_id": target.id}]
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    append_audit_log(
+        db, platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_staged_row", entity_id=row.id,
+        action="yardi_unit_match_reviewed",
+        new_value={"run_id": run.id, "target_unit_id": target.id, "customer_business_mutation": False},
     )
     db.commit()
     return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": False}
