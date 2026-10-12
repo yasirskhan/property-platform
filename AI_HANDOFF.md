@@ -1,3 +1,13 @@
+# AI_HANDOFF.md — 2026-10-12 YARDI UNIT METADATA BINDINGS VERIFIED; NEXT RESOURCE REVIEW
+
+**LATEST VERIFIED PRODUCT SHA:** `69e658762f44dfe156700cbc32b47fe9ae6363cc`, exact GitHub Actions run **38267008115 SUCCESS**. Yardi Unit explicit MATCH_EXISTING review, same-run durable parent Property dependency, provider/org/target isolation, exact-fingerprint review, metadata-only durable Unit binding and idempotent replay are now implemented and verified. No customer Unit create/update/delete or accounting posting. Earlier Unit review and reconciliation SHA `552ba9f41d528e5fc7e0d5b923e12014f541e04b`, CI **38255012361 SUCCESS**.
+
+**PROVISIONAL NEW BATCH:** `37f742b27d67ee0fc19a9773d9f06e0af3726c48` adds Unit stale-review and cross-run target-collision regressions; resource matrix update `1dcd51937ce0212e6382022434441f5f86487aef`. Verify newest exact-SHA CI before marking these verified. If red, inspect backend job logs and fix. Phase 4.15 **IN PROGRESS**.
+
+**NEXT:** Once green, inspect Yardi Owners/Vendors/Tenants/Lease staging and live source contract; select independently supportable explicit review/reconciliation work. Keep source identity only when authoritative relationship fields are absent. Financial imports and official API remain blocked on verified source contract. Continue one bounded batch at a time on ONLY `chatgpt/checkpoint-005-safety`; never main/new branch or Phase 4.16.
+
+---
+
 # AI_HANDOFF.md — 2026-10-12 YARDI UNIT REVIEW BATCH PENDING TEST CI
 
 **LATEST VERIFIED PRODUCT SHA:** `581c83d4c4c2d42b11b8d67d6e1300a5e4ae7fa9`; exact GitHub Actions **38246789311 SUCCESS**, all six required jobs PASS (backend, frontend, security, platform-admin, authenticated E2E, staging-config). This product SHA adds explicitly reviewed existing-Unit target matching, requiring same-run durable parent Property binding, organization/property-scoped target lock, same/cross-run claim checks, replay-safe review, redacted audit, and no customer Unit mutation.
