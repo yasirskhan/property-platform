@@ -275,7 +275,7 @@ def test_reviewed_property_replay_rejects_later_cross_run_mapping():
         db.commit()
         upload = stage_yardi_file(
             db, run=run, filename="properties.csv",
-            content=b"ID,Name,Street,City,State,Zip\\nY-01,Imported,2 Main,Cleveland,OH,44113\\n",
+            content=b"ID,Name,Street,City,State,Zip\nY-01,Imported,2 Main,Cleveland,OH,44113\n",
             resource_override="PROPERTIES", sheet_name=None,
             explicit_mapping={
                 "source_id": "ID", "name": "Name", "address_line1": "Street",
