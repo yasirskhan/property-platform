@@ -215,7 +215,7 @@ Reconciled against the YARDI router, Yardi file staging service and the latest e
 | Resource | Current status | Verified scope and remaining gap |
 | --- | --- | --- |
 | Properties | PARTIAL | CSV/XLSX explicit column mapping, staging, review/dry-run and metadata-only MATCH_EXISTING durable bindings verified. No customer Property creation/overwrite or controlled commit. |
-| Units | PARTIAL | Explicit mapped staging, required source Property ID and parent-mapping warning. No reviewed target Unit binding or customer Unit creation. Next independently actionable batch: read-only Unit target review and relationship validation without mutation. |
+| Units | PARTIAL | Explicit mapped staging, required source Property ID and parent-mapping warning. Reviewed target Unit match, parent relationship validation, exact-fingerprint dry run and metadata-only durable binding verified at 69e65876 (CI 38267008115). No customer Unit creation/overwrite; cross-run collision and stale review regressions added provisionally at 37f742b2. |
 | Owners / ownership | PARTIAL | Owner identity staging only; no ownership relationship or login creation. Source ownership relationship contract not verified. |
 | Vendors | PARTIAL | Vendor identity staging only; no customer vendor or payment/GL account creation. |
 | Residents / tenants | PARTIAL | Resident identity staging only; no login, lease, or occupancy creation. |
@@ -229,6 +229,6 @@ Reconciled against the YARDI router, Yardi file staging service and the latest e
 | Trial balance / historical GL | BLOCKED BY SOURCE CONTRACT | Debit/credit direction, opening balances and period semantics absent. |
 | Official Yardi API adapter | BLOCKED BY SOURCE CONTRACT | No verified customer/partner interface, credentials or endpoint schema. Export/ETL remains the supported transport. |
 
-**Next product batch:** Unit source-to-existing-target review/reconciliation, using the same provider-labelled metadata and explicit-review controls. First inspect actual Unit model ownership and existing AppFolio/Buildium patterns; do not create Unit records, auto-link occupancy, or enable controlled customer mutation. Property replay micro-regressions are not the default next workstream.
+**Next product batch:** Verify new Unit cross-run collision and stale-fingerprint regressions, then proceed to owner/vendor/tenant/lease relationship review using only source-supported identities. Do not create customer records, auto-link occupancy, or enable controlled customer mutation.
 
 **Completion interpretation:** Staging-only support is not equivalent to a completed resource import. Phase 4.15 remains IN PROGRESS until independently supportable resources are reconciled and verified, with source-contract blockers recorded explicitly.
