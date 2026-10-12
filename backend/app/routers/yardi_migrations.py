@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from pathlib import Path
 
 from fastapi import File, Form, UploadFile
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from app.models.platform_migration import PlatformMigrationUpload, PlatformMigrationStagedRow, PlatformMigrationItem
 from app.schemas.platform_migration import AppFolioMigrationUploadOut, AppFolioMigrationStagedRowOut
@@ -775,7 +775,10 @@ def bind_yardi_reviewed_property_matches(
                 PlatformMigrationItem.resource == "PROPERTIES",
                 PlatformMigrationItem.target_entity == "PROPERTY",
                 PlatformMigrationItem.target_id == row.resolution_target_id,
-                PlatformMigrationItem.source_id != row.source_id,
+                or_(
+                    PlatformMigrationItem.run_id != run.id,
+                    PlatformMigrationItem.source_id != row.source_id,
+                ),
             ).first()
             if competing is not None:
                 raise HTTPException(status_code=409, detail="Replayed Property target has a conflicting source binding.")
