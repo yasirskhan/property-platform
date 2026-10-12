@@ -762,6 +762,13 @@ def bind_yardi_reviewed_property_matches(
                 raise HTTPException(status_code=409, detail="Conflicting durable Property source mapping.")
             already += 1
     if already == len(matches):
+        # Even an idempotent replay must not report a valid binding to a deleted target.
+        for row in sorted(matches, key=lambda item: item.resolution_target_id):
+            if _locked_yardi_review_target(
+                db, organization_id=run.organization_id,
+                property_id=row.resolution_target_id,
+            ) is None:
+                raise HTTPException(status_code=409, detail="Previously mapped Property target no longer exists.")
         return {"run_id": run.id, "provider": "YARDI", "bound": 0,
                 "matched_existing": len(matches), "replayed": True,
                 "customer_business_mutation": False}

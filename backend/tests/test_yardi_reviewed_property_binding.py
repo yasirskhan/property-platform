@@ -204,3 +204,51 @@ def test_reviewed_property_binding_missing_later_target_is_atomic():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_reviewed_property_binding_replay_rejects_deleted_target():
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-replay-deleted-target")
+        target = Property(
+            organization_id=org.id, name="Original Property",
+            address_line1="1 Main", city="Cleveland", state="OH", zip_code="44113",
+        )
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="deleted-replay-source", status="DRAFT",
+        )
+        db.add_all([target, run])
+        db.commit()
+        upload = stage_yardi_file(
+            db, run=run, filename="properties.csv",
+            content=b"ID,Name,Street,City,State,Zip\nY-01,Imported,2 Main,Cleveland,OH,44113\n",
+            resource_override="PROPERTIES", sheet_name=None,
+            explicit_mapping={
+                "source_id": "ID", "name": "Name", "address_line1": "Street",
+                "city": "City", "state": "State", "zip_code": "Zip",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id
+        ).one()
+        match_yardi_staged_property(
+            run.id, row.id, YardiPropertyMatchIn(target_property_id=target.id), db, actor,
+        )
+        preview = dry_run_yardi_review(run.id, db, actor)
+        payload = YardiReviewedPropertyBindingIn(review_fingerprint=preview["review_fingerprint"])
+        assert bind_yardi_reviewed_property_matches(run.id, payload, db, actor)["bound"] == 1
+        db.delete(target)
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            bind_yardi_reviewed_property_matches(run.id, payload, db, actor)
+        assert exc.value.status_code == 409
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "PROPERTIES",
+        ).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
