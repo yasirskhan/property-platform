@@ -81,7 +81,7 @@ def test_yardi_unit_match_requires_mapped_parent_and_preserves_customer_unit():
         db.commit()
         upload = stage_yardi_file(
             db, run=run, filename="units.csv",
-            content=b"ID,Parent,Label\\nU-1,P-1,101\\n",
+            content=b"ID,Parent,Label\nU-1,P-1,101\n",
             resource_override="UNITS", sheet_name=None,
             explicit_mapping={
                 "source_id": "ID", "source_property_id": "Parent",
