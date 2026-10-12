@@ -145,3 +145,62 @@ def test_reviewed_property_binding_locks_targets_in_stable_order(monkeypatch):
     finally:
         db.close()
         engine.dispose()
+
+
+def test_reviewed_property_binding_missing_later_target_is_atomic():
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-missing-later-target")
+        targets = [Property(
+            organization_id=org.id, name=f"Untouched {n}",
+            address_line1=f"{n} Main", city="Cleveland", state="OH", zip_code="44113",
+        ) for n in (1, 2)]
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="missing-later-source", status="DRAFT",
+        )
+        db.add_all([*targets, run])
+        db.commit()
+        upload = stage_yardi_file(
+            db, run=run, filename="properties.csv",
+            content=(b"ID,Name,Street,City,State,Zip\n"
+                     b"Y-01,Other One,10 Main,Cleveland,OH,44113\n"
+                     b"Y-02,Other Two,20 Main,Cleveland,OH,44113\n"),
+            resource_override="PROPERTIES", sheet_name=None,
+            explicit_mapping={
+                "source_id": "ID", "name": "Name", "address_line1": "Street",
+                "city": "City", "state": "State", "zip_code": "Zip",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id
+        ).order_by(PlatformMigrationStagedRow.id.asc()).all()
+        for row, target in zip(rows, targets):
+            match_yardi_staged_property(
+                run.id, row.id, YardiPropertyMatchIn(target_property_id=target.id),
+                db, actor,
+            )
+        review = dry_run_yardi_review(run.id, db, actor)
+        # Target disappeared after the review snapshot, before binding.
+        db.delete(targets[1])
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            bind_yardi_reviewed_property_matches(
+                run.id, YardiReviewedPropertyBindingIn(
+                    review_fingerprint=review["review_fingerprint"]
+                ), db, actor,
+            )
+        assert exc.value.status_code == 409
+        assert not any(isinstance(obj, PlatformMigrationItem) for obj in db.new)
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.provider == "YARDI",
+            PlatformMigrationItem.resource == "PROPERTIES",
+        ).count() == 0
+        db.refresh(targets[0])
+        assert targets[0].name == "Untouched 1"
+    finally:
+        db.close()
+        engine.dispose()

@@ -771,7 +771,8 @@ def bind_yardi_reviewed_property_matches(
     if not run.last_dry_run_fingerprint or payload.review_fingerprint != current or run.last_dry_run_fingerprint != current:
         raise HTTPException(status_code=409, detail="A current exact-fingerprint review dry run is required.")
     # Acquire target row locks in a stable order to avoid cross-run lock inversion.
-    for row in sorted(matches, key=lambda candidate: candidate.resolution_target_id):
+    ordered_matches = sorted(matches, key=lambda candidate: candidate.resolution_target_id)
+    for row in ordered_matches:
         target = _locked_yardi_review_target(
             db, organization_id=run.organization_id,
             property_id=row.resolution_target_id,
@@ -787,6 +788,8 @@ def bind_yardi_reviewed_property_matches(
         ).first()
         if conflicting is not None:
             raise HTTPException(status_code=409, detail="Property target has a conflicting durable source mapping.")
+    # Validate every locked target before staging any durable mapping.
+    for row in ordered_matches:
         db.add(PlatformMigrationItem(
             run_id=run.id, organization_id=run.organization_id,
             provider="YARDI", resource="PROPERTIES",

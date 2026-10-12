@@ -1,3 +1,11 @@
+# AI_HANDOFF.md — 2026-10-11 YARDI LOCK ORDER VERIFIED; ATOMICITY BATCH PENDING
+
+**LATEST VERIFIED PRODUCT SHA:** `a20f8613d4af8ac4ccfba0ee95a2d4a70d544ddf`; exact GitHub Actions **38179124204 SUCCESS (attempt 2)**, all six required jobs PASS. Deterministic multi-Property target row lock order and regression are COMPLETE | VERIFIED. Earlier cross-run target protection `554cd5f8cc0bb920cd6500ae3f8289c22b0b780a` CI 38176474978 also verified. Phase 4.15 **IN PROGRESS**.
+
+**CURRENT PRODUCT BATCH (PROVISIONAL UNTIL EXACT-SHA CI):** Before adding any `PlatformMigrationItem`, lock and validate *all* reviewed Property targets and collision claims in stable ID order; reject disappeared later target without pending mappings or customer Property mutation. Router blob `25e98ed59787740c7ada376e99c7f8a248497287`, regression blob `f6297444cc1a34044717e0b637c9eeb6781c3b44`. Continue after CI with more Phase 4.15 review/reconciliation safeguards. No main/new branches, no Phase 4.16 or general UX.
+
+---
+
 # AI_HANDOFF.md — 2026-10-11 YARDI CROSS-RUN PROPERTY BINDING VERIFIED; LOCK ORDER BATCH PENDING
 
 **LATEST VERIFIED PRODUCT SHA:** `554cd5f8cc0bb920cd6500ae3f8289c22b0b780a`; exact GitHub Actions CI **38176474978 SUCCESS**, all six jobs PASS (backend, frontend, security, platform-admin, authenticated E2E, staging-config). Cross-run durable Yardi Property target takeover regression is **COMPLETE | VERIFIED**. Phase 4.15 remains **IN PROGRESS**. Earlier verified property SHA `f33e7deee4505b0b2039cb659af9beb0e0da9715` and CI 38175367220 remain valid.
