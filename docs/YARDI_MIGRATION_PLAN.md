@@ -207,3 +207,28 @@ Phase 4.15 is complete when:
 ## Financial source gate checkpoint (2026-10-10)
 
 GL accounts, open receivables, lease charges, payables, bank accounts, budgets, outstanding checks and historical accounting remain blocked until an independently verified Yardi export establishes source identifiers, row grain, period, debit/credit and settlement semantics and target reconciliation. Do not infer missing balances or post synthetic history.
+
+## 10. Live resource completion matrix (2026-10-12)
+
+Reconciled against the YARDI router, Yardi file staging service and the latest exact-product CI (fce01e99402722bb7af358ee1cda22bcafc88078, run 38200199974, six required jobs successful). The statuses below distinguish verified staging capability from completed customer-record migration. No Yardi accounting source contract is presumed.
+
+| Resource | Current status | Verified scope and remaining gap |
+| --- | --- | --- |
+| Properties | PARTIAL | CSV/XLSX explicit column mapping, staging, review/dry-run and metadata-only MATCH_EXISTING durable bindings verified. No customer Property creation/overwrite or controlled commit. |
+| Units | PARTIAL | Explicit mapped staging, required source Property ID and parent-mapping warning. No reviewed target Unit binding or customer Unit creation. Next independently actionable batch: read-only Unit target review and relationship validation without mutation. |
+| Owners / ownership | PARTIAL | Owner identity staging only; no ownership relationship or login creation. Source ownership relationship contract not verified. |
+| Vendors | PARTIAL | Vendor identity staging only; no customer vendor or payment/GL account creation. |
+| Residents / tenants | PARTIAL | Resident identity staging only; no login, lease, or occupancy creation. |
+| Leases / occupancy | PARTIAL | Stable source identity and Property/Unit/Tenant source references staged with missing-parent warnings. No lease, liability, rent, deposit or occupancy mutation. |
+| GL accounts | BLOCKED BY SOURCE CONTRACT | Verified Yardi account schema and target accounting mapping absent. |
+| Open receivables / lease charges | BLOCKED BY SOURCE CONTRACT | Authoritative charge grain, direction, periods, balances and reconciliation absent. |
+| Open payables / bills | BLOCKED BY SOURCE CONTRACT | Authoritative payable, settlement and target posting contract absent. |
+| Bank accounts | BLOCKED BY SOURCE CONTRACT | Account identity and reconciliation contract absent. |
+| Current-year budgets | BLOCKED BY SOURCE CONTRACT | Period, account, amount semantics and target reconciliation absent. |
+| Outstanding checks | BLOCKED BY SOURCE CONTRACT | Cleared state, bank movement and settlement semantics absent. |
+| Trial balance / historical GL | BLOCKED BY SOURCE CONTRACT | Debit/credit direction, opening balances and period semantics absent. |
+| Official Yardi API adapter | BLOCKED BY SOURCE CONTRACT | No verified customer/partner interface, credentials or endpoint schema. Export/ETL remains the supported transport. |
+
+**Next product batch:** Unit source-to-existing-target review/reconciliation, using the same provider-labelled metadata and explicit-review controls. First inspect actual Unit model ownership and existing AppFolio/Buildium patterns; do not create Unit records, auto-link occupancy, or enable controlled customer mutation. Property replay micro-regressions are not the default next workstream.
+
+**Completion interpretation:** Staging-only support is not equivalent to a completed resource import. Phase 4.15 remains IN PROGRESS until independently supportable resources are reconciled and verified, with source-contract blockers recorded explicitly.
