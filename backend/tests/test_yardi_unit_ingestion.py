@@ -130,3 +130,90 @@ def test_yardi_unit_match_requires_mapped_parent_and_preserves_customer_unit():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_yardi_unit_binding_rejects_stale_review_and_cross_run_target_collision():
+    import pytest
+    from fastapi import HTTPException
+    from app.models.property import Property
+    from app.models.platform_migration import PlatformMigrationItem
+    from app.routers.yardi_migrations import (
+        match_yardi_staged_unit, YardiUnitMatchIn,
+        dry_run_yardi_review, bind_yardi_reviewed_unit_matches,
+        YardiReviewedPropertyBindingIn,
+    )
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-unit-target-collision")
+        prop = Property(
+            organization_id=org.id, name="Existing", address_line1="1 Main",
+            city="Cleveland", state="OH", zip_code="44113",
+        )
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="unit-collision-source", status="DRAFT",
+        )
+        other = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="other-unit-source", status="DRAFT",
+        )
+        db.add_all([prop, run, other])
+        db.flush()
+        unit = Unit(property_id=prop.id, unit_number="202")
+        db.add(unit)
+        db.commit()
+        upload = stage_yardi_file(
+            db, run=run, filename="units.csv",
+            content=b"ID,Parent,Label\nU-2,P-2,202\n",
+            resource_override="UNITS", sheet_name=None,
+            explicit_mapping={
+                "source_id": "ID", "source_property_id": "Parent",
+                "unit_name": "Label",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).one()
+        db.add(PlatformMigrationItem(
+            run_id=run.id, organization_id=org.id, provider="YARDI",
+            resource="PROPERTIES", source_id="P-2",
+            target_entity="PROPERTY", target_id=prop.id,
+            source_fingerprint="verified-parent",
+        ))
+        db.commit()
+        match_yardi_staged_unit(
+            run.id, row.id, YardiUnitMatchIn(target_unit_id=unit.id), db, actor,
+        )
+        snapshot = dry_run_yardi_review(run.id, db, actor)
+        with pytest.raises(HTTPException) as stale:
+            bind_yardi_reviewed_unit_matches(
+                run.id, YardiReviewedPropertyBindingIn(
+                    review_fingerprint="0" * 64,
+                ), db, actor,
+            )
+        assert stale.value.status_code == 409
+        db.add(PlatformMigrationItem(
+            run_id=other.id, organization_id=org.id, provider="YARDI",
+            resource="UNITS", source_id="other-unit",
+            target_entity="UNIT", target_id=unit.id,
+            source_fingerprint="other-fingerprint",
+        ))
+        db.commit()
+        with pytest.raises(HTTPException) as conflict:
+            bind_yardi_reviewed_unit_matches(
+                run.id, YardiReviewedPropertyBindingIn(
+                    review_fingerprint=snapshot["review_fingerprint"],
+                ), db, actor,
+            )
+        assert conflict.value.status_code == 409
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "UNITS",
+        ).count() == 0
+        db.refresh(unit)
+        assert unit.unit_number == "202"
+    finally:
+        db.close()
+        engine.dispose()
