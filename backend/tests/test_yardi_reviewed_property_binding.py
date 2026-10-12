@@ -308,3 +308,59 @@ def test_reviewed_property_replay_rejects_later_cross_run_mapping():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_reviewed_property_replay_rejects_later_same_run_target_collision():
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-replay-collision")
+        target = Property(
+            organization_id=org.id, name="Unchanged Property",
+            address_line1="1 Main", city="Cleveland", state="OH", zip_code="44113",
+        )
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="replay-source", status="DRAFT",
+        )
+        other = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="other-source", status="DRAFT",
+        )
+        db.add_all([target, run, other])
+        db.commit()
+        upload = stage_yardi_file(
+            db, run=run, filename="properties.csv",
+            content=b"ID,Name,Street,City,State,Zip\nY-01,Imported,2 Main,Cleveland,OH,44113\n",
+            resource_override="PROPERTIES", sheet_name=None,
+            explicit_mapping={
+                "source_id": "ID", "name": "Name", "address_line1": "Street",
+                "city": "City", "state": "State", "zip_code": "Zip",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id
+        ).one()
+        match_yardi_staged_property(
+            run.id, row.id, YardiPropertyMatchIn(target_property_id=target.id), db, actor,
+        )
+        preview = dry_run_yardi_review(run.id, db, actor)
+        request = YardiReviewedPropertyBindingIn(review_fingerprint=preview["review_fingerprint"])
+        assert bind_yardi_reviewed_property_matches(run.id, request, db, actor)["bound"] == 1
+        # Simulate a legacy/manual conflicting mapping already persisted in the same run.
+        db.add(PlatformMigrationItem(
+            run_id=run.id, organization_id=org.id, provider="YARDI",
+            resource="PROPERTIES", source_id="OTHER-01", target_entity="PROPERTY",
+            target_id=target.id, source_fingerprint="a" * 64,
+            created_by_platform_user_id=actor.id,
+        ))
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            bind_yardi_reviewed_property_matches(run.id, request, db, actor)
+        assert exc.value.status_code == 409
+        db.refresh(target)
+        assert target.name == "Unchanged Property"
+    finally:
+        db.close()
+        engine.dispose()
