@@ -401,10 +401,28 @@ def get_yardi_reconciliation(
             skipped += 1
             stats["skipped"] += 1
         elif row.resolution_action == "MATCH_EXISTING":
-            target_valid = row.resolution_target_id is not None and db.query(Property.id).filter(
-                Property.id == row.resolution_target_id,
-                Property.organization_id == run.organization_id,
-            ).first() is not None
+            if row.resource == "UNITS":
+                parent_source = str((row.normalized_data or {}).get("source_property_id") or "").strip()
+                parent = next((
+                    item for item in items
+                    if item.resource == "PROPERTIES" and item.source_id == parent_source
+                    and item.target_entity == "PROPERTY"
+                ), None)
+                target_valid = (
+                    parent is not None and row.resolution_target_unit_id is not None
+                    and db.query(Unit.id).join(Property, Unit.property_id == Property.id).filter(
+                        Unit.id == row.resolution_target_unit_id,
+                        Unit.property_id == parent.target_id,
+                        Property.organization_id == run.organization_id,
+                    ).first() is not None
+                )
+            elif row.resource == "PROPERTIES":
+                target_valid = row.resolution_target_id is not None and db.query(Property.id).filter(
+                    Property.id == row.resolution_target_id,
+                    Property.organization_id == run.organization_id,
+                ).first() is not None
+            else:
+                target_valid = False
             if target_valid:
                 stats["matched_existing"] += 1
             else:
@@ -420,7 +438,7 @@ def get_yardi_reconciliation(
             stats["needs_review"] += 1
     evidence = {
         "staged": [(r.id, r.resource, r.source_id, r.row_fingerprint, r.disposition,
-                    r.resolution_action, r.resolution_target_id) for r in rows],
+                    r.resolution_action, r.resolution_target_id, r.resolution_target_unit_id) for r in rows],
         "mapped": [(i.id, i.resource, i.source_id, i.target_entity, i.target_id,
                     i.source_fingerprint) for i in items],
     }
