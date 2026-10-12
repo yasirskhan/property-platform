@@ -769,6 +769,16 @@ def bind_yardi_reviewed_property_matches(
                 property_id=row.resolution_target_id,
             ) is None:
                 raise HTTPException(status_code=409, detail="Previously mapped Property target no longer exists.")
+            competing = db.query(PlatformMigrationItem.id).filter(
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "YARDI",
+                PlatformMigrationItem.resource == "PROPERTIES",
+                PlatformMigrationItem.target_entity == "PROPERTY",
+                PlatformMigrationItem.target_id == row.resolution_target_id,
+                PlatformMigrationItem.run_id != run.id,
+            ).first()
+            if competing is not None:
+                raise HTTPException(status_code=409, detail="Replayed Property target has a conflicting cross-run binding.")
         return {"run_id": run.id, "provider": "YARDI", "bound": 0,
                 "matched_existing": len(matches), "replayed": True,
                 "customer_business_mutation": False}
