@@ -1,3 +1,11 @@
+# AI_HANDOFF.md — 2026-10-11 YARDI PROPERTY REPLAY TARGET EXISTENCE VERIFIED
+
+**LATEST VERIFIED PRODUCT SHA:** `c8a2ab29b83cbb9be490388a3899d3085334d4dc`; exact GitHub Actions **38189153951 SUCCESS**, all six jobs PASS (backend, frontend, security, platform-admin, authenticated E2E, staging-config). The previously mapped Yardi Property target existence replay regression is COMPLETE | VERIFIED. Cross-run protection SHA `554cd5f8cc0bb920cd6500ae3f8289c22b0b780a` CI `38176474978` SUCCESS; lock ordering `a20f8613d4af8ac4ccfba0ee95a2d4a70d544ddf` CI `38179124204` SUCCESS; atomicity `d37bb9f69969f3dfaa50612a6cd615102107d857` CI `38186748943` SUCCESS. Phase 4.15 remains IN PROGRESS.
+
+**NEXT:** Continue separately bounded reviewed Property replay/reconciliation safety and recovery work from current source. No customer Property mutation, no main or new branches, no Phase 4.16.
+
+---
+
 # AI_HANDOFF.md — 2026-10-11 YARDI PROPERTY BINDING ATOMICITY VERIFIED
 
 **LATEST VERIFIED PRODUCT SHA:** `d37bb9f69969f3dfaa50612a6cd615102107d857`; exact GitHub Actions **38186748943 SUCCESS**, six required jobs PASS (backend, frontend, security, platform-admin, authenticated E2E, staging-config). The bounded all-target validation before durable Property mapping inserts, disappeared-target regression, stable lock ordering and prior cross-run protections are **COMPLETE | VERIFIED**. Phase 4.15 remains **IN PROGRESS**.
