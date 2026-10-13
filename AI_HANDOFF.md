@@ -1,3 +1,12 @@
+# AI_HANDOFF.md — 2026-10-13 VERIFIED TARGET PICKER; DURABLE BINDING INVENTORY PROVISIONAL
+
+**LIVE VERIFIED PRODUCT CHECKPOINT:** `0603cc2d5f22dfec071ac92374e08f16f9ac992c`, exact GitHub Actions run **38362750313 SUCCESS**, all six required jobs passed: backend/PostgreSQL, frontend, platform-admin, security, authenticated E2E, staging. This closes the previously provisional staff-only existing-target picker, org/role/target isolation, privacy regressions and stale selection reset.
+
+**NEXT PHASE 4.15 BATCH, COMMITTED BUT NOT VERIFIED:** `747f54c3` adds `GET /api/platform/migrations/yardi/runs/{run_id}/bindings`, exposing only org/run/provider-scoped durable source-to-target ID metadata with current active-target validation and bounded pagination. Regression `b443a077` covers pagination, provider isolation, deleted/inactive targets, roles and nonmutation. Platform staff UI mapping inventory panel `c2a72470`; API contract `b397bf8a`; fast CI gate `f4655421`; plan section 16 `6236bb1b`. **Verify exact latest-SHA hosted CI, fix reds and rerun until six-job SUCCESS before marking VERIFIED.**
+
+**NEXT AFTER GREEN:** Continue the next bounded supportable Yardi staff migration reconciliation workflow using existing provider-labelled models and reviewed exact fingerprints. Consider parent/relationship status and more workflow tests. Do not invent Yardi source contracts, enable financial posting, ownership percentages, account/lease mutation or official API without verified contract. Phase **4.15 IN PROGRESS**. Work ONLY branch `chatgpt/checkpoint-005-safety`; never touch main or create a branch. Follow implement → tests → commit → hosted CI → fix reds → verify exact SHA → handoff → immediately next bounded batch.
+
+---
 # AI_HANDOFF.md — 2026-10-13 YARDI STAFF REVIEW VERIFIED; TARGET PICKER PROVISIONAL
 
 **LAST FULLY VERIFIED PRODUCT SHA:** `f6dabfe4b682535893fb40c7f911c8ef82fc7c15`, GitHub Actions **38360831046 SUCCESS** at exact SHA; six jobs PASS: backend/PostgreSQL (fast Yardi gate + **1253 passed, 21 deselected**), frontend, platform-admin, security, authenticated E2E, staging-config. Phase 4.15 staff console now has per-row existing-target review for PROPERTIES, UNITS, OWNERS, VENDORS, TENANTS; reason-coded SKIP including invalid rows; metadata-only exact-fingerprint durable binding; 200-row pagination; and audit reviewer/timestamp/skip-reason visibility. No customer financial or business entity mutation.
