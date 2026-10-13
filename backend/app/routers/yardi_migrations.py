@@ -646,9 +646,26 @@ def list_yardi_lease_relationships(
             User.is_active.is_(True), User.deleted_at.is_(None),
         ).all()
     }
+    reviewed_unit_rows = db.query(PlatformMigrationStagedRow).filter(
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "UNITS",
+        PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+    ).order_by(PlatformMigrationStagedRow.id.asc()).all()
+    # Only exact reviewed source fingerprint + destination Unit evidence is
+    # acceptable. A similarly named Unit or another run's staging is not proof.
+    reviewed_unit_sources = {
+        (row.source_id, row.row_fingerprint, row.resolution_target_unit_id): (
+            str((row.normalized_data or {}).get("source_property_id") or "").strip()
+        )
+        for row in reviewed_unit_rows
+        if not row.errors and row.disposition != "INVALID"
+    }
     results = []
     for staged_row in staged:
         blockers = []
+        unit_source_parent_matches_lease = None
         if (staged_row.errors or staged_row.disposition == "INVALID"
                 or staged_row.resolution_action == "SKIP"):
             blockers.append("INVALID_OR_SKIPPED")
@@ -687,12 +704,24 @@ def list_yardi_lease_relationships(
             if property_id is not None and unit_id is not None:
                 if valid_units[unit_id] != property_id:
                     blockers.append("UNIT_PROPERTY_MISMATCH")
+            if unit is not None and unit_id is not None and unit.target_entity == "UNIT":
+                reviewed_parent = reviewed_unit_sources.get((
+                    unit.source_id, unit.source_fingerprint, unit.target_id,
+                ))
+                if reviewed_parent:
+                    lease_parent_source = str(
+                        source.get("source_property_id") or ""
+                    ).strip()
+                    unit_source_parent_matches_lease = reviewed_parent == lease_parent_source
+                    if not unit_source_parent_matches_lease:
+                        blockers.append("UNIT_SOURCE_PARENT_MISMATCH")
         results.append({
             "staged_row_id": staged_row.id,
             "row_number": staged_row.row_number,
             "source_id": staged_row.source_id,
             "blockers": blockers,
             "identity_links_complete": not blockers,
+            "unit_source_parent_matches_lease": unit_source_parent_matches_lease,
             "occupancy_or_lease_authorized": False,
         })
     response.headers["Cache-Control"] = "no-store"
