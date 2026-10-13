@@ -252,3 +252,16 @@ After exact-SHA **b6284ed465f70282d89072cd07d6f212ce3b16ca** passed all six host
 `GET /api/platform/migrations/yardi/resource-readiness` now exposes an explicit `resource_capabilities` matrix. The previous `supported_staging_only` key remains present for compatibility, describing the *upload* pathway, not denying that existing-target metadata bindings are separately available. Five identity resources support explicit reviewed **metadata-only MATCH_EXISTING**; LEASE_OCCUPANCY supports read-only identity-link coverage **without** any lease or occupancy commit. All customer-record-creation, ownership percentage, financial posting and unofficial Yardi API capabilities remain disabled or source-contract blocked.
 
 **Next Phase 4.15 product priority:** operational platform-side Yardi migration workflow for staff to use authenticated run, upload, review, dry run, and reconciliation APIs, without general UX scope expansion, unsafe writes or undocumented Yardi contracts. Audit existing platform admin and backend upload contracts first. This readiness/API change itself requires new exact-SHA hosted CI verification before it is marked verified.
+
+
+## 13. Operational platform-admin Yardi export workflow (2026-10-13)
+
+The dedicated internal platform-admin `/migrations/yardi` route connects authenticated platform staff to the **existing** Yardi migration run, source staging, row-preview and reconciliation APIs. Read-only roles may view runs and reconciliations; platform admins/tech/dev may create runs, inspect source headers, manually map source columns, upload and stage bounded CSV/XLSX, and record a review dry run. The platform dashboard links to this route only for authorized migration roles.
+
+An additional **source-header inspection** endpoint `POST /api/platform/migrations/yardi/runs/{run_id}/inspect-source` reuses the same bounded CSV/XLSX parser and validation as staging; it returns only headers, sheet, format and row count. It does not expose source row values, persist raw bytes, stage a row, or mutate customer business data. It rejects credential/session source headers and requires the same write-role and organization constraints as staging. A focused backend regression covers privacy, nonmutation, credential header rejection and access control.
+
+The browser upload helper now leaves multipart `Content-Type` unset for `FormData` so the browser correctly supplies its own boundary. The UI offers source-header selection for required resource fields and retains explicit JSON mapping for additional fields. No auto-matching of Yardi financial fields or undocumented source schema is introduced. Identity review/bind remains a separate staff workflow and remains backend-guarded; this first UI batch primarily makes authenticated staging, preview and dry run operational.
+
+**Verification:** This UI/inspection batch must pass its own exact-SHA CI, including platform-admin lint/typecheck/build, backend tests, security, frontend, authenticated E2E and staging. The source-contract blockers above are unchanged.
+
+**Next bounded Phase 4.15 batch:** expose the explicit existing-target review/skip/bind operations in the authorized internal staff console with audit visibility, exact review fingerprint and no customer entity mutation.

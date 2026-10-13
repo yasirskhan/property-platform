@@ -19,7 +19,9 @@ from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from app.models.platform_migration import PlatformMigrationUpload, PlatformMigrationStagedRow, PlatformMigrationItem
 from app.schemas.platform_migration import AppFolioMigrationUploadOut, AppFolioMigrationStagedRowOut
-from app.services.appfolio_file_ingestion import MAX_FILE_BYTES, AppFolioFileIngestionError
+from app.services.appfolio_file_ingestion import (
+    MAX_FILE_BYTES, AppFolioFileIngestionError, _parse_file, _safe_filename,
+)
 from app.services.yardi_file_ingestion import stage_yardi_file
 
 from sqlalchemy.orm import Session
@@ -244,6 +246,36 @@ async def stage_yardi_upload(
     return AppFolioMigrationUploadOut.model_validate(result.upload).model_copy(
         update={"replayed": result.replayed}
     )
+
+
+@router.post("/runs/{run_id}/inspect-source")
+async def inspect_yardi_source_headers(
+    run_id: int,
+    file: UploadFile = File(...),
+    sheet_name: str | None = Form(default=None),
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Inspect bounded source headers only: no staging, PII rows or customer writes."""
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    try:
+        filename = _safe_filename(file.filename or "")
+        contents = await file.read(MAX_FILE_BYTES + 1)
+        parsed = _parse_file(filename, contents, sheet_name)
+    except AppFolioFileIngestionError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {
+        "run_id": run.id,
+        "provider": "YARDI",
+        "file_format": parsed.file_format,
+        "sheet_name": parsed.sheet_name,
+        "headers": parsed.headers,
+        "row_count": len(parsed.rows),
+        "source_rows_returned": False,
+        "raw_source_stored": False,
+        "staging_mutation": False,
+        "customer_business_mutation": False,
+    }
 
 
 @router.get("/runs/{run_id}/uploads", response_model=list[AppFolioMigrationUploadOut])

@@ -185,6 +185,14 @@ export default function PlatformDashboard() {
               {item.label}
             </button>
           ))}
+          {["PLATFORM_ADMIN", "PLATFORM_TECH", "PLATFORM_SUPPORT", "PLATFORM_DEV"].includes(role) && (
+            <button
+              onClick={() => router.push("/migrations/yardi")}
+              className="rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+            >
+              Yardi Migration
+            </button>
+          )}
         </nav>
 
         {error ? <div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}

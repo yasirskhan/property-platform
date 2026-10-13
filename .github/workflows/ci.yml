@@ -67,6 +67,8 @@ jobs:
           tests/test_yardi_tenant_review_binding.py
           tests/test_yardi_owner_review_binding.py
           tests/test_yardi_lease_reconciliation.py
+          tests/test_yardi_header_inspection.py
+          tests/test_yardi_staff_workflow_contract.py
       - name: Run backend tests against PostgreSQL
         run: pytest -m "not e2e" --cov=app --cov-report=term-missing
 

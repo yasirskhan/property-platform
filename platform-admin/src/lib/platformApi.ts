@@ -43,10 +43,12 @@ export async function platformFetch(
   options: RequestInit = {}
 ): Promise<Response> {
   const token = getPlatformToken();
+  const isMultipart = typeof FormData !== "undefined" && options.body instanceof FormData;
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(isMultipart ? {} : { "Content-Type": "application/json" }),
     ...((options.headers || {}) as Record<string, string>),
   };
+  if (isMultipart) delete headers["Content-Type"];
   if (token) headers.Authorization = "Bearer " + token;
 
   return fetch(API_URL + path, {
@@ -70,6 +72,14 @@ export function platformPost(path: string, body: unknown) {
   return platformJson(path, {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+/** Multipart uploads: let the browser generate its own boundary header. */
+export function platformPostForm(path: string, form: FormData) {
+  return platformJson(path, {
+    method: "POST",
+    body: form,
   });
 }
 
