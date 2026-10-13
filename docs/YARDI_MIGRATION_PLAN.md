@@ -265,3 +265,12 @@ The browser upload helper now leaves multipart `Content-Type` unset for `FormDat
 **Verification:** This UI/inspection batch must pass its own exact-SHA CI, including platform-admin lint/typecheck/build, backend tests, security, frontend, authenticated E2E and staging. The source-contract blockers above are unchanged.
 
 **Next bounded Phase 4.15 batch:** expose the explicit existing-target review/skip/bind operations in the authorized internal staff console with audit visibility, exact review fingerprint and no customer entity mutation.
+
+
+## 14. Staff-reviewed existing-target identity controls (2026-10-13)
+
+The authenticated internal Yardi migration console now provides per-row existing-target review for Properties, Units, Owners, Vendors and Tenants; reason-coded `SKIP` for rows outside the import (including invalid rows); and resource-specific durable metadata binding using the exact recorded review fingerprint. Invalid source rows are not accepted for MATCH_EXISTING. Successful review decisions invalidate the prior dry-run snapshot and reload the same-run reconciliation before metadata binding. Existing Yardi backend endpoints remain responsible for role authorization, target organization, target role, parent linkage, idempotency, stale fingerprints, cross-run collisions, and append-only audit. Read-only platform staff receive no write controls.
+
+These controls do not create or modify customer Property, Unit, User, Vendor, Lease, ownership interests, GL entries, receipts, payments or historical balances. `LEASE_OCCUPANCY` is intentionally excluded from existing-target binding; its relationship preview remains strictly read-only.
+
+**Verification:** Staff review UI commit `dcf9f6b0` and invalid-row skip fix `04768173` plus explicit authenticated-review API contract tests `6e4efb7e` remain provisional until latest exact-SHA hosted CI is successful. The previous staff upload/header-inspection checkpoint `a79b0d163175cbaf7d3df0227cf5f57df13fd266` was green in run `38358321235`. Future work after verification should address auditable staff operation feedback and row pagination, not general UX or financial source assumptions.
