@@ -42,6 +42,7 @@ type MigrationUpload = {
   validation_summary: Record<string, unknown>;
   replayed?: boolean;
 };
+type ExistingTargetCandidate = { id: number; label: string };
 type StagedRow = {
   id: number;
   row_number: number;
@@ -118,6 +119,8 @@ export default function YardiMigrationConsole() {
   const [readiness, setReadiness] = useState<ResourceReadiness | null>(null);
   const [dryRun, setDryRun] = useState<ReviewDryRun | null>(null);
   const [targetIds, setTargetIds] = useState<Record<number, string>>({});
+  const [targetQueries, setTargetQueries] = useState<Record<number, string>>({});
+  const [candidateResults, setCandidateResults] = useState<Record<number, ExistingTargetCandidate[]>>({});
   const [skipReasons, setSkipReasons] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -286,6 +289,22 @@ export default function YardiMigrationConsole() {
     });
   }
 
+  async function searchTargets(row: StagedRow) {
+    if (!canWrite || selectedRunId === null || !MATCH_RESOURCES[row.resource as Resource]) return;
+    await perform(async () => {
+      const search = (targetQueries[row.id] ?? "").trim();
+      if (search.length < 2 || search.length > 80) {
+        throw new Error("Enter 2–80 characters of the existing target name or unit label.");
+      }
+      const result = await platformGet(
+        ROOT + "/runs/" + selectedRunId + "/existing-targets?resource="
+          + encodeURIComponent(row.resource) + "&q=" + encodeURIComponent(search) + "&limit=20"
+      ) as { candidates: ExistingTargetCandidate[]; auto_match_enabled: false };
+      setCandidateResults((previous) => ({ ...previous, [row.id]: result.candidates }));
+      setNotice(result.candidates.length + " organization-scoped candidate(s). Select a target; searching never creates a match.");
+    });
+  }
+
   async function reviewRow(row: StagedRow, action: "MATCH_EXISTING" | "SKIP") {
     if (!canWrite || selectedRunId === null || row.resolution_action) return;
     await perform(async () => {
@@ -370,6 +389,8 @@ export default function YardiMigrationConsole() {
             setSelectedUploadId(null);
             setRows([]);
             setRowOffset(0);
+            setCandidateResults({});
+            setTargetQueries({});
             setDryRun(null);
           }}>
             <option value="">Select run</option>
@@ -441,6 +462,7 @@ export default function YardiMigrationConsole() {
             setSelectedUploadId(event.target.value ? Number(event.target.value) : null);
             setRows([]);
             setRowOffset(0);
+            setCandidateResults({});
           }}>
             <option value="">Select an upload</option>
             {uploads.map((upload) => <option key={upload.id} value={upload.id}>#{upload.id} · {upload.detected_resource} · {upload.filename} · {upload.row_count} rows · {upload.status}</option>)}
@@ -466,6 +488,12 @@ export default function YardiMigrationConsole() {
                     {row.resolution_action === "MATCH_EXISTING" && <span className="block text-xs text-slate-600">Target #{String(row.resolution_target_id ?? row.resolution_target_unit_id ?? row.resolution_target_owner_user_id ?? row.resolution_target_vendor_id ?? row.resolution_target_tenant_user_id ?? "—")}</span>}
                     {canWrite && !row.resolution_action && <div className="mt-2 flex min-w-44 flex-col gap-2">
                       {row.errors.length === 0 && row.disposition !== "INVALID" && MATCH_RESOURCES[row.resource as Resource] && <>
+                        <input className="input text-xs" placeholder="Search existing target name" maxLength={80} aria-label={"Search existing target for row " + row.row_number} value={targetQueries[row.id] ?? ""} onChange={(event) => { setTargetQueries((previous) => ({ ...previous, [row.id]: event.target.value })); setCandidateResults((previous) => { const next = { ...previous }; delete next[row.id]; return next; }); }} />
+                        <button type="button" disabled={busy} className="rounded border border-slate-500 px-2 py-1 text-xs disabled:opacity-50" onClick={() => { void searchTargets(row); }}>Find existing targets</button>
+                        {candidateResults[row.id] && <select className="input text-xs" aria-label={"Choose existing target for row " + row.row_number} value={targetIds[row.id] ?? ""} onChange={(event) => setTargetIds((previous) => ({ ...previous, [row.id]: event.target.value }))}>
+                          <option value="">Choose a reviewed target</option>
+                          {candidateResults[row.id].map((candidate) => <option key={candidate.id} value={candidate.id}>#{candidate.id} — {candidate.label}</option>)}
+                        </select>}
                         <input className="input text-xs" type="number" min="1" placeholder="Existing target ID" aria-label={"Existing target ID for row " + row.row_number} value={targetIds[row.id] ?? ""} onChange={(event) => setTargetIds((previous) => ({ ...previous, [row.id]: event.target.value }))} />
                         <button type="button" disabled={busy} className="rounded border border-slate-500 px-2 py-1 text-xs disabled:opacity-50" onClick={() => { void reviewRow(row, "MATCH_EXISTING"); }}>Review existing target</button>
                       </>}
