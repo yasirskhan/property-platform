@@ -285,3 +285,14 @@ The next bounded operational batch provides `GET /api/platform/migrations/yardi/
 The staff console can search those targets and select an ID, but the actual MATCH_EXISTING decision **still requires a separate explicit review action**. No automatic target matching, tenancy, ownership linkage, customer mutation, leasing or accounting is enabled. Existing exact-reviewed dry run and binding controls remain authoritative.
 
 **Verification:** candidate endpoint commit `a26fb3a5`, scoped/privacy regressions `8d8718f3`, platform picker `54b382ae`, authenticated API coverage `002b0132` and fast CI gate `8e454d87` are provisional until the newest exact-SHA hosted workflow succeeds.
+
+
+## 16. Durable existing-identity mapping inspection (2026-10-13)
+
+The target candidate picker batch is **verified** on exact SHA `0603cc2d5f22dfec071ac92374e08f16f9ac992c`, GitHub Actions `38362750313`, all six required jobs successful. Candidate lookup never authorizes automatic matching or creates customer data.
+
+Next operational batch introduces `GET /api/platform/migrations/yardi/runs/{run_id}/bindings`: an authenticated, read-role-gated, provider/run/organization-scoped and paginated inventory of the **existing durable source-to-target identity metadata**. Filters are restricted to the five supported existing-identity resources. Returned fields include source ID, target entity and ID, audit creator/time, and a freshly checked `target_current` flag for customer records that remain active, correctly scoped and non-deleted. It does not expose names, credentials, raw CSV/XLSX rows, user emails or financial details. The staff console displays this inventory with resource filters, paging, and missing/deactivated-target warnings. The inventory never changes customer records or mappings.
+
+The exact-SHA CI gate adds backend tests for cross-organization/provider isolation, pagination, inactive/deleted target status, staff role authorization, redaction and customer-record nonmutation; the API route contract test requires authentication and GET-only access.
+
+**Provisional until CI:** product `747f54c3`, regression `b443a077`, staff UI `c2a72470`, API contract `b397bf8a`, fast CI suite `f4655421`. Do not mark verified before a six-job hosted run succeeds on this source and any later handoff commit. No ownership percentages, lease/occupancy records, financial postings or official Yardi API have been enabled.
