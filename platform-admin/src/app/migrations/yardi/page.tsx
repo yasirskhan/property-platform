@@ -49,6 +49,11 @@ type StagedRow = {
   source_id: string | null;
   disposition: string;
   resolution_action: string | null;
+  resolution_target_id?: number | null;
+  resolution_target_unit_id?: number | null;
+  resolution_target_owner_user_id?: number | null;
+  resolution_target_vendor_id?: number | null;
+  resolution_target_tenant_user_id?: number | null;
   errors: string[];
   warnings: string[];
 };
@@ -75,6 +80,15 @@ type ResourceReadiness = {
   financial_posting_enabled: boolean;
 };
 
+const MATCH_RESOURCES: Partial<Record<Resource, { endpoint: string; targetKey: string; bindPath: string; rowKey: keyof StagedRow }>> = {
+  PROPERTIES: { endpoint: "match-property", targetKey: "target_property_id", bindPath: "properties/bind-reviewed-matches", rowKey: "resolution_target_id" },
+  UNITS: { endpoint: "match-unit", targetKey: "target_unit_id", bindPath: "bind-reviewed-units", rowKey: "resolution_target_unit_id" },
+  OWNERS: { endpoint: "match-owner", targetKey: "target_owner_user_id", bindPath: "bind-reviewed-owners", rowKey: "resolution_target_owner_user_id" },
+  VENDORS: { endpoint: "match-vendor", targetKey: "target_vendor_id", bindPath: "bind-reviewed-vendors", rowKey: "resolution_target_vendor_id" },
+  TENANTS: { endpoint: "match-tenant", targetKey: "target_tenant_user_id", bindPath: "bind-reviewed-tenants", rowKey: "resolution_target_tenant_user_id" },
+};
+const SKIP_REASONS = ["NOT_IN_SCOPE", "DUPLICATE_SOURCE", "ALREADY_HANDLED", "UNSUPPORTED_SOURCE"] as const;
+
 function readableError(err: unknown) {
   return err instanceof Error ? err.message : "Request failed";
 }
@@ -98,6 +112,8 @@ export default function YardiMigrationConsole() {
   const [reconciliation, setReconciliation] = useState<Reconciliation | null>(null);
   const [readiness, setReadiness] = useState<ResourceReadiness | null>(null);
   const [dryRun, setDryRun] = useState<ReviewDryRun | null>(null);
+  const [targetIds, setTargetIds] = useState<Record<number, string>>({});
+  const [skipReasons, setSkipReasons] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -148,6 +164,7 @@ export default function YardiMigrationConsole() {
       platformGet(ROOT + "/runs/" + selectedRunId + "/reconciliation") as Promise<Reconciliation>,
     ]).then(([nextUploads, review]) => {
       if (!active) return;
+      setDryRun((previous) => previous?.review_fingerprint === review.review_fingerprint ? previous : null);
       setUploads(nextUploads);
       setReconciliation(review);
       setSelectedUploadId((previous) => {
@@ -260,6 +277,45 @@ export default function YardiMigrationConsole() {
       setRefreshKey((key) => key + 1);
       setDryRun(null);
       setNotice(uploaded.replayed ? "Existing staged upload reused." : "Export staged for explicit review only.");
+    });
+  }
+
+  async function reviewRow(row: StagedRow, action: "MATCH_EXISTING" | "SKIP") {
+    if (!canWrite || selectedRunId === null || row.resolution_action || row.errors.length) return;
+    await perform(async () => {
+      const base = ROOT + "/runs/" + selectedRunId + "/staged-rows/" + row.id;
+      if (action === "SKIP") {
+        const reason = skipReasons[row.id] || "NOT_IN_SCOPE";
+        await platformPost(base + "/skip", { reason_code: reason });
+      } else {
+        const config = MATCH_RESOURCES[row.resource as Resource];
+        if (!config) throw new Error("Existing-target matching is not supported for this resource.");
+        const targetId = Number(targetIds[row.id]);
+        if (!Number.isSafeInteger(targetId) || targetId <= 0) {
+          throw new Error("Enter a valid existing target ID for row " + row.row_number + ".");
+        }
+        await platformPost(base + "/" + config.endpoint, { [config.targetKey]: targetId });
+      }
+      setDryRun(null);
+      setRefreshKey((key) => key + 1);
+      setNotice("Staff review decision recorded. No customer record was changed.");
+    });
+  }
+
+  async function bindReviewed(resourceToBind: Resource) {
+    if (!canWrite || selectedRunId === null) return;
+    await perform(async () => {
+      const config = MATCH_RESOURCES[resourceToBind];
+      if (!config) throw new Error("No existing-target binding for this resource.");
+      if (!dryRun || !reconciliation || dryRun.review_fingerprint !== reconciliation.review_fingerprint) {
+        throw new Error("Record a current exact-fingerprint dry run before binding existing targets.");
+      }
+      const result = await platformPost(ROOT + "/runs/" + selectedRunId + "/" + config.bindPath, {
+        review_fingerprint: dryRun.review_fingerprint,
+      }) as { bound: number; replayed: boolean; customer_business_mutation: false };
+      setDryRun(null);
+      setRefreshKey((key) => key + 1);
+      setNotice(result.replayed ? "Existing source mappings confirmed on replay." : result.bound + " existing identity mappings recorded; customer data unchanged.");
     });
   }
 
@@ -391,7 +447,20 @@ export default function YardiMigrationConsole() {
                   <td className="p-2">{row.resource}</td>
                   <td className="p-2 font-mono">{row.source_id ?? "—"}</td>
                   <td className="p-2">{row.disposition}</td>
-                  <td className="p-2">{row.resolution_action ?? "PENDING"}</td>
+                  <td className="p-2">
+                    <span>{row.resolution_action ?? "PENDING"}</span>
+                    {row.resolution_action === "MATCH_EXISTING" && <span className="block text-xs text-slate-600">Target #{String(row.resolution_target_id ?? row.resolution_target_unit_id ?? row.resolution_target_owner_user_id ?? row.resolution_target_vendor_id ?? row.resolution_target_tenant_user_id ?? "—")}</span>}
+                    {canWrite && !row.resolution_action && row.errors.length === 0 && <div className="mt-2 flex min-w-44 flex-col gap-2">
+                      {MATCH_RESOURCES[row.resource as Resource] && <>
+                        <input className="input text-xs" type="number" min="1" placeholder="Existing target ID" aria-label={"Existing target ID for row " + row.row_number} value={targetIds[row.id] ?? ""} onChange={(event) => setTargetIds((previous) => ({ ...previous, [row.id]: event.target.value }))} />
+                        <button type="button" disabled={busy} className="rounded border border-slate-500 px-2 py-1 text-xs disabled:opacity-50" onClick={() => { void reviewRow(row, "MATCH_EXISTING"); }}>Review existing target</button>
+                      </>}
+                      <select className="input text-xs" aria-label={"Skip reason for row " + row.row_number} value={skipReasons[row.id] ?? "NOT_IN_SCOPE"} onChange={(event) => setSkipReasons((previous) => ({ ...previous, [row.id]: event.target.value }))}>
+                        {SKIP_REASONS.map((reason) => <option key={reason} value={reason}>{reason.replaceAll("_", " ")}</option>)}
+                      </select>
+                      <button type="button" disabled={busy} className="rounded border border-amber-600 px-2 py-1 text-xs disabled:opacity-50" onClick={() => { void reviewRow(row, "SKIP"); }}>Record explicit skip</button>
+                    </div>}
+                  </td>
                   <td className="p-2 text-xs">{[...row.errors, ...row.warnings].join("; ") || "—"}</td>
                 </tr>)}
                 {!rows.length && <tr><td className="p-3 text-slate-500" colSpan={6}>No displayed rows. Select a staged upload.</td></tr>}
@@ -422,6 +491,15 @@ export default function YardiMigrationConsole() {
             </ul>
             <p className="mt-3 text-sm font-medium text-amber-800">Customer record commit: disabled. Financial posting: disabled.</p>
             {dryRun && <p className="mt-2 break-all text-xs text-slate-500">Recorded review fingerprint: {dryRun.review_fingerprint}</p>}
+            {canWrite && <div className="mt-4 border-t pt-3">
+              <h3 className="text-sm font-semibold">Commit reviewed identity mappings only</h3>
+              <p className="my-2 text-xs text-slate-600">Requires explicit row matching and the current dry-run fingerprint. No Property, Unit, Owner, Vendor, Tenant, lease, payment or accounting record will be created or overwritten.</p>
+              <div className="flex flex-wrap gap-2">
+                {RESOURCES.filter((item) => !!MATCH_RESOURCES[item] && (reconciliation.resource_coverage[item]?.total ?? 0) > 0).map((item) =>
+                  <button key={item} type="button" disabled={busy || !dryRun || dryRun.review_fingerprint !== reconciliation.review_fingerprint} onClick={() => { void bindReviewed(item); }} className="rounded border border-slate-600 px-3 py-2 text-xs disabled:opacity-50">Bind reviewed {item.toLowerCase()} identities</button>
+                )}
+              </div>
+            </div>}
           </>}
         </section>}
         {readiness && <section className="rounded-xl border bg-white p-5">
