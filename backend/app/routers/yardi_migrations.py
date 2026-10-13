@@ -575,6 +575,136 @@ def list_yardi_durable_bindings(
     }
 
 
+@router.get("/runs/{run_id}/lease-relationships")
+def list_yardi_lease_relationships(
+    run_id: int,
+    response: Response,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Page through source lease identity dependencies; never create an occupancy.
+
+    This endpoint only describes reviewed identity-map coverage and current
+    organization-scoped targets. It cannot authorize a lease, rent or financial
+    transaction even when every source relationship is accounted for.
+    """
+    run = _run(db, run_id=run_id, current_user=current_user, write=False)
+    query = db.query(PlatformMigrationStagedRow).filter(
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "LEASE_OCCUPANCY",
+    )
+    total = query.count()
+    staged = query.order_by(
+        PlatformMigrationStagedRow.id.asc(),
+    ).offset(offset).limit(limit).all()
+    mappings = db.query(PlatformMigrationItem).filter(
+        PlatformMigrationItem.run_id == run.id,
+        PlatformMigrationItem.organization_id == run.organization_id,
+        PlatformMigrationItem.provider == "YARDI",
+        PlatformMigrationItem.resource.in_(("PROPERTIES", "UNITS", "TENANTS")),
+    ).all()
+    by_source = {(m.resource, m.source_id): m for m in mappings}
+    property_targets = {
+        item.target_id for item in mappings
+        if item.resource == "PROPERTIES" and item.target_entity == "PROPERTY"
+    }
+    unit_targets = {
+        item.target_id for item in mappings
+        if item.resource == "UNITS" and item.target_entity == "UNIT"
+    }
+    tenant_targets = {
+        item.target_id for item in mappings
+        if item.resource == "TENANTS" and item.target_entity == "TENANT_USER"
+    }
+    valid_properties = {
+        p.id for p in db.query(Property.id).filter(
+            Property.id.in_(property_targets),
+            Property.organization_id == run.organization_id,
+            Property.is_active.is_(True),
+            Property.deleted_at.is_(None),
+        ).all()
+    }
+    valid_units = {
+        u.id: u.property_id for u in db.query(Unit.id, Unit.property_id).join(
+            Property, Unit.property_id == Property.id,
+        ).filter(
+            Unit.id.in_(unit_targets),
+            Property.organization_id == run.organization_id,
+            Property.is_active.is_(True), Property.deleted_at.is_(None),
+            Unit.is_active.is_(True), Unit.deleted_at.is_(None),
+        ).all()
+    }
+    valid_tenants = {
+        u.id for u in db.query(User.id).filter(
+            User.id.in_(tenant_targets),
+            User.organization_id == run.organization_id,
+            User.role == UserRole.TENANT,
+            User.is_active.is_(True), User.deleted_at.is_(None),
+        ).all()
+    }
+    results = []
+    for staged_row in staged:
+        blockers = []
+        if (staged_row.errors or staged_row.disposition == "INVALID"
+                or staged_row.resolution_action == "SKIP"):
+            blockers.append("INVALID_OR_SKIPPED")
+        else:
+            source = staged_row.normalized_data or {}
+            prop = by_source.get((
+                "PROPERTIES", str(source.get("source_property_id") or "").strip(),
+            ))
+            unit = by_source.get((
+                "UNITS", str(source.get("source_unit_id") or "").strip(),
+            ))
+            tenant = by_source.get((
+                "TENANTS", str(source.get("source_tenant_id") or "").strip(),
+            ))
+            property_id = (
+                prop.target_id if prop is not None
+                and prop.target_entity == "PROPERTY"
+                and prop.target_id in valid_properties else None
+            )
+            unit_id = (
+                unit.target_id if unit is not None
+                and unit.target_entity == "UNIT"
+                and unit.target_id in valid_units else None
+            )
+            tenant_id = (
+                tenant.target_id if tenant is not None
+                and tenant.target_entity == "TENANT_USER"
+                and tenant.target_id in valid_tenants else None
+            )
+            if property_id is None:
+                blockers.append("PROPERTY_IDENTITY_UNMAPPED_OR_INACTIVE")
+            if unit_id is None:
+                blockers.append("UNIT_IDENTITY_UNMAPPED_OR_INACTIVE")
+            if tenant_id is None:
+                blockers.append("TENANT_IDENTITY_UNMAPPED_OR_INACTIVE")
+            if property_id is not None and unit_id is not None:
+                if valid_units[unit_id] != property_id:
+                    blockers.append("UNIT_PROPERTY_MISMATCH")
+        results.append({
+            "staged_row_id": staged_row.id,
+            "row_number": staged_row.row_number,
+            "source_id": staged_row.source_id,
+            "blockers": blockers,
+            "identity_links_complete": not blockers,
+            "occupancy_or_lease_authorized": False,
+        })
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "run_id": run.id, "organization_id": run.organization_id,
+        "provider": "YARDI", "total": total, "offset": offset, "limit": limit,
+        "items": results,
+        "read_only": True, "controlled_commit_enabled": False,
+        "customer_business_mutation": False,
+    }
+
+
 @router.get("/runs/{run_id}/staging-preview")
 def preview_yardi_staging(
     run_id: int,
