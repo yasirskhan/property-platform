@@ -1,3 +1,17 @@
+# AI_HANDOFF.md — 2026-10-13 YARDI IDENTITY REVIEW AND LEASE COVERAGE BATCH
+
+**LIVE BRANCH:** `chatgpt/checkpoint-005-safety` ONLY; never `main` or another branch.
+
+**PREVIOUS VERIFIED CHECKPOINT:** `4d7356010500552b990a245984261db887bbaaef`, GitHub Actions **38340101268 SUCCESS** (six jobs). This verifies Unit replay target/parent safety and regression.
+
+**NEW PRODUCT SOURCE, COMMITTED — CI VERIFICATION PENDING:** Fixed Property binding route mistakenly pointing to Unit binder (`8c4b1278`), added correct route dispatch test (`20d41916`). Implemented read-only explicit MATCH_EXISTING review + durable metadata binding for Vendors (`8cda18b4`, tests `3e1f1507`), Tenant-role existing users (`8aa7e82a`, tests `a4b2b868`), read-only lease relationship dependency coverage (`0ec63ebb`, tests `0ef441c2`), Owner-role existing users (`b6bad116`, tests `7ca1fbfb`). Resource matrix updated `a2457aa3`. **These newer changes must not be marked VERIFIED until latest exact-SHA hosted CI succeeds, including all six required jobs.** GitHub CI jobs can cancel intermediate commits in favor of the latest branch SHA.
+
+**GUARDRAILS:** No customer vendor, owner, user, Unit, Property, lease or accounting mutation. Existing identities only; owner relationship percentages, rent/lease terms, deposits, financial posting, and official Yardi API remain source-contract blocked. Require exact reviewed fingerprint; target validation; same-org and role checks; durable source/target collision checks; commit replay validation.
+
+**IMMEDIATE NEXT:** Check exact latest branch HEAD and its hosted CI once; inspect failed backend job logs if red and repair. Then, when green, update this handoff with exact verified SHA/job outcomes and **immediately continue** to the next Phase 4.15 independently supportable CSV/XLSX relationship-validation batch. Continue bounded implement → test → commit → CI → fix → verify → update handoff cycles without asking user. Do not start 4.16 or general UX.
+
+---
+
 # AI_HANDOFF.md — 2026-10-12 YARDI UNIT REPLAY SAFETY FOLLOW-UP
 
 **LATEST VERIFIED SHA:** `468bbe194231f01469eb042d6c1e07b6e4f5dfe3`; GitHub Actions **38312677682 SUCCESS**, all six jobs. This verifies the Unit metadata binding, stale-fingerprint/cross-run collision regressions and resource matrix.
