@@ -47,8 +47,8 @@ def test_tenant_review_binding_fingerprint_replay_and_nonmutation():
     db, engine = _session()
     try:
         actor, org, tenant, run, row = _seed(db)
-        from app.main import app
-        endpoints = {route.path: route.endpoint for route in app.routes if hasattr(route, "endpoint")}
+        from app.routers import yardi_migrations as yardi_api
+        endpoints = {route.path: route.endpoint for route in yardi_api.router.routes if hasattr(route, "endpoint")}
         base = "/api/platform/migrations/yardi/runs/{run_id}"
         assert endpoints[base + "/staged-rows/{row_id}/match-tenant"] is match_yardi_staged_tenant
         assert endpoints[base + "/bind-reviewed-tenants"] is bind_yardi_reviewed_tenant_matches
