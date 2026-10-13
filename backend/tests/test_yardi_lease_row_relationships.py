@@ -7,7 +7,7 @@ from app.models.platform_migration import PlatformMigrationItem, PlatformMigrati
 from app.models.platform_user import PlatformUserRole
 from app.models.property import Property, Unit
 from app.models.user import User, UserRole
-from app.routers.yardi_migrations import list_yardi_lease_relationships
+from app.routers.yardi_migrations import list_yardi_lease_relationships, get_yardi_reconciliation
 from app.services.yardi_file_ingestion import stage_yardi_file
 from test_yardi_migrations import _org, _platform_user, _session
 
@@ -256,6 +256,9 @@ def test_lease_source_parent_conflict_even_when_current_unit_parent_matches():
         assert changed["items"][0]["blockers"] == ["UNIT_PROPERTY_MISMATCH"]
         assert changed["items"][1]["blockers"] == ["UNIT_SOURCE_PARENT_MISMATCH"]
         assert changed["items"][1]["identity_links_complete"] is False
+        summary = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert summary["lease_relationship_readiness"]["unit_source_parent_mismatch"] == 1
+        assert summary["lease_relationship_readiness"]["complete_identity_links"] == 0
         assert changed["items"][1]["occupancy_or_lease_authorized"] is False
         assert changed["customer_business_mutation"] is False
         assert "preserve-this-hash" not in str(changed)
