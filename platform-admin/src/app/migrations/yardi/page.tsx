@@ -86,6 +86,7 @@ type LeaseRelationshipRow = {
   source_id: string | null;
   blockers: string[];
   identity_links_complete: boolean;
+  unit_source_parent_matches_lease: boolean | null;
   occupancy_or_lease_authorized: false;
 };
 type LeaseRelationshipPreview = {
@@ -649,9 +650,16 @@ export default function YardiMigrationConsole() {
                   <td className="p-2 font-mono text-xs">{item.source_id ?? "—"}</td>
                   <td className="p-2">{item.row_number}</td>
                   <td className="p-2">
-                    {item.identity_links_complete
+                    <span>{item.identity_links_complete
                       ? "Identity links found — lease still not authorized"
-                      : item.blockers.map((blocker) => blocker.replaceAll("_", " ").toLowerCase()).join("; ")}
+                      : item.blockers.map((blocker) => blocker.replaceAll("_", " ").toLowerCase()).join("; ")}</span>
+                    <span className="mt-1 block text-xs text-slate-600">
+                      {item.unit_source_parent_matches_lease === true
+                        ? "Original Unit source parent agrees"
+                        : item.unit_source_parent_matches_lease === false
+                          ? "Original Unit source parent conflicts — reconcile"
+                          : "Original Unit source parent not verified"}
+                    </span>
                   </td>
                   <td className="p-2">Disabled</td>
                 </tr>)}
