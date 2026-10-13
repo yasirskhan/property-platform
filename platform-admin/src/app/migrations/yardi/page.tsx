@@ -611,6 +611,12 @@ export default function YardiMigrationConsole() {
           {reconciliation && <>
             <p className="mt-2 text-sm">Staged: {reconciliation.staged_rows} · Invalid: {reconciliation.invalid_rows} · Needs review: {reconciliation.unresolved_rows} · Durable source mappings: {reconciliation.durable_mapping_count}</p>
             <p className="mt-2 break-all font-mono text-xs text-slate-500">Current fingerprint: {reconciliation.review_fingerprint}</p>
+            <p className="mt-2 text-xs text-slate-700">
+              Lease source identity links complete: {reconciliation.lease_relationship_readiness.complete_identity_links ?? 0}
+              {" · "}Current Unit/Property mismatches: {reconciliation.lease_relationship_readiness.unit_property_mismatch ?? 0}
+              {" · "}Original Unit source-parent conflicts: {reconciliation.lease_relationship_readiness.unit_source_parent_mismatch ?? 0}.
+              These counts are diagnostic only and never authorize occupancy or financial commits.
+            </p>
             <ul className="mt-3 grid gap-2 sm:grid-cols-2">
               {Object.entries(reconciliation.resource_coverage).map(([name, stats]) => (
                 <li key={name} className="rounded-lg border p-3 text-sm">
