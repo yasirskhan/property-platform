@@ -1,3 +1,13 @@
+# AI_HANDOFF.md — 2026-10-13 YARDI STAFF IDENTITY REVIEW CONTROLS PROVISIONAL
+
+**LATEST FULLY VERIFIED PRODUCT:** `a79b0d163175cbaf7d3df0227cf5f57df13fd266`, exact GitHub Actions **38358321235 SUCCESS**, six jobs. This verifies the platform-admin Yardi staging/header inspection workflow, bounded read-only reconciliation and resource capability contract. Earlier exact SHA `b6284ed465f70282d89072cd07d6f212ce3b16ca`, CI **38348501467 SUCCESS**, also verified Yardi owner/vendor/tenant identity binding and lease relationship coverage.
+
+**LATEST PROVISIONAL BATCH:** `dcf9f6b0` implements authorized platform-admin explicit per-row MATCH_EXISTING review, reason-coded SKIP, and resource-specific exact-fingerprint metadata-only durable binding for Properties, Units, Owners, Vendors and Tenants. `04768173` enables explicit SKIP for invalid source rows while rejecting invalid MATCH_EXISTING. `6e4efb7e` adds authenticated API operation regression checks. `9f552d56` records the product boundary in Yardi plan section 14. **DO NOT MARK VERIFIED until latest exact-SHA hosted CI is green.** Verify run, fix any test failures, and record full SHA/job outcomes here.
+
+**GUARDRAILS:** ONLY branch `chatgpt/checkpoint-005-safety`; never main, never new branch. Source CSV/XLSX remains explicitly mapped, customer records unchanged, financial posting and official API blocked until source contracts verified. NEXT AFTER GREEN: inspect actual platform-admin row-pagination and review audit visibility; implement bounded, focused next batch, regression, CI, handoff, and continue autonomously. Phase **4.15 IN PROGRESS**; do not start general UX or Phase 4.16.
+
+---
+
 # AI_HANDOFF.md — 2026-10-13 YARDI RESOURCE CAPABILITIES VERIFIED, STAFF CONSOLE PROVISIONAL
 
 **LATEST VERIFIED PRODUCT SHA:** `609585416ab82aff0362e1a31c2dff667d560cb1`; exact GitHub Actions run **38357177404 SUCCESS** (all six jobs PASS, including focused Yardi gate, backend/PostgreSQL, frontend, platform-admin, security, authenticated E2E, staging-config). `GET /api/platform/migrations/yardi/resource-readiness` now accurately distinguishes reviewed existing-target metadata binding (Properties, Units, Owners, Vendors, Tenants) from read-only Lease/Occupancy identity-link preview while preserving historical upload-only fields for backwards compatibility. No customer business or financial mutation enabled.
