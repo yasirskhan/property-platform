@@ -748,9 +748,8 @@ def match_yardi_staged_unit(
         raise HTTPException(status_code=404, detail="Yardi Unit row not found.")
     if row.errors or row.disposition == "INVALID" or not row.source_id:
         raise HTTPException(status_code=422, detail="Invalid Unit source row cannot be matched.")
-    if row.resolution_action is not None:
-        if row.resolution_action == "MATCH_EXISTING" and row.resolution_target_unit_id == payload.target_unit_id:
-            return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": True}
+    replay = row.resolution_action == "MATCH_EXISTING" and row.resolution_target_unit_id == payload.target_unit_id
+    if row.resolution_action is not None and not replay:
         raise HTTPException(status_code=409, detail="Conflicting Unit review decision.")
     source_property_id = str((row.normalized_data or {}).get("source_property_id") or "").strip()
     parent = db.query(PlatformMigrationItem).filter(
@@ -770,6 +769,19 @@ def match_yardi_staged_unit(
     ).with_for_update(of=Unit).first()
     if target is None:
         raise HTTPException(status_code=404, detail="Unit target is not in the mapped parent Property.")
+    if replay:
+        conflict = db.query(PlatformMigrationItem.id).filter(
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "YARDI",
+            PlatformMigrationItem.resource == "UNITS",
+            PlatformMigrationItem.target_entity == "UNIT",
+            PlatformMigrationItem.target_id == target.id,
+            or_(PlatformMigrationItem.run_id != run.id,
+                PlatformMigrationItem.source_id != row.source_id),
+        ).first()
+        if conflict:
+            raise HTTPException(status_code=409, detail="Replayed Unit target has conflicting durable mapping.")
+        return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": True}
     conflict = db.query(PlatformMigrationItem.id).filter(
         PlatformMigrationItem.organization_id == run.organization_id,
         PlatformMigrationItem.provider == "YARDI",
