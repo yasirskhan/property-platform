@@ -216,10 +216,10 @@ Reconciled against the YARDI router, Yardi file staging service and the latest e
 | --- | --- | --- |
 | Properties | PARTIAL | CSV/XLSX explicit column mapping, staging, review/dry-run and metadata-only MATCH_EXISTING durable bindings verified. No customer Property creation/overwrite or controlled commit. |
 | Units | PARTIAL | Explicit mapped staging, required source Property ID and parent-mapping warning. Reviewed target Unit match, parent relationship validation, exact-fingerprint dry run and metadata-only durable binding verified at 69e65876 (CI 38267008115). No customer Unit creation/overwrite; cross-run collision and stale review regressions added provisionally at 37f742b2. |
-| Owners / ownership | PARTIAL | Owner identity staging only; no ownership relationship or login creation. Source ownership relationship contract not verified. |
-| Vendors | PARTIAL | Vendor identity staging only; no customer vendor or payment/GL account creation. |
-| Residents / tenants | PARTIAL | Resident identity staging only; no login, lease, or occupancy creation. |
-| Leases / occupancy | PARTIAL | Stable source identity and Property/Unit/Tenant source references staged with missing-parent warnings. No lease, liability, rent, deposit or occupancy mutation. |
+| Owners / ownership | PARTIAL | Owner identity staging plus explicit existing OWNER-role user review and metadata-only durable source binding added; ownership relationship and login creation remain blocked without a verified source contract. |
+| Vendors | PARTIAL | Vendor identity staging plus explicitly reviewed existing Vendor target and metadata-only durable binding added. No customer vendor, payment or GL account creation. |
+| Residents / tenants | PARTIAL | Resident identity staging plus explicitly reviewed existing TENANT-role user and metadata-only durable binding added. No login, lease or occupancy creation. |
+| Leases / occupancy | PARTIAL | Stable source identity and three required source references staged. Read-only reconciliation now counts missing Property/Unit/Tenant durable links, invalid/inactive targets and Unit-to-Property mismatches; never creates occupancy, lease, rent, deposit or liability entries. |
 | GL accounts | BLOCKED BY SOURCE CONTRACT | Verified Yardi account schema and target accounting mapping absent. |
 | Open receivables / lease charges | BLOCKED BY SOURCE CONTRACT | Authoritative charge grain, direction, periods, balances and reconciliation absent. |
 | Open payables / bills | BLOCKED BY SOURCE CONTRACT | Authoritative payable, settlement and target posting contract absent. |
@@ -232,3 +232,14 @@ Reconciled against the YARDI router, Yardi file staging service and the latest e
 **Next product batch:** Verify new Unit cross-run collision and stale-fingerprint regressions, then proceed to owner/vendor/tenant/lease relationship review using only source-supported identities. Do not create customer records, auto-link occupancy, or enable controlled customer mutation.
 
 **Completion interpretation:** Staging-only support is not equivalent to a completed resource import. Phase 4.15 remains IN PROGRESS until independently supportable resources are reconciled and verified, with source-contract blockers recorded explicitly.
+
+
+## 11. Follow-on identity and lease reconciliation batch (2026-10-13)
+
+Product commits on the sole feature branch added independently reviewable existing-identity metadata bindings for **VENDORS**, **TENANTS** (existing active TENANT-role users), and **OWNERS** (existing active OWNER-role users), plus a read-only **LEASE_OCCUPANCY** relationship coverage check. The source format still requires explicit customer-provided CSV/XLSX column mappings; the source does not prove ownership, lease terms, rents, charges, accounting or authenticated customer entitlement. No customer objects are created or overwritten by these paths.
+
+The lease coverage result requires source-referenced **Property**, **Unit** and **Tenant** identities to be durably linked to valid same-organization targets and ensures the target Unit belongs to the target Property. A set of complete identity links is **not authorization** for an occupancy or lease commit. The lease endpoint continues returning `controlled_commit_enabled: false` and `customer_business_mutation: false`.
+
+**Verification status at writing:** the preceding replay and Unit safety batch is verified at HEAD `4d7356010500552b990a245984261db887bbaaef`, GitHub Actions `38340101268` successful. The route dispatch repair and new owner/vendor/tenant/lease batches through `7ca1fbfb543b881d5f63481d78f2509e5153f179` have been committed and await their own latest-SHA hosted CI; do not mark these new batches VERIFIED until green.
+
+**Next:** verify exact-SHA CI and fix any reds. Reconcile per-source relationship semantics and source contract blockers, then continue the next independently supportable read-only export/ETL review task. Do not infer owner-property percentages, tenant lease liability, lease payments, deposit receipts, historical balances or Yardi API credentials/endpoints.
