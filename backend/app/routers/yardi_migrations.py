@@ -452,12 +452,84 @@ def get_yardi_reconciliation(
         else:
             unresolved += 1
             stats["needs_review"] += 1
+    # Read-only lease identity dependency coverage. A complete dependency set is
+    # NOT evidence of an authorized lease, rent, occupancy or accounting import.
+    lease_rows = [row for row in rows if row.resource == "LEASE_OCCUPANCY"]
+    lease_links = {(item.resource, item.source_id): item for item in items}
+    mapped_properties = {item.target_id for item in items
+                         if item.resource == "PROPERTIES" and item.target_entity == "PROPERTY"}
+    mapped_units = {item.target_id for item in items
+                    if item.resource == "UNITS" and item.target_entity == "UNIT"}
+    mapped_tenants = {item.target_id for item in items
+                      if item.resource == "TENANTS" and item.target_entity == "TENANT_USER"}
+    valid_properties = {record.id for record in db.query(Property.id).filter(
+        Property.id.in_(mapped_properties),
+        Property.organization_id == run.organization_id,
+        Property.is_active.is_(True),
+        Property.deleted_at.is_(None),
+    ).all()}
+    valid_units = {record.id: record.property_id for record in db.query(
+        Unit.id, Unit.property_id,
+    ).join(Property, Unit.property_id == Property.id).filter(
+        Unit.id.in_(mapped_units),
+        Property.organization_id == run.organization_id,
+        Unit.is_active.is_(True),
+        Unit.deleted_at.is_(None),
+        Property.is_active.is_(True),
+        Property.deleted_at.is_(None),
+    ).all()}
+    valid_tenants = {record.id for record in db.query(User.id).filter(
+        User.id.in_(mapped_tenants),
+        User.organization_id == run.organization_id,
+        User.role == UserRole.TENANT,
+        User.is_active.is_(True),
+        User.deleted_at.is_(None),
+    ).all()}
+    lease_relationship_readiness = {
+        "staged": len(lease_rows), "complete_identity_links": 0,
+        "missing_property": 0, "missing_unit": 0, "missing_tenant": 0,
+        "unit_property_mismatch": 0, "invalid_or_skipped": 0,
+        "controlled_commit_enabled": False, "customer_business_mutation": False,
+    }
+    for lease_row in lease_rows:
+        if lease_row.errors or lease_row.disposition == "INVALID" or lease_row.resolution_action == "SKIP":
+            lease_relationship_readiness["invalid_or_skipped"] += 1
+            continue
+        data = lease_row.normalized_data or {}
+        property_link = lease_links.get(("PROPERTIES", str(data.get("source_property_id") or "").strip()))
+        unit_link = lease_links.get(("UNITS", str(data.get("source_unit_id") or "").strip()))
+        tenant_link = lease_links.get(("TENANTS", str(data.get("source_tenant_id") or "").strip()))
+        property_id = (
+            property_link.target_id if property_link and property_link.target_entity == "PROPERTY"
+            and property_link.target_id in valid_properties else None
+        )
+        unit_id = (
+            unit_link.target_id if unit_link and unit_link.target_entity == "UNIT"
+            and unit_link.target_id in valid_units else None
+        )
+        tenant_id = (
+            tenant_link.target_id if tenant_link and tenant_link.target_entity == "TENANT_USER"
+            and tenant_link.target_id in valid_tenants else None
+        )
+        if property_id is None:
+            lease_relationship_readiness["missing_property"] += 1
+        if unit_id is None:
+            lease_relationship_readiness["missing_unit"] += 1
+        if tenant_id is None:
+            lease_relationship_readiness["missing_tenant"] += 1
+        if property_id is not None and unit_id is not None and valid_units[unit_id] != property_id:
+            lease_relationship_readiness["unit_property_mismatch"] += 1
+        elif property_id is not None and unit_id is not None and tenant_id is not None:
+            lease_relationship_readiness["complete_identity_links"] += 1
+
     evidence = {
         "staged": [(r.id, r.resource, r.source_id, r.row_fingerprint, r.disposition,
                     r.resolution_action, r.resolution_target_id, r.resolution_target_unit_id,
                     r.resolution_target_vendor_id, r.resolution_target_tenant_user_id) for r in rows],
         "mapped": [(i.id, i.resource, i.source_id, i.target_entity, i.target_id,
                     i.source_fingerprint) for i in items],
+        "lease_dependency_coverage": lease_relationship_readiness,
+        "lease_unit_parent_relationships": sorted(valid_units.items()),
     }
     digest = hashlib.sha256(
         json.dumps(evidence, separators=(",", ":"), sort_keys=True).encode("utf-8")
@@ -466,6 +538,7 @@ def get_yardi_reconciliation(
     return {
         "run_id": run.id, "provider": "YARDI",
         "resource_coverage": resources,
+        "lease_relationship_readiness": lease_relationship_readiness,
         "staged_rows": len(rows), "durable_mapping_count": len(items),
         "invalid_rows": invalid, "unresolved_rows": unresolved,
         "skipped_rows": skipped,
