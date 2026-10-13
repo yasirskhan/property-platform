@@ -77,3 +77,15 @@ def test_yardi_committed_identity_inventory_is_authenticated_and_read_only():
     assert read.get("security"), "Durable mappings must require authenticated platform staff"
     parameters = {param["name"]: param for param in read["parameters"]}
     assert {"run_id", "resource", "offset", "limit"} <= parameters.keys()
+
+
+def test_yardi_per_lease_relationship_diagnostics_are_authenticated_get_only():
+    operations = app.openapi()["paths"]
+    path = "/api/platform/migrations/yardi/runs/{run_id}/lease-relationships"
+    assert path in operations
+    assert "get" in operations[path]
+    assert "post" not in operations[path]
+    method = operations[path]["get"]
+    assert method.get("security"), "Relationship preview must require staff authentication"
+    parameters = {parameter["name"] for parameter in method["parameters"]}
+    assert {"run_id", "offset", "limit"} <= parameters
