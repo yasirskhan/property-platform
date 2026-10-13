@@ -29,6 +29,7 @@ from app.models.platform_migration import PlatformMigrationRun
 from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.user import Organization
 from app.models.property import Property, Unit
+from app.models.vendor import Vendor
 from app.routers.platform_auth import get_current_platform_user
 from app.schemas.yardi_migration import YardiMigrationRunCreateIn, YardiMigrationRunOut
 from app.services.audit import append_audit_log
@@ -416,6 +417,12 @@ def get_yardi_reconciliation(
                         Property.organization_id == run.organization_id,
                     ).first() is not None
                 )
+            elif row.resource == "VENDORS":
+                target_valid = row.resolution_target_vendor_id is not None and db.query(Vendor.id).filter(
+                    Vendor.id == row.resolution_target_vendor_id,
+                    Vendor.organization_id == run.organization_id,
+                    Vendor.deleted_at.is_(None),
+                ).first() is not None
             elif row.resource == "PROPERTIES":
                 target_valid = row.resolution_target_id is not None and db.query(Property.id).filter(
                     Property.id == row.resolution_target_id,
@@ -438,7 +445,8 @@ def get_yardi_reconciliation(
             stats["needs_review"] += 1
     evidence = {
         "staged": [(r.id, r.resource, r.source_id, r.row_fingerprint, r.disposition,
-                    r.resolution_action, r.resolution_target_id, r.resolution_target_unit_id) for r in rows],
+                    r.resolution_action, r.resolution_target_id, r.resolution_target_unit_id,
+                    r.resolution_target_vendor_id) for r in rows],
         "mapped": [(i.id, i.resource, i.source_id, i.target_entity, i.target_id,
                     i.source_fingerprint) for i in items],
     }
@@ -723,6 +731,94 @@ def match_yardi_staged_property(
     return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": False}
 
 
+class YardiVendorMatchIn(BaseModel):
+    target_vendor_id: int
+
+
+@router.post("/runs/{run_id}/staged-rows/{row_id}/match-vendor")
+def match_yardi_staged_vendor(
+    run_id: int,
+    row_id: int,
+    payload: YardiVendorMatchIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Explicitly review existing vendor identity; do not alter customer vendors."""
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    row = db.query(PlatformMigrationStagedRow).filter(
+        PlatformMigrationStagedRow.id == row_id,
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "VENDORS",
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Yardi Vendor row not found.")
+    if row.errors or row.disposition == "INVALID" or not row.source_id:
+        raise HTTPException(status_code=422, detail="Invalid Vendor source row cannot be matched.")
+    replay = (
+        row.resolution_action == "MATCH_EXISTING"
+        and row.resolution_target_vendor_id == payload.target_vendor_id
+    )
+    if row.resolution_action is not None and not replay:
+        raise HTTPException(status_code=409, detail="Conflicting Vendor review decision.")
+    target = db.query(Vendor.id).filter(
+        Vendor.id == payload.target_vendor_id,
+        Vendor.organization_id == run.organization_id,
+        Vendor.deleted_at.is_(None),
+    ).with_for_update().first()
+    if target is None:
+        raise HTTPException(status_code=404, detail="Existing Vendor target unavailable in this organization.")
+    conflicting = db.query(PlatformMigrationItem.id).filter(
+        PlatformMigrationItem.organization_id == run.organization_id,
+        PlatformMigrationItem.provider == "YARDI",
+        PlatformMigrationItem.resource == "VENDORS",
+        or_(
+            (PlatformMigrationItem.target_entity == "VENDOR")
+            & (PlatformMigrationItem.target_id == target.id)
+            & ((PlatformMigrationItem.run_id != run.id)
+               | (PlatformMigrationItem.source_id != row.source_id)),
+            (PlatformMigrationItem.run_id == run.id)
+            & (PlatformMigrationItem.source_id == row.source_id)
+            & ((PlatformMigrationItem.target_entity != "VENDOR")
+               | (PlatformMigrationItem.target_id != target.id)),
+        ),
+    ).first()
+    if conflicting:
+        raise HTTPException(status_code=409, detail="Conflicting durable Yardi Vendor mapping.")
+    if replay:
+        return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": True}
+    claim = db.query(PlatformMigrationStagedRow.id).filter(
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "VENDORS",
+        PlatformMigrationStagedRow.id != row.id,
+        PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+        PlatformMigrationStagedRow.resolution_target_vendor_id == target.id,
+    ).first()
+    if claim:
+        raise HTTPException(status_code=409, detail="Another Yardi Vendor review claims this target.")
+    row.resolution_action = "MATCH_EXISTING"
+    row.resolution_target_vendor_id = target.id
+    row.resolved_by_platform_user_id = current_user.id
+    row.resolved_at = datetime.utcnow()
+    row.correction_evidence = list(row.correction_evidence or []) + [
+        {"action": "MATCH_EXISTING", "target_vendor_id": target.id},
+    ]
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    append_audit_log(
+        db, platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_staged_row", entity_id=row.id,
+        action="yardi_vendor_match_reviewed",
+        new_value={"run_id": run.id, "target_vendor_id": target.id,
+                   "customer_business_mutation": False},
+    )
+    db.commit()
+    return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": False}
+
+
 class YardiUnitMatchIn(BaseModel):
     target_unit_id: int
 
@@ -935,6 +1031,110 @@ def bind_yardi_reviewed_unit_matches(
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=409, detail="Durable Unit mapping conflicted.") from exc
+    return {"run_id": run.id, "provider": "YARDI", "bound": len(matches),
+            "replayed": False, "customer_business_mutation": False}
+
+
+@router.post("/runs/{run_id}/bind-reviewed-vendors")
+def bind_yardi_reviewed_vendor_matches(
+    run_id: int,
+    payload: YardiReviewedPropertyBindingIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Commit reviewed source-to-existing-Vendor metadata only."""
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    rows = db.query(PlatformMigrationStagedRow).filter(
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "VENDORS",
+    ).order_by(PlatformMigrationStagedRow.id.asc()).all()
+    if not rows:
+        raise HTTPException(status_code=422, detail="No Yardi Vendor rows staged.")
+    matches, sources, targets = [], set(), set()
+    for row in rows:
+        if row.errors or row.disposition == "INVALID":
+            raise HTTPException(status_code=409, detail="Invalid Vendor source staging blocks binding.")
+        if row.resolution_action == "SKIP":
+            continue
+        target_id = row.resolution_target_vendor_id
+        if row.resolution_action != "MATCH_EXISTING" or not row.source_id or target_id is None:
+            raise HTTPException(status_code=409, detail="All non-skipped Vendors require explicit review.")
+        if row.source_id in sources or target_id in targets:
+            raise HTTPException(status_code=409, detail="Duplicate Vendor source or target.")
+        sources.add(row.source_id)
+        targets.add(target_id)
+        matches.append(row)
+    if not matches:
+        raise HTTPException(status_code=422, detail="No reviewed existing Vendors to bind.")
+    already = 0
+    for row in matches:
+        mapped = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "YARDI",
+            PlatformMigrationItem.resource == "VENDORS",
+            PlatformMigrationItem.source_id == row.source_id,
+        ).first()
+        if mapped:
+            if (mapped.target_entity != "VENDOR" or mapped.target_id != row.resolution_target_vendor_id
+                    or mapped.source_fingerprint != row.row_fingerprint):
+                raise HTTPException(status_code=409, detail="Conflicting durable Vendor source mapping.")
+            already += 1
+    if already and already != len(matches):
+        raise HTTPException(status_code=409, detail="Partial Vendor bindings require reconciliation.")
+    if not already:
+        current = get_yardi_reconciliation(run_id, Response(), db, current_user)["review_fingerprint"]
+        if (not run.last_dry_run_fingerprint or payload.review_fingerprint != current
+                or run.last_dry_run_fingerprint != current):
+            raise HTTPException(status_code=409, detail="Current exact-fingerprint Vendor dry run required.")
+    ordered = sorted(matches, key=lambda row: row.resolution_target_vendor_id)
+    for row in ordered:
+        target = db.query(Vendor.id).filter(
+            Vendor.id == row.resolution_target_vendor_id,
+            Vendor.organization_id == run.organization_id,
+            Vendor.deleted_at.is_(None),
+        ).with_for_update().first()
+        if not target:
+            raise HTTPException(status_code=409, detail="Reviewed Vendor target no longer exists.")
+        collision = db.query(PlatformMigrationItem.id).filter(
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "YARDI",
+            PlatformMigrationItem.resource == "VENDORS",
+            PlatformMigrationItem.target_entity == "VENDOR",
+            PlatformMigrationItem.target_id == target.id,
+            or_(PlatformMigrationItem.run_id != run.id,
+                PlatformMigrationItem.source_id != row.source_id),
+        ).first()
+        if collision:
+            raise HTTPException(status_code=409, detail="Vendor target has conflicting source binding.")
+    if already:
+        return {"run_id": run.id, "provider": "YARDI", "bound": 0,
+                "replayed": True, "customer_business_mutation": False}
+    for row in ordered:
+        db.add(PlatformMigrationItem(
+            run_id=run.id, organization_id=run.organization_id,
+            provider="YARDI", resource="VENDORS",
+            source_id=row.source_id, target_entity="VENDOR",
+            target_id=row.resolution_target_vendor_id,
+            source_fingerprint=row.row_fingerprint,
+            created_by_platform_user_id=current_user.id,
+        ))
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    append_audit_log(
+        db, platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_run", entity_id=run.id,
+        action="yardi_vendor_existing_bindings_committed",
+        new_value={"matched_existing": len(matches), "customer_business_mutation": False},
+    )
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Durable Vendor mapping conflicted.") from exc
     return {"run_id": run.id, "provider": "YARDI", "bound": len(matches),
             "replayed": False, "customer_business_mutation": False}
 
