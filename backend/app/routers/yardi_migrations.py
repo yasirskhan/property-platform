@@ -317,6 +317,33 @@ def yardi_resource_readiness(
             "OPEN_PAYABLES", "BANK_ACCOUNTS", "CURRENT_YEAR_BUDGETS",
             "OUTSTANDING_CHECKS", "TRIAL_BALANCE", "GENERAL_LEDGER",
         ],
+        # The historical supported_staging_only key describes upload semantics.
+        # It is retained for existing consumers; these resources also support
+        # explicitly reviewed, metadata-only existing-target identity bindings.
+        "resource_capabilities": {
+            "PROPERTIES": {"csv_xlsx_staging": True, "reviewed_existing_target_binding": True,
+                           "customer_record_creation_enabled": False},
+            "UNITS": {"csv_xlsx_staging": True, "reviewed_existing_target_binding": True,
+                      "requires_same_run_parent_property": True,
+                      "customer_record_creation_enabled": False},
+            "OWNERS": {"csv_xlsx_staging": True, "reviewed_existing_target_binding": True,
+                       "ownership_relationship_import_enabled": False,
+                       "customer_record_creation_enabled": False},
+            "VENDORS": {"csv_xlsx_staging": True, "reviewed_existing_target_binding": True,
+                        "customer_record_creation_enabled": False},
+            "TENANTS": {"csv_xlsx_staging": True, "reviewed_existing_target_binding": True,
+                        "login_creation_enabled": False, "occupancy_import_enabled": False,
+                        "customer_record_creation_enabled": False},
+            "LEASE_OCCUPANCY": {"csv_xlsx_staging": True, "reviewed_existing_target_binding": False,
+                                "read_only_identity_relationship_preview": True,
+                                "lease_creation_enabled": False,
+                                "customer_record_creation_enabled": False},
+        },
+        "existing_target_metadata_binding_resources": [
+            "PROPERTIES", "UNITS", "OWNERS", "VENDORS", "TENANTS",
+        ],
+        "lease_relationship_preview_enabled": True,
+        "customer_business_mutation_enabled": False,
         "customer_records_created_by_upload": False,
         "financial_posting_enabled": False,
         "official_api_adapter_enabled": False,

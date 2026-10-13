@@ -1,3 +1,13 @@
+# AI_HANDOFF.md — 2026-10-13 YARDI SIX-JOB GREEN + RESOURCE CAPABILITY MATRIX
+
+**LATEST VERIFIED PRODUCT SHA:** `b6284ed465f70282d89072cd07d6f212ce3b16ca`; hosted CI **38348501467 SUCCESS**, **all six jobs PASSED**: backend/PostgreSQL (including fast Yardi regression gate), frontend, platform-admin, security, authenticated E2E and staging-config. Verified product scope: corrected Property/Unit binding route dispatch; existing Property/Unit/Owner/Vendor/Tenant metadata-only identity bindings with explicit review, exact-fingerprint dry run, collision/replay controls; and read-only lease source-identity relationship coverage. NO Yardi customer business record creation, lease posting or accounting mutation. Branch exclusively `chatgpt/checkpoint-005-safety`, never touch main.
+
+**PROVISIONAL NEXT BATCH (this commit):** Align `GET /api/platform/migrations/yardi/resource-readiness` with the verified resource capability matrix without removing the backwards-compatible `supported_staging_only` key. Add focused regression in `backend/tests/test_yardi_resource_readiness.py`; append `docs/YARDI_MIGRATION_PLAN.md` section 12. Must verify this exact-SHA CI before marking it verified.
+
+**NEXT AFTER GREEN:** Inspect platform-admin shell/auth and Yardi run/upload schemas; implement the first bounded operational Yardi staff workflow for authenticated upload, mapping, read-only reconciliation/dry run. Do not start general UX, financial import, guessed source contracts, official API adapters, Phase 4.16 or another branch. Continue automatically after green and update handoff per bounded batch.
+
+---
+
 # AI_HANDOFF.md — 2026-10-13 YARDI IDENTITY REVIEW AND LEASE COVERAGE BATCH
 
 **LIVE BRANCH:** `chatgpt/checkpoint-005-safety` ONLY; never `main` or another branch.
