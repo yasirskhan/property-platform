@@ -296,3 +296,13 @@ Next operational batch introduces `GET /api/platform/migrations/yardi/runs/{run_
 The exact-SHA CI gate adds backend tests for cross-organization/provider isolation, pagination, inactive/deleted target status, staff role authorization, redaction and customer-record nonmutation; the API route contract test requires authentication and GET-only access.
 
 **Provisional until CI:** product `747f54c3`, regression `b443a077`, staff UI `c2a72470`, API contract `b397bf8a`, fast CI suite `f4655421`. Do not mark verified before a six-job hosted run succeeds on this source and any later handoff commit. No ownership percentages, lease/occupancy records, financial postings or official Yardi API have been enabled.
+
+## 17. Durable Unit source-parent relationship revalidation (2026-10-13)
+
+Exact Phase 4.15 mapping-inventory checkpoint `834c373ce02b4475f30d7e98f11975d77f82dc07` was **VERIFIED** by six-job GitHub Actions run **38402880141**, with 1258 backend tests passed and 21 deselected. Its read-only durable bindings inventory shows active/nondeleted target record status, but this alone is insufficient to verify a Unit's source Property relationship.
+
+The follow-on batch adds a separate **tri-state `unit_parent_relationship_current`** to each Unit binding. If a committed Unit mapping has an exact matching, explicitly reviewed staged source row (matching run, organization, resource, source ID, source fingerprint and reviewed target Unit), its `source_property_id` must resolve through a durable same-run YARDI Property binding and match the Unit's *current* target `property_id`. A moved Unit now gets `false` even if both old and new Properties are active in the same organization. `true` requires a current matching parent; `null` means this exact source-parent relationship is unavailable or unverified. Non-Unit resources return null for this field.
+
+This diagnostic neither changes source-to-target mappings nor edits customer Units or Properties. The staff migration console explicitly distinguishes verified, mismatched, and unavailable parent relationship evidence; it does not automatically correct a stale mapping or infer occupancy.
+
+Provisional product commit `695618db`, regression `f93201b1`, staff UI `1b6b1b60`; exact-SHA hosted CI must pass all six jobs before this new batch is marked VERIFIED. Financial source contracts, official Yardi API, GL, payments, lease posting and ownership percentages remain blocked pending authoritative source evidence.
