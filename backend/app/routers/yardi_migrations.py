@@ -382,6 +382,81 @@ def yardi_resource_readiness(
     }
 
 
+@router.get("/runs/{run_id}/existing-targets")
+def list_yardi_existing_targets(
+    run_id: int,
+    response: Response,
+    resource: Literal["PROPERTIES", "UNITS", "OWNERS", "VENDORS", "TENANTS"],
+    q: str = Query(min_length=2, max_length=80),
+    limit: int = Query(default=20, ge=1, le=30),
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Scoped, bounded candidate picker: staff still must explicitly review matches.
+
+    Returns identity labels and IDs only. No source-row data, credentials,
+    tax/financial fields, password hashes or customer mutation.
+    """
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    search = q.strip()
+    if len(search) < 2:
+        raise HTTPException(status_code=422, detail="Enter at least two search characters.")
+    escaped = search.lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    pattern = f"%{escaped}%"
+    candidates = []
+    if resource == "PROPERTIES":
+        found = db.query(Property.id, Property.name).filter(
+            Property.organization_id == run.organization_id,
+            Property.is_active.is_(True),
+            Property.deleted_at.is_(None),
+            func.lower(Property.name).like(pattern, escape="\\"),
+        ).order_by(Property.id.asc()).limit(limit).all()
+        candidates = [{"id":id_, "label": name} for id_, name in found]
+    elif resource == "UNITS":
+        found = db.query(Unit.id, Unit.unit_number, Property.name).join(
+            Property, Unit.property_id == Property.id,
+        ).filter(
+            Property.organization_id == run.organization_id,
+            Property.is_active.is_(True),
+            Property.deleted_at.is_(None),
+            Unit.is_active.is_(True),
+            Unit.deleted_at.is_(None),
+            or_(
+                func.lower(Unit.unit_number).like(pattern, escape="\\"),
+                func.lower(Property.name).like(pattern, escape="\\"),
+            ),
+        ).order_by(Unit.id.asc()).limit(limit).all()
+        candidates = [{"id":id_, "label": f"{unit_number} — {property_name}"}
+                      for id_, unit_number, property_name in found]
+    elif resource == "VENDORS":
+        found = db.query(Vendor.id, Vendor.company_name).filter(
+            Vendor.organization_id == run.organization_id,
+            Vendor.deleted_at.is_(None),
+            func.lower(Vendor.company_name).like(pattern, escape="\\"),
+        ).order_by(Vendor.id.asc()).limit(limit).all()
+        candidates = [{"id":id_, "label": name} for id_, name in found]
+    else:
+        target_role = UserRole.OWNER if resource == "OWNERS" else UserRole.TENANT
+        found = db.query(User.id, User.first_name, User.last_name).filter(
+            User.organization_id == run.organization_id,
+            User.role == target_role,
+            User.is_active.is_(True),
+            User.deleted_at.is_(None),
+            or_(
+                func.lower(User.first_name).like(pattern, escape="\\"),
+                func.lower(User.last_name).like(pattern, escape="\\"),
+            ),
+        ).order_by(User.id.asc()).limit(limit).all()
+        candidates = [{"id":id_, "label": f"{first} {last}".strip()}
+                      for id_, first, last in found]
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "run_id": run.id, "resource": resource, "candidates": candidates,
+        "review_required": True, "auto_match_enabled": False,
+        "customer_business_mutation": False,
+    }
+
+
 @router.get("/runs/{run_id}/staging-preview")
 def preview_yardi_staging(
     run_id: int,
