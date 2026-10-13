@@ -164,3 +164,104 @@ def test_lease_row_review_rejects_unpermitted_roles_and_wrong_provider():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_lease_source_parent_conflict_even_when_current_unit_parent_matches():
+    from app.models.platform_migration import PlatformMigrationStagedRow
+
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-lease-original-source-parent")
+        original = Property(
+            organization_id=org.id, name="Original Source Parent",
+            address_line1="1 Main", city="Cleveland", state="OH", zip_code="44113",
+        )
+        current = Property(
+            organization_id=org.id, name="Another Active Parent",
+            address_line1="2 Main", city="Cleveland", state="OH", zip_code="44113",
+        )
+        tenant = User(
+            organization_id=org.id, role=UserRole.TENANT,
+            email="source-unit-parent@example.test", hashed_password="preserve-this-hash",
+            first_name="Original", last_name="Tenant", is_active=True,
+        )
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="unit-original-parent", status="DRAFT",
+        )
+        db.add_all([original, current, tenant, run])
+        db.flush()
+        unit = Unit(property_id=original.id, unit_number="101")
+        db.add(unit)
+        db.flush()
+        for resource, source, entity, target_id in (
+            ("PROPERTIES", "P1", "PROPERTY", original.id),
+            ("PROPERTIES", "P2", "PROPERTY", current.id),
+            ("TENANTS", "T1", "TENANT_USER", tenant.id),
+        ):
+            db.add(PlatformMigrationItem(
+                run_id=run.id, organization_id=org.id, provider="YARDI",
+                resource=resource, source_id=source, target_entity=entity,
+                target_id=target_id, source_fingerprint="reviewed-" + source,
+            ))
+        db.commit()
+        unit_upload = stage_yardi_file(
+            db, run=run, filename="unit-original-parent.csv",
+            content=b"Unit,Parent,Label\nU1,P1,101\n",
+            resource_override="UNITS", sheet_name=None,
+            explicit_mapping={
+                "source_id": "Unit", "source_property_id": "Parent",
+                "unit_name": "Label",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        reviewed = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == unit_upload.upload.id,
+        ).one()
+        reviewed.resolution_action = "MATCH_EXISTING"
+        reviewed.resolution_target_unit_id = unit.id
+        db.add(PlatformMigrationItem(
+            run_id=run.id, organization_id=org.id, provider="YARDI",
+            resource="UNITS", source_id="U1",
+            target_entity="UNIT", target_id=unit.id,
+            source_fingerprint=reviewed.row_fingerprint,
+        ))
+        db.commit()
+        stage_yardi_file(
+            db, run=run, filename="lease-source-parent.csv",
+            content=b"Lease,Tenant,Property,Unit\nL1,T1,P1,U1\nL2,T1,P2,U1\n",
+            resource_override="LEASE_OCCUPANCY", sheet_name=None,
+            explicit_mapping={
+                "source_id": "Lease", "source_tenant_id": "Tenant",
+                "source_property_id": "Property", "source_unit_id": "Unit",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        before = db.query(Lease).count()
+        review = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )
+        assert [item["unit_source_parent_matches_lease"] for item in review["items"]] == [True, False]
+        assert review["items"][0]["blockers"] == []
+        assert review["items"][1]["blockers"] == [
+            "UNIT_PROPERTY_MISMATCH", "UNIT_SOURCE_PARENT_MISMATCH",
+        ]
+
+        unit.property_id = current.id
+        db.commit()
+        changed = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )
+        assert changed["items"][0]["blockers"] == ["UNIT_PROPERTY_MISMATCH"]
+        assert changed["items"][1]["blockers"] == ["UNIT_SOURCE_PARENT_MISMATCH"]
+        assert changed["items"][1]["identity_links_complete"] is False
+        assert changed["items"][1]["occupancy_or_lease_authorized"] is False
+        assert changed["customer_business_mutation"] is False
+        assert "preserve-this-hash" not in str(changed)
+        assert db.query(Lease).count() == before
+        db.refresh(unit)
+        assert unit.unit_number == "101"
+    finally:
+        db.close()
+        engine.dispose()
