@@ -68,6 +68,7 @@ type DurableBinding = {
   target_entity: string;
   target_id: number;
   target_current: boolean;
+  unit_parent_relationship_current: boolean | null;
   created_by_platform_user_id: number | null;
   created_at: string | null;
 };
@@ -619,7 +620,12 @@ export default function YardiMigrationConsole() {
                   <td className="p-2">{item.resource}</td>
                   <td className="p-2 font-mono text-xs">{item.source_id}</td>
                   <td className="p-2 font-mono text-xs">{item.target_entity} #{item.target_id}</td>
-                  <td className="p-2">{item.target_current ? "Active target" : "Unavailable — reconcile"}</td>
+                  <td className="p-2">
+                    <span>{item.target_current ? "Active target" : "Unavailable — reconcile"}</span>
+                    {item.resource === "UNITS" && <span className="mt-1 block text-xs text-slate-600">
+                      {item.unit_parent_relationship_current === true ? "Source parent verified" : item.unit_parent_relationship_current === false ? "Source parent mismatch — reconcile" : "Source parent not verified"}
+                    </span>}
+                  </td>
                   <td className="p-2 text-xs">
                     {item.created_by_platform_user_id == null ? "System/unknown" : "Staff #" + item.created_by_platform_user_id}
                     {item.created_at && <span className="block">{new Date(item.created_at).toLocaleString()}</span>}
