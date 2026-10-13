@@ -30,6 +30,7 @@ from app.models.platform_user import PlatformUser, PlatformUserRole
 from app.models.user import Organization
 from app.models.property import Property, Unit
 from app.models.vendor import Vendor
+from app.models.user import User, UserRole
 from app.routers.platform_auth import get_current_platform_user
 from app.schemas.yardi_migration import YardiMigrationRunCreateIn, YardiMigrationRunOut
 from app.services.audit import append_audit_log
@@ -417,6 +418,14 @@ def get_yardi_reconciliation(
                         Property.organization_id == run.organization_id,
                     ).first() is not None
                 )
+            elif row.resource == "TENANTS":
+                target_valid = row.resolution_target_tenant_user_id is not None and db.query(User.id).filter(
+                    User.id == row.resolution_target_tenant_user_id,
+                    User.organization_id == run.organization_id,
+                    User.role == UserRole.TENANT,
+                    User.is_active.is_(True),
+                    User.deleted_at.is_(None),
+                ).first() is not None
             elif row.resource == "VENDORS":
                 target_valid = row.resolution_target_vendor_id is not None and db.query(Vendor.id).filter(
                     Vendor.id == row.resolution_target_vendor_id,
@@ -446,7 +455,7 @@ def get_yardi_reconciliation(
     evidence = {
         "staged": [(r.id, r.resource, r.source_id, r.row_fingerprint, r.disposition,
                     r.resolution_action, r.resolution_target_id, r.resolution_target_unit_id,
-                    r.resolution_target_vendor_id) for r in rows],
+                    r.resolution_target_vendor_id, r.resolution_target_tenant_user_id) for r in rows],
         "mapped": [(i.id, i.resource, i.source_id, i.target_entity, i.target_id,
                     i.source_fingerprint) for i in items],
     }
@@ -725,6 +734,96 @@ def match_yardi_staged_property(
         entity_type="platform_migration_staged_row", entity_id=row.id,
         action="yardi_property_match_reviewed",
         new_value={"run_id": run.id, "target_property_id": payload.target_property_id,
+                   "customer_business_mutation": False},
+    )
+    db.commit()
+    return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": False}
+
+
+class YardiTenantMatchIn(BaseModel):
+    target_tenant_user_id: int
+
+
+@router.post("/runs/{run_id}/staged-rows/{row_id}/match-tenant")
+def match_yardi_staged_tenant(
+    run_id: int,
+    row_id: int,
+    payload: YardiTenantMatchIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Review an existing tenant identity, without login or lease creation."""
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    row = db.query(PlatformMigrationStagedRow).filter(
+        PlatformMigrationStagedRow.id == row_id,
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "TENANTS",
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Yardi Tenant row not found.")
+    if row.errors or row.disposition == "INVALID" or not row.source_id:
+        raise HTTPException(status_code=422, detail="Invalid Tenant source row cannot be matched.")
+    replay = (
+        row.resolution_action == "MATCH_EXISTING"
+        and row.resolution_target_tenant_user_id == payload.target_tenant_user_id
+    )
+    if row.resolution_action is not None and not replay:
+        raise HTTPException(status_code=409, detail="Conflicting Tenant review decision.")
+    target = db.query(User.id).filter(
+        User.id == payload.target_tenant_user_id,
+        User.organization_id == run.organization_id,
+        User.role == UserRole.TENANT,
+        User.is_active.is_(True),
+        User.deleted_at.is_(None),
+    ).with_for_update().first()
+    if target is None:
+        raise HTTPException(status_code=404, detail="Existing Tenant user target unavailable.")
+    collision = db.query(PlatformMigrationItem.id).filter(
+        PlatformMigrationItem.organization_id == run.organization_id,
+        PlatformMigrationItem.provider == "YARDI",
+        PlatformMigrationItem.resource == "TENANTS",
+        or_(
+            (PlatformMigrationItem.target_entity == "TENANT_USER")
+            & (PlatformMigrationItem.target_id == target.id)
+            & ((PlatformMigrationItem.run_id != run.id)
+               | (PlatformMigrationItem.source_id != row.source_id)),
+            (PlatformMigrationItem.run_id == run.id)
+            & (PlatformMigrationItem.source_id == row.source_id)
+            & ((PlatformMigrationItem.target_entity != "TENANT_USER")
+               | (PlatformMigrationItem.target_id != target.id)),
+        ),
+    ).first()
+    if collision:
+        raise HTTPException(status_code=409, detail="Conflicting durable Yardi Tenant mapping.")
+    if replay:
+        return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": True}
+    claimed = db.query(PlatformMigrationStagedRow.id).filter(
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "TENANTS",
+        PlatformMigrationStagedRow.id != row.id,
+        PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+        PlatformMigrationStagedRow.resolution_target_tenant_user_id == target.id,
+    ).first()
+    if claimed:
+        raise HTTPException(status_code=409, detail="Another Yardi Tenant review claims this user.")
+    row.resolution_action = "MATCH_EXISTING"
+    row.resolution_target_tenant_user_id = target.id
+    row.resolved_by_platform_user_id = current_user.id
+    row.resolved_at = datetime.utcnow()
+    row.correction_evidence = list(row.correction_evidence or []) + [
+        {"action": "MATCH_EXISTING", "target_tenant_user_id": target.id},
+    ]
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    append_audit_log(
+        db, platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_staged_row", entity_id=row.id,
+        action="yardi_tenant_match_reviewed",
+        new_value={"run_id": run.id, "target_tenant_user_id": target.id,
                    "customer_business_mutation": False},
     )
     db.commit()
@@ -1135,6 +1234,112 @@ def bind_yardi_reviewed_vendor_matches(
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=409, detail="Durable Vendor mapping conflicted.") from exc
+    return {"run_id": run.id, "provider": "YARDI", "bound": len(matches),
+            "replayed": False, "customer_business_mutation": False}
+
+
+@router.post("/runs/{run_id}/bind-reviewed-tenants")
+def bind_yardi_reviewed_tenant_matches(
+    run_id: int,
+    payload: YardiReviewedPropertyBindingIn,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Persist tenant-user identity mapping metadata without changing users or leases."""
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    rows = db.query(PlatformMigrationStagedRow).filter(
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "TENANTS",
+    ).order_by(PlatformMigrationStagedRow.id.asc()).all()
+    if not rows:
+        raise HTTPException(status_code=422, detail="No Yardi Tenant rows staged.")
+    matches, sources, targets = [], set(), set()
+    for row in rows:
+        if row.errors or row.disposition == "INVALID":
+            raise HTTPException(status_code=409, detail="Invalid Tenant source staging blocks binding.")
+        if row.resolution_action == "SKIP":
+            continue
+        target_id = row.resolution_target_tenant_user_id
+        if row.resolution_action != "MATCH_EXISTING" or not row.source_id or target_id is None:
+            raise HTTPException(status_code=409, detail="All non-skipped Tenants require explicit review.")
+        if row.source_id in sources or target_id in targets:
+            raise HTTPException(status_code=409, detail="Duplicate Tenant source or target.")
+        sources.add(row.source_id)
+        targets.add(target_id)
+        matches.append(row)
+    if not matches:
+        raise HTTPException(status_code=422, detail="No reviewed existing Tenants to bind.")
+    already = 0
+    for row in matches:
+        mapped = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "YARDI",
+            PlatformMigrationItem.resource == "TENANTS",
+            PlatformMigrationItem.source_id == row.source_id,
+        ).first()
+        if mapped:
+            if (mapped.target_entity != "TENANT_USER" or mapped.target_id != row.resolution_target_tenant_user_id
+                    or mapped.source_fingerprint != row.row_fingerprint):
+                raise HTTPException(status_code=409, detail="Conflicting durable Tenant source mapping.")
+            already += 1
+    if already and already != len(matches):
+        raise HTTPException(status_code=409, detail="Partial Tenant bindings require reconciliation.")
+    if not already:
+        current = get_yardi_reconciliation(run_id, Response(), db, current_user)["review_fingerprint"]
+        if (not run.last_dry_run_fingerprint or payload.review_fingerprint != current
+                or run.last_dry_run_fingerprint != current):
+            raise HTTPException(status_code=409, detail="Current exact-fingerprint Tenant dry run required.")
+    ordered = sorted(matches, key=lambda row: row.resolution_target_tenant_user_id)
+    for row in ordered:
+        target = db.query(User.id).filter(
+            User.id == row.resolution_target_tenant_user_id,
+            User.organization_id == run.organization_id,
+            User.role == UserRole.TENANT,
+            User.is_active.is_(True),
+            User.deleted_at.is_(None),
+        ).with_for_update().first()
+        if target is None:
+            raise HTTPException(status_code=409, detail="Reviewed Tenant user unavailable.")
+        collision = db.query(PlatformMigrationItem.id).filter(
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "YARDI",
+            PlatformMigrationItem.resource == "TENANTS",
+            PlatformMigrationItem.target_entity == "TENANT_USER",
+            PlatformMigrationItem.target_id == target.id,
+            or_(PlatformMigrationItem.run_id != run.id,
+                PlatformMigrationItem.source_id != row.source_id),
+        ).first()
+        if collision:
+            raise HTTPException(status_code=409, detail="Tenant user has conflicting source binding.")
+    if already:
+        return {"run_id": run.id, "provider": "YARDI", "bound": 0,
+                "replayed": True, "customer_business_mutation": False}
+    for row in ordered:
+        db.add(PlatformMigrationItem(
+            run_id=run.id, organization_id=run.organization_id,
+            provider="YARDI", resource="TENANTS",
+            source_id=row.source_id, target_entity="TENANT_USER",
+            target_id=row.resolution_target_tenant_user_id,
+            source_fingerprint=row.row_fingerprint,
+            created_by_platform_user_id=current_user.id,
+        ))
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    append_audit_log(
+        db, platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_run", entity_id=run.id,
+        action="yardi_tenant_existing_bindings_committed",
+        new_value={"matched_existing": len(matches), "customer_business_mutation": False},
+    )
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Durable Tenant mapping conflicted.") from exc
     return {"run_id": run.id, "provider": "YARDI", "bound": len(matches),
             "replayed": False, "customer_business_mutation": False}
 
