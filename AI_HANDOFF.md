@@ -1,3 +1,12 @@
+# AI_HANDOFF.md — 2026-10-13 YARDI LEASE PER-ROW VERIFIED; ORIGINAL UNIT SOURCE PARENT PROVISIONAL
+
+**LAST FULLY VERIFIED PRODUCT SHA:** `194f638eb01404c0b7db0a52e8f5aa6704e10ce7`, exact GitHub Actions run **38416611368 SUCCESS**, all six jobs PASS, backend/PostgreSQL **1262 passed, 21 deselected**. Read-only per-lease staged source relationship blockers for Property, Unit and Tenant, scope/pagination/auth/nonmutation tests, and staff console panel are VERIFIED. Customer lease/occupancy and financial mutation remain disabled.
+
+**CURRENT NEXT BOUNDED BATCH, PROVISIONAL UNTIL SIX-JOB GREEN:** `3a275cf0` detects lease source Property vs exact-reviewed same-run Unit original Yardi source-parent mismatch at row level, including when current Unit target parent matches the lease target; `96c34d9f` makes aggregate reconciliation source-parent conflict count consistent with per-row evidence. `7ab08a01` and `15d7156c` regression tests, `504edff6` and `343b558b` staff console diagnostics, `06d7529d` plan section 19. **Verify latest exact-SHA hosted CI and repair reds before marking this batch VERIFIED.** Do not claim lease source-parent evidence when missing; treat as explicitly unknown.
+
+**NEXT AFTER GREEN:** Continue to independently supportable read-only Yardi migration validation/reconciliation improvements or source-contract gap reporting. Never create leases, occupancy, charges, GL entries, deposits, financial history, ownership percentage links or unofficial API routes without actual source contract. Continue on ONLY `chatgpt/checkpoint-005-safety`; never main or a new branch. Phase **4.15 IN PROGRESS**. Repeat implement → tests → commit → hosted CI → fix reds → verify exact SHA → handoff → immediately next batch, no stop after green.
+
+---
 # AI_HANDOFF.md — 2026-10-13 VERIFIED PER-LEASE YARDI RELATIONSHIP DIAGNOSTICS
 
 **LATEST VERIFIED PRODUCT SHA:** `194f638eb01404c0b7db0a52e8f5aa6704e10ce7`, exact GitHub Actions **38416611368 SUCCESS**. All six jobs green: backend/PostgreSQL **1262 passed, 21 deselected**, frontend, platform-admin, security, authenticated E2E and staging-config. Phase 4.15 per-lease read-only source dependency endpoint `/runs/{run_id}/lease-relationships` and platform staff console showing missing/inactive Property, Unit and Tenant identity links, unit target-parent mismatches, invalid/skipped source, bounded pagination, scoped roles and no customer lease/financial mutation are VERIFIED.
