@@ -223,7 +223,13 @@ def test_yardi_run_is_provider_isolated_and_routes_are_exposed():
 
 def test_yardi_binding_routes_have_correct_handlers():
     from app.main import app
-    assert "/api/platform/migrations/yardi/runs" in app.openapi()["paths"]
+    exposed = set(app.openapi()["paths"])
+    assert "/api/platform/migrations/yardi/runs" in exposed
+    defined = {route.path for route in api.router.routes if hasattr(route, "path")}
+    assert defined <= exposed, {
+        "missing_mounted_yardi_paths": sorted(defined - exposed),
+        "mounted_yardi_paths": sorted(p for p in exposed if "/yardi/" in p),
+    }
     endpoints = {route.path: route.endpoint for route in api.router.routes if hasattr(route, "endpoint")}
     prefix = "/api/platform/migrations/yardi/runs/{run_id}"
     assert endpoints[prefix + "/properties/bind-reviewed-matches"] is api.bind_yardi_reviewed_property_matches
