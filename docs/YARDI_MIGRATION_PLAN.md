@@ -306,3 +306,14 @@ The follow-on batch adds a separate **tri-state `unit_parent_relationship_curren
 This diagnostic neither changes source-to-target mappings nor edits customer Units or Properties. The staff migration console explicitly distinguishes verified, mismatched, and unavailable parent relationship evidence; it does not automatically correct a stale mapping or infer occupancy.
 
 Provisional product commit `695618db`, regression `f93201b1`, staff UI `1b6b1b60`; exact-SHA hosted CI must pass all six jobs before this new batch is marked VERIFIED. Financial source contracts, official Yardi API, GL, payments, lease posting and ownership percentages remain blocked pending authoritative source evidence.
+
+
+## 18. Per-lease source relationship diagnostics (2026-10-13)
+
+**Prerequisite verified:** Unit source-parent relationship diagnostics at exact source SHA `3a6ecd5101ecf52a6c1e05b7b66922a4c892799f`, GitHub Actions **38405573366 SUCCESS**, all six jobs passed, backend **1259 passed, 21 deselected**. The durable Unit inventory distinguishes exact verified source-parent relationships from an active but reparented Unit.
+
+The next bounded operational batch adds `GET /api/platform/migrations/yardi/runs/{run_id}/lease-relationships`. It queries existing organization/run/provider-scoped `LEASE_OCCUPANCY` staged rows and same-run durable Property, Unit and Tenant metadata bindings. The endpoint reports **bounded per-row blocker codes** for missing/inactive source identity mappings, invalid/skipped source rows and active Unit-to-Property mismatches. It returns source lease identity and row number but no raw resident information, bank data, rent values, deposits, source file bytes or customer record names. Page size is capped at 100. Staff can view it in the internal Yardi console and inspect which exact lease source identities remain blocked.
+
+Even when `identity_links_complete=true`, the response explicitly sets `occupancy_or_lease_authorized=false`, `controlled_commit_enabled=false`, and `customer_business_mutation=false`. Nothing creates a lease, changes a tenant, registers occupancy, posts charges, imports financial history or supplies unsupported Yardi source contracts.
+
+**Provisional until exact-SHA CI:** read-only endpoint `49e3cd1a`; regression `fb12c1cd`; UI `fd8f82bc`; OpenAPI/auth contract `9e8c61bc`; fast regression suite `e558d786`. Verify all six hosted CI jobs, repair any failures before marking verified, then proceed with the next bounded Phase 4.15 review task.
