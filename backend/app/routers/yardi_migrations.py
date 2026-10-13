@@ -457,6 +457,90 @@ def list_yardi_existing_targets(
     }
 
 
+@router.get("/runs/{run_id}/bindings")
+def list_yardi_durable_bindings(
+    run_id: int,
+    response: Response,
+    resource: Literal["PROPERTIES", "UNITS", "OWNERS", "VENDORS", "TENANTS"] | None = None,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Read-only, organization-scoped inventory of committed migration identity metadata.
+
+    No source file contents or customer record details are returned. An identity
+    binding is not a lease, an occupancy determination, or an accounting posting.
+    """
+    run = _run(db, run_id=run_id, current_user=current_user, write=False)
+    supported = ("PROPERTIES", "UNITS", "OWNERS", "VENDORS", "TENANTS")
+    query = db.query(PlatformMigrationItem).filter(
+        PlatformMigrationItem.run_id == run.id,
+        PlatformMigrationItem.organization_id == run.organization_id,
+        PlatformMigrationItem.provider == "YARDI",
+        PlatformMigrationItem.resource.in_(supported),
+    )
+    if resource is not None:
+        query = query.filter(PlatformMigrationItem.resource == resource)
+    count = query.count()
+    bindings = query.order_by(
+        PlatformMigrationItem.id.asc(),
+    ).offset(offset).limit(limit).all()
+    results = []
+    entity_by_resource = {
+        "PROPERTIES": "PROPERTY",
+        "UNITS": "UNIT",
+        "OWNERS": "OWNER_USER",
+        "VENDORS": "VENDOR",
+        "TENANTS": "TENANT_USER",
+    }
+    for item in bindings:
+        valid_entity = item.target_entity == entity_by_resource[item.resource]
+        target_current = False
+        if valid_entity and item.resource == "PROPERTIES":
+            target_current = db.query(Property.id).filter(
+                Property.id == item.target_id,
+                Property.organization_id == run.organization_id,
+                Property.is_active.is_(True),
+                Property.deleted_at.is_(None),
+            ).first() is not None
+        elif valid_entity and item.resource == "UNITS":
+            target_current = db.query(Unit.id).join(
+                Property, Unit.property_id == Property.id,
+            ).filter(
+                Unit.id == item.target_id,
+                Property.organization_id == run.organization_id,
+                Unit.is_active.is_(True), Unit.deleted_at.is_(None),
+                Property.is_active.is_(True), Property.deleted_at.is_(None),
+            ).first() is not None
+        elif valid_entity and item.resource in ("OWNERS", "TENANTS"):
+            target_role = UserRole.OWNER if item.resource == "OWNERS" else UserRole.TENANT
+            target_current = db.query(User.id).filter(
+                User.id == item.target_id, User.organization_id == run.organization_id,
+                User.role == target_role, User.is_active.is_(True),
+                User.deleted_at.is_(None),
+            ).first() is not None
+        elif valid_entity and item.resource == "VENDORS":
+            target_current = db.query(Vendor.id).filter(
+                Vendor.id == item.target_id,
+                Vendor.organization_id == run.organization_id,
+                Vendor.deleted_at.is_(None),
+            ).first() is not None
+        results.append({
+            "id": item.id, "resource": item.resource, "source_id": item.source_id,
+            "target_entity": item.target_entity, "target_id": item.target_id,
+            "target_current": target_current,
+            "created_by_platform_user_id": item.created_by_platform_user_id,
+            "created_at": item.created_at.isoformat() if item.created_at else None,
+        })
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "run_id": run.id, "organization_id": run.organization_id, "provider": "YARDI",
+        "total": count, "offset": offset, "limit": limit, "items": results,
+        "read_only": True, "customer_business_mutation": False,
+    }
+
+
 @router.get("/runs/{run_id}/staging-preview")
 def preview_yardi_staging(
     run_id: int,
