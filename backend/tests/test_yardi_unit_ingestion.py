@@ -112,6 +112,25 @@ def test_yardi_unit_match_requires_mapped_parent_and_preserves_customer_unit():
         assert match_yardi_staged_unit(
             run.id, row.id, YardiUnitMatchIn(target_unit_id=target.id), db, actor,
         )["replayed"] is True
+        # A replay must revalidate its parent mapping, not trust a stale review.
+        parent_mapping = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "PROPERTIES",
+        ).one()
+        db.delete(parent_mapping)
+        db.commit()
+        with pytest.raises(HTTPException) as missing_on_replay:
+            match_yardi_staged_unit(
+                run.id, row.id, YardiUnitMatchIn(target_unit_id=target.id), db, actor,
+            )
+        assert missing_on_replay.value.status_code == 409
+        db.add(PlatformMigrationItem(
+            run_id=run.id, organization_id=org.id, provider="YARDI",
+            resource="PROPERTIES", source_id="P-1",
+            target_entity="PROPERTY", target_id=property_row.id,
+            source_fingerprint="verified-property-fingerprint",
+        ))
+        db.commit()
         from app.routers.yardi_migrations import (
             dry_run_yardi_review, bind_yardi_reviewed_unit_matches,
             YardiReviewedPropertyBindingIn,
