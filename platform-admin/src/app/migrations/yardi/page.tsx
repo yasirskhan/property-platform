@@ -54,6 +54,9 @@ type StagedRow = {
   resolution_target_owner_user_id?: number | null;
   resolution_target_vendor_id?: number | null;
   resolution_target_tenant_user_id?: number | null;
+  resolved_by_platform_user_id?: number | null;
+  resolved_at?: string | null;
+  correction_evidence?: { action?: string; reason_code?: string }[];
   errors: string[];
   warnings: string[];
 };
@@ -455,6 +458,11 @@ export default function YardiMigrationConsole() {
                   <td className="p-2">{row.disposition}</td>
                   <td className="p-2">
                     <span>{row.resolution_action ?? "PENDING"}</span>
+                    {row.resolution_action && <div className="mt-1 text-xs text-slate-600">
+                      {row.resolved_by_platform_user_id !== null && row.resolved_by_platform_user_id !== undefined && <span>Platform reviewer #{row.resolved_by_platform_user_id}</span>}
+                      {row.resolved_at && <span className="block">{new Date(row.resolved_at).toLocaleString()}</span>}
+                      {row.resolution_action === "SKIP" && row.correction_evidence?.filter((item) => item.action === "SKIP").map((item) => item.reason_code).filter(Boolean).slice(-1).map((reason) => <span className="block" key={reason}>Reason: {reason?.replaceAll("_", " ")}</span>)}
+                    </div>}
                     {row.resolution_action === "MATCH_EXISTING" && <span className="block text-xs text-slate-600">Target #{String(row.resolution_target_id ?? row.resolution_target_unit_id ?? row.resolution_target_owner_user_id ?? row.resolution_target_vendor_id ?? row.resolution_target_tenant_user_id ?? "—")}</span>}
                     {canWrite && !row.resolution_action && <div className="mt-2 flex min-w-44 flex-col gap-2">
                       {row.errors.length === 0 && row.disposition !== "INVALID" && MATCH_RESOURCES[row.resource as Resource] && <>
