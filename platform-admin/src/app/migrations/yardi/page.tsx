@@ -80,6 +80,24 @@ type DurableBindingInventory = {
   read_only: true;
   customer_business_mutation: false;
 };
+type LeaseRelationshipRow = {
+  staged_row_id: number;
+  row_number: number;
+  source_id: string | null;
+  blockers: string[];
+  identity_links_complete: boolean;
+  occupancy_or_lease_authorized: false;
+};
+type LeaseRelationshipPreview = {
+  run_id: number;
+  total: number;
+  offset: number;
+  limit: number;
+  items: LeaseRelationshipRow[];
+  read_only: true;
+  controlled_commit_enabled: false;
+  customer_business_mutation: false;
+};
 type Reconciliation = {
   review_fingerprint: string;
   staged_rows: number;
@@ -138,6 +156,9 @@ export default function YardiMigrationConsole() {
   const [bindingOffset, setBindingOffset] = useState(0);
   const [bindingFilter, setBindingFilter] = useState<Resource | "ALL">("ALL");
   const BINDING_PAGE_SIZE = 50;
+  const [leasePreview, setLeasePreview] = useState<LeaseRelationshipPreview | null>(null);
+  const [leaseOffset, setLeaseOffset] = useState(0);
+  const LEASE_PAGE_SIZE = 50;
   const [reconciliation, setReconciliation] = useState<Reconciliation | null>(null);
   const [readiness, setReadiness] = useState<ResourceReadiness | null>(null);
   const [dryRun, setDryRun] = useState<ReviewDryRun | null>(null);
@@ -235,6 +256,20 @@ export default function YardiMigrationConsole() {
       .catch((err: unknown) => { if (active) setError(readableError(err)); });
     return () => { active = false; };
   }, [selectedRunId, bindingOffset, bindingFilter, refreshKey]);
+
+  useEffect(() => {
+    if (selectedRunId === null) return;
+    let active = true;
+    platformGet(
+      ROOT + "/runs/" + selectedRunId + "/lease-relationships?offset="
+        + leaseOffset + "&limit=" + LEASE_PAGE_SIZE
+    ).then((data: LeaseRelationshipPreview) => {
+      if (active) setLeasePreview(data);
+    }).catch((err: unknown) => {
+      if (active) setError(readableError(err));
+    });
+    return () => { active = false; };
+  }, [selectedRunId, leaseOffset, refreshKey]);
 
   async function perform(work: () => Promise<void>) {
     if (busy) return;
@@ -434,6 +469,8 @@ export default function YardiMigrationConsole() {
             setTargetIds({});
             setBindingInventory(null);
             setBindingOffset(0);
+            setLeasePreview(null);
+            setLeaseOffset(0);
             setDryRun(null);
           }}>
             <option value="">Select run</option>
@@ -593,6 +630,42 @@ export default function YardiMigrationConsole() {
               </div>
             </div>}
           </>}
+        </section>}
+        {selectedRun && <section className="rounded-xl border bg-white p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">Lease source relationship review</h2>
+            <button type="button" disabled={busy} className="rounded border px-3 py-2 text-xs disabled:opacity-50" onClick={() => setRefreshKey((key) => key + 1)}>Refresh relationships</button>
+          </div>
+          <p className="mt-2 text-sm text-slate-600">
+            Read-only diagnostics for staged lease source IDs against the same-run Property, Unit and Tenant identity bindings. Complete identity links do not authorize a lease, occupancy, rent, payment, deposit or accounting import.
+          </p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b text-xs uppercase text-slate-500">
+                <tr><th className="p-2">Source lease</th><th className="p-2">Row</th><th className="p-2">Identity dependencies</th><th className="p-2">Customer mutation</th></tr>
+              </thead>
+              <tbody className="divide-y">
+                {leasePreview?.items.map((item) => <tr key={item.staged_row_id}>
+                  <td className="p-2 font-mono text-xs">{item.source_id ?? "—"}</td>
+                  <td className="p-2">{item.row_number}</td>
+                  <td className="p-2">
+                    {item.identity_links_complete
+                      ? "Identity links found — lease still not authorized"
+                      : item.blockers.map((blocker) => blocker.replaceAll("_", " ").toLowerCase()).join("; ")}
+                  </td>
+                  <td className="p-2">Disabled</td>
+                </tr>)}
+                {leasePreview?.items.length === 0 && <tr><td colSpan={4} className="p-3 text-slate-500">No staged lease source identities for this selection.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <span>Showing {leasePreview?.items.length ? leaseOffset + 1 : 0}–{leaseOffset + (leasePreview?.items.length ?? 0)} of {leasePreview?.total ?? 0} source lease rows.</span>
+            <div className="flex gap-2">
+              <button type="button" disabled={busy || leaseOffset === 0} className="rounded border px-3 py-2 disabled:opacity-50" onClick={() => { setLeasePreview(null); setLeaseOffset((offset) => Math.max(0, offset - LEASE_PAGE_SIZE)); }}>Previous</button>
+              <button type="button" disabled={busy || !leasePreview || leaseOffset + leasePreview.items.length >= leasePreview.total} className="rounded border px-3 py-2 disabled:opacity-50" onClick={() => { setLeasePreview(null); setLeaseOffset((offset) => offset + LEASE_PAGE_SIZE); }}>Next</button>
+            </div>
+          </div>
         </section>}
         {selectedRun && <section className="rounded-xl border bg-white p-5">
           <h2 className="text-lg font-semibold">Committed identity mappings</h2>
