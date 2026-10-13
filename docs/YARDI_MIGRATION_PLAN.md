@@ -274,3 +274,14 @@ The authenticated internal Yardi migration console now provides per-row existing
 These controls do not create or modify customer Property, Unit, User, Vendor, Lease, ownership interests, GL entries, receipts, payments or historical balances. `LEASE_OCCUPANCY` is intentionally excluded from existing-target binding; its relationship preview remains strictly read-only.
 
 **Verification:** Staff review UI commit `dcf9f6b0` and invalid-row skip fix `04768173` plus explicit authenticated-review API contract tests `6e4efb7e` remain provisional until latest exact-SHA hosted CI is successful. The previous staff upload/header-inspection checkpoint `a79b0d163175cbaf7d3df0227cf5f57df13fd266` was green in run `38358321235`. Future work after verification should address auditable staff operation feedback and row pagination, not general UX or financial source assumptions.
+
+
+## 15. Staff-only existing-target candidate lookup (2026-10-13)
+
+The previous staff review, row pagination and audit-evidence UI batch passed **all six** hosted CI jobs on exact SHA `f6dabfe4b682535893fb40c7f911c8ef82fc7c15` (GitHub Actions `38360831046`; **1253 backend tests passed, 21 deselected**). Metadata-only review/bind operations remain restricted to platform admin/tech/dev roles; no customer record creation or financial posting.
+
+The next bounded operational batch provides `GET /api/platform/migrations/yardi/runs/{run_id}/existing-targets` with explicit **resource** and a 2–80-character **staff-entered query**. The endpoint is write-role gated despite using HTTP GET, organization-scoped to the selected migration run, redacted to bounded existing record **ID and display label** only, no-store, and limited to at most 30 results. It includes only active, non-deleted Properties, Units (under active Properties), Owner-role customer users, Tenant-role customer users and non-deleted Vendors. It never returns password hashes, email addresses, source row contents or financial details. Search treats SQL wildcard characters literally.
+
+The staff console can search those targets and select an ID, but the actual MATCH_EXISTING decision **still requires a separate explicit review action**. No automatic target matching, tenancy, ownership linkage, customer mutation, leasing or accounting is enabled. Existing exact-reviewed dry run and binding controls remain authoritative.
+
+**Verification:** candidate endpoint commit `a26fb3a5`, scoped/privacy regressions `8d8718f3`, platform picker `54b382ae`, authenticated API coverage `002b0132` and fast CI gate `8e454d87` are provisional until the newest exact-SHA hosted workflow succeeds.
