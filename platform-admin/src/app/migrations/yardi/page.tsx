@@ -281,13 +281,14 @@ export default function YardiMigrationConsole() {
   }
 
   async function reviewRow(row: StagedRow, action: "MATCH_EXISTING" | "SKIP") {
-    if (!canWrite || selectedRunId === null || row.resolution_action || row.errors.length) return;
+    if (!canWrite || selectedRunId === null || row.resolution_action) return;
     await perform(async () => {
       const base = ROOT + "/runs/" + selectedRunId + "/staged-rows/" + row.id;
       if (action === "SKIP") {
         const reason = skipReasons[row.id] || "NOT_IN_SCOPE";
         await platformPost(base + "/skip", { reason_code: reason });
       } else {
+        if (row.errors.length || row.disposition === "INVALID") throw new Error("Invalid source rows cannot be matched to existing targets.");
         const config = MATCH_RESOURCES[row.resource as Resource];
         if (!config) throw new Error("Existing-target matching is not supported for this resource.");
         const targetId = Number(targetIds[row.id]);
@@ -450,8 +451,8 @@ export default function YardiMigrationConsole() {
                   <td className="p-2">
                     <span>{row.resolution_action ?? "PENDING"}</span>
                     {row.resolution_action === "MATCH_EXISTING" && <span className="block text-xs text-slate-600">Target #{String(row.resolution_target_id ?? row.resolution_target_unit_id ?? row.resolution_target_owner_user_id ?? row.resolution_target_vendor_id ?? row.resolution_target_tenant_user_id ?? "—")}</span>}
-                    {canWrite && !row.resolution_action && row.errors.length === 0 && <div className="mt-2 flex min-w-44 flex-col gap-2">
-                      {MATCH_RESOURCES[row.resource as Resource] && <>
+                    {canWrite && !row.resolution_action && <div className="mt-2 flex min-w-44 flex-col gap-2">
+                      {row.errors.length === 0 && row.disposition !== "INVALID" && MATCH_RESOURCES[row.resource as Resource] && <>
                         <input className="input text-xs" type="number" min="1" placeholder="Existing target ID" aria-label={"Existing target ID for row " + row.row_number} value={targetIds[row.id] ?? ""} onChange={(event) => setTargetIds((previous) => ({ ...previous, [row.id]: event.target.value }))} />
                         <button type="button" disabled={busy} className="rounded border border-slate-500 px-2 py-1 text-xs disabled:opacity-50" onClick={() => { void reviewRow(row, "MATCH_EXISTING"); }}>Review existing target</button>
                       </>}
