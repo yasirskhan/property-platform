@@ -904,10 +904,18 @@ def get_yardi_reconciliation(
         User.is_active.is_(True),
         User.deleted_at.is_(None),
     ).all()}
+    reviewed_lease_unit_parent_sources = {
+        (unit_row.source_id, unit_row.row_fingerprint, unit_row.resolution_target_unit_id):
+            str((unit_row.normalized_data or {}).get("source_property_id") or "").strip()
+        for unit_row in rows
+        if unit_row.resource == "UNITS" and unit_row.resolution_action == "MATCH_EXISTING"
+        and not unit_row.errors and unit_row.disposition != "INVALID"
+    }
     lease_relationship_readiness = {
         "staged": len(lease_rows), "complete_identity_links": 0,
         "missing_property": 0, "missing_unit": 0, "missing_tenant": 0,
-        "unit_property_mismatch": 0, "invalid_or_skipped": 0,
+        "unit_property_mismatch": 0, "unit_source_parent_mismatch": 0,
+        "invalid_or_skipped": 0,
         "controlled_commit_enabled": False, "customer_business_mutation": False,
     }
     for lease_row in lease_rows:
@@ -936,9 +944,22 @@ def get_yardi_reconciliation(
             lease_relationship_readiness["missing_unit"] += 1
         if tenant_id is None:
             lease_relationship_readiness["missing_tenant"] += 1
-        if property_id is not None and unit_id is not None and valid_units[unit_id] != property_id:
+        source_parent_conflicts = False
+        if unit_link is not None and unit_id is not None and unit_link.target_entity == "UNIT":
+            reviewed_parent = reviewed_lease_unit_parent_sources.get((
+                unit_link.source_id, unit_link.source_fingerprint, unit_link.target_id,
+            ))
+            if reviewed_parent and reviewed_parent != str(data.get("source_property_id") or "").strip():
+                source_parent_conflicts = True
+                lease_relationship_readiness["unit_source_parent_mismatch"] += 1
+        target_parent_conflicts = (
+            property_id is not None and unit_id is not None
+            and valid_units[unit_id] != property_id
+        )
+        if target_parent_conflicts:
             lease_relationship_readiness["unit_property_mismatch"] += 1
-        elif property_id is not None and unit_id is not None and tenant_id is not None:
+        if (property_id is not None and unit_id is not None and tenant_id is not None
+                and not source_parent_conflicts and not target_parent_conflicts):
             lease_relationship_readiness["complete_identity_links"] += 1
 
     evidence = {
