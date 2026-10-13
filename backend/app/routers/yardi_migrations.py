@@ -825,7 +825,6 @@ class YardiReviewedPropertyBindingIn(BaseModel):
     review_fingerprint: str
 
 
-@router.post("/runs/{run_id}/properties/bind-reviewed-matches")
 @router.post("/runs/{run_id}/bind-reviewed-units")
 def bind_yardi_reviewed_unit_matches(
     run_id: int,
@@ -940,6 +939,7 @@ def bind_yardi_reviewed_unit_matches(
             "replayed": False, "customer_business_mutation": False}
 
 
+@router.post("/runs/{run_id}/properties/bind-reviewed-matches")
 def bind_yardi_reviewed_property_matches(
     run_id: int,
     payload: YardiReviewedPropertyBindingIn,
