@@ -65,3 +65,15 @@ def test_yardi_staff_review_and_existing_identity_binding_operations_are_authent
         method = operations[path]["post"]
         assert method.get("security"), path
         assert "application/json" in method["requestBody"]["content"], path
+
+
+def test_yardi_committed_identity_inventory_is_authenticated_and_read_only():
+    operations = app.openapi()["paths"]
+    path = "/api/platform/migrations/yardi/runs/{run_id}/bindings"
+    assert path in operations
+    assert "get" in operations[path]
+    assert "post" not in operations[path]
+    read = operations[path]["get"]
+    assert read.get("security"), "Durable mappings must require authenticated platform staff"
+    parameters = {param["name"]: param for param in read["parameters"]}
+    assert {"run_id", "resource", "offset", "limit"} <= parameters.keys()
