@@ -141,3 +141,88 @@ def test_yardi_durable_inventory_requires_platform_migration_role():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_yardi_unit_inventory_marks_moved_parent_without_changing_customer_unit():
+    from app.models.platform_migration import PlatformMigrationStagedRow
+    from app.services.yardi_file_ingestion import stage_yardi_file
+
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-inventory-parent-revalidation")
+        prop = Property(
+            organization_id=org.id, name="Mapped Parent",
+            address_line1="101 Main", city="Cleveland", state="OH", zip_code="44113",
+        )
+        other = Property(
+            organization_id=org.id, name="Other Active Parent",
+            address_line1="102 Main", city="Cleveland", state="OH", zip_code="44113",
+        )
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="unit-parent-evidence", status="DRAFT",
+        )
+        db.add_all([prop, other, run])
+        db.flush()
+        unit = Unit(property_id=prop.id, unit_number="101")
+        db.add(unit)
+        db.flush()
+        _binding(db, run, "PROPERTIES", "P-1", "PROPERTY", prop.id)
+        durable_unit = _binding(db, run, "UNITS", "U-1", "UNIT", unit.id)
+        db.commit()
+
+        unknown = list_yardi_durable_bindings(
+            run.id, Response(), resource="UNITS", offset=0, limit=10,
+            db=db, current_user=actor,
+        )
+        assert unknown["items"][0]["target_current"] is True
+        assert unknown["items"][0]["unit_parent_relationship_current"] is None
+
+        uploaded = stage_yardi_file(
+            db, run=run, filename="unit-parent.csv",
+            content=b"Unit Ref,Parent Ref,Number\nU-1,P-1,101\n",
+            resource_override="UNITS", sheet_name=None,
+            explicit_mapping={
+                "source_id": "Unit Ref", "source_property_id": "Parent Ref",
+                "unit_name": "Number",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        staged = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == uploaded.upload.id,
+        ).one()
+        staged.resolution_action = "MATCH_EXISTING"
+        staged.resolution_target_unit_id = unit.id
+        durable_unit.source_fingerprint = staged.row_fingerprint
+        db.commit()
+        linked = list_yardi_durable_bindings(
+            run.id, Response(), resource="UNITS", offset=0, limit=10,
+            db=db, current_user=actor,
+        )
+        assert linked["items"][0]["target_current"] is True
+        assert linked["items"][0]["unit_parent_relationship_current"] is True
+
+        unit.property_id = other.id
+        db.commit()
+        stale = list_yardi_durable_bindings(
+            run.id, Response(), resource="UNITS", offset=0, limit=10,
+            db=db, current_user=actor,
+        )
+        assert stale["items"][0]["target_current"] is True
+        assert stale["items"][0]["unit_parent_relationship_current"] is False
+        assert stale["items"][0]["target_id"] == unit.id
+        db.refresh(unit)
+        assert unit.property_id == other.id
+        assert unit.unit_number == "101"
+
+        unit.property_id = prop.id
+        db.commit()
+        restored = list_yardi_durable_bindings(
+            run.id, Response(), resource="UNITS", offset=0, limit=10,
+            db=db, current_user=actor,
+        )
+        assert restored["items"][0]["unit_parent_relationship_current"] is True
+    finally:
+        db.close()
+        engine.dispose()
