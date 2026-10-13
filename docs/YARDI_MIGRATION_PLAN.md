@@ -317,3 +317,14 @@ The next bounded operational batch adds `GET /api/platform/migrations/yardi/runs
 Even when `identity_links_complete=true`, the response explicitly sets `occupancy_or_lease_authorized=false`, `controlled_commit_enabled=false`, and `customer_business_mutation=false`. Nothing creates a lease, changes a tenant, registers occupancy, posts charges, imports financial history or supplies unsupported Yardi source contracts.
 
 **Provisional until exact-SHA CI:** read-only endpoint `49e3cd1a`; regression `fb12c1cd`; UI `fd8f82bc`; OpenAPI/auth contract `9e8c61bc`; fast regression suite `e558d786`. Verify all six hosted CI jobs, repair any failures before marking verified, then proceed with the next bounded Phase 4.15 review task.
+
+ 
+## 19. Lease-versus-Unit original Yardi source-parent consistency (2026-10-13)
+
+**Previous per-lease diagnostics verified:** exact product commit `194f638eb01404c0b7db0a52e8f5aa6704e10ce7`, GitHub Actions **38416611368 SUCCESS**, six jobs green, **1262 backend tests passed and 21 deselected**.
+
+Phase 4.15 now additionally compares the `source_property_id` of a staged lease with the `source_property_id` of an **exact reviewed** Yardi Unit source row, using the same-run committed source-to-Unit target mapping and matching row fingerprint. This is independent of whether the current Unit happens to belong to the lease's target Property. When exact reviewed evidence disagrees, the read-only row preview reports `UNIT_SOURCE_PARENT_MISMATCH`, and the aggregate reconciliation increments `unit_source_parent_mismatch` rather than misclassifying the row as `complete_identity_links`. Missing or legacy reviewed Unit source-parent evidence remains explicitly unknown in the row preview; no source relationship is guessed.
+
+The staff UI shows these source-parent conflicts both per lease and in the aggregate count. Existing role, organization, provider, pagination, no-store and nonmutation safeguards apply. No lease, occupancy, rent, payable, receivable, deposit, ownership interest or accounting entry is created or altered.
+
+**Provisional implementation pending newest exact-SHA hosted CI:** backend `3a275cf0` and aggregate `96c34d9f`, regressions `7ab08a01` and `15d7156c`, staff UI `504edff6` and reconciliation totals `343b558b`. Verify all six CI jobs and repair reds before marking this new batch verified. Continue Phase 4.15 afterward without activating unverified financial source contracts.
