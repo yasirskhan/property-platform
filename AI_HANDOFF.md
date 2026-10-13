@@ -1,3 +1,12 @@
+# AI_HANDOFF.md — 2026-10-13 VERIFIED PER-LEASE YARDI RELATIONSHIP DIAGNOSTICS
+
+**LATEST VERIFIED PRODUCT SHA:** `194f638eb01404c0b7db0a52e8f5aa6704e10ce7`, exact GitHub Actions **38416611368 SUCCESS**. All six jobs green: backend/PostgreSQL **1262 passed, 21 deselected**, frontend, platform-admin, security, authenticated E2E and staging-config. Phase 4.15 per-lease read-only source dependency endpoint `/runs/{run_id}/lease-relationships` and platform staff console showing missing/inactive Property, Unit and Tenant identity links, unit target-parent mismatches, invalid/skipped source, bounded pagination, scoped roles and no customer lease/financial mutation are VERIFIED.
+
+**IMMEDIATE NEXT:** Reconcile Unit's originally reviewed Yardi source-parent to the source Property referenced by the staged lease row. Existing lease dependency coverage checks current target Unit.property_id against the lease's current mapped Property, but a Unit may have moved and a lease export reference may disagree with the Unit's exact reviewed source parent. Add read-only separate blocker/tri-state source-evidence result, regression where current target aligns but original reviewed source disagrees, UI indicator, and CI. Preserve legacy unknown evidence explicitly. Do not import leases or mutate business data.
+
+**GUARDRAILS:** Work ONLY `chatgpt/checkpoint-005-safety`, never main or another branch. Phase **4.15 IN PROGRESS**. Financial, ownership, lease terms/occupancy mutation and official Yardi API remain source-contract blocked. Follow implement → tests → commit → hosted CI → fix reds → verify SHA → handoff → immediately next independent batch.
+
+---
 # AI_HANDOFF.md — 2026-10-13 VERIFIED MAPPING INVENTORY; UNIT PARENT DIAGNOSTICS PROVISIONAL
 
 **LAST VERIFIED EXACT PRODUCT SHA:** `834c373ce02b4475f30d7e98f11975d77f82dc07`, GitHub Actions **38402880141 SUCCESS**, all six jobs PASS. Backend/PostgreSQL **1258 passed, 21 deselected**; platform-admin, frontend, security, authenticated E2E and staging-config PASS. Read-only provider/run/organization-scoped, paginated durable Yardi identity inventory completed and verified.
