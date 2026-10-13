@@ -391,6 +391,7 @@ export default function YardiMigrationConsole() {
             setRowOffset(0);
             setCandidateResults({});
             setTargetQueries({});
+            setTargetIds({});
             setDryRun(null);
           }}>
             <option value="">Select run</option>
@@ -463,6 +464,7 @@ export default function YardiMigrationConsole() {
             setRows([]);
             setRowOffset(0);
             setCandidateResults({});
+            setTargetIds({});
           }}>
             <option value="">Select an upload</option>
             {uploads.map((upload) => <option key={upload.id} value={upload.id}>#{upload.id} · {upload.detected_resource} · {upload.filename} · {upload.row_count} rows · {upload.status}</option>)}
@@ -488,7 +490,7 @@ export default function YardiMigrationConsole() {
                     {row.resolution_action === "MATCH_EXISTING" && <span className="block text-xs text-slate-600">Target #{String(row.resolution_target_id ?? row.resolution_target_unit_id ?? row.resolution_target_owner_user_id ?? row.resolution_target_vendor_id ?? row.resolution_target_tenant_user_id ?? "—")}</span>}
                     {canWrite && !row.resolution_action && <div className="mt-2 flex min-w-44 flex-col gap-2">
                       {row.errors.length === 0 && row.disposition !== "INVALID" && MATCH_RESOURCES[row.resource as Resource] && <>
-                        <input className="input text-xs" placeholder="Search existing target name" maxLength={80} aria-label={"Search existing target for row " + row.row_number} value={targetQueries[row.id] ?? ""} onChange={(event) => { setTargetQueries((previous) => ({ ...previous, [row.id]: event.target.value })); setCandidateResults((previous) => { const next = { ...previous }; delete next[row.id]; return next; }); }} />
+                        <input className="input text-xs" placeholder="Search existing target name" maxLength={80} aria-label={"Search existing target for row " + row.row_number} value={targetQueries[row.id] ?? ""} onChange={(event) => { setTargetQueries((previous) => ({ ...previous, [row.id]: event.target.value })); setTargetIds((previous) => ({ ...previous, [row.id]: "" })); setCandidateResults((previous) => { const next = { ...previous }; delete next[row.id]; return next; }); }} />
                         <button type="button" disabled={busy} className="rounded border border-slate-500 px-2 py-1 text-xs disabled:opacity-50" onClick={() => { void searchTargets(row); }}>Find existing targets</button>
                         {candidateResults[row.id] && <select className="input text-xs" aria-label={"Choose existing target for row " + row.row_number} value={targetIds[row.id] ?? ""} onChange={(event) => setTargetIds((previous) => ({ ...previous, [row.id]: event.target.value }))}>
                           <option value="">Choose a reviewed target</option>
