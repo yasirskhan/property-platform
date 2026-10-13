@@ -1,3 +1,13 @@
+# AI_HANDOFF.md — 2026-10-12 YARDI UNIT REPLAY SAFETY FOLLOW-UP
+
+**LATEST VERIFIED SHA:** `468bbe194231f01469eb042d6c1e07b6e4f5dfe3`; GitHub Actions **38312677682 SUCCESS**, all six jobs. This verifies the Unit metadata binding, stale-fingerprint/cross-run collision regressions and resource matrix.
+
+**NEW PROVISIONAL PRODUCT/TEST SHAS:** `3ea620ab9c3988a6dd3c93a7e6598aa637107fc5` changes Unit MATCH_EXISTING review replay to revalidate same-run parent Property binding, organization-scoped Unit target and cross-run conflicting durable target mapping before claiming replay success. `4fe4b2f15d2a8b2a7d60d7ec509b93f277c62a5b` adds a removed-parent-on-replay regression. **Verify latest exact-SHA hosted CI, repair reds, then mark verified.**
+
+**NEXT PHASE 4.15 BATCH:** After green, inspect Owners, Vendors, Tenants and LEASE_OCCUPANCY source contracts and existing target models; prioritize read-only source relationship coverage/reconciliation without customer mutation or unverified Yardi field assumptions. Financial postings and official API remain source-contract blocked. Phase 4.15 remains **IN PROGRESS**. ONLY `chatgpt/checkpoint-005-safety`; never main or a new branch. Continue immediately after each successful CI and handoff.
+
+---
+
 # AI_HANDOFF.md — 2026-10-12 YARDI UNIT METADATA BINDINGS VERIFIED; NEXT RESOURCE REVIEW
 
 **LATEST VERIFIED PRODUCT SHA:** `69e658762f44dfe156700cbc32b47fe9ae6363cc`, exact GitHub Actions run **38267008115 SUCCESS**. Yardi Unit explicit MATCH_EXISTING review, same-run durable parent Property dependency, provider/org/target isolation, exact-fingerprint review, metadata-only durable Unit binding and idempotent replay are now implemented and verified. No customer Unit create/update/delete or accounting posting. Earlier Unit review and reconciliation SHA `552ba9f41d528e5fc7e0d5b923e12014f541e04b`, CI **38255012361 SUCCESS**.
