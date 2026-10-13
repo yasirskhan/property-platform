@@ -37,6 +37,10 @@ def test_yardi_staff_workflow_endpoints_are_mounted_and_upload_is_multipart():
 
     readiness = operations[base + "/resource-readiness"]
     assert readiness["get"].get("security")
+    candidates = operations[base + "/runs/{run_id}/existing-targets"]["get"]
+    assert candidates.get("security")
+    parameter_names = {param["name"] for param in candidates.get("parameters", [])}
+    assert {"resource", "q", "limit"} <= parameter_names
 
 
 def test_yardi_staff_review_and_existing_identity_binding_operations_are_authenticated():
