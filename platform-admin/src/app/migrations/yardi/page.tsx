@@ -103,6 +103,8 @@ export default function YardiMigrationConsole() {
   const [uploads, setUploads] = useState<MigrationUpload[]>([]);
   const [selectedUploadId, setSelectedUploadId] = useState<number | null>(null);
   const [rows, setRows] = useState<StagedRow[]>([]);
+  const [rowOffset, setRowOffset] = useState(0);
+  const PAGE_SIZE = 200;
   const [resource, setResource] = useState<Resource>("PROPERTIES");
   const [file, setFile] = useState<File | null>(null);
   const [mappingText, setMappingText] = useState('{"source_id":"ID","name":"Name"}');
@@ -182,11 +184,11 @@ export default function YardiMigrationConsole() {
       return;
     }
     let active = true;
-    platformGet(ROOT + "/runs/" + selectedRunId + "/uploads/" + selectedUploadId + "/rows?limit=200")
+    platformGet(ROOT + "/runs/" + selectedRunId + "/uploads/" + selectedUploadId + "/rows?offset=" + rowOffset + "&limit=" + PAGE_SIZE)
       .then((data: StagedRow[]) => { if (active) setRows(data); })
       .catch((err: unknown) => { if (active) setError(readableError(err)); });
     return () => { active = false; };
-  }, [selectedRunId, selectedUploadId, refreshKey]);
+  }, [selectedRunId, selectedUploadId, rowOffset, refreshKey]);
 
   async function perform(work: () => Promise<void>) {
     if (busy) return;
@@ -274,6 +276,7 @@ export default function YardiMigrationConsole() {
       if (sheetName.trim()) form.append("sheet_name", sheetName.trim());
       const uploaded = await platformPostForm(ROOT + "/runs/" + selectedRunId + "/uploads", form) as MigrationUpload;
       setSelectedUploadId(uploaded.id);
+      setRowOffset(0);
       setRefreshKey((key) => key + 1);
       setDryRun(null);
       setNotice(uploaded.replayed ? "Existing staged upload reused." : "Export staged for explicit review only.");
@@ -363,6 +366,7 @@ export default function YardiMigrationConsole() {
             setSelectedRunId(event.target.value ? Number(event.target.value) : null);
             setSelectedUploadId(null);
             setRows([]);
+            setRowOffset(0);
             setDryRun(null);
           }}>
             <option value="">Select run</option>
@@ -433,6 +437,7 @@ export default function YardiMigrationConsole() {
           <select id="yardi-upload" className="input mt-1" value={selectedUploadId ?? ""} onChange={(event) => {
             setSelectedUploadId(event.target.value ? Number(event.target.value) : null);
             setRows([]);
+            setRowOffset(0);
           }}>
             <option value="">Select an upload</option>
             {uploads.map((upload) => <option key={upload.id} value={upload.id}>#{upload.id} · {upload.detected_resource} · {upload.filename} · {upload.row_count} rows · {upload.status}</option>)}
@@ -468,7 +473,13 @@ export default function YardiMigrationConsole() {
               </tbody>
             </table>
           </div>
-          {rows.length === 200 && <p className="mt-2 text-xs text-amber-700">Showing first 200 rows; further results require pagination.</p>}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <p className="text-slate-600">Showing rows {rows.length ? rowOffset + 1 : 0}–{rowOffset + rows.length} for the selected upload. Review actions are scoped to the current row and migration run.</p>
+            <div className="flex gap-2">
+              <button type="button" disabled={busy || rowOffset === 0} className="rounded border px-3 py-2 disabled:opacity-50" onClick={() => { setRows([]); setRowOffset((offset) => Math.max(0, offset - PAGE_SIZE)); }}>Previous 200</button>
+              <button type="button" disabled={busy || rows.length < PAGE_SIZE} className="rounded border px-3 py-2 disabled:opacity-50" onClick={() => { setRows([]); setRowOffset((offset) => offset + PAGE_SIZE); }}>Next 200</button>
+            </div>
+          </div>
         </section>}
 
         {selectedRun && <section className="rounded-xl border bg-white p-5">
