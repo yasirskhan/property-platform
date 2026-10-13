@@ -61,6 +61,24 @@ type StagedRow = {
   errors: string[];
   warnings: string[];
 };
+type DurableBinding = {
+  id: number;
+  resource: Resource;
+  source_id: string;
+  target_entity: string;
+  target_id: number;
+  target_current: boolean;
+  created_by_platform_user_id: number | null;
+  created_at: string | null;
+};
+type DurableBindingInventory = {
+  run_id: number;
+  total: number;
+  offset: number;
+  items: DurableBinding[];
+  read_only: true;
+  customer_business_mutation: false;
+};
 type Reconciliation = {
   review_fingerprint: string;
   staged_rows: number;
@@ -115,6 +133,10 @@ export default function YardiMigrationConsole() {
   const [sheetName, setSheetName] = useState("");
   const [sourceHeaders, setSourceHeaders] = useState<string[]>([]);
   const [sourceRowCount, setSourceRowCount] = useState<number | null>(null);
+  const [bindingInventory, setBindingInventory] = useState<DurableBindingInventory | null>(null);
+  const [bindingOffset, setBindingOffset] = useState(0);
+  const [bindingFilter, setBindingFilter] = useState<Resource | "ALL">("ALL");
+  const BINDING_PAGE_SIZE = 50;
   const [reconciliation, setReconciliation] = useState<Reconciliation | null>(null);
   const [readiness, setReadiness] = useState<ResourceReadiness | null>(null);
   const [dryRun, setDryRun] = useState<ReviewDryRun | null>(null);
@@ -195,6 +217,23 @@ export default function YardiMigrationConsole() {
       .catch((err: unknown) => { if (active) setError(readableError(err)); });
     return () => { active = false; };
   }, [selectedRunId, selectedUploadId, rowOffset, refreshKey]);
+
+  useEffect(() => {
+    if (selectedRunId === null) {
+      return;
+    }
+    let active = true;
+    const query = new URLSearchParams({
+      offset: String(bindingOffset), limit: String(BINDING_PAGE_SIZE),
+    });
+    if (bindingFilter !== "ALL") query.set("resource", bindingFilter);
+    platformGet(ROOT + "/runs/" + selectedRunId + "/bindings?" + query.toString())
+      .then((data: DurableBindingInventory) => {
+        if (active) setBindingInventory(data);
+      })
+      .catch((err: unknown) => { if (active) setError(readableError(err)); });
+    return () => { active = false; };
+  }, [selectedRunId, bindingOffset, bindingFilter, refreshKey]);
 
   async function perform(work: () => Promise<void>) {
     if (busy) return;
@@ -392,6 +431,8 @@ export default function YardiMigrationConsole() {
             setCandidateResults({});
             setTargetQueries({});
             setTargetIds({});
+            setBindingInventory(null);
+            setBindingOffset(0);
             setDryRun(null);
           }}>
             <option value="">Select run</option>
@@ -551,6 +592,50 @@ export default function YardiMigrationConsole() {
               </div>
             </div>}
           </>}
+        </section>}
+        {selectedRun && <section className="rounded-xl border bg-white p-5">
+          <h2 className="text-lg font-semibold">Committed identity mappings</h2>
+          <p className="mt-2 text-sm text-slate-600">Durable Yardi source-to-existing-target metadata. Status checks confirm the target is still active in this organization; mappings never create or update customer business records.</p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <label htmlFor="yardi-binding-resource" className="text-sm">Resource</label>
+            <select id="yardi-binding-resource" className="input" value={bindingFilter} onChange={(event) => {
+              setBindingFilter(event.target.value as Resource | "ALL");
+              setBindingOffset(0);
+              setBindingInventory(null);
+            }}>
+              <option value="ALL">All identity resources</option>
+              {RESOURCES.filter((item) => item !== "LEASE_OCCUPANCY").map((item) => <option key={item} value={item}>{item.replaceAll("_", " ")}</option>)}
+            </select>
+            <button type="button" disabled={busy} className="rounded border px-3 py-2 text-xs disabled:opacity-50" onClick={() => setRefreshKey((key) => key + 1)}>Refresh mappings</button>
+          </div>
+          <p className="mt-2 text-xs text-slate-600">{bindingInventory ? bindingInventory.total : "…"} matching durable mappings in this run.</p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b text-xs uppercase text-slate-500">
+                <tr><th className="p-2">Resource</th><th className="p-2">Yardi source ID</th><th className="p-2">Existing target</th><th className="p-2">Current status</th><th className="p-2">Recorded by</th></tr>
+              </thead>
+              <tbody className="divide-y">
+                {bindingInventory?.items.map((item) => <tr key={item.id}>
+                  <td className="p-2">{item.resource}</td>
+                  <td className="p-2 font-mono text-xs">{item.source_id}</td>
+                  <td className="p-2 font-mono text-xs">{item.target_entity} #{item.target_id}</td>
+                  <td className="p-2">{item.target_current ? "Active target" : "Unavailable — reconcile"}</td>
+                  <td className="p-2 text-xs">
+                    {item.created_by_platform_user_id == null ? "System/unknown" : "Staff #" + item.created_by_platform_user_id}
+                    {item.created_at && <span className="block">{new Date(item.created_at).toLocaleString()}</span>}
+                  </td>
+                </tr>)}
+                {bindingInventory?.items.length === 0 && <tr><td className="p-3 text-slate-500" colSpan={5}>No committed metadata bindings in this selection.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <span>Displaying {bindingInventory?.items.length ? bindingOffset + 1 : 0}–{bindingOffset + (bindingInventory?.items.length ?? 0)} of {bindingInventory?.total ?? 0}.</span>
+            <div className="flex gap-2">
+              <button type="button" disabled={busy || bindingOffset === 0} className="rounded border px-3 py-2 disabled:opacity-50" onClick={() => setBindingOffset((offset) => Math.max(0, offset - BINDING_PAGE_SIZE))}>Previous</button>
+              <button type="button" disabled={busy || !bindingInventory || bindingOffset + bindingInventory.items.length >= bindingInventory.total} className="rounded border px-3 py-2 disabled:opacity-50" onClick={() => setBindingOffset((offset) => offset + BINDING_PAGE_SIZE)}>Next</button>
+            </div>
+          </div>
         </section>}
         {readiness && <section className="rounded-xl border bg-white p-5">
           <h2 className="text-lg font-semibold">Source contract boundaries</h2>
