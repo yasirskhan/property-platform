@@ -41,8 +41,8 @@ def test_review_vendor_exact_binding_replay_and_no_customer_mutation():
     db, engine = _session()
     try:
         actor, org, vendor, run, row = _seed(db)
-        from app.main import app
-        endpoints = {route.path: route.endpoint for route in app.routes if hasattr(route, "endpoint")}
+        from app.routers import yardi_migrations as yardi_api
+        endpoints = {route.path: route.endpoint for route in yardi_api.router.routes if hasattr(route, "endpoint")}
         base = "/api/platform/migrations/yardi/runs/{run_id}"
         assert endpoints[base + "/staged-rows/{row_id}/match-vendor"] is match_yardi_staged_vendor
         assert endpoints[base + "/bind-reviewed-vendors"] is bind_yardi_reviewed_vendor_matches
