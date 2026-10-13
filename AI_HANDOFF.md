@@ -1,3 +1,12 @@
+# AI_HANDOFF.md — 2026-10-13 VERIFIED MAPPING INVENTORY; UNIT PARENT DIAGNOSTICS PROVISIONAL
+
+**LAST VERIFIED EXACT PRODUCT SHA:** `834c373ce02b4475f30d7e98f11975d77f82dc07`, GitHub Actions **38402880141 SUCCESS**, all six jobs PASS. Backend/PostgreSQL **1258 passed, 21 deselected**; platform-admin, frontend, security, authenticated E2E and staging-config PASS. Read-only provider/run/organization-scoped, paginated durable Yardi identity inventory completed and verified.
+
+**NEXT SOURCE+TEST+UI BATCH COMMITTED, CI PENDING:** `695618db` adds tri-state `unit_parent_relationship_current` to Unit durable mappings: true only for exact reviewed staged source Unit fingerprint, matched same-run durable parent Property and current Unit.property_id; false for stale/moved/missing mapped parent; null if no exact reviewed source evidence. `f93201b1` regression checks unknown → verified → moved stale → restored, without business mutation. `1b6b1b60` staff display; `a12457c2` updates Yardi plan section 17. **Check latest exact-SHA GitHub Actions CI; repair reds until six-job SUCCESS; do not mark this new batch verified before that.**
+
+**NEXT AFTER GREEN:** Continue bounded Phase 4.15 source dependency review, prioritizing per-row read-only Lease/Occupancy relationship blockers based on durable same-run Property/Unit/Tenant mappings. No lease creation, occupancy or accounting writes. Keep financial and official Yardi API integration blocked pending authoritative customer-specific source contract. Work ONLY branch `chatgpt/checkpoint-005-safety`; never touch main or create a branch. Phase **4.15 IN PROGRESS**. Continue implement → tests → commit → hosted CI → fix reds → verify exact SHA → handoff → next batch without asking user.
+
+---
 # AI_HANDOFF.md — 2026-10-13 YARDI DURABLE IDENTITY INVENTORY VERIFIED
 
 **LATEST VERIFIED PRODUCT SHA:** `834c373ce02b4475f30d7e98f11975d77f82dc07`; exact GitHub Actions run **38402880141 SUCCESS**, all six jobs passed (backend 1258 passed, 21 deselected; frontend, platform-admin, security, authenticated E2E, staging-config all PASS). The Yardi staff console now exposes provider/run/organization-scoped paginated durable source-to-target metadata inventory with active-target diagnostics, redaction, no-store, read-role access, and regression coverage. No customer business, tenant, unit, property, lease, financial or accounting mutations.
