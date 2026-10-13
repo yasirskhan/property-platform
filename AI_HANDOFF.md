@@ -1,3 +1,13 @@
+# AI_HANDOFF.md — 2026-10-13 YARDI STAFF REVIEW VERIFIED; TARGET PICKER PROVISIONAL
+
+**LAST FULLY VERIFIED PRODUCT SHA:** `f6dabfe4b682535893fb40c7f911c8ef82fc7c15`, GitHub Actions **38360831046 SUCCESS** at exact SHA; six jobs PASS: backend/PostgreSQL (fast Yardi gate + **1253 passed, 21 deselected**), frontend, platform-admin, security, authenticated E2E, staging-config. Phase 4.15 staff console now has per-row existing-target review for PROPERTIES, UNITS, OWNERS, VENDORS, TENANTS; reason-coded SKIP including invalid rows; metadata-only exact-fingerprint durable binding; 200-row pagination; and audit reviewer/timestamp/skip-reason visibility. No customer financial or business entity mutation.
+
+**NEW PROVISIONAL TARGET DISCOVERY BATCH:** `a26fb3a5` creates staff-role/org-scoped, bounded existing-target candidate lookup returning IDs and redacted display labels only. `8d8718f3` adds privacy, role, org, inactive-target, SQL wildcard escaping and read-only regression tests. `54b382ae` integrates explicit staff candidate search and selection into Yardi console without auto-matching. `002b0132` adds authenticated API contract test, `8e454d87` adds fast hosted CI regression gate; `863489f0` updates Yardi plan. **DO NOT MARK VERIFIED until latest exact-SHA CI SUCCESS; fix any backend/UI reds.**
+
+**NEXT AFTER GREEN:** Immediately continue bounded Phase 4.15 read-only inspection/reconciliation improvements or formally reconcile completion blockers. Keep source-contract block for historical financial balances, GL, AR/AP, deposits, rent/lease liability, bank records and official Yardi API. Never touch main or create another branch; work ONLY `chatgpt/checkpoint-005-safety`. No general UX or 4.16. Implement → test → commit → hosted CI → repair → verify → handoff → continue autonomously.
+
+---
+
 # AI_HANDOFF.md — 2026-10-13 YARDI STAFF IDENTITY REVIEW CONTROLS PROVISIONAL
 
 **LATEST FULLY VERIFIED PRODUCT:** `a79b0d163175cbaf7d3df0227cf5f57df13fd266`, exact GitHub Actions **38358321235 SUCCESS**, six jobs. This verifies the platform-admin Yardi staging/header inspection workflow, bounded read-only reconciliation and resource capability contract. Earlier exact SHA `b6284ed465f70282d89072cd07d6f212ce3b16ca`, CI **38348501467 SUCCESS**, also verified Yardi owner/vendor/tenant identity binding and lease relationship coverage.
