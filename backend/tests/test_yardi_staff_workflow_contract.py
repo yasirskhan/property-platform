@@ -37,3 +37,27 @@ def test_yardi_staff_workflow_endpoints_are_mounted_and_upload_is_multipart():
 
     readiness = operations[base + "/resource-readiness"]
     assert readiness["get"].get("security")
+
+
+def test_yardi_staff_review_and_existing_identity_binding_operations_are_authenticated():
+    operations = app.openapi()["paths"]
+    base = "/api/platform/migrations/yardi/runs/{run_id}"
+    review = {
+        "/staged-rows/{row_id}/skip",
+        "/staged-rows/{row_id}/match-property",
+        "/staged-rows/{row_id}/match-unit",
+        "/staged-rows/{row_id}/match-owner",
+        "/staged-rows/{row_id}/match-vendor",
+        "/staged-rows/{row_id}/match-tenant",
+        "/properties/bind-reviewed-matches",
+        "/bind-reviewed-units",
+        "/bind-reviewed-owners",
+        "/bind-reviewed-vendors",
+        "/bind-reviewed-tenants",
+    }
+    for suffix in review:
+        path = base + suffix
+        assert path in operations, path
+        method = operations[path]["post"]
+        assert method.get("security"), path
+        assert "application/json" in method["requestBody"]["content"], path
