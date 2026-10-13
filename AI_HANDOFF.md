@@ -1,3 +1,12 @@
+# AI_HANDOFF.md — 2026-10-13 YARDI DURABLE IDENTITY INVENTORY VERIFIED
+
+**LATEST VERIFIED PRODUCT SHA:** `834c373ce02b4475f30d7e98f11975d77f82dc07`; exact GitHub Actions run **38402880141 SUCCESS**, all six jobs passed (backend 1258 passed, 21 deselected; frontend, platform-admin, security, authenticated E2E, staging-config all PASS). The Yardi staff console now exposes provider/run/organization-scoped paginated durable source-to-target metadata inventory with active-target diagnostics, redaction, no-store, read-role access, and regression coverage. No customer business, tenant, unit, property, lease, financial or accounting mutations.
+
+**IMMEDIATE NEXT PHASE 4.15 BATCH:** Harden the Unit binding inventory's relationship diagnostics. An active Unit can be reparented to a different Property within the same organization after its reviewed durable source mapping. Inspect exact staged Unit source parent, durable same-run parent Property map and the current Unit.property_id, then expose tri-state parent relationship status (verified, mismatched or unverified) without modifying the mapping or customer Unit. Include regression with source-matched staged row and changed Unit parent. Update staff UI, CI, plan, then exact-SHA verification. Continue autonomously to the next independently supportable batch after green.
+
+**PROTECT:** Work ONLY on `chatgpt/checkpoint-005-safety`, never touch main or create another branch. Phase **4.15 IN PROGRESS**. No guessed financial contracts, official Yardi endpoints, synthetic balances, lease creation, ownership percentages, or customer mutations. Implement → test → commit → hosted CI → fix reds → verify exact SHA → handoff → continue.
+
+---
 # AI_HANDOFF.md — 2026-10-13 VERIFIED TARGET PICKER; DURABLE BINDING INVENTORY PROVISIONAL
 
 **LIVE VERIFIED PRODUCT CHECKPOINT:** `0603cc2d5f22dfec071ac92374e08f16f9ac992c`, exact GitHub Actions run **38362750313 SUCCESS**, all six required jobs passed: backend/PostgreSQL, frontend, platform-admin, security, authenticated E2E, staging. This closes the previously provisional staff-only existing-target picker, org/role/target isolation, privacy regressions and stale selection reset.
