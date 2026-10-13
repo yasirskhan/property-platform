@@ -497,6 +497,7 @@ def list_yardi_durable_bindings(
     for item in bindings:
         valid_entity = item.target_entity == entity_by_resource[item.resource]
         target_current = False
+        parent_relationship_current = None  # Only applicable to verified Unit source-parent evidence.
         if valid_entity and item.resource == "PROPERTIES":
             target_current = db.query(Property.id).filter(
                 Property.id == item.target_id,
@@ -513,6 +514,38 @@ def list_yardi_durable_bindings(
                 Unit.is_active.is_(True), Unit.deleted_at.is_(None),
                 Property.is_active.is_(True), Property.deleted_at.is_(None),
             ).first() is not None
+            # Only an exact reviewed source-row fingerprint establishes which
+            # Yardi Property this durable Unit identity was originally bound under.
+            # Never infer the parent from an unreviewed name or current Unit location.
+            source_review = db.query(PlatformMigrationStagedRow).filter(
+                PlatformMigrationStagedRow.run_id == run.id,
+                PlatformMigrationStagedRow.organization_id == run.organization_id,
+                PlatformMigrationStagedRow.provider == "YARDI",
+                PlatformMigrationStagedRow.resource == "UNITS",
+                PlatformMigrationStagedRow.source_id == item.source_id,
+                PlatformMigrationStagedRow.row_fingerprint == item.source_fingerprint,
+                PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+                PlatformMigrationStagedRow.resolution_target_unit_id == item.target_id,
+            ).order_by(PlatformMigrationStagedRow.id.desc()).first()
+            if source_review is not None:
+                source_parent_id = str(
+                    (source_review.normalized_data or {}).get("source_property_id") or ""
+                ).strip()
+                parent_mapping = db.query(PlatformMigrationItem.target_id).filter(
+                    PlatformMigrationItem.run_id == run.id,
+                    PlatformMigrationItem.organization_id == run.organization_id,
+                    PlatformMigrationItem.provider == "YARDI",
+                    PlatformMigrationItem.resource == "PROPERTIES",
+                    PlatformMigrationItem.source_id == source_parent_id,
+                    PlatformMigrationItem.target_entity == "PROPERTY",
+                ).first()
+                parent_relationship_current = bool(
+                    target_current and parent_mapping is not None
+                    and db.query(Unit.id).filter(
+                        Unit.id == item.target_id,
+                        Unit.property_id == parent_mapping.target_id,
+                    ).first() is not None
+                )
         elif valid_entity and item.resource in ("OWNERS", "TENANTS"):
             target_role = UserRole.OWNER if item.resource == "OWNERS" else UserRole.TENANT
             target_current = db.query(User.id).filter(
@@ -530,6 +563,7 @@ def list_yardi_durable_bindings(
             "id": item.id, "resource": item.resource, "source_id": item.source_id,
             "target_entity": item.target_entity, "target_id": item.target_id,
             "target_current": target_current,
+            "unit_parent_relationship_current": parent_relationship_current,
             "created_by_platform_user_id": item.created_by_platform_user_id,
             "created_at": item.created_at.isoformat() if item.created_at else None,
         })
