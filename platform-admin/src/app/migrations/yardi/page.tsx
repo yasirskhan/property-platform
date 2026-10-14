@@ -87,6 +87,7 @@ type LeaseRelationshipRow = {
   blockers: string[];
   identity_links_complete: boolean;
   relationship_review_recorded: boolean;
+  relationship_review_current: boolean;
   unit_source_parent_matches_lease: boolean | null;
   occupancy_or_lease_authorized: false;
 };
@@ -746,7 +747,7 @@ export default function YardiMigrationConsole() {
                     <span>{item.identity_links_complete
                       ? "Identity links found — lease still not authorized"
                       : item.blockers.map((blocker) => blocker.replaceAll("_", " ").toLowerCase()).join("; ")}</span>
-                    {item.relationship_review_recorded && <span className="block text-xs text-slate-600">Explicit source identity review recorded — current relationship checks still apply</span>}
+                    {item.relationship_review_recorded && <span className="block text-xs font-medium">{item.relationship_review_current ? "Accepted review remains current" : "Accepted review is stale — reconcile before further action"}</span>}
                     <span className="mt-1 block text-xs text-slate-600">
                       {item.unit_source_parent_matches_lease === true
                         ? "Original Unit source parent agrees"
