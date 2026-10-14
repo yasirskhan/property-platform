@@ -365,4 +365,10 @@ The staff read-only `GET /runs/{run_id}/source-collisions` inventory now include
 
 The sampled-row references include only approved reason-code metadata for a recorded SKIP. Staff can navigate to a contributing upload in the existing platform-admin row review console to make separate authorized decisions. Existing reason-coded SKIP and audit history are authoritative; there is no auto-merge, automatic version selection, customer Lease creation, occupancy, payment, rent, deposit or accounting mutation.
 
-**Verification pending:** Backend commit `b4d137f6`, regression `dffd394a`, and platform-admin console `19bf77dc` require a new six-job hosted CI on the exact final source SHA. Historical financial and Yardi API contracts remain unavailable.
+**Verification (only after final confirmation):** The exact source SHA `b97164529c7ade8a8a6d07eb9330d83f4f7ab2e6`, run `38500928438`, passed all six required CI jobs. Source changes: backend `b4d137f6`, regression `dffd394a`, staff UI `19bf77dc`, navigation refresh `b9716452`. Historical financial and Yardi API contracts remain unavailable.
+
+## 24. Accepted lease review across contradictory exact Unit parent evidence (2026-10-13)
+
+**Provisional follow-on source pending its own exact-SHA CI:** The read-only lease relationship preview must agree with the already verified `ACCEPT_RELATIONSHIP` acceptance path when multiple staged Unit rows claim the **same exact reviewed source fingerprint and destination Unit** but provide different original source Property parents. A single-value dictionary projection can hide contradictions when a later reviewed row overwrites earlier evidence, falsely reporting an accepted lease identity relationship as current. Preserve every exact reviewed source-parent candidate, reject ambiguous or invalid exact evidence, and expose existing `UNIT_SOURCE_PARENT_MISMATCH` and `ACCEPTED_RELATIONSHIP_STALE` blockers. Legacy absent exact evidence remains unknown, not fabricated.
+
+This is read-only preview hardening only. It does not revise old decisions, auto-merge source IDs, alter existing Property/Unit/Tenant targets, create customer leases or occupancy, or post rent, deposits or accounting. Require focused contradictory-source regression, exact-SHA hosted backend/PostgreSQL, frontend, platform-admin, security, E2E and staging CI.

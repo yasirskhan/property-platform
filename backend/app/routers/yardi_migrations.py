@@ -759,13 +759,21 @@ def list_yardi_lease_relationships(
     ).order_by(PlatformMigrationStagedRow.id.asc()).all()
     # Only exact reviewed source fingerprint + destination Unit evidence is
     # acceptable. A similarly named Unit or another run's staging is not proof.
-    reviewed_unit_sources = {
-        (row.source_id, row.row_fingerprint, row.resolution_target_unit_id): (
-            str((row.normalized_data or {}).get("source_property_id") or "").strip()
+    # Preserve every exact reviewed Unit parent record. A dict comprehension
+    # silently overwrote conflicting versions, which could incorrectly make
+    # a stale accepted lease relationship look current when the last row matched.
+    reviewed_unit_sources = {}
+    for reviewed_row in reviewed_unit_rows:
+        key = (
+            reviewed_row.source_id, reviewed_row.row_fingerprint,
+            reviewed_row.resolution_target_unit_id,
         )
-        for row in reviewed_unit_rows
-        if not row.errors and row.disposition != "INVALID"
-    }
+        parent_evidence = (
+            str((reviewed_row.normalized_data or {}).get("source_property_id") or "").strip()
+            if not reviewed_row.errors and reviewed_row.disposition != "INVALID"
+            else None
+        )
+        reviewed_unit_sources.setdefault(key, []).append(parent_evidence)
     # The same run may contain conflicting lease revisions from multiple
     # uploads. Reviewed acceptance is only current when competing versions
     # remain explicitly skipped, including versions outside this page.
@@ -831,14 +839,19 @@ def list_yardi_lease_relationships(
                 if valid_units[unit_id] != property_id:
                     blockers.append("UNIT_PROPERTY_MISMATCH")
             if unit is not None and unit_id is not None and unit.target_entity == "UNIT":
-                reviewed_parent = reviewed_unit_sources.get((
+                reviewed_parents = reviewed_unit_sources.get((
                     unit.source_id, unit.source_fingerprint, unit.target_id,
                 ))
-                if reviewed_parent:
+                if reviewed_parents:
                     lease_parent_source = str(
                         source.get("source_property_id") or ""
                     ).strip()
-                    unit_source_parent_matches_lease = reviewed_parent == lease_parent_source
+                    # Mirror acceptance: EVERY exact reviewed parent must be valid
+                    # and identical to the source Property of the lease.
+                    unit_source_parent_matches_lease = (
+                        None not in reviewed_parents
+                        and set(reviewed_parents) == {lease_parent_source}
+                    )
                     if not unit_source_parent_matches_lease:
                         blockers.append("UNIT_SOURCE_PARENT_MISMATCH")
         is_accepted = staged_row.resolution_action == "ACCEPT_RELATIONSHIP"

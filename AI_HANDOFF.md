@@ -1,3 +1,13 @@
+# AI_HANDOFF.md — 2026-10-13 YARDI SOURCE COLLISION DISPOSITION VERIFIED; LEASE PARENT REVIEW CONSISTENCY PROVISIONAL
+
+**LATEST VERIFIED PRODUCT SOURCE (publish this prepared handoff only after confirming six-job success):** `b97164529c7ade8a8a6d07eb9330d83f4f7ab2e6`, GitHub Actions **38500928438 SUCCESS**, all six required jobs. The provider/run/org-scoped Yardi cross-upload collision inventory now counts explicitly skipped and remaining source versions across all rows, reports `UNRESOLVED_MULTIPLE` / `ONE_UNSKIPPED` / `ALL_SKIPPED`, exposes safe reason-coded sampled SKIP audit evidence, and links staff to original uploads. Backend `b4d137f6`, regressions `dffd394a`, console `19bf77dc`, navigation fix `b9716452`, plan section 23. No customer mutation or silent merge.
+
+**NEXT PROVISIONAL BATCH (this handoff's commit contains source/tests/docs, but NOT verified):** Fix accepted lease-source preview so contradictory or invalid exact-reviewed Unit source-parent rows cannot be hidden by later same-key evidence. Prior dict comprehension silently replaced earlier evidence; new read-only preview considers every exact reviewed row and reports `UNIT_SOURCE_PARENT_MISMATCH` and `ACCEPTED_RELATIONSHIP_STALE` rather than falsely marking accepted review current. Add focused regression for contradictory matching-order rows and invalid reviewed evidence plus source collision >10-sample coverage. Staff copy adjustment and Yardi migration plan section 24 included. NO lease/occupancy/financial/customer mutation. Check new exact-SHA six-job CI, repair reds, update handoff, then immediately continue bounded Phase 4.15 without asking.
+
+**GUARDRAILS:** Work ONLY `chatgpt/checkpoint-005-safety`; never main or another branch. Don't recreate migration architecture; don't infer unsupported Yardi financial source fields or private API contracts. Do not treat a prepared Git object, pending CI or provisional commit as verified. Repeat implement → focused test → commit → hosted CI → six-job exact-SHA verified → handoff → next batch.
+
+---
+
 # AI_HANDOFF.md — 2026-10-13 YARDI STALE ACCEPTANCE VERIFIED; EXPLICIT SOURCE-VERSION DISPOSITION PROVISIONAL
 
 **VERIFIED EXACT PREVIOUS SHA:** `7e0eec948dc163f2bd5dfd2f95f4027d54a4441f`; GitHub Actions **38498584215 SUCCESS** and all six individual jobs passed: platform-admin, frontend, security, backend/PostgreSQL, authenticated E2E, staging-config. This verifies read-only `relationship_review_current` staleness warning for reviewed Yardi Lease source identity, including changed target links, original Unit source-parent evidence, competing new unskipped upload versions, privacy and nonmutation regressions. Do not repeat this completed implementation.

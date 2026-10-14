@@ -283,6 +283,97 @@ def test_yardi_lease_accept_rejects_ambiguous_exact_unit_source_parent_reviews()
         engine.dispose()
 
 
+def test_accepted_lease_preview_rejects_conflicting_exact_unit_parent_versions():
+    """Later matching evidence must not hide an earlier conflicting version."""
+    db, engine = _session()
+    try:
+        actor, org, run, original, alternate, unit, tenant, lease_row = _seed(
+            db, "yardi-accepted-lease-ambiguous-parent",
+        )
+        accepted = accept_yardi_staged_lease_relationship(
+            run.id, lease_row.id, db, actor,
+        )
+        assert accepted["replayed"] is False
+        verified = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.resource == "UNITS",
+        ).one()
+        # Same reviewed identity/fingerprint but contradictory staged evidence;
+        # final matching row would previously overwrite the conflict in preview.
+        for i, source_parent in enumerate(("P2", "P1"), start=1):
+            db.add(PlatformMigrationStagedRow(
+                upload_id=verified.upload_id, run_id=run.id,
+                organization_id=org.id, provider="YARDI",
+                resource="UNITS", row_number=verified.row_number + i * 100,
+                source_id=verified.source_id, disposition="REVIEW",
+                row_fingerprint=verified.row_fingerprint,
+                normalized_data={
+                    "source_id": "U1", "source_property_id": source_parent,
+                    "unit_name": "101",
+                },
+                correction_evidence=[], warnings=[], errors=[],
+                resolution_action="MATCH_EXISTING",
+                resolution_target_unit_id=unit.id,
+            ))
+        db.commit()
+        preview = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        assert preview["relationship_review_recorded"] is True
+        assert preview["relationship_review_current"] is False
+        assert preview["unit_source_parent_matches_lease"] is False
+        assert "UNIT_SOURCE_PARENT_MISMATCH" in preview["blockers"]
+        assert "ACCEPTED_RELATIONSHIP_STALE" in preview["blockers"]
+        with pytest.raises(HTTPException) as conflicting:
+            accept_yardi_staged_lease_relationship(
+                run.id, lease_row.id, db, actor,
+            )
+        assert conflicting.value.status_code == 409
+        assert db.query(Lease).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_accepted_lease_preview_rejects_invalid_exact_unit_review_version():
+    """Invalid reviewed exact evidence cannot keep an accepted relationship current."""
+    db, engine = _session()
+    try:
+        actor, org, run, original, alternate, unit, tenant, lease_row = _seed(
+            db, "yardi-accepted-lease-invalid-parent-review",
+        )
+        accept_yardi_staged_lease_relationship(run.id, lease_row.id, db, actor)
+        reviewed = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.resource == "UNITS",
+        ).one()
+        db.add(PlatformMigrationStagedRow(
+            upload_id=reviewed.upload_id, run_id=run.id,
+            organization_id=org.id, provider="YARDI",
+            resource="UNITS", row_number=reviewed.row_number + 100,
+            source_id=reviewed.source_id, disposition="INVALID",
+            row_fingerprint=reviewed.row_fingerprint,
+            normalized_data={"source_id": "U1", "source_property_id": "P1", "unit_name": "101"},
+            correction_evidence=[], warnings=[], errors=["UNREVIEWED_INVALID_DATA"],
+            resolution_action="MATCH_EXISTING", resolution_target_unit_id=unit.id,
+        ))
+        db.commit()
+        preview = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        assert preview["relationship_review_recorded"] is True
+        assert preview["relationship_review_current"] is False
+        assert preview["unit_source_parent_matches_lease"] is False
+        assert "ACCEPTED_RELATIONSHIP_STALE" in preview["blockers"]
+        with pytest.raises(HTTPException) as invalid:
+            accept_yardi_staged_lease_relationship(run.id, lease_row.id, db, actor)
+        assert invalid.value.status_code == 409
+        assert db.query(Lease).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_accepted_lease_review_preview_detects_cross_upload_new_version_and_skip_resolution():
     db, engine = _session()
     try:

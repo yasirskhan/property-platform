@@ -159,6 +159,64 @@ def test_yardi_run_collision_inventory_distinguishes_changed_source_from_identic
         engine.dispose()
 
 
+def test_yardi_disposition_uses_all_versions_when_sample_is_truncated():
+    """The first ten references must not mask later explicit skip decisions."""
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-collision-truncated-sample")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="many-versions", status="DRAFT",
+        )
+        db.add(run)
+        db.commit()
+        upload_id = _stage(
+            db, actor, run, "VENDORS", b"ID,Name\nV1,Existing Vendor\n",
+        )
+        first = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload_id,
+        ).one()
+        for index in range(11):
+            db.add(PlatformMigrationStagedRow(
+                upload_id=upload_id, run_id=run.id, organization_id=org.id,
+                provider="YARDI", resource="VENDORS",
+                row_number=first.row_number + index + 1,
+                source_id="V1", disposition="REVIEW",
+                row_fingerprint="different-fingerprint-" + str(index),
+                normalized_data={"source_id": "V1", "name": "private value"},
+                correction_evidence=[], warnings=[], errors=[],
+            ))
+        db.commit()
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.source_id == "V1",
+        ).order_by(PlatformMigrationStagedRow.id.asc()).all()
+        assert len(rows) == 12
+        for duplicate in rows[1:]:
+            skip_yardi_staged_row(
+                run.id, duplicate.id,
+                YardiRowSkipIn(reason_code="DUPLICATE_SOURCE"),
+                db, actor,
+            )
+        response = list_yardi_source_collisions(
+            run.id, Response(), resource="VENDORS", offset=0, limit=10,
+            db=db, current_user=actor,
+        )
+        group = response["items"][0]
+        assert group["row_count"] == 12
+        assert len(group["sampled_rows"]) == 10
+        assert group["sample_truncated"] is True
+        assert group["skipped_rows"] == 11
+        assert group["remaining_unskipped_rows"] == 1
+        assert group["disposition_status"] == "ONE_UNSKIPPED"
+        assert "private value" not in str(response)
+        assert db.query(Lease).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_yardi_collision_inventory_denies_unpermitted_platform_staff():
     db, engine = _session()
     try:

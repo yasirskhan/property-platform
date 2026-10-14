@@ -718,7 +718,7 @@ export default function YardiMigrationConsole() {
                     {item.disposition_status === "UNRESOLVED_MULTIPLE"
                       ? "Unresolved: multiple versions still unskipped"
                       : item.disposition_status === "ONE_UNSKIPPED"
-                        ? "One source row remains; explicit review still needed"
+                        ? "One unskipped source row; inspect its current review state"
                         : "All source rows explicitly skipped"}
                     <span className="block">{item.skipped_rows} skipped · {item.remaining_unskipped_rows} unskipped</span>
                   </td>
