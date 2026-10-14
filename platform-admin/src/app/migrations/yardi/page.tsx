@@ -99,6 +99,17 @@ type LeaseRelationshipPreview = {
   controlled_commit_enabled: false;
   customer_business_mutation: false;
 };
+type SourceCollisionEntry = {
+  resource: Resource; source_id: string; row_count: number;
+  upload_count: number; source_versions: number;
+  conflicting_source_versions: boolean;
+  sampled_rows: { staged_row_id: number; upload_id: number; row_number: number; disposition: string; resolution_action: string | null }[];
+  sample_truncated: boolean; requires_manual_reconciliation: true;
+};
+type SourceCollisionInventory = {
+  total: number; items: SourceCollisionEntry[];
+  read_only: true; auto_merge_enabled: false; customer_business_mutation: false;
+};
 type Reconciliation = {
   review_fingerprint: string;
   staged_rows: number;
@@ -160,6 +171,10 @@ export default function YardiMigrationConsole() {
   const [leasePreview, setLeasePreview] = useState<LeaseRelationshipPreview | null>(null);
   const [leaseOffset, setLeaseOffset] = useState(0);
   const LEASE_PAGE_SIZE = 50;
+  const [sourceCollisions, setSourceCollisions] = useState<SourceCollisionInventory | null>(null);
+  const [collisionOffset, setCollisionOffset] = useState(0);
+  const [collisionResource, setCollisionResource] = useState<Resource | "ALL">("ALL");
+  const COLLISION_PAGE_SIZE = 20;
   const [reconciliation, setReconciliation] = useState<Reconciliation | null>(null);
   const [readiness, setReadiness] = useState<ResourceReadiness | null>(null);
   const [dryRun, setDryRun] = useState<ReviewDryRun | null>(null);
@@ -271,6 +286,17 @@ export default function YardiMigrationConsole() {
     });
     return () => { active = false; };
   }, [selectedRunId, leaseOffset, refreshKey]);
+
+  useEffect(() => {
+    if (selectedRunId === null) return;
+    let active = true;
+    const query = new URLSearchParams({ offset: String(collisionOffset), limit: String(COLLISION_PAGE_SIZE) });
+    if (collisionResource !== "ALL") query.set("resource", collisionResource);
+    platformGet(ROOT + "/runs/" + selectedRunId + "/source-collisions?" + query.toString())
+      .then((data: SourceCollisionInventory) => { if (active) setSourceCollisions(data); })
+      .catch((err: unknown) => { if (active) setError(readableError(err)); });
+    return () => { active = false; };
+  }, [selectedRunId, collisionOffset, collisionResource, refreshKey]);
 
   async function perform(work: () => Promise<void>) {
     if (busy) return;
@@ -472,6 +498,9 @@ export default function YardiMigrationConsole() {
             setBindingOffset(0);
             setLeasePreview(null);
             setLeaseOffset(0);
+            setSourceCollisions(null);
+            setCollisionOffset(0);
+            setCollisionResource("ALL");
             setDryRun(null);
           }}>
             <option value="">Select run</option>
