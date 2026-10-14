@@ -1,3 +1,13 @@
+# AI_HANDOFF.md — 2026-10-13 YARDI EXACT UNIT REVIEW VERIFIED; AGGREGATE RECONCILIATION FOLLOW-UP PROVISIONAL
+
+**LAST VERIFIED PRODUCT SHA:** `29e9220861620fb3a34cab2f5aac3cfb101ae8ea` passed all six GitHub Actions jobs in **run 38502586560 SUCCESS**: backend/PostgreSQL, frontend, platform-admin, security, authenticated E2E, and staging-config. Per-row read-only accepted Yardi lease relationship preview now checks **all** exact-reviewed Unit source-parent evidence rather than overwriting conflicting rows, and reports stale acceptance when contradictions or invalid evidence exist. Also covers >10-row collision sample display and SKIP reason display; customer data unchanged. This batch is VERIFIED. Previous disposition batch `b9716452` was verified in run **38500928438 SUCCESS**.
+
+**NEXT INDEPENDENT PROVISIONAL BATCH:** Align the read-only **run-level aggregate** Yardi lease reconciliation with the now-verified per-row acceptance preview. In `get_yardi_reconciliation`, a dict projection was also overwriting exact-reviewed Unit source-parent rows; preserve all candidates, mark conflicting/invalid evidence as `unit_source_parent_mismatch`, and prevent incorrect `complete_identity_links` counts. Add focused regressions to existing Yardi lease identity acceptance tests. See `docs/YARDI_MIGRATION_PLAN.md` section 25. No automated source matching, previous decision rewriting, customer Lease or occupancy creation, financial postings or API assumptions. Verify this **new** commit's six-job exact SHA CI before marking it green. Then immediately continue another safe Phase 4.15 bounded batch.
+
+**BRANCH:** ONLY `chatgpt/checkpoint-005-safety`; never main or another branch. Continue development through successive bounded implementation/test/commit/CI/repair/handoff cycles without waiting for user prompts; avoid overlapping commits that cancel the exact-SHA run. Phase 4.15 IN PROGRESS.
+
+---
+
 # AI_HANDOFF.md — 2026-10-13 YARDI SOURCE COLLISION DISPOSITION VERIFIED; LEASE PARENT REVIEW CONSISTENCY PROVISIONAL
 
 **LATEST VERIFIED PRODUCT SOURCE (publish this prepared handoff only after confirming six-job success):** `b97164529c7ade8a8a6d07eb9330d83f4f7ab2e6`, GitHub Actions **38500928438 SUCCESS**, all six required jobs. The provider/run/org-scoped Yardi cross-upload collision inventory now counts explicitly skipped and remaining source versions across all rows, reports `UNRESOLVED_MULTIPLE` / `ONE_UNSKIPPED` / `ALL_SKIPPED`, exposes safe reason-coded sampled SKIP audit evidence, and links staff to original uploads. Backend `b4d137f6`, regressions `dffd394a`, console `19bf77dc`, navigation fix `b9716452`, plan section 23. No customer mutation or silent merge.

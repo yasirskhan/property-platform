@@ -324,6 +324,9 @@ def test_accepted_lease_preview_rejects_conflicting_exact_unit_parent_versions()
         assert preview["unit_source_parent_matches_lease"] is False
         assert "UNIT_SOURCE_PARENT_MISMATCH" in preview["blockers"]
         assert "ACCEPTED_RELATIONSHIP_STALE" in preview["blockers"]
+        summary = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert summary["lease_relationship_readiness"]["unit_source_parent_mismatch"] == 1
+        assert summary["lease_relationship_readiness"]["complete_identity_links"] == 0
         with pytest.raises(HTTPException) as conflicting:
             accept_yardi_staged_lease_relationship(
                 run.id, lease_row.id, db, actor,
@@ -365,6 +368,9 @@ def test_accepted_lease_preview_rejects_invalid_exact_unit_review_version():
         assert preview["relationship_review_current"] is False
         assert preview["unit_source_parent_matches_lease"] is False
         assert "ACCEPTED_RELATIONSHIP_STALE" in preview["blockers"]
+        summary = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert summary["lease_relationship_readiness"]["unit_source_parent_mismatch"] == 1
+        assert summary["lease_relationship_readiness"]["complete_identity_links"] == 0
         with pytest.raises(HTTPException) as invalid:
             accept_yardi_staged_lease_relationship(run.id, lease_row.id, db, actor)
         assert invalid.value.status_code == 409

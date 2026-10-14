@@ -1064,13 +1064,19 @@ def get_yardi_reconciliation(
         User.is_active.is_(True),
         User.deleted_at.is_(None),
     ).all()}
-    reviewed_lease_unit_parent_sources = {
-        (unit_row.source_id, unit_row.row_fingerprint, unit_row.resolution_target_unit_id):
+    # Aggregate readiness must consider every exact-reviewed Unit source parent.
+    # Never hide conflicting versions by overwriting the last matching key.
+    reviewed_lease_unit_parent_sources = {}
+    for unit_row in rows:
+        if unit_row.resource != "UNITS" or unit_row.resolution_action != "MATCH_EXISTING":
+            continue
+        key = (unit_row.source_id, unit_row.row_fingerprint, unit_row.resolution_target_unit_id)
+        parent_source = (
             str((unit_row.normalized_data or {}).get("source_property_id") or "").strip()
-        for unit_row in rows
-        if unit_row.resource == "UNITS" and unit_row.resolution_action == "MATCH_EXISTING"
-        and not unit_row.errors and unit_row.disposition != "INVALID"
-    }
+            if not unit_row.errors and unit_row.disposition != "INVALID"
+            else None
+        )
+        reviewed_lease_unit_parent_sources.setdefault(key, []).append(parent_source)
     lease_relationship_readiness = {
         "staged": len(lease_rows), "complete_identity_links": 0,
         "missing_property": 0, "missing_unit": 0, "missing_tenant": 0,
@@ -1106,10 +1112,15 @@ def get_yardi_reconciliation(
             lease_relationship_readiness["missing_tenant"] += 1
         source_parent_conflicts = False
         if unit_link is not None and unit_id is not None and unit_link.target_entity == "UNIT":
-            reviewed_parent = reviewed_lease_unit_parent_sources.get((
+            reviewed_parents = reviewed_lease_unit_parent_sources.get((
                 unit_link.source_id, unit_link.source_fingerprint, unit_link.target_id,
             ))
-            if reviewed_parent and reviewed_parent != str(data.get("source_property_id") or "").strip():
+            if reviewed_parents and (
+                None in reviewed_parents
+                or set(reviewed_parents) != {
+                    str(data.get("source_property_id") or "").strip()
+                }
+            ):
                 source_parent_conflicts = True
                 lease_relationship_readiness["unit_source_parent_mismatch"] += 1
         target_parent_conflicts = (
