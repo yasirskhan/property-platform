@@ -802,6 +802,7 @@ def list_yardi_lease_relationships(
             "source_id": staged_row.source_id,
             "blockers": blockers,
             "identity_links_complete": not blockers,
+            "relationship_review_recorded": staged_row.resolution_action == "ACCEPT_RELATIONSHIP",
             "unit_source_parent_matches_lease": unit_source_parent_matches_lease,
             "occupancy_or_lease_authorized": False,
         })
@@ -888,7 +889,7 @@ def get_yardi_reconciliation(
     for row in rows:
         stats = resources.setdefault(row.resource, {
             "total": 0, "invalid": 0, "mapped": 0, "skipped": 0, "needs_review": 0,
-            "matched_existing": 0,
+            "matched_existing": 0, "accepted_relationship_review": 0,
         })
         stats["total"] += 1
         if row.resolution_action == "SKIP":
@@ -944,6 +945,10 @@ def get_yardi_reconciliation(
             else:
                 unresolved += 1
                 stats["needs_review"] += 1
+        elif row.resource == "LEASE_OCCUPANCY" and row.resolution_action == "ACCEPT_RELATIONSHIP":
+            # This count means staff recorded identity review, NOT that lease,
+            # occupancy, financial records or current targets are commit-ready.
+            stats["accepted_relationship_review"] += 1
         elif row.errors or row.disposition == "INVALID":
             invalid += 1
             stats["invalid"] += 1
@@ -1134,6 +1139,141 @@ def skip_yardi_staged_row(
     )
     db.commit()
     return {"id": row.id, "run_id": run.id, "action": "SKIP", "replayed": False}
+
+
+@router.post("/runs/{run_id}/staged-rows/{row_id}/accept-lease-relationship")
+def accept_yardi_staged_lease_relationship(
+    run_id: int,
+    row_id: int,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Review exact source identities only. No Lease, occupancy or money mutation."""
+    run = _run(db, run_id=run_id, current_user=current_user, write=True)
+    row = db.query(PlatformMigrationStagedRow).filter(
+        PlatformMigrationStagedRow.id == row_id,
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "LEASE_OCCUPANCY",
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Yardi lease source row not found.")
+    if row.errors or row.disposition == "INVALID" or not row.source_id:
+        raise HTTPException(status_code=409, detail="Invalid or unidentified lease row cannot be accepted.")
+    if row.resolution_action not in (None, "ACCEPT_RELATIONSHIP"):
+        raise HTTPException(status_code=409, detail="Conflicting source review decision already recorded.")
+    duplicate = db.query(PlatformMigrationStagedRow.id).filter(
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "LEASE_OCCUPANCY",
+        PlatformMigrationStagedRow.source_id == row.source_id,
+        PlatformMigrationStagedRow.id != row.id,
+        or_(PlatformMigrationStagedRow.resolution_action.is_(None),
+            PlatformMigrationStagedRow.resolution_action != "SKIP"),
+    ).first()
+    if duplicate:
+        raise HTTPException(status_code=409, detail="Repeated lease source ID requires explicit duplicate review.")
+    source = row.normalized_data or {}
+    source_ids = {
+        "PROPERTIES": str(source.get("source_property_id") or "").strip(),
+        "UNITS": str(source.get("source_unit_id") or "").strip(),
+        "TENANTS": str(source.get("source_tenant_id") or "").strip(),
+    }
+    if not all(source_ids.values()):
+        raise HTTPException(status_code=409, detail="Lease source IDs must identify Property, Unit and Tenant.")
+    mappings = {}
+    expected = {"PROPERTIES": "PROPERTY", "UNITS": "UNIT", "TENANTS": "TENANT_USER"}
+    for resource, source_id in source_ids.items():
+        mapped = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "YARDI",
+            PlatformMigrationItem.resource == resource,
+            PlatformMigrationItem.source_id == source_id,
+            PlatformMigrationItem.target_entity == expected[resource],
+        ).first()
+        if mapped is None:
+            raise HTTPException(status_code=409, detail="Durable Property, Unit and Tenant identity mappings are required.")
+        mappings[resource] = mapped
+    property_id = mappings["PROPERTIES"].target_id
+    unit_id = mappings["UNITS"].target_id
+    tenant_id = mappings["TENANTS"].target_id
+    current_property = db.query(Property.id).filter(
+        Property.id == property_id, Property.organization_id == run.organization_id,
+        Property.is_active.is_(True), Property.deleted_at.is_(None),
+    ).first()
+    current_unit = db.query(Unit.id, Unit.property_id).join(
+        Property, Unit.property_id == Property.id,
+    ).filter(
+        Unit.id == unit_id,
+        Unit.is_active.is_(True), Unit.deleted_at.is_(None),
+        Property.organization_id == run.organization_id,
+        Property.is_active.is_(True), Property.deleted_at.is_(None),
+    ).first()
+    current_tenant = db.query(User.id).filter(
+        User.id == tenant_id, User.organization_id == run.organization_id,
+        User.role == UserRole.TENANT, User.is_active.is_(True),
+        User.deleted_at.is_(None),
+    ).first()
+    if not current_property or not current_unit or not current_tenant:
+        raise HTTPException(status_code=409, detail="Reviewed lease identity target is inactive or outside organization.")
+    if current_unit.property_id != property_id:
+        raise HTTPException(status_code=409, detail="Mapped Unit no longer belongs to mapped Property.")
+    verified_unit_rows = db.query(PlatformMigrationStagedRow).filter(
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "UNITS",
+        PlatformMigrationStagedRow.source_id == source_ids["UNITS"],
+        PlatformMigrationStagedRow.row_fingerprint == mappings["UNITS"].source_fingerprint,
+        PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+        PlatformMigrationStagedRow.resolution_target_unit_id == unit_id,
+    ).all()
+    if not verified_unit_rows or any(
+        item.errors or item.disposition == "INVALID" for item in verified_unit_rows
+    ):
+        raise HTTPException(status_code=409, detail="Exact reviewed Unit original source-parent evidence is required.")
+    verified_parent_sources = {
+        str((item.normalized_data or {}).get("source_property_id") or "").strip()
+        for item in verified_unit_rows
+    }
+    if verified_parent_sources != {source_ids["PROPERTIES"]}:
+        raise HTTPException(status_code=409, detail="Lease and reviewed Unit original Yardi source parents conflict.")
+    stored = (row.resolution_target_id, row.resolution_target_unit_id,
+              row.resolution_target_tenant_user_id)
+    current = (property_id, unit_id, tenant_id)
+    if row.resolution_action == "ACCEPT_RELATIONSHIP":
+        if stored != current:
+            raise HTTPException(status_code=409, detail="Accepted lease source identity is stale.")
+        return {"row_id": row.id, "action": "ACCEPT_RELATIONSHIP",
+                "replayed": True, "customer_business_mutation": False}
+    row.resolution_action = "ACCEPT_RELATIONSHIP"
+    row.resolution_target_id = property_id
+    row.resolution_target_unit_id = unit_id
+    row.resolution_target_tenant_user_id = tenant_id
+    row.resolved_by_platform_user_id = current_user.id
+    row.resolved_at = datetime.utcnow()
+    row.correction_evidence = list(row.correction_evidence or []) + [
+        {"action": "ACCEPT_RELATIONSHIP", "property_id": property_id,
+         "unit_id": unit_id, "tenant_user_id": tenant_id},
+    ]
+    run.last_dry_run_fingerprint = None
+    run.last_dry_run_summary = None
+    append_audit_log(
+        db, platform_user_id=current_user.id,
+        organization_id=run.organization_id,
+        entity_type="platform_migration_staged_row", entity_id=row.id,
+        action="yardi_lease_source_relationship_accepted",
+        new_value={"run_id": run.id, "property_id": property_id,
+                   "unit_id": unit_id, "tenant_user_id": tenant_id,
+                   "customer_business_mutation": False,
+                   "lease_created": False, "accounting_posted": False},
+    )
+    db.commit()
+    return {"row_id": row.id, "action": "ACCEPT_RELATIONSHIP",
+            "replayed": False, "customer_business_mutation": False}
 
 
 @router.post("/runs/{run_id}/review-dry-run")

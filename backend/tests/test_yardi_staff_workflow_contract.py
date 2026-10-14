@@ -101,3 +101,13 @@ def test_yardi_cross_upload_source_collisions_are_authenticated_read_only():
     assert {"run_id", "resource", "offset", "limit"} <= {
         p["name"] for p in query.get("parameters", [])
     }
+
+
+def test_yardi_lease_identity_acceptance_is_authenticated_post_only():
+    operations = app.openapi()["paths"]
+    path = "/api/platform/migrations/yardi/runs/{run_id}/staged-rows/{row_id}/accept-lease-relationship"
+    assert path in operations
+    assert "post" in operations[path] and "get" not in operations[path]
+    method = operations[path]["post"]
+    assert method.get("security"), "Acceptance requires platform staff authorization"
+    assert {"run_id", "row_id"} <= {param["name"] for param in method.get("parameters", [])}

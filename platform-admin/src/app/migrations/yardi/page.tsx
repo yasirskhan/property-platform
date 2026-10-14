@@ -86,6 +86,7 @@ type LeaseRelationshipRow = {
   source_id: string | null;
   blockers: string[];
   identity_links_complete: boolean;
+  relationship_review_recorded: boolean;
   unit_source_parent_matches_lease: boolean | null;
   occupancy_or_lease_authorized: false;
 };
@@ -407,6 +408,21 @@ export default function YardiMigrationConsole() {
     });
   }
 
+  async function acceptLeaseRelationship(row: StagedRow) {
+    if (!canWrite || selectedRunId === null || row.resource !== "LEASE_OCCUPANCY" || row.resolution_action) return;
+    await perform(async () => {
+      if (row.errors.length || row.disposition === "INVALID") {
+        throw new Error("Invalid lease source rows cannot be accepted.");
+      }
+      await platformPost(
+        ROOT + "/runs/" + selectedRunId + "/staged-rows/" + row.id + "/accept-lease-relationship", {}
+      );
+      setDryRun(null);
+      setRefreshKey((key) => key + 1);
+      setNotice("Exact source Property, Unit and Tenant identities reviewed; no lease, occupancy or financial data created.");
+    });
+  }
+
   async function reviewRow(row: StagedRow, action: "MATCH_EXISTING" | "SKIP") {
     if (!canWrite || selectedRunId === null || row.resolution_action) return;
     await perform(async () => {
@@ -598,6 +614,11 @@ export default function YardiMigrationConsole() {
                     </div>}
                     {row.resolution_action === "MATCH_EXISTING" && <span className="block text-xs text-slate-600">Target #{String(row.resolution_target_id ?? row.resolution_target_unit_id ?? row.resolution_target_owner_user_id ?? row.resolution_target_vendor_id ?? row.resolution_target_tenant_user_id ?? "—")}</span>}
                     {canWrite && !row.resolution_action && <div className="mt-2 flex min-w-44 flex-col gap-2">
+                      {row.resource === "LEASE_OCCUPANCY" && row.errors.length === 0 && row.disposition !== "INVALID" && (
+                        <button type="button" disabled={busy} className="rounded border border-slate-600 px-2 py-1 text-xs disabled:opacity-50" onClick={() => { void acceptLeaseRelationship(row); }}>
+                          Accept exact identity links (no lease)
+                        </button>
+                      )}
                       {row.errors.length === 0 && row.disposition !== "INVALID" && MATCH_RESOURCES[row.resource as Resource] && <>
                         <input className="input text-xs" placeholder="Search existing target name" maxLength={80} aria-label={"Search existing target for row " + row.row_number} value={targetQueries[row.id] ?? ""} onChange={(event) => { setTargetQueries((previous) => ({ ...previous, [row.id]: event.target.value })); setTargetIds((previous) => ({ ...previous, [row.id]: "" })); setCandidateResults((previous) => { const next = { ...previous }; delete next[row.id]; return next; }); }} />
                         <button type="button" disabled={busy} className="rounded border border-slate-500 px-2 py-1 text-xs disabled:opacity-50" onClick={() => { void searchTargets(row); }}>Find existing targets</button>
@@ -650,7 +671,7 @@ export default function YardiMigrationConsole() {
               {Object.entries(reconciliation.resource_coverage).map(([name, stats]) => (
                 <li key={name} className="rounded-lg border p-3 text-sm">
                   <strong>{name}</strong>
-                  <p className="mt-1 text-slate-600">{stats.total ?? 0} staged · {stats.matched_existing ?? 0} reviewed matches · {stats.needs_review ?? 0} unresolved · {stats.invalid ?? 0} invalid</p>
+                  <p className="mt-1 text-slate-600">{stats.total ?? 0} staged · {stats.matched_existing ?? 0} reviewed matches · {stats.needs_review ?? 0} unresolved · {stats.invalid ?? 0} invalid{name === "LEASE_OCCUPANCY" ? " · " + (stats.accepted_relationship_review ?? 0) + " identity reviews recorded" : ""}</p>
                 </li>
               ))}
             </ul>
@@ -725,6 +746,7 @@ export default function YardiMigrationConsole() {
                     <span>{item.identity_links_complete
                       ? "Identity links found — lease still not authorized"
                       : item.blockers.map((blocker) => blocker.replaceAll("_", " ").toLowerCase()).join("; ")}</span>
+                    {item.relationship_review_recorded && <span className="block text-xs text-slate-600">Explicit source identity review recorded — current relationship checks still apply</span>}
                     <span className="mt-1 block text-xs text-slate-600">
                       {item.unit_source_parent_matches_lease === true
                         ? "Original Unit source parent agrees"
