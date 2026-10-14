@@ -1,3 +1,11 @@
+# AI_HANDOFF.md — 2026-10-14 YARDI DURABLE REVIEW DRIFT CHECK (PROVISIONAL)
+
+**LAST VERIFIED LIVE SHA:** `606d6575c118add61fc64a03a382e0c278382a76`, Actions **38511393988 SUCCESS** (all six jobs). It completes the combined exact source review, invalid source precedence, active target and dry-run readiness batch; earlier `fa243987` passed Actions **38510109186** after fixing the CSV regression in `2a4e8d2e`. Do not repeat those verified source batches.
+
+**THIS NEW BOUNDED BATCH, NOT VERIFIED YET:** Reconciliation `matched_existing` resource counters must not count a historical staged review whose same-run durable source fingerprint or customer target has drifted, even when the replacement Unit is active and belongs to the same Property. Backend source, focused regression and Yardi plan §32 included. No customer record/lease/financial mutation. Run exact-SHA hosted six-job CI, repair reds, update handoff, then immediately inspect next Phase 4.15 source/review inconsistency. ONLY `chatgpt/checkpoint-005-safety`; never main/new branch or Work mode. Do not stop at CI or handoff.
+
+---
+
 # AI_HANDOFF.md — 2026-10-14 YARDI SOURCE/REVIEW READINESS CONSISTENCY BATCH (PROVISIONAL)
 
 **SINGLE NEXT BOUNDED PRODUCT BATCH (SQUASHED, NOT VERIFIED):** The next commit deliberately combines closely related read-only Yardi reconciliation safety corrections originally prepared as detached Git objects `939f9a66` (durable Unit binding checks every exact source-parent review), `20766ac3` (invalid source outranks historical match/accept status) and `aa8c584f` (active/nondeleted Property/Unit target readiness plus review dry-run fingerprint). This consolidation enables **one exact-SHA six-job GitHub CI** rather than three serial CI runs, without touching customer business records. Regression tests, docs/YARDI_MIGRATION_PLAN.md §§29–31 and this handoff are included.

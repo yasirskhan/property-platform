@@ -1030,6 +1030,26 @@ def get_yardi_reconciliation(
                 ).first() is not None
             else:
                 target_valid = False
+            # A recorded review is not current if its durable source identity
+            # now points to a different customer target or source fingerprint.
+            # Do not inflate a run's ready count with historical conflicting
+            # evidence. Keep the original reviewed action/audit unchanged.
+            durable = next((
+                item for item in items
+                if item.resource == row.resource and item.source_id == row.source_id
+            ), None)
+            if durable is not None:
+                reviewed_target = {
+                    "PROPERTIES": row.resolution_target_id,
+                    "UNITS": row.resolution_target_unit_id,
+                    "OWNERS": row.resolution_target_owner_user_id,
+                    "VENDORS": row.resolution_target_vendor_id,
+                    "TENANTS": row.resolution_target_tenant_user_id,
+                }.get(row.resource)
+                target_valid = (
+                    target_valid and reviewed_target == durable.target_id
+                    and row.row_fingerprint == durable.source_fingerprint
+                )
             if target_valid:
                 stats["matched_existing"] += 1
             else:

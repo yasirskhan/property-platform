@@ -641,3 +641,51 @@ def test_yardi_aggregate_unit_match_requires_active_unit_and_parent_property():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_yardi_aggregate_review_target_drift_cannot_count_as_matched_existing():
+    """A historical exact review is stale after its durable binding drifts."""
+    db, engine = _session()
+    try:
+        actor, org, run, original, alternate, unit, tenant, lease_row = _seed(
+            db, "yardi-aggregate-durable-unit-drift",
+        )
+        reviewed = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.resource == "UNITS",
+        ).one()
+        bound = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "UNITS",
+        ).one()
+        good = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert good["resource_coverage"]["UNITS"]["matched_existing"] == 1
+        assert good["resource_coverage"]["UNITS"]["needs_review"] == 0
+        original_binding = bound.source_fingerprint
+        bound.source_fingerprint = "review-was-not-for-this-source-version"
+        db.commit()
+        stale_version = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert stale_version["resource_coverage"]["UNITS"]["matched_existing"] == 0
+        assert stale_version["resource_coverage"]["UNITS"]["needs_review"] == 1
+        assert stale_version["review_fingerprint"] != good["review_fingerprint"]
+        bound.source_fingerprint = original_binding
+        db.commit()
+        restored = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert restored["resource_coverage"]["UNITS"]["matched_existing"] == 1
+        # A valid same-property alternate Unit ID still disagrees with the
+        # one the staff reviewed; it must not appear ready.
+        sibling = Unit(property_id=original.id, unit_number="102")
+        db.add(sibling)
+        db.flush()
+        bound.target_id = sibling.id
+        db.commit()
+        stale_target = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert stale_target["resource_coverage"]["UNITS"]["matched_existing"] == 0
+        assert stale_target["resource_coverage"]["UNITS"]["needs_review"] == 1
+        assert reviewed.resolution_action == "MATCH_EXISTING"
+        assert db.query(Lease).count() == 0
+        db.refresh(tenant)
+        assert tenant.hashed_password == "unchanged-password-hash"
+    finally:
+        db.close()
+        engine.dispose()
