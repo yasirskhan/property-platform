@@ -105,7 +105,9 @@ type SourceCollisionEntry = {
   resource: Resource; source_id: string; row_count: number;
   upload_count: number; source_versions: number;
   conflicting_source_versions: boolean;
-  sampled_rows: { staged_row_id: number; upload_id: number; row_number: number; disposition: string; resolution_action: string | null }[];
+  skipped_rows: number; remaining_unskipped_rows: number;
+  disposition_status: "ALL_SKIPPED" | "ONE_UNSKIPPED" | "UNRESOLVED_MULTIPLE";
+  sampled_rows: { staged_row_id: number; upload_id: number; row_number: number; disposition: string; resolution_action: string | null; skip_reason_code: string | null }[];
   sample_truncated: boolean; requires_manual_reconciliation: true;
 };
 type SourceCollisionInventory = {
@@ -582,7 +584,7 @@ export default function YardiMigrationConsole() {
           {!canWrite && <p className="mt-3 text-sm text-slate-600">Your platform role is read-only.</p>}
         </section>}
 
-        {selectedRun && <section className="rounded-xl border bg-white p-5">
+        {selectedRun && <section id="yardi-staged-uploads" className="rounded-xl border bg-white p-5">
           <h2 className="text-lg font-semibold">Staged uploads and rows</h2>
           <label className="mt-3 block text-sm" htmlFor="yardi-upload">Choose upload</label>
           <select id="yardi-upload" className="input mt-1" value={selectedUploadId ?? ""} onChange={(event) => {
@@ -707,14 +709,39 @@ export default function YardiMigrationConsole() {
           <p className="mt-2 text-xs">{sourceCollisions?.total ?? "…"} repeated source-ID groups.</p>
           <div className="mt-3 overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead><tr><th className="p-2">Resource and source ID</th><th className="p-2">Versions</th><th className="p-2">Staged row locations</th></tr></thead>
+              <thead><tr><th className="p-2">Resource and source ID</th><th className="p-2">Versions</th><th className="p-2">Review disposition</th><th className="p-2">Staged row locations</th></tr></thead>
               <tbody className="divide-y">
                 {sourceCollisions?.items.map((item) => <tr key={item.resource + item.source_id}>
                   <td className="p-2">{item.resource}: <span className="font-mono">{item.source_id}</span></td>
                   <td className="p-2">{item.conflicting_source_versions ? "Different source values" : "Duplicate source values"} · {item.source_versions} versions, {item.upload_count} uploads</td>
-                  <td className="p-2 text-xs">{item.sampled_rows.map((sample) => <span className="block" key={sample.staged_row_id}>Upload #{sample.upload_id}, row {sample.row_number} (staged #{sample.staged_row_id})</span>)}{item.sample_truncated && <span>More rows exist</span>}</td>
+                  <td className="p-2 text-xs">
+                    {item.disposition_status === "UNRESOLVED_MULTIPLE"
+                      ? "Unresolved: multiple versions still unskipped"
+                      : item.disposition_status === "ONE_UNSKIPPED"
+                        ? "One source row remains; explicit review still needed"
+                        : "All source rows explicitly skipped"}
+                    <span className="block">{item.skipped_rows} skipped · {item.remaining_unskipped_rows} unskipped</span>
+                  </td>
+                  <td className="p-2 text-xs">{item.sampled_rows.map((sample) =>
+                    <div key={sample.staged_row_id} className="mb-1">
+                      Upload #{sample.upload_id}, row {sample.row_number} (staged #{sample.staged_row_id})
+                      {" · "}{sample.resolution_action === "SKIP"
+                        ? "SKIP: " + (sample.skip_reason_code ?? "reason unavailable")
+                        : sample.resolution_action ?? "PENDING"}
+                      {uploads.some((upload) => upload.id === sample.upload_id) &&
+                        <button type="button" className="ml-2 underline disabled:opacity-50" disabled={busy}
+                          onClick={() => {
+                            setSelectedUploadId(sample.upload_id);
+                            setRows([]);
+                            setRowOffset(0);
+                            setCandidateResults({});
+                            setTargetIds({});
+                            document.getElementById("yardi-staged-uploads")?.scrollIntoView({ behavior: "smooth" });
+                          }}>Review upload</button>}
+                    </div>
+                  )}{item.sample_truncated && <span>More rows exist; counts include all staged versions.</span>}</td>
                 </tr>)}
-                {sourceCollisions?.items.length === 0 && <tr><td colSpan={3} className="p-3">No source-ID collision groups detected.</td></tr>}
+                {sourceCollisions?.items.length === 0 && <tr><td colSpan={4} className="p-3">No source-ID collision groups detected.</td></tr>}
               </tbody>
             </table>
           </div>
