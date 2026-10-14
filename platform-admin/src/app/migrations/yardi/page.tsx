@@ -669,6 +669,43 @@ export default function YardiMigrationConsole() {
         </section>}
         {selectedRun && <section className="rounded-xl border bg-white p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">Cross-upload source ID collisions</h2>
+            <button type="button" disabled={busy} onClick={() => setRefreshKey((key) => key + 1)} className="rounded border px-3 py-2 text-xs">Refresh</button>
+          </div>
+          <p className="mt-2 text-sm">Repeated stable source IDs must be manually reviewed, whether their source rows are identical or changed. No automatic merge or customer mutation.</p>
+          <label htmlFor="yardi-collision-resource" className="mt-3 block text-sm">Resource</label>
+          <select id="yardi-collision-resource" className="input mt-1" value={collisionResource} onChange={(event) => {
+            setCollisionResource(event.target.value as Resource | "ALL");
+            setCollisionOffset(0);
+            setSourceCollisions(null);
+          }}>
+            <option value="ALL">All resources</option>
+            {RESOURCES.map((item) => <option key={item} value={item}>{item}</option>)}
+          </select>
+          <p className="mt-2 text-xs">{sourceCollisions?.total ?? "…"} repeated source-ID groups.</p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead><tr><th className="p-2">Resource and source ID</th><th className="p-2">Versions</th><th className="p-2">Staged row locations</th></tr></thead>
+              <tbody className="divide-y">
+                {sourceCollisions?.items.map((item) => <tr key={item.resource + item.source_id}>
+                  <td className="p-2">{item.resource}: <span className="font-mono">{item.source_id}</span></td>
+                  <td className="p-2">{item.conflicting_source_versions ? "Different source values" : "Duplicate source values"} · {item.source_versions} versions, {item.upload_count} uploads</td>
+                  <td className="p-2 text-xs">{item.sampled_rows.map((sample) => <span className="block" key={sample.staged_row_id}>Upload #{sample.upload_id}, row {sample.row_number} (staged #{sample.staged_row_id})</span>)}{item.sample_truncated && <span>More rows exist</span>}</td>
+                </tr>)}
+                {sourceCollisions?.items.length === 0 && <tr><td colSpan={3} className="p-3">No source-ID collision groups detected.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3 flex justify-between text-xs">
+            <span>{collisionOffset + (sourceCollisions?.items.length ? 1 : 0)}–{collisionOffset + (sourceCollisions?.items.length ?? 0)} of {sourceCollisions?.total ?? 0}</span>
+            <div className="flex gap-2">
+              <button type="button" disabled={busy || collisionOffset === 0} onClick={() => { setSourceCollisions(null); setCollisionOffset((n) => Math.max(0, n - COLLISION_PAGE_SIZE)); }}>Previous</button>
+              <button type="button" disabled={busy || !sourceCollisions || collisionOffset + sourceCollisions.items.length >= sourceCollisions.total} onClick={() => { setSourceCollisions(null); setCollisionOffset((n) => n + COLLISION_PAGE_SIZE); }}>Next</button>
+            </div>
+          </div>
+        </section>}
+        {selectedRun && <section className="rounded-xl border bg-white p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold">Lease source relationship review</h2>
             <button type="button" disabled={busy} className="rounded border px-3 py-2 text-xs disabled:opacity-50" onClick={() => setRefreshKey((key) => key + 1)}>Refresh relationships</button>
           </div>
