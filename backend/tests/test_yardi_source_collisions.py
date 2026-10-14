@@ -3,10 +3,10 @@ import pytest
 from fastapi import HTTPException, Response
 
 from app.models.lease import Lease
-from app.models.platform_migration import PlatformMigrationRun, PlatformMigrationUpload
+from app.models.platform_migration import PlatformMigrationRun, PlatformMigrationUpload, PlatformMigrationStagedRow
 from app.models.platform_user import PlatformUserRole
 from app.models.user import User
-from app.routers.yardi_migrations import list_yardi_source_collisions
+from app.routers.yardi_migrations import list_yardi_source_collisions, skip_yardi_staged_row, YardiRowSkipIn
 from app.services.yardi_file_ingestion import stage_yardi_file
 from test_yardi_migrations import _org, _platform_user, _session
 
@@ -80,8 +80,54 @@ def test_yardi_run_collision_inventory_distinguishes_changed_source_from_identic
         assert tenant["source_versions"] == 2
         assert tenant["conflicting_source_versions"] is True
         assert tenant["requires_manual_reconciliation"] is True
+        assert tenant["skipped_rows"] == 0
+        assert tenant["remaining_unskipped_rows"] == 3
+        assert tenant["disposition_status"] == "UNRESOLVED_MULTIPLE"
         assert [r["upload_id"] for r in tenant["sampled_rows"]] == [first, second, third]
         assert tenant["sample_truncated"] is False
+        # Two explicit audit-reason SKIPs leave exactly one unskipped source
+        # without erasing prior versions or making any customer change.
+        for upload_id in (second, third):
+            duplicate = db.query(PlatformMigrationStagedRow).filter(
+                PlatformMigrationStagedRow.upload_id == upload_id,
+                PlatformMigrationStagedRow.run_id == run.id,
+            ).one()
+            decision = skip_yardi_staged_row(
+                run.id, duplicate.id, YardiRowSkipIn(reason_code="DUPLICATE_SOURCE"),
+                db, admin,
+            )
+            assert decision["replayed"] is False
+        reconciled = list_yardi_source_collisions(
+            run.id, Response(), resource="TENANTS", offset=0, limit=10,
+            db=db, current_user=support,
+        )["items"][0]
+        assert reconciled["source_versions"] == 2
+        assert reconciled["row_count"] == 3
+        assert reconciled["skipped_rows"] == 2
+        assert reconciled["remaining_unskipped_rows"] == 1
+        assert reconciled["disposition_status"] == "ONE_UNSKIPPED"
+        assert [x["resolution_action"] for x in reconciled["sampled_rows"]] == [
+            None, "SKIP", "SKIP",
+        ]
+        assert [x["skip_reason_code"] for x in reconciled["sampled_rows"]] == [
+            None, "DUPLICATE_SOURCE", "DUPLICATE_SOURCE",
+        ]
+        original = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == first,
+        ).one()
+        skip_yardi_staged_row(
+            run.id, original.id, YardiRowSkipIn(reason_code="NOT_IN_SCOPE"),
+            db, admin,
+        )
+        all_skipped = list_yardi_source_collisions(
+            run.id, Response(), resource="TENANTS", offset=0, limit=10,
+            db=db, current_user=support,
+        )["items"][0]
+        assert all_skipped["skipped_rows"] == 3
+        assert all_skipped["remaining_unskipped_rows"] == 0
+        assert all_skipped["disposition_status"] == "ALL_SKIPPED"
+        assert db.query(Lease).count() == before_leases
+        assert db.query(User).count() == before_users
         assert "alice@example.test" not in str(results)
         assert "Alicia" not in str(results)
         assert db.query(Lease).count() == before_leases
