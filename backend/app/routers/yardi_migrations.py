@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from pathlib import Path
 
 from fastapi import File, Form, UploadFile
-from sqlalchemy import func, or_
+from sqlalchemy import case, func, or_
 from sqlalchemy.exc import IntegrityError
 from app.models.platform_migration import PlatformMigrationUpload, PlatformMigrationStagedRow, PlatformMigrationItem
 from app.schemas.platform_migration import AppFolioMigrationUploadOut, AppFolioMigrationStagedRowOut
@@ -597,6 +597,7 @@ def list_yardi_source_collisions(
         func.count(PlatformMigrationStagedRow.id).label("row_count"),
         func.count(func.distinct(PlatformMigrationStagedRow.upload_id)).label("upload_count"),
         func.count(func.distinct(PlatformMigrationStagedRow.row_fingerprint)).label("source_versions"),
+        func.sum(case((PlatformMigrationStagedRow.resolution_action == "SKIP", 1), else_=0)).label("skipped_rows"),
     ).filter(
         PlatformMigrationStagedRow.run_id == run.id,
         PlatformMigrationStagedRow.organization_id == run.organization_id,
@@ -625,6 +626,7 @@ def list_yardi_source_collisions(
             PlatformMigrationStagedRow.row_number,
             PlatformMigrationStagedRow.disposition,
             PlatformMigrationStagedRow.resolution_action,
+            PlatformMigrationStagedRow.correction_evidence,
         ).filter(
             PlatformMigrationStagedRow.run_id == run.id,
             PlatformMigrationStagedRow.organization_id == run.organization_id,
@@ -632,15 +634,36 @@ def list_yardi_source_collisions(
             PlatformMigrationStagedRow.resource == group.resource,
             PlatformMigrationStagedRow.source_id == group.source_id,
         ).order_by(PlatformMigrationStagedRow.id.asc()).limit(10).all()
+        skipped_rows = int(group.skipped_rows or 0)
+        remaining_rows = group.row_count - skipped_rows
+        # Count all versions, not just the ten sampled row references.
+        # One unskipped version still requires separate explicit identity review.
+        disposition_status = (
+            "ALL_SKIPPED" if remaining_rows == 0
+            else "ONE_UNSKIPPED" if remaining_rows == 1
+            else "UNRESOLVED_MULTIPLE"
+        )
         collisions.append({
             "resource": group.resource, "source_id": group.source_id,
+            "skipped_rows": skipped_rows,
+            "remaining_unskipped_rows": remaining_rows,
+            "disposition_status": disposition_status,
             "row_count": group.row_count, "upload_count": group.upload_count,
             "source_versions": group.source_versions,
             "conflicting_source_versions": group.source_versions > 1,
             "sampled_rows": [
                 {"staged_row_id": r.id, "upload_id": r.upload_id,
                  "row_number": r.row_number, "disposition": r.disposition,
-                 "resolution_action": r.resolution_action}
+                 "resolution_action": r.resolution_action,
+                 "skip_reason_code": next((
+                     entry.get("reason_code")
+                     for entry in reversed(r.correction_evidence or [])
+                     if isinstance(entry, dict) and entry.get("action") == "SKIP"
+                     and entry.get("reason_code") in {
+                         "NOT_IN_SCOPE", "DUPLICATE_SOURCE",
+                         "ALREADY_HANDLED", "UNSUPPORTED_SOURCE",
+                     }
+                 ), None) if r.resolution_action == "SKIP" else None}
                 for r in refs
             ],
             "sample_truncated": group.row_count > len(refs),
