@@ -1,3 +1,11 @@
+# AI_HANDOFF.md — 2026-10-14 CI FIX: YARDI DUPLICATE SKIP REGRESSION CSV ESCAPING
+
+**LAST VERIFIED SOURCE:** `9f432c74135c2d91badb90b9658b5dec403b4510`, Actions **38507464363 SUCCESS**, all six. **PARENT PRODUCT CI FAILURE:** `2a4e8d2e170a0b4bb7551df32b076bfaf708bc09`, run **38509788381**: 40 focused tests PASS, one test failed because a CSV fixture contained literal backslash-n bytes instead of row delimiters. This corrective batch fixes the test fixture only. Full backend, E2E, staging were skipped by failed fast checks; frontend/platform-admin/security passed. The source must pass its own exact-SHA six-job CI before verified.
+
+**NEXT BATCH AFTER GREEN:** Continue prepared safe Yardi Unit durable binding parent-source review consistency from detached commit `43791f1dd70c11dd5307b46f524ecc4db38e4ca7`, but rebase it onto this corrected branch HEAD and inspect its new regression CSV string escapes. Verify exact CI before marking complete; continue further batches. Only branch `chatgpt/checkpoint-005-safety`; never main/new branch/Work mode. No customer business/financial mutation.
+
+---
+
 # AI_HANDOFF.md — 2026-10-13 YARDI MAPPED DUPLICATE SKIP REVIEW PROVISIONAL
 
 **LAST VERIFIED PRODUCT SHA:** `a253ee9b61b077d1ca3032e0ffa84d914eb4e734`, six-job CI **38505839009 SUCCESS**. **CURRENT PARENT PENDING:** `9f432c74135c2d91badb90b9658b5dec403b4510`, Actions **38507464363** pending when prepared. Verify its exact SHA and all six jobs before publishing this subsequent commit. Phase 4.15 IN PROGRESS.

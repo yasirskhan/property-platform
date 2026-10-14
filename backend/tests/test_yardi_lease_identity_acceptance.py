@@ -299,7 +299,7 @@ def test_skip_new_unit_source_version_preserves_exact_durable_review_anchor():
         original_binding = (bound.id, bound.target_id, bound.source_fingerprint)
         upload = stage_yardi_file(
             db, run=run, filename="changed-unit-source.csv",
-            content=b"Unit,Parent,Label\\nU1,P2,101\\n",
+            content=b"Unit,Parent,Label\nU1,P2,101\n",
             resource_override="UNITS", sheet_name=None,
             explicit_mapping={
                 "source_id": "Unit", "source_property_id": "Parent",
