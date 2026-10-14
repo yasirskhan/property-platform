@@ -1,3 +1,43 @@
+# AI_HANDOFF.md — 2026-10-14 YARDI SOURCE/REVIEW READINESS CONSISTENCY BATCH (PROVISIONAL)
+
+**SINGLE NEXT BOUNDED PRODUCT BATCH (SQUASHED, NOT VERIFIED):** The next commit deliberately combines closely related read-only Yardi reconciliation safety corrections originally prepared as detached Git objects `939f9a66` (durable Unit binding checks every exact source-parent review), `20766ac3` (invalid source outranks historical match/accept status) and `aa8c584f` (active/nondeleted Property/Unit target readiness plus review dry-run fingerprint). This consolidation enables **one exact-SHA six-job GitHub CI** rather than three serial CI runs, without touching customer business records. Regression tests, docs/YARDI_MIGRATION_PLAN.md §§29–31 and this handoff are included.
+
+**CURRENT VERIFIED CHECKPOINT:** `9f432c74135c2d91badb90b9658b5dec403b4510`, Actions **38507464363 SUCCESS**. **DIRECT PARENT FOR THIS COMBINED COMMIT:** `fa24398776b164e9b3a9c169a7bde2b26fdfb3f8`, Actions **38510109186** must finish all six jobs SUCCESS before this source is applied to the sole authorized branch. It repairs the malformed CSV test introduced by `2a4e8d2e` (run **38509788381 FAILED**). If the parent fails, repair it and rebase before publishing this combined child. Detached commits are NOT verified and are not branch history; do not publish the superseded standalone detached objects.
+
+**MUST CONTINUE:** After combined commit hosted CI runs, fix reds and verify exact SHA, update the handoff with actual outcome, then immediately implement the next bounded Phase 4.15 batch. Source-contract gates remain for historical financial records, owner percentages, Lease/occupancy creation and undocumented official Yardi API. Only `chatgpt/checkpoint-005-safety`, never `main`/new branch, no Work mode. Do not confuse read-only reviewed identity readiness with authorized customer mutation.
+
+---
+
+# AI_HANDOFF.md — 2026-10-14 YARDI STALE TARGET DRY-RUN FINGERPRINT CHECK (PREPARED)
+
+A review of the prepared active-target batch identified a second bug before publication: the Yardi dry-run fingerprint included staged and durable metadata plus lease readiness, but **not resource readiness**, so a matched Property becoming inactive could leave a previous dry-run falsely current. Include sorted JSON `resource_coverage` evidence in the review fingerprint, matching the existing regression's fingerprint-staleness assertion and invalidating saved dry-run whenever live matched-target readiness changes. This is folded into the active-target batch; don't publish superseded detached `c79af55e379a20fb8e0a60ec203306d3c7dd80c9`. Parent stays `20766ac3a9e41cf88114d84b95eab0ce5560376b`. Full exact-SHA CI required; never main/new branch/Work mode.
+
+---
+
+# AI_HANDOFF.md — 2026-10-14 YARDI ACTIVE TARGET REVIEW COVERAGE GUARD (PREPARED)
+
+**DEPENDENCY CHAIN, NOT YET VERIFIED:** Parent `20766ac3a9e41cf88114d84b95eab0ce5560376b` (invalid reviewed-source precedence) and its parent `939f9a66fc23c39bcfd9c65a4fcf6535eaa9cee9` (durable Unit exact-parent review integrity) are detached, and their parent `fa24398776b164e9b3a9c169a7bde2b26fdfb3f8` test CSV repair is in Actions **38510109186** when prepared. Last fully verified `9f432c74135c2d91badb90b9658b5dec403b4510`, run **38507464363 SUCCESS**. Do NOT push any newer commit before the prior exact-SHA six-job CI SUCCESS; fix reds or rebase if needed.
+
+**NEW SOURCE/TEST/DOCS BATCH:** Yardi read-only `/reconciliation` `matched_existing` Property/Unit counters now require current active and non-soft-deleted customer Property/Unit and active Unit parent, matching existing inventory validity checks. Stale historical decisions stay in evidence and fall into `needs_review`, without changing customer records. Tests cover Property inactive/archived and Unit inactive/parent archived; plan §31. This is NOT VERIFIED until exact-SHA CI runs green. No financial, Lease, occupancy, password or target mutation. Continue implement→test→commit→CI→repair→verify→handoff→next bounded batch without asking, ONLY `chatgpt/checkpoint-005-safety`; never main/new branch or Work mode.
+
+---
+
+# AI_HANDOFF.md — 2026-10-14 YARDI INVALID REVIEW SOURCE-COVERAGE PRECEDENCE (PREPARED)
+
+**PREPARED GRANDCHILD BATCH, NOT LIVE OR VERIFIED:** Parent `939f9a66fc23c39bcfd9c65a4fcf6535eaa9cee9` is the pending read-only Unit binding exact source-parent reconciliation batch. Its parent `fa24398776b164e9b3a9c169a7bde2b26fdfb3f8` was running Actions **38510109186** when this was prepared. Only advance commits after each previous exact-SHA full six-job CI result passes; repair reds first. Last verified `9f432c74135c2d91badb90b9658b5dec403b4510`, Actions **38507464363 SUCCESS**.
+
+**NEXT SOURCE/REGRESSION CHANGE:** Resource coverage counts must prioritize invalid source rows over their historically recorded `MATCH_EXISTING` / `ACCEPT_RELATIONSHIP` action. An invalidated Property source must not count `matched_existing`; an invalidated Lease source must not count accepted relationships. Explicit SKIP remains distinct. Historical decisions and audit remain intact, fingerprint changes, no new Property, Lease, occupancy, financial or User mutation. Regressions and Yardi plan §30 added. Verify exact latest source CI and continue more bounded Phase 4.15 work without asking. ONLY `chatgpt/checkpoint-005-safety`; never main/new branch/Work mode.
+
+---
+
+# AI_HANDOFF.md — 2026-10-14 YARDI DURABLE UNIT EXACT PARENT REVIEW BATCH (PREPARED)
+
+**PARENT CODE AND CI:** This batch is prepared on exact parent `fa24398776b164e9b3a9c169a7bde2b26fdfb3f8` (test CSV newline repair), Actions **38510109186** in progress when prepared. The preceding batch `2a4e8d2e` initially failed run 38509788381 due only to malformed test CSV newline escapes; `fa243987` repairs the fixture. **Do NOT move the branch to this prepared commit until parent exact SHA all six jobs SUCCESS.** Last fully verified SHA before that: `9f432c74135c2d91badb90b9658b5dec403b4510`, Actions **38507464363 SUCCESS**.
+
+**NEXT PRODUCT FIX (PROVISIONAL):** Yardi read-only durable Unit binding source-parent status now evaluates ALL exact reviewed same-run/source/fingerprint/target `MATCH_EXISTING` evidence rather than only newest staging ID. No evidence -> `null`; contradictory or invalid evidence -> `false` even if a newer row agrees; all valid matching source-parent records with current mapped Unit -> `true`. Regression stages earlier contradictory and later matching exact reviewed Unit source versions and then invalid evidence, explicitly SKIPs the conflicting duplicate via audited endpoint and verifies restoration with durable identity unchanged. See Yardi plan §29. Verify new commit via full exact-SHA six-job CI; fix failures and immediately continue next safe bounded Phase 4.15 batch. ONLY `chatgpt/checkpoint-005-safety`, never main/new branch/Work mode; no Lease/financial/customer mutation.
+
+---
+
 # AI_HANDOFF.md — 2026-10-14 CI FIX: YARDI DUPLICATE SKIP REGRESSION CSV ESCAPING
 
 **LAST VERIFIED SOURCE:** `9f432c74135c2d91badb90b9658b5dec403b4510`, Actions **38507464363 SUCCESS**, all six. **PARENT PRODUCT CI FAILURE:** `2a4e8d2e170a0b4bb7551df32b076bfaf708bc09`, run **38509788381**: 40 focused tests PASS, one test failed because a CSV fixture contained literal backslash-n bytes instead of row delimiters. This corrective batch fixes the test fixture only. Full backend, E2E, staging were skipped by failed fast checks; frontend/platform-admin/security passed. The source must pass its own exact-SHA six-job CI before verified.

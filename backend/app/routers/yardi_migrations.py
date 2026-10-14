@@ -517,7 +517,7 @@ def list_yardi_durable_bindings(
             # Only an exact reviewed source-row fingerprint establishes which
             # Yardi Property this durable Unit identity was originally bound under.
             # Never infer the parent from an unreviewed name or current Unit location.
-            source_review = db.query(PlatformMigrationStagedRow).filter(
+            source_reviews = db.query(PlatformMigrationStagedRow).filter(
                 PlatformMigrationStagedRow.run_id == run.id,
                 PlatformMigrationStagedRow.organization_id == run.organization_id,
                 PlatformMigrationStagedRow.provider == "YARDI",
@@ -526,26 +526,34 @@ def list_yardi_durable_bindings(
                 PlatformMigrationStagedRow.row_fingerprint == item.source_fingerprint,
                 PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
                 PlatformMigrationStagedRow.resolution_target_unit_id == item.target_id,
-            ).order_by(PlatformMigrationStagedRow.id.desc()).first()
-            if source_review is not None:
-                source_parent_id = str(
-                    (source_review.normalized_data or {}).get("source_property_id") or ""
-                ).strip()
-                parent_mapping = db.query(PlatformMigrationItem.target_id).filter(
-                    PlatformMigrationItem.run_id == run.id,
-                    PlatformMigrationItem.organization_id == run.organization_id,
-                    PlatformMigrationItem.provider == "YARDI",
-                    PlatformMigrationItem.resource == "PROPERTIES",
-                    PlatformMigrationItem.source_id == source_parent_id,
-                    PlatformMigrationItem.target_entity == "PROPERTY",
-                ).first()
-                parent_relationship_current = bool(
-                    target_current and parent_mapping is not None
-                    and db.query(Unit.id).filter(
-                        Unit.id == item.target_id,
-                        Unit.property_id == parent_mapping.target_id,
-                    ).first() is not None
-                )
+            ).all()
+            if source_reviews:
+                # Every exact reviewed version is evidence. Picking the newest
+                # hides contradictory or invalid older source-parent reviews.
+                reviewed_parents = {
+                    str((review.normalized_data or {}).get("source_property_id") or "").strip()
+                    if not review.errors and review.disposition != "INVALID" else None
+                    for review in source_reviews
+                }
+                if None in reviewed_parents or len(reviewed_parents) != 1 or not next(iter(reviewed_parents)):
+                    parent_relationship_current = False
+                else:
+                    source_parent_id = next(iter(reviewed_parents))
+                    parent_mapping = db.query(PlatformMigrationItem.target_id).filter(
+                        PlatformMigrationItem.run_id == run.id,
+                        PlatformMigrationItem.organization_id == run.organization_id,
+                        PlatformMigrationItem.provider == "YARDI",
+                        PlatformMigrationItem.resource == "PROPERTIES",
+                        PlatformMigrationItem.source_id == source_parent_id,
+                        PlatformMigrationItem.target_entity == "PROPERTY",
+                    ).first()
+                    parent_relationship_current = bool(
+                        target_current and parent_mapping is not None
+                        and db.query(Unit.id).filter(
+                            Unit.id == item.target_id,
+                            Unit.property_id == parent_mapping.target_id,
+                        ).first() is not None
+                    )
         elif valid_entity and item.resource in ("OWNERS", "TENANTS"):
             target_role = UserRole.OWNER if item.resource == "OWNERS" else UserRole.TENANT
             target_current = db.query(User.id).filter(
@@ -969,6 +977,11 @@ def get_yardi_reconciliation(
         if row.resolution_action == "SKIP":
             skipped += 1
             stats["skipped"] += 1
+        elif row.errors or row.disposition == "INVALID":
+            # A stale recorded decision is evidence, not validation: invalid
+            # source rows can never count as matched or accepted readiness.
+            invalid += 1
+            stats["invalid"] += 1
         elif row.resolution_action == "MATCH_EXISTING":
             if row.resource == "UNITS":
                 parent_source = str((row.normalized_data or {}).get("source_property_id") or "").strip()
@@ -982,7 +995,9 @@ def get_yardi_reconciliation(
                     and db.query(Unit.id).join(Property, Unit.property_id == Property.id).filter(
                         Unit.id == row.resolution_target_unit_id,
                         Unit.property_id == parent.target_id,
+                        Unit.is_active.is_(True), Unit.deleted_at.is_(None),
                         Property.organization_id == run.organization_id,
+                        Property.is_active.is_(True), Property.deleted_at.is_(None),
                     ).first() is not None
                 )
             elif row.resource == "OWNERS":
@@ -1011,6 +1026,7 @@ def get_yardi_reconciliation(
                 target_valid = row.resolution_target_id is not None and db.query(Property.id).filter(
                     Property.id == row.resolution_target_id,
                     Property.organization_id == run.organization_id,
+                    Property.is_active.is_(True), Property.deleted_at.is_(None),
                 ).first() is not None
             else:
                 target_valid = False
@@ -1023,9 +1039,6 @@ def get_yardi_reconciliation(
             # This count means staff recorded identity review, NOT that lease,
             # occupancy, financial records or current targets are commit-ready.
             stats["accepted_relationship_review"] += 1
-        elif row.errors or row.disposition == "INVALID":
-            invalid += 1
-            stats["invalid"] += 1
         elif row.source_id and (row.resource, row.source_id) in existing:
             stats["mapped"] += 1
         else:
@@ -1176,6 +1189,10 @@ def get_yardi_reconciliation(
                     i.source_fingerprint) for i in items],
         "lease_dependency_coverage": lease_relationship_readiness,
         "lease_unit_parent_relationships": sorted(valid_units.items()),
+        # Current target validity can change independently of historical
+        # staged/mapped evidence. Invalidate saved review dry-runs when active
+        # or soft-delete status changes a resource's readiness counters.
+        "resource_coverage": resources,
     }
     digest = hashlib.sha256(
         json.dumps(evidence, separators=(",", ":"), sort_keys=True).encode("utf-8")

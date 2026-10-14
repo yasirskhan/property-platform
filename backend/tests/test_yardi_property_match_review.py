@@ -67,6 +67,74 @@ def test_yardi_property_match_requires_same_org_and_is_idempotent():
         assert target.name == "Target House"
         assert row.resolution_action == "MATCH_EXISTING"
         assert run.last_dry_run_fingerprint is None
+
+        target.is_active = False
+        db.commit()
+        inactive = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert inactive["resource_coverage"]["PROPERTIES"]["matched_existing"] == 0
+        assert inactive["resource_coverage"]["PROPERTIES"]["needs_review"] == 1
+        target.is_active = True
+        target.deleted_at = __import__("datetime").datetime.utcnow()
+        db.commit()
+        archived = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert archived["resource_coverage"]["PROPERTIES"]["matched_existing"] == 0
+        assert archived["resource_coverage"]["PROPERTIES"]["needs_review"] == 1
+        assert archived["review_fingerprint"] != after_review["review_fingerprint"]
+        db.refresh(row)
+        db.refresh(target)
+        assert row.resolution_action == "MATCH_EXISTING"
+        assert target.name == "Target House"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_yardi_invalid_reviewed_property_is_not_counted_as_valid_matched_source():
+    """Invalid source evidence outranks a historical MATCH_EXISTING decision."""
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-invalid-reviewed-property-coverage")
+        prop = Property(
+            organization_id=org.id, name="Original Property",
+            address_line1="1 Main", city="Cleveland", state="OH", zip_code="44113",
+        )
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="invalid-review-coverage", status="DRAFT",
+        )
+        db.add_all([prop, run])
+        db.commit()
+        upload = stage_yardi_file(
+            db, run=run, filename="properties.csv",
+            content=b"ID,Name,Street,City,State,Zip\nP-1,Original Property,1 Main,Cleveland,OH,44113\n",
+            resource_override="PROPERTIES", sheet_name=None,
+            explicit_mapping={
+                "source_id": "ID", "name": "Name", "address_line1": "Street",
+                "city": "City", "state": "State", "zip_code": "Zip",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).one()
+        match_yardi_staged_property(
+            run.id, row.id, YardiPropertyMatchIn(target_property_id=prop.id),
+            db, actor,
+        )
+        good = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert good["resource_coverage"]["PROPERTIES"]["matched_existing"] == 1
+        row.disposition = "INVALID"
+        db.commit()
+        invalid = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert invalid["resource_coverage"]["PROPERTIES"]["matched_existing"] == 0
+        assert invalid["resource_coverage"]["PROPERTIES"]["invalid"] == 1
+        assert invalid["invalid_rows"] == 1
+        assert invalid["review_fingerprint"] != good["review_fingerprint"]
+        db.refresh(row)
+        db.refresh(prop)
+        assert row.resolution_action == "MATCH_EXISTING"
+        assert prop.name == "Original Property"
     finally:
         db.close()
         engine.dispose()

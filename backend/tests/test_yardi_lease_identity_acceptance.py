@@ -581,3 +581,63 @@ def test_accepted_lease_review_preview_detects_cross_upload_new_version_and_skip
     finally:
         db.close()
         engine.dispose()
+
+
+def test_yardi_invalid_accepted_lease_does_not_count_as_valid_review_coverage():
+    """Preserve historical acceptance but report invalid source as invalid."""
+    db, engine = _session()
+    try:
+        actor, org, run, original, alternate, unit, tenant, lease_row = _seed(
+            db, "yardi-invalid-accepted-coverage",
+        )
+        accept_yardi_staged_lease_relationship(
+            run.id, lease_row.id, db, actor,
+        )
+        before = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert before["resource_coverage"]["LEASE_OCCUPANCY"]["accepted_relationship_review"] == 1
+        lease_row.disposition = "INVALID"
+        db.commit()
+        result = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert result["resource_coverage"]["LEASE_OCCUPANCY"]["accepted_relationship_review"] == 0
+        assert result["resource_coverage"]["LEASE_OCCUPANCY"]["invalid"] == 1
+        assert result["lease_relationship_readiness"]["complete_identity_links"] == 0
+        assert result["invalid_rows"] == 1
+        db.refresh(lease_row)
+        assert lease_row.resolution_action == "ACCEPT_RELATIONSHIP"
+        assert db.query(Lease).count() == 0
+        db.refresh(tenant)
+        assert tenant.hashed_password == "unchanged-password-hash"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_yardi_aggregate_unit_match_requires_active_unit_and_parent_property():
+    """Historical unit review cannot make inactive customer resources ready."""
+    db, engine = _session()
+    try:
+        actor, org, run, original, alternate, unit, tenant, lease_row = _seed(
+            db, "yardi-unit-aggregate-target-active",
+        )
+        before = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert before["resource_coverage"]["UNITS"]["matched_existing"] == 1
+        unit.is_active = False
+        db.commit()
+        inactive_unit = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert inactive_unit["resource_coverage"]["UNITS"]["matched_existing"] == 0
+        assert inactive_unit["resource_coverage"]["UNITS"]["needs_review"] == 1
+        unit.is_active = True
+        original.deleted_at = __import__("datetime").datetime.utcnow()
+        db.commit()
+        inactive_parent = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert inactive_parent["resource_coverage"]["UNITS"]["matched_existing"] == 0
+        assert inactive_parent["resource_coverage"]["UNITS"]["needs_review"] == 1
+        assert inactive_parent["review_fingerprint"] != before["review_fingerprint"]
+        db.refresh(unit)
+        db.refresh(tenant)
+        assert unit.property_id == original.id
+        assert tenant.hashed_password == "unchanged-password-hash"
+        assert db.query(Lease).count() == 0
+    finally:
+        db.close()
+        engine.dispose()

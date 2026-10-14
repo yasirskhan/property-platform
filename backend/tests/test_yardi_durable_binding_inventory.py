@@ -7,7 +7,7 @@ from app.models.platform_user import PlatformUserRole
 from app.models.property import Property, Unit
 from app.models.user import User, UserRole
 from app.models.vendor import Vendor
-from app.routers.yardi_migrations import list_yardi_durable_bindings
+from app.routers.yardi_migrations import list_yardi_durable_bindings, skip_yardi_staged_row, YardiRowSkipIn
 from test_yardi_migrations import _org, _platform_user, _session
 
 
@@ -223,6 +223,75 @@ def test_yardi_unit_inventory_marks_moved_parent_without_changing_customer_unit(
             db=db, current_user=actor,
         )
         assert restored["items"][0]["unit_parent_relationship_current"] is True
+
+        # Deliberately model inconsistent exact-fingerprint review evidence.
+        # A later matching review must NOT conceal an earlier conflict.
+        changed = stage_yardi_file(
+            db, run=run, filename="unit-contradictory-parent.csv",
+            content=b"Unit Ref,Parent Ref,Number\nU-1,P-UNMAPPED,102\n",
+            resource_override="UNITS", sheet_name=None,
+            explicit_mapping={
+                "source_id": "Unit Ref", "source_property_id": "Parent Ref",
+                "unit_name": "Number",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        conflicting = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == changed.upload.id,
+        ).one()
+        conflicting.row_fingerprint = staged.row_fingerprint
+        conflicting.resolution_action = "MATCH_EXISTING"
+        conflicting.resolution_target_unit_id = unit.id
+        db.commit()
+        match_again = stage_yardi_file(
+            db, run=run, filename="unit-second-matching-parent.csv",
+            content=b"Unit Ref,Parent Ref,Number\nU-1,P-1,103\n",
+            resource_override="UNITS", sheet_name=None,
+            explicit_mapping={
+                "source_id": "Unit Ref", "source_property_id": "Parent Ref",
+                "unit_name": "Number",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        latest_matching = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == match_again.upload.id,
+        ).one()
+        latest_matching.row_fingerprint = staged.row_fingerprint
+        latest_matching.resolution_action = "MATCH_EXISTING"
+        latest_matching.resolution_target_unit_id = unit.id
+        db.commit()
+        contradictory = list_yardi_durable_bindings(
+            run.id, Response(), resource="UNITS", offset=0, limit=10,
+            db=db, current_user=actor,
+        )
+        assert contradictory["items"][0]["unit_parent_relationship_current"] is False
+        # Even an invalid reviewed exact version must not be ignored.
+        conflicting.disposition = "INVALID"
+        db.commit()
+        invalid_evidence = list_yardi_durable_bindings(
+            run.id, Response(), resource="UNITS", offset=0, limit=10,
+            db=db, current_user=actor,
+        )
+        assert invalid_evidence["items"][0]["unit_parent_relationship_current"] is False
+
+        # Explicitly disposition the duplicate, retaining the two unaltered
+        # exact reviewed sources and the originally bound customer Unit.
+        conflicting.resolution_action = None
+        db.commit()
+        explicit_skip = skip_yardi_staged_row(
+            run.id, conflicting.id, YardiRowSkipIn(reason_code="DUPLICATE_SOURCE"),
+            db, actor,
+        )
+        assert explicit_skip["replayed"] is False
+        reconciled = list_yardi_durable_bindings(
+            run.id, Response(), resource="UNITS", offset=0, limit=10,
+            db=db, current_user=actor,
+        )
+        assert reconciled["items"][0]["unit_parent_relationship_current"] is True
+        db.refresh(durable_unit)
+        db.refresh(unit)
+        assert durable_unit.target_id == unit.id
+        assert unit.property_id == prop.id
     finally:
         db.close()
         engine.dispose()
