@@ -1,3 +1,12 @@
+# AI_HANDOFF.md — 2026-10-13 YARDI ORIGINAL UNIT SOURCE PARENT VERIFIED
+
+**LIVE VERIFIED PRODUCT SHA:** `6437b61e5ff58248fc3e5826b7f7a0e0e8fda611`, GitHub Actions **38419242672 SUCCESS** at exact SHA. All six jobs passed: backend/PostgreSQL, security, frontend, platform-admin, authenticated E2E, staging-config. The Phase 4.15 per-lease original Unit Yardi source Property vs lease source Property comparison and aggregate mismatch counts are now VERIFIED; no customer business, lease, occupancy or financial mutation.
+
+**NEXT INDEPENDENT BOUNDED PHASE 4.15 BATCH:** read-only cross-upload stable-source collision reporting for a Yardi migration run. Multiple distinct CSV/XLSX staging uploads can contain the same provider `resource+source_id`; within-file duplicates already produce invalid rows, but staff need consolidated run-level detection, row references and a conflict vs identical-source indicator before reviewed binding. Reuse existing staging and provider/run/org scoping; no automatic matching, source overwrite, customer mutation or financial posting. Add paginated staff read-only API, focused regressions, staff console panel, hosted CI then update this file and continue.
+
+**BRANCH AND GUARDRAILS:** ONLY `chatgpt/checkpoint-005-safety`, never main or a new branch. Phase **4.15 IN PROGRESS**, financial GL/AR/AP, deposits, leases, occupancy, historical payments, owner percentages, direct Yardi API all source-contract blocked. Repeat implement → tests → commit → hosted CI → fix reds → verify exact SHA → handoff → immediately next bounded batch.
+
+---
 # AI_HANDOFF.md — 2026-10-13 YARDI LEASE PER-ROW VERIFIED; ORIGINAL UNIT SOURCE PARENT PROVISIONAL
 
 **LAST FULLY VERIFIED PRODUCT SHA:** `194f638eb01404c0b7db0a52e8f5aa6704e10ce7`, exact GitHub Actions run **38416611368 SUCCESS**, all six jobs PASS, backend/PostgreSQL **1262 passed, 21 deselected**. Read-only per-lease staged source relationship blockers for Property, Unit and Tenant, scope/pagination/auth/nonmutation tests, and staff console panel are VERIFIED. Customer lease/occupancy and financial mutation remain disabled.
