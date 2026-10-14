@@ -89,3 +89,15 @@ def test_yardi_per_lease_relationship_diagnostics_are_authenticated_get_only():
     assert method.get("security"), "Relationship preview must require staff authentication"
     parameters = {parameter["name"] for parameter in method["parameters"]}
     assert {"run_id", "offset", "limit"} <= parameters
+
+
+def test_yardi_cross_upload_source_collisions_are_authenticated_read_only():
+    operations = app.openapi()["paths"]
+    path = "/api/platform/migrations/yardi/runs/{run_id}/source-collisions"
+    assert path in operations
+    assert "get" in operations[path] and "post" not in operations[path]
+    query = operations[path]["get"]
+    assert query.get("security")
+    assert {"run_id", "resource", "offset", "limit"} <= {
+        p["name"] for p in query.get("parameters", [])
+    }
