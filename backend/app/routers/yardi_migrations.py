@@ -575,6 +575,87 @@ def list_yardi_durable_bindings(
     }
 
 
+@router.get("/runs/{run_id}/source-collisions")
+def list_yardi_source_collisions(
+    run_id: int,
+    response: Response,
+    resource: Literal["PROPERTIES", "UNITS", "OWNERS", "VENDORS", "TENANTS", "LEASE_OCCUPANCY"] | None = None,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=50),
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Read-only source-ID collision inventory across staged uploads in one Yardi run.
+
+    Identical staged rows can be a replay-like overlap, while differing source
+    fingerprints demand manual reconciliation. Neither case authorizes auto-merge.
+    """
+    run = _run(db, run_id=run_id, current_user=current_user, write=False)
+    base = db.query(
+        PlatformMigrationStagedRow.resource.label("resource"),
+        PlatformMigrationStagedRow.source_id.label("source_id"),
+        func.count(PlatformMigrationStagedRow.id).label("row_count"),
+        func.count(func.distinct(PlatformMigrationStagedRow.upload_id)).label("upload_count"),
+        func.count(func.distinct(PlatformMigrationStagedRow.row_fingerprint)).label("source_versions"),
+    ).filter(
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.source_id.isnot(None),
+        PlatformMigrationStagedRow.source_id != "",
+    )
+    if resource is not None:
+        base = base.filter(PlatformMigrationStagedRow.resource == resource)
+    grouped = base.group_by(
+        PlatformMigrationStagedRow.resource,
+        PlatformMigrationStagedRow.source_id,
+    ).having(func.count(PlatformMigrationStagedRow.id) > 1)
+    total = db.query(func.count()).select_from(grouped.subquery()).scalar() or 0
+    groups = grouped.order_by(
+        PlatformMigrationStagedRow.resource.asc(),
+        PlatformMigrationStagedRow.source_id.asc(),
+    ).offset(offset).limit(limit).all()
+    collisions = []
+    for group in groups:
+        # Row identity is enough for a reviewer to navigate to its source
+        # upload. Never return raw staged values, names or credentials.
+        refs = db.query(
+            PlatformMigrationStagedRow.id,
+            PlatformMigrationStagedRow.upload_id,
+            PlatformMigrationStagedRow.row_number,
+            PlatformMigrationStagedRow.disposition,
+            PlatformMigrationStagedRow.resolution_action,
+        ).filter(
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "YARDI",
+            PlatformMigrationStagedRow.resource == group.resource,
+            PlatformMigrationStagedRow.source_id == group.source_id,
+        ).order_by(PlatformMigrationStagedRow.id.asc()).limit(10).all()
+        collisions.append({
+            "resource": group.resource, "source_id": group.source_id,
+            "row_count": group.row_count, "upload_count": group.upload_count,
+            "source_versions": group.source_versions,
+            "conflicting_source_versions": group.source_versions > 1,
+            "sampled_rows": [
+                {"staged_row_id": r.id, "upload_id": r.upload_id,
+                 "row_number": r.row_number, "disposition": r.disposition,
+                 "resolution_action": r.resolution_action}
+                for r in refs
+            ],
+            "sample_truncated": group.row_count > len(refs),
+            "requires_manual_reconciliation": True,
+        })
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "run_id": run.id, "organization_id": run.organization_id,
+        "provider": "YARDI", "total": total, "offset": offset,
+        "limit": limit, "items": collisions,
+        "read_only": True, "auto_merge_enabled": False,
+        "customer_business_mutation": False,
+    }
+
+
 @router.get("/runs/{run_id}/lease-relationships")
 def list_yardi_lease_relationships(
     run_id: int,
