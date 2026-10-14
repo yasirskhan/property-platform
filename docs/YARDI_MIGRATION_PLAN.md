@@ -358,3 +358,11 @@ Prepared product source, regression tests, staff UI, authenticated API contract 
 
 Changes: backend `6f11fc8b`, focused regression `1bacccdb` corrected CSV fixture `98531447`, staff warning `0b6902e7`. Require exact latest-SHA all-six-job hosted CI before marking this batch VERIFIED. Historical Yardi source contracts for financial fields remain unverified; do not allow leases, payments, deposits, GL, occupancy or financial postings.
 
+
+## 23. Explicit source-version disposition diagnostics (2026-10-13)
+
+The staff read-only `GET /runs/{run_id}/source-collisions` inventory now includes `skipped_rows`, `remaining_unskipped_rows` and `disposition_status` across **all** staged versions of a repeated source ID, not only the ten sampled row references. `UNRESOLVED_MULTIPLE` means more than one source row remains unskipped, `ONE_UNSKIPPED` means only one remains after explicit skip decisions, and `ALL_SKIPPED` means every version was explicitly skipped. Having one unskipped source is **not** automatic acceptance or import authorization. Distinct source fingerprints and past skipped copies remain visible and auditable.
+
+The sampled-row references include only approved reason-code metadata for a recorded SKIP. Staff can navigate to a contributing upload in the existing platform-admin row review console to make separate authorized decisions. Existing reason-coded SKIP and audit history are authoritative; there is no auto-merge, automatic version selection, customer Lease creation, occupancy, payment, rent, deposit or accounting mutation.
+
+**Verification pending:** Backend commit `b4d137f6`, regression `dffd394a`, and platform-admin console `19bf77dc` require a new six-job hosted CI on the exact final source SHA. Historical financial and Yardi API contracts remain unavailable.
