@@ -328,3 +328,13 @@ Phase 4.15 now additionally compares the `source_property_id` of a staged lease 
 The staff UI shows these source-parent conflicts both per lease and in the aggregate count. Existing role, organization, provider, pagination, no-store and nonmutation safeguards apply. No lease, occupancy, rent, payable, receivable, deposit, ownership interest or accounting entry is created or altered.
 
 **Provisional implementation pending newest exact-SHA hosted CI:** backend `3a275cf0` and aggregate `96c34d9f`, regressions `7ab08a01` and `15d7156c`, staff UI `504edff6` and reconciliation totals `343b558b`. Verify all six CI jobs and repair reds before marking this new batch verified. Continue Phase 4.15 afterward without activating unverified financial source contracts.
+
+## 20. Run-scoped cross-upload stable source identity collisions (2026-10-13)
+
+**Prior verified checkpoint:** Exact SHA `6437b61e5ff58248fc3e5826b7f7a0e0e8fda611` passed GitHub Actions **38419242672**, all six jobs. Unit original Yardi source-parent comparison and aggregate lease-source mismatch reporting are VERIFIED.
+
+A new staff-only read-only endpoint `GET /api/platform/migrations/yardi/runs/{run_id}/source-collisions` groups all staged rows by exact `(resource, source_id)` within the same organization, provider and migration run. Repeated identifiers across uploads are shown even if the same raw row appears in multiple explicitly mapped exports. Each collision group reports the number of staged rows, contributing uploads, distinct raw-row fingerprints (`source_versions`), whether versions conflict, and up to ten staged-row/upload/row-number references. Pagination is limited to 50 groups per page. No raw names, email addresses, credentials or import contents are returned; the existing source ID alone is sufficient to locate rows in the authenticated staff staging view. Identical rows are still reviewed, not auto-merged.
+
+The platform-admin Yardi console now exposes these collision groups with resource filter, pagination, and staff-readable row locations. It never automatically selects an identity target, resolves a conflict, overwrites staged data, alters a customer account or posts financial transactions.
+
+**New commits provisional until exact-SHA hosted CI:** endpoint `c2a8fa37`, regression `b3f40a2f`, staff state `3d4fd66b`, staff panel `d85e82ce`, authenticated contract `d7a44969`, fast regression gate `c36a2feb`. Verify backend/PostgreSQL, frontend, platform-admin, security, E2E and staging; repair reds before marking verified. Continue Phase 4.15 without guessed financial, lease or Yardi API contracts.
