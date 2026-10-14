@@ -736,6 +736,8 @@ export default function YardiMigrationConsole() {
                             setRowOffset(0);
                             setCandidateResults({});
                             setTargetIds({});
+                            // Reload even when staff select the upload already on page one.
+                            setRefreshKey((key) => key + 1);
                             document.getElementById("yardi-staged-uploads")?.scrollIntoView({ behavior: "smooth" });
                           }}>Review upload</button>}
                     </div>
