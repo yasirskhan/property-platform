@@ -1,3 +1,13 @@
+# AI_HANDOFF.md — 2026-10-13 YARDI STALE ACCEPTANCE VERIFIED; EXPLICIT SOURCE-VERSION DISPOSITION PROVISIONAL
+
+**VERIFIED EXACT PREVIOUS SHA:** `7e0eec948dc163f2bd5dfd2f95f4027d54a4441f`; GitHub Actions **38498584215 SUCCESS** and all six individual jobs passed: platform-admin, frontend, security, backend/PostgreSQL, authenticated E2E, staging-config. This verifies read-only `relationship_review_current` staleness warning for reviewed Yardi Lease source identity, including changed target links, original Unit source-parent evidence, competing new unskipped upload versions, privacy and nonmutation regressions. Do not repeat this completed implementation.
+
+**LATEST PROVISIONAL PRODUCT BATCH:** Backend `b4d137f6` exposes run/provider/org-scoped source-collision disposition: skipped/all outstanding row counts, three explicit disposition statuses and safe enumerated SKIP reasons in sampled references. Regression `dffd394a` validates unresolved → one unskipped → all skipped while preserving source versions and customer nonmutation. Staff UI `19bf77dc` shows disposition progress and navigates to upload review. Yardi plan section 23 `67ff77a5` records the contract. **THE NEW BATCH IS NOT VERIFIED UNTIL AN EXACT-LATEST-SHA SIX-JOB GREEN CI.** Inspect CI, fix reds, do not use older green against new SHA.
+
+**NEXT AFTER SIX-JOB GREEN:** Record exact verified result here. Immediately inspect next bounded Phase 4.15 task: improve collision review navigation for row pagination or read-only audited identity acceptance consistency, using existing architecture without guessed source contracts. Continue independently actionable safe work. No automatic source merge, customer Lease, occupancy, accounting, payment, rent, deposit, financial import or official Yardi API. ONLY `chatgpt/checkpoint-005-safety` branch; NEVER main/new branch. Normal Chat + GitHub connected. Implement → test → commit → hosted CI → repair → verify exact SHA → handoff → next bounded batch.
+
+---
+
 # AI_HANDOFF.md — 2026-10-13 YARDI LEASE ACCEPTANCE VERIFIED; STALE REVIEW PREVIEW PROVISIONAL
 
 **LATEST FULLY VERIFIED PRODUCT SHA:** `9ea421deedd2f5a9cb11f839abf3cf5484052ba4`; GitHub Actions run **38495996102 SUCCESS** at exact SHA, all six required jobs PASS. Explicit metadata-only `ACCEPT_RELATIONSHIP` for staged YARDI lease source identities requires same-run durable Property, Unit and Tenant mappings, exact original reviewed Unit source-parent evidence, current valid targets and resolved duplicate source versions. Reviewer/audit captured; replay revalidates; no customer Lease, occupancy, rent, receipt, deposit, GL or financial mutation.
