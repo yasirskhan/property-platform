@@ -1,3 +1,12 @@
+# AI_HANDOFF.md — 2026-10-13 YARDI CROSS-UPLOAD SOURCE COLLISIONS VERIFIED
+
+**LATEST FULLY VERIFIED PRODUCT SHA:** `bb8e0c74f4787927e9bc101c593a0d0599144c87`, exact GitHub Actions run **38494617366 SUCCESS**. All six required jobs PASS (backend/PostgreSQL **1266 passed, 21 deselected**, frontend, platform-admin, security, authenticated E2E, staging-config). Phase 4.15 cross-upload source-ID collision review endpoint, bounded run/org/provider/resource grouping, duplicate-vs-changed-source version detection, authenticated platform staff UI, paging, privacy and nonmutation regressions are VERIFIED.
+
+**NEXT BOUNDED BATCH ALREADY PREPARED AS UNCOMMITTED GIT BLOBS:** Explicit Yardi Lease/Occupancy source-identity review `ACCEPT_RELATIONSHIP`, following verified AppFolio metadata-only staged review pattern. Require same-run durable Property/Unit/Tenant identity bindings; active scoped targets; target Unit current mapped Property; exact explicitly reviewed Unit original source Property evidence; reject conflicting source parents and repeated unskipped lease source IDs. Revalidate on replay and invalidate dry-run fingerprint. No customer Lease, occupancy or accounting writes. Product source/tests/staff UI/contract/CI/docs blobs are staged; commit them to ONLY feature branch after this verified checkpoint and run hosted CI, fix reds. Keep review step separate from eventual controlled business import.
+
+**GUARDRAILS:** Phase **4.15 IN PROGRESS**. ONLY branch `chatgpt/checkpoint-005-safety`; never main or another branch. Financial, historical, owner-percentage, official Yardi API and unauthorized customer mutation remain source-contract blocked. Repeat implement → test → commit → CI → fix reds → exact SHA verification → handoff → immediately next bounded batch.
+
+---
 # AI_HANDOFF.md — 2026-10-13 YARDI ORIGINAL UNIT SOURCE PARENT VERIFIED
 
 **LIVE VERIFIED PRODUCT SHA:** `6437b61e5ff58248fc3e5826b7f7a0e0e8fda611`, GitHub Actions **38419242672 SUCCESS** at exact SHA. All six jobs passed: backend/PostgreSQL, security, frontend, platform-admin, authenticated E2E, staging-config. The Phase 4.15 per-lease original Unit Yardi source Property vs lease source Property comparison and aggregate mismatch counts are now VERIFIED; no customer business, lease, occupancy or financial mutation.
