@@ -293,7 +293,7 @@ def test_accepted_lease_review_preview_detects_cross_upload_new_version_and_skip
         assert accepted["replayed"] is False
         added = stage_yardi_file(
             db, run=run, filename="revision.csv",
-            content=b"Lease,Tenant,Property,Unit\\nL1,T1,P2,U1\\n",
+            content=b"Lease,Tenant,Property,Unit\nL1,T1,P2,U1\n",
             resource_override="LEASE_OCCUPANCY", sheet_name=None,
             explicit_mapping={
                 "source_id": "Lease", "source_tenant_id": "Tenant",
