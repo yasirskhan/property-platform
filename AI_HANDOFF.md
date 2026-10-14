@@ -1,3 +1,13 @@
+# AI_HANDOFF.md — 2026-10-13 YARDI AGGREGATE SOURCE-PARENT VERIFIED; SOURCE-ID AND ACCEPTANCE COVERAGE PROVISIONAL
+
+**CONDITIONAL VERIFIED CHECKPOINT:** This handoff should only be published if `a253ee9b61b077d1ca3032e0ffa84d914eb4e734` passed all six exact-SHA jobs in GitHub Actions **38505839009**. That product commit aligns aggregate lease source-parent mismatch counts with individual read-only lease blockers when exact Unit evidence is contradictory or invalid. Earlier `29e92208` verified in **38502586560**, `b9716452` in **38500928438**. Do not repeat verified work.
+
+**NEW PROVISIONAL SOURCE/TEST/UI BATCH:** Run-level `complete_identity_links` must exclude lease source rows blocked by unresolved duplicate source IDs or stale accepted target snapshots. Add descriptive `lease_source_id_collisions` and `accepted_relationship_stale` counts, preserving per-row review blocking. Same-org valid tenant target drift must still invalidate an earlier `ACCEPT_RELATIONSHIP` decision even when all links currently resolve. Focused tests exercise duplicate upload → SKIP restoration, changed target snapshot → stale accepted review; staff UI displays duplicate-row count. See Yardi plan sections 26–27. NO auto-merge, review history rewriting, customer Lease creation, occupancy, financial mutation or unofficial Yardi API. This batch is NOT VERIFIED until its own exact SHA six-job CI passes.
+
+**NEXT AFTER GREEN:** Verify exact new source SHA and all jobs, record audit/test outcomes, then immediately inspect/implement next safe bounded Phase 4.15 task using live source and roadmap. Only branch `chatgpt/checkpoint-005-safety`, never main or another branch, no Work mode. Keep AI_HANDOFF updated. Repeat implement → tests → commit → CI → repair → verify → handoff → next batch. Source-contract blockers only prohibit unsupported financial/API tasks, not independent read-only reconciliation work.
+
+---
+
 # AI_HANDOFF.md — 2026-10-13 YARDI EXACT UNIT REVIEW VERIFIED; AGGREGATE RECONCILIATION FOLLOW-UP PROVISIONAL
 
 **LAST VERIFIED PRODUCT SHA:** `29e9220861620fb3a34cab2f5aac3cfb101ae8ea` passed all six GitHub Actions jobs in **run 38502586560 SUCCESS**: backend/PostgreSQL, frontend, platform-admin, security, authenticated E2E, and staging-config. Per-row read-only accepted Yardi lease relationship preview now checks **all** exact-reviewed Unit source-parent evidence rather than overwriting conflicting rows, and reports stale acceptance when contradictions or invalid evidence exist. Also covers >10-row collision sample display and SKIP reason display; customer data unchanged. This batch is VERIFIED. Previous disposition batch `b9716452` was verified in run **38500928438 SUCCESS**.

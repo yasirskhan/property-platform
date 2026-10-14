@@ -378,3 +378,17 @@ This is read-only preview hardening only. It does not revise old decisions, auto
 The run-level `GET /runs/{run_id}/reconciliation` lease relationship summary must inspect **all** exact-fingerprint reviewed Unit source-parent evidence, matching the per-row preview and `ACCEPT_RELATIONSHIP` acceptance path. A single-value dictionary could silently overwrite earlier conflicting or invalid Unit source-parent records, misreporting `complete_identity_links` and `unit_source_parent_mismatch`. Conflicting or invalid exact evidence now increments `unit_source_parent_mismatch` and cannot count as complete identity links. Absent exact source evidence remains explicitly unknown and does not fabricate a source relationship.
 
 This is a read-only correction to aggregate diagnostics. It does not change review decisions, revise durable mappings, select source versions, create leases or occupancy or post money. Provisional until focused regressions and six-job hosted exact-SHA CI pass.
+
+
+
+## 26. Run-level coverage excludes unresolved duplicate lease source IDs (2026-10-13)
+
+A run-level `complete_identity_links` count must agree with the per-lease `LEASE_SOURCE_ID_COLLISION` blocker. Two unskipped Yardi `LEASE_OCCUPANCY` rows with the same stable source ID must **not** be counted as independently complete just because their existing target identity mappings resolve. The reconciliation summary adds `lease_source_id_collisions`, counting each unskipped staged lease row blocked by a repeated unskipped source ID across all uploads of that organization and run. All such rows remain excluded from `complete_identity_links`. Explicit staff SKIP of unwanted versions changes the read-only count and can restore identity-link completeness for the sole remaining source row, but never automatically accepts the survivor or changes a customer record.
+
+The Yardi staff console exposes the collision-row count next to existing source-parent and Unit/Property mismatch diagnostics. Focused regressions cover accepted source relationship before collision, a later conflicting upload, and reason-coded SKIP restoring the count. The summary remains descriptive only; it does not authorize lease, occupancy, financial posting, or import. This batch is provisional until exact-SHA six-job CI verification.
+
+## 27. Accepted lease source-review staleness in aggregate diagnostics (2026-10-13)
+
+An explicitly accepted source identity remains historical review evidence, not a perpetual approval. Even when updated same-run Property/Unit/Tenant mappings all point to valid active customer records, any recorded `ACCEPT_RELATIONSHIP` target snapshot mismatch must invalidate current acceptance, exactly as the per-row read-only lease relationship preview already does. The aggregate Yardi migration reconciliation now reports `accepted_relationship_stale` for previously accepted rows with altered resolved target IDs or unavailable, invalid or contradictory exact original Unit source-parent review evidence, excluding those rows from `complete_identity_links`. Duplicate source-ID blockers remain separately counted and are not automatically resolved.
+
+Focused regression covers a later same-organization valid Tenant mapping drift that leaves dependency IDs valid but conflicts with the originally reviewed target. No prior audit history is rewritten and no customer entity, Lease, occupancy or financial transaction is created by this diagnostic. This batch is provisional until all six exact-SHA hosted CI jobs pass.

@@ -1034,6 +1034,15 @@ def get_yardi_reconciliation(
     # Read-only lease identity dependency coverage. A complete dependency set is
     # NOT evidence of an authorized lease, rent, occupancy or accounting import.
     lease_rows = [row for row in rows if row.resource == "LEASE_OCCUPANCY"]
+    # A repeated unskipped provider lease source ID is a collision, even when
+    # each row independently has valid Property / Unit / Tenant identity links.
+    # The per-row preview already blocks them; align the aggregate coverage.
+    unskipped_lease_sources = {}
+    for lease in lease_rows:
+        if lease.source_id and lease.resolution_action != "SKIP":
+            unskipped_lease_sources[lease.source_id] = (
+                unskipped_lease_sources.get(lease.source_id, 0) + 1
+            )
     lease_links = {(item.resource, item.source_id): item for item in items}
     mapped_properties = {item.target_id for item in items
                          if item.resource == "PROPERTIES" and item.target_entity == "PROPERTY"}
@@ -1081,6 +1090,7 @@ def get_yardi_reconciliation(
         "staged": len(lease_rows), "complete_identity_links": 0,
         "missing_property": 0, "missing_unit": 0, "missing_tenant": 0,
         "unit_property_mismatch": 0, "unit_source_parent_mismatch": 0,
+        "lease_source_id_collisions": 0, "accepted_relationship_stale": 0,
         "invalid_or_skipped": 0,
         "controlled_commit_enabled": False, "customer_business_mutation": False,
     }
@@ -1111,26 +1121,50 @@ def get_yardi_reconciliation(
         if tenant_id is None:
             lease_relationship_readiness["missing_tenant"] += 1
         source_parent_conflicts = False
+        source_parent_current = False
         if unit_link is not None and unit_id is not None and unit_link.target_entity == "UNIT":
             reviewed_parents = reviewed_lease_unit_parent_sources.get((
                 unit_link.source_id, unit_link.source_fingerprint, unit_link.target_id,
             ))
-            if reviewed_parents and (
-                None in reviewed_parents
-                or set(reviewed_parents) != {
-                    str(data.get("source_property_id") or "").strip()
-                }
-            ):
-                source_parent_conflicts = True
-                lease_relationship_readiness["unit_source_parent_mismatch"] += 1
+            if reviewed_parents:
+                source_parent_current = (
+                    None not in reviewed_parents
+                    and set(reviewed_parents) == {
+                        str(data.get("source_property_id") or "").strip()
+                    }
+                )
+                if not source_parent_current:
+                    source_parent_conflicts = True
+                    lease_relationship_readiness["unit_source_parent_mismatch"] += 1
         target_parent_conflicts = (
             property_id is not None and unit_id is not None
             and valid_units[unit_id] != property_id
         )
         if target_parent_conflicts:
             lease_relationship_readiness["unit_property_mismatch"] += 1
+        source_id_collision = (
+            bool(lease_row.source_id)
+            and unskipped_lease_sources.get(lease_row.source_id, 0) > 1
+        )
+        if source_id_collision:
+            lease_relationship_readiness["lease_source_id_collisions"] += 1
+        # Acceptance is an auditable snapshot. A later *valid* mapping change
+        # may leave all dependency IDs resolvable while invalidating review.
+        accepted_review_stale = (
+            lease_row.resolution_action == "ACCEPT_RELATIONSHIP"
+            and (
+                (lease_row.resolution_target_id,
+                 lease_row.resolution_target_unit_id,
+                 lease_row.resolution_target_tenant_user_id)
+                != (property_id, unit_id, tenant_id)
+                or not source_parent_current
+            )
+        )
+        if accepted_review_stale:
+            lease_relationship_readiness["accepted_relationship_stale"] += 1
         if (property_id is not None and unit_id is not None and tenant_id is not None
-                and not source_parent_conflicts and not target_parent_conflicts):
+                and not source_parent_conflicts and not target_parent_conflicts
+                and not source_id_collision and not accepted_review_stale):
             lease_relationship_readiness["complete_identity_links"] += 1
 
     evidence = {

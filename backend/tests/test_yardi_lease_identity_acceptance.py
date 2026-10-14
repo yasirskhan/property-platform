@@ -153,6 +153,57 @@ def test_yardi_lease_review_acceptance_replays_and_preserves_customer_data():
         engine.dispose()
 
 
+def test_accepted_lease_summary_excludes_stale_valid_target_identity_drift():
+    """All mapped IDs may stay valid while an accepted review snapshot is stale."""
+    db, engine = _session()
+    try:
+        actor, org, run, original, alternate, unit, tenant, lease_row = _seed(
+            db, "yardi-accepted-lease-target-drift",
+        )
+        accepted = accept_yardi_staged_lease_relationship(
+            run.id, lease_row.id, db, actor,
+        )
+        assert accepted["replayed"] is False
+        good = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert good["lease_relationship_readiness"]["complete_identity_links"] == 1
+        assert good["lease_relationship_readiness"]["accepted_relationship_stale"] == 0
+        replacement = User(
+            organization_id=org.id, role=UserRole.TENANT,
+            email="yardi-accepted-target-drift-replacement@example.test",
+            hashed_password="preserve-replacement-hash",
+            first_name="Another", last_name="Existing",
+            is_active=True,
+        )
+        db.add(replacement)
+        db.flush()
+        tenant_link = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "TENANTS",
+            PlatformMigrationItem.source_id == "T1",
+        ).one()
+        tenant_link.target_id = replacement.id
+        db.commit()
+        preview = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        assert preview["relationship_review_recorded"] is True
+        assert preview["relationship_review_current"] is False
+        assert preview["blockers"] == ["ACCEPTED_RELATIONSHIP_STALE"]
+        summary = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert summary["lease_relationship_readiness"]["complete_identity_links"] == 0
+        assert summary["lease_relationship_readiness"]["accepted_relationship_stale"] == 1
+        assert summary["lease_relationship_readiness"]["lease_source_id_collisions"] == 0
+        with pytest.raises(HTTPException) as stale:
+            accept_yardi_staged_lease_relationship(run.id, lease_row.id, db, actor)
+        assert stale.value.status_code == 409
+        assert db.query(Lease).count() == 0
+        db.refresh(replacement)
+        assert replacement.hashed_password == "preserve-replacement-hash"
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_yardi_lease_accept_rejects_source_parent_disagreement_even_if_target_matches():
     db, engine = _session()
     try:
@@ -388,6 +439,9 @@ def test_accepted_lease_review_preview_detects_cross_upload_new_version_and_skip
         )
         accepted = accept_yardi_staged_lease_relationship(run.id, row.id, db, actor)
         assert accepted["replayed"] is False
+        before_duplicate = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert before_duplicate["lease_relationship_readiness"]["complete_identity_links"] == 1
+        assert before_duplicate["lease_relationship_readiness"]["lease_source_id_collisions"] == 0
         added = stage_yardi_file(
             db, run=run, filename="revision.csv",
             content=b"Lease,Tenant,Property,Unit\nL1,T1,P2,U1\n",
@@ -405,6 +459,9 @@ def test_accepted_lease_review_preview_detects_cross_upload_new_version_and_skip
         assert preview["items"][0]["relationship_review_recorded"] is True
         assert preview["items"][0]["relationship_review_current"] is False
         assert preview["items"][0]["blockers"] == ["LEASE_SOURCE_ID_COLLISION"]
+        conflicted_summary = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert conflicted_summary["lease_relationship_readiness"]["complete_identity_links"] == 0
+        assert conflicted_summary["lease_relationship_readiness"]["lease_source_id_collisions"] == 2
         duplicate = db.query(PlatformMigrationStagedRow).filter(
             PlatformMigrationStagedRow.upload_id == added.upload.id,
         ).one()
@@ -417,6 +474,10 @@ def test_accepted_lease_review_preview_detects_cross_upload_new_version_and_skip
         )
         assert restored["items"][0]["relationship_review_current"] is True
         assert restored["items"][0]["blockers"] == []
+        corrected_summary = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert corrected_summary["lease_relationship_readiness"]["complete_identity_links"] == 1
+        assert corrected_summary["lease_relationship_readiness"]["lease_source_id_collisions"] == 0
+        assert corrected_summary["lease_relationship_readiness"]["customer_business_mutation"] is False
         assert db.query(Lease).count() == 0
     finally:
         db.close()

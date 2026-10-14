@@ -667,7 +667,8 @@ export default function YardiMigrationConsole() {
             <p className="mt-2 text-xs text-slate-700">
               Lease source identity links complete: {reconciliation.lease_relationship_readiness.complete_identity_links ?? 0}
               {" · "}Current Unit/Property mismatches: {reconciliation.lease_relationship_readiness.unit_property_mismatch ?? 0}
-              {" · "}Original Unit source-parent conflicts: {reconciliation.lease_relationship_readiness.unit_source_parent_mismatch ?? 0}.
+              {" · "}Original Unit source-parent conflicts: {reconciliation.lease_relationship_readiness.unit_source_parent_mismatch ?? 0}
+              {" · "}Unskipped lease source-ID collision rows: {reconciliation.lease_relationship_readiness.lease_source_id_collisions ?? 0}.
               These counts are diagnostic only and never authorize occupancy or financial commits.
             </p>
             <ul className="mt-3 grid gap-2 sm:grid-cols-2">
