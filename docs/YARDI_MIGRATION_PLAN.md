@@ -348,3 +348,13 @@ An authorized platform migration writer may explicitly record `ACCEPT_RELATIONSH
 Acceptance writes only staged review action, scoped target IDs, reviewer/time and redacted audit metadata; it invalidates a previous run dry-run fingerprint. Source identities are **not** customer leases, rent charges, deposit receipts, ledger postings or validated occupancy. Customer business record creation, financial posting and `controlled_commit_enabled` remain disabled. The staff migration console exposes the explicit action only for currently unreviewed, valid lease source rows, and continues to show existing per-row blocker statuses.
 
 Prepared product source, regression tests, staff UI, authenticated API contract and fast CI changes are staged as GitHub blobs pending the previous exact-SHA collision-review green check. They must be committed to only `chatgpt/checkpoint-005-safety`, then receive their own six-job CI verification before this batch can be marked VERIFIED.
+
+
+## 22. Revalidate accepted lease source reviews in read-only preview (2026-10-13)
+
+**Prior verified:** Exact product SHA `9ea421deedd2f5a9cb11f839abf3cf5484052ba4` passed all six jobs in GitHub Actions **38495996102**. This verifies staff-reviewed `ACCEPT_RELATIONSHIP` for stable lease source identities with current same-run Property/Unit/Tenant mapping checks, original reviewed Unit source-parent evidence, collision detection, idempotent replay, audit and no customer business mutation.
+
+**Follow-on committed but provisional:** The read-only `GET /runs/{run_id}/lease-relationships` view now provides a separate `relationship_review_current` boolean. An earlier `ACCEPT_RELATIONSHIP` decision is reported as stale if its recorded target IDs no longer match the current valid durable source mappings, the original Unit source-parent review evidence no longer agrees, or a new unskipped copy of the same lease source ID appears in another uploaded export. Cross-upload duplicate identity is reported with `LEASE_SOURCE_ID_COLLISION`, and stale accepted target/evidence with `ACCEPTED_RELATIONSHIP_STALE`. A previously accepted review **is not silently reopened**: the backend does not rewrite staged review history or create a Lease; the staff console displays the mismatch for reconciliation.
+
+Changes: backend `6f11fc8b`, focused regression `1bacccdb` corrected CSV fixture `98531447`, staff warning `0b6902e7`. Require exact latest-SHA all-six-job hosted CI before marking this batch VERIFIED. Historical Yardi source contracts for financial fields remain unverified; do not allow leases, payments, deposits, GL, occupancy or financial postings.
+
