@@ -743,10 +743,31 @@ def list_yardi_lease_relationships(
         for row in reviewed_unit_rows
         if not row.errors and row.disposition != "INVALID"
     }
+    # The same run may contain conflicting lease revisions from multiple
+    # uploads. Reviewed acceptance is only current when competing versions
+    # remain explicitly skipped, including versions outside this page.
+    competing_sources = db.query(
+        PlatformMigrationStagedRow.id,
+        PlatformMigrationStagedRow.source_id,
+        PlatformMigrationStagedRow.resolution_action,
+    ).filter(
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "LEASE_OCCUPANCY",
+        PlatformMigrationStagedRow.source_id.isnot(None),
+    ).all()
+    non_skipped_lease_source_counts = {}
+    for _, source_id, decision in competing_sources:
+        if decision != "SKIP":
+            non_skipped_lease_source_counts[source_id] = (
+                non_skipped_lease_source_counts.get(source_id, 0) + 1
+            )
     results = []
     for staged_row in staged:
         blockers = []
         unit_source_parent_matches_lease = None
+        current_identity_targets = None
         if (staged_row.errors or staged_row.disposition == "INVALID"
                 or staged_row.resolution_action == "SKIP"):
             blockers.append("INVALID_OR_SKIPPED")
@@ -776,6 +797,7 @@ def list_yardi_lease_relationships(
                 and tenant.target_entity == "TENANT_USER"
                 and tenant.target_id in valid_tenants else None
             )
+            current_identity_targets = (property_id, unit_id, tenant_id)
             if property_id is None:
                 blockers.append("PROPERTY_IDENTITY_UNMAPPED_OR_INACTIVE")
             if unit_id is None:
@@ -796,13 +818,29 @@ def list_yardi_lease_relationships(
                     unit_source_parent_matches_lease = reviewed_parent == lease_parent_source
                     if not unit_source_parent_matches_lease:
                         blockers.append("UNIT_SOURCE_PARENT_MISMATCH")
+        is_accepted = staged_row.resolution_action == "ACCEPT_RELATIONSHIP"
+        if (staged_row.source_id
+                and non_skipped_lease_source_counts.get(staged_row.source_id, 0) > 1):
+            blockers.append("LEASE_SOURCE_ID_COLLISION")
+        if is_accepted:
+            stored_targets = (
+                staged_row.resolution_target_id,
+                staged_row.resolution_target_unit_id,
+                staged_row.resolution_target_tenant_user_id,
+            )
+            if (current_identity_targets is None
+                    or stored_targets != current_identity_targets
+                    or unit_source_parent_matches_lease is not True):
+                blockers.append("ACCEPTED_RELATIONSHIP_STALE")
+        review_current = is_accepted and not blockers
         results.append({
             "staged_row_id": staged_row.id,
             "row_number": staged_row.row_number,
             "source_id": staged_row.source_id,
             "blockers": blockers,
             "identity_links_complete": not blockers,
-            "relationship_review_recorded": staged_row.resolution_action == "ACCEPT_RELATIONSHIP",
+            "relationship_review_recorded": is_accepted,
+            "relationship_review_current": review_current,
             "unit_source_parent_matches_lease": unit_source_parent_matches_lease,
             "occupancy_or_lease_authorized": False,
         })
