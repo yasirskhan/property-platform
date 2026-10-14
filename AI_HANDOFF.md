@@ -1,3 +1,12 @@
+# AI_HANDOFF.md — 2026-10-13 YARDI LEASE ACCEPTANCE VERIFIED; STALE REVIEW PREVIEW PROVISIONAL
+
+**LATEST FULLY VERIFIED PRODUCT SHA:** `9ea421deedd2f5a9cb11f839abf3cf5484052ba4`; GitHub Actions run **38495996102 SUCCESS** at exact SHA, all six required jobs PASS. Explicit metadata-only `ACCEPT_RELATIONSHIP` for staged YARDI lease source identities requires same-run durable Property, Unit and Tenant mappings, exact original reviewed Unit source-parent evidence, current valid targets and resolved duplicate source versions. Reviewer/audit captured; replay revalidates; no customer Lease, occupancy, rent, receipt, deposit, GL or financial mutation.
+
+**PROVISIONAL CURRENT BATCH:** `6f11fc8b` adds read-only staleness diagnostics to per-row lease relationship view. Previously accepted rows must show `relationship_review_current=false` if target identities drift, original source-parent evidence is stale, or another unskipped upload version of that source ID appears. New blocker codes: `LEASE_SOURCE_ID_COLLISION`, `ACCEPTED_RELATIONSHIP_STALE`. Regression `1bacccdb` with fixture correction `98531447`; staff UI warning `0b6902e7`; plan section 22 `2c0a3d90`. Check latest exact-SHA CI, repair reds and mark verified only after all six jobs pass.
+
+**NEXT AFTER GREEN:** Resume the next bounded Phase 4.15 review/reconciliation task; prioritize safe explicit duplicate source-version disposition and source relationship review status without customer writes. Keep provider/org/run isolation and exact-fingerprint protections. Source-specific financial, historical transactions, owner percentage, official Yardi API and lease creation remain blocked pending authoritative contracts. ONLY branch `chatgpt/checkpoint-005-safety`. Do not touch main/create another branch. Continue implement → test → commit → hosted CI → fix reds → verify exact SHA → update handoff → immediately next bounded batch, without asking user.
+
+---
 # AI_HANDOFF.md — 2026-10-13 YARDI CROSS-UPLOAD SOURCE COLLISIONS VERIFIED
 
 **LATEST FULLY VERIFIED PRODUCT SHA:** `bb8e0c74f4787927e9bc101c593a0d0599144c87`, exact GitHub Actions run **38494617366 SUCCESS**. All six required jobs PASS (backend/PostgreSQL **1266 passed, 21 deselected**, frontend, platform-admin, security, authenticated E2E, staging-config). Phase 4.15 cross-upload source-ID collision review endpoint, bounded run/org/provider/resource grouping, duplicate-vs-changed-source version detection, authenticated platform staff UI, paging, privacy and nonmutation regressions are VERIFIED.
