@@ -1,3 +1,11 @@
+# AI_HANDOFF.md — 2026-10-13 YARDI MAPPED DUPLICATE SKIP REVIEW PROVISIONAL
+
+**LAST VERIFIED PRODUCT SHA:** `a253ee9b61b077d1ca3032e0ffa84d914eb4e734`, six-job CI **38505839009 SUCCESS**. **CURRENT PARENT PENDING:** `9f432c74135c2d91badb90b9658b5dec403b4510`, Actions **38507464363** pending when prepared. Verify its exact SHA and all six jobs before publishing this subsequent commit. Phase 4.15 IN PROGRESS.
+
+**NEXT PREPARED SOURCE BATCH (NOT VERIFIED):** Guarded reason-coded SKIP for newly uploaded Yardi duplicate Property/Unit/Owner/Vendor/Tenant identities even after same source is durably bound, but ONLY with a distinct existing same-run/org/provider exact-fingerprint, target-matched, valid `MATCH_EXISTING` reviewed source anchor. Cannot skip that anchor or orphan bindings. Audit retains original reviewed-row identity, no durable binding changes, invalidates dry-run; backend regression covers duplicate Unit variant, original review rejection, missing anchor, SKIP replay/reason conflict, collision status and zero business mutation. Yardi migration plan §28. Do not fast-forward this detached commit while the parent exact-SHA six-job CI is running. If CI fails, fix reds first. After success, update branch via expected SHA, verify new CI, repair reds, and continue next bounded phase without asking user. ONLY branch `chatgpt/checkpoint-005-safety`; never `main`, another branch or Work mode.
+
+---
+
 # AI_HANDOFF.md — 2026-10-13 YARDI AGGREGATE SOURCE-PARENT VERIFIED; SOURCE-ID AND ACCEPTANCE COVERAGE PROVISIONAL
 
 **CONDITIONAL VERIFIED CHECKPOINT:** This handoff should only be published if `a253ee9b61b077d1ca3032e0ffa84d914eb4e734` passed all six exact-SHA jobs in GitHub Actions **38505839009**. That product commit aligns aggregate lease source-parent mismatch counts with individual read-only lease blockers when exact Unit evidence is contradictory or invalid. Earlier `29e92208` verified in **38502586560**, `b9716452` in **38500928438**. Do not repeat verified work.

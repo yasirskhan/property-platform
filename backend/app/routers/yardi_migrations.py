@@ -1216,15 +1216,48 @@ def skip_yardi_staged_row(
     ).first()
     if row is None:
         raise HTTPException(status_code=404, detail="Yardi staged row not found.")
-    already_mapped = db.query(PlatformMigrationItem.id).filter(
+    already_mapped = db.query(PlatformMigrationItem).filter(
         PlatformMigrationItem.run_id == run.id,
         PlatformMigrationItem.organization_id == run.organization_id,
         PlatformMigrationItem.provider == "YARDI",
         PlatformMigrationItem.resource == row.resource,
         PlatformMigrationItem.source_id == row.source_id,
     ).first() if row.source_id else None
+    # Allow a reason-coded SKIP of a *new, unreviewed* duplicate only when
+    # another exact reviewed row independently anchors the durable binding.
+    # Skipping the mapped review itself, inventing a review for an orphan
+    # binding, or changing a prior non-SKIP decision remains forbidden.
+    retained_review = None
     if already_mapped:
-        raise HTTPException(status_code=409, detail="Durably mapped source cannot be skipped.")
+        target_column = {
+            "PROPERTIES": PlatformMigrationStagedRow.resolution_target_id,
+            "UNITS": PlatformMigrationStagedRow.resolution_target_unit_id,
+            "OWNERS": PlatformMigrationStagedRow.resolution_target_owner_user_id,
+            "VENDORS": PlatformMigrationStagedRow.resolution_target_vendor_id,
+            "TENANTS": PlatformMigrationStagedRow.resolution_target_tenant_user_id,
+        }.get(row.resource)
+        if target_column is not None and row.resolution_action in (None, "SKIP"):
+            candidates = db.query(PlatformMigrationStagedRow).filter(
+                PlatformMigrationStagedRow.run_id == run.id,
+                PlatformMigrationStagedRow.organization_id == run.organization_id,
+                PlatformMigrationStagedRow.provider == "YARDI",
+                PlatformMigrationStagedRow.resource == row.resource,
+                PlatformMigrationStagedRow.source_id == row.source_id,
+                PlatformMigrationStagedRow.id != row.id,
+                PlatformMigrationStagedRow.row_fingerprint == already_mapped.source_fingerprint,
+                PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+                target_column == already_mapped.target_id,
+            ).all()
+            retained_review = next(
+                (candidate for candidate in candidates
+                 if not candidate.errors and candidate.disposition != "INVALID"),
+                None,
+            )
+        if retained_review is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Durably mapped source cannot be skipped without another exact reviewed binding.",
+            )
     if row.resolution_action not in (None, "SKIP"):
         raise HTTPException(status_code=409, detail="A different review decision already exists.")
     evidence = list(row.correction_evidence or [])
@@ -1253,6 +1286,10 @@ def skip_yardi_staged_row(
         new_value={
             "run_id": run.id, "resource": row.resource,
             "reason_code": payload.reason_code,
+            "durable_mapping_preserved": already_mapped is not None,
+            "retained_reviewed_staged_row_id": (
+                retained_review.id if retained_review is not None else None
+            ),
             "customer_business_mutation": False,
         },
     )

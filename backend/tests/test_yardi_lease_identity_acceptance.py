@@ -10,6 +10,7 @@ from app.models.user import User, UserRole
 from app.routers.yardi_migrations import (
     accept_yardi_staged_lease_relationship,
     get_yardi_reconciliation,
+    list_yardi_source_collisions,
     list_yardi_lease_relationships,
     dry_run_yardi_review,
     skip_yardi_staged_row,
@@ -272,6 +273,104 @@ def test_yardi_lease_accept_blocks_cross_upload_duplicate_until_explicit_skip():
         )
         accepted = accept_yardi_staged_lease_relationship(run.id, row.id, db, actor)
         assert accepted["replayed"] is False
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+
+def test_skip_new_unit_source_version_preserves_exact_durable_review_anchor():
+    """Later duplicate uploads can be dispositioned without erasing a bound Unit."""
+    db, engine = _session()
+    try:
+        actor, org, run, original, alternate, unit, tenant, lease_row = _seed(
+            db, "yardi-bound-unit-duplicate-skip",
+        )
+        source_row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.resource == "UNITS",
+        ).one()
+        bound = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "UNITS",
+            PlatformMigrationItem.source_id == "U1",
+        ).one()
+        original_binding = (bound.id, bound.target_id, bound.source_fingerprint)
+        upload = stage_yardi_file(
+            db, run=run, filename="changed-unit-source.csv",
+            content=b"Unit,Parent,Label\\nU1,P2,101\\n",
+            resource_override="UNITS", sheet_name=None,
+            explicit_mapping={
+                "source_id": "Unit", "source_property_id": "Parent",
+                "unit_name": "Label",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        duplicate = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).one()
+        before = list_yardi_source_collisions(
+            run.id, Response(), resource="UNITS", offset=0, limit=20,
+            db=db, current_user=actor,
+        )
+        assert before["items"][0]["disposition_status"] == "UNRESOLVED_MULTIPLE"
+        with pytest.raises(HTTPException) as cannot_skip_original:
+            skip_yardi_staged_row(
+                run.id, source_row.id, YardiRowSkipIn(reason_code="DUPLICATE_SOURCE"),
+                db, actor,
+            )
+        assert cannot_skip_original.value.status_code == 409
+
+        # A durable ID alone is insufficient: staff must preserve a distinct
+        # source-fingerprint/target-matched, valid reviewed source row.
+        source_row.row_fingerprint = "no-longer-equal-to-bound-fingerprint"
+        db.commit()
+        with pytest.raises(HTTPException) as missing_anchor:
+            skip_yardi_staged_row(
+                run.id, duplicate.id, YardiRowSkipIn(reason_code="DUPLICATE_SOURCE"),
+                db, actor,
+            )
+        assert missing_anchor.value.status_code == 409
+        source_row.row_fingerprint = bound.source_fingerprint
+        db.commit()
+
+        dry_run_yardi_review(run.id, db, actor)
+        db.refresh(run)
+        assert run.last_dry_run_fingerprint
+        skipped = skip_yardi_staged_row(
+            run.id, duplicate.id, YardiRowSkipIn(reason_code="DUPLICATE_SOURCE"),
+            db, actor,
+        )
+        assert skipped["action"] == "SKIP"
+        assert skipped["replayed"] is False
+        repeated = skip_yardi_staged_row(
+            run.id, duplicate.id, YardiRowSkipIn(reason_code="DUPLICATE_SOURCE"),
+            db, actor,
+        )
+        assert repeated["replayed"] is True
+        with pytest.raises(HTTPException) as changed_reason:
+            skip_yardi_staged_row(
+                run.id, duplicate.id, YardiRowSkipIn(reason_code="NOT_IN_SCOPE"),
+                db, actor,
+            )
+        assert changed_reason.value.status_code == 409
+
+        db.refresh(run)
+        db.refresh(bound)
+        db.refresh(source_row)
+        assert run.last_dry_run_fingerprint is None
+        assert (bound.id, bound.target_id, bound.source_fingerprint) == original_binding
+        assert source_row.resolution_action == "MATCH_EXISTING"
+        after = list_yardi_source_collisions(
+            run.id, Response(), resource="UNITS", offset=0, limit=20,
+            db=db, current_user=actor,
+        )
+        assert after["items"][0]["disposition_status"] == "ONE_UNSKIPPED"
+        assert after["items"][0]["skipped_rows"] == 1
+        assert db.query(Lease).count() == 0
+        db.refresh(tenant)
+        assert tenant.hashed_password == "unchanged-password-hash"
     finally:
         db.close()
         engine.dispose()
