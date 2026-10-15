@@ -69,6 +69,7 @@ type DurableBinding = {
   target_id: number;
   target_current: boolean;
   unit_parent_relationship_current: boolean | null;
+  source_identity_collision: boolean;
   created_by_platform_user_id: number | null;
   created_at: string | null;
 };
@@ -669,7 +670,8 @@ export default function YardiMigrationConsole() {
               {" · "}Current Unit/Property mismatches: {reconciliation.lease_relationship_readiness.unit_property_mismatch ?? 0}
               {" · "}Original Unit source-parent conflicts: {reconciliation.lease_relationship_readiness.unit_source_parent_mismatch ?? 0}
               {" · "}Unskipped lease source-ID collision rows: {reconciliation.lease_relationship_readiness.lease_source_id_collisions ?? 0}
-              {" · "}Lease rows with conflicting Property/Unit/Tenant source identities: {reconciliation.lease_relationship_readiness.identity_source_id_collisions ?? 0}.
+              {" · "}Lease rows with conflicting Property/Unit/Tenant source identities: {reconciliation.lease_relationship_readiness.identity_source_id_collisions ?? 0}
+              {" · "}Stale accepted lease source reviews: {reconciliation.lease_relationship_readiness.accepted_relationship_stale ?? 0}.
               These counts are diagnostic only and never authorize occupancy or financial commits.
             </p>
             <ul className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -829,8 +831,9 @@ export default function YardiMigrationConsole() {
                   <td className="p-2 font-mono text-xs">{item.target_entity} #{item.target_id}</td>
                   <td className="p-2">
                     <span>{item.target_current ? "Active target" : "Unavailable — reconcile"}</span>
+                    {item.source_identity_collision && <span className="mt-1 block text-xs font-semibold text-amber-800">Unskipped source-ID collision — review duplicate uploads</span>}
                     {item.resource === "UNITS" && <span className="mt-1 block text-xs text-slate-600">
-                      {item.unit_parent_relationship_current === true ? "Source parent verified" : item.unit_parent_relationship_current === false ? "Source parent mismatch — reconcile" : "Source parent not verified"}
+                      {item.source_identity_collision ? "Source parent unverified until duplicates are resolved" : item.unit_parent_relationship_current === true ? "Source parent verified" : item.unit_parent_relationship_current === false ? "Source parent mismatch — reconcile" : "Source parent not verified"}
                     </span>}
                   </td>
                   <td className="p-2 text-xs">

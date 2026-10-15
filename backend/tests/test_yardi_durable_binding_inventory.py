@@ -121,6 +121,71 @@ def test_yardi_durable_inventory_is_paginated_org_scoped_and_metadata_only():
         engine.dispose()
 
 
+
+def test_yardi_binding_source_collision_is_resource_and_run_scoped():
+    """A Property source collision cannot mark a distinct Vendor identity stale."""
+    from app.services.yardi_file_ingestion import stage_yardi_file
+
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-binding-resource-isolation")
+        target = Property(
+            organization_id=org.id, name="Existing Home", address_line1="1 Main",
+            city="Cleveland", state="OH", zip_code="44113",
+        )
+        vendor = Vendor(organization_id=org.id, company_name="Existing Vendor")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="scoped-collision", status="DRAFT",
+        )
+        other_run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="other-run", status="DRAFT",
+        )
+        db.add_all([target, vendor, run, other_run])
+        db.flush()
+        _binding(db, run, "PROPERTIES", "SHARED", "PROPERTY", target.id)
+        _binding(db, run, "VENDORS", "SHARED", "VENDOR", vendor.id)
+        db.commit()
+
+        def stage(resource, current_run, name):
+            stage_yardi_file(
+                db, run=current_run, filename=resource.lower() + ".csv",
+                content=("ID,Name\nSHARED," + name + "\n").encode(),
+                resource_override=resource, sheet_name=None,
+                explicit_mapping={"source_id": "ID", "name": "Name"},
+                platform_user_id=actor.id,
+            )
+            db.commit()
+
+        stage("PROPERTIES", run, "Original")
+        stage("VENDORS", run, "Unrelated Vendor")
+        stage("PROPERTIES", other_run, "Outside This Run")
+        first = list_yardi_durable_bindings(
+            run.id, Response(), resource=None, offset=0, limit=10,
+            db=db, current_user=actor,
+        )
+        assert all(not item["source_identity_collision"] for item in first["items"])
+        stage("PROPERTIES", run, "Second Version")
+        affected = list_yardi_durable_bindings(
+            run.id, Response(), resource=None, offset=0, limit=10,
+            db=db, current_user=actor,
+        )
+        by_resource = {item["resource"]: item for item in affected["items"]}
+        assert by_resource["PROPERTIES"]["source_identity_collision"] is True
+        assert by_resource["PROPERTIES"]["target_current"] is True
+        assert by_resource["VENDORS"]["source_identity_collision"] is False
+        assert by_resource["VENDORS"]["target_current"] is True
+        db.refresh(target)
+        db.refresh(vendor)
+        assert target.name == "Existing Home"
+        assert vendor.company_name == "Existing Vendor"
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_yardi_durable_inventory_requires_platform_migration_role():
     db, engine = _session()
     try:
@@ -202,6 +267,7 @@ def test_yardi_unit_inventory_marks_moved_parent_without_changing_customer_unit(
         )
         assert linked["items"][0]["target_current"] is True
         assert linked["items"][0]["unit_parent_relationship_current"] is True
+        assert linked["items"][0]["source_identity_collision"] is False
 
         unit.property_id = other.id
         db.commit()
@@ -265,6 +331,7 @@ def test_yardi_unit_inventory_marks_moved_parent_without_changing_customer_unit(
             db=db, current_user=actor,
         )
         assert contradictory["items"][0]["unit_parent_relationship_current"] is False
+        assert contradictory["items"][0]["source_identity_collision"] is True
         # Even an invalid reviewed exact version must not be ignored.
         conflicting.disposition = "INVALID"
         db.commit()
@@ -283,10 +350,25 @@ def test_yardi_unit_inventory_marks_moved_parent_without_changing_customer_unit(
             db, actor,
         )
         assert explicit_skip["replayed"] is False
+        # A second unskipped version still makes the durable source
+        # ambiguous, even though its exact reviewed parent agrees.
+        still_ambiguous = list_yardi_durable_bindings(
+            run.id, Response(), resource="UNITS", offset=0, limit=10,
+            db=db, current_user=actor,
+        )
+        assert still_ambiguous["items"][0]["source_identity_collision"] is True
+        assert still_ambiguous["items"][0]["unit_parent_relationship_current"] is False
+        latest_matching.resolution_action = None
+        db.commit()
+        assert skip_yardi_staged_row(
+            run.id, latest_matching.id, YardiRowSkipIn(reason_code="DUPLICATE_SOURCE"),
+            db, actor,
+        )["action"] == "SKIP"
         reconciled = list_yardi_durable_bindings(
             run.id, Response(), resource="UNITS", offset=0, limit=10,
             db=db, current_user=actor,
         )
+        assert reconciled["items"][0]["source_identity_collision"] is False
         assert reconciled["items"][0]["unit_parent_relationship_current"] is True
         db.refresh(durable_unit)
         db.refresh(unit)

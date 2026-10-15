@@ -436,6 +436,44 @@ links; historical accepted rows are stale while collisions remain. Staff can
 inspect a resource-specific source collision inventory and resolve duplicates
 without customer business mutation. Regression tests cover new Unit source
 version, stale accepted lease and dry-run fingerprint, explicit SKIP recovery,
-and original customer data preservation. The batch is provisional until its
-own exact-SHA six-job GitHub Actions CI completes successfully. No customer
+and original customer data preservation. Verified as part of exact product SHA `e83cca4387ba1a23cefbc12f40eb49f1f205abb7`, GitHub Actions run 38673560425 SUCCESS: all six required jobs passed. No customer
 Lease, occupancy, payment, financial or Yardi API mutation is enabled.
+
+
+## 34. Durable binding inventory flags unresolved identity source collisions (2026-10-14)
+
+A durably mapped Yardi source may still have multiple unskipped staged versions
+across uploads. The staff read-only bindings inventory explicitly exposes
+source_identity_collision for each affected Property, Unit, Owner, Vendor or
+Tenant binding, separate from target_current. A Unit's original
+unit_parent_relationship_current cannot remain true while any such collision
+persists, even when all historical exact reviewed parents agree. In that case
+the status is false pending explicit staff disposition, and the console says
+that the source parent is unverified until duplicates are resolved. Target
+activity continues to be reported independently. Staff also sees the
+previously computed count of stale accepted lease source reviews directly in
+the reconciliation summary, rather than relying on opening each lease row.
+
+Existing regression now confirms one SKIP does not clear ambiguity while a
+second duplicate remains unskipped; every unneeded version requires an audited
+reason-coded SKIP and original reviewed anchor preservation. This only changes
+diagnostics. It does not alter durable mappings, customer Units, Properties,
+user identities, financial entries or lease records. Provisional until
+dedicated exact-SHA six-job GitHub Actions CI passes.
+
+## 35. Staff existing-target review rejects unresolved duplicate source IDs (2026-10-14)
+
+An unskipped duplicate Yardi identity source version must not allow a staff
+MATCH_EXISTING request or idempotent replay to report a current review.
+All five explicitly reviewed existing-target resources (Properties, Units,
+Owners, Vendors and Tenants) now check current same-provider/run/organization
+duplicate source versions before reviewing or replaying a recorded match.
+Staff must reason-code SKIP unwanted versions first. A regression covers
+Property review blocked before a first match, recovery after SKIP, a new
+duplicate making replay stale, and restoration only after another audited
+SKIP, while preserving customer Property fields and prior review evidence.
+
+This is metadata-only review safety and does not merge source versions,
+alter customer business records or enable Yardi API, accounting, ownership
+percentage or Lease/occupancy commit. Provisional until exact-SHA six-job
+hosted CI verification.

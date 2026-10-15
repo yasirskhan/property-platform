@@ -487,6 +487,7 @@ def list_yardi_durable_bindings(
         PlatformMigrationItem.id.asc(),
     ).offset(offset).limit(limit).all()
     results = []
+    identity_collisions = _yardi_unresolved_identity_sources(db, run)
     entity_by_resource = {
         "PROPERTIES": "PROPERTY",
         "UNITS": "UNIT",
@@ -495,6 +496,7 @@ def list_yardi_durable_bindings(
         "TENANTS": "TENANT_USER",
     }
     for item in bindings:
+        source_identity_collision = (item.resource, item.source_id) in identity_collisions
         valid_entity = item.target_entity == entity_by_resource[item.resource]
         target_current = False
         parent_relationship_current = None  # Only applicable to verified Unit source-parent evidence.
@@ -567,8 +569,14 @@ def list_yardi_durable_bindings(
                 Vendor.organization_id == run.organization_id,
                 Vendor.deleted_at.is_(None),
             ).first() is not None
+        # Current customer target validity and original source-parent certainty
+        # are different. A new unresolved source version keeps the target active
+        # but makes the reviewed original Unit source parent untrustworthy.
+        if item.resource == "UNITS" and source_identity_collision:
+            parent_relationship_current = False
         results.append({
             "id": item.id, "resource": item.resource, "source_id": item.source_id,
+            "source_identity_collision": source_identity_collision,
             "target_entity": item.target_entity, "target_id": item.target_id,
             "target_current": target_current,
             "unit_parent_relationship_current": parent_relationship_current,
@@ -1630,6 +1638,11 @@ def match_yardi_staged_property(
         raise HTTPException(status_code=404, detail="Yardi property row not found.")
     if row.errors or row.disposition == "INVALID" or not row.source_id:
         raise HTTPException(status_code=422, detail="Invalid property source row cannot be matched.")
+    if (row.resource, row.source_id) in _yardi_unresolved_identity_sources(db, run):
+        raise HTTPException(
+            status_code=409,
+            detail="Repeated Yardi source ID requires explicit duplicate disposition before identity review.",
+        )
     if row.resolution_action is not None:
         if (row.resolution_action == "MATCH_EXISTING"
                 and row.resolution_target_id == payload.target_property_id):
@@ -1749,6 +1762,11 @@ def match_yardi_staged_owner(
         raise HTTPException(status_code=404, detail="Yardi Owner row not found.")
     if row.errors or row.disposition == "INVALID" or not row.source_id:
         raise HTTPException(status_code=422, detail="Invalid Owner source row cannot be matched.")
+    if (row.resource, row.source_id) in _yardi_unresolved_identity_sources(db, run):
+        raise HTTPException(
+            status_code=409,
+            detail="Repeated Yardi source ID requires explicit duplicate disposition before identity review.",
+        )
     replay = (
         row.resolution_action == "MATCH_EXISTING"
         and row.resolution_target_owner_user_id == payload.target_owner_user_id
@@ -1839,6 +1857,11 @@ def match_yardi_staged_tenant(
         raise HTTPException(status_code=404, detail="Yardi Tenant row not found.")
     if row.errors or row.disposition == "INVALID" or not row.source_id:
         raise HTTPException(status_code=422, detail="Invalid Tenant source row cannot be matched.")
+    if (row.resource, row.source_id) in _yardi_unresolved_identity_sources(db, run):
+        raise HTTPException(
+            status_code=409,
+            detail="Repeated Yardi source ID requires explicit duplicate disposition before identity review.",
+        )
     replay = (
         row.resolution_action == "MATCH_EXISTING"
         and row.resolution_target_tenant_user_id == payload.target_tenant_user_id
@@ -1929,6 +1952,11 @@ def match_yardi_staged_vendor(
         raise HTTPException(status_code=404, detail="Yardi Vendor row not found.")
     if row.errors or row.disposition == "INVALID" or not row.source_id:
         raise HTTPException(status_code=422, detail="Invalid Vendor source row cannot be matched.")
+    if (row.resource, row.source_id) in _yardi_unresolved_identity_sources(db, run):
+        raise HTTPException(
+            status_code=409,
+            detail="Repeated Yardi source ID requires explicit duplicate disposition before identity review.",
+        )
     replay = (
         row.resolution_action == "MATCH_EXISTING"
         and row.resolution_target_vendor_id == payload.target_vendor_id
@@ -2017,6 +2045,11 @@ def match_yardi_staged_unit(
         raise HTTPException(status_code=404, detail="Yardi Unit row not found.")
     if row.errors or row.disposition == "INVALID" or not row.source_id:
         raise HTTPException(status_code=422, detail="Invalid Unit source row cannot be matched.")
+    if (row.resource, row.source_id) in _yardi_unresolved_identity_sources(db, run):
+        raise HTTPException(
+            status_code=409,
+            detail="Repeated Yardi source ID requires explicit duplicate disposition before identity review.",
+        )
     replay = row.resolution_action == "MATCH_EXISTING" and row.resolution_target_unit_id == payload.target_unit_id
     if row.resolution_action is not None and not replay:
         raise HTTPException(status_code=409, detail="Conflicting Unit review decision.")

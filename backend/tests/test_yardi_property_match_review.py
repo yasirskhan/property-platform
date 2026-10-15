@@ -5,7 +5,7 @@ from fastapi import HTTPException, Response
 from app.models.platform_migration import PlatformMigrationRun, PlatformMigrationStagedRow
 from app.models.platform_user import PlatformUserRole
 from app.models.property import Property
-from app.routers.yardi_migrations import YardiPropertyMatchIn, match_yardi_staged_property, get_yardi_reconciliation
+from app.routers.yardi_migrations import YardiPropertyMatchIn, match_yardi_staged_property, get_yardi_reconciliation, skip_yardi_staged_row, YardiRowSkipIn
 from app.services.yardi_file_ingestion import stage_yardi_file
 from test_yardi_migrations import _org, _platform_user, _session
 
@@ -84,6 +84,75 @@ def test_yardi_property_match_requires_same_org_and_is_idempotent():
         db.refresh(target)
         assert row.resolution_action == "MATCH_EXISTING"
         assert target.name == "Target House"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+def test_yardi_property_identity_review_requires_duplicate_source_disposition_even_on_replay():
+    """A later unskipped Property source version blocks recorded review replay."""
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-review-duplicate-source-guard")
+        target = Property(
+            organization_id=org.id, name="Customer Existing Property",
+            address_line1="1 Main", city="Cleveland", state="OH", zip_code="44113",
+        )
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="duplicate-review-guard", status="DRAFT",
+        )
+        db.add_all([target, run])
+        db.commit()
+
+        def stage(name):
+            upload = stage_yardi_file(
+                db, run=run, filename="property-source.csv",
+                content=("ID,Name\nP-1," + name + "\n").encode(),
+                resource_override="PROPERTIES", sheet_name=None,
+                explicit_mapping={"source_id": "ID", "name": "Name"},
+                platform_user_id=actor.id,
+            )
+            db.commit()
+            return db.query(PlatformMigrationStagedRow).filter(
+                PlatformMigrationStagedRow.upload_id == upload.upload.id,
+            ).one()
+
+        original = stage("Original Yardi Source")
+        duplicate = stage("Competing Source Version")
+        request = YardiPropertyMatchIn(target_property_id=target.id)
+        with pytest.raises(HTTPException) as unresolved:
+            match_yardi_staged_property(run.id, original.id, request, db, actor)
+        assert unresolved.value.status_code == 409
+        assert original.resolution_action is None
+
+        assert skip_yardi_staged_row(
+            run.id, duplicate.id, YardiRowSkipIn(reason_code="DUPLICATE_SOURCE"),
+            db, actor,
+        )["action"] == "SKIP"
+        decision = match_yardi_staged_property(run.id, original.id, request, db, actor)
+        assert decision["replayed"] is False
+        assert match_yardi_staged_property(
+            run.id, original.id, request, db, actor,
+        )["replayed"] is True
+
+        later = stage("Another Competing Version")
+        with pytest.raises(HTTPException) as stale:
+            match_yardi_staged_property(run.id, original.id, request, db, actor)
+        assert stale.value.status_code == 409
+        assert skip_yardi_staged_row(
+            run.id, later.id, YardiRowSkipIn(reason_code="DUPLICATE_SOURCE"),
+            db, actor,
+        )["action"] == "SKIP"
+        assert match_yardi_staged_property(
+            run.id, original.id, request, db, actor,
+        )["replayed"] is True
+        db.refresh(target)
+        db.refresh(original)
+        assert target.name == "Customer Existing Property"
+        assert original.resolution_action == "MATCH_EXISTING"
     finally:
         db.close()
         engine.dispose()

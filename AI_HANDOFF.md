@@ -1,3 +1,15 @@
+# AI_HANDOFF.md — 2026-10-14 YARDI DUPLICATE-SOURCE SAFETY VERIFIED; DURABLE REVIEW FOLLOW-UP PROVISIONAL
+
+**MOST RECENT EXACT-SHA VERIFIED PRODUCT:** `e83cca4387ba1a23cefbc12f40eb49f1f205abb7`; GitHub Actions run **38673560425 SUCCESS**. All six required jobs PASSED: backend/PostgreSQL, frontend, platform-admin, security, authenticated E2E, staging-config. This source-identity safety batch blocks unskipped duplicate Property/Unit/Owner/Vendor/Tenant source IDs from appearing as matched/mapped readiness, blocks stale or replayed accepted Lease source relationships, reports per-lease identity collision diagnostics, adds a focused Unit source-version + audited SKIP restoration regression, and updates the staff console and Yardi migration plan §33. It does not mutate customer business data.
+
+**NEW FOLLOW-ON PRODUCT BATCH IN THIS COMMIT, NOT VERIFIED YET:** Extend the same provider/run/organization-scoped unresolved identity-source collision rule to (1) the read-only durable-binding inventory, exposing `source_identity_collision` separately from `target_current` and blocking false-positive Unit original-parent readiness; (2) staff `MATCH_EXISTING` review and idempotent replay endpoints for Properties, Units, Owners, Vendors and Tenants, which must refuse unresolved source versions until explicit reason-coded SKIP; (3) staff presentation of collision and stale accepted lease diagnostics. Regression covers second-unskipped Unit duplicate, source collision isolation between resources/runs, and Property review/replay rejection then audited SKIP restoration. See `docs/YARDI_MIGRATION_PLAN.md` §§34–35. These changes are metadata/read-only diagnostics and audited staff review only, without customer Property/Unit/User/Vendor/Lease/financial mutation.
+
+**REQUIRED IMMEDIATE ACTION:** Verify this exact new product commit with all six hosted GitHub Actions jobs; fix failures first. Update this handoff heading to include the product SHA and actual run ID after verification, then immediately inspect and implement another independently supportable Phase 4.15 source/review/reconciliation defect. Do NOT stop after green CI or handoff. Never push a newer commit while the prior exact-SHA six-job CI is in progress. Preserve sole authorized branch `chatgpt/checkpoint-005-safety`; never `main` or new branches.
+
+**EXTERNAL SOURCE-CONTRACT BLOCKERS UNCHANGED:** No unsupported official Yardi API, historical GL/AR/AP, payments/deposits, owner percentage allocations, customer Lease or occupancy commit, or unverified financial posting. Preserve customer business records, explicit review, audit and source evidence.
+
+---
+
 # AI_HANDOFF.md — 2026-10-14 YARDI DURABLE REVIEW DRIFT CHECK (PROVISIONAL)
 
 **LAST VERIFIED LIVE SHA:** `606d6575c118add61fc64a03a382e0c278382a76`, Actions **38511393988 SUCCESS** (all six jobs). It completes the combined exact source review, invalid source precedence, active target and dry-run readiness batch; earlier `fa243987` passed Actions **38510109186** after fixing the CSV regression in `2a4e8d2e`. Do not repeat those verified source batches.
