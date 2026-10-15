@@ -318,6 +318,16 @@ def test_unreviewed_durable_identity_coverage_rejects_competing_staff_target_cla
         same_source = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert same_source["resource_coverage"][resource]["mapped"] == 1
         assert same_source["review_fingerprint"] == recovered["review_fingerprint"]
+
+        # Historical/corrupted staff evidence with a missing source identity
+        # still contests this customer target. SQL NULL != source_id would
+        # otherwise silently hide it from readiness.
+        competing.source_id = None
+        db.commit()
+        unknown_source = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert unknown_source["resource_coverage"][resource]["mapped"] == 0
+        assert unknown_source["resource_coverage"][resource]["needs_review"] == 1
+        assert unknown_source["review_fingerprint"] != recovered["review_fingerprint"]
         db.refresh(target)
         assert (target.company_name == "Untouched Vendor" if resource == "VENDORS"
                 else target.hashed_password == "preserved-hash")

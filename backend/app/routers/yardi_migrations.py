@@ -1042,26 +1042,45 @@ def get_yardi_reconciliation(
     identity_collisions = _yardi_unresolved_identity_sources(db, run)
     # Read-only reconciliation rechecks historical staff target claims. A
     # repeated SAME provider source ID in another run is not a new identity.
-    reviewed_target_fields = {
-        "PROPERTIES": PlatformMigrationStagedRow.resolution_target_id,
-        "UNITS": PlatformMigrationStagedRow.resolution_target_unit_id,
-        "OWNERS": PlatformMigrationStagedRow.resolution_target_owner_user_id,
-        "VENDORS": PlatformMigrationStagedRow.resolution_target_vendor_id,
-        "TENANTS": PlatformMigrationStagedRow.resolution_target_tenant_user_id,
-    }
+    # One scoped projection covers all reviewed source claims instead of
+    # issuing a competitor query for every staged identity row. A retained
+    # review with a missing source ID remains a competing *unknown* identity:
+    # SQL inequality would otherwise miss NULL and incorrectly mark ready.
+    reviewed_claim_rows = db.query(
+        PlatformMigrationStagedRow.resource,
+        PlatformMigrationStagedRow.source_id,
+        PlatformMigrationStagedRow.resolution_target_id,
+        PlatformMigrationStagedRow.resolution_target_unit_id,
+        PlatformMigrationStagedRow.resolution_target_owner_user_id,
+        PlatformMigrationStagedRow.resolution_target_vendor_id,
+        PlatformMigrationStagedRow.resolution_target_tenant_user_id,
+    ).filter(
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+        PlatformMigrationStagedRow.resource.in_(
+            ("PROPERTIES", "UNITS", "OWNERS", "VENDORS", "TENANTS")
+        ),
+    ).all()
+    reviewed_claim_sources = {}
+    for resource, source_id, property_id, unit_id, owner_id, vendor_id, tenant_id in reviewed_claim_rows:
+        target = {
+            "PROPERTIES": property_id, "UNITS": unit_id,
+            "OWNERS": owner_id, "VENDORS": vendor_id,
+            "TENANTS": tenant_id,
+        }[resource]
+        if target is not None:
+            reviewed_claim_sources.setdefault((resource, target), set()).add(source_id)
 
     def claimed_by_other_review(row, target_id):
-        target_field = reviewed_target_fields.get(row.resource)
         return (
-            target_field is not None and target_id is not None
-            and db.query(PlatformMigrationStagedRow.id).filter(
-                PlatformMigrationStagedRow.organization_id == run.organization_id,
-                PlatformMigrationStagedRow.provider == "YARDI",
-                PlatformMigrationStagedRow.resource == row.resource,
-                PlatformMigrationStagedRow.source_id != row.source_id,
-                PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
-                target_field == target_id,
-            ).first() is not None
+            target_id is not None
+            and any(
+                other_source_id != row.source_id
+                for other_source_id in reviewed_claim_sources.get(
+                    (row.resource, target_id), ()
+                )
+            )
         )
 
     resources: dict[str, dict[str, int]] = {}

@@ -641,7 +641,7 @@ not make an otherwise valid binding stale. The console displays a clear
 reconciliation warning. Vendor regression verifies conflict, recovery,
 same-source cross-run handling and unchanged customer business data.
 This does not rewrite source identities, alter customers or authorize financial
-posting. VERIFIED on SHA `1d9bb956bcb9976916d5da9609f7d075c1b9d42e` by GitHub Actions run `38815725119` SUCCESS (all six required jobs).
+posting. Provisional until exact-SHA six-job hosted CI.
 
 ## 50. Exact identity-row readiness fingerprint, not aggregate-only (2026-10-15)
 
@@ -654,4 +654,18 @@ New Vendor regression moves a competing historical review between two distinct
 customer targets while resource coverage remains identical, proving the digest
 changes without customer mutation. Fingerprint evidence is not exposed as raw
 customer data and does not authorize creation, occupancy or financial posting.
-Provisional until exact-SHA six-job hosted verification.
+VERIFIED on exact SHA `047da93677abaa1d088a770f942e27f4bf464971`, CI `38817670120` SUCCESS, all six required jobs.
+
+## 51. Bounded reconciliation lookups and missing historical source claims (2026-10-15)
+
+Run-level read-only Yardi identity reconciliation now loads same-organization
+reviewed target claim metadata in one scoped projection instead of issuing one
+competing-review SELECT for every staged identity row. Identity resource/target
+keys map to all exact provider source IDs. Matching the same stable source ID
+remains valid evidence, while a different source ID makes it contested.
+Retained historical reviewed claims with missing (NULL) source IDs also fail
+closed rather than disappearing under SQL three-valued inequality semantics.
+Parameterized Owner/Tenant/Vendor regression checks NULL-source reviewed
+target claims invalidate mapped readiness, review fingerprints and not customer
+records. No official Yardi APIs, customer data mutation or financial posting
+enabled. Provisional until exact-SHA hosted six-job CI.

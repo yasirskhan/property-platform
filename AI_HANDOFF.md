@@ -2,63 +2,53 @@
 
 Repository: `yasirskhan/property-platform`
 ONLY branch `chatgpt/checkpoint-005-safety`.
-Check live HEAD and exact-SHA hosted CI before any write.
-Do not touch main, create another branch or overwrite another session.
+Never touch main or another branch, never force-push.
+Verify live HEAD and latest CI before every write.
 
-## Last VERIFIED product batch
+## Last VERIFIED product checkpoint
 
-Section 49 at `1d9bb956bcb9976916d5da9609f7d075c1b9d42e`:
-GitHub Actions `38815725119` SUCCESS, all six jobs passed:
-backend/PostgreSQL, frontend, platform-admin, security,
-authenticated E2E and staging-config. Read-only Yardi durable binding
-inventory now exposes independent target_review_collision warning for
-different-source reviewed existing customer targets, even when target
-remains active. It permits repeated review of the SAME source ID.
-Vendor regression checks conflict/recovery, cross-org isolation and
-customer nonmutation; platform staff can see the warning.
+Section 50, SHA `047da93677abaa1d088a770f942e27f4bf464971`,
+GitHub Actions `38817670120`: SUCCESS on all six required jobs:
+backend/PostgreSQL, frontend, platform-admin, security, E2E and staging-config.
+Run-level review fingerprint now includes per-row current/stale readiness,
+so equal aggregate counts cannot conceal swaps of contested customer targets.
+Regression `test_reconciliation_fingerprint_changes_when_competing_target_swaps_but_totals_do_not`.
+Earlier verified: section 49 `1d9bb956bcb9976916d5da9609f7d075c1b9d42e`,
+run `38815725119` SUCCESS; section 48 `b73022f034852c07b79c50559ba8fbd424c20d9c`,
+run `38812602409` SUCCESS; section 47 `81a3fdcef15d04407809552fb05644ca1ae7ea0a`,
+run `38810003222` SUCCESS. All six passed for each.
 
-Earlier section 48 verified SHA `b73022f034852c07b79c50559ba8fbd424c20d9c`,
-run `38812602409` SUCCESS all six. Section 47 verified
-`81a3fdcef15d04407809552fb05644ca1ae7ea0a`, run
-`38810003222` SUCCESS all six. Binder source-ID repair section 46a:
-`45060cd57670417370e0c9b8ff430341e3c4de2d`,
-run `38808091338` SUCCESS all six.
+## Current COMMITTED product batch: PROVISIONAL pending exact-SHA CI
 
-## Current COMMITTED product batch: provisional until exact-SHA CI
+Section 51. Read-only run-level identity reconciliation now projects
+same-organization staff-reviewed source target claims once, avoiding
+one competitor SELECT per staged identity. NULL/unknown historical source
+IDs on retained MATCH_EXISTING claims are treated as competing source
+evidence instead of being silently ignored by SQL inequality. Reviewed
+same source ID across runs is still not itself a collision.
+Parameterized Owner/Tenant/Vendor regression covers missing source ID
+and readiness fingerprint drift. No customer/financial mutation.
+Check live branch HEAD and CI; do not mark verified until all six
+jobs pass for the exact product SHA.
 
-Section 50: private reconciliation review fingerprint now includes
-per-staged-identity-row current/stale classification. Previously
-different customer identities could become contested while aggregate
-coverage stayed identical, allowing a stale dry-run fingerprint.
-Vendor two-target swap regression:
-`backend/tests/test_yardi_review_replay_claims.py::
-test_reconciliation_fingerprint_changes_when_competing_target_swaps_but_totals_do_not`.
-No customer/financial mutations. Check live HEAD and its six CI jobs,
-fix reds before marking verified.
+## Prepared DETACHED next tasks, not verified or branch published
 
-## Prepared DETACHED only: next bounded batches
-
-51: `5f83ff5923ef2cb77733bffad81005ba8c852bfa`
-(original parent `287e492e...`). Run-level read-only reviewed
-claims projection and NULL-source historical claims fail closed.
-52: `75cff2008ed41e288cd690bf95fa4322ff44a545`
-(original parent `5f83ff59...`). Null-safe is_distinct_from source
-comparison in five binders and Lease/inventory diagnostics, with
-Owner/Tenant/Vendor/Property/Unit regression coverage plus Lease and
-inventory checks. Supersedes detached `1503db48...`.
-53: `c33fad46b4368b8e908aaab2d0ef25abbfdb276f`
-(original parent `75cff200...`). Per-Lease-source readiness
-fingerprinting and equal-count Tenant-target swap regression.
-None are branch-published or VERIFIED. Repackage each onto newly
-verified parents using expected-SHA protection; never directly
-push historical detached objects after parent replacement.
+Section 52: `75cff2008ed41e288cd690bf95fa4322ff44a545`
+(original parent `5f83ff5923ef2cb77733bffad81005ba8c852bfa`):
+NULL-safe is_distinct_from guard in five binders and Lease/inventory
+diagnostics, with Owner/Tenant/Vendor/Property/Unit, Lease and inventory tests.
+Section 53: `c33fad46b4368b8e908aaab2d0ef25abbfdb276f`
+(original parent `75cff200...`):
+per-Lease-source readiness fingerprint plus equal-count Tenant target swap test.
+They must be repackaged onto newly verified parents and committed using
+expected-SHA branch updates, never pushed directly after parent replacement.
 
 ## Mandatory next step
 
-Verify section 50 at its exact HEAD and all six CI jobs, repair any
-failures, update this handoff and roadmap after success, then publish
-section 51 on that VERIFIED source and continue. Repeat for 52 and 53.
-Do not stop at one verified product commit or one handoff update.
+Verify new section 51 HEAD and exact-SHA hosted six-job CI; fix failures;
+update the root handoff and roadmap after success; immediately repackage
+and publish section 52, verify CI, then section 53. Do not stop after a
+successful CI or handoff. Preserve historical evidence and customer data.
 
 ## Continuous workflow
 
