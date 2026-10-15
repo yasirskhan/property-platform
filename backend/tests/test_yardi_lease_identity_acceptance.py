@@ -800,3 +800,79 @@ def test_yardi_aggregate_review_rejects_wrong_durable_target_entity():
         db.close()
         engine.dispose()
 
+
+def test_accepted_lease_identity_becomes_stale_after_competing_tenant_staff_review():
+    db, engine = _session()
+    try:
+        actor, org, run, original, alternate, unit, tenant, lease_row = _seed(
+            db, "yardi-lease-conflicting-staff-target",
+        )
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease_row.id, db, actor,
+        )["replayed"] is False
+        initial = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert initial["lease_relationship_readiness"]["complete_identity_links"] == 1
+
+        other_run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="another-reviewed-tenant", status="DRAFT",
+        )
+        db.add(other_run)
+        db.commit()
+        upload = stage_yardi_file(
+            db, run=other_run, filename="other-tenants.csv",
+            content=b"Resident Ref,Full Name\nT-OTHER,Other Tenant\n",
+            resource_override="TENANTS", sheet_name=None,
+            explicit_mapping={"source_id": "Resident Ref", "name": "Full Name"},
+            platform_user_id=actor.id,
+        )
+        db.commit()
+        competing = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id
+        ).one()
+        competing.resolution_action = "MATCH_EXISTING"
+        competing.resolution_target_tenant_user_id = tenant.id
+        db.commit()
+        preview = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        assert "TENANT_TARGET_REVIEW_COLLISION" in preview["blockers"]
+        assert preview["relationship_review_current"] is False
+        report = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert report["lease_relationship_readiness"]["complete_identity_links"] == 0
+        assert report["lease_relationship_readiness"]["identity_target_review_collisions"] == 1
+        assert report["lease_relationship_readiness"]["accepted_relationship_stale"] == 1
+        assert report["review_fingerprint"] != initial["review_fingerprint"]
+        with pytest.raises(HTTPException) as stale:
+            accept_yardi_staged_lease_relationship(run.id, lease_row.id, db, actor)
+        assert stale.value.status_code == 409
+
+        competing.resolution_action = None
+        competing.resolution_target_tenant_user_id = None
+        db.commit()
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease_row.id, db, actor,
+        )["replayed"] is True
+        final = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert final["lease_relationship_readiness"]["complete_identity_links"] == 1
+
+        # Another run can review the SAME tenant source ID without creating a
+        # distinct identity claim (matching the Property/Unit/Owner binders).
+        competing.source_id = str((lease_row.normalized_data or {}).get("source_tenant_id") or "").strip()
+        competing.resolution_action = "MATCH_EXISTING"
+        competing.resolution_target_tenant_user_id = tenant.id
+        db.commit()
+        same_source = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        assert "TENANT_TARGET_REVIEW_COLLISION" not in same_source["blockers"]
+        assert same_source["relationship_review_current"] is True
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease_row.id, db, actor,
+        )["replayed"] is True
+        assert db.query(Lease).count() == 0
+        db.refresh(tenant)
+        assert tenant.hashed_password == "unchanged-password-hash"
+    finally:
+        db.close()
+        engine.dispose()

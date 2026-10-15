@@ -509,7 +509,7 @@ The five Yardi reviewed-existing identity binding endpoints previously rejected 
 
 ## 40. Property review replay must recheck current durable claims (2026-10-15)
 
-The Yardi Property MATCH_EXISTING endpoint previously returned idempotent replay success after checking only whether its customer Property target remained active. A newer durable same-source fingerprint/target drift, a different Yardi source claiming that Property, or another reviewed row claiming it could therefore be hidden by an old review replay. Replayed reviews now recheck current durable source and target conflicts and other reviewed target claims before returning success. The regression covers an independent cross-run durable target claim appearing after the original review and confirms recovery once the conflict is resolved. The recorded review, audit and customer Property remain unchanged. No Lease/occupancy, financial, owner-percentage or undocumented API import is enabled. This successor is prepared on the preceding audited invalid-SKIP binder fix and requires exact-SHA six-job hosted CI after that parent passes.
+The Yardi Property MATCH_EXISTING endpoint previously returned idempotent replay success after checking only whether its customer Property target remained active. A newer durable same-source fingerprint/target drift, a different Yardi source claiming that Property, or another reviewed row claiming it could therefore be hidden by an old review replay. Replayed reviews now recheck current durable source and target conflicts and other reviewed target claims before returning success. The regression covers an independent cross-run durable target claim appearing after the original review and confirms recovery once the conflict is resolved. The recorded review, audit and customer Property remain unchanged. No Lease/occupancy, financial, owner-percentage or undocumented API import is enabled. VERIFIED at source SHA `48d36e2c104cf23156de8a2b1ed7c262caac817d`, successful GitHub Actions run `38696745662` attempt 2 (all six jobs).
 
 ## 41. Owner, Tenant and Vendor review replay must check later staff claims (2026-10-15)
 
@@ -522,7 +522,7 @@ source decisions, audit history and customer business objects. A parameterized
 regression exercises the three resource types, a later competing recorded
 review, refusal of stale replay and recovery once the conflict is removed.
 No lease, occupancy, financial posting, automatic source merging or undocumented
-Yardi API integration is authorized. Provisional until exact-SHA six-job CI.
+Yardi API integration is authorized. VERIFIED at source SHA `a3b4ae52e97054ff692f854ca7f9400f5aec2c34`, successful GitHub Actions run `38778001779` (all six jobs).
 
 ## 42. Unit review replay rejects later staff claim and changed exact durable source (2026-10-15)
 
@@ -533,8 +533,7 @@ The previous replay path checked competing UNIT target claims but skipped other
 reviewed target evidence and permitted same-source fingerprint drift. A focused
 regression simulates both independently and proves nonmutation and recovery
 following resolution. No customer record, Lease, occupancy, financial posting
-or undocumented Yardi API operation is authorized. Provisional until hosted
-six-job exact-SHA CI on the preceding approved, verified source.
+or undocumented Yardi API operation is authorized. VERIFIED at source SHA `1923bb64fd12a737536dc37c6d204e725eca523d`, successful GitHub Actions run `38779933369` (all six jobs).
 
 ## 44. Exact CI verification and replay regression gate checkpoint (2026-10-15)
 
@@ -548,8 +547,7 @@ Owner/Tenant/Vendor competing reviewed-target replay guards (section 41) are
 VERIFIED at source SHA `a3b4ae52e97054ff692f854ca7f9400f5aec2c34`,
 GitHub Actions run `38778001779`, all six jobs passed. Full backend/PostgreSQL
 suite: 1296 passed, 21 deselected. A new fast CI gate now explicitly includes
-the replay-claim and Unit replay regressions; the new Unit replay product
-change in section 42 remains PROVISIONAL until its own exact-SHA six-job CI.
+the replay-claim and Unit replay regressions; the Unit replay product in section 42 was subsequently VERIFIED on exact SHA `1923bb64fd12a737536dc37c6d204e725eca523d`, GitHub Actions `38779933369` (all six jobs).
 
 
 ## 43. Exact durable-source fingerprint on replayed Owner, Tenant and Vendor review (2026-10-15)
@@ -561,7 +559,7 @@ exact source fingerprint in the durable-claim conflict guard, in addition to
 target entity, target ID and competing target sources. Parameterized regression
 covers each resource's replay becoming stale, review persistence, customer
 nonmutation and restored exact identity. No business record or financial posting
-is created, amended or deleted. Provisional until six-job exact-SHA CI.
+is created, amended or deleted. VERIFIED on exact SHA `79c531d8071bd088a4fbee256ba9e083f8da5f07` in successful GitHub Actions run `38803856489` (all six jobs).
 
 ## 45. Owner, Tenant and Vendor binding replay rechecks later staff claims (2026-10-15)
 
@@ -573,8 +571,7 @@ conflict. All three existing-target binders now check the organization-scoped
 review claims after locking their live customer target. New binding and replay
 return HTTP 409 until that claim is resolved, without rewriting audit history
 or customer records. Parameterized regression tests both paths for all three
-resources and verifies recovery and customer nonmutation. Provisional until
-six-job hosted CI of the exact replacement source SHA.
+resources and verifies recovery and customer nonmutation. VERIFIED in five-resource binder checkpoint SHA `45060cd57670417370e0c9b8ff430341e3c4de2d`, GitHub Actions `38808091338` (all six jobs).
 
 ## 46. Property and Unit binding replay rechecks later staff claims (2026-10-15)
 
@@ -585,7 +582,7 @@ MATCH_EXISTING staff reviews before first durable binding and replay, not just
 against committed durable source identity. Existing staff decisions and
 customer resources are left intact. Dedicated regressions cover initial
 binding refusal, recovery, replay refusal and nonmutation for both resource
-types. Provisional until exact-SHA all-six-job hosted CI.
+types. VERIFIED with section 45 at exact SHA `45060cd57670417370e0c9b8ff430341e3c4de2d`, GitHub Actions `38808091338` (all six jobs).
 
 ## 46a. Repair same Yardi stable source identity across separate runs (2026-10-15)
 
@@ -602,8 +599,7 @@ blocking the first. All five binders now distinguish different source IDs
 from repeated evidence for the same stable source identity. Later
 different source ID reviews remain hard 409 blockers. Promote the legacy
 cross-run binding test to the fast Yardi CI gate. No existing customer
-or financial record is modified. Provisional until replacement exact-SHA
-CI verifies all six jobs.
+or financial record is modified. VERIFIED at repaired SHA `45060cd57670417370e0c9b8ff430341e3c4de2d` in successful GitHub Actions run `38808091338` (all six jobs).
 
 ## 47. Cross-run staff target claims invalidate run-level identity readiness (2026-10-15)
 
@@ -618,5 +614,18 @@ existing binder safety guard in section 46a. Focused Owner/Tenant/Vendor
 regressions cover reviewed and durable cases, competing claims, restoration,
 same-source cross-run evidence, fingerprint drift and customer nonmutation.
 The change makes no customer business mutations, does not erase prior reviews,
-does not create a Lease or post financial records, and remains provisional
-until exact-SHA six-job hosted CI completes.
+does not create a Lease or post financial records, and is VERIFIED at exact SHA `81a3fdcef15d04407809552fb05644ca1ae7ea0a`, successful GitHub Actions run `38810003222` (all six jobs).
+
+## 48. Lease source acceptance rechecks competing customer-target reviews (2026-10-15)
+
+Read-only lease source preview, aggregate readiness and explicit initial/replayed
+ACCEPT_RELATIONSHIP now treat a different same-organization Yardi source ID's
+retained MATCH_EXISTING staff claim on a mapped Property, Unit or Tenant target
+as a collision. Diagnostic blockers and identity_target_review_collisions
+counts invalidate previously accepted source relationships and fingerprinted
+readiness without changing source decisions or customer records. The same
+stable provider source ID reviewed again in another run is *not* a competing
+identity, consistent with sections 46a and 47. Staff receive the count in
+the existing internal console. Tenant-target regression covers conflicts,
+stale replay, recovery, same-source evidence and no Lease/finance mutation.
+Provisional until exact-SHA all-six-job hosted verification.

@@ -2,80 +2,70 @@
 
 Repository: `yasirskhan/property-platform`
 ONLY authorized branch: `chatgpt/checkpoint-005-safety`
-Never touch `main`, create a branch, force-push, or overwrite another agent's changes.
-Use the connected GitHub integration directly in normal ChatGPT, not Work mode.
-Verify LIVE HEAD and latest GitHub Actions before any subsequent write.
+Never touch `main`, create another branch, force-push or overwrite changes.
+Use the connected GitHub integration in normal ChatGPT, not Work mode.
+Always verify LIVE HEAD and latest exact-SHA CI before every write.
 
 ## Last fully VERIFIED product checkpoint
 
-Commit: `79c531d8071bd088a4fbee256ba9e083f8da5f07`
-Exact-SHA GitHub Actions run: `38803856489` SUCCESS, all six required jobs:
-backend/PostgreSQL PASS; frontend PASS; platform-admin PASS;
-security PASS; authenticated E2E PASS; staging-config PASS.
+Exact product commit `81a3fdcef15d04407809552fb05644ca1ae7ea0a`
+passed GitHub Actions `38810003222` SUCCESS, all six required jobs:
+backend/PostgreSQL, frontend, platform-admin, security,
+authenticated E2E, staging-config. Section 47 read-only reconciliation
+now revalidates retained competing staff MATCH_EXISTING claims to the
+same existing customer target across Yardi source identities and runs.
+Different provider source IDs invalidate matched/mapped coverage and
+the saved dry-run review fingerprint. Repeated evidence for the SAME
+stable Yardi source ID is not a competing identity. Parameterized Owner,
+Tenant and Vendor regressions cover reviewed and durable mapping, conflict,
+fingerprint drift, recovery, same-source evidence, and customer nonmutation.
 
-Verified product: section 43 exact durable source fingerprint revalidation
-when replaying historically reviewed Owner, Tenant and Vendor identities.
-Parameterized regression: `backend/tests/test_yardi_review_replay_claims.py::
-test_review_replay_rejects_changed_durable_source_fingerprint`.
-The previous verified Unit review replay checkpoint is
-`1923bb64fd12a737536dc37c6d204e725eca523d`, CI `38779933369`
-(all six PASS). The preceding Owner/Tenant/Vendor competing staff claim
-replay guard was verified at `a3b4ae52e97054ff692f854ca7f9400f5aec2c34`,
-CI `38778001779` (all six PASS). Property review replay source/target
-claim guards were verified at `48d36e2c104cf23156de8a2b1ed7c262caac817d`,
-CI `38696745662` attempt 2 (all six PASS).
-No customer business mutation or financial posting.
+Previous VERIFIED binder repair: exact SHA
+`45060cd57670417370e0c9b8ff430341e3c4de2d`, GitHub Actions
+`38808091338` SUCCESS, all six jobs. Sections 45, 46 and 46a:
+first binding and replay reject competing different-source target claims,
+but repeated review of the same Yardi source ID across runs is permitted
+until a distinct durable target collision blocks a second binding.
+Earlier VERIFIED exact-fingerprint review checkpoint:
+`79c531d8071bd088a4fbee256ba9e083f8da5f07`, run
+`38803856489` SUCCESS, all six jobs.
 
-## Current newly committed product batch: PROVISIONAL until its exact-SHA CI
+## Current newly committed product batch: PROVISIONAL pending exact-SHA CI
 
-All five reviewed existing-target identity binders (Property, Unit, Owner,
-Tenant and Vendor) now reject initial binding or idempotent replay when
-another Yardi source's retained staff review claims the same live customer
-target. Keep source/run
-identity scoping, exact fingerprints, target activity checks and immutable
-business data intact. Parameterized regression:
-`backend/tests/test_yardi_review_replay_claims.py::
-test_reviewed_binding_rejects_later_staff_target_claim_on_first_bind_and_replay`.
-Property and Unit regressions:
-`backend/tests/test_yardi_reviewed_property_binding.py::
-test_property_binding_rechecks_later_staff_claim_on_initial_bind_and_replay`
-and
-`backend/tests/test_yardi_unit_ingestion.py::
-test_unit_binding_rechecks_later_staff_claim_on_initial_bind_and_replay`.
-Both are added to the fast Yardi CI gate.
-The reviewed work combines previously detached commits
-`8757d3a2afa7189e91aa52c6d21960c07bb6e8ca` and
-`69eab0fce2126204e9fac383b8a2e90ed19842bd` into one bounded
-five-resource binding-claim safety batch rebased onto the latest verified
-parent with this handoff. See plan sections 45 and 46.
-The first hosted run for this five-resource binder batch (`38806268749`,
-commit `fca61e777000c6c78cbdc1834c43f86096badaea`) FAILED backend/PostgreSQL: 1 failed, 1304 passed,
-21 deselected. The legacy Property cross-run test showed that reviews of
-the SAME stable source ID across runs must not preempt the first safe
-binding. The repaired product commit compares competitor source IDs
-instead of differing row IDs; different source target claims still block.
-The existing Property cross-run test is now in fast Yardi CI. No other
-required CI jobs can be marked verified at this failed SHA.
-See plan section 46a.
+Section 48: Revalidate Property, Unit and Tenant reviewed existing-target
+conflicts before initial/replayed Yardi Lease *source-identity metadata*
+acceptance. The read-only lease preview and aggregate report resource
+target-claim blocker codes and identity_target_review_collisions; the
+staff console reports the count. Another run with the SAME stable provider
+source ID is not a competing identity. Regression verifies a different
+Tenant source claim, acceptance refusal, stale preview/readiness fingerprint,
+recovery, same-source allowance, and no customer Lease/finance mutation.
+Review this NEW branch HEAD's SHA and hosted CI; do not mark VERIFIED
+until the six required jobs succeed on that exact SHA.
 
-Do not mark VERIFIED until this replacement commit's exact-SHA six-job CI passes.
+## Immediately actionable next bounded batches: DETACHED ONLY
 
-## Immediately actionable next bounded batch
+Do not push the old detached SHAs after repackaging parents.
+- Section 49 prepared as detached commit
+  `a7c5c5c313a5260776a84e36c064add2fb6956d0`
+  (original parent `4e573f...`): read-only durable binding inventory
+  `target_review_collision` staff warning, independent of active target
+  status, same stable source handling and cross-org isolation tests.
+- Section 50 prepared as detached commit
+  `de3e6dd63874a586e34a3e7befc28985121fa526`
+  (original parent `a7c5c5...`): fingerprint exact private
+  identity-row readiness, including equal-aggregate-count conflict swaps,
+  with unchanged customer business data. Repackage after section 49
+  receives its own exact-SHA six-job CI verification.
 
-After this batch passes exact-SHA six-job CI, reconcile the prepared
-run-level reviewed and durable identity coverage from detached commit
-`49415b4516eef8a524eec50545adf78bdbed96de` (plan section 47).
-Do not publish the old detached SHA directly after repackaging its parent.
-Repackage with the new verified parent and the updated handoff.
+## Mandatory next cycle
 
-Additional dependent prepared work, **not** branch-committed or verified:
-- `8e15fdea7a192fd4cf580c94b90c5d9fa763cb9b`: read-only Lease
-  target-claim acceptance/preview/summary/staff UI revalidation.
-- `6d166d53d756391dd92a3bd3c982d06d164e40c1`: durable identity
-  inventory staff warning for competing reviewed target.
-They are detached, dependent historical commits and **must not be directly
-pushed** after repackaging their parent. Repack each on the newly
-verified live parent using expected-SHA branch protection and exact CI.
+Verify the new section 48 branch HEAD and hosted CI. Fix failed jobs
+before marking verified. After six-job exact-SHA SUCCESS, update this
+root handoff and the roadmap, repackage section 49 onto that verified
+parent, test, commit with expected-SHA, hosted CI, fix, verify, handoff,
+then immediately section 50. Do not stop at one success or handoff.
+All detached work is PREPARED only, not branch-committed or verified.
 
 ## Continuous workflow
 

@@ -671,6 +671,7 @@ export default function YardiMigrationConsole() {
               {" · "}Original Unit source-parent conflicts: {reconciliation.lease_relationship_readiness.unit_source_parent_mismatch ?? 0}
               {" · "}Unskipped lease source-ID collision rows: {reconciliation.lease_relationship_readiness.lease_source_id_collisions ?? 0}
               {" · "}Lease rows with conflicting Property/Unit/Tenant source identities: {reconciliation.lease_relationship_readiness.identity_source_id_collisions ?? 0}
+              {" · "}Lease rows with competing reviewed customer targets: {reconciliation.lease_relationship_readiness.identity_target_review_collisions ?? 0}
               {" · "}Stale accepted lease source reviews: {reconciliation.lease_relationship_readiness.accepted_relationship_stale ?? 0}.
               These counts are diagnostic only and never authorize occupancy or financial commits.
             </p>

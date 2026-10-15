@@ -865,6 +865,27 @@ def list_yardi_lease_relationships(
                 and tenant.target_id in valid_tenants else None
             )
             current_identity_targets = (property_id, unit_id, tenant_id)
+            for resource, source_field, target_id, target_column, blocker in (
+                ("PROPERTIES", "source_property_id", property_id,
+                 PlatformMigrationStagedRow.resolution_target_id, "PROPERTY_TARGET_REVIEW_COLLISION"),
+                ("UNITS", "source_unit_id", unit_id,
+                 PlatformMigrationStagedRow.resolution_target_unit_id, "UNIT_TARGET_REVIEW_COLLISION"),
+                ("TENANTS", "source_tenant_id", tenant_id,
+                 PlatformMigrationStagedRow.resolution_target_tenant_user_id, "TENANT_TARGET_REVIEW_COLLISION"),
+            ):
+                if target_id is None:
+                    continue
+                source_id = str(source.get(source_field) or "").strip()
+                competing = db.query(PlatformMigrationStagedRow.id).filter(
+                    PlatformMigrationStagedRow.organization_id == run.organization_id,
+                    PlatformMigrationStagedRow.provider == "YARDI",
+                    PlatformMigrationStagedRow.resource == resource,
+                    PlatformMigrationStagedRow.source_id != source_id,
+                    PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+                    target_column == target_id,
+                ).first()
+                if competing:
+                    blockers.append(blocker)
             for resource, source_field, blocker in (
                 ("PROPERTIES", "source_property_id", "PROPERTY_SOURCE_ID_COLLISION"),
                 ("UNITS", "source_unit_id", "UNIT_SOURCE_ID_COLLISION"),
@@ -1262,6 +1283,7 @@ def get_yardi_reconciliation(
         "missing_property": 0, "missing_unit": 0, "missing_tenant": 0,
         "unit_property_mismatch": 0, "unit_source_parent_mismatch": 0,
         "lease_source_id_collisions": 0, "identity_source_id_collisions": 0,
+        "identity_target_review_collisions": 0,
         "accepted_relationship_stale": 0,
         "invalid_or_skipped": 0,
         "controlled_commit_enabled": False, "customer_business_mutation": False,
@@ -1302,6 +1324,27 @@ def get_yardi_reconciliation(
         )
         if identity_collision:
             lease_relationship_readiness["identity_source_id_collisions"] += 1
+        target_review_collision = False
+        for resource, field, target_id, target_column in (
+            ("PROPERTIES", "source_property_id", property_id, PlatformMigrationStagedRow.resolution_target_id),
+            ("UNITS", "source_unit_id", unit_id, PlatformMigrationStagedRow.resolution_target_unit_id),
+            ("TENANTS", "source_tenant_id", tenant_id, PlatformMigrationStagedRow.resolution_target_tenant_user_id),
+        ):
+            if target_id is None:
+                continue
+            source_id = str(data.get(field) or "").strip()
+            if db.query(PlatformMigrationStagedRow.id).filter(
+                PlatformMigrationStagedRow.organization_id == run.organization_id,
+                PlatformMigrationStagedRow.provider == "YARDI",
+                PlatformMigrationStagedRow.resource == resource,
+                PlatformMigrationStagedRow.source_id != source_id,
+                PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+                target_column == target_id,
+            ).first():
+                target_review_collision = True
+                break
+        if target_review_collision:
+            lease_relationship_readiness["identity_target_review_collisions"] += 1
         source_parent_conflicts = False
         source_parent_current = False
         if unit_link is not None and unit_id is not None and unit_link.target_entity == "UNIT":
@@ -1340,6 +1383,7 @@ def get_yardi_reconciliation(
                  lease_row.resolution_target_tenant_user_id)
                 != (property_id, unit_id, tenant_id)
                 or not source_parent_current or identity_collision
+                or target_review_collision
             )
         )
         if accepted_review_stale:
@@ -1347,7 +1391,7 @@ def get_yardi_reconciliation(
         if (property_id is not None and unit_id is not None and tenant_id is not None
                 and not source_parent_conflicts and not target_parent_conflicts
                 and not source_id_collision and not identity_collision
-                and not accepted_review_stale):
+                and not target_review_collision and not accepted_review_stale):
             lease_relationship_readiness["complete_identity_links"] += 1
 
     evidence = {
@@ -1570,6 +1614,23 @@ def accept_yardi_staged_lease_relationship(
         raise HTTPException(status_code=409, detail="Reviewed lease identity target is inactive or outside organization.")
     if current_unit.property_id != property_id:
         raise HTTPException(status_code=409, detail="Mapped Unit no longer belongs to mapped Property.")
+    # Any competing, differently identified staff claim makes new and
+    # replayed source-relationship acceptance unsafe, without altering history.
+    for resource, source_id, target_id, target_column in (
+        ("PROPERTIES", source_ids["PROPERTIES"], property_id, PlatformMigrationStagedRow.resolution_target_id),
+        ("UNITS", source_ids["UNITS"], unit_id, PlatformMigrationStagedRow.resolution_target_unit_id),
+        ("TENANTS", source_ids["TENANTS"], tenant_id, PlatformMigrationStagedRow.resolution_target_tenant_user_id),
+    ):
+        claim = db.query(PlatformMigrationStagedRow.id).filter(
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "YARDI",
+            PlatformMigrationStagedRow.resource == resource,
+            PlatformMigrationStagedRow.source_id != source_id,
+            PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+            target_column == target_id,
+        ).first()
+        if claim:
+            raise HTTPException(status_code=409, detail="Competing Yardi identity review blocks lease source acceptance.")
     verified_unit_rows = db.query(PlatformMigrationStagedRow).filter(
         PlatformMigrationStagedRow.run_id == run.id,
         PlatformMigrationStagedRow.organization_id == run.organization_id,
