@@ -510,3 +510,16 @@ The five Yardi reviewed-existing identity binding endpoints previously rejected 
 ## 40. Property review replay must recheck current durable claims (2026-10-15)
 
 The Yardi Property MATCH_EXISTING endpoint previously returned idempotent replay success after checking only whether its customer Property target remained active. A newer durable same-source fingerprint/target drift, a different Yardi source claiming that Property, or another reviewed row claiming it could therefore be hidden by an old review replay. Replayed reviews now recheck current durable source and target conflicts and other reviewed target claims before returning success. The regression covers an independent cross-run durable target claim appearing after the original review and confirms recovery once the conflict is resolved. The recorded review, audit and customer Property remain unchanged. No Lease/occupancy, financial, owner-percentage or undocumented API import is enabled. This successor is prepared on the preceding audited invalid-SKIP binder fix and requires exact-SHA six-job hosted CI after that parent passes.
+
+## 41. Owner, Tenant and Vendor review replay must check later staff claims (2026-10-15)
+
+A retained MATCH_EXISTING action must not return idempotent success if another Yardi
+reviewed source row in the same organization later claims the same Owner, Tenant
+or Vendor customer target. The new-review checks existed, but all three replay
+paths returned success before checking recorded competing staff claims. Replays
+now apply the same claim guard under the existing target lock and preserve
+source decisions, audit history and customer business objects. A parameterized
+regression exercises the three resource types, a later competing recorded
+review, refusal of stale replay and recovery once the conflict is removed.
+No lease, occupancy, financial posting, automatic source merging or undocumented
+Yardi API integration is authorized. Provisional until exact-SHA six-job CI.

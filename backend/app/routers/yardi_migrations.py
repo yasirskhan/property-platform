@@ -1892,8 +1892,6 @@ def match_yardi_staged_owner(
     ).first()
     if collision:
         raise HTTPException(status_code=409, detail="Conflicting durable Yardi Owner mapping.")
-    if replay:
-        return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": True}
     claimed = db.query(PlatformMigrationStagedRow.id).filter(
         PlatformMigrationStagedRow.organization_id == run.organization_id,
         PlatformMigrationStagedRow.provider == "YARDI",
@@ -1904,6 +1902,9 @@ def match_yardi_staged_owner(
     ).first()
     if claimed:
         raise HTTPException(status_code=409, detail="Another Yardi Owner review claims this user.")
+    # Historical reviews must not conceal a later competing staff claim.
+    if replay:
+        return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": True}
     row.resolution_action = "MATCH_EXISTING"
     row.resolution_target_owner_user_id = target.id
     row.resolved_by_platform_user_id = current_user.id
@@ -1987,8 +1988,6 @@ def match_yardi_staged_tenant(
     ).first()
     if collision:
         raise HTTPException(status_code=409, detail="Conflicting durable Yardi Tenant mapping.")
-    if replay:
-        return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": True}
     claimed = db.query(PlatformMigrationStagedRow.id).filter(
         PlatformMigrationStagedRow.organization_id == run.organization_id,
         PlatformMigrationStagedRow.provider == "YARDI",
@@ -1999,6 +1998,9 @@ def match_yardi_staged_tenant(
     ).first()
     if claimed:
         raise HTTPException(status_code=409, detail="Another Yardi Tenant review claims this user.")
+    # Historical reviews must not conceal a later competing staff claim.
+    if replay:
+        return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": True}
     row.resolution_action = "MATCH_EXISTING"
     row.resolution_target_tenant_user_id = target.id
     row.resolved_by_platform_user_id = current_user.id
@@ -2080,8 +2082,6 @@ def match_yardi_staged_vendor(
     ).first()
     if conflicting:
         raise HTTPException(status_code=409, detail="Conflicting durable Yardi Vendor mapping.")
-    if replay:
-        return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": True}
     claim = db.query(PlatformMigrationStagedRow.id).filter(
         PlatformMigrationStagedRow.organization_id == run.organization_id,
         PlatformMigrationStagedRow.provider == "YARDI",
@@ -2092,6 +2092,9 @@ def match_yardi_staged_vendor(
     ).first()
     if claim:
         raise HTTPException(status_code=409, detail="Another Yardi Vendor review claims this target.")
+    # Historical reviews must not conceal a later competing staff claim.
+    if replay:
+        return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": True}
     row.resolution_action = "MATCH_EXISTING"
     row.resolution_target_vendor_id = target.id
     row.resolved_by_platform_user_id = current_user.id
