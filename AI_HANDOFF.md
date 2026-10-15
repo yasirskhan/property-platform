@@ -8,11 +8,16 @@ Verify LIVE HEAD and latest GitHub Actions before any subsequent write.
 
 ## Last fully VERIFIED product checkpoint
 
-Commit: `a3b4ae52e97054ff692f854ca7f9400f5aec2c34`
-Exact-SHA CI run: `38778001779` SUCCESS, all six jobs:
-backend/PostgreSQL PASS (1296 passed, 21 deselected); frontend PASS;
-platform-admin PASS; security PASS; authenticated E2E PASS;
-staging-config PASS.
+Commit: `1923bb64fd12a737536dc37c6d204e725eca523d`
+Exact-SHA CI run: `38779933369` SUCCESS, all six jobs:
+backend/PostgreSQL PASS; frontend PASS; platform-admin PASS;
+security PASS; authenticated E2E PASS; staging-config PASS.
+
+This verified commit includes the Unit MATCH_EXISTING replay protections
+and fast Yardi CI gate coverage. Owner/Tenant/Vendor later competing review
+claim checks were previously verified at
+`a3b4ae52e97054ff692f854ca7f9400f5aec2c34` (run `38778001779`,
+all six PASS; backend/PostgreSQL 1296 passed, 21 deselected).
 
 Preceding verified Property replay correction:
 `48d36e2c104cf23156de8a2b1ed7c262caac817d`, run `38696745662`,
@@ -30,34 +35,30 @@ No customer business mutation or financial posting.
 
 ## Current newly committed product batch: PROVISIONAL until its exact-SHA CI
 
-Yardi Unit MATCH_EXISTING replay:
-- Recheck any later competing staged staff review claim before returning success.
-- Revalidate same-run durable source entity, target ID and exact row fingerprint;
-  do not accept historical success after durable source evidence drifts.
-- Keep customer Units untouched, preserve recorded reviewer evidence.
-- Add focused regression `backend/tests/test_yardi_unit_review_replay_claims.py`.
-- Add this test and Owner/Tenant/Vendor replay tests to the fast Yardi CI gate
-  in `.github/workflows/ci.yml`.
+Yardi Owner, Tenant and Vendor MATCH_EXISTING replay:
+- A same-run durable binding must still carry the exact original staged
+  source fingerprint, even when target entity and target ID are unchanged.
+- Reject stale replay with HTTP 409 while preserving audit/review evidence
+  and customer identity data.
+- Parameterized regression:
+  `backend/tests/test_yardi_review_replay_claims.py::
+  test_review_replay_rejects_changed_durable_source_fingerprint`
+  exercises all three resources, drift rejection and recovery.
+- The reviewed change originated in detached commit
+  `627ce2db2c63983c55742ced14f9174bbeb1e08d`, but was transplanted
+  onto the verified Unit-replay branch rather than publishing its obsolete
+  detached parent. See migration plan section 43.
 
-This handoff was updated in the same source commit as the new Unit batch.
-Do not call the Unit change VERIFIED until hosted CI for the exact new branch
-SHA passes ALL SIX jobs. If red, inspect logs, fix, commit, verify replacement SHA.
+Do not label this batch VERIFIED until exact-SHA six-job CI passes. Repair
+any red job and verify the replacement SHA before advancing the branch.
 
 ## Immediately actionable next bounded batch
 
-A separate detached historical work commit
-`627ce2db2c63983c55742ced14f9174bbeb1e08d` implements
-Owner/Tenant/Vendor staff replay revalidation of exact durable source
-fingerprints with parameterized regressions (plan section 43). Its historical
-parent was detached Unit commit `2a0c26b85d5e41ac0bcebba6ed48b2d354c281c8`.
-Because the Unit batch was repackaged here with handoff and CI gate updates,
-DO NOT push the old detached commits directly. Reconcile and transplant the
-reviewed section 43 source, tests, and documentation onto the latest fully
-verified branch HEAD with an expected-SHA Git ref update. Verify its own CI.
-
-Then keep selecting independent safety, reconciliation, source validation,
-audit, and staff review defects from the current Yardi plan and actual code.
-Do not repeat verified work just because an older heading says provisional.
+After this source batch is verified, inspect current Yardi staff-review,
+binding, reconciliation and invalidation paths for the next independently
+demonstrable mismatch, especially historical replay and durable binding
+consistency for Property/Unit/Owner/Tenant/Vendor. Do not repeat verified
+fixes or enable unsafe customer/financial posting.
 
 ## Continuous workflow
 

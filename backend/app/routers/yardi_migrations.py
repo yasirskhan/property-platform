@@ -1887,7 +1887,8 @@ def match_yardi_staged_owner(
             (PlatformMigrationItem.run_id == run.id)
             & (PlatformMigrationItem.source_id == row.source_id)
             & ((PlatformMigrationItem.target_entity != "OWNER_USER")
-               | (PlatformMigrationItem.target_id != target.id)),
+               | (PlatformMigrationItem.target_id != target.id)
+               | (PlatformMigrationItem.source_fingerprint != row.row_fingerprint)),
         ),
     ).first()
     if collision:
@@ -1983,7 +1984,8 @@ def match_yardi_staged_tenant(
             (PlatformMigrationItem.run_id == run.id)
             & (PlatformMigrationItem.source_id == row.source_id)
             & ((PlatformMigrationItem.target_entity != "TENANT_USER")
-               | (PlatformMigrationItem.target_id != target.id)),
+               | (PlatformMigrationItem.target_id != target.id)
+               | (PlatformMigrationItem.source_fingerprint != row.row_fingerprint)),
         ),
     ).first()
     if collision:
@@ -2077,7 +2079,8 @@ def match_yardi_staged_vendor(
             (PlatformMigrationItem.run_id == run.id)
             & (PlatformMigrationItem.source_id == row.source_id)
             & ((PlatformMigrationItem.target_entity != "VENDOR")
-               | (PlatformMigrationItem.target_id != target.id)),
+               | (PlatformMigrationItem.target_id != target.id)
+               | (PlatformMigrationItem.source_fingerprint != row.row_fingerprint)),
         ),
     ).first()
     if conflicting:

@@ -88,3 +88,52 @@ def test_review_replay_revalidates_other_staff_claims(
     finally:
         db.close()
         engine.dispose()
+
+
+@pytest.mark.parametrize("resource,seed,match,payload_type,field,entity", [
+    ("OWNERS", seed_owner, match_yardi_staged_owner, YardiOwnerMatchIn,
+     "resolution_target_owner_user_id", "OWNER_USER"),
+    ("TENANTS", seed_tenant, match_yardi_staged_tenant, YardiTenantMatchIn,
+     "resolution_target_tenant_user_id", "TENANT_USER"),
+    ("VENDORS", seed_vendor, match_yardi_staged_vendor, YardiVendorMatchIn,
+     "resolution_target_vendor_id", "VENDOR"),
+])
+def test_review_replay_rejects_changed_durable_source_fingerprint(
+    resource, seed, match, payload_type, field, entity,
+):
+    from app.models.platform_migration import PlatformMigrationItem
+
+    db, engine = _session()
+    try:
+        actor, org, target, run, row = seed(
+            db, slug=f"yardi-replay-fingerprint-{resource.lower()}"
+        )
+        request = payload_type(**{field.removeprefix("resolution_"): target.id})
+        assert match(run.id, row.id, request, db, actor)["replayed"] is False
+        assert match(run.id, row.id, request, db, actor)["replayed"] is True
+
+        # This mapping represents stale retained data created after the review.
+        mapping = PlatformMigrationItem(
+            run_id=run.id, organization_id=org.id, provider="YARDI",
+            resource=resource, source_id=row.source_id, target_entity=entity,
+            target_id=target.id, source_fingerprint="stale-row-evidence",
+        )
+        db.add(mapping)
+        db.commit()
+        with pytest.raises(HTTPException) as stale:
+            match(run.id, row.id, request, db, actor)
+        assert stale.value.status_code == 409
+        db.refresh(row)
+        db.refresh(target)
+        assert row.resolution_action == "MATCH_EXISTING"
+        if resource == "VENDORS":
+            assert target.company_name == "Untouched Vendor"
+        else:
+            assert target.hashed_password == "preserved-hash"
+
+        mapping.source_fingerprint = row.row_fingerprint
+        db.commit()
+        assert match(run.id, row.id, request, db, actor)["replayed"] is True
+    finally:
+        db.close()
+        engine.dispose()

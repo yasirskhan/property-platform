@@ -550,3 +550,15 @@ GitHub Actions run `38778001779`, all six jobs passed. Full backend/PostgreSQL
 suite: 1296 passed, 21 deselected. A new fast CI gate now explicitly includes
 the replay-claim and Unit replay regressions; the new Unit replay product
 change in section 42 remains PROVISIONAL until its own exact-SHA six-job CI.
+
+
+## 43. Exact durable-source fingerprint on replayed Owner, Tenant and Vendor review (2026-10-15)
+
+A historical MATCH_EXISTING Owner, Tenant or Vendor review must not return replay
+success when its same-run durable source record points at the same customer
+entity but retains a different original staged fingerprint. Replays now compare
+exact source fingerprint in the durable-claim conflict guard, in addition to
+target entity, target ID and competing target sources. Parameterized regression
+covers each resource's replay becoming stale, review persistence, customer
+nonmutation and restored exact identity. No business record or financial posting
+is created, amended or deleted. Provisional until six-job exact-SHA CI.
