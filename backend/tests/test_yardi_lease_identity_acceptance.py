@@ -689,3 +689,37 @@ def test_yardi_aggregate_review_target_drift_cannot_count_as_matched_existing():
     finally:
         db.close()
         engine.dispose()
+
+def test_yardi_aggregate_review_rejects_wrong_durable_target_entity():
+    """Matching numeric ID and fingerprint cannot substitute for entity type."""
+    db, engine = _session()
+    try:
+        actor, org, run, original, alternate, unit, tenant, lease_row = _seed(
+            db, "yardi-aggregate-typed-durable-link",
+        )
+        bound = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == "UNITS",
+        ).one()
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["resource_coverage"]["UNITS"]["matched_existing"] == 1
+        assert baseline["resource_coverage"]["UNITS"]["needs_review"] == 0
+        bound.target_entity = "PROPERTY"
+        db.commit()
+        stale = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert stale["resource_coverage"]["UNITS"]["matched_existing"] == 0
+        assert stale["resource_coverage"]["UNITS"]["needs_review"] == 1
+        assert stale["review_fingerprint"] != baseline["review_fingerprint"]
+        assert stale["lease_relationship_readiness"]["complete_identity_links"] == 0
+        bound.target_entity = "UNIT"
+        db.commit()
+        restored = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert restored["resource_coverage"]["UNITS"]["matched_existing"] == 1
+        assert restored["review_fingerprint"] == baseline["review_fingerprint"]
+        assert db.query(Lease).count() == 0
+        db.refresh(tenant)
+        assert tenant.hashed_password == "unchanged-password-hash"
+    finally:
+        db.close()
+        engine.dispose()
+

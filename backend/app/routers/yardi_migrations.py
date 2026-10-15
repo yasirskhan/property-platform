@@ -1049,6 +1049,11 @@ def get_yardi_reconciliation(
                 target_valid = (
                     target_valid and reviewed_target == durable.target_id
                     and row.row_fingerprint == durable.source_fingerprint
+                    and durable.target_entity == {
+                        "PROPERTIES": "PROPERTY", "UNITS": "UNIT",
+                        "OWNERS": "OWNER_USER", "VENDORS": "VENDOR",
+                        "TENANTS": "TENANT_USER",
+                    }.get(row.resource)
                 )
             if target_valid:
                 stats["matched_existing"] += 1
