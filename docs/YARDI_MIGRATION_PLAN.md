@@ -586,3 +586,21 @@ against committed durable source identity. Existing staff decisions and
 customer resources are left intact. Dedicated regressions cover initial
 binding refusal, recovery, replay refusal and nonmutation for both resource
 types. Provisional until exact-SHA all-six-job hosted CI.
+
+## 46a. Repair same Yardi stable source identity across separate runs (2026-10-15)
+
+The full PostgreSQL suite in GitHub run `38806268749` exposed a
+regression missed by the fast Yardi tests:
+`test_yardi_property_cross_run_binding::test_binding_blocks_same_source_id_claimed_by_another_run`.
+Two historical runs with the SAME provider source ID can independently
+record a review of the SAME target before any binding exists. The first
+safe durable binding is allowed; the second conflicting attempt must
+still be rejected by the existing durable target collision guard.
+The newly added competing-staff-review check wrongly treated that same
+stable source ID as a distinct customer identity claim, prematurely
+blocking the first. All five binders now distinguish different source IDs
+from repeated evidence for the same stable source identity. Later
+different source ID reviews remain hard 409 blockers. Promote the legacy
+cross-run binding test to the fast Yardi CI gate. No existing customer
+or financial record is modified. Provisional until replacement exact-SHA
+CI verifies all six jobs.

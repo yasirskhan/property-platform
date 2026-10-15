@@ -48,6 +48,16 @@ The reviewed work combines previously detached commits
 `69eab0fce2126204e9fac383b8a2e90ed19842bd` into one bounded
 five-resource binding-claim safety batch rebased onto the latest verified
 parent with this handoff. See plan sections 45 and 46.
+The first hosted run for this five-resource binder batch (`38806268749`,
+commit `fca61e777000c6c78cbdc1834c43f86096badaea`) FAILED backend/PostgreSQL: 1 failed, 1304 passed,
+21 deselected. The legacy Property cross-run test showed that reviews of
+the SAME stable source ID across runs must not preempt the first safe
+binding. The repaired product commit compares competitor source IDs
+instead of differing row IDs; different source target claims still block.
+The existing Property cross-run test is now in fast Yardi CI. No other
+required CI jobs can be marked verified at this failed SHA.
+See plan section 46a.
+
 Do not mark VERIFIED until this replacement commit's exact-SHA six-job CI passes.
 
 ## Immediately actionable next bounded batch

@@ -69,6 +69,7 @@ jobs:
           tests/test_yardi_review_replay_claims.py
           tests/test_yardi_unit_review_replay_claims.py
           tests/test_yardi_reviewed_property_binding.py::test_property_binding_rechecks_later_staff_claim_on_initial_bind_and_replay
+          tests/test_yardi_property_cross_run_binding.py
           tests/test_yardi_unit_ingestion.py::test_unit_binding_rechecks_later_staff_claim_on_initial_bind_and_replay
           tests/test_yardi_lease_reconciliation.py
           tests/test_yardi_header_inspection.py

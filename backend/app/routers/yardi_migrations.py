@@ -2319,7 +2319,7 @@ def bind_yardi_reviewed_unit_matches(
             PlatformMigrationStagedRow.organization_id == run.organization_id,
             PlatformMigrationStagedRow.provider == "YARDI",
             PlatformMigrationStagedRow.resource == "UNITS",
-            PlatformMigrationStagedRow.id != row.id,
+            PlatformMigrationStagedRow.source_id != row.source_id,
             PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
             PlatformMigrationStagedRow.resolution_target_unit_id == target.id,
         ).first()
@@ -2437,7 +2437,7 @@ def bind_yardi_reviewed_vendor_matches(
             PlatformMigrationStagedRow.organization_id == run.organization_id,
             PlatformMigrationStagedRow.provider == "YARDI",
             PlatformMigrationStagedRow.resource == "VENDORS",
-            PlatformMigrationStagedRow.id != row.id,
+            PlatformMigrationStagedRow.source_id != row.source_id,
             PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
             PlatformMigrationStagedRow.resolution_target_vendor_id == target.id,
         ).first()
@@ -2557,7 +2557,7 @@ def bind_yardi_reviewed_owner_matches(
             PlatformMigrationStagedRow.organization_id == run.organization_id,
             PlatformMigrationStagedRow.provider == "YARDI",
             PlatformMigrationStagedRow.resource == "OWNERS",
-            PlatformMigrationStagedRow.id != row.id,
+            PlatformMigrationStagedRow.source_id != row.source_id,
             PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
             PlatformMigrationStagedRow.resolution_target_owner_user_id == target.id,
         ).first()
@@ -2677,7 +2677,7 @@ def bind_yardi_reviewed_tenant_matches(
             PlatformMigrationStagedRow.organization_id == run.organization_id,
             PlatformMigrationStagedRow.provider == "YARDI",
             PlatformMigrationStagedRow.resource == "TENANTS",
-            PlatformMigrationStagedRow.id != row.id,
+            PlatformMigrationStagedRow.source_id != row.source_id,
             PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
             PlatformMigrationStagedRow.resolution_target_tenant_user_id == target.id,
         ).first()
@@ -2790,7 +2790,7 @@ def bind_yardi_reviewed_property_matches(
                 PlatformMigrationStagedRow.organization_id == run.organization_id,
                 PlatformMigrationStagedRow.provider == "YARDI",
                 PlatformMigrationStagedRow.resource == "PROPERTIES",
-                PlatformMigrationStagedRow.id != row.id,
+                PlatformMigrationStagedRow.source_id != row.source_id,
                 PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
                 PlatformMigrationStagedRow.resolution_target_id == row.resolution_target_id,
             ).first()
@@ -2830,7 +2830,7 @@ def bind_yardi_reviewed_property_matches(
             PlatformMigrationStagedRow.organization_id == run.organization_id,
             PlatformMigrationStagedRow.provider == "YARDI",
             PlatformMigrationStagedRow.resource == "PROPERTIES",
-            PlatformMigrationStagedRow.id != row.id,
+            PlatformMigrationStagedRow.source_id != row.source_id,
             PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
             PlatformMigrationStagedRow.resolution_target_id == target.id,
         ).first()
