@@ -2210,10 +2210,12 @@ def bind_yardi_reviewed_unit_matches(
         raise HTTPException(status_code=422, detail="No Yardi Units are staged.")
     matches, sources, targets = [], set(), set()
     for row in rows:
-        if row.errors or row.disposition == "INVALID":
-            raise HTTPException(status_code=409, detail="Invalid Unit staging blocks binding.")
+        # An explicitly reason-coded SKIP excludes a rejected source version.
+        # Only non-skipped invalid rows must block durable identity binding.
         if row.resolution_action == "SKIP":
             continue
+        if row.errors or row.disposition == "INVALID":
+            raise HTTPException(status_code=409, detail="Invalid Unit staging blocks binding.")
         if row.resolution_action != "MATCH_EXISTING" or not row.source_id or row.resolution_target_unit_id is None:
             raise HTTPException(status_code=409, detail="Every non-skipped Unit requires explicit review.")
         if row.source_id in sources or row.resolution_target_unit_id in targets:
@@ -2326,10 +2328,12 @@ def bind_yardi_reviewed_vendor_matches(
         raise HTTPException(status_code=422, detail="No Yardi Vendor rows staged.")
     matches, sources, targets = [], set(), set()
     for row in rows:
-        if row.errors or row.disposition == "INVALID":
-            raise HTTPException(status_code=409, detail="Invalid Vendor source staging blocks binding.")
+        # An explicitly reason-coded SKIP excludes a rejected source version.
+        # Only non-skipped invalid rows must block durable identity binding.
         if row.resolution_action == "SKIP":
             continue
+        if row.errors or row.disposition == "INVALID":
+            raise HTTPException(status_code=409, detail="Invalid Vendor source staging blocks binding.")
         target_id = row.resolution_target_vendor_id
         if row.resolution_action != "MATCH_EXISTING" or not row.source_id or target_id is None:
             raise HTTPException(status_code=409, detail="All non-skipped Vendors require explicit review.")
@@ -2430,10 +2434,12 @@ def bind_yardi_reviewed_owner_matches(
         raise HTTPException(status_code=422, detail="No Yardi Owner rows staged.")
     matches, sources, targets = [], set(), set()
     for row in rows:
-        if row.errors or row.disposition == "INVALID":
-            raise HTTPException(status_code=409, detail="Invalid Owner source staging blocks binding.")
+        # An explicitly reason-coded SKIP excludes a rejected source version.
+        # Only non-skipped invalid rows must block durable identity binding.
         if row.resolution_action == "SKIP":
             continue
+        if row.errors or row.disposition == "INVALID":
+            raise HTTPException(status_code=409, detail="Invalid Owner source staging blocks binding.")
         target_id = row.resolution_target_owner_user_id
         if row.resolution_action != "MATCH_EXISTING" or not row.source_id or target_id is None:
             raise HTTPException(status_code=409, detail="All non-skipped Owners require explicit review.")
@@ -2536,10 +2542,12 @@ def bind_yardi_reviewed_tenant_matches(
         raise HTTPException(status_code=422, detail="No Yardi Tenant rows staged.")
     matches, sources, targets = [], set(), set()
     for row in rows:
-        if row.errors or row.disposition == "INVALID":
-            raise HTTPException(status_code=409, detail="Invalid Tenant source staging blocks binding.")
+        # An explicitly reason-coded SKIP excludes a rejected source version.
+        # Only non-skipped invalid rows must block durable identity binding.
         if row.resolution_action == "SKIP":
             continue
+        if row.errors or row.disposition == "INVALID":
+            raise HTTPException(status_code=409, detail="Invalid Tenant source staging blocks binding.")
         target_id = row.resolution_target_tenant_user_id
         if row.resolution_action != "MATCH_EXISTING" or not row.source_id or target_id is None:
             raise HTTPException(status_code=409, detail="All non-skipped Tenants require explicit review.")
@@ -2648,10 +2656,12 @@ def bind_yardi_reviewed_property_matches(
     seen_sources = set()
     seen_targets = set()
     for row in rows:
-        if row.errors or row.disposition == "INVALID":
-            raise HTTPException(status_code=409, detail="Invalid Property staging blocks binding.")
+        # An explicitly reason-coded SKIP excludes a rejected source version.
+        # Only non-skipped invalid rows must block durable identity binding.
         if row.resolution_action == "SKIP":
             continue
+        if row.errors or row.disposition == "INVALID":
+            raise HTTPException(status_code=409, detail="Invalid Property staging blocks binding.")
         if row.resolution_action != "MATCH_EXISTING" or not row.source_id or row.resolution_target_id is None:
             raise HTTPException(status_code=409, detail="All non-skipped Properties require explicit existing-target review.")
         if row.source_id in seen_sources or row.resolution_target_id in seen_targets:

@@ -502,3 +502,7 @@ inactive/archived Property, inactive Unit, moved Unit, and restored readiness.
 No customer business mutation, Lease, occupancy, financial posting, ownership
 percentage or undocumented Yardi API is authorized. Exact-SHA six-job hosted
 CI must pass before marking this batch verified.
+
+## 39. Explicitly skipped invalid source rows cannot block safe identity binding (2026-10-15)
+
+The five Yardi reviewed-existing identity binding endpoints previously rejected any staged source row with validation errors or INVALID disposition **before** honoring an explicit audited SKIP decision. This made it impossible to bind otherwise valid reviewed Properties, Units, Owners, Tenants or Vendors after staff had intentionally excluded an invalid source version. All five binders now check SKIP first, then reject invalid **non-skipped** rows. No invalid row is ever bound; the remaining reviewed rows still require exact-fingerprint dry-run, target checks, collision checks and replay safety. Focused Property and Vendor regressions prove invalid rows block binding before SKIP, then an audited reason-coded SKIP permits only the valid reviewed identity to bind without modifying customer records. This does not enable Lease/occupancy or financial import, or undocumented Yardi API assumptions. Verify all six hosted CI jobs at the exact source SHA before marking complete.
