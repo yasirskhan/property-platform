@@ -415,3 +415,27 @@ The review fingerprint also incorporates current `resource_coverage` counts, so 
 ## 32. Recorded identity review versus durable binding drift (2026-10-14)
 
 Historical Yardi `MATCH_EXISTING` action alone does not prove a current exact source review. The read-only reconciliation resource readiness now checks a present durable same-run resource/source binding against the reviewed target ID and exact staged source fingerprint. If the fingerprint or target drifts (even to another active Unit in the same Property), the row is `needs_review` rather than `matched_existing`, and the review fingerprint changes. Previous audit evidence persists. A focused regression covers exact source-fingerprint drift, restoration, and same-property Unit target replacement; no customer Lease, transaction or credential mutation is authorized. Full six-job exact-SHA CI required.
+
+
+## 33. Unskipped identity source versions invalidate recorded review (2026-10-14)
+
+A durable Yardi Property, Unit, Owner, Vendor or Tenant identity binding does not
+implicitly resolve a later staged upload with the same provider source ID. The
+read-only reconciliation counts all unskipped versions per resource and source ID
+within the same organization, provider and run. While multiple remain, historical
+MATCH_EXISTING decisions and otherwise mapped identity rows show needs_review,
+not matched_existing or mapped readiness. Source-review audit remains intact.
+Staff must explicitly SKIP unwanted versions with the existing reason-code
+audit and original review-anchor guard. Identical versions are not auto-merged.
+
+Lease identity preview, the run-level relationship summary and the explicit
+ACCEPT_RELATIONSHIP endpoint now reject competing unskipped Property, Unit or
+Tenant source IDs, not just duplicate Lease source IDs. The lease summary exposes
+identity_source_id_collisions and excludes ambiguous rows from complete identity
+links; historical accepted rows are stale while collisions remain. Staff can
+inspect a resource-specific source collision inventory and resolve duplicates
+without customer business mutation. Regression tests cover new Unit source
+version, stale accepted lease and dry-run fingerprint, explicit SKIP recovery,
+and original customer data preservation. The batch is provisional until its
+own exact-SHA six-job GitHub Actions CI completes successfully. No customer
+Lease, occupancy, payment, financial or Yardi API mutation is enabled.

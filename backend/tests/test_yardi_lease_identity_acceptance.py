@@ -690,6 +690,83 @@ def test_yardi_aggregate_review_target_drift_cannot_count_as_matched_existing():
         db.close()
         engine.dispose()
 
+
+def test_yardi_unskipped_duplicate_unit_source_invalidates_existing_review_and_lease_acceptance():
+    """New unskipped identity versions cannot inherit prior durable review."""
+    db, engine = _session()
+    try:
+        actor, org, run, original, alternate, unit, tenant, lease_row = _seed(
+            db, "yardi-durable-duplicate-coverage",
+        )
+        accept_yardi_staged_lease_relationship(run.id, lease_row.id, db, actor)
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["resource_coverage"]["UNITS"]["matched_existing"] == 1
+        assert baseline["lease_relationship_readiness"]["complete_identity_links"] == 1
+        dry_run_yardi_review(run.id, db, actor)
+        db.refresh(run)
+        assert run.last_dry_run_fingerprint == baseline["review_fingerprint"]
+
+        # A later conflicting source version is not automatically skipped or
+        # reconciled merely because the original Unit is already durably bound.
+        upload = stage_yardi_file(
+            db, run=run, filename="later-units.csv",
+            content=b"Unit,Parent,Label\nU1,P2,101\n",
+            resource_override="UNITS", sheet_name=None,
+            explicit_mapping={
+                "source_id": "Unit", "source_property_id": "Parent",
+                "unit_name": "Label",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        duplicate = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).one()
+        colliding = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert colliding["resource_coverage"]["UNITS"]["matched_existing"] == 0
+        assert colliding["resource_coverage"]["UNITS"]["mapped"] == 0
+        assert colliding["resource_coverage"]["UNITS"]["needs_review"] == 2
+        assert colliding["lease_relationship_readiness"]["complete_identity_links"] == 0
+        assert colliding["lease_relationship_readiness"]["identity_source_id_collisions"] == 1
+        assert colliding["lease_relationship_readiness"]["accepted_relationship_stale"] == 1
+        assert colliding["review_fingerprint"] != baseline["review_fingerprint"]
+        lease_preview = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        assert lease_preview["relationship_review_current"] is False
+        assert "UNIT_SOURCE_ID_COLLISION" in lease_preview["blockers"]
+        with pytest.raises(HTTPException) as rejected:
+            accept_yardi_staged_lease_relationship(run.id, lease_row.id, db, actor)
+        assert rejected.value.status_code == 409
+
+        # Only an explicit reason-coded staff action restores current status;
+        # original mapping and customer records remain unchanged.
+        skipped = skip_yardi_staged_row(
+            run.id, duplicate.id, YardiRowSkipIn(reason_code="DUPLICATE_SOURCE"),
+            db, actor,
+        )
+        assert skipped["action"] == "SKIP"
+        restored = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert restored["resource_coverage"]["UNITS"]["matched_existing"] == 1
+        assert restored["resource_coverage"]["UNITS"]["skipped"] == 1
+        assert restored["resource_coverage"]["UNITS"]["needs_review"] == 0
+        assert restored["lease_relationship_readiness"]["identity_source_id_collisions"] == 0
+        assert restored["lease_relationship_readiness"]["complete_identity_links"] == 1
+        assert restored["lease_relationship_readiness"]["accepted_relationship_stale"] == 0
+        assert list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]["relationship_review_current"] is True
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease_row.id, db, actor,
+        )["replayed"] is True
+        assert db.query(Lease).count() == 0
+        db.refresh(unit)
+        db.refresh(tenant)
+        assert unit.property_id == original.id
+        assert tenant.hashed_password == "unchanged-password-hash"
+    finally:
+        db.close()
+        engine.dispose()
+
 def test_yardi_aggregate_review_rejects_wrong_durable_target_entity():
     """Matching numeric ID and fingerprint cannot substitute for entity type."""
     db, engine = _session()
