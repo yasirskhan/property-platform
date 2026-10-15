@@ -110,9 +110,12 @@ def test_yardi_property_identity_review_requires_duplicate_source_disposition_ev
         def stage(name):
             upload = stage_yardi_file(
                 db, run=run, filename="property-source.csv",
-                content=("ID,Name\nP-1," + name + "\n").encode(),
+                content=("ID,Name,Street,City,State,Zip\nP-1," + name + ",1 Main,Cleveland,OH,44113\n").encode(),
                 resource_override="PROPERTIES", sheet_name=None,
-                explicit_mapping={"source_id": "ID", "name": "Name"},
+                explicit_mapping={
+                    "source_id": "ID", "name": "Name", "address_line1": "Street",
+                    "city": "City", "state": "State", "zip_code": "Zip",
+                },
                 platform_user_id=actor.id,
             )
             db.commit()
