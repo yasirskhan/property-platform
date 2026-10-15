@@ -364,3 +364,73 @@ def test_reviewed_property_replay_rejects_later_same_run_target_collision():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_property_binding_rechecks_later_staff_claim_on_initial_bind_and_replay():
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-property-binding-later-review")
+        target = Property(
+            organization_id=org.id, name="Untouched Existing Property",
+            address_line1="1 Main", city="Cleveland", state="OH", zip_code="44113",
+        )
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="initial-review", status="DRAFT",
+        )
+        other_run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="later-reviewed", status="DRAFT",
+        )
+        db.add_all([target, run, other_run])
+        db.commit()
+        mapping = {
+            "source_id": "ID", "name": "Name", "address_line1": "Street",
+            "city": "City", "state": "State", "zip_code": "Zip",
+        }
+
+        def stage(active_run, source):
+            upload = stage_yardi_file(
+                db, run=active_run, filename="properties.csv",
+                content=f"ID,Name,Street,City,State,Zip\n{source},Source,2 Main,Cleveland,OH,44113\n".encode(),
+                resource_override="PROPERTIES", sheet_name=None,
+                explicit_mapping=mapping, platform_user_id=actor.id,
+            )
+            db.commit()
+            return db.query(PlatformMigrationStagedRow).filter(
+                PlatformMigrationStagedRow.upload_id == upload.upload.id
+            ).one()
+
+        row = stage(run, "P1")
+        match_yardi_staged_property(
+            run.id, row.id, YardiPropertyMatchIn(target_property_id=target.id), db, actor,
+        )
+        snapshot = dry_run_yardi_review(run.id, db, actor)
+        request = YardiReviewedPropertyBindingIn(review_fingerprint=snapshot["review_fingerprint"])
+        competing = stage(other_run, "P-other")
+        competing.resolution_action = "MATCH_EXISTING"
+        competing.resolution_target_id = target.id
+        db.commit()
+        with pytest.raises(HTTPException) as blocked:
+            bind_yardi_reviewed_property_matches(run.id, request, db, actor)
+        assert blocked.value.status_code == 409
+        competing.resolution_action = None
+        competing.resolution_target_id = None
+        db.commit()
+        assert bind_yardi_reviewed_property_matches(run.id, request, db, actor)["bound"] == 1
+        competing.resolution_action = "MATCH_EXISTING"
+        competing.resolution_target_id = target.id
+        db.commit()
+        with pytest.raises(HTTPException) as replay:
+            bind_yardi_reviewed_property_matches(run.id, request, db, actor)
+        assert replay.value.status_code == 409
+        competing.resolution_action = None
+        competing.resolution_target_id = None
+        db.commit()
+        assert bind_yardi_reviewed_property_matches(run.id, request, db, actor)["replayed"] is True
+        db.refresh(target)
+        assert target.name == "Untouched Existing Property"
+    finally:
+        db.close()
+        engine.dispose()

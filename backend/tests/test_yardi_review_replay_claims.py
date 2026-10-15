@@ -10,7 +10,10 @@ from fastapi import HTTPException
 from app.models.platform_migration import PlatformMigrationRun, PlatformMigrationStagedRow
 from app.routers.yardi_migrations import (
     YardiOwnerMatchIn, YardiTenantMatchIn, YardiVendorMatchIn,
-    match_yardi_staged_owner, match_yardi_staged_tenant, match_yardi_staged_vendor,
+    YardiReviewedPropertyBindingIn, bind_yardi_reviewed_owner_matches,
+    bind_yardi_reviewed_tenant_matches, bind_yardi_reviewed_vendor_matches,
+    dry_run_yardi_review, match_yardi_staged_owner, match_yardi_staged_tenant,
+    match_yardi_staged_vendor,
 )
 from app.services.yardi_file_ingestion import stage_yardi_file
 from test_yardi_migrations import _session
@@ -134,6 +137,91 @@ def test_review_replay_rejects_changed_durable_source_fingerprint(
         mapping.source_fingerprint = row.row_fingerprint
         db.commit()
         assert match(run.id, row.id, request, db, actor)["replayed"] is True
+    finally:
+        db.close()
+        engine.dispose()
+
+
+@pytest.mark.parametrize("resource,seed,match,binder,payload_type,field,content,mapping", [
+    (
+        "OWNERS", seed_owner, match_yardi_staged_owner,
+        bind_yardi_reviewed_owner_matches, YardiOwnerMatchIn,
+        "resolution_target_owner_user_id",
+        b"Owner Ref,Full Name\nO-OTHER,Other Owner\n",
+        {"source_id": "Owner Ref", "name": "Full Name"},
+    ),
+    (
+        "TENANTS", seed_tenant, match_yardi_staged_tenant,
+        bind_yardi_reviewed_tenant_matches, YardiTenantMatchIn,
+        "resolution_target_tenant_user_id",
+        b"Resident Ref,Full Name\nR-OTHER,Other Resident\n",
+        {"source_id": "Resident Ref", "name": "Full Name"},
+    ),
+    (
+        "VENDORS", seed_vendor, match_yardi_staged_vendor,
+        bind_yardi_reviewed_vendor_matches, YardiVendorMatchIn,
+        "resolution_target_vendor_id",
+        b"Vendor Ref,Company Name\nV-OTHER,Other Vendor\n",
+        {"source_id": "Vendor Ref", "name": "Company Name"},
+    ),
+])
+def test_reviewed_binding_rejects_later_staff_target_claim_on_first_bind_and_replay(
+    resource, seed, match, binder, payload_type, field, content, mapping,
+):
+    db, engine = _session()
+    try:
+        actor, org, target, run, row = seed(
+            db, slug=f"yardi-binding-staff-claim-{resource.lower()}"
+        )
+        request = payload_type(**{field.removeprefix("resolution_"): target.id})
+        assert match(run.id, row.id, request, db, actor)["replayed"] is False
+        snapshot = dry_run_yardi_review(run.id, db, actor)
+        binding = YardiReviewedPropertyBindingIn(
+            review_fingerprint=snapshot["review_fingerprint"]
+        )
+
+        other_run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref=f"other-binding-{resource.lower()}", status="DRAFT",
+        )
+        db.add(other_run)
+        db.commit()
+        upload = stage_yardi_file(
+            db, run=other_run, filename=f"{resource.lower()}-other.csv",
+            content=content, resource_override=resource, sheet_name=None,
+            explicit_mapping=mapping, platform_user_id=actor.id,
+        )
+        db.commit()
+        competing = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id
+        ).one()
+        competing.resolution_action = "MATCH_EXISTING"
+        setattr(competing, field, target.id)
+        db.commit()
+
+        with pytest.raises(HTTPException) as first:
+            binder(run.id, binding, db, actor)
+        assert first.value.status_code == 409
+        competing.resolution_action = None
+        setattr(competing, field, None)
+        db.commit()
+        assert binder(run.id, binding, db, actor)["bound"] == 1
+
+        competing.resolution_action = "MATCH_EXISTING"
+        setattr(competing, field, target.id)
+        db.commit()
+        with pytest.raises(HTTPException) as replay:
+            binder(run.id, binding, db, actor)
+        assert replay.value.status_code == 409
+        competing.resolution_action = None
+        setattr(competing, field, None)
+        db.commit()
+        assert binder(run.id, binding, db, actor)["replayed"] is True
+        db.refresh(target)
+        if resource == "VENDORS":
+            assert target.company_name == "Untouched Vendor"
+        else:
+            assert target.hashed_password == "preserved-hash"
     finally:
         db.close()
         engine.dispose()

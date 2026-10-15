@@ -2315,6 +2315,16 @@ def bind_yardi_reviewed_unit_matches(
         ).with_for_update(of=Unit).first()
         if target is None:
             raise HTTPException(status_code=409, detail="Reviewed Unit target or parent changed.")
+        staff_claim = db.query(PlatformMigrationStagedRow.id).filter(
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "YARDI",
+            PlatformMigrationStagedRow.resource == "UNITS",
+            PlatformMigrationStagedRow.id != row.id,
+            PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+            PlatformMigrationStagedRow.resolution_target_unit_id == target.id,
+        ).first()
+        if staff_claim:
+            raise HTTPException(status_code=409, detail="Another Yardi Unit review claims this target.")
         collision = db.query(PlatformMigrationItem.id).filter(
             PlatformMigrationItem.organization_id == run.organization_id,
             PlatformMigrationItem.provider == "YARDI",
@@ -2421,6 +2431,18 @@ def bind_yardi_reviewed_vendor_matches(
         ).with_for_update().first()
         if not target:
             raise HTTPException(status_code=409, detail="Reviewed Vendor target no longer exists.")
+        # A later reviewed source may claim this same customer target after
+        # the original review or durable binding. Check on first bind and replay.
+        staff_claim = db.query(PlatformMigrationStagedRow.id).filter(
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "YARDI",
+            PlatformMigrationStagedRow.resource == "VENDORS",
+            PlatformMigrationStagedRow.id != row.id,
+            PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+            PlatformMigrationStagedRow.resolution_target_vendor_id == target.id,
+        ).first()
+        if staff_claim:
+            raise HTTPException(status_code=409, detail="Another Yardi Vendor review claims this target.")
         collision = db.query(PlatformMigrationItem.id).filter(
             PlatformMigrationItem.organization_id == run.organization_id,
             PlatformMigrationItem.provider == "YARDI",
@@ -2529,6 +2551,18 @@ def bind_yardi_reviewed_owner_matches(
         ).with_for_update().first()
         if target is None:
             raise HTTPException(status_code=409, detail="Reviewed Owner user unavailable.")
+        # A later reviewed source may claim this same customer target after
+        # the original review or durable binding. Check on first bind and replay.
+        staff_claim = db.query(PlatformMigrationStagedRow.id).filter(
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "YARDI",
+            PlatformMigrationStagedRow.resource == "OWNERS",
+            PlatformMigrationStagedRow.id != row.id,
+            PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+            PlatformMigrationStagedRow.resolution_target_owner_user_id == target.id,
+        ).first()
+        if staff_claim:
+            raise HTTPException(status_code=409, detail="Another Yardi Owner review claims this target.")
         collision = db.query(PlatformMigrationItem.id).filter(
             PlatformMigrationItem.organization_id == run.organization_id,
             PlatformMigrationItem.provider == "YARDI",
@@ -2637,6 +2671,18 @@ def bind_yardi_reviewed_tenant_matches(
         ).with_for_update().first()
         if target is None:
             raise HTTPException(status_code=409, detail="Reviewed Tenant user unavailable.")
+        # A later reviewed source may claim this same customer target after
+        # the original review or durable binding. Check on first bind and replay.
+        staff_claim = db.query(PlatformMigrationStagedRow.id).filter(
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "YARDI",
+            PlatformMigrationStagedRow.resource == "TENANTS",
+            PlatformMigrationStagedRow.id != row.id,
+            PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+            PlatformMigrationStagedRow.resolution_target_tenant_user_id == target.id,
+        ).first()
+        if staff_claim:
+            raise HTTPException(status_code=409, detail="Another Yardi Tenant review claims this target.")
         collision = db.query(PlatformMigrationItem.id).filter(
             PlatformMigrationItem.organization_id == run.organization_id,
             PlatformMigrationItem.provider == "YARDI",
@@ -2740,6 +2786,16 @@ def bind_yardi_reviewed_property_matches(
                 property_id=row.resolution_target_id,
             ) is None:
                 raise HTTPException(status_code=409, detail="Previously mapped Property target no longer exists.")
+            staff_claim = db.query(PlatformMigrationStagedRow.id).filter(
+                PlatformMigrationStagedRow.organization_id == run.organization_id,
+                PlatformMigrationStagedRow.provider == "YARDI",
+                PlatformMigrationStagedRow.resource == "PROPERTIES",
+                PlatformMigrationStagedRow.id != row.id,
+                PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+                PlatformMigrationStagedRow.resolution_target_id == row.resolution_target_id,
+            ).first()
+            if staff_claim:
+                raise HTTPException(status_code=409, detail="Another Yardi Property review claims this target.")
             competing = db.query(PlatformMigrationItem.id).filter(
                 PlatformMigrationItem.organization_id == run.organization_id,
                 PlatformMigrationItem.provider == "YARDI",
@@ -2770,6 +2826,16 @@ def bind_yardi_reviewed_property_matches(
         )
         if target is None:
             raise HTTPException(status_code=409, detail="Reviewed Property target no longer exists.")
+        staff_claim = db.query(PlatformMigrationStagedRow.id).filter(
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "YARDI",
+            PlatformMigrationStagedRow.resource == "PROPERTIES",
+            PlatformMigrationStagedRow.id != row.id,
+            PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+            PlatformMigrationStagedRow.resolution_target_id == target.id,
+        ).first()
+        if staff_claim:
+            raise HTTPException(status_code=409, detail="Another Yardi Property review claims this target.")
         conflicting = db.query(PlatformMigrationItem.id).filter(
             PlatformMigrationItem.organization_id == run.organization_id,
             PlatformMigrationItem.provider == "YARDI",

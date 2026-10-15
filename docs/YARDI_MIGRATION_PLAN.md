@@ -562,3 +562,27 @@ target entity, target ID and competing target sources. Parameterized regression
 covers each resource's replay becoming stale, review persistence, customer
 nonmutation and restored exact identity. No business record or financial posting
 is created, amended or deleted. Provisional until six-job exact-SHA CI.
+
+## 45. Owner, Tenant and Vendor binding replay rechecks later staff claims (2026-10-15)
+
+A later reviewed Yardi identity row from a separate run can claim an already
+reviewed or durably bound Owner, Tenant or Vendor customer target. Previously
+the binding endpoints only rechecked durable collisions, so initial binding or
+idempotent replay could return success despite this retained staff-review
+conflict. All three existing-target binders now check the organization-scoped
+review claims after locking their live customer target. New binding and replay
+return HTTP 409 until that claim is resolved, without rewriting audit history
+or customer records. Parameterized regression tests both paths for all three
+resources and verifies recovery and customer nonmutation. Provisional until
+six-job hosted CI of the exact replacement source SHA.
+
+## 46. Property and Unit binding replay rechecks later staff claims (2026-10-15)
+
+Existing Property and Unit target binders may likewise report success after a
+separate same-organization Yardi run records a competing reviewed customer
+target claim. Revalidate each locked live Property/Unit against all other
+MATCH_EXISTING staff reviews before first durable binding and replay, not just
+against committed durable source identity. Existing staff decisions and
+customer resources are left intact. Dedicated regressions cover initial
+binding refusal, recovery, replay refusal and nonmutation for both resource
+types. Provisional until exact-SHA all-six-job hosted CI.
