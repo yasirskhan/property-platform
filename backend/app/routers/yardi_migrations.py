@@ -1708,6 +1708,37 @@ def match_yardi_staged_property(
             if _locked_yardi_review_target(db, organization_id=run.organization_id,
                                            property_id=payload.target_property_id) is None:
                 raise HTTPException(status_code=409, detail="Previously reviewed Property target is inactive or archived.")
+            # Revalidate recorded Property review against later durable claims.
+            stale = db.query(PlatformMigrationItem.id).filter(
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "YARDI",
+                PlatformMigrationItem.resource == "PROPERTIES",
+                or_(
+                    (PlatformMigrationItem.run_id == run.id)
+                    & (PlatformMigrationItem.source_id == row.source_id)
+                    & or_(
+                        PlatformMigrationItem.target_entity != "PROPERTY",
+                        PlatformMigrationItem.target_id != payload.target_property_id,
+                        PlatformMigrationItem.source_fingerprint != row.row_fingerprint,
+                    ),
+                    (PlatformMigrationItem.target_entity == "PROPERTY")
+                    & (PlatformMigrationItem.target_id == payload.target_property_id)
+                    & or_(
+                        PlatformMigrationItem.run_id != run.id,
+                        PlatformMigrationItem.source_id != row.source_id,
+                    ),
+                ),
+            ).first()
+            other_review = db.query(PlatformMigrationStagedRow.id).filter(
+                PlatformMigrationStagedRow.organization_id == run.organization_id,
+                PlatformMigrationStagedRow.provider == "YARDI",
+                PlatformMigrationStagedRow.resource == "PROPERTIES",
+                PlatformMigrationStagedRow.id != row.id,
+                PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+                PlatformMigrationStagedRow.resolution_target_id == payload.target_property_id,
+            ).first()
+            if stale or other_review:
+                raise HTTPException(status_code=409, detail="Conflicting recorded Property identity.")
             return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": True}
         raise HTTPException(status_code=409, detail="Conflicting review decision exists.")
     if db.query(PlatformMigrationItem.id).filter(

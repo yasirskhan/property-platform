@@ -249,3 +249,60 @@ def test_yardi_new_property_review_rejects_inactive_customer_target():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_property_review_replay_blocks_new_durable_target_claim():
+    """A historical review cannot be replayed after another run claims its target."""
+    from app.models.platform_migration import PlatformMigrationItem
+
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-property-replay-new-claim")
+        target = Property(
+            organization_id=org.id, name="Untouched Property",
+            address_line1="1 Main", city="Cleveland", state="OH", zip_code="44113",
+        )
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="replay-original", status="DRAFT",
+        )
+        other = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="replay-other", status="DRAFT",
+        )
+        db.add_all([target, run, other])
+        db.commit()
+        upload = stage_yardi_file(
+            db, run=run, filename="properties.csv",
+            content=b"ID,Name,Street,City,State,Zip\nP1,Source,2 Main,Cleveland,OH,44113\n",
+            resource_override="PROPERTIES", sheet_name=None,
+            explicit_mapping={
+                "source_id": "ID", "name": "Name", "address_line1": "Street",
+                "city": "City", "state": "State", "zip_code": "Zip",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).one()
+        request = YardiPropertyMatchIn(target_property_id=target.id)
+        assert not match_yardi_staged_property(run.id, row.id, request, db, actor)["replayed"]
+        claim = PlatformMigrationItem(
+            run_id=other.id, organization_id=org.id, provider="YARDI",
+            resource="PROPERTIES", source_id="OTHER", target_entity="PROPERTY",
+            target_id=target.id, source_fingerprint="other-source",
+        )
+        db.add(claim)
+        db.commit()
+        with pytest.raises(HTTPException) as conflict:
+            match_yardi_staged_property(run.id, row.id, request, db, actor)
+        assert conflict.value.status_code == 409
+        db.delete(claim)
+        db.commit()
+        assert match_yardi_staged_property(run.id, row.id, request, db, actor)["replayed"]
+        db.refresh(target)
+        assert target.name == "Untouched Property"
+    finally:
+        db.close()
+        engine.dispose()
