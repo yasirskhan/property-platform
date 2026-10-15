@@ -497,6 +497,22 @@ def list_yardi_durable_bindings(
     }
     for item in bindings:
         source_identity_collision = (item.resource, item.source_id) in identity_collisions
+        reviewed_target_column = {
+            "PROPERTIES": PlatformMigrationStagedRow.resolution_target_id,
+            "UNITS": PlatformMigrationStagedRow.resolution_target_unit_id,
+            "OWNERS": PlatformMigrationStagedRow.resolution_target_owner_user_id,
+            "VENDORS": PlatformMigrationStagedRow.resolution_target_vendor_id,
+            "TENANTS": PlatformMigrationStagedRow.resolution_target_tenant_user_id,
+        }[item.resource]
+        # Keep an active target distinct from another source's reviewed claim.
+        target_review_collision = db.query(PlatformMigrationStagedRow.id).filter(
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "YARDI",
+            PlatformMigrationStagedRow.resource == item.resource,
+            PlatformMigrationStagedRow.source_id != item.source_id,
+            PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+            reviewed_target_column == item.target_id,
+        ).first() is not None
         valid_entity = item.target_entity == entity_by_resource[item.resource]
         target_current = False
         parent_relationship_current = None  # Only applicable to verified Unit source-parent evidence.
@@ -577,6 +593,7 @@ def list_yardi_durable_bindings(
         results.append({
             "id": item.id, "resource": item.resource, "source_id": item.source_id,
             "source_identity_collision": source_identity_collision,
+            "target_review_collision": target_review_collision,
             "target_entity": item.target_entity, "target_id": item.target_id,
             "target_current": target_current,
             "unit_parent_relationship_current": parent_relationship_current,

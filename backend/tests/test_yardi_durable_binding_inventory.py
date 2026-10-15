@@ -377,3 +377,110 @@ def test_yardi_unit_inventory_marks_moved_parent_without_changing_customer_unit(
     finally:
         db.close()
         engine.dispose()
+
+
+def test_durable_inventory_surfaces_competing_staged_target_review_without_target_mutation():
+    from app.models.platform_migration import PlatformMigrationStagedRow
+    from app.services.yardi_file_ingestion import stage_yardi_file
+
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-binding-competing-target-claim")
+        vendor = Vendor(organization_id=org.id, company_name="Preserved Company")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="original-vendor", status="DRAFT",
+        )
+        other_run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="other-vendor", status="DRAFT",
+        )
+        db.add_all([vendor, run, other_run])
+        db.flush()
+        _binding(db, run, "VENDORS", "V-1", "VENDOR", vendor.id)
+        db.commit()
+        original = list_yardi_durable_bindings(
+            run.id, Response(), resource="VENDORS", offset=0, limit=10,
+            db=db, current_user=actor,
+        )["items"][0]
+        assert original["target_current"] is True
+        assert original["target_review_collision"] is False
+
+        upload = stage_yardi_file(
+            db, run=other_run, filename="vendors.csv",
+            content=b"Vendor Ref,Company Name\nV-other,Other Vendor\n",
+            resource_override="VENDORS", sheet_name=None,
+            explicit_mapping={"source_id": "Vendor Ref", "name": "Company Name"},
+            platform_user_id=actor.id,
+        )
+        db.commit()
+        competing = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id
+        ).one()
+        competing.resolution_action = "MATCH_EXISTING"
+        competing.resolution_target_vendor_id = vendor.id
+        db.commit()
+        contested = list_yardi_durable_bindings(
+            run.id, Response(), resource="VENDORS", offset=0, limit=10,
+            db=db, current_user=actor,
+        )["items"][0]
+        assert contested["target_current"] is True
+        assert contested["target_review_collision"] is True
+        assert contested["source_identity_collision"] is False
+
+        competing.resolution_action = None
+        competing.resolution_target_vendor_id = None
+        db.commit()
+        restored = list_yardi_durable_bindings(
+            run.id, Response(), resource="VENDORS", offset=0, limit=10,
+            db=db, current_user=actor,
+        )["items"][0]
+        assert restored["target_review_collision"] is False
+
+        # A second run with the SAME provider source identity does not
+        # create a different reviewed target claim.
+        competing.source_id = "V-1"
+        competing.resolution_action = "MATCH_EXISTING"
+        competing.resolution_target_vendor_id = vendor.id
+        db.commit()
+        same_source = list_yardi_durable_bindings(
+            run.id, Response(), resource="VENDORS", offset=0, limit=10,
+            db=db, current_user=actor,
+        )["items"][0]
+        assert same_source["target_current"] is True
+        assert same_source["target_review_collision"] is False
+
+        # A different organization cannot contest this run's identities,
+        # even if old review evidence carries the same numeric target ID.
+        outside_org = _org(db, "yardi-binding-foreign-review")
+        outside_run = PlatformMigrationRun(
+            organization_id=outside_org.id, provider="YARDI",
+            source_account_ref="outside-vendor", status="DRAFT",
+        )
+        db.add(outside_run)
+        db.commit()
+        outside_upload = stage_yardi_file(
+            db, run=outside_run, filename="outside-vendors.csv",
+            content=b"Vendor Ref,Company Name\nOUTSIDE,Outside Vendor\n",
+            resource_override="VENDORS", sheet_name=None,
+            explicit_mapping={"source_id": "Vendor Ref", "name": "Company Name"},
+            platform_user_id=actor.id,
+        )
+        db.commit()
+        foreign_review = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == outside_upload.upload.id
+        ).one()
+        foreign_review.resolution_action = "MATCH_EXISTING"
+        foreign_review.resolution_target_vendor_id = vendor.id
+        db.commit()
+        isolated = list_yardi_durable_bindings(
+            run.id, Response(), resource="VENDORS", offset=0, limit=10,
+            db=db, current_user=actor,
+        )["items"][0]
+        assert isolated["target_review_collision"] is False
+        db.refresh(vendor)
+        assert vendor.company_name == "Preserved Company"
+    finally:
+        db.close()
+        engine.dispose()

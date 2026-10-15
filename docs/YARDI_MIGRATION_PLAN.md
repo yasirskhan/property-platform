@@ -628,4 +628,17 @@ stable provider source ID reviewed again in another run is *not* a competing
 identity, consistent with sections 46a and 47. Staff receive the count in
 the existing internal console. Tenant-target regression covers conflicts,
 stale replay, recovery, same-source evidence and no Lease/finance mutation.
-Provisional until exact-SHA all-six-job hosted verification.
+VERIFIED at SHA `b73022f034852c07b79c50559ba8fbd424c20d9c`, GitHub Actions run `38812602409` SUCCESS, with backend, frontend, platform-admin, security, authenticated E2E and staging-config all passing.
+
+## 49. Durable identity inventory flags competing reviewed customer targets (2026-10-15)
+
+The read-only, organization-scoped durable mapping inventory now reports
+target_review_collision independently of target_current and existing source
+collision flags, so staff see active targets that another Yardi source claims.
+Only a DIFFERENT provider source ID with retained MATCH_EXISTING review
+counts as competition; another run reviewing the same stable source ID does
+not make an otherwise valid binding stale. The console displays a clear
+reconciliation warning. Vendor regression verifies conflict, recovery,
+same-source cross-run handling and unchanged customer business data.
+This does not rewrite source identities, alter customers or authorize financial
+posting. Provisional until exact-SHA six-job hosted CI.
