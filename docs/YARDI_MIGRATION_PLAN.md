@@ -486,3 +486,19 @@ Historical identity review does not guarantee that a customer target remains act
 ## 37. Unreviewed source-version and durable target-type readiness (2026-10-15)
 
 A Yardi staged identity row with no explicit MATCH_EXISTING review must not be counted as `mapped` simply because a durable same-run record shares its provider source ID. Read-only reconciliation now requires the **exact staged source fingerprint** and correct resource-specific durable target entity type (Property, Unit, Owner user, Vendor, or Tenant user), in addition to the existing unresolved-source-collision guard. Stale or mistyped durable identity becomes `needs_review` and changes the review fingerprint, without editing review history or customer records. Focused regression covers unreviewed Property source-version drift, wrong entity type and restoration. Current customer target activity/parent checks for this unreviewed branch remain an independently actionable follow-on. Verify exact SHA all-six-job CI before marking complete; no Lease, occupancy, financial, ownership percentage or undocumented Yardi API operations are authorized.
+
+## 38. Unreviewed exact durable identity requires live customer target (2026-10-15)
+
+An unreviewed staged Yardi source may have the exact durable fingerprint and
+correct target entity type but still point to a customer resource that is no
+longer usable. Read-only reconciliation now counts it as `mapped` only when
+the live target is valid: an active/nondeleted organization-scoped Property;
+an active/nondeleted Unit whose active/nondeleted parent matches the original
+source Property binding; an active, nondeleted correct-role Owner/Tenant user;
+or a nondeleted Vendor. Otherwise the row is `needs_review`, and the
+review dry-run fingerprint changes with the resource coverage. Historical
+source decisions and durable mappings remain unchanged. Regression exercises
+inactive/archived Property, inactive Unit, moved Unit, and restored readiness.
+No customer business mutation, Lease, occupancy, financial posting, ownership
+percentage or undocumented Yardi API is authorized. Exact-SHA six-job hosted
+CI must pass before marking this batch verified.

@@ -1117,9 +1117,49 @@ def get_yardi_reconciliation(
                 "OWNERS": "OWNER_USER", "VENDORS": "VENDOR",
                 "TENANTS": "TENANT_USER",
             }.get(row.resource)
+            target_current = False
             if (binding is not None and expected_entity
                     and binding.target_entity == expected_entity
                     and binding.source_fingerprint == row.row_fingerprint):
+                if row.resource == "PROPERTIES":
+                    target_current = db.query(Property.id).filter(
+                        Property.id == binding.target_id,
+                        Property.organization_id == run.organization_id,
+                        Property.is_active.is_(True), Property.deleted_at.is_(None),
+                    ).first() is not None
+                elif row.resource == "UNITS":
+                    source_parent = str((row.normalized_data or {}).get("source_property_id") or "").strip()
+                    parent_binding = next((
+                        item for item in items
+                        if item.resource == "PROPERTIES"
+                        and item.source_id == source_parent
+                        and item.target_entity == "PROPERTY"
+                    ), None)
+                    target_current = (
+                        bool(source_parent) and parent_binding is not None
+                        and db.query(Unit.id).join(Property, Unit.property_id == Property.id).filter(
+                            Unit.id == binding.target_id,
+                            Unit.property_id == parent_binding.target_id,
+                            Unit.is_active.is_(True), Unit.deleted_at.is_(None),
+                            Property.organization_id == run.organization_id,
+                            Property.is_active.is_(True), Property.deleted_at.is_(None),
+                        ).first() is not None
+                    )
+                elif row.resource in ("OWNERS", "TENANTS"):
+                    role = UserRole.OWNER if row.resource == "OWNERS" else UserRole.TENANT
+                    target_current = db.query(User.id).filter(
+                        User.id == binding.target_id,
+                        User.organization_id == run.organization_id,
+                        User.role == role, User.is_active.is_(True),
+                        User.deleted_at.is_(None),
+                    ).first() is not None
+                elif row.resource == "VENDORS":
+                    target_current = db.query(Vendor.id).filter(
+                        Vendor.id == binding.target_id,
+                        Vendor.organization_id == run.organization_id,
+                        Vendor.deleted_at.is_(None),
+                    ).first() is not None
+            if target_current:
                 stats["mapped"] += 1
             else:
                 unresolved += 1
