@@ -105,6 +105,7 @@ def test_review_replay_revalidates_other_staff_claims(
         db.commit()
         same_source = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert same_source["resource_coverage"][resource]["matched_existing"] == 1
+        assert same_source["review_fingerprint"] == restored_coverage["review_fingerprint"]
     finally:
         db.close()
         engine.dispose()
@@ -316,9 +317,86 @@ def test_unreviewed_durable_identity_coverage_rejects_competing_staff_target_cla
         db.commit()
         same_source = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert same_source["resource_coverage"][resource]["mapped"] == 1
+        assert same_source["review_fingerprint"] == recovered["review_fingerprint"]
         db.refresh(target)
         assert (target.company_name == "Untouched Vendor" if resource == "VENDORS"
                 else target.hashed_password == "preserved-hash")
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_reconciliation_fingerprint_changes_when_competing_target_swaps_but_totals_do_not():
+    """A conflict moving between two mapped rows cannot reuse dry-run evidence."""
+    from app.models.platform_migration import PlatformMigrationItem
+    from app.models.vendor import Vendor
+
+    db, engine = _session()
+    try:
+        actor, org, first_vendor, run, first_row = seed_vendor(
+            db, slug="yardi-swapped-target-fingerprint"
+        )
+        second_vendor = Vendor(
+            organization_id=org.id, company_name="Second Preserved Vendor",
+        )
+        db.add(second_vendor)
+        db.commit()
+        second_upload = stage_yardi_file(
+            db, run=run, filename="second-vendor.csv",
+            content=b"Vendor Ref,Company Name\nV-SECOND,Second Vendor\n",
+            resource_override="VENDORS", sheet_name=None,
+            explicit_mapping={"source_id": "Vendor Ref", "name": "Company Name"},
+            platform_user_id=actor.id,
+        )
+        db.commit()
+        second_row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == second_upload.upload.id
+        ).one()
+        for row, vendor in ((first_row, first_vendor), (second_row, second_vendor)):
+            db.add(PlatformMigrationItem(
+                run_id=run.id, organization_id=org.id, provider="YARDI",
+                resource="VENDORS", source_id=row.source_id, target_entity="VENDOR",
+                target_id=vendor.id, source_fingerprint=row.row_fingerprint,
+            ))
+        db.commit()
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["resource_coverage"]["VENDORS"]["mapped"] == 2
+
+        other_run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="competing-vendor-switch", status="DRAFT",
+        )
+        db.add(other_run)
+        db.commit()
+        competing_upload = stage_yardi_file(
+            db, run=other_run, filename="competitor.csv",
+            content=b"Vendor Ref,Company Name\nV-THIRD,Third Vendor\n",
+            resource_override="VENDORS", sheet_name=None,
+            explicit_mapping={"source_id": "Vendor Ref", "name": "Company Name"},
+            platform_user_id=actor.id,
+        )
+        db.commit()
+        competing = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == competing_upload.upload.id
+        ).one()
+        competing.resolution_action = "MATCH_EXISTING"
+        competing.resolution_target_vendor_id = first_vendor.id
+        db.commit()
+        first_collision = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert first_collision["resource_coverage"]["VENDORS"]["mapped"] == 1
+        assert first_collision["resource_coverage"]["VENDORS"]["needs_review"] == 1
+
+        # Same reviewed staff action and aggregate totals, different contested
+        # customer target and different source row no longer considered ready.
+        competing.resolution_target_vendor_id = second_vendor.id
+        db.commit()
+        swapped = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert swapped["resource_coverage"] == first_collision["resource_coverage"]
+        assert swapped["review_fingerprint"] != first_collision["review_fingerprint"]
+        db.refresh(first_vendor)
+        db.refresh(second_vendor)
+        assert first_vendor.company_name == "Untouched Vendor"
+        assert second_vendor.company_name == "Second Preserved Vendor"
     finally:
         db.close()
         engine.dispose()

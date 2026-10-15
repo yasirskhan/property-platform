@@ -641,4 +641,17 @@ not make an otherwise valid binding stale. The console displays a clear
 reconciliation warning. Vendor regression verifies conflict, recovery,
 same-source cross-run handling and unchanged customer business data.
 This does not rewrite source identities, alter customers or authorize financial
-posting. Provisional until exact-SHA six-job hosted CI.
+posting. VERIFIED on SHA `1d9bb956bcb9976916d5da9609f7d075c1b9d42e` by GitHub Actions run `38815725119` SUCCESS (all six required jobs).
+
+## 50. Exact identity-row readiness fingerprint, not aggregate-only (2026-10-15)
+
+Read-only reconciliation's review_fingerprint now includes ordered, redacted
+per-staged-row readiness classifications in its internal digest evidence.
+Previously one customer target review conflict moving from durable source A to
+source B could keep the same overall matched/needs_review counts and the same
+fingerprint, silently reusing stale dry-run evidence for different safe rows.
+New Vendor regression moves a competing historical review between two distinct
+customer targets while resource coverage remains identical, proving the digest
+changes without customer mutation. Fingerprint evidence is not exposed as raw
+customer data and does not authorize creation, occupancy or financial posting.
+Provisional until exact-SHA six-job hosted verification.

@@ -1066,6 +1066,9 @@ def get_yardi_reconciliation(
 
     resources: dict[str, dict[str, int]] = {}
     unresolved = invalid = skipped = 0
+    # Exact per-row diagnostic status belongs in the private fingerprint
+    # evidence: equal totals can hide a swap in WHICH identity is contested.
+    row_readiness_evidence = []
     for row in rows:
         stats = resources.setdefault(row.resource, {
             "total": 0, "invalid": 0, "mapped": 0, "skipped": 0, "needs_review": 0,
@@ -1075,11 +1078,13 @@ def get_yardi_reconciliation(
         if row.resolution_action == "SKIP":
             skipped += 1
             stats["skipped"] += 1
+            row_readiness_evidence.append((row.id, "SKIPPED"))
         elif row.errors or row.disposition == "INVALID":
             # A stale recorded decision is evidence, not validation: invalid
             # source rows can never count as matched or accepted readiness.
             invalid += 1
             stats["invalid"] += 1
+            row_readiness_evidence.append((row.id, "INVALID"))
         elif row.resolution_action == "MATCH_EXISTING":
             if row.resource == "UNITS":
                 parent_source = str((row.normalized_data or {}).get("source_property_id") or "").strip()
@@ -1168,13 +1173,16 @@ def get_yardi_reconciliation(
                 target_valid = False
             if target_valid:
                 stats["matched_existing"] += 1
+                row_readiness_evidence.append((row.id, "REVIEWED_CURRENT"))
             else:
                 unresolved += 1
                 stats["needs_review"] += 1
+                row_readiness_evidence.append((row.id, "REVIEWED_STALE"))
         elif row.resource == "LEASE_OCCUPANCY" and row.resolution_action == "ACCEPT_RELATIONSHIP":
             # This count means staff recorded identity review, NOT that lease,
             # occupancy, financial records or current targets are commit-ready.
             stats["accepted_relationship_review"] += 1
+            row_readiness_evidence.append((row.id, "ACCEPTED_RELATIONSHIP_RECORDED"))
         elif (row.source_id and (row.resource, row.source_id) in existing
               and (row.resource, row.source_id) not in identity_collisions):
             # Source-ID equality alone cannot make an unreviewed staged version
@@ -1234,12 +1242,15 @@ def get_yardi_reconciliation(
                 target_current = False
             if target_current:
                 stats["mapped"] += 1
+                row_readiness_evidence.append((row.id, "DURABLE_CURRENT"))
             else:
                 unresolved += 1
                 stats["needs_review"] += 1
+                row_readiness_evidence.append((row.id, "DURABLE_STALE"))
         else:
             unresolved += 1
             stats["needs_review"] += 1
+            row_readiness_evidence.append((row.id, "NEEDS_REVIEW"))
     # Read-only lease identity dependency coverage. A complete dependency set is
     # NOT evidence of an authorized lease, rent, occupancy or accounting import.
     lease_rows = [row for row in rows if row.resource == "LEASE_OCCUPANCY"]
@@ -1412,6 +1423,7 @@ def get_yardi_reconciliation(
             lease_relationship_readiness["complete_identity_links"] += 1
 
     evidence = {
+        "identity_row_readiness": row_readiness_evidence,
         "staged": [(r.id, r.resource, r.source_id, r.row_fingerprint, r.disposition,
                     r.resolution_action, r.resolution_target_id, r.resolution_target_unit_id,
                     r.resolution_target_vendor_id, r.resolution_target_tenant_user_id,
