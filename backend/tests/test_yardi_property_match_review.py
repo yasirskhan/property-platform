@@ -73,6 +73,9 @@ def test_yardi_property_match_requires_same_org_and_is_idempotent():
         inactive = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert inactive["resource_coverage"]["PROPERTIES"]["matched_existing"] == 0
         assert inactive["resource_coverage"]["PROPERTIES"]["needs_review"] == 1
+        with pytest.raises(HTTPException) as blocked:
+            match_yardi_staged_property(run.id, row.id, YardiPropertyMatchIn(target_property_id=target.id), db, actor)
+        assert blocked.value.status_code == 409
         target.is_active = True
         target.deleted_at = __import__("datetime").datetime.utcnow()
         db.commit()
@@ -80,6 +83,9 @@ def test_yardi_property_match_requires_same_org_and_is_idempotent():
         assert archived["resource_coverage"]["PROPERTIES"]["matched_existing"] == 0
         assert archived["resource_coverage"]["PROPERTIES"]["needs_review"] == 1
         assert archived["review_fingerprint"] != after_review["review_fingerprint"]
+        with pytest.raises(HTTPException) as blocked:
+            match_yardi_staged_property(run.id, row.id, YardiPropertyMatchIn(target_property_id=target.id), db, actor)
+        assert blocked.value.status_code == 409
         db.refresh(row)
         db.refresh(target)
         assert row.resolution_action == "MATCH_EXISTING"
@@ -207,6 +213,39 @@ def test_yardi_invalid_reviewed_property_is_not_counted_as_valid_matched_source(
         db.refresh(prop)
         assert row.resolution_action == "MATCH_EXISTING"
         assert prop.name == "Original Property"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_yardi_new_property_review_rejects_inactive_customer_target():
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-new-inactive-property-review")
+        target = Property(organization_id=org.id, name="Retired", address_line1="1 Main",
+                          city="Cleveland", state="OH", zip_code="44113", is_active=False)
+        run = PlatformMigrationRun(organization_id=org.id, provider="YARDI",
+                                   source_account_ref="inactive-first", status="DRAFT")
+        db.add_all([target, run])
+        db.commit()
+        upload = stage_yardi_file(
+            db, run=run, filename="properties.csv",
+            content=b"ID,Name,Street,City,State,Zip\nP-1,New,1 Main,Cleveland,OH,44113\n",
+            resource_override="PROPERTIES", sheet_name=None,
+            explicit_mapping={"source_id": "ID", "name": "Name", "address_line1": "Street",
+                              "city": "City", "state": "State", "zip_code": "Zip"},
+            platform_user_id=actor.id,
+        )
+        db.commit()
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id).one()
+        with pytest.raises(HTTPException) as blocked:
+            match_yardi_staged_property(run.id, row.id,
+                                        YardiPropertyMatchIn(target_property_id=target.id), db, actor)
+        assert blocked.value.status_code == 404
+        db.refresh(row)
+        assert row.resolution_action is None
     finally:
         db.close()
         engine.dispose()

@@ -1614,6 +1614,8 @@ def _locked_yardi_review_target(db: Session, *, organization_id: int, property_i
     return db.query(Property.id).filter(
         Property.id == property_id,
         Property.organization_id == organization_id,
+        Property.is_active.is_(True),
+        Property.deleted_at.is_(None),
     ).with_for_update().first()
 
 
@@ -1646,6 +1648,9 @@ def match_yardi_staged_property(
     if row.resolution_action is not None:
         if (row.resolution_action == "MATCH_EXISTING"
                 and row.resolution_target_id == payload.target_property_id):
+            if _locked_yardi_review_target(db, organization_id=run.organization_id,
+                                           property_id=payload.target_property_id) is None:
+                raise HTTPException(status_code=409, detail="Previously reviewed Property target is inactive or archived.")
             return {"row_id": row.id, "action": "MATCH_EXISTING", "replayed": True}
         raise HTTPException(status_code=409, detail="Conflicting review decision exists.")
     if db.query(PlatformMigrationItem.id).filter(
@@ -2068,6 +2073,8 @@ def match_yardi_staged_unit(
         Unit.id == payload.target_unit_id,
         Unit.property_id == parent.target_id,
         Property.organization_id == run.organization_id,
+        Unit.is_active.is_(True), Unit.deleted_at.is_(None),
+        Property.is_active.is_(True), Property.deleted_at.is_(None),
     ).with_for_update(of=Unit).first()
     if target is None:
         raise HTTPException(status_code=404, detail="Unit target is not in the mapped parent Property.")
@@ -2197,6 +2204,8 @@ def bind_yardi_reviewed_unit_matches(
             Unit.id == row.resolution_target_unit_id,
             Unit.property_id == parent.target_id,
             Property.organization_id == run.organization_id,
+            Unit.is_active.is_(True), Unit.deleted_at.is_(None),
+            Property.is_active.is_(True), Property.deleted_at.is_(None),
         ).with_for_update(of=Unit).first()
         if target is None:
             raise HTTPException(status_code=409, detail="Reviewed Unit target or parent changed.")

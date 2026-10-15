@@ -477,3 +477,8 @@ This is metadata-only review safety and does not merge source versions,
 alter customer business records or enable Yardi API, accounting, ownership
 percentage or Lease/occupancy commit. Provisional until exact-SHA six-job
 hosted CI verification.
+
+
+## 36. Live Property/Unit target integrity for Yardi review and binding (2026-10-15)
+
+Historical identity review does not guarantee that a customer target remains active. A Property review or replay now requires a currently active, non-soft-deleted organization-scoped Property. A Unit review or replay requires an active, nondeleted Unit and an active, nondeleted mapped parent Property. Unit durable binding and replay apply the same target and parent checks. This preserves prior audit decisions while preventing stale success responses; no customer business data, Lease, occupancy, financial record or unsupported Yardi API is mutated. Focused Property and Unit review regressions accompany this batch. Verify all six hosted jobs for the exact commit SHA before marking complete.

@@ -104,6 +104,13 @@ def test_yardi_unit_match_requires_mapped_parent_and_preserves_customer_unit():
             source_fingerprint="verified-property-fingerprint",
         ))
         db.commit()
+        target.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException) as blocked:
+            match_yardi_staged_unit(run.id, row.id, YardiUnitMatchIn(target_unit_id=target.id), db, actor)
+        assert blocked.value.status_code == 404
+        target.is_active = True
+        db.commit()
         reviewed = match_yardi_staged_unit(
             run.id, row.id, YardiUnitMatchIn(target_unit_id=target.id), db, actor,
         )
