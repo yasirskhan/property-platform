@@ -523,3 +523,30 @@ regression exercises the three resource types, a later competing recorded
 review, refusal of stale replay and recovery once the conflict is removed.
 No lease, occupancy, financial posting, automatic source merging or undocumented
 Yardi API integration is authorized. Provisional until exact-SHA six-job CI.
+
+## 42. Unit review replay rejects later staff claim and changed exact durable source (2026-10-15)
+
+The read-only Unit MATCH_EXISTING replay must recheck any later reviewed target claim
+across the organization and reject a same-run source binding whose target entity,
+target ID or exact source fingerprint differs from the recorded Unit review.
+The previous replay path checked competing UNIT target claims but skipped other
+reviewed target evidence and permitted same-source fingerprint drift. A focused
+regression simulates both independently and proves nonmutation and recovery
+following resolution. No customer record, Lease, occupancy, financial posting
+or undocumented Yardi API operation is authorized. Provisional until hosted
+six-job exact-SHA CI on the preceding approved, verified source.
+
+## 44. Exact CI verification and replay regression gate checkpoint (2026-10-15)
+
+Property identity review replay target-claim revalidation (section 40) is
+VERIFIED at source SHA `48d36e2c104cf23156de8a2b1ed7c262caac817d`,
+GitHub Actions run `38696745662`, successful attempt 2; all six jobs passed.
+The first E2E attempt encountered an unrelated transient short-term-rentals
+login navigation timeout, and rerunning the failed job passed.
+
+Owner/Tenant/Vendor competing reviewed-target replay guards (section 41) are
+VERIFIED at source SHA `a3b4ae52e97054ff692f854ca7f9400f5aec2c34`,
+GitHub Actions run `38778001779`, all six jobs passed. Full backend/PostgreSQL
+suite: 1296 passed, 21 deselected. A new fast CI gate now explicitly includes
+the replay-claim and Unit replay regressions; the new Unit replay product
+change in section 42 remains PROVISIONAL until its own exact-SHA six-job CI.

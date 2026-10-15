@@ -2169,15 +2169,35 @@ def match_yardi_staged_unit(
     ).with_for_update(of=Unit).first()
     if target is None:
         raise HTTPException(status_code=404, detail="Unit target is not in the mapped parent Property.")
+    claim = db.query(PlatformMigrationStagedRow.id).filter(
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "UNITS",
+        PlatformMigrationStagedRow.id != row.id,
+        PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+        PlatformMigrationStagedRow.resolution_target_unit_id == target.id,
+    ).first()
+    if claim is not None:
+        raise HTTPException(status_code=409, detail="Existing Yardi Unit review already claims target.")
+    # A replay also rechecks the current exact source and every staff claim.
     if replay:
         conflict = db.query(PlatformMigrationItem.id).filter(
             PlatformMigrationItem.organization_id == run.organization_id,
             PlatformMigrationItem.provider == "YARDI",
             PlatformMigrationItem.resource == "UNITS",
-            PlatformMigrationItem.target_entity == "UNIT",
-            PlatformMigrationItem.target_id == target.id,
-            or_(PlatformMigrationItem.run_id != run.id,
-                PlatformMigrationItem.source_id != row.source_id),
+            or_(
+                (PlatformMigrationItem.run_id == run.id)
+                & (PlatformMigrationItem.source_id == row.source_id)
+                & or_(
+                    PlatformMigrationItem.target_entity != "UNIT",
+                    PlatformMigrationItem.target_id != target.id,
+                    PlatformMigrationItem.source_fingerprint != row.row_fingerprint,
+                ),
+                (PlatformMigrationItem.target_entity == "UNIT")
+                & (PlatformMigrationItem.target_id == target.id)
+                & or_(PlatformMigrationItem.run_id != run.id,
+                      PlatformMigrationItem.source_id != row.source_id),
+            ),
         ).first()
         if conflict:
             raise HTTPException(status_code=409, detail="Replayed Unit target has conflicting durable mapping.")
@@ -2193,16 +2213,6 @@ def match_yardi_staged_unit(
     ).first()
     if conflict is not None:
         raise HTTPException(status_code=409, detail="Conflicting durable Unit source or target mapping.")
-    claim = db.query(PlatformMigrationStagedRow.id).filter(
-        PlatformMigrationStagedRow.organization_id == run.organization_id,
-        PlatformMigrationStagedRow.provider == "YARDI",
-        PlatformMigrationStagedRow.resource == "UNITS",
-        PlatformMigrationStagedRow.id != row.id,
-        PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
-        PlatformMigrationStagedRow.resolution_target_unit_id == target.id,
-    ).first()
-    if claim is not None:
-        raise HTTPException(status_code=409, detail="Existing Yardi Unit review already claims target.")
     row.resolution_action = "MATCH_EXISTING"
     row.resolution_target_unit_id = target.id
     row.resolved_by_platform_user_id = current_user.id
