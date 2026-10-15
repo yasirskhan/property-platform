@@ -870,6 +870,21 @@ def test_accepted_lease_identity_becomes_stale_after_competing_tenant_staff_revi
         assert accept_yardi_staged_lease_relationship(
             run.id, lease_row.id, db, actor,
         )["replayed"] is True
+
+        # Historical NULL-source review must remain a competing claim.
+        competing.source_id = None
+        db.commit()
+        unknown = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        assert "TENANT_TARGET_REVIEW_COLLISION" in unknown["blockers"]
+        assert unknown["relationship_review_current"] is False
+        summary = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert summary["lease_relationship_readiness"]["identity_target_review_collisions"] == 1
+        assert summary["lease_relationship_readiness"]["complete_identity_links"] == 0
+        with pytest.raises(HTTPException) as blocked:
+            accept_yardi_staged_lease_relationship(run.id, lease_row.id, db, actor)
+        assert blocked.value.status_code == 409
         assert db.query(Lease).count() == 0
         db.refresh(tenant)
         assert tenant.hashed_password == "unchanged-password-hash"

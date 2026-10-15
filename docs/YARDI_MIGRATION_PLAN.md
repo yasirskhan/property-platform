@@ -668,4 +668,20 @@ closed rather than disappearing under SQL three-valued inequality semantics.
 Parameterized Owner/Tenant/Vendor regression checks NULL-source reviewed
 target claims invalidate mapped readiness, review fingerprints and not customer
 records. No official Yardi APIs, customer data mutation or financial posting
-enabled. Provisional until exact-SHA hosted six-job CI.
+enabled. VERIFIED at exact SHA `5fc4bfca1f94912ea5a42c9c6ba6b3f182004759`, GitHub Actions `38823731721` SUCCESS (all six required jobs).
+
+## 52. NULL-safe reviewed target claims across bind, preview and inventory (2026-10-15)
+
+Retained historical MATCH_EXISTING claims with an unidentified (NULL) Yardi
+source ID must not escape reviewed target collision guards through SQL's
+three-valued NULL comparison semantics. All five reviewed existing-target
+metadata binders, read-only binding inventory, lease relationship preview
+and aggregate, and initial/replayed lease source acceptance now compare
+source IDs with SQLAlchemy is_distinct_from, preserving valid same-provider
+source-ID repetition but failing closed on unknown/different identities.
+Parameterized Owner/Tenant/Vendor binding regressions, Vendor inventory
+and accepted Tenant lease source regressions check historical NULL claims,
+staff warning, aggregate blockers, replay refusal, and customer nonmutation.
+These are metadata evidence checks only; no Lease, occupancy, accounting,
+payments, or official undocumented Yardi API are enabled. Provisional
+until exact-SHA hosted CI succeeds in all six required jobs.

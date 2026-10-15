@@ -235,6 +235,20 @@ def test_reviewed_binding_rejects_later_staff_target_claim_on_first_bind_and_rep
         setattr(competing, field, None)
         db.commit()
         assert binder(run.id, binding, db, actor)["replayed"] is True
+
+        # Historical reviewed claims with a missing provider identity cannot
+        # silently bypass the current target guard via SQL NULL inequality.
+        competing.source_id = None
+        competing.resolution_action = "MATCH_EXISTING"
+        setattr(competing, field, target.id)
+        db.commit()
+        with pytest.raises(HTTPException) as unknown:
+            binder(run.id, binding, db, actor)
+        assert unknown.value.status_code == 409
+        competing.resolution_action = None
+        setattr(competing, field, None)
+        db.commit()
+        assert binder(run.id, binding, db, actor)["replayed"] is True
         db.refresh(target)
         if resource == "VENDORS":
             assert target.company_name == "Untouched Vendor"

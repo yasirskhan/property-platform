@@ -429,6 +429,20 @@ def test_property_binding_rechecks_later_staff_claim_on_initial_bind_and_replay(
         competing.resolution_target_id = None
         db.commit()
         assert bind_yardi_reviewed_property_matches(run.id, request, db, actor)["replayed"] is True
+
+        # A retained reviewed target claim with a NULL provider source ID
+        # must not be ignored by the binder's SQL source-ID comparison.
+        competing.source_id = None
+        competing.resolution_action = "MATCH_EXISTING"
+        competing.resolution_target_id = target.id
+        db.commit()
+        with pytest.raises(HTTPException) as unknown:
+            bind_yardi_reviewed_property_matches(run.id, request, db, actor)
+        assert unknown.value.status_code == 409
+        competing.resolution_action = None
+        competing.resolution_target_id = None
+        db.commit()
+        assert bind_yardi_reviewed_property_matches(run.id, request, db, actor)["replayed"] is True
         db.refresh(target)
         assert target.name == "Untouched Existing Property"
     finally:

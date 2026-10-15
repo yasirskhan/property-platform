@@ -324,6 +324,17 @@ def test_unit_binding_rechecks_later_staff_claim_on_initial_bind_and_replay():
         competing.resolution_target_unit_id = None
         db.commit()
         assert bind_yardi_reviewed_unit_matches(run.id, request, db, actor)["replayed"] is True
+        competing.source_id = None
+        competing.resolution_action = "MATCH_EXISTING"
+        competing.resolution_target_unit_id = unit.id
+        db.commit()
+        with pytest.raises(HTTPException) as unknown:
+            bind_yardi_reviewed_unit_matches(run.id, request, db, actor)
+        assert unknown.value.status_code == 409
+        competing.resolution_action = None
+        competing.resolution_target_unit_id = None
+        db.commit()
+        assert bind_yardi_reviewed_unit_matches(run.id, request, db, actor)["replayed"] is True
         db.refresh(unit)
         assert unit.unit_number == "101"
     finally:

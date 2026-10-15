@@ -451,6 +451,19 @@ def test_durable_inventory_surfaces_competing_staged_target_review_without_targe
         assert same_source["target_current"] is True
         assert same_source["target_review_collision"] is False
 
+        # Missing source identity in retained reviewed evidence still contests
+        # an otherwise current customer target.
+        competing.source_id = None
+        db.commit()
+        unknown = list_yardi_durable_bindings(
+            run.id, Response(), resource="VENDORS", offset=0, limit=10,
+            db=db, current_user=actor,
+        )["items"][0]
+        assert unknown["target_current"] is True
+        assert unknown["target_review_collision"] is True
+        competing.source_id = "V-1"
+        db.commit()
+
         # A different organization cannot contest this run's identities,
         # even if old review evidence carries the same numeric target ID.
         outside_org = _org(db, "yardi-binding-foreign-review")
