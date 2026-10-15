@@ -604,3 +604,19 @@ different source ID reviews remain hard 409 blockers. Promote the legacy
 cross-run binding test to the fast Yardi CI gate. No existing customer
 or financial record is modified. Provisional until replacement exact-SHA
 CI verifies all six jobs.
+
+## 47. Cross-run staff target claims invalidate run-level identity readiness (2026-10-15)
+
+Read-only Yardi reconciliation now rechecks prior MATCH_EXISTING staff claims
+on the same target when a different source identity in the same organization,
+provider and resource appears in another run. Previously safe reviewed and
+durable mapped Property, Unit, Owner, Tenant and Vendor identity coverage is
+reclassified needs_review, changing the exact review fingerprint and
+invalidating stale dry-run evidence. Repeated review of the SAME stable source
+ID across runs does not create a competing identity claim, matching the
+existing binder safety guard in section 46a. Focused Owner/Tenant/Vendor
+regressions cover reviewed and durable cases, competing claims, restoration,
+same-source cross-run evidence, fingerprint drift and customer nonmutation.
+The change makes no customer business mutations, does not erase prior reviews,
+does not create a Lease or post financial records, and remains provisional
+until exact-SHA six-job hosted CI completes.

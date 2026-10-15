@@ -1002,6 +1002,30 @@ def get_yardi_reconciliation(
     ).order_by(PlatformMigrationItem.id.asc()).all()
     existing = {(item.resource, item.source_id) for item in items}
     identity_collisions = _yardi_unresolved_identity_sources(db, run)
+    # Read-only reconciliation rechecks historical staff target claims. A
+    # repeated SAME provider source ID in another run is not a new identity.
+    reviewed_target_fields = {
+        "PROPERTIES": PlatformMigrationStagedRow.resolution_target_id,
+        "UNITS": PlatformMigrationStagedRow.resolution_target_unit_id,
+        "OWNERS": PlatformMigrationStagedRow.resolution_target_owner_user_id,
+        "VENDORS": PlatformMigrationStagedRow.resolution_target_vendor_id,
+        "TENANTS": PlatformMigrationStagedRow.resolution_target_tenant_user_id,
+    }
+
+    def claimed_by_other_review(row, target_id):
+        target_field = reviewed_target_fields.get(row.resource)
+        return (
+            target_field is not None and target_id is not None
+            and db.query(PlatformMigrationStagedRow.id).filter(
+                PlatformMigrationStagedRow.organization_id == run.organization_id,
+                PlatformMigrationStagedRow.provider == "YARDI",
+                PlatformMigrationStagedRow.resource == row.resource,
+                PlatformMigrationStagedRow.source_id != row.source_id,
+                PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+                target_field == target_id,
+            ).first() is not None
+        )
+
     resources: dict[str, dict[str, int]] = {}
     unresolved = invalid = skipped = 0
     for row in rows:
@@ -1095,6 +1119,15 @@ def get_yardi_reconciliation(
                 # A historical match is not safe while another unskipped
                 # upload claims the same provider identity, even if identical.
                 target_valid = False
+            reviewed_target = {
+                "PROPERTIES": row.resolution_target_id,
+                "UNITS": row.resolution_target_unit_id,
+                "OWNERS": row.resolution_target_owner_user_id,
+                "VENDORS": row.resolution_target_vendor_id,
+                "TENANTS": row.resolution_target_tenant_user_id,
+            }.get(row.resource)
+            if target_valid and claimed_by_other_review(row, reviewed_target):
+                target_valid = False
             if target_valid:
                 stats["matched_existing"] += 1
             else:
@@ -1159,6 +1192,8 @@ def get_yardi_reconciliation(
                         Vendor.organization_id == run.organization_id,
                         Vendor.deleted_at.is_(None),
                     ).first() is not None
+            if target_current and claimed_by_other_review(row, binding.target_id):
+                target_current = False
             if target_current:
                 stats["mapped"] += 1
             else:
