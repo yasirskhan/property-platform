@@ -1106,7 +1106,24 @@ def get_yardi_reconciliation(
             stats["accepted_relationship_review"] += 1
         elif (row.source_id and (row.resource, row.source_id) in existing
               and (row.resource, row.source_id) not in identity_collisions):
-            stats["mapped"] += 1
+            # Source-ID equality alone cannot make an unreviewed staged version
+            # ready: the durable identity must describe this exact export row.
+            binding = next((
+                item for item in items
+                if item.resource == row.resource and item.source_id == row.source_id
+            ), None)
+            expected_entity = {
+                "PROPERTIES": "PROPERTY", "UNITS": "UNIT",
+                "OWNERS": "OWNER_USER", "VENDORS": "VENDOR",
+                "TENANTS": "TENANT_USER",
+            }.get(row.resource)
+            if (binding is not None and expected_entity
+                    and binding.target_entity == expected_entity
+                    and binding.source_fingerprint == row.row_fingerprint):
+                stats["mapped"] += 1
+            else:
+                unresolved += 1
+                stats["needs_review"] += 1
         else:
             unresolved += 1
             stats["needs_review"] += 1

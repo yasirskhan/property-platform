@@ -1,3 +1,9 @@
+# AI_HANDOFF.md — 2026-10-15 Yardi exact unreviewed source mapping (PREPARED)
+
+**Parent:** `f45c3035b1a0ba52d1f688d2da3bdf231252201e`, GitHub Actions 38681595596 was still in progress when this successor was prepared. Do not advance this detached commit unless parent HEAD matches and all six jobs are SUCCESS. This read-only Yardi reconciliation batch prevents a staged source without an explicit MATCH_EXISTING decision from inheriting mapped readiness from a durable source ID unless the exact source fingerprint and target entity type also match. Focused regression checks stale fingerprint, wrong target type, recovery, and unchanged customer data. See roadmap §37. Verify exact child SHA with all six hosted jobs; repair failures, record the true checkpoint, then immediately continue the next bounded Phase 4.15 task. Never main, a new branch, force update, Work mode, or customer/Lease/financial/API mutation.
+
+---
+
 # AI_HANDOFF.md — 2026-10-15 Yardi Phase 4.15
 
 Authorized repository: yasirskhan/property-platform. ONLY branch chatgpt/checkpoint-005-safety. Never main or new branch; never force-push. Read the full historical archive at docs/AI_HANDOFF_ARCHIVE_2026_10_15.md for previous work, and docs/YARDI_MIGRATION_PLAN.md for roadmap.
