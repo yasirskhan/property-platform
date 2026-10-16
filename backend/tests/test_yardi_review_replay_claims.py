@@ -1264,3 +1264,130 @@ def test_unbound_reviewed_inventory_eligibility_swap_expires_equal_count_dry_run
     finally:
         db.close()
         engine.dispose()
+
+
+@pytest.mark.parametrize("resource,seed,entity,header,second_id,second_label,invalid_field", [
+    ("OWNERS", seed_owner, "OWNER_USER", "Owner Ref", "O-2",
+     "Full Name", "is_active"),
+    ("OWNERS", seed_owner, "OWNER_USER", "Owner Ref", "O-2",
+     "Full Name", "role"),
+    ("TENANTS", seed_tenant, "TENANT_USER", "Resident Ref", "R-2",
+     "Full Name", "is_active"),
+    ("TENANTS", seed_tenant, "TENANT_USER", "Resident Ref", "R-2",
+     "Full Name", "role"),
+    ("VENDORS", seed_vendor, "VENDOR", "Vendor Ref", "V-2",
+     "Company Name", "deleted_at"),
+])
+def test_unreviewed_durable_identity_eligibility_swap_expires_equal_count_dry_run(
+    resource, seed, entity, header, second_id, second_label, invalid_field,
+):
+    """Unreviewed durable mapped identities also need exact target staleness."""
+    from datetime import datetime
+    from app.models.platform_migration import PlatformMigrationItem
+    from app.models.user import User, UserRole
+    from app.models.vendor import Vendor
+    from app.routers.yardi_migrations import get_yardi_review_dry_run_status
+
+    db, engine = _session()
+    try:
+        slug = f"yardi-durable-eligibility-swap-{resource.lower()}-{invalid_field}"
+        actor, org, first, run, first_row = seed(db, slug=slug)
+        if resource == "VENDORS":
+            second = Vendor(
+                organization_id=org.id, company_name="Untouched Durable Second Vendor",
+            )
+        else:
+            second = User(
+                organization_id=org.id, role=first.role,
+                email=f"{slug}-second@example.test",
+                hashed_password="untouched-second-password",
+                first_name="Second", last_name="Untouched",
+                is_active=True,
+            )
+        db.add(second)
+        db.commit()
+        upload = stage_yardi_file(
+            db, run=run, filename="second-durable-identity.csv",
+            content=f"{header},{second_label}\n{second_id},Second Durable Source\n".encode(),
+            resource_override=resource, sheet_name=None,
+            explicit_mapping={"source_id": header, "name": second_label},
+            platform_user_id=actor.id,
+        )
+        db.commit()
+        second_row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).one()
+        db.add_all([
+            PlatformMigrationItem(
+                run_id=run.id, organization_id=org.id, provider="YARDI",
+                resource=resource, source_id=row.source_id, target_entity=entity,
+                target_id=target.id, source_fingerprint=row.row_fingerprint,
+            )
+            for row, target in ((first_row, first), (second_row, second))
+        ])
+        db.commit()
+        assert first_row.resolution_action is None
+        assert second_row.resolution_action is None
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["resource_coverage"][resource]["mapped"] == 2
+        assert baseline["resource_coverage"][resource]["needs_review"] == 0
+
+        original = getattr(first, invalid_field)
+        invalid = (
+            False if invalid_field == "is_active"
+            else (UserRole.TENANT if resource == "OWNERS" else UserRole.OWNER)
+            if invalid_field == "role" else datetime.utcnow()
+        )
+        setattr(first, invalid_field, invalid)
+        db.commit()
+        first_stale = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert first_stale["resource_coverage"][resource]["mapped"] == 1
+        assert first_stale["resource_coverage"][resource]["needs_review"] == 1
+        saved = dry_run_yardi_review(run.id, db, actor)
+        assert saved["review_fingerprint"] == first_stale["review_fingerprint"]
+
+        setattr(first, invalid_field, original)
+        setattr(second, invalid_field, invalid)
+        db.commit()
+        second_stale = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert second_stale["resource_coverage"] == first_stale["resource_coverage"]
+        assert second_stale["review_fingerprint"] != first_stale["review_fingerprint"]
+        expired = get_yardi_review_dry_run_status(run.id, Response(), db, actor)
+        assert expired["is_current"] is False
+        assert expired["saved_review_fingerprint"] == saved["review_fingerprint"]
+
+        setattr(first, invalid_field, invalid)
+        setattr(second, invalid_field, original)
+        db.commit()
+        restored = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert restored["review_fingerprint"] == first_stale["review_fingerprint"]
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is True
+
+        setattr(first, invalid_field, original)
+        db.commit()
+        recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert recovered["review_fingerprint"] == baseline["review_fingerprint"]
+        assert recovered["resource_coverage"][resource]["mapped"] == 2
+        assert recovered["resource_coverage"][resource]["needs_review"] == 0
+        assert recovered["customer_business_mutation"] is False
+        assert first_row.resolution_action is None
+        assert second_row.resolution_action is None
+        mapped = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == resource,
+        ).all()
+        assert len(mapped) == 2
+        assert {m.target_id for m in mapped} == {first.id, second.id}
+        db.refresh(first)
+        db.refresh(second)
+        if resource == "VENDORS":
+            assert first.company_name == "Untouched Vendor"
+            assert second.company_name == "Untouched Durable Second Vendor"
+        else:
+            assert first.hashed_password == "preserved-hash"
+            assert second.hashed_password == "untouched-second-password"
+    finally:
+        db.close()
+        engine.dispose()

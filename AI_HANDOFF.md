@@ -1,3 +1,29 @@
+# 2026-10-16 | DETACHED durable mapped identity eligibility swap checks
+
+The next independently supportable review-only regression batch covers
+UNREVIEWED exact durable Owner, Tenant and Vendor identity mappings,
+distinct from staff MATCH_EXISTING readiness. Two mapped customer targets
+can exchange which one is ineligible (inactive, wrong role or archived)
+while aggregate mapped/needs_review numbers do not change. Parameterized
+fast-gated PostgreSQL coverage now requires a different exact private
+review fingerprint, stale saved dry-run status, exact restoration and
+no mutation of customer records, original durable source/target bindings,
+passwords or staged decisions. Five new cases; earlier tests kept.
+No production/router changes, unsupported Yardi API, customer
+Lease/occupancy/ownership or financial posting.
+
+This is a DETACHED descendant of
+ead259936254670905a61f4be8933e091d30f4ea and
+b22ae32b076a2764e6044cf5e7ff56fb7d0ed8b8,
+behind published 9666ef2d866dadd1fb679ae557c4daf1f1bd96d0.
+Each SHA requires success of its OWN exact six-job GitHub Actions before
+its successor can be non-force expected-HEAD fast-forwarded. Never mark
+a detached or pending source VERIFIED. Sole permitted branch
+chatgpt/checkpoint-005-safety, no main or force-push, no fabricated
+§§133–135 requirements.
+
+---
+
 # 2026-10-16 | DETACHED subsequent Property/Unit reviewed-target swap evidence
 
 A second focused descendant now expands the exact private reviewed

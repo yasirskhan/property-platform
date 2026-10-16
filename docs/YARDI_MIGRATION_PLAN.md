@@ -2011,3 +2011,21 @@ Yardi source contract, Lease/occupancy or financial/ownership posting.
 Prepared detached after the equal-total Owner/Tenant candidate; requires
 prerequisite exact-SHA green hosted CI and its own green all-six-job CI
 when published. Does not invent absent §§133–135 requirements.
+
+
+### Detached unreviewed durable Owner/Tenant/Vendor equal-total status swap (2026-10-16)
+
+The read-only status of a durably mapped identity uses a distinct
+DURABLE_CURRENT/DURABLE_STALE reconciliation path from staff MATCH_EXISTING
+reviews. Additional fast-gated PostgreSQL cases seed two original
+source-exact unreviewed durable mappings of the same resource and switch
+WHICH customer's inactive/incorrect-role/soft-delete status is invalid
+while mapped/needs_review counts remain equal. The private reviewed
+dry-run fingerprint must change, invalidate saved evidence and restore
+exactly for the original invalid target, then return to baseline when
+both are valid. Old durable mapping IDs/fingerprints and original
+customer values/passwords are preserved. No new API, production write,
+schema, Lease/occupancy, owner allocation or finance posting. This
+candidate is detached behind the Owner/Tenant and Property/Unit staff
+review eligibility swap candidates and must pass its own hosted exact
+six-job CI once safely published. Missing §§133–135 are not invented.
