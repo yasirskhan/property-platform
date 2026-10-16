@@ -1,11 +1,14 @@
 """Lease identity acceptance batches reviewed source claims without losing NULL evidence."""
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
 from sqlalchemy import event
 
 from app.models.lease import Lease
 from app.models.platform_migration import PlatformMigrationRun, PlatformMigrationUpload, PlatformMigrationStagedRow
-from app.routers.yardi_migrations import accept_yardi_staged_lease_relationship
+from app.routers.yardi_migrations import (
+    accept_yardi_staged_lease_relationship, get_yardi_reconciliation,
+    list_yardi_lease_relationships,
+)
 from app.services.yardi_file_ingestion import stage_yardi_file
 from test_yardi_lease_identity_acceptance import _seed
 from test_yardi_migrations import _org, _session
@@ -133,6 +136,8 @@ def test_batched_claims_refuse_unknown_unit_and_tenant_sources_then_recover():
         before_leases = db.query(Lease).count()
         first = accept_yardi_staged_lease_relationship(run.id, lease.id, db, actor)
         assert first["replayed"] is False
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["lease_relationship_readiness"]["source_review_ready"] == 1
 
         other_run = PlatformMigrationRun(
             organization_id=org.id, provider="YARDI",
@@ -174,6 +179,18 @@ def test_batched_claims_refuse_unknown_unit_and_tenant_sources_then_recover():
             with pytest.raises(HTTPException) as conflict:
                 accept_yardi_staged_lease_relationship(run.id, lease.id, db, actor)
             assert conflict.value.status_code == 409, resource
+            stale = get_yardi_reconciliation(run.id, Response(), db, actor)
+            readiness = stale["lease_relationship_readiness"]
+            assert readiness["identity_target_review_collisions"] == 1, resource
+            assert readiness["accepted_relationship_stale"] == 1, resource
+            assert readiness["complete_identity_links"] == 0, resource
+            assert stale["review_fingerprint"] != baseline["review_fingerprint"]
+            preview = list_yardi_lease_relationships(
+                run.id, Response(), offset=0, limit=10,
+                db=db, current_user=actor,
+            )["items"][0]
+            assert resource[:-1] + "_TARGET_REVIEW_COLLISION" in preview["blockers"], resource
+            assert preview["relationship_review_current"] is False
 
             # A recoverable but DIFFERENT provider source ID is also a
             # competing claim; only the exact original source may recover.
@@ -189,6 +206,17 @@ def test_batched_claims_refuse_unknown_unit_and_tenant_sources_then_recover():
                 run.id, lease.id, db, actor,
             )
             assert replay["replayed"] is True, resource
+            recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
+            assert recovered["lease_relationship_readiness"]["identity_target_review_collisions"] == 0
+            assert recovered["lease_relationship_readiness"]["accepted_relationship_stale"] == 0
+            assert recovered["lease_relationship_readiness"]["source_review_ready"] == 1
+            assert recovered["review_fingerprint"] == baseline["review_fingerprint"]
+            restored_preview = list_yardi_lease_relationships(
+                run.id, Response(), offset=0, limit=10,
+                db=db, current_user=actor,
+            )["items"][0]
+            assert restored_preview["relationship_review_current"] is True
+            assert restored_preview["blockers"] == []
 
         db.refresh(prop)
         db.refresh(unit)

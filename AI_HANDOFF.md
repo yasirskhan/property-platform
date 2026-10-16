@@ -1,3 +1,21 @@
+# DETACHED PREPARATION | YARDI §131 PREVIEW / AGGREGATE / ACCEPTANCE PARITY
+
+Parent product source `c4bd306c7e055ac991e49115e13c9ffbad5596b7` is undergoing exact-SHA hosted CI run
+`38945258561`. Do not publish this candidate before all six jobs pass,
+and verify the live expected branch HEAD again. This candidate adds
+PostgreSQL assertions to the already-fast-gated Unit/Tenant historical reviewed
+target regression: NULL source claims must yield 409 in acceptance,
+`identity_target_review_collisions=1`, stale accepted relationship,
+incomplete links, changed fingerprint, and the matching per-Lease
+`UNIT_TARGET_REVIEW_COLLISION` or `TENANT_TARGET_REVIEW_COLLISION` blocker.
+Restoring the exact original source ID must restore one ready link,
+current preview and the original readiness fingerprint. Known-different source,
+cross-provider and cross-org safeguards from prior batches remain tested.
+No production customer or accounting records are created or changed.
+This preparation is DETACHED and UNVERIFIED; §§133–135 remain unspecified.
+
+---
+
 # YARDI PHASE 4.15 | 2026-10-16 EXACT-SHA VERIFIED AND NEXT TEST BATCH
 
 **Verified checkpoint:** Sections 118–132 at `74e7e33e3b331992497dd7a03415ec31225daaff`, CI `38912065447` SUCCESS six jobs. Follow-on existing §131 NULL Unit/Tenant source, same-source repair and foreign-organization isolation at `2510bf93b48dca8bbd4dbedee99905a849016b2a` CI `38914698146` **SUCCESS six jobs**, backend/PostgreSQL **1344 passed, 21 deselected**, fast Yardi review gate, frontend, platform-admin, security, E2E and staging all passed.

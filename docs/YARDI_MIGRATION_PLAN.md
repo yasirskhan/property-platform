@@ -1740,3 +1740,15 @@ production code changes or invented §§133–135 contracts.
 ### Verified §131 prerequisite, next history/isolation regression
 
 Existing §131 historical Unit and Tenant NULL source collision refusal, exact identity recovery and foreign-organization isolation passed all six jobs at `2510bf93b48dca8bbd4dbedee99905a849016b2a` run `38914698146` (backend/PostgreSQL 1344 passed, 21 deselected). This separate next batch adds known-different source refusal and cross-provider APPFOLIO versus YARDI reviewed-claim isolation; scope is only regression, metadata fixtures and documentation. Full six-job exact new SHA CI is required. Source contracts and customer business no-write rules remain unchanged.
+
+### Detached §131 read-only preview and aggregate consistency gate
+
+Extend existing fast PostgreSQL history-claim tests so historical Yardi
+NULL-source Unit/Tenant target claims block initial/replayed source acceptance
+and produce matching `identity_target_review_collisions`, stale accepted
+review, incomplete links and per-row preview reason codes. Exact original
+same-source recovery must restore all three surfaces and the run-level
+review fingerprint, without customer mutation. Keep distinct-source,
+organization/provider isolation and existing tests active. Provisional
+detached source only until the previous exact-SHA six-job CI is verified;
+no §§133–135 source contract invented.
