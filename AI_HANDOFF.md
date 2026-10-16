@@ -1,3 +1,26 @@
+# 2026-10-16 | DETACHED unreviewed durable Property/Unit readiness swaps
+
+Following the Owner/Tenant/Vendor durable two-target eligibility
+regression, this prepared test-only successor covers Property and Unit
+unreviewed durable identity rows, including an original source-bound
+Property parent for Unit cases. Swapping ineligible inactive or
+soft-deleted customer targets while mapped and needs_review counts
+stay identical must invalidate the exact saved reviewed dry-run.
+Restoring the identical originally stale target recovers the snapshot,
+and both current targets recover baseline. Four fast-gated
+PostgreSQL cases; no previous test removed or weakened, no production
+business mutation, Lease or accounting/owner allocation/API changes.
+
+Detached candidate follows
+0e38a59333e812e8babd077748c5059a77968f13
+and remains UNPUBLISHED/UNVERIFIED until predecessors each pass
+full six-job CI and a non-force expected-HEAD branch advance.
+Then it too requires own exact-SHA hosted CI. No scope invented
+for missing original §§133–135. Sole permitted branch,
+never touch main/new branch and never force-push.
+
+---
+
 # 2026-10-16 | DETACHED durable mapped identity eligibility swap checks
 
 The next independently supportable review-only regression batch covers

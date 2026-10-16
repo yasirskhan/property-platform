@@ -2029,3 +2029,20 @@ schema, Lease/occupancy, owner allocation or finance posting. This
 candidate is detached behind the Owner/Tenant and Property/Unit staff
 review eligibility swap candidates and must pass its own hosted exact
 six-job CI once safely published. Missing §§133–135 are not invented.
+
+
+### Detached durable Property/Unit equal-total eligibility swap (2026-10-16)
+
+The unreviewed, already-durable identity path is additionally covered
+for two Properties and two Units with their verified original Property
+parent identity. Inactive/soft-delete status moving from the first to
+the second target leaves aggregate mapped/needs_review equal but MUST
+expire the exact private reviewed dry-run fingerprint. Restoring the
+original invalid target restores the saved snapshot, and restoring
+both valid targets restores original ready evidence. Assertions preserve
+source-exact durable mappings, unchanged customer names, Unit number
+and parent, original staging decisions and no business mutation. Four
+parameterized fast-gated PostgreSQL cases only, no router/schema changes,
+Yardi official API, Lease/occupancy/owner-allocation/financial writes.
+Publish only after all predecessor exact-SHA full CIs are green and
+live expected branch HEAD is checked. §§133–135 remain unspecified.
