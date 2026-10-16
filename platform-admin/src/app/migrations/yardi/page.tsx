@@ -69,6 +69,8 @@ type DurableBinding = {
   target_id: number;
   target_current: boolean;
   unit_parent_relationship_current: boolean | null;
+  parent_source_identity_collision: boolean | null;
+  parent_source_fingerprint_drift: boolean | null;
   source_identity_collision: boolean;
   target_review_collision: boolean;
   created_by_platform_user_id: number | null;
@@ -836,7 +838,7 @@ export default function YardiMigrationConsole() {
                     {item.source_identity_collision && <span className="mt-1 block text-xs font-semibold text-amber-800">Unskipped source-ID collision — review duplicate uploads</span>}
                     {item.target_review_collision && <span className="mt-1 block text-xs font-semibold text-amber-800">Another reviewed source claims this target — reconcile</span>}
                     {item.resource === "UNITS" && <span className="mt-1 block text-xs text-slate-600">
-                      {item.source_identity_collision ? "Source parent unverified until duplicates are resolved" : item.unit_parent_relationship_current === true ? "Source parent verified" : item.unit_parent_relationship_current === false ? "Source parent mismatch — reconcile" : "Source parent not verified"}
+                      {item.source_identity_collision ? "Source parent unverified until Unit duplicates are resolved" : item.parent_source_identity_collision ? "Mapped Property source has unresolved duplicates — reconcile parent identity" : item.parent_source_fingerprint_drift ? "Mapped Property source version changed — re-review parent" : item.unit_parent_relationship_current === true ? "Source parent verified" : item.unit_parent_relationship_current === false ? "Source parent mismatch — reconcile" : "Source parent not verified"}
                     </span>}
                   </td>
                   <td className="p-2 text-xs">

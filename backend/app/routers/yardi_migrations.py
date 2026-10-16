@@ -550,6 +550,33 @@ def list_yardi_durable_bindings(
                    review.resolution_target_unit_id)
             if key in unit_review_keys:
                 unit_reviews_by_key.setdefault(key, []).append(review)
+    # A single changed, unskipped Property source version is not a duplicate,
+    # but it must still invalidate a Unit's original source-parent certainty.
+    # Project the page's actual Unit-reviewed parent IDs only once.
+    parent_source_ids = {
+        str((review.normalized_data or {}).get("source_property_id") or "").strip()
+        for exact_reviews in unit_reviews_by_key.values()
+        for review in exact_reviews
+        if not review.errors and review.disposition != "INVALID"
+    } - {""}
+    property_fingerprints = {}
+    if parent_source_ids:
+        property_versions = db.query(
+            PlatformMigrationStagedRow.source_id,
+            PlatformMigrationStagedRow.row_fingerprint,
+        ).filter(
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "YARDI",
+            PlatformMigrationStagedRow.resource == "PROPERTIES",
+            PlatformMigrationStagedRow.source_id.in_(parent_source_ids),
+            or_(
+                PlatformMigrationStagedRow.resolution_action.is_(None),
+                PlatformMigrationStagedRow.resolution_action != "SKIP",
+            ),
+        ).all()
+        for parent_id, fingerprint in property_versions:
+            property_fingerprints.setdefault(parent_id, set()).add(fingerprint)
     for item in bindings:
         source_identity_collision = (item.resource, item.source_id) in identity_collisions
         # Keep an active target distinct from another source's reviewed claim.
@@ -563,6 +590,8 @@ def list_yardi_durable_bindings(
         valid_entity = item.target_entity == entity_by_resource[item.resource]
         target_current = False
         parent_relationship_current = None  # Only applicable to verified Unit source-parent evidence.
+        parent_source_identity_collision = None  # Only meaningful for exact Unit source-parent evidence.
+        parent_source_fingerprint_drift = None  # Unknown until an exact mapped parent is evaluated.
         if valid_entity and item.resource == "PROPERTIES":
             target_current = db.query(Property.id).filter(
                 Property.id == item.target_id,
@@ -597,7 +626,13 @@ def list_yardi_durable_bindings(
                     parent_relationship_current = False
                 else:
                     source_parent_id = next(iter(reviewed_parents))
-                    parent_mapping = db.query(PlatformMigrationItem.target_id).filter(
+                    parent_source_identity_collision = (
+                        ("PROPERTIES", source_parent_id) in identity_collisions
+                    )
+                    parent_mapping = db.query(
+                        PlatformMigrationItem.target_id,
+                        PlatformMigrationItem.source_fingerprint,
+                    ).filter(
                         PlatformMigrationItem.run_id == run.id,
                         PlatformMigrationItem.organization_id == run.organization_id,
                         PlatformMigrationItem.provider == "YARDI",
@@ -615,8 +650,18 @@ def list_yardi_durable_bindings(
                     # A changed, unskipped Property source version makes the
                     # mapped source parent uncertain even when the target Unit
                     # still belongs to the same active customer Property.
-                    if ("PROPERTIES", source_parent_id) in identity_collisions:
+                    if parent_source_identity_collision:
                         parent_relationship_current = False
+                    # Even one changed Property source version is stale when
+                    # its exact fingerprint no longer matches the durable parent.
+                    parent_versions = property_fingerprints.get(source_parent_id, ())
+                    if parent_mapping is not None and parent_versions:
+                        parent_source_fingerprint_drift = any(
+                            fingerprint != parent_mapping.source_fingerprint
+                            for fingerprint in parent_versions
+                        )
+                        if parent_source_fingerprint_drift:
+                            parent_relationship_current = False
         elif valid_entity and item.resource in ("OWNERS", "TENANTS"):
             target_role = UserRole.OWNER if item.resource == "OWNERS" else UserRole.TENANT
             target_current = db.query(User.id).filter(
@@ -642,6 +687,8 @@ def list_yardi_durable_bindings(
             "target_entity": item.target_entity, "target_id": item.target_id,
             "target_current": target_current,
             "unit_parent_relationship_current": parent_relationship_current,
+            "parent_source_identity_collision": parent_source_identity_collision,
+            "parent_source_fingerprint_drift": parent_source_fingerprint_drift,
             "created_by_platform_user_id": item.created_by_platform_user_id,
             "created_at": item.created_at.isoformat() if item.created_at else None,
         })

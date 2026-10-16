@@ -751,3 +751,43 @@ customer Properties/Units. A focused PostgreSQL regression exercises a new
 Property source version, collision and SKIP recovery. This is source-evidence
 metadata only, not customer data mutation or Lease/financial posting.
 PROVISIONAL pending exact-SHA all-six-job hosted CI.
+
+
+## 58. Distinguish mapped Property source collisions in durable Unit inventory (2026-10-15)
+
+The existing read-only Unit binding inventory now returns a separate
+`parent_source_identity_collision` diagnostic. It identifies unresolved
+same-run, same-organization Yardi Property source-ID versions referenced by an
+exact reviewed Unit source-parent relationship. The Unit's own
+`source_identity_collision` remains independent of the Property diagnostic,
+and the live customer target remains separately reported as `target_current`.
+A focused PostgreSQL regression checks no collision, a newly uploaded differing
+Property source version, and audited reason-coded SKIP recovery. The internal
+staff console shows a distinct Property-parent collision warning. No customer
+Property, Unit, Lease/occupancy or financial record mutation is enabled.
+
+## 59. Original mapped Property fingerprint must remain current (2026-10-15)
+
+Even when only one unskipped Yardi Property source version remains, the current
+source-parent classification of an exact reviewed Unit cannot stay verified if
+that Property version's fingerprint differs from the durable parent source
+mapping. Bounded read-only inventory reads the relevant Property staged source
+versions in one query per page, compares them to the exact durable Property
+source fingerprint, and reports `parent_source_fingerprint_drift`. The Unit
+source-parent status becomes false while drift exists, without changing customer
+records or past staff reviews. Focused PostgreSQL regression checks a stale
+fingerprint after duplicate SKIP, preservation of customer records, and recovery
+when the correct fingerprint is restored.
+
+## 60. Staff console identifies changed mapped Property source (2026-10-15)
+
+The platform-admin Yardi durable identity inventory renders an explicit warning
+for changed source-parent fingerprints, separately from unresolved parent
+Property duplicates, Unit duplicates and genuine customer parent mismatch.
+The warning is diagnostic only and does not authorize auto-matching, source
+version merging, Lease creation, occupancy or financial posting.
+
+**Verification gate for Sections 58–60:** Implemented as one cohesive source,
+PostgreSQL regression and platform-admin UI batch. Provisional until exact-SHA
+hosted CI verifies all six jobs. Sections 1–57 and external Yardi source
+contract gates are preserved. No existing test was removed, disabled or weakened.

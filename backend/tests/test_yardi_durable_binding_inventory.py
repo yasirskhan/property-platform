@@ -696,12 +696,16 @@ def test_yardi_unit_parent_inventory_rejects_ambiguous_mapped_property_source():
         assert first["target_current"] is True
         assert first["source_identity_collision"] is False
         assert first["unit_parent_relationship_current"] is True
+        assert first["parent_source_identity_collision"] is False
+        assert first["parent_source_fingerprint_drift"] is False
 
         competing = stage_property("Different Staged Version")
         ambiguous = current()
         assert ambiguous["target_current"] is True
         assert ambiguous["source_identity_collision"] is False
         assert ambiguous["unit_parent_relationship_current"] is False
+        assert ambiguous["parent_source_identity_collision"] is True
+        assert ambiguous["parent_source_fingerprint_drift"] is True
 
         skipped = skip_yardi_staged_row(
             run.id, competing.id, YardiRowSkipIn(reason_code="DUPLICATE_SOURCE"),
@@ -711,6 +715,27 @@ def test_yardi_unit_parent_inventory_rejects_ambiguous_mapped_property_source():
         restored = current()
         assert restored["target_current"] is True
         assert restored["unit_parent_relationship_current"] is True
+        assert restored["parent_source_identity_collision"] is False
+        assert restored["parent_source_fingerprint_drift"] is False
+
+        # Only one unskipped Property source version remains here, so ordinary
+        # duplicate counts are clear. A stale durable parent fingerprint must
+        # nevertheless invalidate Unit source-parent readiness.
+        original_fingerprint = property_binding.source_fingerprint
+        property_binding.source_fingerprint = "stale-property-parent-fingerprint"
+        db.commit()
+        stale = current()
+        assert stale["source_identity_collision"] is False
+        assert stale["parent_source_identity_collision"] is False
+        assert stale["parent_source_fingerprint_drift"] is True
+        assert stale["target_current"] is True
+        assert stale["unit_parent_relationship_current"] is False
+        property_binding.source_fingerprint = original_fingerprint
+        db.commit()
+        recovered = current()
+        assert recovered["unit_parent_relationship_current"] is True
+        assert recovered["parent_source_fingerprint_drift"] is False
+
         db.refresh(prop)
         db.refresh(unit)
         assert prop.name == "Preserved Parent"

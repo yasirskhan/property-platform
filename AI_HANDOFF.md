@@ -1,76 +1,78 @@
 # AI_HANDOFF.md | Phase 4.15 Yardi | 2026-10-15
 
-Repository: `yasirskhan/property-platform`
-ONLY branch `chatgpt/checkpoint-005-safety`.
-Never touch main or another branch, never force-push.
-Verify live HEAD and latest CI before every write.
+Repository: `yasirskhan/property-platform`.
+ONLY branch: `chatgpt/checkpoint-005-safety`.
+Do not touch `main`, create branches, force push, overwrite another session or modify unrelated systems.
+Read this ENTIRE handoff and verify the live HEAD and GitHub CI before each write.
 
-## Last VERIFIED product checkpoint
+## Last confirmed VERIFIED checkpoint before this milestone
 
-Section 56, SHA `24b702c6d517561d174f003c7f0f4844450397bd`, GitHub Actions `38836676853`:
-SUCCESS, all six jobs (backend/PostgreSQL, frontend, platform-admin,
-security, authenticated E2E, staging-config). Paginated read-only Unit
-inventory batches exact historical reviewed source-parent evidence and
-retains contradictory/unknown-source safety checks. No customer mutation.
-Previous section 55: `9d159a46b7b7365cbc38cc69b5a62acd760b72ea`,
-run `38832851778` SUCCESS on all six jobs.
+Section 56, product source `24b702c6d517561d174f003c7f0f4844450397bd`,
+GitHub Actions run `38836676853` SUCCESS, all six required jobs.
+The subsequent Section 57 source `6969249803a2ec992769a985aa097bc5753b9414`
+was provisional and was undergoing exact-SHA CI run `38838330535`
+when this combined Sections 58–60 batch was prepared. Recheck the actual
+conclusion and all six jobs before treating Section 57 as VERIFIED.
 
-## Current COMMITTED product batch: PROVISIONAL pending exact-SHA CI
+## Combined Sections 58–60: COMMITTED PRODUCT MILESTONE, PROVISIONAL until CI
 
-Section 57. An unresolved duplicate or changed Property source version
-invalidates the read-only original Unit source-parent classification even when
-the live Unit still belongs to the same active customer Property. Focused
-regression checks mismatched Property staged versions, reason-coded duplicate
-SKIP recovery and preservation of customer Property/Unit. Verify exact source
-commit through all six hosted CI jobs before marking VERIFIED.
+Read the actual branch HEAD to discover the published milestone commit SHA.
+These three existing prepared drafts were reviewed and consolidated rather
+than redundantly reimplementing older Section 40–56 work:
 
-## Prepared DETACHED next batches, NOT branch published
+1. Section 58: distinguish unresolved mapped Property source-parent collisions
+   from Unit source collisions and customer-target activity; show staff warning.
+2. Section 59: reject stale exact mapped Property source fingerprints in the
+   read-only Unit parent readiness calculation; page-batched version lookup.
+3. Section 60: expose a specific Property fingerprint drift warning in the
+   platform-admin Yardi staff console.
 
-Section 58: `dce8d6db3736ad3a18aeb9f1fe14a47652e42b65`
-(original parent `464b54111234b574d85db06a3d6e1f6a2e66b798`):
-add diagnostic for ambiguous mapped Property source-parent claims to
-read-only inventory and platform-admin Yardi staff console; regression
-checks current/ambiguous/recovered classifications.
+Regression extended `backend/tests/test_yardi_durable_binding_inventory.py`:
+no collision, changed duplicate Property source, reason-coded SKIP, stale
+single Property mapping fingerprint, restoration, customer preservation.
+No existing tests deleted, weakened or skipped. No additional platform data
+mutation or unsupported source adapter was introduced. Full source/roadmap
+audit reviewed the exact three-file changes against
+`docs/YARDI_MIGRATION_PLAN.md` §§57–60.
 
-Additional independent draft work (NOT branch published, not CI verified):
-Section 59 detached tree `24637ee6c651bf8e989696a9aa00baca682c0a46`,
-built on the prepared Section 58 tree: reject stale exact mapped Property
-source fingerprints in read-only Unit parent readiness, with regression.
-Section 60 detached tree `38145e93504a8240306a542997fc8707ac2ecad7`,
-built on Section 59: show an explicit source-drift warning in staff console.
-Review and rebase these trees against verified parents before publishing.
+**Do not mark milestone VERIFIED without all-six-job successful hosted CI at
+its precise product commit SHA.** Local targeted backend/TS commands could not
+be executed using this GitHub-only connector environment; require hosted
+verification and repair any regressions.
 
-These Git objects are NOT published or verified. Repackage each against
-the newly verified parent in order. Never publish original detached commits
-with outdated parent SHAs or skip exact-SHA CI.
+## Immediate next steps
 
-## Mandatory next step
+1. Verify live HEAD, branch protection, and latest exact-SHA CI; do not assume
+   any SHA here remains live. Confirm Section 57 CI `38838330535` concluded
+   successfully, or repair relevant reds before treating as verified.
+2. Verify combined Sections 58–60 at their exact product SHA through hosted
+   backend/PostgreSQL, frontend, platform-admin, security, authenticated E2E
+   and staging-config jobs. Fix any genuine failures; do not spend hours on
+   unrelated 15-second Short-Term Rentals navigation flakes. Do not rerun the
+   already verified Section 40 work.
+3. After verification, update this handoff and roadmap with exact SHA and CI.
+   Immediately continue 3–5 coherent bounded Yardi Phase 4.15 sub-features,
+   targeted tests first where possible, one six-job CI milestone after the batch.
+   While CI runs, prepare detached follow-up code; never advance the branch
+   across unverified source or overwrite a concurrent session.
 
-Verify section 57 all-six-job CI at its exact branch SHA, repair reds
-as necessary, update handoff/roadmap, then immediately publish Section 58
-against the newly verified parent. Continue with reviewed independent draft
-Sections 59/60 only after their prerequisite verified batches.
-External Yardi source contracts still gate accounting, Lease/occupancy mutation
-and official API.
+## Mandatory pre-CI completeness checklist
 
-## Continuous workflow
+Before each milestone publish or CI, audit changed code line by line against
+`docs/YARDI_MIGRATION_PLAN.md` and this handoff: explicitly enumerate all
+subitems, confirm no tests removed/disabled/weakened and no roadmap dependency
+silently omitted or stubbed. Prefer single focused batches and one hosted
+six-job run per milestone rather than one CI loop per microtask. Never falsify
+local test results or mark provisional work verified.
 
-Verify live HEAD and latest CI -> inspect handoff/plan/source/tests ->
-implement bounded fix -> review/test -> commit on sole branch using expected
-parent SHA -> hosted CI -> fix reds -> verify six jobs at exact SHA -> update
-this handoff -> immediately start the next bounded Phase 4.15 task.
-A green CI is not a stopping point. Never advance this branch while the
-prior exact-SHA CI is still running; prepare detached work instead.
-Never mark unverified source complete.
+## External Yardi dependency gates
 
-## External gates and preservation
-
-Only existing CSV/XLSX Yardi upload, stage, validation, review, reconciliation,
-read-only dry-run and controlled identity metadata binding are authorized.
-No undocumented official Yardi API, historical GL, AR/AP, payments/deposits,
-owner allocations, customer Lease/occupancy creation, or financial posting
-without authoritative source contracts and explicit authorization. Never
-overwrite/delete existing customer data, silently merge source IDs or rewrite
-audit history. Historical handoff:
-`docs/AI_HANDOFF_ARCHIVE_2026_10_15.md`. Roadmap:
-`docs/YARDI_MIGRATION_PLAN.md`.
+Only existing controlled CSV/XLSX upload, mapping, stage, validation, review,
+reconciliation, read-only dry-run and safe durable identity metadata binding
+are authorized. Official Yardi API, Lease/occupancy customer mutations,
+historical GL, AR/AP, payments/deposits, ownership percentage and other
+financial posting require authoritative source contracts and separate explicit
+approval. Never overwrite, delete or auto-merge customer records, or erase
+staff decision/audit history. See
+`docs/AI_HANDOFF_ARCHIVE_2026_10_15.md` for historical handoff and
+`docs/YARDI_MIGRATION_PLAN.md` for full roadmap.
