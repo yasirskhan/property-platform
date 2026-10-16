@@ -523,6 +523,33 @@ def list_yardi_durable_bindings(
         }[resource_name]
         if target_id is not None:
             reviewed_claim_sources.setdefault((resource_name, target_id), set()).add(source_id)
+    # Read the exact historical Unit source-parent evidence once for the page.
+    # Include NULL source IDs when present so historical unknown-source evidence
+    # retains the same fail-closed behavior as per-item equality comparisons.
+    unit_review_keys = {
+        (item.source_id, item.source_fingerprint, item.target_id)
+        for item in bindings
+        if item.resource == "UNITS" and item.target_entity == "UNIT"
+    }
+    unit_source_ids = {key[0] for key in unit_review_keys if key[0] is not None}
+    unit_reviews_by_key = {}
+    if unit_review_keys:
+        source_filter = PlatformMigrationStagedRow.source_id.in_(unit_source_ids)
+        if any(key[0] is None for key in unit_review_keys):
+            source_filter = source_filter | PlatformMigrationStagedRow.source_id.is_(None)
+        reviews = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "YARDI",
+            PlatformMigrationStagedRow.resource == "UNITS",
+            source_filter,
+            PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+        ).all()
+        for review in reviews:
+            key = (review.source_id, review.row_fingerprint,
+                   review.resolution_target_unit_id)
+            if key in unit_review_keys:
+                unit_reviews_by_key.setdefault(key, []).append(review)
     for item in bindings:
         source_identity_collision = (item.resource, item.source_id) in identity_collisions
         # Keep an active target distinct from another source's reviewed claim.
@@ -555,16 +582,9 @@ def list_yardi_durable_bindings(
             # Only an exact reviewed source-row fingerprint establishes which
             # Yardi Property this durable Unit identity was originally bound under.
             # Never infer the parent from an unreviewed name or current Unit location.
-            source_reviews = db.query(PlatformMigrationStagedRow).filter(
-                PlatformMigrationStagedRow.run_id == run.id,
-                PlatformMigrationStagedRow.organization_id == run.organization_id,
-                PlatformMigrationStagedRow.provider == "YARDI",
-                PlatformMigrationStagedRow.resource == "UNITS",
-                PlatformMigrationStagedRow.source_id == item.source_id,
-                PlatformMigrationStagedRow.row_fingerprint == item.source_fingerprint,
-                PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
-                PlatformMigrationStagedRow.resolution_target_unit_id == item.target_id,
-            ).all()
+            source_reviews = unit_reviews_by_key.get(
+                (item.source_id, item.source_fingerprint, item.target_id), ()
+            )
             if source_reviews:
                 # Every exact reviewed version is evidence. Picking the newest
                 # hides contradictory or invalid older source-parent reviews.

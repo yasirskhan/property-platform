@@ -532,3 +532,91 @@ def test_durable_inventory_surfaces_competing_staged_target_review_without_targe
     finally:
         db.close()
         engine.dispose()
+
+
+def test_yardi_unit_inventory_batches_exact_parent_review_evidence_per_page():
+    """Adding a Unit to the preview must not add another staged-review SELECT."""
+    from sqlalchemy import event
+    from app.models.platform_migration import PlatformMigrationStagedRow
+    from app.services.yardi_file_ingestion import stage_yardi_file
+
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-inventory-batched-unit-parent")
+        prop = Property(
+            organization_id=org.id, name="Stable Parent",
+            address_line1="301 Main", city="Cleveland", state="OH", zip_code="44113",
+        )
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="batched-unit-review", status="DRAFT",
+        )
+        db.add_all([prop, run])
+        db.flush()
+        units = [Unit(property_id=prop.id, unit_number=n) for n in ("301", "302")]
+        db.add_all(units)
+        db.flush()
+        _binding(db, run, "PROPERTIES", "P-1", "PROPERTY", prop.id)
+        identities = {
+            source: _binding(db, run, "UNITS", source, "UNIT", target.id)
+            for source, target in zip(("U-1", "U-2"), units)
+        }
+        db.commit()
+        uploaded = stage_yardi_file(
+            db, run=run, filename="two-reviewed-units.csv",
+            content=b"Unit Ref,Parent Ref,Number\nU-1,P-1,301\nU-2,P-1,302\n",
+            resource_override="UNITS", sheet_name=None,
+            explicit_mapping={
+                "source_id": "Unit Ref", "source_property_id": "Parent Ref",
+                "unit_name": "Number",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        for row in db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == uploaded.upload.id,
+        ).all():
+            row.resolution_action = "MATCH_EXISTING"
+            identities[row.source_id].source_fingerprint = row.row_fingerprint
+            row.resolution_target_unit_id = (
+                units[0].id if row.source_id == "U-1" else units[1].id
+            )
+        db.commit()
+
+        def inspect(limit):
+            statements = []
+            def observe(connection, cursor, statement, parameters, context, executemany):
+                sql = statement.lower()
+                if (sql.lstrip().startswith("select")
+                        and "platform_migration_staged_rows" in sql
+                        and "row_fingerprint" in sql
+                        and "resolution_target_unit_id" in sql
+                        and "resolution_action" in sql):
+                    statements.append(statement)
+            event.listen(engine, "before_cursor_execute", observe)
+            try:
+                result = list_yardi_durable_bindings(
+                    run.id, Response(), resource="UNITS", offset=0, limit=limit,
+                    db=db, current_user=actor,
+                )
+            finally:
+                event.remove(engine, "before_cursor_execute", observe)
+            return result, len(statements)
+
+        result_one, count_one = inspect(1)
+        result_two, count_two = inspect(2)
+        assert count_one >= 1 and count_two == count_one
+        assert len(result_one["items"]) == 1 and len(result_two["items"]) == 2
+        assert all(row["target_current"] is True for row in result_two["items"])
+        assert all(
+            row["unit_parent_relationship_current"] is True
+            for row in result_two["items"]
+        )
+        db.refresh(prop)
+        for unit in units:
+            db.refresh(unit)
+            assert unit.property_id == prop.id
+        assert prop.name == "Stable Parent"
+    finally:
+        db.close()
+        engine.dispose()

@@ -722,5 +722,18 @@ exact same-source identities, provider boundaries and organization boundaries
 remain respected. A two-Vendor binding regression checks stable review-claim
 SELECT count and preservation of customer vendor records. This batch does not
 create, merge, delete or modify customer records, leases, occupancy, financial
-posting or undocumented Yardi API behavior. PROVISIONAL until all six hosted
-CI jobs succeed for the exact product commit SHA.
+posting or undocumented Yardi API behavior. VERIFIED on exact SHA `9d159a46b7b7365cbc38cc69b5a62acd760b72ea`, GitHub Actions
+`38832851778` SUCCESS on all six required jobs.
+
+## 56. Batch exact Unit parent review evidence per durable inventory page (2026-10-15)
+
+Read-only Yardi Unit durable inventory now retrieves the exact staged Unit
+source fingerprint and reviewed target matching each paginated durable binding
+in one scoped query. All matching historical reviews remain evidence, including
+contradictory source-parent relationships and unknown source IDs, so the source
+parent cannot appear verified from a partial review. A two-Unit PostgreSQL
+regression counts staged-review SELECTs independent of page size, checks live
+parent classification and preservation of customer Properties/Units. This does
+not create or alter any customer record, Lease/occupancy or financial posting,
+nor assume undocumented Yardi API behavior. PROVISIONAL pending all six hosted
+CI jobs on the exact product SHA.
