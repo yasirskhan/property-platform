@@ -2046,3 +2046,20 @@ parameterized fast-gated PostgreSQL cases only, no router/schema changes,
 Yardi official API, Lease/occupancy/owner-allocation/financial writes.
 Publish only after all predecessor exact-SHA full CIs are green and
 live expected branch HEAD is checked. §§133–135 remain unspecified.
+
+
+### Detached Unit original Property parent equal-total eligibility swap (2026-10-16)
+
+A further fast-gated read-only regression uses two distinct source-exact
+durable Property mappings and two dependent durable Unit mappings. Either
+original Property being inactive or soft-deleted makes exactly one
+Property and one dependent Unit stale. Exchanging WHICH original parent
+is unavailable preserves identical mapped/needs_review counters across
+both resources, but must invalidate the private review fingerprint and
+saved staff dry-run, then restore exact evidence when the first parent
+again becomes unavailable. Both restored parents must recover all four
+durable source/target relationships and preserve original customer Unit
+parenting and numbers. Two parameterized PostgreSQL cases. No product
+router, customer Lease/occupancy, GL, allocations or unofficial Yardi
+API changes; requires exact hosted six-job CI on publication after
+predecessor verification. §§133–135 remain unspecified.

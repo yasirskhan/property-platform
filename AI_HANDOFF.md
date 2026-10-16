@@ -1,3 +1,24 @@
+# 2026-10-16 | DETACHED Unit original Property parent eligibility swap
+
+A prepared read-only test successor protects two original durable
+Property-to-Unit source dependency pairs. Different customer Property
+parents become inactive or soft-deleted in turn. One mapped Property
+and one mapped Unit remain stale in both cases, but a saved Yardi
+reviewed dry-run MUST expire when the exact unavailable parent swaps;
+exact restoration must recover saved and baseline fingerprints.
+Two new fast-gated PostgreSQL cases preserve customer Property and
+Unit values/parents, four original durable mappings and no new
+business mutation. Tests only plus Yardi plan and handoff; no API,
+ownership, Lease/occupancy or accounting posting.
+
+DETACHED and NOT VERIFIED on parent
+ddfcf841104306c9c159d50c0807e3d062d36774.
+Advance only one exact-green predecessor at a time using the current
+branch HEAD and non-force expected-HEAD. Do not touch main, new branch,
+other projects or invent Yardi §§133–135.
+
+---
+
 # 2026-10-16 | DETACHED unreviewed durable Property/Unit readiness swaps
 
 Following the Owner/Tenant/Vendor durable two-target eligibility
