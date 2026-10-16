@@ -794,3 +794,214 @@ def test_unbound_reviewed_property_durable_source_swap_expires_staff_dry_run():
     finally:
         db.close()
         engine.dispose()
+
+
+@pytest.mark.parametrize("resource,seed,match,request_cls,target_field", [
+    ("OWNERS", seed_owner, match_yardi_staged_owner, YardiOwnerMatchIn,
+     "target_owner_user_id"),
+    ("TENANTS", seed_tenant, match_yardi_staged_tenant, YardiTenantMatchIn,
+     "target_tenant_user_id"),
+])
+def test_unbound_reviewed_user_role_and_activity_revocation_expires_dry_run(
+    resource, seed, match, request_cls, target_field,
+):
+    """An unchanged source review does not make a deactivated user current."""
+    from datetime import datetime
+    from app.models.platform_migration import PlatformMigrationItem
+    from app.models.user import UserRole
+    from app.routers.yardi_migrations import get_yardi_review_dry_run_status
+
+    db, engine = _session()
+    try:
+        actor, org, user, run, row = seed(
+            db, slug=f"yardi-unbound-reviewed-user-revocation-{resource.lower()}"
+        )
+        assert match(
+            run.id, row.id, request_cls(**{target_field: user.id}), db, actor,
+        )["replayed"] is False
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["resource_coverage"][resource]["matched_existing"] == 1
+        initial = dry_run_yardi_review(run.id, db, actor)
+        assert initial["review_fingerprint"] == baseline["review_fingerprint"]
+
+        old_role = user.role
+        wrong_role = UserRole.TENANT if resource == "OWNERS" else UserRole.OWNER
+        changes = (
+            ("inactive", "is_active", False),
+            ("wrong_role", "role", wrong_role),
+            ("soft_deleted", "deleted_at", datetime.utcnow()),
+        )
+        for label, attribute, value in changes:
+            setattr(user, attribute, value)
+            db.commit()
+            stale = get_yardi_reconciliation(run.id, Response(), db, actor)
+            assert stale["resource_coverage"][resource]["matched_existing"] == 0, label
+            assert stale["resource_coverage"][resource]["needs_review"] == 1, label
+            assert stale["review_fingerprint"] != baseline["review_fingerprint"], label
+            saved = get_yardi_review_dry_run_status(
+                run.id, Response(), db, actor,
+            )
+            assert saved["is_current"] is False, label
+            assert saved["saved_review_fingerprint"] == initial["review_fingerprint"]
+
+            setattr(
+                user, attribute,
+                {"is_active": True, "role": old_role, "deleted_at": None}[attribute],
+            )
+            db.commit()
+            recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
+            assert recovered["review_fingerprint"] == baseline["review_fingerprint"]
+            assert recovered["resource_coverage"][resource]["matched_existing"] == 1
+            assert get_yardi_review_dry_run_status(
+                run.id, Response(), db, actor,
+            )["is_current"] is True
+
+        db.refresh(user)
+        assert user.hashed_password == "preserved-hash"
+        assert user.role == old_role and user.is_active is True
+        assert user.deleted_at is None
+        assert row.resolution_action == "MATCH_EXISTING"
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+        ).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_unbound_reviewed_vendor_soft_delete_expires_and_restores_dry_run():
+    """Vendor archival cannot reuse a current source review or dry-run snapshot."""
+    from datetime import datetime
+    from app.models.platform_migration import PlatformMigrationItem
+    from app.routers.yardi_migrations import get_yardi_review_dry_run_status
+
+    db, engine = _session()
+    try:
+        actor, org, vendor, run, row = seed_vendor(
+            db, slug="yardi-unbound-reviewed-vendor-soft-delete",
+        )
+        assert match_yardi_staged_vendor(
+            run.id, row.id, YardiVendorMatchIn(target_vendor_id=vendor.id),
+            db, actor,
+        )["replayed"] is False
+        original = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert original["resource_coverage"]["VENDORS"]["matched_existing"] == 1
+        saved = dry_run_yardi_review(run.id, db, actor)
+
+        vendor.deleted_at = datetime.utcnow()
+        db.commit()
+        stale = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert stale["resource_coverage"]["VENDORS"]["matched_existing"] == 0
+        assert stale["resource_coverage"]["VENDORS"]["needs_review"] == 1
+        assert stale["review_fingerprint"] != saved["review_fingerprint"]
+        expired = get_yardi_review_dry_run_status(run.id, Response(), db, actor)
+        assert expired["is_current"] is False
+        assert expired["saved_review_fingerprint"] == saved["review_fingerprint"]
+
+        vendor.deleted_at = None
+        db.commit()
+        recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert recovered["review_fingerprint"] == original["review_fingerprint"]
+        assert recovered["resource_coverage"]["VENDORS"]["matched_existing"] == 1
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is True
+        db.refresh(vendor)
+        assert vendor.company_name == "Untouched Vendor"
+        assert vendor.deleted_at is None
+        assert row.resolution_action == "MATCH_EXISTING"
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+        ).count() == 0
+        assert recovered["customer_business_mutation"] is False
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_unbound_vendor_review_dry_run_tracks_which_target_was_archived():
+    """Equal resource totals do not make a different stale Vendor interchangeable."""
+    from datetime import datetime
+    from app.models.platform_migration import PlatformMigrationItem
+    from app.models.vendor import Vendor
+    from app.routers.yardi_migrations import get_yardi_review_dry_run_status
+
+    db, engine = _session()
+    try:
+        actor, org, first_vendor, run, first_row = seed_vendor(
+            db, slug="yardi-reviewed-vendor-archival-swap",
+        )
+        second_vendor = Vendor(
+            organization_id=org.id, company_name="Untouched Second Vendor",
+        )
+        db.add(second_vendor)
+        db.commit()
+        upload = stage_yardi_file(
+            db, run=run, filename="second-reviewed-vendor.csv",
+            content=b"Vendor Ref,Company Name\nV-2,Second Source Vendor\n",
+            resource_override="VENDORS", sheet_name=None,
+            explicit_mapping={"source_id": "Vendor Ref", "name": "Company Name"},
+            platform_user_id=actor.id,
+        )
+        db.commit()
+        second_row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).one()
+        for row, vendor in ((first_row, first_vendor), (second_row, second_vendor)):
+            assert match_yardi_staged_vendor(
+                run.id, row.id, YardiVendorMatchIn(target_vendor_id=vendor.id),
+                db, actor,
+            )["replayed"] is False
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["resource_coverage"]["VENDORS"]["matched_existing"] == 2
+
+        first_vendor.deleted_at = datetime.utcnow()
+        db.commit()
+        first_stale = get_yardi_reconciliation(run.id, Response(), db, actor)
+        counts = first_stale["resource_coverage"]["VENDORS"]
+        assert counts["matched_existing"] == 1
+        assert counts["needs_review"] == 1
+        saved = dry_run_yardi_review(run.id, db, actor)
+        assert saved["review_fingerprint"] == first_stale["review_fingerprint"]
+
+        # Exchange only the fixture's unavailable customer target. Aggregate
+        # counters stay the same but a DIFFERENT source row is now stale.
+        first_vendor.deleted_at = None
+        second_vendor.deleted_at = datetime.utcnow()
+        db.commit()
+        second_stale = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert second_stale["resource_coverage"] == first_stale["resource_coverage"]
+        assert second_stale["review_fingerprint"] != first_stale["review_fingerprint"]
+        stale_status = get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )
+        assert stale_status["is_current"] is False
+        assert stale_status["saved_review_fingerprint"] == saved["review_fingerprint"]
+
+        first_vendor.deleted_at = datetime.utcnow()
+        second_vendor.deleted_at = None
+        db.commit()
+        restored_first = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert restored_first["review_fingerprint"] == first_stale["review_fingerprint"]
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is True
+
+        first_vendor.deleted_at = None
+        db.commit()
+        recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert recovered["review_fingerprint"] == baseline["review_fingerprint"]
+        assert recovered["resource_coverage"]["VENDORS"]["matched_existing"] == 2
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+        ).count() == 0
+        db.refresh(first_vendor)
+        db.refresh(second_vendor)
+        assert first_vendor.company_name == "Untouched Vendor"
+        assert second_vendor.company_name == "Untouched Second Vendor"
+        assert first_row.resolution_action == "MATCH_EXISTING"
+        assert second_row.resolution_action == "MATCH_EXISTING"
+        assert recovered["customer_business_mutation"] is False
+    finally:
+        db.close()
+        engine.dispose()

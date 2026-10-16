@@ -1935,3 +1935,40 @@ that saved fingerprint and exact current P-1 identity restores initial
 readiness. Customer Property name/address, staff review, and the absence of a
 current-run binding remain unchanged. Test-only addition; provisional until
 exact-SHA hosted CI. No unsupported API or customer mutations enabled.
+
+
+### Follow-up unbound reviewed Owner/Tenant live-role revalidation (2026-10-16)
+
+Parameterized PostgreSQL regression exercises a saved staff reviewed dry-run
+for unbound Owner and Tenant identities while the linked customer user's
+active flag, authorization role, and soft-delete flag each independently
+make the target ineligible. Readiness and exact dry-run currency must become
+stale, and restoring each original customer state must restore the exact
+review fingerprint without changing staff review or creating a new customer.
+These are test fixture mutations, NOT migration endpoint writes. Original
+customer password, source fingerprint and no-current-run-binding invariants
+are preserved. No tests deleted or weakened; pending exact-SHA hosted CI.
+
+
+### Unbound Vendor soft-delete dry-run fingerprint regression (2026-10-16)
+
+An additional explicitly reviewed unbound Vendor target regression now checks
+that customer-side Vendor soft-deletion invalidates existing staff dry-run
+currency without editing historical review or generating a new source mapping.
+Restoring that Vendor to active state restores exact private review evidence.
+Existing company name and all customer financial/Lease data are preserved.
+Regression-only, provisional pending exact-SHA six-job CI.
+
+
+### Stale Vendor target switch with identical run-level counters (2026-10-16)
+
+Two explicitly reviewed, unbound Yardi Vendor identities can have the same
+one-current/one-stale resource totals while the archived customer target
+switches from the first Vendor to the second. A focused PostgreSQL
+regression now saves a dry-run at the first classification, exchanges
+fixture soft-delete states, and requires a distinct exact review fingerprint
+and stale status despite unchanged aggregate counters. Restoring the first
+archived target restores saved current status; fully restoring both targets
+restores baseline readiness. No migration customer-record mutation,
+new mapping, identity overwrite, accounting/Lease/occupancy posting or
+undocumented Yardi API is introduced. Test-only and provisional until CI.

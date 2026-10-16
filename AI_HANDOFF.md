@@ -1,3 +1,33 @@
+# 2026-10-16 | Consolidated next Yardi eligibility regression milestone
+
+Repository: `yasirskhan/property-platform`
+Only branch: `chatgpt/checkpoint-005-safety`; never main/force-push.
+Published prerequisite: `8daea5ce91755c36e4606ff900bcc5e87df8acfe`,
+GitHub Actions `38961595055` (check live conclusion; initially running).
+Verified parent before that: `291dabc92608548123cf2c178bcc1c2013888854`,
+CI `38959908638` SUCCESS all six jobs.
+
+This combined test-only milestone adds 3 related protections:
+1. Owner and Tenant staff-reviewed unbound source identities must become stale
+   if their customer account is inactive, changed to the wrong role, or soft-deleted.
+2. Vendor staff-reviewed unbound source must become stale when vendor is archived.
+3. Two Vendor targets exchanging archival status must produce different source-exact
+   dry-run fingerprints even when overall matched/needs_review counters are identical.
+In every scenario exact target restoration recovers readiness or the saved
+snapshot; preserved customer values, source decisions and no current-run
+binding remain asserted. No production/customer data mutation, API, GL,
+Lease/occupancy posting or unsupported source contract is added.
+
+**PROVISIONAL UNTIL HOSTED CI on exact new commit.** Compare full diff against
+`docs/YARDI_MIGRATION_PLAN.md` and root handoff before publication.
+No tests removed or weakened and no original unspecified Sections 133–135
+invented. Verify the live branch HEAD and six successful parent CI jobs,
+then use non-force expected-HEAD fast-forward. New commit requires its own
+six-job hosted CI before VERIFIED. Continue independent bounded work without
+blocking on unrelated E2E timing flake.
+
+---
+
 # 2026-10-16 | Grouped unbound reviewed identity source-claim safety
 
 This combined metadata-only Yardi regression milestone covers Property,
