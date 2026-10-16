@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy import event
 
 from app.models.lease import Lease
-from app.models.platform_migration import PlatformMigrationRun, PlatformMigrationStagedRow
+from app.models.platform_migration import PlatformMigrationRun, PlatformMigrationUpload, PlatformMigrationStagedRow
 from app.routers.yardi_migrations import accept_yardi_staged_lease_relationship
 from app.services.yardi_file_ingestion import stage_yardi_file
 from test_yardi_lease_identity_acceptance import _seed
@@ -233,6 +233,59 @@ def test_historical_claim_from_other_organization_does_not_block_lease_replay():
         foreign_review.resolution_action = "MATCH_EXISTING"
         foreign_review.source_id = None
         foreign_review.resolution_target_id = prop.id
+        db.commit()
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease.id, db, actor,
+        )["replayed"] is True
+        db.refresh(prop)
+        db.refresh(unit)
+        db.refresh(tenant)
+        assert prop.name == "Original" and unit.property_id == prop.id
+        assert tenant.hashed_password == "unchanged-password-hash"
+        assert db.query(Lease).count() == before_leases
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_other_provider_historical_claim_cannot_block_yardi_lease_acceptance():
+    """Historical AppFolio review of the same customer target stays isolated."""
+    db, engine = _session()
+    try:
+        actor, org, run, prop, alternate, unit, tenant, lease = _seed(
+            db, slug="yardi-lease-cross-provider-target-claim",
+        )
+        before_leases = db.query(Lease).count()
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease.id, db, actor,
+        )["replayed"] is False
+
+        other_run = PlatformMigrationRun(
+            organization_id=org.id, provider="APPFOLIO",
+            source_account_ref="separate-provider", status="DRAFT",
+        )
+        db.add(other_run)
+        db.flush()
+        upload = PlatformMigrationUpload(
+            organization_id=org.id, run_id=other_run.id, provider="APPFOLIO",
+            filename="appfolio-historical-property.csv", file_format="CSV",
+            file_sha256="a" * 64, normalized_fingerprint="b" * 64,
+            detected_resource="PROPERTIES", sheet_name="",
+            headers=["id"], column_mapping={"source_id": "id"},
+            validation_summary={}, status="STAGED", row_count=1,
+            created_by_platform_user_id=actor.id,
+        )
+        db.add(upload)
+        db.flush()
+        retained = PlatformMigrationStagedRow(
+            upload_id=upload.id, run_id=other_run.id, organization_id=org.id,
+            provider="APPFOLIO", resource="PROPERTIES", row_number=1,
+            source_id=None, disposition="READY", row_fingerprint="c" * 64,
+            normalized_data={"source_id": None}, correction_evidence=[],
+            warnings=[], errors=[], resolution_action="MATCH_EXISTING",
+            resolution_target_id=prop.id,
+        )
+        db.add(retained)
         db.commit()
         assert accept_yardi_staged_lease_relationship(
             run.id, lease.id, db, actor,

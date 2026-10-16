@@ -1715,3 +1715,14 @@ PROVISIONAL until their own exact published SHA succeeds in hosted CI.
 No customer business, Lease, finance or undocumented API write is enabled.
 Sections 133–135 have no recovered authoritative specification or source
 object in the published branch and are not claimed implemented.
+
+### Prepared §131 provider isolation regression (not yet published)
+
+In addition to historical Yardi Property/Unit/Tenant NULL-source collisions
+and foreign-organization isolation, the reviewed-target query must ignore a
+retained APPFOLIO reviewed Property with a NULL source ID even within the
+same organization. A focused PostgreSQL regression explicitly creates
+provider-scoped migration metadata, checks successful YARDI acceptance replay
+and preserves customer target and Lease count. No production code change,
+unsupported API or customer record write. Candidate detached pending parent
+exact-SHA six-job CI and its own future exact-SHA verification.

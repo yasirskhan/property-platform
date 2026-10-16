@@ -1,3 +1,19 @@
+# PREPARED ONLY: Section 131 historical provider isolation regression
+
+The follow-on candidate adds a same-organization APPFOLIO migration run,
+upload and retained reviewed Property row with unknown historical source
+claiming the same existing customer Property target. Accepted YARDI Lease
+source replay must remain valid because the provider is not YARDI, while
+customer Property/Unit/Tenant and Lease count remain unchanged.
+This is a PostgreSQL test-only metadata fixture, not a new import API,
+business mutation or source-contract assumption. The candidate is DETACHED,
+NOT PUBLISHED, and its parent `2510bf93b48dca8bbd4dbedee99905a849016b2a` must pass all six exact-SHA
+hosted jobs first. Keep the sole branch safe and fix reds without weakening
+the assertion. All prior §§118–132 were VERIFIED by run 38912065447.
+Sections 133–135 still have no authoritative live source/spec.
+
+---
+
 # YARDI PHASE 4.15 | §§118–132 VERIFIED AT EXACT SOURCE SHA
 
 **Verification:** `74e7e33e3b331992497dd7a03415ec31225daaff`, GitHub Actions run
