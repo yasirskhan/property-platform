@@ -1,3 +1,44 @@
+# 2026-10-16 YARDI PHASE 4.15: EXACT-SHA VERIFIED AND NEXT SOURCE BATCH
+
+**Last EXACT VERIFIED source:** `be8522586a711b074e7d24405bf5e03247011450` GitHub Actions
+`38947446055` SUCCESS all six jobs: fast Yardi PostgreSQL gate, complete
+backend/PostgreSQL **1346 passed, 21 deselected**, frontend, security,
+platform-admin, authenticated E2E and staging-config. This establishes
+the additional exact historical staff-reviewed source provenance in
+private Lease and Property/Unit/Owner/Vendor/Tenant readiness fingerprints,
+NULL-safe and provider/organization scoped. It preserves existing
+reviewed target collision refusal, accepted Lease source safety,
+replay/dry-run status, source-repair regressions and no customer mutation.
+Earlier `c4bd306` CI `38945258561` also SUCCESS six jobs.
+
+**CURRENT PROVISIONAL SOURCE MILESTONE:** A prepared fast-forward descendant
+extends the same private fingerprint exact-source requirement to
+historical durable identity mapping source/target conflicts, even if
+resource counters do not change, plus original Unit's Property
+parent contested by historic durable/staff-reviewed source IDs.
+It covers reviewed/unreviewed Unit original parent and staff-reviewed
+Property/Unit/Owner/Vendor/Tenant identities, including current-run
+MATCH_EXISTING metadata that has NOT yet been durably bound. New
+PostgreSQL regressions test conflicting durable source swaps, source
+recovery and unchanged customer Vendor, Property/Unit/Tenant records.
+Uses the existing scoped historical projection with no extra SQL,
+no new external/API source contract and no customer Lease, occupancy,
+financial or ownership write. This new exact source SHA is NOT VERIFIED
+until its own all-six-job hosted CI succeeds.
+
+**NEXT numbered Sections 133–135:** No authoritative original
+specification or detached SHA recovered from published Yardi plan or
+handoff. Do not invent these tasks. Work only on independently
+supportable review/reconciliation safety requirements.
+
+**Hard governance:** Repository `yasirskhan/property-platform`.
+ONLY `chatgpt/checkpoint-005-safety`; never main/new branch/force push.
+Continue one bounded implement -> tests -> commit -> hosted CI ->
+repair reds -> exact-SHA verify -> update AI_HANDOFF -> next batch.
+No Work mode.
+
+---
+
 # DETACHED EXTENSION: UNBOUND REVIEWED IDENTITY DURABLE-CLAIM PROVENANCE
 
 A staff MATCH_EXISTING review of Property/Unit/Owner/Vendor/Tenant can

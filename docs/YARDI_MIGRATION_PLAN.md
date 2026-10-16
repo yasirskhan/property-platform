@@ -1874,3 +1874,19 @@ source OLD-V-1 -> OLD-V-2 with unchanged stale counts, requiring a distinct
 fingerprint, and verifies exact conflict and same-source recovery without
 modifying customer Vendor. Detached and provisional until safe publication
 and all six hosted CI jobs verify exact source.
+
+### Exact six-job verified reviewed-source fingerprint and next durable-claim batch
+
+Source `be8522586a711b074e7d24405bf5e03247011450` verified by hosted Actions `38947446055`
+SUCCESS six jobs including complete backend/PostgreSQL 1346 passed,
+21 deselected. Its scoped historical reviewed-source exact fingerprint
+corrections and NULL-safe Lease/five-resource readiness, dry-run/status,
+replay/preview and org/provider isolation guards are VERIFIED.
+Next provisional source keeps historical durable mapping contradictions
+and original Unit parent staff/durable reviewed claims source-exact in
+the PRIVATE run fingerprint, including a current MATCH_EXISTING row
+not yet bound durably. Existing PostgreSQL gate expands source-swap
+and exact recovery regressions across staff Vendor/Owner/Tenant and
+reviewed/unreviewed Unit. Zero additional SQL, customer business
+record mutation, owner allocation or unsupported API/financial posting.
+Full new exact-source CI required, no §§133–135 requirements invented.
