@@ -1689,3 +1689,14 @@ customer business records, and keep Sections 133–135 undefined until their
 original specification is recovered. This is further coverage of §131, not
 an invented new roadmap section. Prepared commit is DETACHED until its
 parent is fully verified; run all six hosted jobs on its final published SHA.
+
+### Additional prepared §131 organization-boundary negative-path regression
+
+A historical Yardi reviewed Property claim in a DIFFERENT organization,
+even if corrupted metadata references the current organization's customer
+Property ID and the provider source ID is NULL, must not block a valid
+same-organization replay. The additional fast-gated PostgreSQL test asserts
+this scoping and unchanged customer records, without creating any customer
+business relation or altering production code. This remains detached and
+unverified until parent exact-SHA CI is green and the candidate is safely
+published with expected-HEAD fast-forward.

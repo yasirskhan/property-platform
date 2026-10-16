@@ -1,3 +1,10 @@
+Detached §131 review-isolation follow-up: added a foreign-organization
+historical NULL-source Property review claiming the current organization's
+customer Property ID, and asserted that accepted Lease source replay remains
+valid and customer records stay unchanged. This is diagnostic metadata-only
+negative-path regression, never a cross-org customer binding. Supersedes the
+prior prepared child as the single candidate after exact parent CI passes.
+
 The additional candidate regression's staged CSV byte fixtures have actual Python newline escapes (`\\n` in source), not literal backslash-n bytes; supersedes earlier detached draft c153e6e0. Still DETACHED and unverified.
 
 # FOLLOW-UP §131 UNIT/TENANT NULL CLAIM REGRESSION (DETACHED PREPARATION)

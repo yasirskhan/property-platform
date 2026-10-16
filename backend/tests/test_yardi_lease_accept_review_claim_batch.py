@@ -8,7 +8,7 @@ from app.models.platform_migration import PlatformMigrationRun, PlatformMigratio
 from app.routers.yardi_migrations import accept_yardi_staged_lease_relationship
 from app.services.yardi_file_ingestion import stage_yardi_file
 from test_yardi_lease_identity_acceptance import _seed
-from test_yardi_migrations import _session
+from test_yardi_migrations import _org, _session
 
 
 def _is_batched_review_claim_select(statement: str) -> bool:
@@ -190,6 +190,58 @@ def test_batched_claims_refuse_unknown_unit_and_tenant_sources_then_recover():
         assert unit.property_id == prop.id
         assert tenant.hashed_password == "unchanged-password-hash"
         assert lease.resolution_action == "ACCEPT_RELATIONSHIP"
+        assert db.query(Lease).count() == before_leases
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_historical_claim_from_other_organization_does_not_block_lease_replay():
+    """A foreign organization's NULL-source claim must not leak into this run."""
+    db, engine = _session()
+    try:
+        actor, org, run, prop, alternate, unit, tenant, lease = _seed(
+            db, slug="yardi-lease-cross-org-review-claim",
+        )
+        before_leases = db.query(Lease).count()
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease.id, db, actor,
+        )["replayed"] is False
+
+        foreign_org = _org(db, "yardi-lease-cross-org-review-claim-foreign")
+        foreign_run = PlatformMigrationRun(
+            organization_id=foreign_org.id, provider="YARDI",
+            source_account_ref="unrelated-org-retained-review", status="DRAFT",
+        )
+        db.add(foreign_run)
+        db.flush()
+        upload = stage_yardi_file(
+            db, run=foreign_run, filename="foreign-property.csv",
+            content=b"ID,Name,Street,City,State,Zip\nX1,Other,1 Main,Cleveland,OH,44113\n",
+            resource_override="PROPERTIES", sheet_name=None,
+            explicit_mapping={
+                "source_id": "ID", "name": "Name", "address_line1": "Street",
+                "city": "City", "state": "State", "zip_code": "Zip",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        foreign_review = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).one()
+        # The relationship is intentionally inconsistent to ensure a
+        # corrupted foreign-organization review cannot claim this org's target.
+        foreign_review.resolution_action = "MATCH_EXISTING"
+        foreign_review.source_id = None
+        foreign_review.resolution_target_id = prop.id
+        db.commit()
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease.id, db, actor,
+        )["replayed"] is True
+        db.refresh(prop)
+        db.refresh(unit)
+        db.refresh(tenant)
+        assert prop.name == "Original" and unit.property_id == prop.id
+        assert tenant.hashed_password == "unchanged-password-hash"
         assert db.query(Lease).count() == before_leases
     finally:
         db.close()
