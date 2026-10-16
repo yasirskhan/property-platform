@@ -1,3 +1,30 @@
+# DETACHED SOURCE MILESTONE: FIVE-RESOURCE HISTORICAL REVIEW PROVENANCE
+
+Read-only Yardi `get_yardi_reconciliation` row readiness for
+Property/Unit/Owner/Vendor/Tenant historically only fingerprints a
+REVIEWED_STALE or DURABLE_STALE status. A different competing reviewed
+provider source ID can leave identical resource totals and stale status
+while changing the retained claim that requires an exact new review.
+
+This prepared child adds deterministic, NULL-safe sorted historical
+competing source evidence to each current/stale reviewed and durable
+identity row's *private fingerprint input*, reusing the existing
+organization/provider/target-scoped query. No new queries, auth gates,
+API fields, source contracts or customer data writes. Existing resource
+readiness decisions are unchanged. Focused fast-gated Vendor regression
+changes V-THIRD -> V-FOURTH with unchanged collision counters and asserts
+different fingerprint, then exact original source restoration returns
+the original fingerprint before running existing target-swap regression.
+No old tests removed or weakened.
+
+This candidate is DETACHED from the source-fix milestone and must not be
+published before the previously published `c4bd306c7e055ac991e49115e13c9ffbad5596b7`
+passes all six hosted jobs at run `38945258561`. Preserve the sole
+branch and expected-HEAD safety; do not claim VERIFIED without own CI.
+No unauthorized Yardi API/accounting/Lease/occupancy write enabled.
+
+---
+
 # DETACHED NEXT SOURCE MILESTONE: EXACT REVIEW-SNAPSHOT STALENESS
 
 This follow-up extends the historical competing source-ID fingerprint

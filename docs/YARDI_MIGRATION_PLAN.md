@@ -1792,3 +1792,16 @@ a new explicit reviewed dry-run records the current fingerprint. This
 covers stable idempotency and source-exact readiness without any customer
 Lease, occupancy, balance, GL, payment or identity mutation. DETACHED,
 pending prior milestone CI and own future six-job verification.
+
+### Prepared exact historical identity reviewed-claim evidence (all five resources)
+
+Property/Unit/Owner/Vendor/Tenant stale/current row review fingerprint
+status previously recorded only a status string. The prepared source-level
+change attaches deterministic NULL-safe sorted competing historical reviewed
+source IDs for the exact target to the private per-row readiness evidence.
+A focused existing Vendor PostgreSQL regression changes one competing
+historical Vendor source ID to another without changing mapped/stale counts,
+requires a changed fingerprint, then restores the original source/fingerprint
+before the existing target-swap checks. No additional SELECT, user-facing
+API change, customer business mutation or unsupported provider field. This
+is DETACHED pending previous and own exact-SHA six-job verification.

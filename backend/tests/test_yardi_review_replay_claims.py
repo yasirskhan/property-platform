@@ -410,6 +410,18 @@ def test_reconciliation_fingerprint_changes_when_competing_target_swaps_but_tota
         assert first_collision["resource_coverage"]["VENDORS"]["mapped"] == 1
         assert first_collision["resource_coverage"]["VENDORS"]["needs_review"] == 1
 
+        # The same Vendor target stays contested after historical source ID
+        # changes. Identical counters may not reuse the same fingerprint.
+        competing.source_id = "V-FOURTH"
+        db.commit()
+        changed_source = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert changed_source["resource_coverage"] == first_collision["resource_coverage"]
+        assert changed_source["review_fingerprint"] != first_collision["review_fingerprint"]
+        competing.source_id = "V-THIRD"
+        db.commit()
+        original_source = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert original_source["review_fingerprint"] == first_collision["review_fingerprint"]
+
         # Same reviewed staff action and aggregate totals, different contested
         # customer target and different source row no longer considered ready.
         competing.resolution_target_vendor_id = second_vendor.id

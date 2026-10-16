@@ -1740,16 +1740,27 @@ def get_yardi_reconciliation(
             )
         )
 
-    def claimed_by_other_review(row, target_id):
-        return (
-            target_id is not None
-            and any(
-                other_source_id != row.source_id
-                for other_source_id in reviewed_claim_sources.get(
-                    (row.resource, target_id), ()
+    def competing_review_sources(resource, target_id, source_id):
+        """Exact, NULL-safe retained competing provider source evidence."""
+        if target_id is None:
+            return ()
+        return tuple(sorted(
+            (
+                historic_source
+                for historic_source in reviewed_claim_sources.get(
+                    (resource, target_id), ()
                 )
-            )
-        )
+                if historic_source != source_id
+            ),
+            key=lambda historic_source: (
+                historic_source is not None, historic_source or "",
+            ),
+        ))
+
+    def claimed_by_other_review(row, target_id):
+        return bool(competing_review_sources(
+            row.resource, target_id, row.source_id,
+        ))
 
     resources: dict[str, dict[str, int]] = {}
     unresolved = invalid = skipped = 0
@@ -1838,11 +1849,17 @@ def get_yardi_reconciliation(
                 target_valid = False
             if target_valid:
                 stats["matched_existing"] += 1
-                row_readiness_evidence.append((row.id, "REVIEWED_CURRENT"))
+                row_readiness_evidence.append((
+                    row.id, "REVIEWED_CURRENT",
+                    competing_review_sources(row.resource, reviewed_target, row.source_id),
+                ))
             else:
                 unresolved += 1
                 stats["needs_review"] += 1
-                row_readiness_evidence.append((row.id, "REVIEWED_STALE"))
+                row_readiness_evidence.append((
+                    row.id, "REVIEWED_STALE",
+                    competing_review_sources(row.resource, reviewed_target, row.source_id),
+                ))
         elif row.resource == "LEASE_OCCUPANCY" and row.resolution_action == "ACCEPT_RELATIONSHIP":
             # This count means staff recorded identity review, NOT that lease,
             # occupancy, financial records or current targets are commit-ready.
@@ -1887,11 +1904,17 @@ def get_yardi_reconciliation(
                 target_current = False
             if target_current:
                 stats["mapped"] += 1
-                row_readiness_evidence.append((row.id, "DURABLE_CURRENT"))
+                row_readiness_evidence.append((
+                    row.id, "DURABLE_CURRENT",
+                    competing_review_sources(row.resource, binding.target_id, row.source_id),
+                ))
             else:
                 unresolved += 1
                 stats["needs_review"] += 1
-                row_readiness_evidence.append((row.id, "DURABLE_STALE"))
+                row_readiness_evidence.append((
+                    row.id, "DURABLE_STALE",
+                    competing_review_sources(row.resource, binding.target_id, row.source_id),
+                ))
         else:
             unresolved += 1
             stats["needs_review"] += 1
