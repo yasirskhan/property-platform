@@ -1726,3 +1726,13 @@ provider-scoped migration metadata, checks successful YARDI acceptance replay
 and preserves customer target and Lease count. No production code change,
 unsupported API or customer record write. Candidate detached pending parent
 exact-SHA six-job CI and its own future exact-SHA verification.
+
+### Prepared §131 known-different and NULL Unit/Tenant source protection
+
+In the detached fast-gated PostgreSQL regression, a historical YARDI
+Unit or Tenant target review with an unknown NULL source AND a known
+different source ID must both block accepted Lease replay (409).
+Only restoration to the exact original reviewed provider source ID restores
+replay, with unchanged customer records. This complements separately
+prepared provider-isolation coverage. Not published or verified; no
+production code changes or invented §§133–135 contracts.

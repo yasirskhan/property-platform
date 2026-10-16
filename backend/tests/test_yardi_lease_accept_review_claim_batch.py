@@ -175,6 +175,14 @@ def test_batched_claims_refuse_unknown_unit_and_tenant_sources_then_recover():
                 accept_yardi_staged_lease_relationship(run.id, lease.id, db, actor)
             assert conflict.value.status_code == 409, resource
 
+            # A recoverable but DIFFERENT provider source ID is also a
+            # competing claim; only the exact original source may recover.
+            historical.source_id = "OTHER-" + resource
+            db.commit()
+            with pytest.raises(HTTPException) as different_source:
+                accept_yardi_staged_lease_relationship(run.id, lease.id, db, actor)
+            assert different_source.value.status_code == 409, resource
+
             historical.source_id = original_source
             db.commit()
             replay = accept_yardi_staged_lease_relationship(

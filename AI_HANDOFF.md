@@ -1,3 +1,17 @@
+# NEXT DETACHED §131 SAFETY BATCH (NOT PUBLISHED)
+
+In addition to the prepared same-organization APPFOLIO provider-isolation
+regression, Unit and Tenant source-identity collision tests now exercise
+BOTH unknown NULL historical IDs and known DIFFERENT historical IDs. Both
+must return 409 until the retained source becomes the exact same provider ID
+for the already reviewed customer target. No existing test/assertion removed,
+no production logic changed, and zero customer Lease/payment/record mutation.
+Original parent `2510bf93b48dca8bbd4dbedee99905a849016b2a` is in hosted CI `38914698146`;
+do not move the sole branch until all six jobs succeed on that exact SHA.
+This detached candidate is provisional and not verified.
+
+---
+
 # PREPARED ONLY: Section 131 historical provider isolation regression
 
 The follow-on candidate adds a same-organization APPFOLIO migration run,
