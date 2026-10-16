@@ -1,3 +1,31 @@
+# 2026-10-16 | DETACHED subsequent Property/Unit reviewed-target swap evidence
+
+A second focused descendant now expands the exact private reviewed
+dry-run fingerprint test gate from Owner/Tenant/Vendor eligibility swaps
+to Property/Unit target eligibility swaps. Two reviewed rows retain equal
+aggregate readiness after an inactive/soft-delete status moves from one
+customer target to the other. It must EXPIRE the saved reviewed dry run,
+restore only when original target staleness is restored, and finally
+return baseline when both are valid. Separate Property and Unit cases
+preserve unchanged customer fields and Unit's original durable Property
+parent, original staff reviews, no new identity binding and no product
+customer mutation. Test-only, plus Yardi plan and this handoff. The test
+file already belongs to the hosted fast PostgreSQL gate. No existing
+test removed or weakened; no unsupported Yardi API, Lease/occupancy,
+finance or owner allocations enabled.
+
+This descendant is DETACHED from
+b22ae32b076a2764e6044cf5e7ff56fb7d0ed8b8, itself detached from
+9666ef2d866dadd1fb679ae557c4daf1f1bd96d0. The latter was published
+by non-force expected-HEAD fast-forward after parent source
+8daea5ce91755c36e4606ff900bcc5e87df8acfe passed all six jobs,
+GitHub Actions 38961595055. Its new CI is 38963664421, pending.
+Advance children strictly when each prior exact SHA passes six jobs,
+checking the live branch between updates. Sole branch, no main/new branch,
+no force push, no fabricated Yardi §§133–135.
+
+---
+
 # 2026-10-16 | DETACHED subsequent Owner/Tenant equal-total eligibility evidence
 
 Prepared next regression-only descendant of

@@ -1991,3 +1991,23 @@ Prepared detached from the preceding eligibility regression candidate
 9666ef2d866dadd1fb679ae557c4daf1f1bd96d0; publish after predecessor
 passes exact-SHA hosted CI and live branch HEAD is verified. This child
 requires its own all-six-job CI before VERIFIED. §§133–135 remain unspecified.
+
+
+### Prepared reviewed Property/Unit equal-total target eligibility swap (2026-10-16)
+
+Expands the existing fast-gated Yardi read-only unbound MATCH_EXISTING
+source-target readiness tests to two independently reviewed existing
+Properties or two existing Units under one durable original Property
+parent. An inactive or soft-deleted first customer target makes one
+source stale, then the identical status moves to the other reviewed
+target with the SAME per-resource aggregate counters. The exact private
+review fingerprint and saved dry-run status must change, and must
+return to the original fingerprint when the original target is
+restored to the same invalid state. Restoring both customer targets
+recovers baseline ready review. Original customer names/unit numbers,
+parent relationship, staff decisions and absence of newly bound identity
+mappings are asserted. Regression only, no changes to production router,
+Yardi source contract, Lease/occupancy or financial/ownership posting.
+Prepared detached after the equal-total Owner/Tenant candidate; requires
+prerequisite exact-SHA green hosted CI and its own green all-six-job CI
+when published. Does not invent absent §§133–135 requirements.

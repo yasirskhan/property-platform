@@ -1111,3 +1111,156 @@ def test_unbound_reviewed_user_eligibility_swap_expires_equal_count_dry_run(
     finally:
         db.close()
         engine.dispose()
+
+
+@pytest.mark.parametrize("resource", ["PROPERTIES", "UNITS"])
+@pytest.mark.parametrize("invalid_field", ["is_active", "deleted_at"])
+def test_unbound_reviewed_inventory_eligibility_swap_expires_equal_count_dry_run(
+    resource, invalid_field,
+):
+    """Property/Unit reviewed target swaps need exact stale-row evidence."""
+    from datetime import datetime
+    from app.models.platform_migration import PlatformMigrationItem
+    from app.models.platform_user import PlatformUserRole
+    from app.models.property import Property, Unit
+    from app.routers.yardi_migrations import (
+        YardiPropertyMatchIn, YardiUnitMatchIn, get_yardi_review_dry_run_status,
+        match_yardi_staged_property, match_yardi_staged_unit,
+    )
+    from test_yardi_migrations import _org, _platform_user
+
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(
+            db, f"yardi-inventory-target-swap-{resource.lower()}-{invalid_field}",
+        )
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="reviewed-inventory-status-swap", status="DRAFT",
+        )
+        parent = Property(
+            organization_id=org.id, name="Unchanged Unit Parent",
+            address_line1="1 Parent", city="Cleveland", state="OH", zip_code="44113",
+        )
+        db.add_all([run, parent])
+        db.flush()
+
+        if resource == "PROPERTIES":
+            first = Property(
+                organization_id=org.id, name="Unchanged First Property",
+                address_line1="2 First", city="Cleveland", state="OH", zip_code="44113",
+            )
+            second = Property(
+                organization_id=org.id, name="Unchanged Second Property",
+                address_line1="3 Second", city="Cleveland", state="OH", zip_code="44113",
+            )
+            db.add_all([first, second])
+            db.commit()
+            upload = stage_yardi_file(
+                db, run=run, filename="reviewed-property-target-swap.csv",
+                content=(
+                    b"ID,Name,Street,City,State,Zip\n"
+                    b"P-1,First Source,2 First,Cleveland,OH,44113\n"
+                    b"P-2,Second Source,3 Second,Cleveland,OH,44113\n"
+                ),
+                resource_override="PROPERTIES", sheet_name=None,
+                explicit_mapping={
+                    "source_id": "ID", "name": "Name", "address_line1": "Street",
+                    "city": "City", "state": "State", "zip_code": "Zip",
+                },
+                platform_user_id=actor.id,
+            )
+            match = match_yardi_staged_property
+            payload_type = YardiPropertyMatchIn
+            target_field = "target_property_id"
+        else:
+            first = Unit(property_id=parent.id, unit_number="101", is_active=True)
+            second = Unit(property_id=parent.id, unit_number="102", is_active=True)
+            db.add_all([first, second])
+            db.add(PlatformMigrationItem(
+                run_id=run.id, organization_id=org.id, provider="YARDI",
+                resource="PROPERTIES", source_id="P-PARENT",
+                target_entity="PROPERTY", target_id=parent.id,
+                source_fingerprint="original-parent-evidence",
+            ))
+            db.commit()
+            upload = stage_yardi_file(
+                db, run=run, filename="reviewed-unit-target-swap.csv",
+                content=b"ID,Parent,Label\nU-1,P-PARENT,101\nU-2,P-PARENT,102\n",
+                resource_override="UNITS", sheet_name=None,
+                explicit_mapping={
+                    "source_id": "ID", "source_property_id": "Parent",
+                    "unit_name": "Label",
+                },
+                platform_user_id=actor.id,
+            )
+            match = match_yardi_staged_unit
+            payload_type = YardiUnitMatchIn
+            target_field = "target_unit_id"
+        db.commit()
+        staged = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).order_by(PlatformMigrationStagedRow.id.asc()).all()
+        assert len(staged) == 2
+        for row, target in zip(staged, (first, second)):
+            assert match(
+                run.id, row.id, payload_type(**{target_field: target.id}), db, actor,
+            )["replayed"] is False
+
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["resource_coverage"][resource]["matched_existing"] == 2
+        assert baseline["resource_coverage"][resource]["needs_review"] == 0
+
+        original = getattr(first, invalid_field)
+        invalid = False if invalid_field == "is_active" else datetime.utcnow()
+        setattr(first, invalid_field, invalid)
+        db.commit()
+        first_stale = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert first_stale["resource_coverage"][resource]["matched_existing"] == 1
+        assert first_stale["resource_coverage"][resource]["needs_review"] == 1
+        saved = dry_run_yardi_review(run.id, db, actor)
+        assert saved["review_fingerprint"] == first_stale["review_fingerprint"]
+
+        setattr(first, invalid_field, original)
+        setattr(second, invalid_field, invalid)
+        db.commit()
+        second_stale = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert second_stale["resource_coverage"] == first_stale["resource_coverage"]
+        assert second_stale["review_fingerprint"] != first_stale["review_fingerprint"]
+        status = get_yardi_review_dry_run_status(run.id, Response(), db, actor)
+        assert status["is_current"] is False
+        assert status["saved_review_fingerprint"] == saved["review_fingerprint"]
+
+        setattr(first, invalid_field, invalid)
+        setattr(second, invalid_field, original)
+        db.commit()
+        restored = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert restored["review_fingerprint"] == first_stale["review_fingerprint"]
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is True
+
+        setattr(first, invalid_field, original)
+        db.commit()
+        recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert recovered["review_fingerprint"] == baseline["review_fingerprint"]
+        assert recovered["resource_coverage"][resource]["matched_existing"] == 2
+        assert recovered["resource_coverage"][resource]["needs_review"] == 0
+        assert recovered["customer_business_mutation"] is False
+        assert all(row.resolution_action == "MATCH_EXISTING" for row in staged)
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == resource,
+        ).count() == 0
+        db.refresh(first)
+        db.refresh(second)
+        if resource == "PROPERTIES":
+            assert first.name == "Unchanged First Property"
+            assert second.name == "Unchanged Second Property"
+        else:
+            assert first.unit_number == "101" and first.property_id == parent.id
+            assert second.unit_number == "102" and second.property_id == parent.id
+    finally:
+        db.close()
+        engine.dispose()
