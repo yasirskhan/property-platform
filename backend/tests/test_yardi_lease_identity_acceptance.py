@@ -1,5 +1,6 @@
 """Yardi lease identity acceptance records review metadata only; never a Lease."""
 import pytest
+from sqlalchemy import event
 from fastapi import HTTPException, Response
 
 from app.models.lease import Lease
@@ -968,6 +969,59 @@ def test_yardi_lease_review_fingerprint_changes_when_stale_target_swaps_with_equ
         assert swapped["lease_relationship_readiness"] == first_conflict["lease_relationship_readiness"]
         assert swapped["resource_coverage"] == first_conflict["resource_coverage"]
         assert swapped["review_fingerprint"] != first_conflict["review_fingerprint"]
+
+        # Historical unknown-source reviewed evidence must still contest the
+        # target in both read-only Lease views after batching the claim lookup.
+        competitor.source_id = None
+        db.commit()
+        unknown = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert unknown["lease_relationship_readiness"]["identity_target_review_collisions"] == 1
+        assert unknown["lease_relationship_readiness"]["accepted_relationship_stale"] == 1
+        assert unknown["lease_relationship_readiness"]["complete_identity_links"] == 1
+        preview = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )
+        assert sum(
+            "TENANT_TARGET_REVIEW_COLLISION" in row["blockers"]
+            for row in preview["items"]
+        ) == 1
+        assert next(
+            row for row in preview["items"] if row["source_id"] == "L2"
+        )["relationship_review_current"] is False
+
+        # A second reviewable Lease must not add per-row target-claim SELECTs.
+        def select_count(fn):
+            statements = []
+            def observe(connection, cursor, statement, parameters, context, executemany):
+                if statement.lstrip().upper().startswith("SELECT"):
+                    statements.append(statement)
+            event.listen(engine, "before_cursor_execute", observe)
+            try:
+                fn()
+            finally:
+                event.remove(engine, "before_cursor_execute", observe)
+            return len(statements)
+
+        def summarize():
+            return get_yardi_reconciliation(run.id, Response(), db, actor)
+
+        def preview_rows():
+            return list_yardi_lease_relationships(
+                run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+            )
+
+        # Warm ORM state consistently so expiration after commit does not
+        # masquerade as a per-Lease SQL query-count regression.
+        summarize()
+        preview_rows()
+        with_two_summary = select_count(summarize)
+        with_two_preview = select_count(preview_rows)
+        second_lease.resolution_action = "SKIP"
+        db.commit()
+        summarize()
+        preview_rows()
+        assert select_count(summarize) == with_two_summary
+        assert select_count(preview_rows) == with_two_preview
         assert db.query(Lease).count() == 0
         db.refresh(tenant1)
         db.refresh(tenant2)

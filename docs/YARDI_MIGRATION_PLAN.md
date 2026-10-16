@@ -694,4 +694,17 @@ evidence. It changes when an external reviewed target claim moves between
 two accepted lease source rows even though all aggregate counts remain
 the same. A two-tenant, two-source-row regression checks the fingerprint
 changes while customer records are untouched. Lease creation and financial
-posting remain disabled. Requires exact-SHA six-job CI verification.
+posting remain disabled. VERIFIED at exact SHA `3fba1305ce001ac7e83a1bcc2d54c8759a6d92c3`,
+GitHub Actions `38827781535` SUCCESS (all six required jobs).
+
+## 54. Batch reviewed target claims for lease summary and preview (2026-10-15)
+
+The read-only per-Lease source relationship preview and reconciliation aggregate
+reuse a single organization-scoped projection of retained reviewed
+Property/Unit/Tenant target claims rather than issuing repeated SELECTs for
+every staged Lease identity. Unknown historical (NULL) source IDs still contest
+a customer target; identical source identities do not automatically become
+new claims. A two-source Lease regression checks NULL-source collision warnings,
+review invalidation, constant query counts, and preservation of customer data.
+No Lease, occupancy, financial posting or undocumented Yardi API is enabled.
+This product batch is PROVISIONAL pending exact-SHA hosted six-job CI.

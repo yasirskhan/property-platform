@@ -847,6 +847,30 @@ def list_yardi_lease_relationships(
             non_skipped_lease_source_counts[source_id] = (
                 non_skipped_lease_source_counts.get(source_id, 0) + 1
             )
+    # Scope all retained reviewed Property/Unit/Tenant customer-target claims
+    # once, including historical reviews whose provider source ID is NULL.
+    # The paginated preview must not issue up to three claim lookups per Lease.
+    reviewed_claim_sources = {}
+    reviewed_claims = db.query(
+        PlatformMigrationStagedRow.resource,
+        PlatformMigrationStagedRow.source_id,
+        PlatformMigrationStagedRow.resolution_target_id,
+        PlatformMigrationStagedRow.resolution_target_unit_id,
+        PlatformMigrationStagedRow.resolution_target_tenant_user_id,
+    ).filter(
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource.in_(("PROPERTIES", "UNITS", "TENANTS")),
+        PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+    ).all()
+    for resource, source_id, property_target, unit_target, tenant_target in reviewed_claims:
+        target = {
+            "PROPERTIES": property_target,
+            "UNITS": unit_target,
+            "TENANTS": tenant_target,
+        }[resource]
+        if target is not None:
+            reviewed_claim_sources.setdefault((resource, target), set()).add(source_id)
     results = []
     for staged_row in staged:
         blockers = []
@@ -882,26 +906,20 @@ def list_yardi_lease_relationships(
                 and tenant.target_id in valid_tenants else None
             )
             current_identity_targets = (property_id, unit_id, tenant_id)
-            for resource, source_field, target_id, target_column, blocker in (
-                ("PROPERTIES", "source_property_id", property_id,
-                 PlatformMigrationStagedRow.resolution_target_id, "PROPERTY_TARGET_REVIEW_COLLISION"),
-                ("UNITS", "source_unit_id", unit_id,
-                 PlatformMigrationStagedRow.resolution_target_unit_id, "UNIT_TARGET_REVIEW_COLLISION"),
-                ("TENANTS", "source_tenant_id", tenant_id,
-                 PlatformMigrationStagedRow.resolution_target_tenant_user_id, "TENANT_TARGET_REVIEW_COLLISION"),
+            for resource, source_field, target_id, blocker in (
+                ("PROPERTIES", "source_property_id", property_id, "PROPERTY_TARGET_REVIEW_COLLISION"),
+                ("UNITS", "source_unit_id", unit_id, "UNIT_TARGET_REVIEW_COLLISION"),
+                ("TENANTS", "source_tenant_id", tenant_id, "TENANT_TARGET_REVIEW_COLLISION"),
             ):
                 if target_id is None:
                     continue
                 source_id = str(source.get(source_field) or "").strip()
-                competing = db.query(PlatformMigrationStagedRow.id).filter(
-                    PlatformMigrationStagedRow.organization_id == run.organization_id,
-                    PlatformMigrationStagedRow.provider == "YARDI",
-                    PlatformMigrationStagedRow.resource == resource,
-                    PlatformMigrationStagedRow.source_id.is_distinct_from(source_id),
-                    PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
-                    target_column == target_id,
-                ).first()
-                if competing:
+                if any(
+                    reviewed_source_id != source_id
+                    for reviewed_source_id in reviewed_claim_sources.get(
+                        (resource, target_id), ()
+                    )
+                ):
                     blockers.append(blocker)
             for resource, source_field, blocker in (
                 ("PROPERTIES", "source_property_id", "PROPERTY_SOURCE_ID_COLLISION"),
@@ -1374,22 +1392,22 @@ def get_yardi_reconciliation(
         if identity_collision:
             lease_relationship_readiness["identity_source_id_collisions"] += 1
         target_review_collision = False
-        for resource, field, target_id, target_column in (
-            ("PROPERTIES", "source_property_id", property_id, PlatformMigrationStagedRow.resolution_target_id),
-            ("UNITS", "source_unit_id", unit_id, PlatformMigrationStagedRow.resolution_target_unit_id),
-            ("TENANTS", "source_tenant_id", tenant_id, PlatformMigrationStagedRow.resolution_target_tenant_user_id),
+        # Reuse the existing organization-scoped reviewed-claim projection,
+        # not an extra SELECT for each mapped identity on every staged Lease.
+        for resource, field, target_id in (
+            ("PROPERTIES", "source_property_id", property_id),
+            ("UNITS", "source_unit_id", unit_id),
+            ("TENANTS", "source_tenant_id", tenant_id),
         ):
             if target_id is None:
                 continue
             source_id = str(data.get(field) or "").strip()
-            if db.query(PlatformMigrationStagedRow.id).filter(
-                PlatformMigrationStagedRow.organization_id == run.organization_id,
-                PlatformMigrationStagedRow.provider == "YARDI",
-                PlatformMigrationStagedRow.resource == resource,
-                PlatformMigrationStagedRow.source_id.is_distinct_from(source_id),
-                PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
-                target_column == target_id,
-            ).first():
+            if any(
+                reviewed_source_id != source_id
+                for reviewed_source_id in reviewed_claim_sources.get(
+                    (resource, target_id), ()
+                )
+            ):
                 target_review_collision = True
                 break
         if target_review_collision:
