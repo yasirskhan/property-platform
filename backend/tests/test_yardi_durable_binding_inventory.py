@@ -123,9 +123,20 @@ def test_yardi_durable_inventory_is_paginated_org_scoped_and_metadata_only():
 
 
 
-def test_yardi_binding_source_collision_is_resource_and_run_scoped():
+def test_yardi_binding_source_collision_is_resource_and_run_scoped(monkeypatch):
     """A Property source collision cannot mark a distinct Vendor identity stale."""
+    from importlib import import_module
     from app.services.yardi_file_ingestion import stage_yardi_file
+
+    yardi = import_module("app.routers.yardi_migrations")
+    original = yardi._yardi_unresolved_identity_sources
+    identity_pages = []
+
+    def observe(db, run, identities=None):
+        identity_pages.append(identities)
+        return original(db, run, identities=identities)
+
+    monkeypatch.setattr(yardi, "_yardi_unresolved_identity_sources", observe)
 
     db, engine = _session()
     try:
@@ -163,11 +174,25 @@ def test_yardi_binding_source_collision_is_resource_and_run_scoped():
         stage("PROPERTIES", run, "Original")
         stage("VENDORS", run, "Unrelated Vendor")
         stage("PROPERTIES", other_run, "Outside This Run")
+        vendor_only = list_yardi_durable_bindings(
+            run.id, Response(), resource="VENDORS", offset=0, limit=10,
+            db=db, current_user=actor,
+        )
+        assert vendor_only["items"][0]["source_identity_collision"] is False
+        assert identity_pages[-1] == {("VENDORS", "SHARED")}
+        empty = list_yardi_durable_bindings(
+            run.id, Response(), resource="VENDORS", offset=100, limit=10,
+            db=db, current_user=actor,
+        )
+        assert empty["items"] == [] and identity_pages[-1] == set()
         first = list_yardi_durable_bindings(
             run.id, Response(), resource=None, offset=0, limit=10,
             db=db, current_user=actor,
         )
         assert all(not item["source_identity_collision"] for item in first["items"])
+        assert identity_pages[-1] == {
+            ("PROPERTIES", "SHARED"), ("VENDORS", "SHARED"),
+        }
         stage("PROPERTIES", run, "Second Version")
         affected = list_yardi_durable_bindings(
             run.id, Response(), resource=None, offset=0, limit=10,
@@ -602,7 +627,7 @@ def test_yardi_unit_inventory_batches_exact_parent_review_evidence_per_page():
         db.commit()
 
         def inspect(limit):
-            counts = {"review": 0, "parent_mapping": 0, "live_unit": 0}
+            counts = {"review": 0, "parent_mapping": 0, "live_unit": 0, "parent_claim": 0}
             def observe(connection, cursor, statement, parameters, context, executemany):
                 sql = " ".join(statement.lower().split())
                 if not sql.startswith("select"):
@@ -617,6 +642,10 @@ def test_yardi_unit_inventory_batches_exact_parent_review_evidence_per_page():
                     counts["parent_mapping"] += 1
                 if ("units.id in" in sql and "join properties" in sql):
                     counts["live_unit"] += 1
+                if ("platform_migration_staged_rows.resolution_target_id in" in sql
+                        and "platform_migration_staged_rows.resolution_action" in sql
+                        and "platform_migration_staged_rows.source_id" in sql):
+                    counts["parent_claim"] += 1
             event.listen(engine, "before_cursor_execute", observe)
             try:
                 result = list_yardi_durable_bindings(
@@ -646,9 +675,19 @@ def test_yardi_unit_inventory_batches_exact_parent_review_evidence_per_page():
         engine.dispose()
 
 
-def test_yardi_unit_parent_inventory_rejects_ambiguous_mapped_property_source():
+def test_yardi_unit_parent_inventory_rejects_ambiguous_mapped_property_source(monkeypatch):
     """A duplicate parent Property source invalidates Unit source-parent certainty."""
+    from importlib import import_module
     from app.models.platform_migration import PlatformMigrationStagedRow
+    yardi = import_module("app.routers.yardi_migrations")
+    actual_collision_sources = yardi._yardi_unresolved_identity_sources
+    observed_identity_pages = []
+
+    def watch_sources(db, run, identities=None):
+        observed_identity_pages.append(identities)
+        return actual_collision_sources(db, run, identities=identities)
+
+    monkeypatch.setattr(yardi, "_yardi_unresolved_identity_sources", watch_sources)
     from app.services.yardi_file_ingestion import stage_yardi_file
 
     db, engine = _session()
@@ -672,11 +711,11 @@ def test_yardi_unit_parent_inventory_rejects_ambiguous_mapped_property_source():
         unit_binding = _binding(db, run, "UNITS", "U-1", "UNIT", unit.id)
         db.commit()
 
-        def stage_property(name):
+        def stage_property(name, source_id="P-1"):
             upload = stage_yardi_file(
                 db, run=run, filename="property-parent.csv",
                 content=("ID,Name,Street,City,State,Zip\n"
-                         "P-1," + name + ",1 Main,Cleveland,OH,44113\n").encode(),
+                         source_id + "," + name + ",1 Main,Cleveland,OH,44113\n").encode(),
                 resource_override="PROPERTIES", sheet_name=None,
                 explicit_mapping={
                     "source_id": "ID", "name": "Name", "address_line1": "Street",
@@ -717,6 +756,9 @@ def test_yardi_unit_parent_inventory_rejects_ambiguous_mapped_property_source():
             )["items"][0]
 
         first = current()
+        assert observed_identity_pages[-1] == {
+            ("UNITS", "U-1"), ("PROPERTIES", "P-1"),
+        }
         assert first["target_current"] is True
         assert first["source_identity_collision"] is False
         assert first["unit_parent_relationship_current"] is True
@@ -759,6 +801,66 @@ def test_yardi_unit_parent_inventory_rejects_ambiguous_mapped_property_source():
         recovered = current()
         assert recovered["unit_parent_relationship_current"] is True
         assert recovered["parent_source_fingerprint_drift"] is False
+
+        # A separate Yardi Property source identity claiming the parent
+        # customer Property invalidates this Unit's original source parent.
+        alternative = stage_property("Second Source Property", source_id="P-2")
+        alternative.resolution_action = "MATCH_EXISTING"
+        alternative.resolution_target_id = prop.id
+        db.commit()
+        contested = current()
+        assert contested["target_current"] is True
+        assert contested["parent_source_identity_collision"] is False
+        assert contested["parent_source_fingerprint_drift"] is False
+        assert contested["parent_target_review_collision"] is True
+        assert contested["unit_parent_relationship_current"] is False
+
+        # Retiring the competing review restores the original evidence.
+        alternative.resolution_action = None
+        alternative.resolution_target_id = None
+        db.commit()
+        cleared = current()
+        assert cleared["parent_target_review_collision"] is False
+        assert cleared["unit_parent_relationship_current"] is True
+
+        # A second run reviewing the SAME stable source ID is not a collision.
+        another = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="same-source-other-run", status="DRAFT",
+        )
+        db.add(another)
+        db.commit()
+        other_upload = stage_yardi_file(
+            db, run=another, filename="property-other-run.csv",
+            content=b"ID,Name,Street,City,State,Zip\nP-1,Same Source,1 Main,Cleveland,OH,44113\n",
+            resource_override="PROPERTIES", sheet_name=None,
+            explicit_mapping={
+                "source_id": "ID", "name": "Name", "address_line1": "Street",
+                "city": "City", "state": "State", "zip_code": "Zip",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        historical = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == other_upload.upload.id,
+        ).one()
+        historical.resolution_action = "MATCH_EXISTING"
+        historical.resolution_target_id = prop.id
+        db.commit()
+        same_identity = current()
+        assert same_identity["parent_target_review_collision"] is False
+        assert same_identity["unit_parent_relationship_current"] is True
+
+        # A retained historical review with an unknown source ID fails closed.
+        historical.source_id = None
+        db.commit()
+        unknown = current()
+        assert unknown["parent_target_review_collision"] is True
+        assert unknown["unit_parent_relationship_current"] is False
+        historical.source_id = "P-1"
+        db.commit()
+        restored = current()
+        assert restored["parent_target_review_collision"] is False
+        assert restored["unit_parent_relationship_current"] is True
 
         db.refresh(prop)
         db.refresh(unit)

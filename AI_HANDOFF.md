@@ -5,6 +5,24 @@ ONLY branch: `chatgpt/checkpoint-005-safety`.
 Do not touch `main`, create branches, force push, overwrite another session or modify unrelated systems.
 Read this ENTIRE handoff and verify the live HEAD and GitHub CI before each write.
 
+## Latest VERIFIED product checkpoint — Sections 61–66
+
+Product source `cc211aca54c6e9d34e22d1e39a8459d9efc08f1c`,
+GitHub Actions `38841035779` SUCCESS at the exact source SHA, with all
+six jobs passing: backend/PostgreSQL, frontend, security, platform-admin,
+authenticated E2E and staging-config. This verifies bounded durable identity
+target/page projections, reviewed-claim page scoping and their regressions.
+It also retains and verifies all previous Sections 57–60 source safeguards.
+
+## Current published milestone — Sections 67–72 PROVISIONAL
+
+This next milestone scopes unresolved source collisions to displayed binding
+identities plus exact reviewed Unit Property parents, then checks retained
+other-source Property target reviews before original Unit parent readiness.
+Includes scoped-query regressions, cross-run same-source treatment and
+platform-admin diagnostic. This source requires its own full exact-SHA CI.
+Verify HEAD and CI; if failures occur, repair without weakening tests.
+
 ## Hosted CI VERIFIED product checkpoint — Sections 57–60
 
 Product commit `94e2ebc7c30f271c5ac9d1d5044d68173df79b16`, GitHub Actions
@@ -41,10 +59,10 @@ mutation or unsupported source adapter was introduced. Full source/roadmap
 audit reviewed the exact three-file changes against
 `docs/YARDI_MIGRATION_PLAN.md` §§57–60.
 
-**Exact-SHA milestone VERIFIED:** See successful run `38839237751` above. The
-subsequent Sections 61–66 still need their independent hosted verification.
+**Previous exact-SHA milestone VERIFIED:** run `38839237751` at `94e2ebc7`.
+Sections 61–66 subsequently passed run `38841035779` at `cc211aca`.
 
-## Consolidated follow-up Sections 61–66: PREPARED, NOT VERIFIED
+## Consolidated follow-up Sections 61–66: VERIFIED in run 38841035779
 
 This follow-up is a cohesive metadata-only inventory milestone on top of the
 published Section 58–60 source `94e2ebc7c30f271c5ac9d1d5044d68173df79b16`:
@@ -57,7 +75,7 @@ published Section 58–60 source `94e2ebc7c30f271c5ac9d1d5044d68173df79b16`:
 5. Strengthen PostgreSQL query-count, empty-page and second-target collision
    tests without deleting/skipping tests or changing customer data.
 
-This product batch is PROVISIONAL until its own exact-SHA all-six-job CI.
+This product batch subsequently PASSED exact-SHA six-job CI `38841035779`.
 Always check the live branch HEAD to distinguish prepared source from published
 code. Recheck hosted CI for `94e2ebc7`, use expected-HEAD ref updates only,
 and fix reds rather than marking any provisional product VERIFIED.
@@ -99,3 +117,19 @@ staff decision/audit history. See
 ## Prepared Sections 64-66
 
 Restrict historical Yardi review-claim reads to the current inventory page. Maintain unknown-source and competing cross-run claim classifications. Strengthen the existing Vendor regression for empty pages, page-specific collisions, and preservation of business records. Detached only, pending earlier milestone verification. No established requirements removed.
+
+## Sections 67–69 prepared, PROVISIONAL (2026-10-15)
+
+On top of the Sections 61–66 published milestone, the next cohesive batch
+restricts unresolved identity-collision aggregation to the current durable
+inventory page, includes exact reviewed Unit source parents independent of
+resource filters, and strengthens PostgreSQL page-scoping tests. The general
+run-wide collision helper behavior is unchanged for every existing caller.
+No test was removed/disabled, no customer business record was modified, and
+all Lease/accounting/API source-contract gates remain. Before publishing,
+verify the actual latest branch HEAD, Sections 61–66 CI and exact parent.
+After publishing, require full exact-SHA CI verification for the milestone.
+
+## Prepared Sections 70–72 (NOT VERIFIED)
+
+Original Unit parent identity now has an independent Property target-review collision guard, using one scoped query per inventory page. Staff display a clear warning. PostgreSQL regression checks different source claim, recovery, identical source across runs, unknown historical source and query stability. This is diagnostic only. No customer, Lease or finance mutation and no weakening of tests. Publish only after confirming live HEAD and exact-SHA CI for the preceding batch.

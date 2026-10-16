@@ -852,3 +852,48 @@ all green. This verifies Sections 57–60 together, including the source-parent
 collision and exact Property fingerprint diagnostics. Earlier run
 `38838330535` was cancelled and is not independently marked successful.
 Sections 61–66 remain PROVISIONAL pending their own exact-SHA hosted CI.
+
+## 67. Restrict source collision aggregation to inventory page (2026-10-15)
+
+Read-only durable Yardi binding inventory now computes unresolved unskipped
+source-ID duplicates for the exact (resource, source ID) identities displayed
+on the current page, rather than grouping every staged identity in the run.
+This does not ignore any staged version of a displayed identity and never
+resolves duplicate uploads automatically. Existing uncapped run-wide collision
+callers continue to check the complete source population unchanged.
+
+## 68. Preserve original Unit Property-parent collision evidence (2026-10-15)
+
+Page-filtered Unit durable inventory includes source Property IDs recovered
+from every exact reviewed Unit parent row, even when the staff filter is
+`resource=UNITS` and no Property binding appears on that page. The filtered
+query groups by resource and source ID, keeping overlapping Property and
+Vendor source strings logically distinct. Empty pages short-circuit the
+collision query without affecting the page count or staff no-store semantics.
+
+## 69. Scoped collision inventory regression (2026-10-15)
+
+The existing PostgreSQL tests now assert the identity key selection for a
+Vendor-only page, all-resource page and empty page, and assert inclusion of
+the original mapped Property source for a Unit-only page. Earlier duplicate,
+reason-coded SKIP recovery, cross-run isolation and customer business record
+preservation checks remain intact. No prior tests are deleted or weakened.
+This is read-only metadata/query safety, not customer mutation, financial
+posting, or a Yardi source contract expansion. Full exact-SHA CI is required
+before marking Sections 67–69 VERIFIED.
+
+## 70. Cross-run Property target review evidence for Unit parent (2026-10-15)
+
+Original Unit parent readiness checks any other reviewed Yardi Property source claim on its mapped customer Property. Different or unknown source IDs fail closed, and same stable source ID across runs remains valid.
+
+## 71. One page-batched Property parent claim query and staff diagnostic (2026-10-15)
+
+Read-only Unit inventory uses one organization-scoped source-review query for all mapped parent Property targets in the page. The staff console distinguishes this conflict from staged duplicate source IDs, changed fingerprints and customer target activity.
+
+## 72. Regression for Property review conflict and source identity (2026-10-15)
+
+PostgreSQL checks conflicting Property review, recovery, identical cross-run source, unknown historical source and constant query count for multiple Units. No existing test is removed or relaxed. No customer entity, Lease, accounting entry or external Yardi API is created. Requires exact-SHA hosted CI.
+
+## Sections 61–66 exact source verification (2026-10-15)
+
+The page-batched customer target, exact original mapped Property parent, and paginated reviewed-claim integrity milestone passed GitHub Actions `38841035779` at exact source SHA `cc211aca54c6e9d34e22d1e39a8459d9efc08f1c`. All six required CI jobs passed: PostgreSQL/backend, frontend, platform-admin, security, authenticated E2E, and staging-config. This supersedes earlier provisional statements for Sections 61–66. Sections 67–72 are now published as the next milestone and remain provisional pending their own full exact-SHA CI. No source contract blocker has been waived.

@@ -487,7 +487,6 @@ def list_yardi_durable_bindings(
         PlatformMigrationItem.id.asc(),
     ).offset(offset).limit(limit).all()
     results = []
-    identity_collisions = _yardi_unresolved_identity_sources(db, run)
     entity_by_resource = {
         "PROPERTIES": "PROPERTY",
         "UNITS": "UNIT",
@@ -667,6 +666,37 @@ def list_yardi_durable_bindings(
                 parent_mappings[parent_id] = None
             else:
                 parent_mappings[parent_id] = (target_id, fingerprint)
+    # Only identities visible on this page, plus the original Property
+    # source parents of reviewed Units, can influence the page's collision
+    # classifications. Avoid grouping unrelated staged identity versions.
+    collision_keys = {
+        (item.resource, item.source_id)
+        for item in bindings if item.source_id
+    } | {("PROPERTIES", parent_id) for parent_id in parent_source_ids}
+    identity_collisions = _yardi_unresolved_identity_sources(
+        db, run, identities=collision_keys,
+    )
+    # A Unit source parent is not current when a DIFFERENT Yardi Property
+    # source identity also has a retained MATCH_EXISTING review for the same
+    # customer Property. Include NULL historical source IDs as uncertainty.
+    # Fetch these review claims once per inventory page, not once per Unit.
+    parent_target_claims = {}
+    mapped_parent_ids = {
+        mapping[0] for mapping in parent_mappings.values() if mapping is not None
+    }
+    if mapped_parent_ids:
+        claims = db.query(
+            PlatformMigrationStagedRow.source_id,
+            PlatformMigrationStagedRow.resolution_target_id,
+        ).filter(
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "YARDI",
+            PlatformMigrationStagedRow.resource == "PROPERTIES",
+            PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+            PlatformMigrationStagedRow.resolution_target_id.in_(mapped_parent_ids),
+        ).all()
+        for claimed_source, claimed_target in claims:
+            parent_target_claims.setdefault(claimed_target, set()).add(claimed_source)
     for item in bindings:
         source_identity_collision = (item.resource, item.source_id) in identity_collisions
         # Keep an active target distinct from another source's reviewed claim.
@@ -682,6 +712,7 @@ def list_yardi_durable_bindings(
         parent_relationship_current = None  # Only applicable to verified Unit source-parent evidence.
         parent_source_identity_collision = None  # Only meaningful for exact Unit source-parent evidence.
         parent_source_fingerprint_drift = None  # Unknown until an exact mapped parent is evaluated.
+        parent_target_review_collision = None  # Exact mapped Property parent target only.
         if valid_entity and item.resource == "PROPERTIES":
             target_current = item.target_id in live_properties
         elif valid_entity and item.resource == "UNITS":
@@ -708,6 +739,13 @@ def list_yardi_durable_bindings(
                         ("PROPERTIES", source_parent_id) in identity_collisions
                     )
                     parent_mapping = parent_mappings.get(source_parent_id)
+                    if parent_mapping is not None:
+                        parent_target_review_collision = any(
+                            claimed_source != source_parent_id
+                            for claimed_source in parent_target_claims.get(
+                                parent_mapping[0], ()
+                            )
+                        )
                     parent_relationship_current = bool(
                         target_current and parent_mapping is not None
                         and live_unit_parents[item.target_id] == parent_mapping[0]
@@ -715,7 +753,7 @@ def list_yardi_durable_bindings(
                     # A changed, unskipped Property source version makes the
                     # mapped source parent uncertain even when the target Unit
                     # still belongs to the same active customer Property.
-                    if parent_source_identity_collision:
+                    if parent_source_identity_collision or parent_target_review_collision:
                         parent_relationship_current = False
                     # Even one changed Property source version is stale when
                     # its exact fingerprint no longer matches the durable parent.
@@ -745,6 +783,7 @@ def list_yardi_durable_bindings(
             "unit_parent_relationship_current": parent_relationship_current,
             "parent_source_identity_collision": parent_source_identity_collision,
             "parent_source_fingerprint_drift": parent_source_fingerprint_drift,
+            "parent_target_review_collision": parent_target_review_collision,
             "created_by_platform_user_id": item.created_by_platform_user_id,
             "created_at": item.created_at.isoformat() if item.created_at else None,
         })
@@ -860,22 +899,43 @@ def list_yardi_source_collisions(
     }
 
 
-def _yardi_unresolved_identity_sources(db: Session, run) -> set[tuple[str, str]]:
-    """Unskipped same-run Yardi identity versions require explicit disposition.
+def _yardi_unresolved_identity_sources(
+    db: Session, run, identities: set[tuple[str, str]] | None = None,
+) -> set[tuple[str, str]]:
+    """Find unresolved unskipped same-run Yardi source versions.
 
-    Count all staged versions, not just reviewed ones or a paginated preview.
-    A durable mapping never silently resolves a newly uploaded duplicate.
+    Optional exact (resource, source ID) keys bound inventory queries to the
+    current page. Other reconciliation callers retain complete run coverage.
+    Repeated uploads remain ambiguous until explicitly reason-coded SKIP.
     """
     row = PlatformMigrationStagedRow
-    conflicts = db.query(row.resource, row.source_id).filter(
+    supported = ("PROPERTIES", "UNITS", "OWNERS", "VENDORS", "TENANTS")
+    scoped_filters = []
+    if identities is not None:
+        by_resource = {}
+        for resource, source_id in identities:
+            if resource in supported and source_id:
+                by_resource.setdefault(resource, set()).add(source_id)
+        if not by_resource:
+            return set()
+        scoped_filters = [
+            (row.resource == resource) & row.source_id.in_(source_ids)
+            for resource, source_ids in by_resource.items()
+        ]
+    query = db.query(row.resource, row.source_id).filter(
         row.run_id == run.id,
         row.organization_id == run.organization_id,
         row.provider == "YARDI",
-        row.resource.in_(("PROPERTIES", "UNITS", "OWNERS", "VENDORS", "TENANTS")),
+        row.resource.in_(supported),
         row.source_id.isnot(None),
         row.source_id != "",
         or_(row.resolution_action.is_(None), row.resolution_action != "SKIP"),
-    ).group_by(row.resource, row.source_id).having(func.count(row.id) > 1).all()
+    )
+    if scoped_filters:
+        query = query.filter(or_(*scoped_filters))
+    conflicts = query.group_by(
+        row.resource, row.source_id,
+    ).having(func.count(row.id) > 1).all()
     return {(resource, source_id) for resource, source_id in conflicts}
 
 
