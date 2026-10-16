@@ -24,8 +24,8 @@ def test_acceptance_batched_review_claim_query_blocks_unknown_source_and_recover
             def observe(connection, cursor, statement, parameters, context, executemany):
                 sql = " ".join(statement.lower().split())
                 if (sql.startswith("select")
-                        and " from platform_migration_staged_rows " in sql
-                        and " is distinct from " in sql
+                        and "platform_migration_staged_rows" in sql
+                        and "resolution_action" in sql
                         and "resolution_target_id" in sql
                         and "resolution_target_unit_id" in sql
                         and "resolution_target_tenant_user_id" in sql):
@@ -70,8 +70,8 @@ def test_acceptance_batched_review_claim_query_blocks_unknown_source_and_recover
         def observe_blocked(connection, cursor, statement, parameters, context, executemany):
             sql = " ".join(statement.lower().split())
             if (sql.startswith("select")
-                    and " from platform_migration_staged_rows " in sql
-                    and " is distinct from " in sql
+                    and "platform_migration_staged_rows" in sql
+                    and "resolution_action" in sql
                     and "resolution_target_id" in sql
                     and "resolution_target_unit_id" in sql
                     and "resolution_target_tenant_user_id" in sql):

@@ -1,3 +1,35 @@
+# YARDI EXACT-SHA CI REPAIR | 2026-10-16
+
+Repository: `yasirskhan/property-platform`. Sole branch:
+`chatgpt/checkpoint-005-safety`. Never touch main or force-push.
+
+Sections 118–132 published source `ccefed0c117f983b896d3fe523cf645d0ecb8eb9`
+failed GitHub Actions `38862212423` in FAST Yardi PostgreSQL regression:
+`test_yardi_lease_accept_review_claim_batch` recorded zero SQL hits due
+to a brittle SQL statement text predicate. Exactly **96 tests passed**
+in the same targeted gate and Python compilation, parity, navigation,
+secrets, frontend, security and platform-admin jobs passed. Full backend,
+authenticated E2E and staging were skipped by dependency gate.
+
+The source claims SQL behavior is preserved. Only the observer's SQL
+query-shape filter now matches the table and all three targeted claim
+columns without relying on one exact SQL format string. The same
+one-query count assertion and NULL-source collision/recovery assertions
+remain in place; no test deleted or weakened. The new test must pass
+the full exact-SHA hosted CI before Sections 118–132 can be VERIFIED.
+
+Latest already VERIFIED prerequisite: Sections 115–117 SHA
+`e18de7bf208b31aefa929e2b21ef8ffd3f2f1822`, GitHub Actions
+`38860373827` SUCCESS all six jobs.
+
+Prepared Sections 133–135 exist only as detached source and must
+be reconciled onto the final verified repair SHA. Continue coherent
+coding off-branch while CI runs; do not overwrite other sessions.
+No Yardi unofficial API, Lease/occupancy business creation, payments,
+deposits, GL/AR/AP, source overwrite or customer mutation authorized.
+
+---
+
 # CURRENT YARDI PHASE 4.15 MILESTONE | 2026-10-16
 
 ONLY repository `yasirskhan/property-platform`, branch

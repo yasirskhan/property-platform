@@ -1638,3 +1638,17 @@ enabled and unweakened.
 **Status:** Sections 130–132 PREPARED pending full exact-SHA six-job hosted
 CI on their eventual consolidated product source. No financial/accounting
 posting, Lease/occupancy customer mutation, ownership or unofficial API.
+
+
+### Sections 118–132 exact-SHA CI fixture correction (2026-10-16)
+
+Hosted GitHub Actions `38862212423` failed one new fast-gated SQL-count
+regression because a test-only statement matching predicate did not
+recognize the generated SQL text. Its other 96 focused Yardi tests passed.
+Source logic is unchanged by the correction. The regression still
+requires exactly one batched reviewed-target SELECT covering all three
+Property/Unit/Tenant customer target columns and still exercises an
+unknown historical source-ID refusal and exact same-source recovery.
+No existing test removed, disabled, skipped or behavior assertion relaxed.
+The Sections 118–132 milestone remains PROVISIONAL until all six hosted
+jobs pass at the new exact repair SHA.
