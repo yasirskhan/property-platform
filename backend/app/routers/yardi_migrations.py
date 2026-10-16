@@ -1867,29 +1867,18 @@ def get_yardi_reconciliation(
                     if item.resource == "UNITS" and item.target_entity == "UNIT"}
     mapped_tenants = {item.target_id for item in items
                       if item.resource == "TENANTS" and item.target_entity == "TENANT_USER"}
-    valid_properties = {record.id for record in db.query(Property.id).filter(
-        Property.id.in_(mapped_properties),
-        Property.organization_id == run.organization_id,
-        Property.is_active.is_(True),
-        Property.deleted_at.is_(None),
-    ).all()}
-    valid_units = {record.id: record.property_id for record in db.query(
-        Unit.id, Unit.property_id,
-    ).join(Property, Unit.property_id == Property.id).filter(
-        Unit.id.in_(mapped_units),
-        Property.organization_id == run.organization_id,
-        Unit.is_active.is_(True),
-        Unit.deleted_at.is_(None),
-        Property.is_active.is_(True),
-        Property.deleted_at.is_(None),
-    ).all()}
-    valid_tenants = {record.id for record in db.query(User.id).filter(
-        User.id.in_(mapped_tenants),
-        User.organization_id == run.organization_id,
-        User.role == UserRole.TENANT,
-        User.is_active.is_(True),
-        User.deleted_at.is_(None),
-    ).all()}
+    # The run-level identity pass already queried these live scoped targets.
+    # Reuse that same snapshot for Lease identity coverage: fetching the
+    # Property, Unit and Tenant targets again can never strengthen the
+    # source evidence, but adds three unbounded duplicate read passes.
+    # Each mapped_* set already excludes incorrect target entity types.
+    valid_properties = mapped_properties.intersection(live_properties)
+    valid_units = {
+        target_id: parent_id
+        for target_id, parent_id in live_unit_parents.items()
+        if target_id in mapped_units
+    }
+    valid_tenants = mapped_tenants.intersection(live_users["TENANTS"])
     # Aggregate readiness must consider every exact-reviewed Unit source parent.
     # Never hide conflicting versions by overwriting the last matching key.
     reviewed_lease_unit_parent_sources = {}

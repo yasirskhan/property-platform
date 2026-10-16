@@ -80,6 +80,7 @@ jobs:
           tests/test_yardi_source_collisions.py
           tests/test_yardi_lease_identity_acceptance.py
           tests/test_yardi_reconciliation_batched_targets.py
+          tests/test_yardi_reconciliation_lease_snapshot.py
           tests/test_yardi_reconciliation_durable_claims.py
           tests/test_yardi_reconciliation_unit_parent_claims.py
           tests/test_yardi_reconciliation_composite_sources.py

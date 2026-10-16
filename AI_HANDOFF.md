@@ -1,3 +1,35 @@
+# YARDI CURRENT PRODUCT CHECKPOINT | 2026-10-16
+
+ONLY repository `yasirskhan/property-platform`, branch
+`chatgpt/checkpoint-005-safety`. Do not modify main, create other branches,
+force push, or overwrite concurrent sessions.
+
+Last VERIFIED exact source: `83f73c701a7415c4c6250bedd46f80670ca94b8d`,
+GitHub Actions run `38855880719` SUCCESS. All six jobs green. This
+supersedes earlier provisional Sections 106–114 handoff text, which remains
+below as historical evidence.
+
+Sections 115–117 are the next cohesive code/docs/CI-test milestone:
+reuse run-level scoped live target snapshots for Lease reconciliation,
+preserve fail-closed identity/source/accepted snapshot semantics, and add
+strict PostgreSQL query-count plus stale/recovered/no-customer-mutation
+regression to the fast Yardi CI gate. Do not mark VERIFIED until a new
+all-six-job CI passes on the precise published commit. Local targeted
+PostgreSQL tests cannot be claimed run in GitHub-connector-only Chat;
+hosted fast regression gate and full PostgreSQL tests are required.
+
+Batch line audit: removes only three redundant read-only SELECT
+projections, reusing validated earlier projections. No historical tests
+deleted, skipped or weakened; one new test included. No existing roadmap
+item stubbed out, external Yardi API/financial source-contract gate relaxed,
+or Lease/customer business write enabled.
+
+After publication, verify live HEAD and GitHub CI, prepare next cohesive
+bounded milestone detached while tests run, fix reds before marking verified,
+and continue without stopping at a green CI. Previous handoff follows.
+
+---
+
 # CURRENT YARDI PHASE 4.15 CHECKPOINT | 2026-10-16
 
 Only `yasirskhan/property-platform` branch `chatgpt/checkpoint-005-safety`.

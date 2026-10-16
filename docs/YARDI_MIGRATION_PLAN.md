@@ -1420,3 +1420,39 @@ platform-admin, security, E2E and staging-config. VERIFIED.
 Sections 106-114 comprise one three-group follow-up and remain PROVISIONAL
 until six-job CI passes on their actual published source SHA. The previous
 source-contract and no-customer-mutation safety restrictions apply unchanged.
+
+
+## 115. Reuse verified target projections in Lease reconciliation (2026-10-16)
+
+Run-level Yardi reconciliation already validates live organization-scoped Property,
+Unit and Tenant targets for every source identity. Lease aggregate readiness now
+reuses those exact existing live target projections rather than rerunning three
+separate Property/Unit/Tenant SELECTs. It intersects mapped correct-entity
+targets with active valid targets; unrelated or wrong-entity mappings remain
+excluded, and invalid source relationships still fail closed. No target changes.
+
+## 116. Preserve stale Lease readiness and source identity semantics
+
+The same per-Lease checks remain in place: original Unit source parent, mapped
+Property, active Unit and Tenant, same-run unskipped source collision, retained
+staff reviews, cross-run durable collisions, original accepted target snapshot
+and exact private review fingerprints. Missing/deactivated Property still
+invalidates its dependent Unit and Lease identities. This refactor shares
+the same read-only live customer snapshot, never implies authorization to post
+Lease, occupancy, payment, rent, deposit or accounting history.
+
+## 117. Strict per-call target-query regression and recovery
+
+New PostgreSQL regression `test_yardi_reconciliation_lease_snapshot.py`
+records the live target SQL projections and requires exactly one Property,
+one Unit/Property and one Tenant query per reconciliation regardless of one
+or two staged Leases. It verifies that temporarily inactive original Property
+invalidates identity links and fingerprint, reactivation restores exact
+fingerprint, second Lease source mismatch is reported, and customer Property,
+Unit, tenant password hash, existing Lease count and durable identity count
+remain untouched. The test is added to the fast Yardi CI gate without deleting,
+disabling or weakening any other test.
+
+**Sections 115–117 status:** PROVISIONAL until all six hosted CI jobs pass at
+their exact source commit SHA. The authoritative Yardi export/API and
+accounting source-contract gates remain unchanged.
