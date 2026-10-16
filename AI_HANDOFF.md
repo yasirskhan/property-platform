@@ -1,3 +1,22 @@
+# 2026-10-16 | Yardi §§118–132 SQL observer correction awaiting hosted CI
+
+On live parent `b30cfc702bdf531bec6930fc6d9df4c06bd6b087`, hosted run `38862586342` failed
+the fast PostgreSQL gate (96 passed, 1 failed) because the broad SQL
+observer counted 3 SELECTs instead of the ONE intended batched reviewed-target
+claim SELECT. The acceptance endpoint already executes one ID-only claim
+SELECT; other legitimate full staged-row ORM loads also include all three
+target column names. The new regression observer distinguishes the single
+ID-only three-branch guarded claim SELECT from those full-row reads and
+requires three explicit `IS DISTINCT FROM` comparisons. First acceptance,
+unknown NULL-source historical claim refusal, same-source replay recovery,
+and unchanged customer records/Lease count remain asserted. No production
+behavior or other existing test is weakened. Sections 118–132 remain
+PROVISIONAL pending all six jobs passing on this repair commit's exact SHA.
+The next Sections 133–135 are not yet reconciled or published. Continue
+after checking live branch and CI; never touch `main` or force-update.
+
+---
+
 # YARDI EXACT-SHA CI REPAIR | 2026-10-16
 
 Repository: `yasirskhan/property-platform`. Sole branch:

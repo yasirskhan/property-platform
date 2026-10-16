@@ -11,6 +11,32 @@ from test_yardi_lease_identity_acceptance import _seed
 from test_yardi_migrations import _session
 
 
+def _is_batched_review_claim_select(statement: str) -> bool:
+    """Match the ID-only conflicting-target lookup, not full staged-row loads.
+
+    Other legitimate ORM SELECTs name all three target columns in their
+    projections; they must not count as extra competing-claim lookups.
+    """
+    sql = " ".join(statement.lower().split())
+    select_clause, separator, remainder = sql.partition(" from ")
+    if not separator or select_clause != (
+        "select platform_migration_staged_rows.id as platform_migration_staged_rows_id"
+    ):
+        return False
+    if not remainder.startswith("platform_migration_staged_rows "):
+        return False
+    return (
+        " where " in remainder
+        and "platform_migration_staged_rows.organization_id" in remainder
+        and "platform_migration_staged_rows.provider" in remainder
+        and "platform_migration_staged_rows.resolution_action" in remainder
+        and "platform_migration_staged_rows.resolution_target_id" in remainder
+        and "platform_migration_staged_rows.resolution_target_unit_id" in remainder
+        and "platform_migration_staged_rows.resolution_target_tenant_user_id" in remainder
+        and sql.count(" is distinct from ") == 3
+    )
+
+
 def test_acceptance_batched_review_claim_query_blocks_unknown_source_and_recovers():
     db, engine = _session()
     try:
@@ -23,12 +49,7 @@ def test_acceptance_batched_review_claim_query_blocks_unknown_source_and_recover
             statements = []
             def observe(connection, cursor, statement, parameters, context, executemany):
                 sql = " ".join(statement.lower().split())
-                if (sql.startswith("select")
-                        and "platform_migration_staged_rows" in sql
-                        and "resolution_action" in sql
-                        and "resolution_target_id" in sql
-                        and "resolution_target_unit_id" in sql
-                        and "resolution_target_tenant_user_id" in sql):
+                if _is_batched_review_claim_select(statement):
                     statements.append(sql)
             event.listen(engine, "before_cursor_execute", observe)
             try:
@@ -69,12 +90,7 @@ def test_acceptance_batched_review_claim_query_blocks_unknown_source_and_recover
         statements = []
         def observe_blocked(connection, cursor, statement, parameters, context, executemany):
             sql = " ".join(statement.lower().split())
-            if (sql.startswith("select")
-                    and "platform_migration_staged_rows" in sql
-                    and "resolution_action" in sql
-                    and "resolution_target_id" in sql
-                    and "resolution_target_unit_id" in sql
-                    and "resolution_target_tenant_user_id" in sql):
+            if _is_batched_review_claim_select(statement):
                 statements.append(sql)
         event.listen(engine, "before_cursor_execute", observe_blocked)
         try:

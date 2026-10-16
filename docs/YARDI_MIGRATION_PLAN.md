@@ -1652,3 +1652,16 @@ unknown historical source-ID refusal and exact same-source recovery.
 No existing test removed, disabled, skipped or behavior assertion relaxed.
 The Sections 118–132 milestone remains PROVISIONAL until all six hosted
 jobs pass at the new exact repair SHA.
+
+### Sections 118–132: SQL assertion repair after hosted CI 38862586342
+
+At exact source `b30cfc702bdf531bec6930fc6d9df4c06bd6b087`, the new fast PostgreSQL test recorded three
+SELECTs under an overbroad observer rather than one. The existing acceptance
+endpoint's combined Property/Unit/Tenant competing reviewed-target lookup
+selects only staged-row ID, while other valid full staged-row ORM reads also
+include those target column names. The corrected regression counts ONLY the
+ID-only guarded claim SELECT and requires all three resource-specific
+`IS DISTINCT FROM` filters, while retaining first/replay query-count
+assertions, historical NULL-source collision refusal, source recovery and
+customer-data no-mutation checks. Production logic is unchanged. Milestone
+remains **PROVISIONAL** until exact-repair-SHA six-job hosted CI succeeds.
