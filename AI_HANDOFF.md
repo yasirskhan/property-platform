@@ -1,3 +1,20 @@
+The additional candidate regression's staged CSV byte fixtures have actual Python newline escapes (`\\n` in source), not literal backslash-n bytes; supersedes earlier detached draft c153e6e0. Still DETACHED and unverified.
+
+# FOLLOW-UP §131 UNIT/TENANT NULL CLAIM REGRESSION (DETACHED PREPARATION)
+
+This candidate change expands the existing fast-gated Yardi Lease acceptance
+regression from historical Property NULL source claims to historical Unit and
+Tenant NULL-source reviews. It requires 409 until an explicitly retained
+same-source ID is restored, and ensures customer business records are intact.
+No production code, old assertions, source contract or customer Lease is
+altered. The candidate must remain DETACHED until parent source `74e7e33e3b331992497dd7a03415ec31225daaff`
+passes all six hosted jobs on its exact SHA and is reconfirmed as LIVE HEAD.
+Do not treat this source as published or verified before that check.
+This is documented §131 coverage, NOT invented §§133–135; the latter source
+and detailed requirements are not available in the published branch.
+
+---
+
 # 2026-10-16 | Follow-up SQL observer test repair, pending CI
 
 Hosted CI `38911403325` for source `845492e2d7ebc0327b4ef26c801ebc4ee97327a7` failed the same fast

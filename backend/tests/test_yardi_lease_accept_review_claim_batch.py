@@ -121,3 +121,76 @@ def test_acceptance_batched_review_claim_query_blocks_unknown_source_and_recover
     finally:
         db.close()
         engine.dispose()
+
+
+def test_batched_claims_refuse_unknown_unit_and_tenant_sources_then_recover():
+    """Each of the three OR branches must retain historical NULL-source safety."""
+    db, engine = _session()
+    try:
+        actor, org, run, prop, alternate, unit, tenant, lease = _seed(
+            db, slug="yardi-lease-null-unit-tenant-claim-branches",
+        )
+        before_leases = db.query(Lease).count()
+        first = accept_yardi_staged_lease_relationship(run.id, lease.id, db, actor)
+        assert first["replayed"] is False
+
+        other_run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="retained-unit-tenant-reviews", status="DRAFT",
+        )
+        db.add(other_run)
+        db.flush()
+        # A retained review with no recoverable provider ID must still block
+        # the reviewed customer target. This is true for Unit and Tenant as
+        # well as the Property covered in the preceding regression.
+        for resource, filename, content, mapping, target_field, target_id, original_source in (
+            (
+                "UNITS", "old-unit.csv",
+                b"Unit,Parent,Label\nU-OLD,P1,101\n",
+                {"source_id": "Unit", "source_property_id": "Parent",
+                 "unit_name": "Label"},
+                "resolution_target_unit_id", unit.id, "U1",
+            ),
+            (
+                "TENANTS", "old-resident.csv",
+                b"Resident Ref,Full Name\nT-OLD,Source Resident\n",
+                {"source_id": "Resident Ref", "name": "Full Name"},
+                "resolution_target_tenant_user_id", tenant.id, "T1",
+            ),
+        ):
+            upload = stage_yardi_file(
+                db, run=other_run, filename=filename, content=content,
+                resource_override=resource, sheet_name=None,
+                explicit_mapping=mapping, platform_user_id=actor.id,
+            )
+            db.commit()
+            historical = db.query(PlatformMigrationStagedRow).filter(
+                PlatformMigrationStagedRow.upload_id == upload.upload.id,
+            ).one()
+            historical.resolution_action = "MATCH_EXISTING"
+            setattr(historical, target_field, target_id)
+            historical.source_id = None
+            db.commit()
+            with pytest.raises(HTTPException) as conflict:
+                accept_yardi_staged_lease_relationship(run.id, lease.id, db, actor)
+            assert conflict.value.status_code == 409, resource
+
+            historical.source_id = original_source
+            db.commit()
+            replay = accept_yardi_staged_lease_relationship(
+                run.id, lease.id, db, actor,
+            )
+            assert replay["replayed"] is True, resource
+
+        db.refresh(prop)
+        db.refresh(unit)
+        db.refresh(tenant)
+        db.refresh(lease)
+        assert prop.name == "Original"
+        assert unit.property_id == prop.id
+        assert tenant.hashed_password == "unchanged-password-hash"
+        assert lease.resolution_action == "ACCEPT_RELATIONSHIP"
+        assert db.query(Lease).count() == before_leases
+    finally:
+        db.close()
+        engine.dispose()

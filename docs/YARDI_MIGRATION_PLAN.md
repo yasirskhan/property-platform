@@ -1675,3 +1675,17 @@ WHERE clause includes all three target fields, not unrelated ORM full-row
 SELECTs. Original one-query, NULL-source historical collision/recovery and
 customer nonmutation checks are unchanged. Product logic unchanged. Verify
 the full six-job hosted CI at the exact new commit before claiming success.
+
+### Follow-up Section 131 branch coverage (prepared, not published)
+
+After the exact-SHA Sections 118–132 CI succeeds, extend the fast-gated
+PostgreSQL regression beyond the original Property case to both Unit and
+Tenant historical `MATCH_EXISTING` reviews with NULL provider source IDs.
+Each target must block first/replayed Lease acceptance with 409 until the
+historical source identity is corrected to the SAME original source ID;
+replay then recovers. Preserve customer Property, Unit, Tenant password and
+Lease count. Reuse existing staged CSV source mappings, do not modify
+customer business records, and keep Sections 133–135 undefined until their
+original specification is recovered. This is further coverage of §131, not
+an invented new roadmap section. Prepared commit is DETACHED until its
+parent is fully verified; run all six hosted jobs on its final published SHA.
