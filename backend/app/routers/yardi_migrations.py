@@ -2142,9 +2142,38 @@ def get_yardi_reconciliation(
             tuple(target_review_claim_details),
         ))
 
+    # Preserve exact retained durable source/target contradictions. A
+    # competing original Property provider source may change while reviewed
+    # Unit parent and Lease blocker counts remain identical. Keep the private
+    # dry-run evidence source-exact without issuing another scoped SQL read.
+    historical_durable_conflict_evidence = []
+    for current_item in items:
+        for historic_source in identity_durable_targets.get(
+            (current_item.resource, current_item.target_id), ()
+        ):
+            if historic_source != current_item.source_id:
+                historical_durable_conflict_evidence.append((
+                    "TARGET", current_item.resource, current_item.target_id,
+                    current_item.source_id, historic_source,
+                ))
+        for historic_entity, historic_target in identity_durable_sources.get(
+            (current_item.resource, current_item.source_id), ()
+        ):
+            if (historic_entity, historic_target) != (
+                current_item.target_entity, current_item.target_id,
+            ):
+                historical_durable_conflict_evidence.append((
+                    "SOURCE", current_item.resource, current_item.source_id,
+                    historic_entity, historic_target,
+                ))
+    historical_durable_conflict_evidence.sort(
+        key=lambda details: json.dumps(details, separators=(",", ":")),
+    )
+
     evidence = {
         "identity_row_readiness": row_readiness_evidence,
         "lease_row_readiness": lease_row_readiness_evidence,
+        "historical_durable_conflicts": historical_durable_conflict_evidence,
         "staged": [(r.id, r.resource, r.source_id, r.row_fingerprint, r.disposition,
                     r.resolution_action, r.resolution_target_id, r.resolution_target_unit_id,
                     r.resolution_target_vendor_id, r.resolution_target_tenant_user_id,

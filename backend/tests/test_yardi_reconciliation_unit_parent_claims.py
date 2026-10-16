@@ -53,6 +53,18 @@ def test_original_unit_parent_claims_are_revalidated_without_customer_mutation(r
         assert contested_target["resource_coverage"]["UNITS"]["needs_review"] >= 1
         assert contested_target["review_fingerprint"] != baseline["review_fingerprint"]
 
+        # Another foreign durable Property source ID still claims the same
+        # target; unchanged stale counters must not reuse old review evidence.
+        other_binding.source_id = "YET-ANOTHER-PROPERTY"
+        db.commit()
+        changed_competitor = current()
+        assert changed_competitor["resource_coverage"] == contested_target["resource_coverage"]
+        assert changed_competitor["review_fingerprint"] != contested_target["review_fingerprint"]
+        other_binding.source_id = "ANOTHER-PROPERTY"
+        db.commit()
+        restored_competitor = current()
+        assert restored_competitor["review_fingerprint"] == contested_target["review_fingerprint"]
+
         other_binding.source_id = "P1"
         db.commit()
         same_source = current()

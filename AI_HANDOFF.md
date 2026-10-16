@@ -1,3 +1,32 @@
+# NEXT DETACHED YARDI ORIGINAL UNIT PARENT SOURCE EVIDENCE
+
+Current published branch `be8522586a711b074e7d24405bf5e03247011450` contains the Lease and
+five-resource historic staff-reviewed source exact-fingerprint
+projections and remains PROVISIONAL until its exact-SHA all-six-job
+hosted CI finishes successfully. The preceding `c4bd306` source
+passed all six jobs (Actions `38945258561`, backend 1345 passed,
+21 deselected).
+
+This REBASED DETACHED candidate applies the previously prepared
+`ce5072420aac656d3bb300239c46d1b9b49c16ad` source changes on
+top of the actual published parent without overwriting the parent's
+handoff updates. It binds exact historical durable source and target
+divergence for current run identity mappings to the private review
+fingerprint, and expands the parameterized original Unit parent
+PostgreSQL regression for two competing historical source identities
+that leave current stale counts unchanged. Both reviewed and
+unreviewed Unit parent cases must change fingerprint and return
+to the exact original fingerprint on source restoration. Uses existing
+scoped durable projection, zero extra SELECTs, no customer mutation,
+ownership or accounting, no unsupported Yardi API.
+
+DO NOT publish this detached candidate until parent CI green on
+its exact SHA and live branch HEAD verified. Preserve non-force
+expected-HEAD fast-forward. Sections 133–135 remain without a
+recoverable authoritative specification.
+
+---
+
 # CURRENT VERIFIED YARDI MILESTONE AND NEXT EXACT-SHA SOURCE GATE | 2026-10-16
 
 **VERIFIED:** Source `c4bd306c7e055ac991e49115e13c9ffbad5596b7` with GitHub Actions

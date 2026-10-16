@@ -1820,3 +1820,17 @@ business, financial, ownership or occupancy posting. Exact new SHA hosted
 CI is required before this milestone is VERIFIED. The further original
 Unit parent historical durable source identity fingerprint candidate is
 detached, and §133–135 specifications remain unavailable.
+
+### Next detached durable-claim fingerprint batch (rebased candidate)
+
+Parent `be8522586a711b074e7d24405bf5e03247011450` publishes the historical reviewed-source exact
+fingerprint correction but requires all six hosted CI jobs green.
+The follow-on detached original Unit parent durable Property source
+candidate from `ce507242` was reconciled onto the new parent's
+source state: no production file divergences. It binds specific
+conflicting historic durable source and target metadata to the
+private review digest using the existing scoped query. Existing
+parameterized Unit original-parent regressions cover
+ANOTHER-PROPERTY -> YET-ANOTHER-PROPERTY without changed stale
+counts, and exact-source restoration. Zero customer record writes,
+no new SQL read; no future numbered requirements invented.
