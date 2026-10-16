@@ -1277,3 +1277,36 @@ all six required jobs passed (backend/PostgreSQL, frontend, security,
 platform-admin, staging-config, authenticated E2E). The three-resource
 cross-run durable Lease collision safety is VERIFIED. Sections 91–102
 remain PROVISIONAL until their own exact-source hosted six-job CI passes.
+
+## 103. Batch live reconciliation customer target validity (2026-10-16)
+
+The read-only Yardi run-level resource reconciliation preloads active,
+nondeleted, organization-scoped customer Property, Unit and Unit parent,
+role-correct Owner/Tenant user, and nondeleted Vendor target IDs in bounded
+resource projections. Both explicit MATCH_EXISTING review evidence and
+unreviewed exact-durable-identity readiness share these current target checks.
+Historical decisions, source row fingerprints and customer data stay unchanged.
+
+## 104. Preserve original reviewed Unit parent and invalid-target semantics
+
+The batched Unit projection includes current parent Property identity and
+continues to reject inactive, deleted or wrong-organization parents and
+reparented Units. A reviewed Unit still requires matching original source
+Property identity, while a durable unreviewed Unit still needs the exact source
+fingerprint and active mapped customer parent. User roles and Vendor deletion
+status retain their previous eligibility checks. Review fingerprint changes
+with readiness, never with unreviewed customer data details.
+
+## 105. SQL-count, recovery and nonmutation PostgreSQL gate
+
+A dedicated PostgreSQL regression stages two different Property sources, one
+unreviewed exact bound and another explicitly reviewed MATCH_EXISTING row,
+asserts that the count of live Property SELECTs stays constant, then archives
+and restores the second Property to validate stale readiness and fingerprint
+recovery. Existing tests remain untouched; the fast Yardi CI gate includes
+this regression ahead of the full PostgreSQL suite.
+
+**Status:** Sections 103-105 PROVISIONAL until all six hosted CI jobs pass at
+their exact published source SHA. No existing test deleted, disabled, skipped,
+or weakened; no customer Lease/occupancy or accounting posting enabled. The
+original external Yardi export and API source contract restrictions remain.

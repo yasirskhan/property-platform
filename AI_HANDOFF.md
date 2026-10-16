@@ -1,3 +1,37 @@
+# CURRENT PHASE 4.15 HANDOFF | 2026-10-16
+Repository: `yasirskhan/property-platform`. Sole branch:
+`chatgpt/checkpoint-005-safety`. Never alter main.
+
+## Sections 91-102: VERIFIED
+At source SHA `8a6cbd2882d832a5d9a75f105a0c3dc216d3284e`, CI
+`38852012124` concluded SUCCESS: backend/PostgreSQL, frontend, security,
+platform-admin, authenticated E2E and staging-config all passed.
+
+## Sections 103-105: PUBLISHED PRODUCT, PROVISIONAL pending exact SHA CI
+- 103: batch current customer target live validity for read-only run-level
+  Yardi reconciliation, including reviewed and exact durably mapped identities.
+- 104: retain Unit source-parent, ownership of target org, role and deleted/
+  inactive target checks, and exact review fingerprint invalidation.
+- 105: a new PostgreSQL test checks constant SQL live Property SELECT counts
+  for one vs two source rows and stale/recovered Property with preserved
+  customer details; explicitly add this test to fast Yardi CI.
+All 3 bounded tasks and no other requirements were altered or skipped.
+No existing tests removed, skipped, disabled or weakened. No migrations,
+customer business mutations, Lease/occupancy creation, financial postings,
+or undocumented Yardi API credentials or endpoints were enabled.
+Local targeted tests were not runnable in connector-only Chat; the CI includes
+fast targeted PostgreSQL gate and full tests. Find actual commit SHA from live
+HEAD; NEVER mark this milestone VERIFIED without all-six-job exact SHA success.
+
+## Immediate next implementation
+Verify newest sole-branch HEAD and exact-SHA GitHub CI. If Sections 103-105
+CI green, continue Sections 106 onward in grouped, related review/consistency
+work; if red, repair the real failure without weakening tests. While CI runs,
+prepare detached subsequent source but never override another session's
+branch changes. Keep `docs/YARDI_MIGRATION_PLAN.md` and handoff together
+with code. The historical handoff below is preserved unedited.
+
+---
 # AI_HANDOFF.md | Yardi Phase 4.15 | 2026-10-16
 
 ## VERIFIED Sections 88–90, exact source `76ddbf9a9797c61e587826d77972ce9a1a1893ef`

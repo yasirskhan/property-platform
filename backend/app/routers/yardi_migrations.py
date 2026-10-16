@@ -1566,6 +1566,66 @@ def get_yardi_reconciliation(
         if target is not None:
             reviewed_claim_sources.setdefault((resource, target), set()).add(source_id)
 
+    # Batch current customer-target evidence for the run's identity rows.
+    # The reconciliation is read-only; target validity must still reflect
+    # active/nondeleted resources, correct organization and user roles.
+    target_ids = {kind: set() for kind in ("PROPERTIES", "UNITS", "OWNERS", "VENDORS", "TENANTS")}
+    target_attributes = {
+        "PROPERTIES": "resolution_target_id",
+        "UNITS": "resolution_target_unit_id",
+        "OWNERS": "resolution_target_owner_user_id",
+        "VENDORS": "resolution_target_vendor_id",
+        "TENANTS": "resolution_target_tenant_user_id",
+    }
+    for item in items:
+        if item.resource in target_ids and item.target_id is not None:
+            target_ids[item.resource].add(item.target_id)
+    for identity_row in rows:
+        field = target_attributes.get(identity_row.resource)
+        if field:
+            target_id = getattr(identity_row, field)
+            if target_id is not None:
+                target_ids[identity_row.resource].add(target_id)
+    live_properties = set()
+    if target_ids["PROPERTIES"]:
+        live_properties = {
+            ident for (ident,) in db.query(Property.id).filter(
+                Property.id.in_(target_ids["PROPERTIES"]),
+                Property.organization_id == run.organization_id,
+                Property.is_active.is_(True), Property.deleted_at.is_(None),
+            ).all()
+        }
+    live_unit_parents = {}
+    if target_ids["UNITS"]:
+        live_unit_parents = dict(db.query(Unit.id, Unit.property_id).join(
+            Property, Unit.property_id == Property.id,
+        ).filter(
+            Unit.id.in_(target_ids["UNITS"]),
+            Unit.is_active.is_(True), Unit.deleted_at.is_(None),
+            Property.organization_id == run.organization_id,
+            Property.is_active.is_(True), Property.deleted_at.is_(None),
+        ).all())
+    live_users = {"OWNERS": set(), "TENANTS": set()}
+    for resource, role in (("OWNERS", UserRole.OWNER), ("TENANTS", UserRole.TENANT)):
+        if target_ids[resource]:
+            live_users[resource] = {
+                ident for (ident,) in db.query(User.id).filter(
+                    User.id.in_(target_ids[resource]),
+                    User.organization_id == run.organization_id,
+                    User.role == role,
+                    User.is_active.is_(True), User.deleted_at.is_(None),
+                ).all()
+            }
+    live_vendors = set()
+    if target_ids["VENDORS"]:
+        live_vendors = {
+            ident for (ident,) in db.query(Vendor.id).filter(
+                Vendor.id.in_(target_ids["VENDORS"]),
+                Vendor.organization_id == run.organization_id,
+                Vendor.deleted_at.is_(None),
+            ).all()
+        }
+
     def claimed_by_other_review(row, target_id):
         return (
             target_id is not None
@@ -1607,43 +1667,17 @@ def get_yardi_reconciliation(
                     and item.target_entity == "PROPERTY"
                 ), None)
                 target_valid = (
-                    parent is not None and row.resolution_target_unit_id is not None
-                    and db.query(Unit.id).join(Property, Unit.property_id == Property.id).filter(
-                        Unit.id == row.resolution_target_unit_id,
-                        Unit.property_id == parent.target_id,
-                        Unit.is_active.is_(True), Unit.deleted_at.is_(None),
-                        Property.organization_id == run.organization_id,
-                        Property.is_active.is_(True), Property.deleted_at.is_(None),
-                    ).first() is not None
+                    parent is not None and row.resolution_target_unit_id in live_unit_parents
+                    and live_unit_parents[row.resolution_target_unit_id] == parent.target_id
                 )
             elif row.resource == "OWNERS":
-                target_valid = row.resolution_target_owner_user_id is not None and db.query(User.id).filter(
-                    User.id == row.resolution_target_owner_user_id,
-                    User.organization_id == run.organization_id,
-                    User.role == UserRole.OWNER,
-                    User.is_active.is_(True),
-                    User.deleted_at.is_(None),
-                ).first() is not None
+                target_valid = row.resolution_target_owner_user_id in live_users["OWNERS"]
             elif row.resource == "TENANTS":
-                target_valid = row.resolution_target_tenant_user_id is not None and db.query(User.id).filter(
-                    User.id == row.resolution_target_tenant_user_id,
-                    User.organization_id == run.organization_id,
-                    User.role == UserRole.TENANT,
-                    User.is_active.is_(True),
-                    User.deleted_at.is_(None),
-                ).first() is not None
+                target_valid = row.resolution_target_tenant_user_id in live_users["TENANTS"]
             elif row.resource == "VENDORS":
-                target_valid = row.resolution_target_vendor_id is not None and db.query(Vendor.id).filter(
-                    Vendor.id == row.resolution_target_vendor_id,
-                    Vendor.organization_id == run.organization_id,
-                    Vendor.deleted_at.is_(None),
-                ).first() is not None
+                target_valid = row.resolution_target_vendor_id in live_vendors
             elif row.resource == "PROPERTIES":
-                target_valid = row.resolution_target_id is not None and db.query(Property.id).filter(
-                    Property.id == row.resolution_target_id,
-                    Property.organization_id == run.organization_id,
-                    Property.is_active.is_(True), Property.deleted_at.is_(None),
-                ).first() is not None
+                target_valid = row.resolution_target_id in live_properties
             else:
                 target_valid = False
             # A recorded review is not current if its durable source identity
@@ -1714,11 +1748,7 @@ def get_yardi_reconciliation(
                     and binding.target_entity == expected_entity
                     and binding.source_fingerprint == row.row_fingerprint):
                 if row.resource == "PROPERTIES":
-                    target_current = db.query(Property.id).filter(
-                        Property.id == binding.target_id,
-                        Property.organization_id == run.organization_id,
-                        Property.is_active.is_(True), Property.deleted_at.is_(None),
-                    ).first() is not None
+                    target_current = binding.target_id in live_properties
                 elif row.resource == "UNITS":
                     source_parent = str((row.normalized_data or {}).get("source_property_id") or "").strip()
                     parent_binding = next((
@@ -1729,28 +1759,13 @@ def get_yardi_reconciliation(
                     ), None)
                     target_current = (
                         bool(source_parent) and parent_binding is not None
-                        and db.query(Unit.id).join(Property, Unit.property_id == Property.id).filter(
-                            Unit.id == binding.target_id,
-                            Unit.property_id == parent_binding.target_id,
-                            Unit.is_active.is_(True), Unit.deleted_at.is_(None),
-                            Property.organization_id == run.organization_id,
-                            Property.is_active.is_(True), Property.deleted_at.is_(None),
-                        ).first() is not None
+                        and binding.target_id in live_unit_parents
+                        and live_unit_parents[binding.target_id] == parent_binding.target_id
                     )
                 elif row.resource in ("OWNERS", "TENANTS"):
-                    role = UserRole.OWNER if row.resource == "OWNERS" else UserRole.TENANT
-                    target_current = db.query(User.id).filter(
-                        User.id == binding.target_id,
-                        User.organization_id == run.organization_id,
-                        User.role == role, User.is_active.is_(True),
-                        User.deleted_at.is_(None),
-                    ).first() is not None
+                    target_current = binding.target_id in live_users[row.resource]
                 elif row.resource == "VENDORS":
-                    target_current = db.query(Vendor.id).filter(
-                        Vendor.id == binding.target_id,
-                        Vendor.organization_id == run.organization_id,
-                        Vendor.deleted_at.is_(None),
-                    ).first() is not None
+                    target_current = binding.target_id in live_vendors
             if target_current and claimed_by_other_review(row, binding.target_id):
                 target_current = False
             if target_current:
