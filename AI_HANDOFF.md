@@ -1,3 +1,25 @@
+# DETACHED NEXT SOURCE MILESTONE: EXACT REVIEW-SNAPSHOT STALENESS
+
+This follow-up extends the historical competing source-ID fingerprint
+repair to the actual Yardi dry-run status contract. A saved reviewed
+dry-run made under historical OLD-1 conflict MUST become stale when the
+recorded historical source changes to OLD-2 or NULL while every collision
+counter remains identical. Exact same-source recovery must not silently
+make that older saved dry run current. An explicitly rerun reviewed
+dry run restores current status on the newly recomputed private fingerprint.
+
+The source fix is the same scoped `get_yardi_reconciliation` evidence
+improvement prepared on `1aa0b403`; this child adds the above fast-gated
+PostgreSQL assertions using existing dry-run status/recording endpoints,
+no new API or production database writes, no modified customer records.
+No tests removed or disabled. Parent live SHA `c4bd306c7e055ac991e49115e13c9ffbad5596b7`
+remains awaiting all six CI jobs at run `38945258561`.
+This source is DETACHED until that verification is green, and itself
+must pass a new full exact-SHA hosted CI after non-force publication.
+No invented Yardi §§133–135 requirements.
+
+---
+
 # DETACHED SAFE SOURCE FIX | YARDI HISTORICAL REVIEW CLAIM FINGERPRINT
 
 Parent verified product `c4bd306c7e055ac991e49115e13c9ffbad5596b7` still requires hosted CI

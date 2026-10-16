@@ -7,7 +7,8 @@ from app.models.lease import Lease
 from app.models.platform_migration import PlatformMigrationRun, PlatformMigrationUpload, PlatformMigrationStagedRow
 from app.routers.yardi_migrations import (
     accept_yardi_staged_lease_relationship, get_yardi_reconciliation,
-    list_yardi_lease_relationships,
+    list_yardi_lease_relationships, dry_run_yardi_review,
+    get_yardi_review_dry_run_status,
 )
 from app.services.yardi_file_ingestion import stage_yardi_file
 from test_yardi_lease_identity_acceptance import _seed
@@ -405,6 +406,7 @@ def test_changed_competing_lease_review_source_invalidates_exact_fingerprint():
         db.commit()
 
         fingerprints = []
+        saved_dry_run_fingerprint = None
         for historical_source in ("OLD-1", "OLD-2", None):
             historical.source_id = historical_source
             db.commit()
@@ -418,6 +420,20 @@ def test_changed_competing_lease_review_source_invalidates_exact_fingerprint():
                 accept_yardi_staged_lease_relationship(run.id, lease.id, db, actor)
             assert blocked.value.status_code == 409
             fingerprints.append(stale["review_fingerprint"])
+            if saved_dry_run_fingerprint is None:
+                recorded = dry_run_yardi_review(run.id, db, actor)
+                assert recorded["replayed"] is False
+                saved_dry_run_fingerprint = recorded["review_fingerprint"]
+                assert get_yardi_review_dry_run_status(
+                    run.id, Response(), db, actor,
+                )["is_current"] is True
+            else:
+                dry_status = get_yardi_review_dry_run_status(
+                    run.id, Response(), db, actor,
+                )
+                assert dry_status["saved_review_fingerprint"] == saved_dry_run_fingerprint
+                assert dry_status["current_review_fingerprint"] == stale["review_fingerprint"]
+                assert dry_status["is_current"] is False
 
         assert len(set(fingerprints)) == 3
         assert baseline["review_fingerprint"] not in fingerprints
@@ -427,6 +443,16 @@ def test_changed_competing_lease_review_source_invalidates_exact_fingerprint():
         assert recovered["lease_relationship_readiness"]["identity_target_review_collisions"] == 0
         assert recovered["lease_relationship_readiness"]["source_review_ready"] == 1
         assert recovered["review_fingerprint"] == baseline["review_fingerprint"]
+        expired_snapshot = get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )
+        assert expired_snapshot["is_current"] is False
+        renewed = dry_run_yardi_review(run.id, db, actor)
+        assert renewed["replayed"] is False
+        assert renewed["review_fingerprint"] == baseline["review_fingerprint"]
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is True
         assert accept_yardi_staged_lease_relationship(
             run.id, lease.id, db, actor,
         )["replayed"] is True

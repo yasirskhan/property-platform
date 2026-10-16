@@ -1778,3 +1778,17 @@ competing Property source across OLD-1, OLD-2 and NULL; all three must
 remain blocked and fingerprint-distinct; exact original P1 identity
 restores readiness and the initial fingerprint, with no customer Lease,
 accounting or existing target mutation. Prepared and NOT VERIFIED.
+
+### Exact historical source claim fingerprint must also invalidate saved dry run
+
+The prepared read-only Lease fingerprint evidence correction is now
+fast-regressed through the actual Yardi dry-run snapshot lifecycle.
+After a saved snapshot is recorded for a stale historical OLD-1 claim,
+a different historical OLD-2 or NULL competing source must invalidate
+`get_yardi_review_dry_run_status().is_current` even if all readiness
+counters stay unchanged. Exact source restoration to P1 restores baseline
+readiness fingerprint but does not silently bless the OLD-1 snapshot;
+a new explicit reviewed dry-run records the current fingerprint. This
+covers stable idempotency and source-exact readiness without any customer
+Lease, occupancy, balance, GL, payment or identity mutation. DETACHED,
+pending prior milestone CI and own future six-job verification.
