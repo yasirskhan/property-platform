@@ -891,3 +891,88 @@ def test_accepted_lease_identity_becomes_stale_after_competing_tenant_staff_revi
     finally:
         db.close()
         engine.dispose()
+
+
+
+def test_yardi_lease_review_fingerprint_changes_when_stale_target_swaps_with_equal_counts():
+    """A changed identity claim must invalidate a saved dry run even with equal totals."""
+    db, engine = _session()
+    try:
+        actor, org, run, original, alternate, unit, tenant1, first_lease = _seed(
+            db, "yardi-lease-target-swap-fingerprint",
+        )
+        tenant2 = User(
+            organization_id=org.id, role=UserRole.TENANT,
+            email="yardi-second-tenant@example.test",
+            hashed_password="unchanged-second-hash",
+            first_name="Second", last_name="Resident", is_active=True,
+        )
+        db.add(tenant2)
+        db.flush()
+        db.add(PlatformMigrationItem(
+            run_id=run.id, organization_id=org.id, provider="YARDI",
+            resource="TENANTS", source_id="T2", target_entity="TENANT_USER",
+            target_id=tenant2.id, source_fingerprint="reviewed-T2",
+        ))
+        db.commit()
+        uploaded = stage_yardi_file(
+            db, run=run, filename="another-lease.csv",
+            content=b"Lease,Tenant,Property,Unit\nL2,T2,P1,U1\n",
+            resource_override="LEASE_OCCUPANCY", sheet_name=None,
+            explicit_mapping={
+                "source_id": "Lease", "source_tenant_id": "Tenant",
+                "source_property_id": "Property", "source_unit_id": "Unit",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        second_lease = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == uploaded.upload.id
+        ).one()
+        assert accept_yardi_staged_lease_relationship(
+            run.id, first_lease.id, db, actor,
+        )["replayed"] is False
+        assert accept_yardi_staged_lease_relationship(
+            run.id, second_lease.id, db, actor,
+        )["replayed"] is False
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["lease_relationship_readiness"]["complete_identity_links"] == 2
+
+        other_run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="competing-lease-target-switch", status="DRAFT",
+        )
+        db.add(other_run)
+        db.commit()
+        competitor_upload = stage_yardi_file(
+            db, run=other_run, filename="other-tenants.csv",
+            content=b"Resident Ref,Full Name\nT-COMP,Competing Tenant\n",
+            resource_override="TENANTS", sheet_name=None,
+            explicit_mapping={"source_id": "Resident Ref", "name": "Full Name"},
+            platform_user_id=actor.id,
+        )
+        db.commit()
+        competitor = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == competitor_upload.upload.id
+        ).one()
+        competitor.resolution_action = "MATCH_EXISTING"
+        competitor.resolution_target_tenant_user_id = tenant1.id
+        db.commit()
+        first_conflict = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert first_conflict["lease_relationship_readiness"]["complete_identity_links"] == 1
+        assert first_conflict["lease_relationship_readiness"]["accepted_relationship_stale"] == 1
+        assert first_conflict["lease_relationship_readiness"]["identity_target_review_collisions"] == 1
+
+        competitor.resolution_target_tenant_user_id = tenant2.id
+        db.commit()
+        swapped = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert swapped["lease_relationship_readiness"] == first_conflict["lease_relationship_readiness"]
+        assert swapped["resource_coverage"] == first_conflict["resource_coverage"]
+        assert swapped["review_fingerprint"] != first_conflict["review_fingerprint"]
+        assert db.query(Lease).count() == 0
+        db.refresh(tenant1)
+        db.refresh(tenant2)
+        assert tenant1.hashed_password == "unchanged-password-hash"
+        assert tenant2.hashed_password == "unchanged-second-hash"
+    finally:
+        db.close()
+        engine.dispose()

@@ -1335,9 +1335,11 @@ def get_yardi_reconciliation(
         "invalid_or_skipped": 0,
         "controlled_commit_enabled": False, "customer_business_mutation": False,
     }
+    lease_row_readiness_evidence = []
     for lease_row in lease_rows:
         if lease_row.errors or lease_row.disposition == "INVALID" or lease_row.resolution_action == "SKIP":
             lease_relationship_readiness["invalid_or_skipped"] += 1
+            lease_row_readiness_evidence.append((lease_row.id, "INVALID_OR_SKIPPED"))
             continue
         data = lease_row.normalized_data or {}
         property_link = lease_links.get(("PROPERTIES", str(data.get("source_property_id") or "").strip()))
@@ -1440,9 +1442,20 @@ def get_yardi_reconciliation(
                 and not source_id_collision and not identity_collision
                 and not target_review_collision and not accepted_review_stale):
             lease_relationship_readiness["complete_identity_links"] += 1
+        # A cross-run target review can move from lease A to lease B without
+        # changing the aggregate stale/complete counts. Fingerprint each
+        # source lease's readiness, not just the run-level totals.
+        lease_row_readiness_evidence.append((
+            lease_row.id, property_id, unit_id, tenant_id,
+            bool(identity_collision), bool(target_review_collision),
+            bool(source_parent_conflicts), bool(source_parent_current),
+            bool(target_parent_conflicts), bool(source_id_collision),
+            bool(accepted_review_stale),
+        ))
 
     evidence = {
         "identity_row_readiness": row_readiness_evidence,
+        "lease_row_readiness": lease_row_readiness_evidence,
         "staged": [(r.id, r.resource, r.source_id, r.row_fingerprint, r.disposition,
                     r.resolution_action, r.resolution_target_id, r.resolution_target_unit_id,
                     r.resolution_target_vendor_id, r.resolution_target_tenant_user_id,

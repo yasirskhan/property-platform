@@ -683,5 +683,15 @@ Parameterized Owner/Tenant/Vendor binding regressions, Vendor inventory
 and accepted Tenant lease source regressions check historical NULL claims,
 staff warning, aggregate blockers, replay refusal, and customer nonmutation.
 These are metadata evidence checks only; no Lease, occupancy, accounting,
-payments, or official undocumented Yardi API are enabled. Provisional
-until exact-SHA hosted CI succeeds in all six required jobs.
+payments, or official undocumented Yardi API are enabled. VERIFIED at exact SHA
+`4727e8803a028abbfc753db7b067f1e3fb89be0a`, GitHub Actions
+`38826234779` SUCCESS (all six required jobs).
+
+## 53. Per-lease readiness in review fingerprint (2026-10-15)
+
+The Yardi reconciliation digest now includes private per-lease readiness
+evidence. It changes when an external reviewed target claim moves between
+two accepted lease source rows even though all aggregate counts remain
+the same. A two-tenant, two-source-row regression checks the fingerprint
+changes while customer records are untouched. Lease creation and financial
+posting remain disabled. Requires exact-SHA six-job CI verification.
