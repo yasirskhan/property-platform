@@ -735,5 +735,19 @@ parent cannot appear verified from a partial review. A two-Unit PostgreSQL
 regression counts staged-review SELECTs independent of page size, checks live
 parent classification and preservation of customer Properties/Units. This does
 not create or alter any customer record, Lease/occupancy or financial posting,
-nor assume undocumented Yardi API behavior. PROVISIONAL pending all six hosted
-CI jobs on the exact product SHA.
+nor assume undocumented Yardi API behavior. VERIFIED at exact SHA `24b702c6d517561d174f003c7f0f4844450397bd`, GitHub Actions `38836676853`
+SUCCESS with backend/PostgreSQL, frontend, platform-admin, security,
+authenticated E2E and staging-config all passing.
+
+## 57. Fail closed on ambiguous mapped Property parent source (2026-10-15)
+
+The read-only durable Unit inventory must not call the reviewed source-parent
+relationship current merely because its active customer Unit still belongs to
+the mapped Property when the underlying same-run Yardi Property source ID has
+unskipped duplicate staged versions. Reuse organization/run-scoped unresolved
+identity collisions to mark the source parent unverified until staff performs
+an explicit reason-coded SKIP, without altering historical review evidence or
+customer Properties/Units. A focused PostgreSQL regression exercises a new
+Property source version, collision and SKIP recovery. This is source-evidence
+metadata only, not customer data mutation or Lease/financial posting.
+PROVISIONAL pending exact-SHA all-six-job hosted CI.

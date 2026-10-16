@@ -620,3 +620,102 @@ def test_yardi_unit_inventory_batches_exact_parent_review_evidence_per_page():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_yardi_unit_parent_inventory_rejects_ambiguous_mapped_property_source():
+    """A duplicate parent Property source invalidates Unit source-parent certainty."""
+    from app.models.platform_migration import PlatformMigrationStagedRow
+    from app.services.yardi_file_ingestion import stage_yardi_file
+
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-inventory-property-parent-collision")
+        prop = Property(
+            organization_id=org.id, name="Preserved Parent",
+            address_line1="1 Main", city="Cleveland", state="OH", zip_code="44113",
+        )
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="property-source-parent-collision", status="DRAFT",
+        )
+        db.add_all([prop, run])
+        db.flush()
+        unit = Unit(property_id=prop.id, unit_number="301")
+        db.add(unit)
+        db.flush()
+        property_binding = _binding(db, run, "PROPERTIES", "P-1", "PROPERTY", prop.id)
+        unit_binding = _binding(db, run, "UNITS", "U-1", "UNIT", unit.id)
+        db.commit()
+
+        def stage_property(name):
+            upload = stage_yardi_file(
+                db, run=run, filename="property-parent.csv",
+                content=("ID,Name,Street,City,State,Zip\n"
+                         "P-1," + name + ",1 Main,Cleveland,OH,44113\n").encode(),
+                resource_override="PROPERTIES", sheet_name=None,
+                explicit_mapping={
+                    "source_id": "ID", "name": "Name", "address_line1": "Street",
+                    "city": "City", "state": "State", "zip_code": "Zip",
+                }, platform_user_id=actor.id,
+            )
+            db.commit()
+            return db.query(PlatformMigrationStagedRow).filter(
+                PlatformMigrationStagedRow.upload_id == upload.upload.id,
+            ).one()
+
+        reviewed_property = stage_property("Original Source Parent")
+        reviewed_property.resolution_action = "MATCH_EXISTING"
+        reviewed_property.resolution_target_id = prop.id
+        property_binding.source_fingerprint = reviewed_property.row_fingerprint
+        unit_upload = stage_yardi_file(
+            db, run=run, filename="unit-parent.csv",
+            content=b"Unit Ref,Parent Ref,Number\nU-1,P-1,301\n",
+            resource_override="UNITS", sheet_name=None,
+            explicit_mapping={
+                "source_id": "Unit Ref", "source_property_id": "Parent Ref",
+                "unit_name": "Number",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        unit_row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == unit_upload.upload.id,
+        ).one()
+        unit_row.resolution_action = "MATCH_EXISTING"
+        unit_row.resolution_target_unit_id = unit.id
+        unit_binding.source_fingerprint = unit_row.row_fingerprint
+        db.commit()
+
+        def current():
+            return list_yardi_durable_bindings(
+                run.id, Response(), resource="UNITS", offset=0, limit=10,
+                db=db, current_user=actor,
+            )["items"][0]
+
+        first = current()
+        assert first["target_current"] is True
+        assert first["source_identity_collision"] is False
+        assert first["unit_parent_relationship_current"] is True
+
+        competing = stage_property("Different Staged Version")
+        ambiguous = current()
+        assert ambiguous["target_current"] is True
+        assert ambiguous["source_identity_collision"] is False
+        assert ambiguous["unit_parent_relationship_current"] is False
+
+        skipped = skip_yardi_staged_row(
+            run.id, competing.id, YardiRowSkipIn(reason_code="DUPLICATE_SOURCE"),
+            db, actor,
+        )
+        assert skipped["action"] == "SKIP"
+        restored = current()
+        assert restored["target_current"] is True
+        assert restored["unit_parent_relationship_current"] is True
+        db.refresh(prop)
+        db.refresh(unit)
+        assert prop.name == "Preserved Parent"
+        assert unit.property_id == prop.id
+        assert unit.unit_number == "301"
+    finally:
+        db.close()
+        engine.dispose()

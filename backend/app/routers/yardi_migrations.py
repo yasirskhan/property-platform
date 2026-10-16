@@ -612,6 +612,11 @@ def list_yardi_durable_bindings(
                             Unit.property_id == parent_mapping.target_id,
                         ).first() is not None
                     )
+                    # A changed, unskipped Property source version makes the
+                    # mapped source parent uncertain even when the target Unit
+                    # still belongs to the same active customer Property.
+                    if ("PROPERTIES", source_parent_id) in identity_collisions:
+                        parent_relationship_current = False
         elif valid_entity and item.resource in ("OWNERS", "TENANTS"):
             target_role = UserRole.OWNER if item.resource == "OWNERS" else UserRole.TENANT
             target_current = db.query(User.id).filter(
