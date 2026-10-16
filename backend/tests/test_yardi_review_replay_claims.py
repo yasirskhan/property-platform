@@ -1678,3 +1678,85 @@ def test_durable_unit_source_parent_eligibility_swap_expires_equal_count_dry_run
     finally:
         db.close()
         engine.dispose()
+
+
+@pytest.mark.parametrize("resource,seed,match,request_cls,target_field", [
+    ("OWNERS", seed_owner, match_yardi_staged_owner, YardiOwnerMatchIn,
+     "target_owner_user_id"),
+    ("TENANTS", seed_tenant, match_yardi_staged_tenant, YardiTenantMatchIn,
+     "target_tenant_user_id"),
+    ("VENDORS", seed_vendor, match_yardi_staged_vendor, YardiVendorMatchIn,
+     "target_vendor_id"),
+])
+def test_unbound_reviewed_identity_ignores_unrelated_customer_eligibility(
+    resource, seed, match, request_cls, target_field,
+):
+    """Unrelated customer status never expires a different reviewed identity."""
+    from datetime import datetime
+    from app.models.platform_migration import PlatformMigrationItem
+    from app.models.user import User
+    from app.models.vendor import Vendor
+    from app.routers.yardi_migrations import get_yardi_review_dry_run_status
+
+    db, engine = _session()
+    try:
+        slug = f"yardi-unrelated-customer-status-{resource.lower()}"
+        actor, org, reviewed_target, run, row = seed(db, slug=slug)
+        if resource == "VENDORS":
+            unrelated = Vendor(
+                organization_id=org.id, company_name="Unrelated Vendor",
+            )
+        else:
+            unrelated = User(
+                organization_id=org.id, role=reviewed_target.role,
+                email=f"{slug}-unrelated@example.test",
+                hashed_password="unrelated-preserved-hash",
+                first_name="Unrelated", last_name="User", is_active=True,
+            )
+        db.add(unrelated)
+        db.commit()
+        assert match(
+            run.id, row.id, request_cls(**{target_field: reviewed_target.id}),
+            db, actor,
+        )["replayed"] is False
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["resource_coverage"][resource]["matched_existing"] == 1
+        saved = dry_run_yardi_review(run.id, db, actor)
+        assert saved["review_fingerprint"] == baseline["review_fingerprint"]
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is True
+
+        if resource == "VENDORS":
+            unrelated.deleted_at = datetime.utcnow()
+        else:
+            unrelated.is_active = False
+        db.commit()
+        unchanged = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert unchanged["resource_coverage"] == baseline["resource_coverage"]
+        assert unchanged["review_fingerprint"] == baseline["review_fingerprint"]
+        status = get_yardi_review_dry_run_status(run.id, Response(), db, actor)
+        assert status["is_current"] is True
+        assert status["saved_review_fingerprint"] == saved["review_fingerprint"]
+        assert unchanged["customer_business_mutation"] is False
+
+        if resource == "VENDORS":
+            unrelated.deleted_at = None
+        else:
+            unrelated.is_active = True
+        db.commit()
+        recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert recovered["review_fingerprint"] == baseline["review_fingerprint"]
+        assert row.resolution_action == "MATCH_EXISTING"
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+        ).count() == 0
+        db.refresh(reviewed_target)
+        assert reviewed_target.id != unrelated.id
+        if resource == "VENDORS":
+            assert reviewed_target.company_name == "Untouched Vendor"
+        else:
+            assert reviewed_target.hashed_password == "preserved-hash"
+    finally:
+        db.close()
+        engine.dispose()

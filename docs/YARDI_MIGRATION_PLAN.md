@@ -2063,3 +2063,21 @@ parenting and numbers. Two parameterized PostgreSQL cases. No product
 router, customer Lease/occupancy, GL, allocations or unofficial Yardi
 API changes; requires exact hosted six-job CI on publication after
 predecessor verification. §§133–135 remain unspecified.
+
+
+### Detached out-of-scope customer eligibility isolation (2026-10-16)
+
+The exact customer eligibility fingerprint must only consider targets
+actually referenced in the run's reviewed or durable identities.
+Three parameterized fast-gated PostgreSQL negatives test that an
+unreferenced, same-organization Owner, Tenant or Vendor becoming inactive
+or archived leaves the current reviewed target, its source-exact
+fingerprint and persisted staff dry-run status EXACTLY unchanged.
+Original staff review, customer's password/company name and absence of
+a new binding are preserved. This prevents erroneous review expiration
+from unrelated customers while keeping fail-closed changes for referenced
+targets. Read-only product behavior and test fixture changes only,
+no Yardi API, schema, Lease/occupancy or financial/ownership mutation.
+The detached child requires predecessor exact-SHA full six-job CI and
+its own six-job verification after safe publication; §§133–135 remain
+unavailable and are not invented.

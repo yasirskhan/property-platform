@@ -1,3 +1,25 @@
+# 2026-10-16 | DETACHED unrelated customer eligibility isolation
+
+The prepared Yardi read-only test successor adds a three-resource
+negative-path invariant: inactive unrelated Owner or Tenant users and
+archived unrelated Vendors within the SAME organization but unreferenced
+by the current review must NOT expire that run's saved exact staff
+dry-run fingerprint. Preserved original target, source decision and
+no new durable mapping are asserted. This complements the earlier
+stale-target swap positives and guards review scope against unrelated
+customer actions. Tests-only and migration plan/handoff; no customer
+business write from the product, Lease/occupancy, API, owner allocation
+or finance posting. Existing tests are kept intact.
+
+DETACHED from 1c46d4fb959fdf811eeb9f687cff0bdd377ce695.
+Publish only after predecessor exact-SHA hosted six-job green, live
+branch HEAD recheck and non-force expected-HEAD fast-forward.
+This candidate also requires its own exact-SHA CI; no invented
+Yardi Sections 133–135. Sole authorized branch
+chatgpt/checkpoint-005-safety, never main or force push.
+
+---
+
 # 2026-10-16 | DETACHED Unit original Property parent eligibility swap
 
 A prepared read-only test successor protects two original durable
