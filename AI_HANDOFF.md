@@ -5,16 +5,22 @@ ONLY branch: `chatgpt/checkpoint-005-safety`.
 Do not touch `main`, create branches, force push, overwrite another session or modify unrelated systems.
 Read this ENTIRE handoff and verify the live HEAD and GitHub CI before each write.
 
+## Hosted CI VERIFIED product checkpoint — Sections 57–60
+
+Product commit `94e2ebc7c30f271c5ac9d1d5044d68173df79b16`, GitHub Actions
+run `38839237751`: SUCCESS, all six jobs (backend/PostgreSQL,
+frontend, security, platform-admin, authenticated E2E, staging-config).
+The previous Section 57-only CI `38838330535` was cancelled when the later
+superset milestone was published; no independent green claim is made for it.
+Sections 57–60 are therefore verified together on the exact superset SHA.
+
 ## Last confirmed VERIFIED checkpoint before this milestone
 
-Section 56, product source `24b702c6d517561d174f003c7f0f4844450397bd`,
-GitHub Actions run `38836676853` SUCCESS, all six required jobs.
-The subsequent Section 57 source `6969249803a2ec992769a985aa097bc5753b9414`
-was provisional and was undergoing exact-SHA CI run `38838330535`
-when this combined Sections 58–60 batch was prepared. Recheck the actual
-conclusion and all six jobs before treating Section 57 as VERIFIED.
+Previous verified Section 56: `24b702c6d517561d174f003c7f0f4844450397bd`,
+run `38836676853`, all six jobs passed. Section 57 was included in the
+successful Sections 57–60 superset milestone above.
 
-## Combined Sections 58–60: COMMITTED PRODUCT MILESTONE, PROVISIONAL until CI
+## Combined Sections 58–60: VERIFIED in Sections 57–60 superset CI
 
 Read the actual branch HEAD to discover the published milestone commit SHA.
 These three existing prepared drafts were reviewed and consolidated rather
@@ -35,26 +41,39 @@ mutation or unsupported source adapter was introduced. Full source/roadmap
 audit reviewed the exact three-file changes against
 `docs/YARDI_MIGRATION_PLAN.md` §§57–60.
 
-**Do not mark milestone VERIFIED without all-six-job successful hosted CI at
-its precise product commit SHA.** Local targeted backend/TS commands could not
-be executed using this GitHub-only connector environment; require hosted
-verification and repair any regressions.
+**Exact-SHA milestone VERIFIED:** See successful run `38839237751` above. The
+subsequent Sections 61–66 still need their independent hosted verification.
+
+## Consolidated follow-up Sections 61–66: PREPARED, NOT VERIFIED
+
+This follow-up is a cohesive metadata-only inventory milestone on top of the
+published Section 58–60 source `94e2ebc7c30f271c5ac9d1d5044d68173df79b16`:
+
+1. Batch live scoped Property, Unit, Owner, Tenant and Vendor target checks.
+2. Batch exact durable Property parent identity and source-fingerprint lookups.
+3. Fetch retained reviewed target claims only for current inventory page IDs.
+4. Preserve cross-run different/unknown source collisions and fail-closed
+   ambiguous legacy mappings on the page.
+5. Strengthen PostgreSQL query-count, empty-page and second-target collision
+   tests without deleting/skipping tests or changing customer data.
+
+This product batch is PROVISIONAL until its own exact-SHA all-six-job CI.
+Always check the live branch HEAD to distinguish prepared source from published
+code. Recheck hosted CI for `94e2ebc7`, use expected-HEAD ref updates only,
+and fix reds rather than marking any provisional product VERIFIED.
+No unofficial Yardi API, accounting posting, Lease/occupancy creation or
+customer overwrite is permitted. Original roadmap is retained.
 
 ## Immediate next steps
 
-1. Verify live HEAD, branch protection, and latest exact-SHA CI; do not assume
-   any SHA here remains live. Confirm Section 57 CI `38838330535` concluded
-   successfully, or repair relevant reds before treating as verified.
-2. Verify combined Sections 58–60 at their exact product SHA through hosted
-   backend/PostgreSQL, frontend, platform-admin, security, authenticated E2E
-   and staging-config jobs. Fix any genuine failures; do not spend hours on
-   unrelated 15-second Short-Term Rentals navigation flakes. Do not rerun the
-   already verified Section 40 work.
-3. After verification, update this handoff and roadmap with exact SHA and CI.
-   Immediately continue 3–5 coherent bounded Yardi Phase 4.15 sub-features,
-   targeted tests first where possible, one six-job CI milestone after the batch.
-   While CI runs, prepare detached follow-up code; never advance the branch
-   across unverified source or overwrite a concurrent session.
+1. Verify live HEAD and the newest exact-SHA CI before any write. Sections
+   57–60 are VERIFIED at `94e2ebc7`, run `38839237751`.
+2. Verify consolidated Sections 61–66 through a fresh all-six-job hosted CI
+   on the newly published exact SHA; repair any genuine failures without
+   weakening existing tests.
+3. Continue subsequent coherent three-to-five-task batches while CI runs;
+   prepare detached code where the branch has an unverified pending milestone,
+   then advance only after its exact-SHA success. Never modify `main`.
 
 ## Mandatory pre-CI completeness checklist
 
@@ -76,3 +95,7 @@ approval. Never overwrite, delete or auto-merge customer records, or erase
 staff decision/audit history. See
 `docs/AI_HANDOFF_ARCHIVE_2026_10_15.md` for historical handoff and
 `docs/YARDI_MIGRATION_PLAN.md` for full roadmap.
+
+## Prepared Sections 64-66
+
+Restrict historical Yardi review-claim reads to the current inventory page. Maintain unknown-source and competing cross-run claim classifications. Strengthen the existing Vendor regression for empty pages, page-specific collisions, and preservation of business records. Detached only, pending earlier milestone verification. No established requirements removed.

@@ -497,34 +497,52 @@ def test_durable_inventory_surfaces_competing_staged_target_review_without_targe
         # The read-only inventory must not run another reviewed-claim SELECT
         # for each additional durable identity. Other live target checks can
         # still be separate, so count only staged reviewed-target SQL.
-        def reviewed_claim_select_count():
+        def reviewed_claim_statements(offset=0, limit=10):
             statements = []
             def observe(connection, cursor, statement, parameters, context, executemany):
                 if (statement.lstrip().upper().startswith("SELECT")
                         and "resolution_action" in statement
                         and "resolution_target_vendor_id" in statement):
-                    statements.append(statement)
+                    statements.append(" ".join(statement.lower().split()))
             event.listen(engine, "before_cursor_execute", observe)
             try:
                 list_yardi_durable_bindings(
-                    run.id, Response(), resource="VENDORS", offset=0, limit=10,
+                    run.id, Response(), resource="VENDORS", offset=offset, limit=limit,
                     db=db, current_user=actor,
                 )
             finally:
                 event.remove(engine, "before_cursor_execute", observe)
-            return len(statements)
+            return statements
 
-        count_one = reviewed_claim_select_count()
+        first_statements = reviewed_claim_statements()
+        assert len(first_statements) == 1
+        assert "platform_migration_staged_rows.resolution_target_vendor_id in" in first_statements[0]
+        assert reviewed_claim_statements(offset=1000) == []
         vendor2 = Vendor(organization_id=org.id, company_name="Preserved Second Company")
         db.add(vendor2)
         db.flush()
         _binding(db, run, "VENDORS", "V-2", "VENDOR", vendor2.id)
         db.commit()
-        list_yardi_durable_bindings(
-            run.id, Response(), resource="VENDORS", offset=0, limit=10,
+        assert len(reviewed_claim_statements()) == 1
+
+        # A later reviewed source claim on the SECOND vendor must not make
+        # the FIRST vendor's separately paged inventory result stale.
+        competing.source_id = "V-other"
+        competing.resolution_target_vendor_id = vendor2.id
+        db.commit()
+        page_one = list_yardi_durable_bindings(
+            run.id, Response(), resource="VENDORS", offset=0, limit=1,
             db=db, current_user=actor,
-        )
-        assert reviewed_claim_select_count() == count_one
+        )["items"][0]
+        page_two = list_yardi_durable_bindings(
+            run.id, Response(), resource="VENDORS", offset=1, limit=1,
+            db=db, current_user=actor,
+        )["items"][0]
+        assert page_one["target_review_collision"] is False
+        assert page_two["target_review_collision"] is True
+        competing.source_id = "V-1"
+        competing.resolution_target_vendor_id = vendor.id
+        db.commit()
         db.refresh(vendor2)
         assert vendor2.company_name == "Preserved Second Company"
         db.refresh(vendor)
@@ -584,15 +602,21 @@ def test_yardi_unit_inventory_batches_exact_parent_review_evidence_per_page():
         db.commit()
 
         def inspect(limit):
-            statements = []
+            counts = {"review": 0, "parent_mapping": 0, "live_unit": 0}
             def observe(connection, cursor, statement, parameters, context, executemany):
-                sql = statement.lower()
-                if (sql.lstrip().startswith("select")
-                        and "platform_migration_staged_rows" in sql
+                sql = " ".join(statement.lower().split())
+                if not sql.startswith("select"):
+                    return
+                if ("platform_migration_staged_rows" in sql
                         and "row_fingerprint" in sql
                         and "resolution_target_unit_id" in sql
                         and "resolution_action" in sql):
-                    statements.append(statement)
+                    counts["review"] += 1
+                if ("platform_migration_items.source_id in" in sql
+                        and "platform_migration_items.source_fingerprint" in sql):
+                    counts["parent_mapping"] += 1
+                if ("units.id in" in sql and "join properties" in sql):
+                    counts["live_unit"] += 1
             event.listen(engine, "before_cursor_execute", observe)
             try:
                 result = list_yardi_durable_bindings(
@@ -601,11 +625,11 @@ def test_yardi_unit_inventory_batches_exact_parent_review_evidence_per_page():
                 )
             finally:
                 event.remove(engine, "before_cursor_execute", observe)
-            return result, len(statements)
+            return result, counts
 
-        result_one, count_one = inspect(1)
-        result_two, count_two = inspect(2)
-        assert count_one >= 1 and count_two == count_one
+        result_one, counts_one = inspect(1)
+        result_two, counts_two = inspect(2)
+        assert all(counts_one[key] == counts_two[key] == 1 for key in counts_one)
         assert len(result_one["items"]) == 1 and len(result_two["items"]) == 2
         assert all(row["target_current"] is True for row in result_two["items"])
         assert all(

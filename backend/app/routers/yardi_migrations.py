@@ -495,24 +495,44 @@ def list_yardi_durable_bindings(
         "VENDORS": "VENDOR",
         "TENANTS": "TENANT_USER",
     }
-    # Fetch reviewed source-to-target claims once for the page, instead of
-    # running another reviewed-claim SELECT for every durable binding.
-    # Unknown historical provider source IDs still contest valid target IDs.
+    # Historical reviewed claims are organization-wide across Yardi runs,
+    # but only target IDs on the requested inventory page are relevant.
+    # Keep malformed entity types in this lookup so collision diagnostics
+    # remain independent from whether the customer target is currently valid.
+    claim_targets = {
+        kind: {item.target_id for item in bindings
+               if item.resource == kind and item.target_id is not None}
+        for kind in supported
+    }
+    claim_target_column = {
+        "PROPERTIES": PlatformMigrationStagedRow.resolution_target_id,
+        "UNITS": PlatformMigrationStagedRow.resolution_target_unit_id,
+        "OWNERS": PlatformMigrationStagedRow.resolution_target_owner_user_id,
+        "VENDORS": PlatformMigrationStagedRow.resolution_target_vendor_id,
+        "TENANTS": PlatformMigrationStagedRow.resolution_target_tenant_user_id,
+    }
+    claim_filters = [
+        (PlatformMigrationStagedRow.resource == kind)
+        & claim_target_column[kind].in_(target_ids)
+        for kind, target_ids in claim_targets.items() if target_ids
+    ]
     reviewed_claim_sources = {}
-    reviewed_rows = db.query(
-        PlatformMigrationStagedRow.resource,
-        PlatformMigrationStagedRow.source_id,
-        PlatformMigrationStagedRow.resolution_target_id,
-        PlatformMigrationStagedRow.resolution_target_unit_id,
-        PlatformMigrationStagedRow.resolution_target_owner_user_id,
-        PlatformMigrationStagedRow.resolution_target_vendor_id,
-        PlatformMigrationStagedRow.resolution_target_tenant_user_id,
-    ).filter(
-        PlatformMigrationStagedRow.organization_id == run.organization_id,
-        PlatformMigrationStagedRow.provider == "YARDI",
-        PlatformMigrationStagedRow.resource.in_(supported),
-        PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
-    ).all()
+    reviewed_rows = []
+    if claim_filters:
+        reviewed_rows = db.query(
+            PlatformMigrationStagedRow.resource,
+            PlatformMigrationStagedRow.source_id,
+            PlatformMigrationStagedRow.resolution_target_id,
+            PlatformMigrationStagedRow.resolution_target_unit_id,
+            PlatformMigrationStagedRow.resolution_target_owner_user_id,
+            PlatformMigrationStagedRow.resolution_target_vendor_id,
+            PlatformMigrationStagedRow.resolution_target_tenant_user_id,
+        ).filter(
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "YARDI",
+            PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+            or_(*claim_filters),
+        ).all()
     for resource_name, source_id, property_id, unit_id, owner_id, vendor_id, tenant_id in reviewed_rows:
         target_id = {
             "PROPERTIES": property_id,
@@ -577,6 +597,76 @@ def list_yardi_durable_bindings(
         ).all()
         for parent_id, fingerprint in property_versions:
             property_fingerprints.setdefault(parent_id, set()).add(fingerprint)
+    # Resolve the live customer targets in bounded, organization-scoped page
+    # projections; do not issue another customer SELECT per inventory row.
+    page_targets = {
+        kind: {
+            item.target_id for item in bindings
+            if item.resource == kind and item.target_entity == entity_by_resource[kind]
+        }
+        for kind in supported
+    }
+    live_properties = set()
+    if page_targets["PROPERTIES"]:
+        live_properties = {
+            id_ for (id_,) in db.query(Property.id).filter(
+                Property.id.in_(page_targets["PROPERTIES"]),
+                Property.organization_id == run.organization_id,
+                Property.is_active.is_(True), Property.deleted_at.is_(None),
+            ).all()
+        }
+    live_unit_parents = {}
+    if page_targets["UNITS"]:
+        live_unit_parents = dict(db.query(Unit.id, Unit.property_id).join(
+            Property, Unit.property_id == Property.id,
+        ).filter(
+            Unit.id.in_(page_targets["UNITS"]),
+            Property.organization_id == run.organization_id,
+            Unit.is_active.is_(True), Unit.deleted_at.is_(None),
+            Property.is_active.is_(True), Property.deleted_at.is_(None),
+        ).all())
+    live_users_by_role = {}
+    for kind, role in (("OWNERS", UserRole.OWNER), ("TENANTS", UserRole.TENANT)):
+        ids = page_targets[kind]
+        live_users_by_role[kind] = set()
+        if ids:
+            live_users_by_role[kind] = {
+                id_ for (id_,) in db.query(User.id).filter(
+                    User.id.in_(ids), User.organization_id == run.organization_id,
+                    User.role == role, User.is_active.is_(True),
+                    User.deleted_at.is_(None),
+                ).all()
+            }
+    live_vendors = set()
+    if page_targets["VENDORS"]:
+        live_vendors = {
+            id_ for (id_,) in db.query(Vendor.id).filter(
+                Vendor.id.in_(page_targets["VENDORS"]),
+                Vendor.organization_id == run.organization_id,
+                Vendor.deleted_at.is_(None),
+            ).all()
+        }
+    # Exact source-parent bindings share one page query. Duplicate committed
+    # mappings, if encountered in legacy evidence, remain unverified.
+    parent_mappings = {}
+    if parent_source_ids:
+        mapped_parents = db.query(
+            PlatformMigrationItem.source_id,
+            PlatformMigrationItem.target_id,
+            PlatformMigrationItem.source_fingerprint,
+        ).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "YARDI",
+            PlatformMigrationItem.resource == "PROPERTIES",
+            PlatformMigrationItem.source_id.in_(parent_source_ids),
+            PlatformMigrationItem.target_entity == "PROPERTY",
+        ).all()
+        for parent_id, target_id, fingerprint in mapped_parents:
+            if parent_id in parent_mappings:
+                parent_mappings[parent_id] = None
+            else:
+                parent_mappings[parent_id] = (target_id, fingerprint)
     for item in bindings:
         source_identity_collision = (item.resource, item.source_id) in identity_collisions
         # Keep an active target distinct from another source's reviewed claim.
@@ -593,21 +683,9 @@ def list_yardi_durable_bindings(
         parent_source_identity_collision = None  # Only meaningful for exact Unit source-parent evidence.
         parent_source_fingerprint_drift = None  # Unknown until an exact mapped parent is evaluated.
         if valid_entity and item.resource == "PROPERTIES":
-            target_current = db.query(Property.id).filter(
-                Property.id == item.target_id,
-                Property.organization_id == run.organization_id,
-                Property.is_active.is_(True),
-                Property.deleted_at.is_(None),
-            ).first() is not None
+            target_current = item.target_id in live_properties
         elif valid_entity and item.resource == "UNITS":
-            target_current = db.query(Unit.id).join(
-                Property, Unit.property_id == Property.id,
-            ).filter(
-                Unit.id == item.target_id,
-                Property.organization_id == run.organization_id,
-                Unit.is_active.is_(True), Unit.deleted_at.is_(None),
-                Property.is_active.is_(True), Property.deleted_at.is_(None),
-            ).first() is not None
+            target_current = item.target_id in live_unit_parents
             # Only an exact reviewed source-row fingerprint establishes which
             # Yardi Property this durable Unit identity was originally bound under.
             # Never infer the parent from an unreviewed name or current Unit location.
@@ -629,23 +707,10 @@ def list_yardi_durable_bindings(
                     parent_source_identity_collision = (
                         ("PROPERTIES", source_parent_id) in identity_collisions
                     )
-                    parent_mapping = db.query(
-                        PlatformMigrationItem.target_id,
-                        PlatformMigrationItem.source_fingerprint,
-                    ).filter(
-                        PlatformMigrationItem.run_id == run.id,
-                        PlatformMigrationItem.organization_id == run.organization_id,
-                        PlatformMigrationItem.provider == "YARDI",
-                        PlatformMigrationItem.resource == "PROPERTIES",
-                        PlatformMigrationItem.source_id == source_parent_id,
-                        PlatformMigrationItem.target_entity == "PROPERTY",
-                    ).first()
+                    parent_mapping = parent_mappings.get(source_parent_id)
                     parent_relationship_current = bool(
                         target_current and parent_mapping is not None
-                        and db.query(Unit.id).filter(
-                            Unit.id == item.target_id,
-                            Unit.property_id == parent_mapping.target_id,
-                        ).first() is not None
+                        and live_unit_parents[item.target_id] == parent_mapping[0]
                     )
                     # A changed, unskipped Property source version makes the
                     # mapped source parent uncertain even when the target Unit
@@ -657,24 +722,15 @@ def list_yardi_durable_bindings(
                     parent_versions = property_fingerprints.get(source_parent_id, ())
                     if parent_mapping is not None and parent_versions:
                         parent_source_fingerprint_drift = any(
-                            fingerprint != parent_mapping.source_fingerprint
+                            fingerprint != parent_mapping[1]
                             for fingerprint in parent_versions
                         )
                         if parent_source_fingerprint_drift:
                             parent_relationship_current = False
         elif valid_entity and item.resource in ("OWNERS", "TENANTS"):
-            target_role = UserRole.OWNER if item.resource == "OWNERS" else UserRole.TENANT
-            target_current = db.query(User.id).filter(
-                User.id == item.target_id, User.organization_id == run.organization_id,
-                User.role == target_role, User.is_active.is_(True),
-                User.deleted_at.is_(None),
-            ).first() is not None
+            target_current = item.target_id in live_users_by_role[item.resource]
         elif valid_entity and item.resource == "VENDORS":
-            target_current = db.query(Vendor.id).filter(
-                Vendor.id == item.target_id,
-                Vendor.organization_id == run.organization_id,
-                Vendor.deleted_at.is_(None),
-            ).first() is not None
+            target_current = item.target_id in live_vendors
         # Current customer target validity and original source-parent certainty
         # are different. A new unresolved source version keeps the target active
         # but makes the reviewed original Unit source parent untrustworthy.

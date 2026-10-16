@@ -791,3 +791,64 @@ version merging, Lease creation, occupancy or financial posting.
 PostgreSQL regression and platform-admin UI batch. Provisional until exact-SHA
 hosted CI verifies all six jobs. Sections 1–57 and external Yardi source
 contract gates are preserved. No existing test was removed, disabled or weakened.
+
+## 61. Page-scoped live customer target validation (2026-10-15)
+
+The read-only durable Yardi inventory checks the current active and nondeleted state
+of Property, Unit, Owner, Tenant and Vendor targets with bounded per-page queries.
+Each Unit's current parent Property ID is retrieved with its live status.
+Existing role, organization, entity type and original source-parent safeguards remain.
+
+## 62. One mapped Property parent query per Unit inventory page (2026-10-15)
+
+Original reviewed Unit parent identities are resolved through a page-batched lookup
+of same-run and same-organization durable Property source mappings and fingerprints.
+Conflicting historical mappings for one source identity fail closed rather than
+choosing an arbitrary row. Existing source collision and fingerprint drift checks
+remain independent of current customer target validity.
+
+## 63. PostgreSQL query-count regression (2026-10-15)
+
+An expanded two-Unit regression requires a constant one-SELECT count for the
+historical exact Unit reviews, mapped Property parent identities and live Unit
+parent validation when the inventory page grows from one Unit to two Units.
+Prior source-parent and customer preservation assertions are retained.
+All three changes are diagnostic only and require exact-SHA full CI verification.
+
+## 64. Restrict reviewed target claim inventory to displayed targets (2026-10-15)
+
+A durable identity inventory page now fetches retained Yardi MATCH_EXISTING
+claims for the exact currently displayed resource and target IDs only. Earlier
+logic projected every historical reviewed target in the organization; this
+change preserves same-organization cross-run conflicts and unknown historical
+source IDs while reducing unrelated database rows loaded.
+
+## 65. Preserve historical unknown source claim evidence (2026-10-15)
+
+Resource-specific paged target filters retain NULL provider source IDs as
+competing evidence, and continue to distinguish an identical provider source
+identity reviewed in another run from a genuinely different source claim.
+Malformed durable target-entity metadata is not silently excluded from the
+reviewed target claim collision diagnostic.
+
+## 66. Page-boundary and scoped-claim regression (2026-10-15)
+
+The existing Vendor inventory PostgreSQL regression now requires a targeted
+historical review claim SELECT for nonempty pages, no such query for empty
+pages, and different collision results when a competing source claims only
+the second of two independently paged vendor targets. Existing cross-org,
+same-source, unknown-source and customer data preservation checks remain.
+
+These are metadata-only safety and query-bounding changes. Sections 64–66
+require targeted backend review and exact-SHA all-six-job hosted CI before
+VERIFIED. Nothing adds Lease/occupancy or financial mutations.
+
+## Sections 57–60 exact-SHA verification checkpoint (2026-10-15)
+
+The combined source at `94e2ebc7c30f271c5ac9d1d5044d68173df79b16`
+passed GitHub Actions run `38839237751` SUCCESS with backend/PostgreSQL,
+frontend, platform-admin, security, authenticated E2E and staging-config
+all green. This verifies Sections 57–60 together, including the source-parent
+collision and exact Property fingerprint diagnostics. Earlier run
+`38838330535` was cancelled and is not independently marked successful.
+Sections 61–66 remain PROVISIONAL pending their own exact-SHA hosted CI.
