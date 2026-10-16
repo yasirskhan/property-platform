@@ -1969,3 +1969,132 @@ def test_unreviewed_durable_identity_ignores_unrelated_customer_eligibility(
     finally:
         db.close()
         engine.dispose()
+
+
+@pytest.mark.parametrize("resource", ["PROPERTIES", "UNITS"])
+@pytest.mark.parametrize("invalid_field", ["is_active", "deleted_at"])
+def test_unreviewed_durable_inventory_ignores_unrelated_target_eligibility(
+    resource, invalid_field,
+):
+    """Unreferenced Property/Unit eligibility must not stale a durable mapping."""
+    from datetime import datetime
+    from app.models.platform_migration import PlatformMigrationItem
+    from app.models.platform_user import PlatformUserRole
+    from app.models.property import Property, Unit
+    from app.routers.yardi_migrations import get_yardi_review_dry_run_status
+    from test_yardi_migrations import _org, _platform_user
+
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(
+            db, f"yardi-durable-unrelated-inventory-{resource.lower()}-{invalid_field}",
+        )
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="durable-unrelated-inventory", status="DRAFT",
+        )
+        parent = Property(
+            organization_id=org.id, name="Unchanged Durable Parent",
+            address_line1="1 Parent", city="Cleveland", state="OH", zip_code="44113",
+        )
+        db.add_all([run, parent])
+        db.flush()
+        if resource == "PROPERTIES":
+            target = Property(
+                organization_id=org.id, name="Original Durable Property",
+                address_line1="2 Original", city="Cleveland", state="OH",
+                zip_code="44113",
+            )
+            unrelated = Property(
+                organization_id=org.id, name="Unrelated Durable Property",
+                address_line1="3 Other", city="Cleveland", state="OH",
+                zip_code="44113",
+            )
+            db.add_all([target, unrelated])
+            db.commit()
+            upload = stage_yardi_file(
+                db, run=run, filename="durable-property.csv",
+                content=b"ID,Name,Street,City,State,Zip\nP-1,Original,2 Original,Cleveland,OH,44113\n",
+                resource_override="PROPERTIES", sheet_name=None,
+                explicit_mapping={
+                    "source_id": "ID", "name": "Name", "address_line1": "Street",
+                    "city": "City", "state": "State", "zip_code": "Zip",
+                }, platform_user_id=actor.id,
+            )
+            entity = "PROPERTY"
+        else:
+            target = Unit(property_id=parent.id, unit_number="101", is_active=True)
+            unrelated = Unit(property_id=parent.id, unit_number="102", is_active=True)
+            db.add_all([target, unrelated])
+            db.add(PlatformMigrationItem(
+                run_id=run.id, organization_id=org.id, provider="YARDI",
+                resource="PROPERTIES", source_id="P-PARENT",
+                target_entity="PROPERTY", target_id=parent.id,
+                source_fingerprint="unrelated-durable-unit-parent",
+            ))
+            db.commit()
+            upload = stage_yardi_file(
+                db, run=run, filename="durable-unit.csv",
+                content=b"ID,Parent,Label\nU-1,P-PARENT,101\n",
+                resource_override="UNITS", sheet_name=None,
+                explicit_mapping={
+                    "source_id": "ID", "source_property_id": "Parent",
+                    "unit_name": "Label",
+                }, platform_user_id=actor.id,
+            )
+            entity = "UNIT"
+        db.commit()
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).one()
+        db.add(PlatformMigrationItem(
+            run_id=run.id, organization_id=org.id, provider="YARDI",
+            resource=resource, source_id=row.source_id, target_entity=entity,
+            target_id=target.id, source_fingerprint=row.row_fingerprint,
+        ))
+        db.commit()
+        assert row.resolution_action is None
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["resource_coverage"][resource]["mapped"] == 1
+        saved = dry_run_yardi_review(run.id, db, actor)
+        assert saved["review_fingerprint"] == baseline["review_fingerprint"]
+
+        original = getattr(unrelated, invalid_field)
+        setattr(
+            unrelated, invalid_field,
+            False if invalid_field == "is_active" else datetime.utcnow(),
+        )
+        db.commit()
+        unchanged = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert unchanged["resource_coverage"] == baseline["resource_coverage"]
+        assert unchanged["review_fingerprint"] == baseline["review_fingerprint"]
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is True
+        assert dry_run_yardi_review(run.id, db, actor)["replayed"] is True
+
+        setattr(unrelated, invalid_field, original)
+        db.commit()
+        recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert recovered["review_fingerprint"] == baseline["review_fingerprint"]
+        assert recovered["customer_business_mutation"] is False
+        assert row.resolution_action is None
+        mapped = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == resource,
+        ).one()
+        assert mapped.target_id == target.id
+        assert mapped.source_fingerprint == row.row_fingerprint
+        db.refresh(target)
+        db.refresh(unrelated)
+        if resource == "PROPERTIES":
+            assert target.name == "Original Durable Property"
+            assert unrelated.name == "Unrelated Durable Property"
+        else:
+            assert target.unit_number == "101"
+            assert unrelated.unit_number == "102"
+            assert target.property_id == unrelated.property_id == parent.id
+    finally:
+        db.close()
+        engine.dispose()

@@ -2111,3 +2111,19 @@ unsupported API, Lease/occupancy, ownership or accounting posting.
 Follows the reviewed out-of-scope target negatives. Detached until safe
 non-force publication after exact full predecessor CI and requiring
 its own all-six-job hosted verification. Do not invent §§133–135.
+
+
+### Detached durable unrelated Property/Unit eligibility isolation (2026-10-16)
+
+Four additional fast-gated PostgreSQL cases ensure that an unreferenced
+Property or Unit's inactive/archival change does not affect a separate
+source-exact durable Property or Unit mapping in the same organization.
+The original Unit Property parent stays valid; current aggregate
+readiness, exact private review fingerprint and saved dry-run replay
+remain unchanged. Restoring the unrelated target likewise preserves
+the original mapped source ID/fingerprint, customer names/unit numbers
+and no staff-review decision. No Yardi product customer mutation, API,
+owner allocation, Lease/occupancy or financial posting. Prepared
+detached behind previous identity eligibility coverage and awaiting
+its own exact six-job hosted CI after safe publication. Original
+Sections 133–135 remain unspecified.

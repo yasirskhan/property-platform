@@ -1,3 +1,24 @@
+# 2026-10-16 | DETACHED durable unrelated Property/Unit eligibility isolation
+
+This prepared metadata-only regression successor completes the
+same-organization negative target-isolation coverage across all
+five supported exact durable identity resources. For Property/Unit,
+changing an unreferenced customer's active/soft-delete state must
+leave a separate exact durable mapping's aggregate readiness,
+fingerprint, stored dry-run and replay current, preserving the
+Unit's original parent, customer data, source and target identities.
+Four new fast-gated PostgreSQL cases, existing tests retained,
+no product customer mutation, unofficial Yardi API, Lease/occupancy,
+owner allocation or finance posting.
+
+DETACHED parent e04b2cd0001ca23e145ecc8220c13e4cd32f5a62.
+Do not publish before preceding exact-green six-job CI plus current
+branch-head check. Each published descendant must pass its own
+hosted all-six-job CI. Only chatgpt/checkpoint-005-safety; no main,
+new branch, force-push or invented §§133–135.
+
+---
+
 # 2026-10-16 | DETACHED durable unrelated customer eligibility isolation
 
 Fast-gated unreviewed durable Owner/Tenant/Vendor source bindings now
