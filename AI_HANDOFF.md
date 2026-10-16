@@ -1,3 +1,50 @@
+# 2026-10-16 | CONSOLIDATED FOLLOW-UP PUBLICATION CONTRACT
+
+**Sole repository / branch:** yasirskhan/property-platform /
+chatgpt/checkpoint-005-safety. Never main, never another branch,
+never force-push. No Work mode.
+
+**Current published product:** 9666ef2d866dadd1fb679ae557c4daf1f1bd96d0.
+The preceding 8daea5ce91755c36e4606ff900bcc5e87df8acfe passed all six
+GitHub Actions jobs in 38961595055. The published 9666ef2d has
+Actions run 38963664421, which must finish with ALL SIX jobs successful
+at that EXACT SHA before any later branch publication. Check live HEAD
+again immediately before the expected-HEAD non-force update.
+
+**PREPARED CONSOLIDATED DESCENDANT, NOT PUBLISHED / NOT VERIFIED:**
+The later nine individually authored Git object commits are one
+related test-only integration batch containing 35 new parameterized
+PostgreSQL cases, plus the Yardi plan and this handoff. They cover:
+- staff-unbound reviewed Owner/Tenant, Property/Unit eligibility swaps;
+- durable unreviewed Owner/Tenant/Vendor, Property/Unit eligibility swaps;
+- two original Unit Property parent eligibility swaps;
+- same-org unrelated target status isolation for all five reviewed and
+  all five durable identity resource categories;
+- exact saved reviewed-dry-run invalidation/restoration and no spurious
+  invalidations when unrelated customers change.
+The single existing Yardi replay/regression file is already included
+in the fast PostgreSQL CI review gate. All original tests and product
+code remain unchanged; customer data is altered only in isolated test
+fixtures and restored, with no migration-endpoint business mutation.
+No unsupported Yardi API, customer Lease/occupancy, owner allocation,
+payments, deposits, GL/AR/AP or undocumented source contract enabled.
+
+**CI governance for consolidated publication:** The nine intermediate
+detached commits are NOT claimed individually verified or published.
+If and only if 9666ef2d CI 38963664421 succeeds with all six jobs,
+the latest consolidated candidate may be fast-forward published directly
+from the unchanged live 9666ef2d HEAD via force=false and expected_sha.
+Its final EXACT SHA must then pass its own complete hosted six-job CI.
+The intermediate commits are merely ancestry, not independent release
+milestones; supersedes prior detached instructions requiring separate
+CI runs for every unpublished intermediate. On failure, repair genuine
+regressions without removing or weakening earlier assertions, verify
+actual final SHA, then update this handoff. Do not invent Sections
+133–135: their authoritative original requirements are unavailable.
+Continue independently supportable source-review safeguards only.
+
+---
+
 # 2026-10-16 | DETACHED durable unrelated Property/Unit eligibility isolation
 
 This prepared metadata-only regression successor completes the

@@ -2127,3 +2127,32 @@ owner allocation, Lease/occupancy or financial posting. Prepared
 detached behind previous identity eligibility coverage and awaiting
 its own exact six-job hosted CI after safe publication. Original
 Sections 133–135 remain unspecified.
+
+
+### Consolidated reviewed/durable eligibility regression integration batch (2026-10-16)
+
+Nine detached test-only follow-ups after published commit 9666ef2d
+are a SINGLE prepared integration milestone, not nine independently
+verified source releases. The consolidated source adds 35 parameterized
+fast-gated PostgreSQL cases in the existing Yardi identity replay
+test file. It verifies exact staff-reviewed and unreviewed durable
+eligibility swaps for Properties, Units, Owners, Tenants and Vendors;
+original durable Unit Property parent status swaps; and both reviewed
+and durable out-of-scope customer status isolation. Exact saved dry
+runs expire for changed referenced customer eligibility even when
+aggregate readiness is equal, but remain current when unrelated
+same-org customers change. Source bindings, decisions, passwords,
+original property/unit fields and customer business records are
+preserved. No existing test removed, no router behavior, schema, Yardi
+API, new customer Lease/occupancy, allocation, deposit or GL/AR/AP write.
+
+The source must NOT be published before exact predecessor
+9666ef2d866dadd1fb679ae557c4daf1f1bd96d0 passes all six hosted
+jobs in Actions 38963664421, with the sole branch live SHA reconfirmed.
+A non-force expected-HEAD fast-forward can then publish the FINAL
+consolidated Git descendant directly; its new full six-job CI alone
+verifies the entire included source. Intermediate detached Git commits
+are not separately published or VERIFIED; this explicitly supersedes
+any earlier draft text implying each would require an individual
+hosted CI before the final integration. Missing original §§133–135
+remain unavailable and must not be invented.
