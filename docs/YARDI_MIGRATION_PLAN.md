@@ -1805,3 +1805,18 @@ requires a changed fingerprint, then restores the original source/fingerprint
 before the existing target-swap checks. No additional SELECT, user-facing
 API change, customer business mutation or unsupported provider field. This
 is DETACHED pending previous and own exact-SHA six-job verification.
+
+### Verified prior source and next exact-source fingerprint hardening
+
+Exact source `c4bd306c7e055ac991e49115e13c9ffbad5596b7` passed Actions `38945258561`
+with all six hosted jobs green; backend/PostgreSQL 1345 passed,
+21 deselected. That fully verifies prior §131 Unit/Tenant NULL/different
+review source collisions, same-source recovery and org/provider isolation.
+The next consolidated provisional batch binds read-only Lease and
+five-resource reconciliation private fingerprints to exact competing
+historical reviewed source identities and adds focused safe PostgreSQL
+regressions for stable recovery and dry-run status. No Yardi API, customer
+business, financial, ownership or occupancy posting. Exact new SHA hosted
+CI is required before this milestone is VERIFIED. The further original
+Unit parent historical durable source identity fingerprint candidate is
+detached, and §133–135 specifications remain unavailable.

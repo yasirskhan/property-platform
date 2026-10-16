@@ -1,3 +1,43 @@
+# CURRENT VERIFIED YARDI MILESTONE AND NEXT EXACT-SHA SOURCE GATE | 2026-10-16
+
+**VERIFIED:** Source `c4bd306c7e055ac991e49115e13c9ffbad5596b7` with GitHub Actions
+`38945258561` SUCCESS, all six jobs: backend/PostgreSQL
+**1345 passed, 21 deselected**, fast Yardi review gate, frontend,
+platform-admin, security, authenticated E2E and staging-config.
+The §131 historical Yardi Unit/Tenant NULL/different-source guards,
+provider and organization isolation and correct source recovery are
+VERIFIED on this exact SHA. Customer Property/Unit/Tenant, Lease,
+financial/occupancy data and passwords were not written by product
+migration endpoints. The prior §§118–132 verification also remains
+`74e7e33` / `38912065447`; `2510bf93` / `38914698146`
+was likewise six-job VERIFIED.
+
+**NEW PROVISIONAL SOURCE BATCH BEING PUBLISHED:** Adds exact sorted,
+NULL-safe historic reviewed-target source identities to run-level
+private Lease and Property/Unit/Owner/Vendor/Tenant readiness
+fingerprints, instead of depending solely on colliding-claim booleans.
+Also strengthens preserved source-review, provider/org isolation,
+dry-run status and Unit/Tenant replay/preview PostgreSQL regressions.
+No new SQL projection, customer mutation, undocumented Yardi source
+or official API, schema change, or changes to authoritative customer
+Lease/financial records. This exact new source must pass all six
+hosted CI jobs before VERIFIED.
+
+**NEXT DETACHED (NOT PUBLISHED):** Additional original Unit parent
+historical durable Property source/target divergence fingerprint
+regression and scoped source-evidence correction originally prepared
+as `ce5072420aac656d3bb300239c46d1b9b49c16ad`. Reconcile its
+source edits onto verified new branch HEAD after CI green and preserve
+its expected-HEAD, non-force fast-forward. Do not pretend detached
+commit is published or verified. Original §§133–135 have no
+authoritative source specification in the live branch; don't invent it.
+
+**Mandatory:** Only `chatgpt/checkpoint-005-safety`; never main,
+another branch or force push. Continue bounded implement→test→commit→
+hosted CI→fix red→verify exact SHA→update handoff→next batch cycles.
+
+---
+
 # DETACHED SOURCE MILESTONE: FIVE-RESOURCE HISTORICAL REVIEW PROVENANCE
 
 Read-only Yardi `get_yardi_reconciliation` row readiness for
