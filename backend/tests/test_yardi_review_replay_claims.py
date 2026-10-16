@@ -489,17 +489,33 @@ def test_unbound_reviewed_vendor_fingerprint_tracks_competing_durable_source():
         assert first["resource_coverage"]["VENDORS"]["needs_review"] == 1
         assert first["review_fingerprint"] != baseline["review_fingerprint"]
 
+        # A reviewed but not yet bound source must also invalidate an exact
+        # staff dry-run snapshot when the competing historical source changes.
+        retained_snapshot = dry_run_yardi_review(run.id, db, actor)
+        assert retained_snapshot["review_fingerprint"] == first["review_fingerprint"]
+
         historical.source_id = "OLD-V-2"
         db.commit()
         second = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert second["resource_coverage"] == first["resource_coverage"]
         assert second["review_fingerprint"] != first["review_fingerprint"]
+        # An unchanged aggregate count must not permit replay of a stored
+        # dry-run made under a different durable source-claim identity.
+        from app.routers.yardi_migrations import get_yardi_review_dry_run_status
+        expired = get_yardi_review_dry_run_status(run.id, Response(), db, actor)
+        assert expired["saved_review_fingerprint"] == retained_snapshot["review_fingerprint"]
+        assert expired["current_review_fingerprint"] == second["review_fingerprint"]
+        assert expired["is_current"] is False
 
         historical.source_id = "OLD-V-1"
         db.commit()
         assert get_yardi_reconciliation(
             run.id, Response(), db, actor,
         )["review_fingerprint"] == first["review_fingerprint"]
+        recovered_status = get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )
+        assert recovered_status["is_current"] is True
         historical.source_id = row.source_id
         db.commit()
         restored = get_yardi_reconciliation(run.id, Response(), db, actor)

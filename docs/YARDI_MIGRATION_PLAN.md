@@ -1890,3 +1890,16 @@ and exact recovery regressions across staff Vendor/Owner/Tenant and
 reviewed/unreviewed Unit. Zero additional SQL, customer business
 record mutation, owner allocation or unsupported API/financial posting.
 Full new exact-source CI required, no §§133–135 requirements invented.
+
+### Verified historic source-exact fingerprint and unbound review dry-run guard
+
+Source `56bd1e1e70a9e9f9e2c91d98eb75cf042fc7edc9` passed six hosted CI jobs (Actions `38949444168`).
+Historical durable source/target identity evidence for current-run durable
+bindings and unbound MATCH_EXISTING identity reviews, plus exact original
+Unit Property parent staff and durable claims, is VERIFIED at that SHA.
+The follow-up strengthens the already fast-gated unbound Vendor regression:
+a staff dry-run saved with an OLD-V-1 conflicting durable source must become
+stale after OLD-V-2 replaces it, even with unchanged readiness totals.
+Exact OLD-V-1 source restoration must restore dry-run currency. No
+production SQL, customer business mutation, unsupported Yardi API or
+financial posting. Follow-up is PROVISIONAL until new exact-SHA CI passes.

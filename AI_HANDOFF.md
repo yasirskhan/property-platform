@@ -1,3 +1,27 @@
+# 2026-10-16 | Exact verified durable claim source + staff dry-run follow-up
+
+Latest verified Phase 4.15 source: `56bd1e1e70a9e9f9e2c91d98eb75cf042fc7edc9`, GitHub Actions
+`38949444168` **SUCCESS**, all six: complete PostgreSQL/backend,
+frontend, security, platform-admin, authenticated E2E, and staging-config.
+This verifies historic durable/retained staff reviewed source-exact
+claim fingerprints for Unit original parent and five identity resources,
+including unbound staff-reviewed Vendor identity and no customer writes.
+It supersedes the older provisional status at the top of this file.
+
+**This NEW focused follow-up is PROVISIONAL**: the existing unbound Vendor
+historical durable-claim source-swap regression also checks that a persisted
+staff dry-run snapshot becomes stale when OLD-V-1 switches to OLD-V-2
+despite unchanged resource counters, and returns current if the exact
+historic source ID is restored. Preserves existing tests and all customer
+Vendor/Property/Unit/Lease/financial no-mutation safeguards. Test-only
+plus roadmap and handoff. Requires new exact-SHA full hosted CI;
+Sections 133-135 have no authoritative recoverable specification.
+
+Sole branch `chatgpt/checkpoint-005-safety`. Never touch main or
+force-push; continue bounded batches against verified current HEAD.
+
+---
+
 # 2026-10-16 YARDI PHASE 4.15: EXACT-SHA VERIFIED AND NEXT SOURCE BATCH
 
 **Last EXACT VERIFIED source:** `be8522586a711b074e7d24405bf5e03247011450` GitHub Actions
