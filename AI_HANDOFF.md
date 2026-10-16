@@ -1,3 +1,20 @@
+# 2026-10-16 | Follow-up SQL observer test repair, pending CI
+
+Hosted CI `38911403325` for source `845492e2d7ebc0327b4ef26c801ebc4ee97327a7` failed the same fast
+PostgreSQL regression because overly exact SQLAlchemy generated alias/operator
+formatting counted zero SELECTs (other 96 targeted tests passed). The
+production Yardi acceptance remains unchanged. The new test observer
+distinguishes the intended ID-only claim query from legitimate full-row
+SELECTs using its WHERE predicates for all three Property/Unit/Tenant
+target fields. The one-query requirement for initial acceptance, blocked
+NULL-source replay and same-source recovery is still enforced; customer
+records and Lease count must remain intact. Neither old tests nor safety
+assertions are disabled. §§118–132 are still PROVISIONAL until six-job
+CI succeeds on the new exact product SHA. §§133–135 have no published
+specification or detached SHA in the current branch; do not invent work.
+
+---
+
 # 2026-10-16 | Yardi §§118–132 SQL observer correction awaiting hosted CI
 
 On live parent `b30cfc702bdf531bec6930fc6d9df4c06bd6b087`, hosted run `38862586342` failed

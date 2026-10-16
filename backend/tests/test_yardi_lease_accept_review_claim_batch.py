@@ -12,28 +12,30 @@ from test_yardi_migrations import _session
 
 
 def _is_batched_review_claim_select(statement: str) -> bool:
-    """Match the ID-only conflicting-target lookup, not full staged-row loads.
+    """Count the batched competing-claim read, not other staged-row SELECTs.
 
-    Other legitimate ORM SELECTs name all three target columns in their
-    projections; they must not count as extra competing-claim lookups.
+    Full ORM entity projections include all three resolution targets too.
+    Inspect WHERE predicates, without depending on a generated SELECT alias.
     """
     sql = " ".join(statement.lower().split())
-    select_clause, separator, remainder = sql.partition(" from ")
-    if not separator or select_clause != (
-        "select platform_migration_staged_rows.id as platform_migration_staged_rows_id"
-    ):
+    projection, from_keyword, from_sql = sql.partition(" from ")
+    if not from_keyword or not projection.startswith("select "):
         return False
-    if not remainder.startswith("platform_migration_staged_rows "):
+    targets = (
+        "resolution_target_id",
+        "resolution_target_unit_id",
+        "resolution_target_tenant_user_id",
+    )
+    if any(field in projection for field in targets):
         return False
     return (
-        " where " in remainder
-        and "platform_migration_staged_rows.organization_id" in remainder
-        and "platform_migration_staged_rows.provider" in remainder
-        and "platform_migration_staged_rows.resolution_action" in remainder
-        and "platform_migration_staged_rows.resolution_target_id" in remainder
-        and "platform_migration_staged_rows.resolution_target_unit_id" in remainder
-        and "platform_migration_staged_rows.resolution_target_tenant_user_id" in remainder
-        and sql.count(" is distinct from ") == 3
+        "platform_migration_staged_rows.id" in projection
+        and "platform_migration_staged_rows" in from_sql
+        and " where " in from_sql
+        and all(field in from_sql for field in targets)
+        and "resolution_action" in from_sql
+        and "organization_id" in from_sql
+        and "provider" in from_sql
     )
 
 

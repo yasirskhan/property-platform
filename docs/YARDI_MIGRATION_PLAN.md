@@ -1665,3 +1665,13 @@ ID-only guarded claim SELECT and requires all three resource-specific
 assertions, historical NULL-source collision refusal, source recovery and
 customer-data no-mutation checks. Production logic is unchanged. Milestone
 remains **PROVISIONAL** until exact-repair-SHA six-job hosted CI succeeds.
+
+### Follow-up SQL observer correction (hosted run 38911403325)
+
+At `845492e2d7ebc0327b4ef26c801ebc4ee97327a7`, a too-strict SQLAlchemy SELECT alias/operator filter
+matched zero statements in one new fast-gated test (96 others passed).
+The observer is revised to count the id-only reviewed-target lookup whose
+WHERE clause includes all three target fields, not unrelated ORM full-row
+SELECTs. Original one-query, NULL-source historical collision/recovery and
+customer nonmutation checks are unchanged. Product logic unchanged. Verify
+the full six-job hosted CI at the exact new commit before claiming success.
