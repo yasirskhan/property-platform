@@ -2081,3 +2081,17 @@ no Yardi API, schema, Lease/occupancy or financial/ownership mutation.
 The detached child requires predecessor exact-SHA full six-job CI and
 its own six-job verification after safe publication; §§133–135 remain
 unavailable and are not invented.
+
+
+### Detached unreferenced Property/Unit target eligibility isolation (2026-10-16)
+
+Four fast-gated PostgreSQL cases complement the existing-target source
+review fingerprint safeguards. An unreferenced, same-organization
+Property or Unit becoming inactive or soft-deleted must not change
+reconciliation aggregate counts, exact saved reviewed dry-run or
+fingerprint for an independently reviewed Property or Unit. Original
+Unit Property parent mapping remains current. Restoration also preserves
+customer fields, original staff source review and absence of newly bound
+identity mappings. Tests only, no authorization, Yardi API, Lease or
+accounting/customer business write. Publish after green exact-SHA
+predecessor and verify its own six CI jobs; no invented §§133–135 scope.

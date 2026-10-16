@@ -1,3 +1,22 @@
+# 2026-10-16 | DETACHED unrelated Property/Unit eligibility isolation
+
+Another prepared fast-gated read-only regression covers unreferenced
+customer Property and Unit targets, including a valid original Property
+parent of a reviewed Unit. Changing an unrelated target's inactive or
+soft-deleted status MUST preserve an unaffected staff review's exact
+fingerprint, saved dry-run current flag and source decisions. Four new
+parameterized PostgreSQL cases; no previous test removed/weakened,
+no customer writes from migration endpoints, unsupported Yardi API,
+Lease/occupancy/owner allocation or financial posting.
+
+DETACHED from da7fafb8db1a12166bef50a683477004db3e1dcc.
+All descendants remain unpublished and UNVERIFIED until the previous
+published exact-SHA hosted CI is green, the sole branch HEAD is
+rechecked, and the next commit advances non-force with expected-SHA.
+Do not invent missing Sections 133–135 or touch main/new branch.
+
+---
+
 # 2026-10-16 | DETACHED unrelated customer eligibility isolation
 
 The prepared Yardi read-only test successor adds a three-resource
