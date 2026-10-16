@@ -934,3 +934,140 @@ none are deleted, skipped or weakened. This is read-only identity metadata,
 not Lease/occupancy creation, account posting, ownership percent inference or
 unsupported Yardi API integration. Sections 73–75 remain PROVISIONAL pending
 exact-SHA all-six-job hosted CI.
+
+
+## 76. Detect different durable source claims for every existing-identity target (2026-10-15)
+
+The read-only Yardi durable inventory now exposes an independent
+`target_binding_collision` flag on Properties, Units, Owners, Vendors and
+Tenants. A later or historical same-organization YARDI durable binding to the
+same customer entity/target ID with a different stable provider source ID
+makes the target contested even when no historical staged MATCH_EXISTING
+review is retained. The exact same stable provider source ID across runs is
+not a different customer source identity. This warning does not mutate source
+mappings or customer records.
+
+## 77. Share one page-scoped durable target-claim projection (2026-10-15)
+
+Instead of a separate original Unit Property-parent durable binding lookup,
+one bounded organization/provider-scoped query collects resource/target/source
+identity triples for the displayed inventory page plus original mapped
+Property parent target IDs of exact reviewed Units. Resource and target ID
+are both part of the key, preventing cross-resource contamination. Existing
+parent source version, reviewed target claim and parent-mapping safeguards
+remain independently reported. The internal console shows the distinct
+durable target claim warning on all five supported identity resources.
+
+## 78. Five-resource collision and pagination regression (2026-10-15)
+
+A new PostgreSQL regression covers Properties, Units, Owners, Vendors and
+Tenants, each with a historical different-source durable binding, then
+restoration through the same stable source ID; it checks read-only flags and
+preserved customer business records. A second Vendor page is tested
+independently to prevent unrelated target claim leakage. Existing original
+Unit parent query-count assertions remain unchanged. No test is deleted or
+weakened. These are metadata-only diagnostics with no customer Lease,
+occupancy, accounting or unsupported official Yardi API mutation.
+
+**Sections 76–78 verification:** PREPARED as one cohesive batch, pending
+exact-SHA hosted backend/PostgreSQL, frontend, platform-admin, security,
+authenticated E2E and staging-config CI. Never mark VERIFIED prematurely.
+
+
+## 79. Conflicted durable Unit target invalidates original source-parent readiness (2026-10-15)
+
+A currently active customer Unit can still have a different same-organization
+Yardi durable source identity claiming its target. Such a contested Unit cannot
+report its original source-parent relationship VERIFIED merely because the live
+Unit still belongs to the same mapped Property. Keep `target_current`
+independent; `unit_parent_relationship_current` fails closed when
+`target_binding_collision` is true. A repeated durable source ID across
+runs remains non-competing.
+
+## 80. Retained competing Unit reviews also fail closed on parent readiness (2026-10-15)
+
+An earlier or later MATCH_EXISTING staged Unit review with a different or
+unknown source ID that claims the same Unit target independently invalidates
+the original Unit parent certainty, even without a competing durable binding.
+An identical stable source ID reviewed again in another run is allowed.
+The staff console identifies the contested Unit target instead of presenting a
+generic Property parent mismatch. No historical review or customer Unit changes.
+
+## 81. Cross-run durable and reviewed Unit target regression (2026-10-15)
+
+Extend the existing PostgreSQL exact Unit source-parent safety regression with
+a different cross-run durable Unit binding, same-source restoration, a second
+run's competing MATCH_EXISTING Unit review, same-source restoration, and NULL
+historical reviewed-source fail-closed handling. Original customer Property
+and Unit data and all previous regression assertions remain intact.
+These are diagnostic-only safeguards, with no owner, lease, occupancy,
+financial or unofficial Yardi API mutation. PREPARED pending exact-SHA all-six
+GitHub Actions jobs after prerequisite Sections 73–78 have passed.
+
+
+## 82. Reconcile durable Yardi source identities across runs (2026-10-15)
+
+The original source ID for a committed Property, Unit, Owner, Vendor or
+Tenant must not appear unambiguous when historical same-organization Yardi
+durable bindings map that SAME provider source ID to a DIFFERENT customer
+target entity or target ID. The read-only bindings inventory now reports a
+distinct `source_target_binding_collision` flag without changing mappings,
+source decisions or customer records. Repeated evidence mapping to the
+same entity and target ID remains nonconflicting.
+
+## 83. Batch cross-run exact-source target lookups per inventory page (2026-10-15)
+
+One provider- and organization-scoped projection loads durable
+(resource, source ID, target entity, target ID) mappings for only displayed
+source IDs plus the exact original source Property parents referenced by
+reviewed Unit rows. Resource is part of the key, preventing a Property ID
+string from colliding with a Vendor source of the same literal name.
+No broad historical database scan is needed for empty inventory pages.
+
+## 84. Five-resource original-source divergence regression (2026-10-15)
+
+PostgreSQL tests retain earlier durable target-claim regressions and now
+check that the same stable Yardi source ID mapped to different customer
+Property, Unit, Owner, Vendor and Tenant targets in another run is flagged,
+even though the current customer target remains active and no distinct
+source ID claims it. Restoring the exact original customer targets clears
+the new diagnostic. Historical mapping evidence and customer object data
+remain intact.
+
+## 85. Original Unit Property source cannot bind a different Property elsewhere (2026-10-15)
+
+An exactly reviewed Unit may still belong to its mapped active customer
+Property while the original Yardi `source_property_id` is durably associated
+with a DIFFERENT customer Property in another Yardi run. The original Unit
+parent status now fails closed and exposes `parent_source_binding_collision`.
+This is independent of different Yardi sources claiming the same customer
+parent, and independent of staged source version collisions.
+
+## 86. Original Unit source identity cannot diverge to a different Unit (2026-10-15)
+
+A committed Unit source ID bound to another customer Unit elsewhere makes
+the historical Unit's original source-parent certainty unverified even when
+its current customer Unit is active and correctly parented. The generic
+`source_target_binding_collision` flag and parent-specific status now agree,
+and the staff console distinguishes both from actual Property reparenting.
+
+## 87. Historical source-target preservation and staff diagnostic regression (2026-10-15)
+
+Regression exercises a same-source Property bound elsewhere, an original
+Unit source bound to another target, and exact target restoration, along
+with the five-resource cases above. The console gives separate
+source-to-target divergence warnings. No prior tests are deleted, skipped or
+relaxed. All safeguards are read-only metadata and require all-six-job
+exact-SHA hosted CI before VERIFIED. No Lease, occupancy, accounting,
+ownership, customer business mutation or undocumented Yardi API is enabled.
+
+
+## Sections 73–75 exact-SHA verification checkpoint (2026-10-15)
+
+Source `6c8bafacd8c4bb7b616c5fc58d79498552ff1d01` passed GitHub Actions
+`38844772878`: all six jobs SUCCESS (PostgreSQL/backend, frontend,
+platform-admin, security, authenticated E2E, staging-config). The additional
+cross-run durable Property parent review safety is VERIFIED. Earlier notes
+marked PREPARED are historical. Sections 76–87 are grouped into the next
+single source milestone and remain PROVISIONAL until all-six hosted exact-SHA
+CI succeeds. No customer data mutation or financial/Lease posting enabled.

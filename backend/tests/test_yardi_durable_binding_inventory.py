@@ -887,6 +887,25 @@ def test_yardi_unit_parent_inventory_rejects_ambiguous_mapped_property_source(mo
         assert same_durable["parent_target_binding_collision"] is False
         assert same_durable["unit_parent_relationship_current"] is True
 
+        # The SAME stable Property source identity must not point at two
+        # different customer Properties across retained Yardi runs.
+        alternative_prop = Property(
+            organization_id=org.id, name="Separate Historical Target",
+            address_line1="2 Main", city="Cleveland", state="OH", zip_code="44113",
+        )
+        db.add(alternative_prop)
+        db.flush()
+        other_durable.target_id = alternative_prop.id
+        db.commit()
+        source_divergence = current()
+        assert source_divergence["parent_target_binding_collision"] is False
+        assert source_divergence["parent_source_binding_collision"] is True
+        assert source_divergence["unit_parent_relationship_current"] is False
+        other_durable.target_id = prop.id
+        db.commit()
+        assert current()["parent_source_binding_collision"] is False
+        assert current()["unit_parent_relationship_current"] is True
+
         # A different provider cannot contest Yardi Property identities.
         provider_run = PlatformMigrationRun(
             organization_id=org.id, provider="BUILDIUM",
@@ -910,11 +929,265 @@ def test_yardi_unit_parent_inventory_rejects_ambiguous_mapped_property_source(mo
         db.commit()
         assert current()["parent_target_binding_collision"] is False
 
+        # A separate durable Unit identity claiming the same customer Unit
+        # invalidates original Unit parent certainty, even when customer
+        # Unit and Property are active and their relationship is unchanged.
+        other_unit_binding = _binding(
+            db, another, "UNITS", "U-other", "UNIT", unit.id,
+        )
+        db.commit()
+        competing_unit = current()
+        assert competing_unit["target_current"] is True
+        assert competing_unit["target_binding_collision"] is True
+        assert competing_unit["target_review_collision"] is False
+        assert competing_unit["unit_parent_relationship_current"] is False
+        other_unit_binding.source_id = "U-1"
+        db.commit()
+        restored_unit = current()
+        assert restored_unit["target_binding_collision"] is False
+        assert restored_unit["unit_parent_relationship_current"] is True
+
+        # The same stable Unit source cannot silently bind a different Unit
+        # elsewhere. This differs from another source claiming this Unit.
+        alternate_unit = Unit(property_id=alternative_prop.id, unit_number="302")
+        db.add(alternate_unit)
+        db.flush()
+        other_unit_binding.target_id = alternate_unit.id
+        db.commit()
+        moved_source = current()
+        assert moved_source["target_binding_collision"] is False
+        assert moved_source["source_target_binding_collision"] is True
+        assert moved_source["unit_parent_relationship_current"] is False
+        other_unit_binding.target_id = unit.id
+        db.commit()
+        assert current()["source_target_binding_collision"] is False
+        assert current()["unit_parent_relationship_current"] is True
+
+        # A different retained MATCH_EXISTING Unit review also contests the
+        # customer Unit independently of durable source identity.
+        other_unit_upload = stage_yardi_file(
+            db, run=another, filename="other-reviewed-unit.csv",
+            content=b"Unit Ref,Parent Ref,Number\\nU-reviewed,P-1,301\\n",
+            resource_override="UNITS", sheet_name=None,
+            explicit_mapping={
+                "source_id": "Unit Ref", "source_property_id": "Parent Ref",
+                "unit_name": "Number",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        another_review = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == other_unit_upload.upload.id,
+        ).one()
+        another_review.resolution_action = "MATCH_EXISTING"
+        another_review.resolution_target_unit_id = unit.id
+        db.commit()
+        contested_review = current()
+        assert contested_review["target_binding_collision"] is False
+        assert contested_review["target_review_collision"] is True
+        assert contested_review["unit_parent_relationship_current"] is False
+        another_review.source_id = "U-1"
+        db.commit()
+        accepted_same_source = current()
+        assert accepted_same_source["target_review_collision"] is False
+        assert accepted_same_source["unit_parent_relationship_current"] is True
+
+        # Missing historical source identity is uncertainty, never the
+        # same stable Yardi Unit identity.
+        another_review.source_id = None
+        db.commit()
+        unknown_review = current()
+        assert unknown_review["target_review_collision"] is True
+        assert unknown_review["unit_parent_relationship_current"] is False
+        another_review.source_id = "U-1"
+        db.commit()
+        assert current()["unit_parent_relationship_current"] is True
+
         db.refresh(prop)
         db.refresh(unit)
         assert prop.name == "Preserved Parent"
         assert unit.property_id == prop.id
         assert unit.unit_number == "301"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_yardi_durable_inventory_detects_competing_bindings_for_all_identity_resources():
+    """Later durable target claims must be visible without retained row reviews."""
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-durable-identity-claim-inventory")
+        prop = Property(
+            organization_id=org.id, name="Original Customer Property",
+            address_line1="1 Main", city="Cleveland", state="OH", zip_code="44113",
+        )
+        vendor = Vendor(organization_id=org.id, company_name="Original Vendor")
+        owner = User(
+            organization_id=org.id, role=UserRole.OWNER,
+            first_name="Original", last_name="Owner",
+            email="yardi-durable-owner@example.test",
+            hashed_password="unchanged-owner-hash", is_active=True,
+        )
+        tenant = User(
+            organization_id=org.id, role=UserRole.TENANT,
+            first_name="Original", last_name="Tenant",
+            email="yardi-durable-tenant@example.test",
+            hashed_password="unchanged-tenant-hash", is_active=True,
+        )
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="original-durable-targets", status="DRAFT",
+        )
+        other_run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="later-durable-targets", status="DRAFT",
+        )
+        db.add_all([prop, vendor, owner, tenant, run, other_run])
+        db.flush()
+        unit = Unit(property_id=prop.id, unit_number="501")
+        db.add(unit)
+        db.flush()
+        identities = {
+            "PROPERTIES": ("P-1", "PROPERTY", prop.id),
+            "UNITS": ("U-1", "UNIT", unit.id),
+            "OWNERS": ("O-1", "OWNER_USER", owner.id),
+            "VENDORS": ("V-1", "VENDOR", vendor.id),
+            "TENANTS": ("T-1", "TENANT_USER", tenant.id),
+        }
+        competitors = {}
+        for resource, (source_id, entity, target_id) in identities.items():
+            _binding(db, run, resource, source_id, entity, target_id)
+            competitors[resource] = _binding(
+                db, other_run, resource, "different-" + source_id,
+                entity, target_id,
+            )
+        db.commit()
+
+        for resource, (_, _, target_id) in identities.items():
+            result = list_yardi_durable_bindings(
+                run.id, Response(), resource=resource, offset=0, limit=10,
+                db=db, current_user=actor,
+            )
+            assert result["read_only"] is True
+            assert result["customer_business_mutation"] is False
+            assert len(result["items"]) == 1
+            row = result["items"][0]
+            assert row["target_id"] == target_id
+            assert row["target_current"] is True
+            assert row["target_binding_collision"] is True
+            assert row["target_review_collision"] is False
+
+        # Distinct runs referring to an identical stable Yardi source ID do
+        # not create new target identities or erase durable review metadata.
+        for resource, (source_id, _, _) in identities.items():
+            competitors[resource].source_id = source_id
+        db.commit()
+        for resource in identities:
+            row = list_yardi_durable_bindings(
+                run.id, Response(), resource=resource, offset=0, limit=10,
+                db=db, current_user=actor,
+            )["items"][0]
+            assert row["target_binding_collision"] is False
+            assert row["target_current"] is True
+
+        # The same stable provider source ID cannot map to a different
+        # target in another historical run, even though both targets are
+        # still current and no distinct source ID contests either one.
+        alternate_property = Property(
+            organization_id=org.id, name="Different Durable Property",
+            address_line1="9 Main", city="Cleveland", state="OH", zip_code="44113",
+        )
+        alternate_vendor = Vendor(
+            organization_id=org.id, company_name="Different Durable Vendor",
+        )
+        alternate_owner = User(
+            organization_id=org.id, role=UserRole.OWNER,
+            first_name="Different", last_name="Owner",
+            email="yardi-different-owner@example.test",
+            hashed_password="other-owner-hash", is_active=True,
+        )
+        alternate_tenant = User(
+            organization_id=org.id, role=UserRole.TENANT,
+            first_name="Different", last_name="Tenant",
+            email="yardi-different-tenant@example.test",
+            hashed_password="other-tenant-hash", is_active=True,
+        )
+        db.add_all([
+            alternate_property, alternate_vendor, alternate_owner,
+            alternate_tenant,
+        ])
+        db.flush()
+        alternate_unit_target = Unit(
+            property_id=alternate_property.id, unit_number="502",
+        )
+        db.add(alternate_unit_target)
+        db.flush()
+        alternate_targets = {
+            "PROPERTIES": alternate_property.id,
+            "UNITS": alternate_unit_target.id,
+            "OWNERS": alternate_owner.id,
+            "VENDORS": alternate_vendor.id,
+            "TENANTS": alternate_tenant.id,
+        }
+        for resource, alternative_id in alternate_targets.items():
+            competitors[resource].target_id = alternative_id
+        db.commit()
+        for resource in identities:
+            row = list_yardi_durable_bindings(
+                run.id, Response(), resource=resource, offset=0, limit=10,
+                db=db, current_user=actor,
+            )["items"][0]
+            assert row["target_current"] is True
+            assert row["target_binding_collision"] is False
+            assert row["source_target_binding_collision"] is True
+        for resource, (_, _, original_target) in identities.items():
+            competitors[resource].target_id = original_target
+        db.commit()
+        for resource in identities:
+            row = list_yardi_durable_bindings(
+                run.id, Response(), resource=resource, offset=0, limit=10,
+                db=db, current_user=actor,
+            )["items"][0]
+            assert row["source_target_binding_collision"] is False
+
+        # A conflict on another paginated Vendor target is not leaked into
+        # this page, while the second page still reports its own claim.
+        vendor2 = Vendor(organization_id=org.id, company_name="Second Vendor")
+        db.add(vendor2)
+        db.flush()
+        _binding(db, run, "VENDORS", "V-2", "VENDOR", vendor2.id)
+        second_claim = _binding(
+            db, other_run, "VENDORS", "V-unrelated", "VENDOR", vendor2.id,
+        )
+        db.commit()
+        first_page = list_yardi_durable_bindings(
+            run.id, Response(), resource="VENDORS", offset=0, limit=1,
+            db=db, current_user=actor,
+        )["items"][0]
+        second_page = list_yardi_durable_bindings(
+            run.id, Response(), resource="VENDORS", offset=1, limit=1,
+            db=db, current_user=actor,
+        )["items"][0]
+        assert first_page["target_binding_collision"] is False
+        assert second_page["target_binding_collision"] is True
+        second_claim.source_id = "V-2"
+        db.commit()
+        assert list_yardi_durable_bindings(
+            run.id, Response(), resource="VENDORS", offset=1, limit=1,
+            db=db, current_user=actor,
+        )["items"][0]["target_binding_collision"] is False
+
+        db.refresh(prop)
+        db.refresh(unit)
+        db.refresh(vendor)
+        db.refresh(owner)
+        db.refresh(tenant)
+        assert prop.name == "Original Customer Property"
+        assert unit.property_id == prop.id and unit.unit_number == "501"
+        assert vendor.company_name == "Original Vendor"
+        assert owner.hashed_password == "unchanged-owner-hash"
+        assert tenant.hashed_password == "unchanged-tenant-hash"
     finally:
         db.close()
         engine.dispose()

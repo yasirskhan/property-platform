@@ -1,5 +1,23 @@
 # AI_HANDOFF.md | Phase 4.15 Yardi | 2026-10-15
 
+## Latest VERIFIED product milestone: Sections 73–75
+
+Source SHA `6c8bafacd8c4bb7b616c5fc58d79498552ff1d01`,
+GitHub Actions run `38844772878`: SUCCESS, all six jobs passed
+(backend/PostgreSQL, frontend, platform-admin, security, authenticated
+E2E and staging-config). Original Unit parent durable target claims are
+now safely diagnosed without customer business mutations.
+
+## Current published product milestone: Sections 76–87 PROVISIONAL
+
+A grouped inventory safety milestone extends cross-run durable identity
+claims to all five existing-target resources, cross-run same-source/different
+customer targets, and original Unit/Property parent readiness. Staff warnings,
+full PostgreSQL regression extensions, and roadmap updates are included.
+It is NOT VERIFIED until GitHub Actions passes at its exact product SHA.
+All previous tests remain; no existing test deleted or weakened.
+
+
 Repository: `yasirskhan/property-platform`.
 ONLY branch: `chatgpt/checkpoint-005-safety`.
 Do not touch `main`, create branches, force push, overwrite another session or modify unrelated systems.
@@ -139,7 +157,7 @@ Original Unit parent identity now has an independent Property target-review coll
 
 Run `38842820141` FAILED during Python compilation because a new regression fixture joined a header string and a variable without the required `+` operator in `backend/tests/test_yardi_durable_binding_inventory.py` line 717. This is a test syntax issue, not a Yardi runtime failure. The original tests and all new assertions are preserved; the concatenation is repaired with one character and requires a new exact-SHA all-six-job hosted CI before Sections 67–72 are VERIFIED. Platform-admin, security and frontend passed the failed run; backend failed and E2E/staging were skipped. Do not claim the failed SHA is verified. Continue preparing follow-up batches detached while CI runs.
 
-## New Sections 73–75 — PROVISIONAL product milestone
+## Sections 73–75 — VERIFIED at exact SHA 6c8bafac in CI 38844772878
 
 Read-only exact Unit original source-parent readiness rejects different
 same-organization Yardi durable Property source ID claims to the same mapped
@@ -161,3 +179,56 @@ Original `docs/PLAN_GAPS.md` remains the phase assignment; there is no
 `docs/FEATURE_REGISTER.csv` in this repository, so no fictional register
 is claimed. This milestone adds no migrations, customer mutation, Lease or
 financial posting, ownership, credentials or unofficial Yardi API behavior.
+
+
+## Sections 76–78 follow-up — PREPARED, NOT VERIFIED
+
+The follow-up extends page-scoped historical durable Yardi identity claim
+detection to all five existing-target resources (Properties, Units, Owners,
+Vendors, Tenants), with a separate `target_binding_collision` result and staff
+warning. It reuses one bounded (resource, target ID, source ID) claim projection
+for displayed targets plus original mapped Unit Property parents, preserving
+the Section 73–75 parent-target safety and prior reviewed-claim diagnostics.
+New PostgreSQL coverage tests five resource types, cross-run competing source
+claims, exact-source recovery, Vendor pagination isolation and customer
+nonmutation. Earlier tests are retained. No source contracts, business writes,
+leases/occupancy or accounting are enabled.
+
+This work is detached until Sections 73–75 on exact SHA
+`6c8bafacd8c4bb7b616c5fc58d79498552ff1d01` pass all-six-job hosted CI
+and live branch HEAD is verified. Then publish a single consolidated
+Sections 76–78 commit with an expected-head fast-forward and verify its exact
+SHA. Continue next cohesive batches while CI runs. Never change `main`.
+
+## Sections 79–81 prepared (DETACHED, NOT VERIFIED)
+
+On top of Sections 76–78, reject original Unit source-parent certainty when a
+*different durable or retained reviewed Yardi source ID* claims the customer
+Unit target. Keep live target activity independent from review integrity,
+recognize the same stable source ID across runs, and fail closed for NULL
+historical reviewed source. Internal console explains contested Unit target.
+PostgreSQL regression extends existing exact parent test without deleting or
+relaxing assertions; all customer records remain unchanged.
+
+Publish only after the preceding exact-SHA batches are verified and the
+latest sole-branch HEAD is checked. Do not touch `main`, alter customer data,
+weaken test gates or assume unsupported Yardi finance/Lease/API contracts.
+
+
+## Sections 82–87 prepared DETACHED, not VERIFIED
+
+Historical same Yardi provider source ID can be durably mapped to a different
+customer entity or target ID across runs without causing a competing-source
+target collision. This prepared batch adds page-scoped original-source
+binding projections and `source_target_binding_collision` for each of the
+five existing-target resources. It separately rejects divergent original
+Property source mappings in Unit source-parent verification via
+`parent_source_binding_collision`. An original Unit source mapping to a
+different customer Unit likewise marks original parent readiness false.
+Internal staff console renders distinct warnings. PostgreSQL regressions
+exercise all five resources, Property and Unit parent-specific recovery and
+customer preservation; no existing tests removed or weakened.
+
+Prepared on top of Sections 79–81. Before publishing, verify the exact
+preceding CI and live branch HEAD; do not overwrite another session.
+Source-contract gates and no-Lease/no-finance/no-customer-mutation rule remain.
