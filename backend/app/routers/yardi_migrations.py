@@ -697,6 +697,23 @@ def list_yardi_durable_bindings(
         ).all()
         for claimed_source, claimed_target in claims:
             parent_target_claims.setdefault(claimed_target, set()).add(claimed_source)
+    # Other durable Yardi Property source identities may have been bound to
+    # the same customer Property in historical runs. Keep this independent
+    # of retained staff reviews: old bindings without a staged review must
+    # still invalidate the Unit's original source-parent certainty.
+    parent_target_binding_sources = {}
+    if mapped_parent_ids:
+        durable_claims = db.query(
+            PlatformMigrationItem.target_id,
+            PlatformMigrationItem.source_id,
+        ).filter(
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "YARDI",
+            PlatformMigrationItem.resource == "PROPERTIES",
+            PlatformMigrationItem.target_id.in_(mapped_parent_ids),
+        ).all()
+        for target_id, source_id in durable_claims:
+            parent_target_binding_sources.setdefault(target_id, set()).add(source_id)
     for item in bindings:
         source_identity_collision = (item.resource, item.source_id) in identity_collisions
         # Keep an active target distinct from another source's reviewed claim.
@@ -713,6 +730,7 @@ def list_yardi_durable_bindings(
         parent_source_identity_collision = None  # Only meaningful for exact Unit source-parent evidence.
         parent_source_fingerprint_drift = None  # Unknown until an exact mapped parent is evaluated.
         parent_target_review_collision = None  # Exact mapped Property parent target only.
+        parent_target_binding_collision = None  # Cross-run durable Property source claim.
         if valid_entity and item.resource == "PROPERTIES":
             target_current = item.target_id in live_properties
         elif valid_entity and item.resource == "UNITS":
@@ -746,6 +764,12 @@ def list_yardi_durable_bindings(
                                 parent_mapping[0], ()
                             )
                         )
+                        parent_target_binding_collision = any(
+                            claimed_source != source_parent_id
+                            for claimed_source in parent_target_binding_sources.get(
+                                parent_mapping[0], ()
+                            )
+                        )
                     parent_relationship_current = bool(
                         target_current and parent_mapping is not None
                         and live_unit_parents[item.target_id] == parent_mapping[0]
@@ -753,7 +777,9 @@ def list_yardi_durable_bindings(
                     # A changed, unskipped Property source version makes the
                     # mapped source parent uncertain even when the target Unit
                     # still belongs to the same active customer Property.
-                    if parent_source_identity_collision or parent_target_review_collision:
+                    if (parent_source_identity_collision
+                            or parent_target_review_collision
+                            or parent_target_binding_collision):
                         parent_relationship_current = False
                     # Even one changed Property source version is stale when
                     # its exact fingerprint no longer matches the durable parent.
@@ -784,6 +810,7 @@ def list_yardi_durable_bindings(
             "parent_source_identity_collision": parent_source_identity_collision,
             "parent_source_fingerprint_drift": parent_source_fingerprint_drift,
             "parent_target_review_collision": parent_target_review_collision,
+            "parent_target_binding_collision": parent_target_binding_collision,
             "created_by_platform_user_id": item.created_by_platform_user_id,
             "created_at": item.created_at.isoformat() if item.created_at else None,
         })

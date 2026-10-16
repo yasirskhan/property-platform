@@ -627,7 +627,8 @@ def test_yardi_unit_inventory_batches_exact_parent_review_evidence_per_page():
         db.commit()
 
         def inspect(limit):
-            counts = {"review": 0, "parent_mapping": 0, "live_unit": 0, "parent_claim": 0}
+            counts = {"review": 0, "parent_mapping": 0, "live_unit": 0,
+                      "parent_claim": 0, "durable_parent_claim": 0}
             def observe(connection, cursor, statement, parameters, context, executemany):
                 sql = " ".join(statement.lower().split())
                 if not sql.startswith("select"):
@@ -646,6 +647,10 @@ def test_yardi_unit_inventory_batches_exact_parent_review_evidence_per_page():
                         and "platform_migration_staged_rows.resolution_action" in sql
                         and "platform_migration_staged_rows.source_id" in sql):
                     counts["parent_claim"] += 1
+                if ("platform_migration_items.target_id in" in sql
+                        and "platform_migration_items.source_id" in sql
+                        and "platform_migration_items.resource" in sql):
+                    counts["durable_parent_claim"] += 1
             event.listen(engine, "before_cursor_execute", observe)
             try:
                 result = list_yardi_durable_bindings(
@@ -861,6 +866,49 @@ def test_yardi_unit_parent_inventory_rejects_ambiguous_mapped_property_source(mo
         restored = current()
         assert restored["parent_target_review_collision"] is False
         assert restored["unit_parent_relationship_current"] is True
+
+        # A different durable Yardi source ID can predate retained staged
+        # reviews. It still contests the exact original customer parent.
+        other_durable = _binding(
+            db, another, "PROPERTIES", "P-different", "PROPERTY", prop.id,
+        )
+        db.commit()
+        durable_conflict = current()
+        assert durable_conflict["target_current"] is True
+        assert durable_conflict["parent_target_review_collision"] is False
+        assert durable_conflict["parent_target_binding_collision"] is True
+        assert durable_conflict["unit_parent_relationship_current"] is False
+
+        # Repeated durable evidence for the SAME stable provider source ID
+        # in a different run must not become a spurious competing identity.
+        other_durable.source_id = "P-1"
+        db.commit()
+        same_durable = current()
+        assert same_durable["parent_target_binding_collision"] is False
+        assert same_durable["unit_parent_relationship_current"] is True
+
+        # A different provider cannot contest Yardi Property identities.
+        provider_run = PlatformMigrationRun(
+            organization_id=org.id, provider="BUILDIUM",
+            source_account_ref="unrelated-provider", status="DRAFT",
+        )
+        db.add(provider_run)
+        db.flush()
+        _binding(db, provider_run, "PROPERTIES", "P-external", "PROPERTY", prop.id)
+        db.commit()
+        assert current()["parent_target_binding_collision"] is False
+
+        # Nor can malformed cross-organization historical durable evidence.
+        other_org = _org(db, "yardi-other-org-durable-claim")
+        outside_run = PlatformMigrationRun(
+            organization_id=other_org.id, provider="YARDI",
+            source_account_ref="other-org", status="DRAFT",
+        )
+        db.add(outside_run)
+        db.flush()
+        _binding(db, outside_run, "PROPERTIES", "P-outside", "PROPERTY", prop.id)
+        db.commit()
+        assert current()["parent_target_binding_collision"] is False
 
         db.refresh(prop)
         db.refresh(unit)

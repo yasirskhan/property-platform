@@ -897,3 +897,40 @@ PostgreSQL checks conflicting Property review, recovery, identical cross-run sou
 ## Sections 61–66 exact source verification (2026-10-15)
 
 The page-batched customer target, exact original mapped Property parent, and paginated reviewed-claim integrity milestone passed GitHub Actions `38841035779` at exact source SHA `cc211aca54c6e9d34e22d1e39a8459d9efc08f1c`. All six required CI jobs passed: PostgreSQL/backend, frontend, platform-admin, security, authenticated E2E, and staging-config. This supersedes earlier provisional statements for Sections 61–66. Sections 67–72 are now published as the next milestone and remain provisional pending their own full exact-SHA CI. No source contract blocker has been waived.
+
+
+## 73. Original Unit parent rejects competing durable Property identities (2026-10-15)
+
+A retained durable YARDI Property binding, including historical bindings without
+staged staff-review evidence, can claim the same customer parent Property as an
+exact-reviewed Unit original source parent. The read-only Unit inventory now
+checks all same-organization YARDI Property durable source identities assigned
+to mapped parent targets. A *different* stable provider source ID fails closed,
+while repeated identical source ID evidence across runs remains non-competing.
+These diagnostics remain separate from reviewed-target claims, unskipped staged
+source-ID collisions and exact Property source-fingerprint drift. Historical
+mappings are not changed and no customer object is mutated.
+
+## 74. Scoped page-batched durable parent claims and staff warning (2026-10-15)
+
+One bounded query retrieves Property durable source-ID claims for the exact
+customer parent target IDs referenced by the current Unit inventory page. It
+filters provider and organization and does not load unrelated Yardi entities.
+The `parent_target_binding_collision` field is null without an exact mapped
+source-parent, false with no competing durable source, true when contested.
+The internal platform-admin console explains that a different durable Yardi
+Property identity claims this Unit's mapped parent. It does not auto-merge,
+repair source IDs or alter customer records.
+
+## 75. PostgreSQL collision, recovery and query-count regressions (2026-10-15)
+
+Extend the existing original Unit parent PostgreSQL regression to verify a
+competing historical cross-run durable Property source identity blocks verified
+source-parent readiness, an identical stable source ID restores it, and foreign
+provider/organization evidence cannot contaminate the status. The two-Unit
+inventory query-count test requires one page-batched durable parent target claim
+SELECT as the page grows from one Unit to two. Existing tests remain intact;
+none are deleted, skipped or weakened. This is read-only identity metadata,
+not Lease/occupancy creation, account posting, ownership percent inference or
+unsupported Yardi API integration. Sections 73–75 remain PROVISIONAL pending
+exact-SHA all-six-job hosted CI.

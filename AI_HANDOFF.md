@@ -5,14 +5,15 @@ ONLY branch: `chatgpt/checkpoint-005-safety`.
 Do not touch `main`, create branches, force push, overwrite another session or modify unrelated systems.
 Read this ENTIRE handoff and verify the live HEAD and GitHub CI before each write.
 
-## Latest VERIFIED product checkpoint — Sections 61–66
+## Latest VERIFIED product checkpoint — Sections 67–72
 
-Product source `cc211aca54c6e9d34e22d1e39a8459d9efc08f1c`,
-GitHub Actions `38841035779` SUCCESS at the exact source SHA, with all
-six jobs passing: backend/PostgreSQL, frontend, security, platform-admin,
-authenticated E2E and staging-config. This verifies bounded durable identity
-target/page projections, reviewed-claim page scoping and their regressions.
-It also retains and verifies all previous Sections 57–60 source safeguards.
+Product source `8d062da26dde61d6733e4aaeb6055a7ad831b911`, GitHub Actions
+`38843081367` SUCCESS at exact SHA. All six jobs passed: PostgreSQL/backend,
+frontend, platform-admin, security, authenticated E2E and staging-config.
+Sections 67–72 (source-collision page scoping and reviewed Property parent
+claims) are VERIFIED, along with prior Sections 57–66. The earlier source
+`11453a4b`, CI `38842820141` failed a test string concatenation syntax;
+this was repaired at `8d062da2` without weakening tests.
 
 ## Current published milestone — Sections 67–72 PROVISIONAL
 
@@ -137,3 +138,26 @@ Original Unit parent identity now has an independent Property target-review coll
 ## Sections 67–72 hosted CI repair (2026-10-15)
 
 Run `38842820141` FAILED during Python compilation because a new regression fixture joined a header string and a variable without the required `+` operator in `backend/tests/test_yardi_durable_binding_inventory.py` line 717. This is a test syntax issue, not a Yardi runtime failure. The original tests and all new assertions are preserved; the concatenation is repaired with one character and requires a new exact-SHA all-six-job hosted CI before Sections 67–72 are VERIFIED. Platform-admin, security and frontend passed the failed run; backend failed and E2E/staging were skipped. Do not claim the failed SHA is verified. Continue preparing follow-up batches detached while CI runs.
+
+## New Sections 73–75 — PROVISIONAL product milestone
+
+Read-only exact Unit original source-parent readiness rejects different
+same-organization Yardi durable Property source ID claims to the same mapped
+customer Property even when no retained staff review exists. Repeated same
+stable source ID across runs is not a collision. Existing metadata safeguards
+for staged duplicate source IDs, exact original Property fingerprints, active
+customer targets and separate reviewed target claims are unchanged.
+
+A new `parent_target_binding_collision` field and internal staff warning expose
+the independent issue. Parent-target claims are queried once per inventory page.
+The PostgreSQL regression extends the two-Unit SQL count and tests cross-run
+durable conflict, restoration, provider and organization boundaries, and
+customer record preservation. No tests removed, weakened or skipped.
+
+**Publish and verify:** confirm current HEAD and exact-SHA CI, commit all source,
+regressions, `docs/YARDI_MIGRATION_PLAN.md`, and this handoff together, then
+verify six hosted jobs at that exact SHA. No local test execution is claimed.
+Original `docs/PLAN_GAPS.md` remains the phase assignment; there is no
+`docs/FEATURE_REGISTER.csv` in this repository, so no fictional register
+is claimed. This milestone adds no migrations, customer mutation, Lease or
+financial posting, ownership, credentials or unofficial Yardi API behavior.
