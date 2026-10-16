@@ -967,7 +967,7 @@ def test_yardi_unit_parent_inventory_rejects_ambiguous_mapped_property_source(mo
         # customer Unit independently of durable source identity.
         other_unit_upload = stage_yardi_file(
             db, run=another, filename="other-reviewed-unit.csv",
-            content=b"Unit Ref,Parent Ref,Number\\nU-reviewed,P-1,301\\n",
+            content=b"Unit Ref,Parent Ref,Number\nU-reviewed,P-1,301\n",
             resource_override="UNITS", sheet_name=None,
             explicit_mapping={
                 "source_id": "Unit Ref", "source_property_id": "Parent Ref",

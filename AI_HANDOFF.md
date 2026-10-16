@@ -232,3 +232,18 @@ customer preservation; no existing tests removed or weakened.
 Prepared on top of Sections 79–81. Before publishing, verify the exact
 preceding CI and live branch HEAD; do not overwrite another session.
 Source-contract gates and no-Lease/no-finance/no-customer-mutation rule remain.
+
+
+## Sections 76–87 hosted CI fixture repair (2026-10-15)
+
+Exact SHA `d8205d361486a99ae9e9087f700aaa9ecb709753`, GitHub Actions
+`38845907917` FAILED the fast Yardi PostgreSQL gate: 69 tests passed,
+one fixture failed because new `test_yardi_unit_parent_inventory_rejects_ambiguous_mapped_property_source`
+staged `other-reviewed-unit.csv` with literal escaped `\\n` bytes rather
+than actual CSV newline bytes. The importer correctly rejected its unknown
+source headers. Existing assertions and actual product code are unchanged;
+the test fixture string now uses standard Python newline escapes.
+Frontend, platform-admin and security passed. E2E and staging skipped.
+Do NOT call this failed SHA verified. Verify the repaired exact source SHA
+through all six jobs, then publish prepared next Lease milestone only after
+live HEAD reconciliation. Continue detached preparation during CI.

@@ -1071,3 +1071,15 @@ cross-run durable Property parent review safety is VERIFIED. Earlier notes
 marked PREPARED are historical. Sections 76–87 are grouped into the next
 single source milestone and remain PROVISIONAL until all-six hosted exact-SHA
 CI succeeds. No customer data mutation or financial/Lease posting enabled.
+
+
+## Sections 76–87 fast CI fixture repair gate (2026-10-15)
+
+GitHub Actions run `38845907917` on exact source `d8205d36` failed one
+new Unit PostgreSQL regression fixture: its source CSV contained literal
+backslash-n bytes instead of real CSV record separators. Corrected only the
+test's CSV data literal, preserving every test and the entire product
+implementation. Original fast suite had 69 passing tests and one fixture
+error; frontend/platform-admin/security passed and E2E/staging skipped.
+Sections 76–87 remain PROVISIONAL until the repaired product SHA passes all
+six required hosted jobs. No roadmap item is skipped or treated as verified.
