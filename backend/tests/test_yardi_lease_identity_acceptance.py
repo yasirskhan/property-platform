@@ -1030,3 +1030,168 @@ def test_yardi_lease_review_fingerprint_changes_when_stale_target_swaps_with_equ
     finally:
         db.close()
         engine.dispose()
+
+
+
+@pytest.mark.parametrize("resource,source_id,entity", [
+    ("PROPERTIES", "P1", "PROPERTY"),
+    ("UNITS", "U1", "UNIT"),
+    ("TENANTS", "T1", "TENANT_USER"),
+])
+@pytest.mark.parametrize("direction", ["different_source_same_target", "same_source_different_target"])
+def test_yardi_accepted_lease_revalidates_cross_run_durable_identity_claims(
+    resource, source_id, entity, direction,
+):
+    """Both durable-claim directions invalidate acceptance, preview and dry-run."""
+    db, engine = _session()
+    try:
+        actor, org, run, original, alternate, unit, tenant, lease_row = _seed(
+            db, "yardi-lease-durable-claims-" + resource.lower() + "-" + direction,
+        )
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease_row.id, db, actor,
+        )["replayed"] is False
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["lease_relationship_readiness"]["complete_identity_links"] == 1
+        selected = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == resource,
+            PlatformMigrationItem.source_id == source_id,
+        ).one()
+        other_run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="historical-durable-identity", status="DRAFT",
+        )
+        db.add(other_run)
+        db.flush()
+        if direction == "different_source_same_target":
+            contender_source = "OTHER-" + source_id
+            contender_target = selected.target_id
+        else:
+            contender_source = source_id
+            if resource == "PROPERTIES":
+                contender_target = alternate.id
+            elif resource == "UNITS":
+                second_unit = Unit(property_id=original.id, unit_number="102")
+                db.add(second_unit)
+                db.flush()
+                contender_target = second_unit.id
+            else:
+                second_tenant = User(
+                    organization_id=org.id, role=UserRole.TENANT,
+                    email="second-" + resource.lower() + "-" + direction + "@example.test",
+                    hashed_password="preserved-second-hash",
+                    first_name="Second", last_name="Tenant", is_active=True,
+                )
+                db.add(second_tenant)
+                db.flush()
+                contender_target = second_tenant.id
+        competitor = PlatformMigrationItem(
+            run_id=other_run.id, organization_id=org.id, provider="YARDI",
+            resource=resource, source_id=contender_source,
+            target_entity=entity, target_id=contender_target,
+            source_fingerprint="historical-staff-reviewed",
+        )
+        db.add(competitor)
+        db.commit()
+        preview = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        kind = {"PROPERTIES": "PROPERTY", "UNITS": "UNIT", "TENANTS": "TENANT"}[resource]
+        expected = (
+            kind + "_TARGET_BINDING_COLLISION"
+            if direction == "different_source_same_target"
+            else kind + "_SOURCE_BINDING_COLLISION"
+        )
+        assert expected in preview["blockers"]
+        assert preview["relationship_review_recorded"] is True
+        assert preview["relationship_review_current"] is False
+        assert preview["occupancy_or_lease_authorized"] is False
+        summary = get_yardi_reconciliation(run.id, Response(), db, actor)
+        coverage = summary["lease_relationship_readiness"]
+        assert coverage["complete_identity_links"] == 0
+        assert coverage["accepted_relationship_stale"] == 1
+        count_key = (
+            "identity_target_binding_collisions"
+            if direction == "different_source_same_target"
+            else "identity_source_binding_collisions"
+        )
+        assert coverage[count_key] == 1
+        assert summary["review_fingerprint"] != baseline["review_fingerprint"]
+        with pytest.raises(HTTPException) as stale:
+            accept_yardi_staged_lease_relationship(run.id, lease_row.id, db, actor)
+        assert stale.value.status_code == 409
+        db.refresh(lease_row)
+        assert lease_row.resolution_action == "ACCEPT_RELATIONSHIP"
+        # Converging the exact historical source/target resolves ambiguity;
+        # the system never changes or merges either customer's business data.
+        if direction == "different_source_same_target":
+            competitor.source_id = source_id
+        else:
+            competitor.target_id = selected.target_id
+        db.commit()
+        restored = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        assert expected not in restored["blockers"]
+        assert restored["relationship_review_current"] is True
+        healthy = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert healthy["lease_relationship_readiness"]["complete_identity_links"] == 1
+        assert healthy["review_fingerprint"] != summary["review_fingerprint"]
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease_row.id, db, actor,
+        )["replayed"] is True
+        assert db.query(Lease).count() == 0
+        db.refresh(original)
+        db.refresh(unit)
+        db.refresh(tenant)
+        assert original.name == "Original"
+        assert unit.unit_number == "101"
+        assert tenant.hashed_password == "unchanged-password-hash"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+@pytest.mark.parametrize("scope", ["other_organization", "other_provider"])
+def test_yardi_lease_durable_claim_projection_respects_provider_and_organization(scope):
+    db, engine = _session()
+    try:
+        actor, org, run, original, alternate, unit, tenant, lease_row = _seed(
+            db, "yardi-lease-durable-claim-boundary-" + scope,
+        )
+        if scope == "other_organization":
+            other_org = _org(db, "yardi-lease-foreign-claim-" + scope)
+            other_org_id, provider = other_org.id, "YARDI"
+        else:
+            other_org_id, provider = org.id, "APPFOLIO"
+        other_run = PlatformMigrationRun(
+            organization_id=other_org_id, provider=provider,
+            source_account_ref="foreign-provider-or-org", status="DRAFT",
+        )
+        db.add(other_run)
+        db.flush()
+        db.add(PlatformMigrationItem(
+            run_id=other_run.id, organization_id=other_org_id,
+            provider=provider, resource="TENANTS", source_id="FOREIGN",
+            target_entity="TENANT_USER", target_id=tenant.id,
+            source_fingerprint="unrelated-provider-source",
+        ))
+        db.commit()
+        preview = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        assert "TENANT_TARGET_BINDING_COLLISION" not in preview["blockers"]
+        assert preview["identity_links_complete"] is True
+        assert get_yardi_reconciliation(
+            run.id, Response(), db, actor,
+        )["lease_relationship_readiness"]["complete_identity_links"] == 1
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease_row.id, db, actor,
+        )["replayed"] is False
+        assert db.query(Lease).count() == 0
+        db.refresh(tenant)
+        assert tenant.hashed_password == "unchanged-password-hash"
+    finally:
+        db.close()
+        engine.dispose()

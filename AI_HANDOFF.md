@@ -1,3 +1,42 @@
+# AI_HANDOFF.md | Phase 4.15 Yardi | 2026-10-16
+
+## Last VERIFIED milestone: Sections 76–87
+
+Product source `76508641742b1650f00404ed2f1ac483c35fc938`,
+GitHub Actions `38846302757`: SUCCESS, all six jobs (backend/PostgreSQL,
+frontend, security, platform-admin, authenticated E2E, staging-config).
+The previous failed fixture at `d8205d36` was fixed without weakening tests.
+
+## New grouped product milestone: Sections 88–90 PROVISIONAL
+
+- Section 88: read-only Lease preview detects different Yardi provider
+  source identities durably claiming the same Property/Unit/Tenant customer
+  target, including historical cross-run mappings without a staged review.
+- Section 89: independent same Yardi source ID mapped elsewhere also fails
+  closed, with resource-specific preview blockers, aggregate counter and
+  fingerprint invalidation, staff warning, and initial/replayed
+  ACCEPT_RELATIONSHIP HTTP 409.
+- Section 90: eight parameterized PostgreSQL cases cover all three resources,
+  both conflict directions, accepted review staleness, historical repair,
+  provider and org isolation, fingerprint changes and no customer mutation.
+
+The exact product commit is the live branch SHA after this milestone is
+published. DO NOT mark Sections 88-90 VERIFIED until full hosted CI succeeds
+for that exact SHA. Fast Yardi regressions run before the complete backend
+suite within that milestone; targeted local tests were not available from
+this connector-only chat. No tests deleted/disabled/weakened. The full
+`docs/YARDI_MIGRATION_PLAN.md` §§88-90 was audited against router, staff
+console, regression tests and preserved source-contract gates.
+
+**Next action:** Check live HEAD and latest CI on sole branch
+`chatgpt/checkpoint-005-safety`. On green, update exact SHA/handoff and
+proceed to a coherent next Phase 4.15 batch, preparing detached code while
+CI runs; no main changes, forced pushes or concurrent session overwrites.
+Keep all customer record mutation, Lease posting, GL, accounting, ownership
+percentages and undocumented Yardi API disabled until verified contracts.
+
+---
+
 # AI_HANDOFF.md | Phase 4.15 Yardi | 2026-10-15
 
 ## Latest VERIFIED product milestone: Sections 73–75

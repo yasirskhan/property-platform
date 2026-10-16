@@ -1083,3 +1083,48 @@ implementation. Original fast suite had 69 passing tests and one fixture
 error; frontend/platform-admin/security passed and E2E/staging skipped.
 Sections 76–87 remain PROVISIONAL until the repaired product SHA passes all
 six required hosted jobs. No roadmap item is skipped or treated as verified.
+
+
+## 88. Lease relationships reject competing durable customer-target claims (2026-10-16)
+
+Read-only Yardi Lease relationship preview now checks same-organization,
+same-provider durable Property, Unit and Tenant bindings from other migration
+runs. A different stable Yardi provider source ID mapped to the same customer
+target is a collision, even if no historical staged MATCH_EXISTING row exists.
+Each dependency can surface an explicit resource-specific
+`*_TARGET_BINDING_COLLISION` blocker. Repetition of the SAME source ID to
+the SAME entity and target across runs is not a conflict. No historical binding
+is automatically merged or modified.
+
+## 89. Lease source divergence and accepted replay fail closed (2026-10-16)
+
+The same provider source ID must not map to a different entity or customer
+target in another Yardi run. Lease preview surfaces resource-specific
+`*_SOURCE_BINDING_COLLISION` blockers. Shared page/run-scoped durable-claim
+projection supports the preview, aggregate reconciliation and explicit
+initial/replayed ACCEPT_RELATIONSHIP checks without querying each historical
+claim separately for every Lease row. The aggregate exposes separate counts
+`identity_target_binding_collisions` and
+`identity_source_binding_collisions`. Both deny complete identity links,
+invalidate accepted source-review readiness and enter the exact per-Lease
+private review fingerprint evidence. The staff console exposes the aggregate
+counts. Neither a Lease, occupancy, rent, charge, bank movement, GL posting,
+user entitlement, nor source identity overwrite is authorized.
+
+## 90. Three-resource durable relationship safety regression (2026-10-16)
+
+Eight PostgreSQL parameterized cases cover Property/Unit/Tenant target claims
+and same-source divergent mappings, including a live accepted Lease replay
+becoming stale, 409 refusal without historical review mutation, reasoned
+restoration by reconciling the independently retained historical mapping
+metadata, exact review fingerprint changes, plus provider and organization
+boundaries. Customer Lease table and original Property, Unit and Tenant fields
+remain unchanged. Existing regression tests are retained; no test removed,
+disabled, skipped or weakened. Only the existing Yardi files, existing
+applicable contracts and read-only diagnostic staff console are modified.
+
+**Verification:** Sections 76-87 source
+`76508641742b1650f00404ed2f1ac483c35fc938` is VERIFIED in
+GitHub Actions run `38846302757` (all six required jobs PASS). Sections
+88-90 are PROVISIONAL pending their own exact-source six-job hosted CI.
+Financial and official Yardi API source contracts remain blocked.
