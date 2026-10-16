@@ -1763,3 +1763,18 @@ provider/organization evidence must NOT alter source readiness, accepted
 review currency, collision counters or exact private readiness fingerprint,
 and must never authorize Lease/occupancy creation. This candidate remains
 detached pending exact parent six-job hosted CI and its own future run.
+
+### Detached exact competing-source evidence fingerprint repair
+
+Existing per-Lease aggregate readiness fingerprints a collision boolean,
+so two distinct historical Yardi source identities competing for the
+SAME customer target can keep identical review-fingerprint values. After
+the prerequisite hosted CI verifies its exact source, a scoped source-level
+fix includes deterministic, NULL-safe competing (resource,target,source)
+detail in each Lease's private fingerprint evidence. This uses the existing
+organization/provider-scoped reviewed-claim projection with zero additional
+SQL queries. New fast-gated PostgreSQL regression swaps one historical
+competing Property source across OLD-1, OLD-2 and NULL; all three must
+remain blocked and fingerprint-distinct; exact original P1 identity
+restores readiness and the initial fingerprint, with no customer Lease,
+accounting or existing target mutation. Prepared and NOT VERIFIED.

@@ -365,3 +365,80 @@ def test_other_provider_historical_claim_cannot_block_yardi_lease_acceptance():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_changed_competing_lease_review_source_invalidates_exact_fingerprint():
+    """Different historical source claims must not share one stale fingerprint."""
+    db, engine = _session()
+    try:
+        actor, org, run, prop, alternate, unit, tenant, lease = _seed(
+            db, slug="yardi-lease-competing-source-swap-fingerprint",
+        )
+        before_leases = db.query(Lease).count()
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease.id, db, actor,
+        )["replayed"] is False
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["lease_relationship_readiness"]["source_review_ready"] == 1
+
+        other_run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="historical-swapped-property-source", status="DRAFT",
+        )
+        db.add(other_run)
+        db.flush()
+        upload = stage_yardi_file(
+            db, run=other_run, filename="historical-property-swaps.csv",
+            content=b"ID,Name,Street,City,State,Zip\nOLD-1,Historical,1 Main,Cleveland,OH,44113\n",
+            resource_override="PROPERTIES", sheet_name=None,
+            explicit_mapping={
+                "source_id": "ID", "name": "Name", "address_line1": "Street",
+                "city": "City", "state": "State", "zip_code": "Zip",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        historical = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).one()
+        historical.resolution_action = "MATCH_EXISTING"
+        historical.resolution_target_id = prop.id
+        db.commit()
+
+        fingerprints = []
+        for historical_source in ("OLD-1", "OLD-2", None):
+            historical.source_id = historical_source
+            db.commit()
+            stale = get_yardi_reconciliation(run.id, Response(), db, actor)
+            readiness = stale["lease_relationship_readiness"]
+            assert readiness["identity_target_review_collisions"] == 1
+            assert readiness["accepted_relationship_stale"] == 1
+            assert readiness["complete_identity_links"] == 0
+            assert readiness["source_review_ready"] == 0
+            with pytest.raises(HTTPException) as blocked:
+                accept_yardi_staged_lease_relationship(run.id, lease.id, db, actor)
+            assert blocked.value.status_code == 409
+            fingerprints.append(stale["review_fingerprint"])
+
+        assert len(set(fingerprints)) == 3
+        assert baseline["review_fingerprint"] not in fingerprints
+        historical.source_id = "P1"
+        db.commit()
+        recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert recovered["lease_relationship_readiness"]["identity_target_review_collisions"] == 0
+        assert recovered["lease_relationship_readiness"]["source_review_ready"] == 1
+        assert recovered["review_fingerprint"] == baseline["review_fingerprint"]
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease.id, db, actor,
+        )["replayed"] is True
+
+        db.refresh(prop)
+        db.refresh(unit)
+        db.refresh(tenant)
+        db.refresh(lease)
+        assert prop.name == "Original" and unit.property_id == prop.id
+        assert tenant.hashed_password == "unchanged-password-hash"
+        assert lease.resolution_action == "ACCEPT_RELATIONSHIP"
+        assert db.query(Lease).count() == before_leases
+    finally:
+        db.close()
+        engine.dispose()

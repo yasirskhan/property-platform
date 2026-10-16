@@ -2004,9 +2004,11 @@ def get_yardi_reconciliation(
         )
         if property_source_drift:
             lease_relationship_readiness["parent_property_source_drift"] += 1
-        target_review_collision = False
-        # Reuse the existing organization-scoped reviewed-claim projection,
-        # not an extra SELECT for each mapped identity on every staged Lease.
+        # Preserve WHICH historical provider source claims compete, not
+        # only a boolean collision counter. An old source ID can change while
+        # the same Lease stays blocked; an exact dry-run fingerprint must
+        # invalidate in that case as well. No additional database queries.
+        target_review_claim_details = []
         for resource, field, target_id in (
             ("PROPERTIES", "source_property_id", property_id),
             ("UNITS", "source_unit_id", unit_id),
@@ -2015,14 +2017,21 @@ def get_yardi_reconciliation(
             if target_id is None:
                 continue
             source_id = str(data.get(field) or "").strip()
-            if any(
-                reviewed_source_id != source_id
-                for reviewed_source_id in reviewed_claim_sources.get(
+            target_review_claim_details.extend(
+                (resource, target_id, historical_source)
+                for historical_source in reviewed_claim_sources.get(
                     (resource, target_id), ()
                 )
-            ):
-                target_review_collision = True
-                break
+                if historical_source != source_id
+            )
+        # Source IDs may legitimately be NULL for retained legacy reviews.
+        # Sort deterministically without comparing None directly to strings.
+        target_review_claim_details.sort(
+            key=lambda detail: (
+                detail[0], detail[1], detail[2] is not None, detail[2] or "",
+            )
+        )
+        target_review_collision = bool(target_review_claim_details)
         if target_review_collision:
             lease_relationship_readiness["identity_target_review_collisions"] += 1
         durable_target_collision = False
@@ -2107,6 +2116,7 @@ def get_yardi_reconciliation(
             bool(complete_links and source_parent_current),
             bool(target_parent_conflicts), bool(source_id_collision),
             bool(accepted_review_stale),
+            tuple(target_review_claim_details),
         ))
 
     evidence = {

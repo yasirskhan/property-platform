@@ -1,3 +1,30 @@
+# DETACHED SAFE SOURCE FIX | YARDI HISTORICAL REVIEW CLAIM FINGERPRINT
+
+Parent verified product `c4bd306c7e055ac991e49115e13c9ffbad5596b7` still requires hosted CI
+`38945258561` to complete all six jobs before any further branch move.
+
+Read-only `get_yardi_reconciliation` previously fingerprinted per-Lease
+reviewed-target collision as a boolean only. If retained historical competing
+YARDI source ID changed OLD-1 -> OLD-2 -> NULL for the same customer
+Property while all counters stayed stale, the private review fingerprint
+could remain identical, losing exact review evidence. This candidate
+reuses the existing scoped reviewed-claim projection and fingerprints the
+sorted exact conflicting (resource,target,source) details per Lease. NULL
+is supported and deterministic, no additional SELECT, no customer write,
+no new source contracts. Existing collision/guard behavior remains.
+
+Fast-gated PostgreSQL regression requires distinct fingerprints for three
+equally blocked source identities and restoration to the exact original
+fingerprint when historical source identity matches P1. The accepted
+Lease source replay must return 409 when contested and remain metadata-only
+upon valid same-source recovery. Earlier Unit/Tenant, provider/org isolation
+and preview/readiness tests remain enabled and unchanged.
+
+Candidate DETACHED / UNVERIFIED, do not publish until previous branch
+passes all six hosted jobs. §§133–135 remain unsupported/not invented.
+
+---
+
 # DETACHED FOLLOW-UP PREPARATION | YARDI §131 ISOLATION PARITY
 
 The next test-only candidate extends both same-organization APPFOLIO
