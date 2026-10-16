@@ -1,3 +1,26 @@
+# 2026-10-16 | DETACHED subsequent Owner/Tenant equal-total eligibility evidence
+
+Prepared next regression-only descendant of
+9666ef2d866dadd1fb679ae557c4daf1f1bd96d0, which itself must first be
+published after successful exact parent GitHub Actions 38961595055 and then
+verified by its OWN all-six-job CI. Tests extend existing unbound reviewed
+Owner/Tenant inactive, wrong-role and soft-deleted customer account guards
+to two independent reviewed users, exchanging WHICH account is ineligible
+without changing any resource totals. A saved reviewed dry-run must become
+stale for the swapped target, recover for the original invalid target, and
+return to baseline when both are current. No business creation, passwords,
+staff decisions, durable mapping or product router modified; customer
+records change only inside rolled-back test fixtures. No existing assertion
+weakened, disabled or removed. No invented Yardi §§133–135 requirements.
+
+The descendant is DETACHED, not published and not VERIFIED. Preserve
+the ONLY branch chatgpt/checkpoint-005-safety, non-force expected-HEAD
+fast-forward, no main/new branch/other project edits. On subsequent
+publication, require full exact-SHA six-job CI and continue independent
+read-only safety batches.
+
+---
+
 # 2026-10-16 | Consolidated next Yardi eligibility regression milestone
 
 Repository: `yasirskhan/property-platform`

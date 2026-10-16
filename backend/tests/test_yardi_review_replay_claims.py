@@ -1005,3 +1005,109 @@ def test_unbound_vendor_review_dry_run_tracks_which_target_was_archived():
     finally:
         db.close()
         engine.dispose()
+
+
+@pytest.mark.parametrize("resource,seed,match,request_cls,target_field,header,source_id", [
+    ("OWNERS", seed_owner, match_yardi_staged_owner, YardiOwnerMatchIn,
+     "target_owner_user_id", "Owner Ref", "O-2"),
+    ("TENANTS", seed_tenant, match_yardi_staged_tenant, YardiTenantMatchIn,
+     "target_tenant_user_id", "Resident Ref", "R-2"),
+])
+@pytest.mark.parametrize("invalid_field", ["is_active", "role", "deleted_at"])
+def test_unbound_reviewed_user_eligibility_swap_expires_equal_count_dry_run(
+    resource, seed, match, request_cls, target_field, header, source_id,
+    invalid_field,
+):
+    """Two distinct stale customer targets must not share one review snapshot."""
+    from datetime import datetime
+    from app.models.platform_migration import PlatformMigrationItem
+    from app.models.user import User, UserRole
+    from app.routers.yardi_migrations import get_yardi_review_dry_run_status
+
+    db, engine = _session()
+    try:
+        slug = f"yardi-user-eligibility-swap-{resource.lower()}-{invalid_field}"
+        actor, org, first_user, run, first_row = seed(db, slug=slug)
+        second_user = User(
+            organization_id=org.id, role=first_user.role,
+            email=f"{slug}-second@example.test", hashed_password="second-preserved-hash",
+            first_name="Second", last_name="Preserved", is_active=True,
+        )
+        db.add(second_user)
+        db.commit()
+        upload = stage_yardi_file(
+            db, run=run, filename="second-reviewed-user.csv",
+            content=f"{header},Full Name\n{source_id},Second Reviewed User\n".encode(),
+            resource_override=resource, sheet_name=None,
+            explicit_mapping={"source_id": header, "name": "Full Name"},
+            platform_user_id=actor.id,
+        )
+        db.commit()
+        second_row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).one()
+        for row, target in ((first_row, first_user), (second_row, second_user)):
+            assert match(
+                run.id, row.id, request_cls(**{target_field: target.id}), db, actor,
+            )["replayed"] is False
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["resource_coverage"][resource]["matched_existing"] == 2
+        assert baseline["resource_coverage"][resource]["needs_review"] == 0
+
+        original = getattr(first_user, invalid_field)
+        invalid = (
+            False if invalid_field == "is_active"
+            else (UserRole.TENANT if resource == "OWNERS" else UserRole.OWNER)
+            if invalid_field == "role" else datetime.utcnow()
+        )
+        setattr(first_user, invalid_field, invalid)
+        db.commit()
+        first_stale = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert first_stale["resource_coverage"][resource]["matched_existing"] == 1
+        assert first_stale["resource_coverage"][resource]["needs_review"] == 1
+        saved = dry_run_yardi_review(run.id, db, actor)
+        assert saved["review_fingerprint"] == first_stale["review_fingerprint"]
+
+        # Eligibility swaps between targets, not total resource coverage.
+        setattr(first_user, invalid_field, original)
+        setattr(second_user, invalid_field, invalid)
+        db.commit()
+        second_stale = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert second_stale["resource_coverage"] == first_stale["resource_coverage"]
+        assert second_stale["review_fingerprint"] != first_stale["review_fingerprint"]
+        expired = get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )
+        assert expired["is_current"] is False
+        assert expired["saved_review_fingerprint"] == saved["review_fingerprint"]
+
+        setattr(first_user, invalid_field, invalid)
+        setattr(second_user, invalid_field, original)
+        db.commit()
+        restored = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert restored["review_fingerprint"] == first_stale["review_fingerprint"]
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is True
+
+        setattr(first_user, invalid_field, original)
+        db.commit()
+        recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert recovered["review_fingerprint"] == baseline["review_fingerprint"]
+        assert recovered["resource_coverage"][resource]["matched_existing"] == 2
+        assert recovered["resource_coverage"][resource]["needs_review"] == 0
+        assert recovered["customer_business_mutation"] is False
+        assert first_row.resolution_action == "MATCH_EXISTING"
+        assert second_row.resolution_action == "MATCH_EXISTING"
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+        ).count() == 0
+        db.refresh(first_user)
+        db.refresh(second_user)
+        assert first_user.hashed_password == "preserved-hash"
+        assert second_user.hashed_password == "second-preserved-hash"
+        assert first_user.first_name == "Existing"
+        assert second_user.first_name == "Second"
+    finally:
+        db.close()
+        engine.dispose()

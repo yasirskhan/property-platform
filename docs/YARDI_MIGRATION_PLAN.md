@@ -1972,3 +1972,22 @@ archived target restores saved current status; fully restoring both targets
 restores baseline readiness. No migration customer-record mutation,
 new mapping, identity overwrite, accounting/Lease/occupancy posting or
 undocumented Yardi API is introduced. Test-only and provisional until CI.
+
+
+### Prepared equal-counter Owner/Tenant customer-eligibility swap regression (2026-10-16)
+
+Extends the unbound MATCH_EXISTING Owner/Tenant dry-run revocation safety
+gate to TWO independently reviewed customer users of the same resource.
+Parameterized active-status, customer role and soft-deletion transitions
+swap WHICH target is invalid, keeping aggregate matched_existing and
+needs_review exactly equal across both snapshots. The private review
+fingerprint must change; restoring the original invalid target restores
+the original saved dry-run and restoring both customer users to valid
+recovers baseline readiness. Original passwords, staff decisions,
+absence of durable current-run mappings and customer nonmutation are
+asserted. Test-only and documented, no source contract or external Yardi
+API, customer Lease/occupancy/finance or owner allocation enabled.
+Prepared detached from the preceding eligibility regression candidate
+9666ef2d866dadd1fb679ae557c4daf1f1bd96d0; publish after predecessor
+passes exact-SHA hosted CI and live branch HEAD is verified. This child
+requires its own all-six-job CI before VERIFIED. §§133–135 remain unspecified.
