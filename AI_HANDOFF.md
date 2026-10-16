@@ -1,3 +1,22 @@
+# 2026-10-16 | DETACHED durable unrelated customer eligibility isolation
+
+Fast-gated unreviewed durable Owner/Tenant/Vendor source bindings now
+include negative PostgreSQL regressions verifying that unrelated
+same-organization customer account inactivity or Vendor archival
+does not invalidate another target's source-exact mapping, saved
+reviewed dry run or replay. Scoped aggregate readiness and exact
+fingerprint remain equal. Original durable mappings, source
+fingerprints, customer passwords and company names are preserved.
+Three parameterized cases, tests only; no business mutation in
+Yardi product flow and no API/Lease/occupancy/accounting enablement.
+
+DETACHED after 2e80d980b43c84e41c744e76c151048edb465399.
+Publish only after each previous source's exact six-job hosted CI,
+current sole branch SHA and non-force expected-HEAD verification.
+No other branches, main, force push or invented §§133–135.
+
+---
+
 # 2026-10-16 | DETACHED unrelated Property/Unit eligibility isolation
 
 Another prepared fast-gated read-only regression covers unreferenced

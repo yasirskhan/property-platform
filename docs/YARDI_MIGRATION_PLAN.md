@@ -2095,3 +2095,19 @@ customer fields, original staff source review and absence of newly bound
 identity mappings. Tests only, no authorization, Yardi API, Lease or
 accounting/customer business write. Publish after green exact-SHA
 predecessor and verify its own six CI jobs; no invented §§133–135 scope.
+
+
+### Detached durable Owner/Tenant/Vendor unrelated eligibility isolation (2026-10-16)
+
+Three fast-gated PostgreSQL cases protect unreviewed exact durable
+identity readiness against unrelated same-organization target statuses.
+An unreferenced Owner/Tenant becoming inactive or Vendor archived
+must leave the original mapped source/target, aggregate readiness,
+fingerprint and saved staff review current, including idempotent
+dry-run replay. Exact source fingerprint and historical staff action
+absence remain unchanged, and customer records are preserved.
+Test-only, no customer create/update from migration product routing,
+unsupported API, Lease/occupancy, ownership or accounting posting.
+Follows the reviewed out-of-scope target negatives. Detached until safe
+non-force publication after exact full predecessor CI and requiring
+its own all-six-job hosted verification. Do not invent §§133–135.
