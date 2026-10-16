@@ -100,6 +100,15 @@ def test_original_unit_parent_claims_are_revalidated_without_customer_mutation(r
         db.commit()
         contested_review = current()
         assert contested_review["resource_coverage"]["UNITS"][stat] == 0
+        reviewed_parent.source_id = "PY"
+        db.commit()
+        changed_parent_review_source = current()
+        assert changed_parent_review_source["resource_coverage"] == contested_review["resource_coverage"]
+        assert changed_parent_review_source["review_fingerprint"] != contested_review["review_fingerprint"]
+        reviewed_parent.source_id = "PX"
+        db.commit()
+        recovered_parent_review_source = current()
+        assert recovered_parent_review_source["review_fingerprint"] == contested_review["review_fingerprint"]
         reviewed_parent.source_id = "P1"
         db.commit()
         restored = current()

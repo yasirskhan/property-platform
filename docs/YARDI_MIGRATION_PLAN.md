@@ -1846,3 +1846,17 @@ Property source provenance safeguards. No tested customer business record
 is changed by migration code, and no new provider API or accounting
 source contract is assumed. Await parent six-job CI and its own
 exact-source verification after safe publication.
+
+### Detached original Unit parent historical staff review identity evidence
+
+The original Unit's durable Property binding can be contested not only
+by another durable source claim but by a retained staff-reviewed
+Property source ID. The per-row private Unit readiness fingerprint now
+includes the deterministic, NULL-safe exact historical Property review
+source IDs that conflict with its original mapped Property, using the
+already-scoped reviewed-claim projection. A parameterized PostgreSQL
+regression for reviewed/unreviewed Units swaps PX to PY under unchanged
+stale counters and requires a changed fingerprint, then exact recovery
+to PX followed by authoritative parent P1. No new database query,
+customer mutation or unsupported Yardi API source assumption.
+This source remains detached pending prerequisite and its own CI.

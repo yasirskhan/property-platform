@@ -1762,6 +1762,20 @@ def get_yardi_reconciliation(
             row.resource, target_id, row.source_id,
         ))
 
+    def competing_original_property_review_sources(row):
+        """Retained Property source disputes that stale a Unit's original parent."""
+        if row.resource != "UNITS":
+            return ()
+        source_parent = str(
+            (row.normalized_data or {}).get("source_property_id") or ""
+        ).strip()
+        parent = items_by_source.get(("PROPERTIES", source_parent))
+        if parent is None or parent.target_entity != "PROPERTY":
+            return ()
+        return competing_review_sources(
+            "PROPERTIES", parent.target_id, parent.source_id,
+        )
+
     resources: dict[str, dict[str, int]] = {}
     unresolved = invalid = skipped = 0
     # Exact per-row diagnostic status belongs in the private fingerprint
@@ -1852,6 +1866,7 @@ def get_yardi_reconciliation(
                 row_readiness_evidence.append((
                     row.id, "REVIEWED_CURRENT",
                     competing_review_sources(row.resource, reviewed_target, row.source_id),
+                    competing_original_property_review_sources(row),
                 ))
             else:
                 unresolved += 1
@@ -1859,6 +1874,7 @@ def get_yardi_reconciliation(
                 row_readiness_evidence.append((
                     row.id, "REVIEWED_STALE",
                     competing_review_sources(row.resource, reviewed_target, row.source_id),
+                    competing_original_property_review_sources(row),
                 ))
         elif row.resource == "LEASE_OCCUPANCY" and row.resolution_action == "ACCEPT_RELATIONSHIP":
             # This count means staff recorded identity review, NOT that lease,
@@ -1907,6 +1923,7 @@ def get_yardi_reconciliation(
                 row_readiness_evidence.append((
                     row.id, "DURABLE_CURRENT",
                     competing_review_sources(row.resource, binding.target_id, row.source_id),
+                    competing_original_property_review_sources(row),
                 ))
             else:
                 unresolved += 1
@@ -1914,6 +1931,7 @@ def get_yardi_reconciliation(
                 row_readiness_evidence.append((
                     row.id, "DURABLE_STALE",
                     competing_review_sources(row.resource, binding.target_id, row.source_id),
+                    competing_original_property_review_sources(row),
                 ))
         else:
             unresolved += 1

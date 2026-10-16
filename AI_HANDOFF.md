@@ -1,3 +1,24 @@
+# DETACHED ORIGINAL UNIT PROPERTY STAFF REVIEW SOURCE EXACTNESS
+
+This follow-on to the Unit original parent durable source fingerprint
+candidate now also preserves exact conflicting *staff-reviewed* original
+Property provider source identity inside each Unit review/durable row's
+private reconciliation fingerprint. A historical Property review
+PX -> PY cannot leave the same stale Unit source-parent status and reuse
+the identical review fingerprint. Both reviewed and unreviewed Unit parent
+paths are covered by the already fast-gated parameterized PostgreSQL test.
+Returning to PX restores the exact contested fingerprint; correcting
+to original P1 restores prior ready evidence. One existing scoped reviewed
+claim projection is reused; no extra SQL, source-contract inference,
+customer Property/Unit reparent, Lease/occupancy or finance write.
+
+This commit is DETACHED, not published or verified. The sole branch
+`be8522586a711b074e7d24405bf5e03247011450` must pass all six exact-SHA hosted CI
+jobs before a revalidated expected-HEAD fast-forward. Existing review
+claim and recovery assertions remain enabled. No fabricated §§133–135 scope.
+
+---
+
 # DETACHED FIVE-RESOURCE REVIEW CLAIM FINGERPRINT REGRESSION EXPANSION
 
 The same bounded historical durable Property parent fingerprint batch
