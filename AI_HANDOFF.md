@@ -1,3 +1,23 @@
+# DETACHED FIVE-RESOURCE REVIEW CLAIM FINGERPRINT REGRESSION EXPANSION
+
+The same bounded historical durable Property parent fingerprint batch
+now also extends the existing fast-gated parametric Yardi reviewed Owner,
+Tenant and Vendor claim test: changing a retained competing source ID
+while the same customer target and stale counters remain must invalidate
+the exact private review fingerprint, and restoring the original competing
+source must restore that exact fingerprint. These are source-metadata
+tests only and do not alter product authorization, customer account,
+Lease or financial records. All prior assertions remain active.
+
+Candidate is DETACHED from current published `be8522586a711b074e7d24405bf5e03247011450` and
+includes the prior Unit parent durable-claim provenance correction
+prepared on `26f691c3342b704a51b7262bd9ef1a0c0685b5a6`.
+Do not publish until the published source's exact six-job hosted CI
+passes; then verify live HEAD and use non-force expected SHA.
+Next sections 133–135 have no recovered authoritative scope.
+
+---
+
 # NEXT DETACHED YARDI ORIGINAL UNIT PARENT SOURCE EVIDENCE
 
 Current published branch `be8522586a711b074e7d24405bf5e03247011450` contains the Lease and

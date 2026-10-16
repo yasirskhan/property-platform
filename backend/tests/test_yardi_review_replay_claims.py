@@ -82,6 +82,21 @@ def test_review_replay_revalidates_other_staff_claims(
         assert conflicted_coverage["resource_coverage"][resource]["matched_existing"] == 0
         assert conflicted_coverage["resource_coverage"][resource]["needs_review"] == 1
         assert conflicted_coverage["review_fingerprint"] != initial_coverage["review_fingerprint"]
+
+        # A different competing provider ID against the same retained
+        # customer target stays stale, but must invalidate the exact
+        # reviewed-source fingerprint for Owners, Tenants and Vendors.
+        original_competing_source = competing.source_id
+        competing.source_id = "SECOND-" + resource
+        db.commit()
+        changed_source = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert changed_source["resource_coverage"] == conflicted_coverage["resource_coverage"]
+        assert changed_source["review_fingerprint"] != conflicted_coverage["review_fingerprint"]
+        competing.source_id = original_competing_source
+        db.commit()
+        exact_recovery = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert exact_recovery["review_fingerprint"] == conflicted_coverage["review_fingerprint"]
+
         db.refresh(row)
         db.refresh(target)
         assert row.resolution_action == "MATCH_EXISTING"

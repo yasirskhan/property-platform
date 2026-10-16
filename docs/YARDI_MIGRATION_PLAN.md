@@ -1834,3 +1834,15 @@ parameterized Unit original-parent regressions cover
 ANOTHER-PROPERTY -> YET-ANOTHER-PROPERTY without changed stale
 counts, and exact-source restoration. Zero customer record writes,
 no new SQL read; no future numbered requirements invented.
+
+### Next detached source-claim regression coverage across reviewed identity types
+
+The fast-gated retained staff-reviewed target collision regression for
+Owners, Tenants and Vendors now verifies an exact source-ID swap under
+unchanged stale counters still changes the private review fingerprint.
+Restoring the historical competing source ID restores the fingerprint.
+This complements the independently prepared original Unit parent durable
+Property source provenance safeguards. No tested customer business record
+is changed by migration code, and no new provider API or accounting
+source contract is assumed. Await parent six-job CI and its own
+exact-source verification after safe publication.
