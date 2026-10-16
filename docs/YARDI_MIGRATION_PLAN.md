@@ -1736,3 +1736,7 @@ Only restoration to the exact original reviewed provider source ID restores
 replay, with unchanged customer records. This complements separately
 prepared provider-isolation coverage. Not published or verified; no
 production code changes or invented §§133–135 contracts.
+
+### Verified §131 prerequisite, next history/isolation regression
+
+Existing §131 historical Unit and Tenant NULL source collision refusal, exact identity recovery and foreign-organization isolation passed all six jobs at `2510bf93b48dca8bbd4dbedee99905a849016b2a` run `38914698146` (backend/PostgreSQL 1344 passed, 21 deselected). This separate next batch adds known-different source refusal and cross-provider APPFOLIO versus YARDI reviewed-claim isolation; scope is only regression, metadata fixtures and documentation. Full six-job exact new SHA CI is required. Source contracts and customer business no-write rules remain unchanged.

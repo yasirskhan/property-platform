@@ -1,3 +1,13 @@
+# YARDI PHASE 4.15 | 2026-10-16 EXACT-SHA VERIFIED AND NEXT TEST BATCH
+
+**Verified checkpoint:** Sections 118–132 at `74e7e33e3b331992497dd7a03415ec31225daaff`, CI `38912065447` SUCCESS six jobs. Follow-on existing §131 NULL Unit/Tenant source, same-source repair and foreign-organization isolation at `2510bf93b48dca8bbd4dbedee99905a849016b2a` CI `38914698146` **SUCCESS six jobs**, backend/PostgreSQL **1344 passed, 21 deselected**, fast Yardi review gate, frontend, platform-admin, security, E2E and staging all passed.
+
+**This milestone (still PROVISIONAL):** Existing §131's historical-claim correctness additionally tests distinct known source IDs (409 before recovery) and a same-organization non-YARDI (APPFOLIO) historical NULL-source Property claim that must not block valid YARDI acceptance replay. Tests inspect unchanged Property, Unit, Tenant password and customer Lease count. Only test, Yardi plan, and handoff are changed. No production routing, tables, migrations or customer business records changed. Verify exact SHA with all six CI jobs before recording as VERIFIED.
+
+**Future:** Original §§133–135 requirements are not available on branch and may not be invented. Continue safe documented review/reconciliation safeguards only. Never touch main, force push, start alternate branch, or claim the pending milestone verified.
+
+---
+
 # NEXT DETACHED §131 SAFETY BATCH (NOT PUBLISHED)
 
 In addition to the prepared same-organization APPFOLIO provider-isolation
