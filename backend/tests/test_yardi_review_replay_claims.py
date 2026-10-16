@@ -527,3 +527,270 @@ def test_unbound_reviewed_vendor_fingerprint_tracks_competing_durable_source():
     finally:
         db.close()
         engine.dispose()
+
+
+@pytest.mark.parametrize("resource,seed,match,request_cls,target_field,entity", [
+    ("OWNERS", seed_owner, match_yardi_staged_owner, YardiOwnerMatchIn,
+     "target_owner_user_id", "OWNER_USER"),
+    ("TENANTS", seed_tenant, match_yardi_staged_tenant, YardiTenantMatchIn,
+     "target_tenant_user_id", "TENANT_USER"),
+])
+def test_unbound_reviewed_user_durable_source_swap_invalidates_dry_run(
+    resource, seed, match, request_cls, target_field, entity,
+):
+    """Exact historical claim provenance must protect an unbound reviewed user."""
+    from app.models.platform_migration import PlatformMigrationItem
+    from app.routers.yardi_migrations import get_yardi_review_dry_run_status
+
+    db, engine = _session()
+    try:
+        actor, org, user, run, row = seed(
+            db, slug=f"yardi-unbound-user-durable-source-{resource.lower()}"
+        )
+        payload = request_cls(**{target_field: user.id})
+        assert match(run.id, row.id, payload, db, actor)["replayed"] is False
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["resource_coverage"][resource]["matched_existing"] == 1
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id
+        ).count() == 0
+
+        old = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref=f"historic-unbound-{resource.lower()}",
+            status="DRAFT",
+        )
+        db.add(old)
+        db.flush()
+        historical = PlatformMigrationItem(
+            run_id=old.id, organization_id=org.id, provider="YARDI",
+            resource=resource, source_id="OLD-IDENTITY-1",
+            target_entity=entity, target_id=user.id,
+            source_fingerprint="historic-identity-evidence",
+        )
+        db.add(historical)
+        db.commit()
+        first = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert first["resource_coverage"][resource]["needs_review"] == 1
+        assert first["resource_coverage"][resource]["matched_existing"] == 0
+        assert first["review_fingerprint"] != baseline["review_fingerprint"]
+
+        retained = dry_run_yardi_review(run.id, db, actor)
+        assert retained["review_fingerprint"] == first["review_fingerprint"]
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is True
+
+        historical.source_id = "OLD-IDENTITY-2"
+        db.commit()
+        changed = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert changed["resource_coverage"] == first["resource_coverage"]
+        assert changed["review_fingerprint"] != first["review_fingerprint"]
+        status = get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )
+        assert status["saved_review_fingerprint"] == retained["review_fingerprint"]
+        assert status["current_review_fingerprint"] == changed["review_fingerprint"]
+        assert status["is_current"] is False
+
+        historical.source_id = "OLD-IDENTITY-1"
+        db.commit()
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is True
+        historical.source_id = row.source_id
+        db.commit()
+        recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert recovered["resource_coverage"][resource]["matched_existing"] == 1
+        assert recovered["review_fingerprint"] == baseline["review_fingerprint"]
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id
+        ).count() == 0
+        db.refresh(user)
+        assert user.hashed_password == "preserved-hash"
+        assert user.first_name == "Existing"
+        assert row.resolution_action == "MATCH_EXISTING"
+        assert recovered["customer_business_mutation"] is False
+    finally:
+        db.close()
+        engine.dispose()
+
+
+@pytest.mark.parametrize("resource,seed,match,request_cls,target_field,entity", [
+    ("OWNERS", seed_owner, match_yardi_staged_owner, YardiOwnerMatchIn,
+     "target_owner_user_id", "OWNER_USER"),
+    ("TENANTS", seed_tenant, match_yardi_staged_tenant, YardiTenantMatchIn,
+     "target_tenant_user_id", "TENANT_USER"),
+])
+def test_unbound_reviewed_user_durable_claim_scoping_and_same_source_recovery(
+    resource, seed, match, request_cls, target_field, entity,
+):
+    """No cross-provider/org drift; same stable source is a valid replay."""
+    from app.models.platform_migration import PlatformMigrationItem
+    from app.routers.yardi_migrations import get_yardi_review_dry_run_status
+    from test_yardi_migrations import _org
+
+    db, engine = _session()
+    try:
+        actor, org, user, run, row = seed(
+            db, slug=f"yardi-unbound-user-claim-scope-{resource.lower()}"
+        )
+        payload = request_cls(**{target_field: user.id})
+        assert match(run.id, row.id, payload, db, actor)["replayed"] is False
+        initial = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert initial["resource_coverage"][resource]["matched_existing"] == 1
+        snapshot = dry_run_yardi_review(run.id, db, actor)
+
+        foreign_org = _org(db, f"yardi-unbound-foreign-{resource.lower()}")
+        appfolio_run = PlatformMigrationRun(
+            organization_id=org.id, provider="APPFOLIO",
+            source_account_ref=f"foreign-provider-{resource.lower()}", status="DRAFT",
+        )
+        outside_run = PlatformMigrationRun(
+            organization_id=foreign_org.id, provider="YARDI",
+            source_account_ref=f"foreign-org-{resource.lower()}", status="DRAFT",
+        )
+        same_run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref=f"same-source-{resource.lower()}", status="DRAFT",
+        )
+        db.add_all([appfolio_run, outside_run, same_run])
+        db.flush()
+        for prior_run, prior_provider, prior_org, source_id in (
+            (appfolio_run, "APPFOLIO", org.id, "OTHER-PROVIDER"),
+            (outside_run, "YARDI", foreign_org.id, "OTHER-ORGANIZATION"),
+            (same_run, "YARDI", org.id, row.source_id),
+        ):
+            db.add(PlatformMigrationItem(
+                run_id=prior_run.id, organization_id=prior_org,
+                provider=prior_provider, resource=resource, source_id=source_id,
+                target_entity=entity, target_id=user.id,
+                source_fingerprint=f"historical-{prior_run.id}",
+            ))
+        db.commit()
+        unaffected = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert unaffected["resource_coverage"] == initial["resource_coverage"]
+        assert unaffected["review_fingerprint"] == initial["review_fingerprint"]
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is True
+
+        history = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == same_run.id,
+        ).one()
+        history.source_id = "DIFFERENT-SAME-ORGANIZATION"
+        db.commit()
+        contested = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert contested["resource_coverage"][resource]["needs_review"] == 1
+        assert contested["review_fingerprint"] != initial["review_fingerprint"]
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is False
+        history.source_id = row.source_id
+        db.commit()
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is True
+        db.refresh(user)
+        assert user.hashed_password == "preserved-hash"
+        assert user.first_name == "Existing"
+        assert row.resolution_action == "MATCH_EXISTING"
+        assert snapshot["review_fingerprint"] == initial["review_fingerprint"]
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_unbound_reviewed_property_durable_source_swap_expires_staff_dry_run():
+    """Property review without current mapping must fingerprint exact old claims."""
+    from app.models.platform_migration import PlatformMigrationItem
+    from app.models.platform_user import PlatformUserRole
+    from app.models.property import Property
+    from app.routers.yardi_migrations import (
+        YardiPropertyMatchIn, get_yardi_review_dry_run_status,
+        match_yardi_staged_property,
+    )
+    from test_yardi_migrations import _org, _platform_user
+
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-unbound-reviewed-property-source-swap")
+        target = Property(
+            organization_id=org.id, name="Preserved Property",
+            address_line1="1 Main", city="Cleveland", state="OH", zip_code="44113",
+        )
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="current-reviewed-property", status="DRAFT",
+        )
+        old_run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="historical-property-identity", status="DRAFT",
+        )
+        db.add_all([target, run, old_run])
+        db.commit()
+        upload = stage_yardi_file(
+            db, run=run, filename="reviewed-property.csv",
+            content=b"ID,Name,Street,City,State,Zip\nP-1,Source Property,2 Main,Cleveland,OH,44113\n",
+            resource_override="PROPERTIES", sheet_name=None,
+            explicit_mapping={
+                "source_id": "ID", "name": "Name",
+                "address_line1": "Street", "city": "City",
+                "state": "State", "zip_code": "Zip",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).one()
+        assert match_yardi_staged_property(
+            run.id, row.id, YardiPropertyMatchIn(target_property_id=target.id),
+            db, actor,
+        )["replayed"] is False
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["resource_coverage"]["PROPERTIES"]["matched_existing"] == 1
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+        ).count() == 0
+
+        historical = PlatformMigrationItem(
+            run_id=old_run.id, organization_id=org.id, provider="YARDI",
+            resource="PROPERTIES", source_id="OLDER-PROPERTY-1",
+            target_entity="PROPERTY", target_id=target.id,
+            source_fingerprint="old-reviewed-property-source",
+        )
+        db.add(historical)
+        db.commit()
+        first = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert first["resource_coverage"]["PROPERTIES"]["needs_review"] == 1
+        snapshot = dry_run_yardi_review(run.id, db, actor)
+        assert snapshot["review_fingerprint"] == first["review_fingerprint"]
+
+        historical.source_id = "OLDER-PROPERTY-2"
+        db.commit()
+        changed = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert changed["resource_coverage"] == first["resource_coverage"]
+        assert changed["review_fingerprint"] != first["review_fingerprint"]
+        stale = get_yardi_review_dry_run_status(run.id, Response(), db, actor)
+        assert stale["is_current"] is False
+        assert stale["saved_review_fingerprint"] == snapshot["review_fingerprint"]
+
+        historical.source_id = "OLDER-PROPERTY-1"
+        db.commit()
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is True
+        historical.source_id = row.source_id
+        db.commit()
+        ready = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert ready["resource_coverage"]["PROPERTIES"]["matched_existing"] == 1
+        assert ready["review_fingerprint"] == baseline["review_fingerprint"]
+        db.refresh(target)
+        assert target.name == "Preserved Property"
+        assert target.address_line1 == "1 Main"
+        assert row.resolution_action == "MATCH_EXISTING"
+        assert ready["customer_business_mutation"] is False
+    finally:
+        db.close()
+        engine.dispose()

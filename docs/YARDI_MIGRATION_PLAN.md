@@ -1903,3 +1903,35 @@ stale after OLD-V-2 replaces it, even with unchanged readiness totals.
 Exact OLD-V-1 source restoration must restore dry-run currency. No
 production SQL, customer business mutation, unsupported Yardi API or
 financial posting. Follow-up is PROVISIONAL until new exact-SHA CI passes.
+
+
+### 2026-10-16 following unbound identity safety regression batch (Owner/Tenant)
+
+The already verified Vendor unbound MATCH_EXISTING historical durable-source
+source-swap protection is now extended to unbound existing Owner and Tenant
+user reviews. Parameterized PostgreSQL regressions check: (1) exact historical
+Yardi competing source ID changes invalidate a saved reviewed dry-run even when
+needs_review and matched_existing counters are unchanged; (2) returning to the
+exact competing source restores the stored fingerprint's current status;
+(3) returning to the reviewed source restores original readiness without
+creating a durable current-run mapping; (4) same stable source identity in
+another run, same-organization APPFOLIO evidence and foreign-organization YARDI
+evidence cannot falsely contest readiness; and (5) genuinely distinct
+same-organization YARDI durable claims invalidate the snapshot and recover
+when their source is restored. Existing owner/tenant password, identity and
+staff review evidence remain unchanged; no customer creation, Lease/occupancy,
+owner allocation, GL/financial posting or official Yardi API is enabled.
+This regression-only batch is PROVISIONAL pending exact-SHA hosted CI.
+Original Sections 133–135 remain unspecified and are not invented.
+
+
+### Unbound Property exact historic durable source review regression (2026-10-16)
+
+The same source-exact reviewed dry-run and historical durable target-claim
+invalidation now has an independently staged, explicitly reviewed but UNBOUND
+Property test. Historical competing YARDI Property identity OLD-1 -> OLD-2
+keeps stale counters fixed yet expires saved dry-run evidence; OLD-1 restores
+that saved fingerprint and exact current P-1 identity restores initial
+readiness. Customer Property name/address, staff review, and the absence of a
+current-run binding remain unchanged. Test-only addition; provisional until
+exact-SHA hosted CI. No unsupported API or customer mutations enabled.

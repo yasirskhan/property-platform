@@ -1,3 +1,35 @@
+# 2026-10-16 | Grouped unbound reviewed identity source-claim safety
+
+This combined metadata-only Yardi regression milestone covers Property,
+Owner and Tenant historical durable source-claim evidence for a staff-reviewed
+MATCH_EXISTING row with NO committed identity mapping in the same run.
+Test scenarios verify source swap OLD-1 -> OLD-2 changes the private
+review fingerprint and makes a saved staff dry-run stale even when resource
+stale counts are unchanged; exact source restoration restores its evidence.
+Independent Owner/Tenant cases prove same stable source ID across runs is
+valid, unrelated APPFOLIO provider and foreign-organization YARDI durable
+claims do not affect current status, but a distinct same-org YARDI durable
+claim expires it. Preserves passwords, Property fields, historical staff
+decisions and all original tests. No customer business mutation, new Yardi
+API, accounting, Lease, owner percentage or occupancy posting.
+
+**PROVISIONAL until exact-SHA six-job hosted CI verifies the actual
+published source commit.** Verify the LIVE branch and latest Actions run;
+never assume a prepared Git object is published. Do not touch main or
+another project, do not force-push, and keep unrelated source contracts
+blocked. This batch extends documented prior safety scope only; original
+Sections 133-135 still have no authoritative specification.
+
+## Expected predecessor
+
+`291dabc92608548123cf2c178bcc1c2013888854`, Actions
+`38959908638`; all six jobs must succeed before calling it VERIFIED.
+After that, verify current HEAD and safe fast-forward this combined
+milestone. It must pass its own six-job CI before VERIFIED. Continue
+bounded review/reconciliation development while CI runs.
+
+---
+
 # 2026-10-16 | Exact verified durable claim source + staff dry-run follow-up
 
 Latest verified Phase 4.15 source: `56bd1e1e70a9e9f9e2c91d98eb75cf042fc7edc9`, GitHub Actions
