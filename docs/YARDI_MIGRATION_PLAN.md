@@ -1700,3 +1700,18 @@ this scoping and unchanged customer records, without creating any customer
 business relation or altering production code. This remains detached and
 unverified until parent exact-SHA CI is green and the candidate is safely
 published with expected-HEAD fast-forward.
+
+### 2026-10-16 verified prerequisite and prepared §131 review hardening
+
+Sections 118–132 were fully verified at source `74e7e33e3b331992497dd7a03415ec31225daaff`, hosted
+CI `38912065447` SUCCESS all six: PostgreSQL/backend 1342 passed,
+21 deselected, frontend, platform-admin, security, authenticated E2E
+and staging-config. The historical Property NULL-source claim regression
+and strict single combined SQL claim lookup are green. An independently
+prepared follow-up increases existing §131 regression coverage for Unit and
+Tenant historical NULL-source reviews, same-source replay restoration, and
+foreign-organization reviewed-claim isolation. These follow-up tests remain
+PROVISIONAL until their own exact published SHA succeeds in hosted CI.
+No customer business, Lease, finance or undocumented API write is enabled.
+Sections 133–135 have no recovered authoritative specification or source
+object in the published branch and are not claimed implemented.

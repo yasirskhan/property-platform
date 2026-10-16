@@ -1,3 +1,27 @@
+# YARDI PHASE 4.15 | §§118–132 VERIFIED AT EXACT SOURCE SHA
+
+**Verification:** `74e7e33e3b331992497dd7a03415ec31225daaff`, GitHub Actions run
+`38912065447`, **SUCCESS**, all six jobs: backend/PostgreSQL
+(1342 passed, 21 deselected), frontend, platform-admin, security,
+authenticated E2E, staging-config. The earlier failed SQL-observer
+candidate SHAs have been superseded; the merged acceptance query and
+all newly fast-gated §§118–132 regressions are verified on this exact SHA.
+
+**Following prepared §131 coverage milestone:** A child of this verified
+source extends read-only staff-reviewed claim regressions with NULL historical
+Unit and Tenant provider identities, exact same-source recovery, and
+foreign-organization review isolation. It does not alter production code,
+Lease/occupancy, accounting or customer records. This new milestone is
+PROVISIONAL until all six hosted jobs succeed on its own exact published SHA.
+
+**Next numbered roadmap §§133–135:** No authoritative spec or original
+detached SHA exists in published `docs/YARDI_MIGRATION_PLAN.md` through
+§132 or in the root handoff. Do not invent missing requirements or infer
+unsupported Yardi provider data. Continue only independently specified
+read-only identity/review hardening.
+
+---
+
 Detached §131 review-isolation follow-up: added a foreign-organization
 historical NULL-source Property review claiming the current organization's
 customer Property ID, and asserted that accepted Lease source replay remains
