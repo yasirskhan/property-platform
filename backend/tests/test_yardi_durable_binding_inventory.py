@@ -1,5 +1,6 @@
 """Committed Yardi identity metadata is inspectable without customer mutation."""
 import pytest
+from sqlalchemy import event
 from fastapi import HTTPException, Response
 
 from app.models.platform_migration import PlatformMigrationItem, PlatformMigrationRun
@@ -492,6 +493,40 @@ def test_durable_inventory_surfaces_competing_staged_target_review_without_targe
             db=db, current_user=actor,
         )["items"][0]
         assert isolated["target_review_collision"] is False
+
+        # The read-only inventory must not run another reviewed-claim SELECT
+        # for each additional durable identity. Other live target checks can
+        # still be separate, so count only staged reviewed-target SQL.
+        def reviewed_claim_select_count():
+            statements = []
+            def observe(connection, cursor, statement, parameters, context, executemany):
+                if (statement.lstrip().upper().startswith("SELECT")
+                        and "resolution_action" in statement
+                        and "resolution_target_vendor_id" in statement):
+                    statements.append(statement)
+            event.listen(engine, "before_cursor_execute", observe)
+            try:
+                list_yardi_durable_bindings(
+                    run.id, Response(), resource="VENDORS", offset=0, limit=10,
+                    db=db, current_user=actor,
+                )
+            finally:
+                event.remove(engine, "before_cursor_execute", observe)
+            return len(statements)
+
+        count_one = reviewed_claim_select_count()
+        vendor2 = Vendor(organization_id=org.id, company_name="Preserved Second Company")
+        db.add(vendor2)
+        db.flush()
+        _binding(db, run, "VENDORS", "V-2", "VENDOR", vendor2.id)
+        db.commit()
+        list_yardi_durable_bindings(
+            run.id, Response(), resource="VENDORS", offset=0, limit=10,
+            db=db, current_user=actor,
+        )
+        assert reviewed_claim_select_count() == count_one
+        db.refresh(vendor2)
+        assert vendor2.company_name == "Preserved Second Company"
         db.refresh(vendor)
         assert vendor.company_name == "Preserved Company"
     finally:

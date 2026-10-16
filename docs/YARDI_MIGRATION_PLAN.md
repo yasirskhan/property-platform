@@ -707,4 +707,20 @@ a customer target; identical source identities do not automatically become
 new claims. A two-source Lease regression checks NULL-source collision warnings,
 review invalidation, constant query counts, and preservation of customer data.
 No Lease, occupancy, financial posting or undocumented Yardi API is enabled.
-This product batch is PROVISIONAL pending exact-SHA hosted six-job CI.
+VERIFIED on exact source SHA `6cd613c2c5288e471315fb29416014179ae9e129`,
+GitHub Actions `38831150479` SUCCESS: all six required jobs passed,
+including 1,312 backend/PostgreSQL tests (21 deselected), authenticated
+browser E2E, staging-config, frontend, security and platform-admin.
+
+## 55. Batch retained review-claim lookups in durable identity inventory (2026-10-15)
+
+The read-only Yardi durable binding inventory now projects retained
+organization-scoped MATCH_EXISTING target claims for Properties, Units, Owners,
+Vendors and Tenants once per page rather than querying each binding separately.
+Historical missing (NULL) provider source IDs still contest valid target claims;
+exact same-source identities, provider boundaries and organization boundaries
+remain respected. A two-Vendor binding regression checks stable review-claim
+SELECT count and preservation of customer vendor records. This batch does not
+create, merge, delete or modify customer records, leases, occupancy, financial
+posting or undocumented Yardi API behavior. PROVISIONAL until all six hosted
+CI jobs succeed for the exact product commit SHA.

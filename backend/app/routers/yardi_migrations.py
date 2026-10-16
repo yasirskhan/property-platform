@@ -495,24 +495,44 @@ def list_yardi_durable_bindings(
         "VENDORS": "VENDOR",
         "TENANTS": "TENANT_USER",
     }
+    # Fetch reviewed source-to-target claims once for the page, instead of
+    # running another reviewed-claim SELECT for every durable binding.
+    # Unknown historical provider source IDs still contest valid target IDs.
+    reviewed_claim_sources = {}
+    reviewed_rows = db.query(
+        PlatformMigrationStagedRow.resource,
+        PlatformMigrationStagedRow.source_id,
+        PlatformMigrationStagedRow.resolution_target_id,
+        PlatformMigrationStagedRow.resolution_target_unit_id,
+        PlatformMigrationStagedRow.resolution_target_owner_user_id,
+        PlatformMigrationStagedRow.resolution_target_vendor_id,
+        PlatformMigrationStagedRow.resolution_target_tenant_user_id,
+    ).filter(
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource.in_(supported),
+        PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+    ).all()
+    for resource_name, source_id, property_id, unit_id, owner_id, vendor_id, tenant_id in reviewed_rows:
+        target_id = {
+            "PROPERTIES": property_id,
+            "UNITS": unit_id,
+            "OWNERS": owner_id,
+            "VENDORS": vendor_id,
+            "TENANTS": tenant_id,
+        }[resource_name]
+        if target_id is not None:
+            reviewed_claim_sources.setdefault((resource_name, target_id), set()).add(source_id)
     for item in bindings:
         source_identity_collision = (item.resource, item.source_id) in identity_collisions
-        reviewed_target_column = {
-            "PROPERTIES": PlatformMigrationStagedRow.resolution_target_id,
-            "UNITS": PlatformMigrationStagedRow.resolution_target_unit_id,
-            "OWNERS": PlatformMigrationStagedRow.resolution_target_owner_user_id,
-            "VENDORS": PlatformMigrationStagedRow.resolution_target_vendor_id,
-            "TENANTS": PlatformMigrationStagedRow.resolution_target_tenant_user_id,
-        }[item.resource]
         # Keep an active target distinct from another source's reviewed claim.
-        target_review_collision = db.query(PlatformMigrationStagedRow.id).filter(
-            PlatformMigrationStagedRow.organization_id == run.organization_id,
-            PlatformMigrationStagedRow.provider == "YARDI",
-            PlatformMigrationStagedRow.resource == item.resource,
-            PlatformMigrationStagedRow.source_id.is_distinct_from(item.source_id),
-            PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
-            reviewed_target_column == item.target_id,
-        ).first() is not None
+        # A NULL historical source ID is different from every durable source.
+        target_review_collision = any(
+            reviewed_source_id != item.source_id
+            for reviewed_source_id in reviewed_claim_sources.get(
+                (item.resource, item.target_id), ()
+            )
+        )
         valid_entity = item.target_entity == entity_by_resource[item.resource]
         target_current = False
         parent_relationship_current = None  # Only applicable to verified Unit source-parent evidence.

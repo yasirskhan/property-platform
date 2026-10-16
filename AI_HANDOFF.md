@@ -7,41 +7,56 @@ Verify live HEAD and latest CI before every write.
 
 ## Last VERIFIED product checkpoint
 
-Section 53, SHA `3fba1305ce001ac7e83a1bcc2d54c8759a6d92c3`,
-GitHub Actions `38827781535`: SUCCESS on all six jobs
-(backend/PostgreSQL, frontend, platform-admin, security, authenticated
-E2E, staging-config). Private per-Lease-row readiness is incorporated in
-the Yardi reconciliation fingerprint. A two-Tenant swap regression validates
-that equal aggregate totals cannot silently retain obsolete dry-run evidence.
-No customer business mutation.
-Previous section 52: `4727e8803a028abbfc753db7b067f1e3fb89be0a`,
-run `38826234779` SUCCESS on all six jobs.
+Section 54, SHA `6cd613c2c5288e471315fb29416014179ae9e129`,
+GitHub Actions `38831150479`: SUCCESS on all six jobs
+(backend/PostgreSQL 1,312 passed, 21 deselected; frontend, platform-admin,
+security, authenticated E2E and staging-config). The Yardi read-only
+Lease aggregate and paginated preview reuse organization-scoped reviewed
+target claims without per-Lease reviewed-claim SELECTs. Unknown historical
+source IDs still contest customer target claims; customer data unchanged.
+Previous section 53: `3fba1305ce001ac7e83a1bcc2d54c8759a6d92c3`,
+run `38827781535` SUCCESS on all six jobs.
 
 ## Current COMMITTED product batch: PROVISIONAL pending exact-SHA CI
 
-Section 54. Organization-scoped reviewed target claims are projected once
-for read-only Lease reconciliation and paginated identity preview instead of
-running per-Lease review-claim SELECTs. Retained NULL provider source IDs
-still contest claimed targets. Regression checks warning/current review,
-constant SQL count and customer data preservation. Exact-SHA all-six-job CI
-is required before verification.
+Section 55. Read-only durable Yardi Property/Unit/Owner/Vendor/Tenant
+binding inventory reuses one organization-scoped retained review-claim
+projection per page. Historical NULL-source target claims remain fail-closed.
+A bounded SQL count regression ensures a second Vendor binding does not add
+another reviewed-claim SELECT and customer data is preserved. Verify this
+branch commit through all six hosted CI jobs before marking VERIFIED.
 
-## Prepared DETACHED next task, NOT branch published
+## Prepared DETACHED next batches, NOT branch published
 
-Section 55: `dc0d10482be3eb28386314d3a2d529c77a121f36`
-(original parent `d691b3fadd58f701b7ae45ef3e7f106452c61abd`):
-project durable identity inventory's competing staff claims once
-rather than SELECT per binding; test same-source identity, historical
-NULL claim, cross-organization isolation, and stable query counts.
-This detached Git object is NOT successful hosted CI. Repackage onto
-newly verified section 54 parent; never publish it with an outdated parent.
+Section 56: `961ac0f54307777fc4e386d0e98ebf0afcf598fe`
+(original parent `c6b3b37785a9c2ff54cfa6da5c5405b6008fe005`):
+read exact historical Unit source-parent evidence once per paginated
+inventory page, preserving all contradictory reviews and NULL-source
+semantics. SQL count regression across one and two Units.
+
+Section 57: `464b54111234b574d85db06a3d6e1f6a2e66b798`
+(original parent `961ac0f54307777fc4e386d0e98ebf0afcf598fe`):
+fail closed on ambiguous mapped Property source versions when reporting
+Unit source-parent readiness; regression checks explicit duplicate SKIP
+recovery and preservation of original customer Property/Unit.
+
+Section 58: `dce8d6db3736ad3a18aeb9f1fe14a47652e42b65`
+(original parent `464b54111234b574d85db06a3d6e1f6a2e66b798`):
+add diagnostic for ambiguous mapped Property source-parent claims to
+read-only inventory and platform-admin Yardi staff console; regression
+checks current/ambiguous/recovered classifications.
+
+These Git objects are NOT published or verified. Repackage each against
+the newly verified parent in order. Never publish original detached commits
+with outdated parent SHAs or skip exact-SHA CI.
 
 ## Mandatory next step
 
-Verify section 54 exact-SHA six-job CI; fix any failures and update the
-handoff and roadmap. Immediately repackage section 55 on the verified
-section 54 branch HEAD; test, commit, obtain six-job exact-SHA hosted CI,
-and continue the next independent Yardi Phase 4.15 safety batch.
+Verify section 55 all-six-job CI at exact branch SHA, fix reds, update
+handoff/roadmap, and immediately repackage and publish section 56. Then
+continue the verified cycle through sections 57, 58 and further independent
+Phase 4.15 work while the active session permits. External Yardi source
+contracts still gate accounting, Lease/occupancy mutation and official API.
 
 ## Continuous workflow
 
