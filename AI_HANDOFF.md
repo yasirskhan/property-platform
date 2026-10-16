@@ -1,3 +1,92 @@
+# CURRENT YARDI PHASE 4.15 CHECKPOINT | 2026-10-16
+
+Only `yasirskhan/property-platform` branch `chatgpt/checkpoint-005-safety`.
+No changes to main.
+
+## VERIFIED 103-105
+Source `ea086b7a93171955422fb7744dea4443c98e3418`, GitHub Actions
+`38854378709` SUCCESS all six: backend/PostgreSQL, frontend, security,
+platform-admin, authenticated E2E, staging-config.
+
+## PUBLISHED product Sections 106-114: PROVISIONAL until exact-SHA CI
+- 106-108: fail closed run-level reviewed and exact durably mapped identity
+  rows on competing cross-run Yardi durable source/target evidence for all five
+  existing-target resources. Five-resource parameterized PostgreSQL regressions.
+- 109-111: original Unit mapped Property source-parent must also avoid
+  contradictory historical durable and retained staff Property target claims,
+  for both reviewed and unreviewed Unit readiness. PostgreSQL regressions.
+- 112-114: index unique (resource, source ID) durable identities for run-level
+  reconciliation rather than linear per-row scan. Property and Vendor can share
+  literal provider source without contaminating Unit source parent. PostgreSQL
+  regression enforces resource isolation and fingerprint restoration.
+
+All prior tests retained; three NEW regression test files added to the fast
+Yardi CI gate. No tests removed, disabled or weakened. No unsupported customer
+business mutation, occupancy/Lease commit, money posting or official Yardi API.
+Read code and `docs/YARDI_MIGRATION_PLAN.md` §§106-114 before advancing.
+Find exact current published SHA from branch HEAD and require all-six-job
+hosted success before calling this batch VERIFIED. Prepare later source
+detached while hosted CI runs, and never overwrite concurrent session.
+
+### Detached follow-up
+Sections 115-126 are separately PREPARED off-branch and NOT VERIFIED.
+Confirm live source and upstream CI before ever publishing any detached
+commit. Do not assume its old parent SHA remains the branch HEAD.
+
+---
+# PREPARED FOLLOW-UP SECTIONS 112-114, NOT VERIFIED
+
+- Replace per-staged-row linear scans of same-run Yardi durable mappings with
+  one resource/source composite lookup, using the existing DB uniqueness key.
+- Reuse the same exact composite map for original Unit Property evidence and
+  Lease source relationship aggregate without changing validity rules.
+- PostgreSQL regression: Property/Vendor same literal source ID, Unit linked
+  to correct original source Property, invalid Vendor entity only impacts
+  Vendor, and exact fingerprint/customer preservation after recovery.
+- Fast Yardi CI includes new regression; no existing tests deleted, skipped
+  or weakened. No customer, finance, Lease/occupancy or unsupported API writes.
+
+Prepared on Sections 106-111 source, which itself depends on published
+103-105 product. Verify live HEAD and all-six-job previous CI before
+publishing. Never touch main or force-push. Each published milestone requires
+its own exact-SHA CI before VERIFIED.
+
+---
+# PREPARED FOLLOW-UP Sections 109-111 (UNVERIFIED)
+- 109: Reviewed Unit current source-parent revalidation against historical
+  durable and retained staff Property source/target claims.
+- 110: Exact unreviewed durably mapped Unit parent evidence has identical
+  historical source-identity safety.
+- 111: Parameterized reviewed/unreviewed PostgreSQL collision/recovery tests
+  added to fast Yardi CI, preserved customer and fingerprints asserted.
+Prepared on top of Sections 106-108 detached source and 103-105 published
+prerequisite. No tests removed/disabled/weakened; no customer mutation,
+financial posting, Lease/occupancy customer commit or Yardi undocumented API.
+Before publishing inspect current sole branch HEAD and exact previous CI.
+This batch must pass all six exact-SHA hosted jobs. Never force-push or touch
+main.
+
+---
+# NEXT DETACHED DEVELOPMENT | PHASE 4.15 | 2026-10-16
+
+## Sections 106-108: PREPARED, NOT BRANCH-PUBLISHED / NOT VERIFIED
+1. Cross-run Yardi durable identity claims now invalidate retained reviewed
+   current MATCH_EXISTING readiness for Property, Unit, Owner, Vendor and Tenant.
+2. Exact durably mapped unreviewed identity coverage applies the same guard,
+   without changing the established source collision, customer target, role,
+   source fingerprint, parent relationship and historical staff review checks.
+3. New parameterized PostgreSQL tests cover five resources, competing target,
+   conflicting original source, exact same-source recovery, provider/org
+   isolation, fingerprint restoration and nonmutation. Fast Yardi CI updated.
+
+No tests removed, skipped or weakened; no unsupported Yardi API, Lease or
+financial mutations. These files are PREPARED on top of Section 103-105
+product `ea086b7a93171955422fb7744dea4443c98e3418`. Before publishing,
+verify the latest live sole-branch HEAD and hosted CI for the prerequisite
+product. Never force-push, touch main or overwrite another session.
+These source changes are unverified until exact-SHA six-job hosted CI.
+
+---
 # CURRENT PHASE 4.15 HANDOFF | 2026-10-16
 Repository: `yasirskhan/property-platform`. Sole branch:
 `chatgpt/checkpoint-005-safety`. Never alter main.

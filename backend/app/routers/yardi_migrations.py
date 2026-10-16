@@ -1042,6 +1042,7 @@ def _yardi_unresolved_identity_sources(
 
 def _yardi_lease_durable_identity_claims(
     db: Session, *, organization_id: int, mappings: list[PlatformMigrationItem],
+    extra_identity_claims: tuple[tuple[str, str | None, int | None], ...] = (),
 ):
     """Project cross-run durable source and customer-target claims once.
 
@@ -1052,15 +1053,23 @@ def _yardi_lease_durable_identity_claims(
     """
     resource_sources = {}
     resource_targets = {}
+    supported = ("PROPERTIES", "UNITS", "TENANTS", "OWNERS", "VENDORS")
     for mapping in mappings:
-        if mapping.resource not in ("PROPERTIES", "UNITS", "TENANTS"):
+        if mapping.resource not in supported:
             continue
         if mapping.source_id is not None:
             resource_sources.setdefault(mapping.resource, set()).add(mapping.source_id)
         if mapping.target_id is not None:
             resource_targets.setdefault(mapping.resource, set()).add(mapping.target_id)
+    for resource, source_id, target_id in extra_identity_claims:
+        if resource not in supported:
+            continue
+        if source_id is not None:
+            resource_sources.setdefault(resource, set()).add(source_id)
+        if target_id is not None:
+            resource_targets.setdefault(resource, set()).add(target_id)
     filters = []
-    for resource in ("PROPERTIES", "UNITS", "TENANTS"):
+    for resource in supported:
         parts = []
         if resource_sources.get(resource):
             parts.append(PlatformMigrationItem.source_id.in_(resource_sources[resource]))
@@ -1497,7 +1506,10 @@ def get_yardi_reconciliation(
         PlatformMigrationItem.organization_id == run.organization_id,
         PlatformMigrationItem.provider == "YARDI",
     ).order_by(PlatformMigrationItem.id.asc()).all()
-    existing = {(item.resource, item.source_id) for item in items}
+    # Durable source identity is unique for (run, resource, source ID).
+    # Avoid rescanning every mapping for every staged row or Unit parent.
+    items_by_source = {(item.resource, item.source_id): item for item in items}
+    existing = set(items_by_source)
     identity_collisions = _yardi_unresolved_identity_sources(db, run)
     # Read-only reconciliation rechecks historical staff target claims. A
     # repeated SAME provider source ID in another run is not a new identity.
@@ -1626,6 +1638,55 @@ def get_yardi_reconciliation(
             ).all()
         }
 
+    # Identity reconciliation must not count an otherwise valid customer
+    # target as current when another Yardi run durably claims its target using
+    # a DIFFERENT source ID, or reuses this source ID for a different target.
+    # This remains independent of reviewed staff target claims.
+    extra_identity_claims = tuple(
+        (review.resource, review.source_id,
+         getattr(review, review_columns[review.resource]))
+        for review in rows
+        if review.resource in review_columns
+        and review.resolution_action == "MATCH_EXISTING"
+    )
+    identity_durable_targets, identity_durable_sources = _yardi_lease_durable_identity_claims(
+        db, organization_id=run.organization_id, mappings=items,
+        extra_identity_claims=extra_identity_claims,
+    )
+
+    def conflicting_durable_identity(resource, source_id, target_entity, target_id):
+        return (
+            any(
+                existing_source != source_id
+                for existing_source in identity_durable_targets.get(
+                    (resource, target_id), ()
+                )
+            )
+            or any(
+                (existing_entity, existing_target) != (target_entity, target_id)
+                for existing_entity, existing_target in identity_durable_sources.get(
+                    (resource, source_id), ()
+                )
+            )
+        )
+
+    def original_unit_parent_contested(parent_binding):
+        """Fail closed when staff or durable evidence contests the original Property."""
+        if parent_binding is None:
+            return True
+        return (
+            conflicting_durable_identity(
+                "PROPERTIES", parent_binding.source_id,
+                "PROPERTY", parent_binding.target_id,
+            )
+            or any(
+                historical_source != parent_binding.source_id
+                for historical_source in reviewed_claim_sources.get(
+                    ("PROPERTIES", parent_binding.target_id), ()
+                )
+            )
+        )
+
     def claimed_by_other_review(row, target_id):
         return (
             target_id is not None
@@ -1661,14 +1722,13 @@ def get_yardi_reconciliation(
         elif row.resolution_action == "MATCH_EXISTING":
             if row.resource == "UNITS":
                 parent_source = str((row.normalized_data or {}).get("source_property_id") or "").strip()
-                parent = next((
-                    item for item in items
-                    if item.resource == "PROPERTIES" and item.source_id == parent_source
-                    and item.target_entity == "PROPERTY"
-                ), None)
+                parent = items_by_source.get(("PROPERTIES", parent_source))
+                if parent is not None and parent.target_entity != "PROPERTY":
+                    parent = None
                 target_valid = (
                     parent is not None and row.resolution_target_unit_id in live_unit_parents
                     and live_unit_parents[row.resolution_target_unit_id] == parent.target_id
+                    and not original_unit_parent_contested(parent)
                 )
             elif row.resource == "OWNERS":
                 target_valid = row.resolution_target_owner_user_id in live_users["OWNERS"]
@@ -1684,10 +1744,7 @@ def get_yardi_reconciliation(
             # now points to a different customer target or source fingerprint.
             # Do not inflate a run's ready count with historical conflicting
             # evidence. Keep the original reviewed action/audit unchanged.
-            durable = next((
-                item for item in items
-                if item.resource == row.resource and item.source_id == row.source_id
-            ), None)
+            durable = items_by_source.get((row.resource, row.source_id))
             if durable is not None:
                 reviewed_target = {
                     "PROPERTIES": row.resolution_target_id,
@@ -1718,6 +1775,14 @@ def get_yardi_reconciliation(
             }.get(row.resource)
             if target_valid and claimed_by_other_review(row, reviewed_target):
                 target_valid = False
+            if target_valid and conflicting_durable_identity(
+                row.resource, row.source_id,
+                {"PROPERTIES": "PROPERTY", "UNITS": "UNIT",
+                 "OWNERS": "OWNER_USER", "VENDORS": "VENDOR",
+                 "TENANTS": "TENANT_USER"}.get(row.resource),
+                reviewed_target,
+            ):
+                target_valid = False
             if target_valid:
                 stats["matched_existing"] += 1
                 row_readiness_evidence.append((row.id, "REVIEWED_CURRENT"))
@@ -1734,10 +1799,7 @@ def get_yardi_reconciliation(
               and (row.resource, row.source_id) not in identity_collisions):
             # Source-ID equality alone cannot make an unreviewed staged version
             # ready: the durable identity must describe this exact export row.
-            binding = next((
-                item for item in items
-                if item.resource == row.resource and item.source_id == row.source_id
-            ), None)
+            binding = items_by_source.get((row.resource, row.source_id))
             expected_entity = {
                 "PROPERTIES": "PROPERTY", "UNITS": "UNIT",
                 "OWNERS": "OWNER_USER", "VENDORS": "VENDOR",
@@ -1751,22 +1813,24 @@ def get_yardi_reconciliation(
                     target_current = binding.target_id in live_properties
                 elif row.resource == "UNITS":
                     source_parent = str((row.normalized_data or {}).get("source_property_id") or "").strip()
-                    parent_binding = next((
-                        item for item in items
-                        if item.resource == "PROPERTIES"
-                        and item.source_id == source_parent
-                        and item.target_entity == "PROPERTY"
-                    ), None)
+                    parent_binding = items_by_source.get(("PROPERTIES", source_parent))
+                    if parent_binding is not None and parent_binding.target_entity != "PROPERTY":
+                        parent_binding = None
                     target_current = (
                         bool(source_parent) and parent_binding is not None
                         and binding.target_id in live_unit_parents
                         and live_unit_parents[binding.target_id] == parent_binding.target_id
+                        and not original_unit_parent_contested(parent_binding)
                     )
                 elif row.resource in ("OWNERS", "TENANTS"):
                     target_current = binding.target_id in live_users[row.resource]
                 elif row.resource == "VENDORS":
                     target_current = binding.target_id in live_vendors
             if target_current and claimed_by_other_review(row, binding.target_id):
+                target_current = False
+            if target_current and conflicting_durable_identity(
+                row.resource, row.source_id, binding.target_entity, binding.target_id,
+            ):
                 target_current = False
             if target_current:
                 stats["mapped"] += 1
@@ -1791,7 +1855,7 @@ def get_yardi_reconciliation(
             unskipped_lease_sources[lease.source_id] = (
                 unskipped_lease_sources.get(lease.source_id, 0) + 1
             )
-    lease_links = {(item.resource, item.source_id): item for item in items}
+    lease_links = items_by_source
     durable_target_claims, durable_source_claims = _yardi_lease_durable_identity_claims(
         db, organization_id=run.organization_id, mappings=[
             item for item in items if item.resource in ("PROPERTIES", "UNITS", "TENANTS")

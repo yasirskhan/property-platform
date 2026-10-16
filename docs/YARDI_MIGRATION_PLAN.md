@@ -1310,3 +1310,113 @@ this regression ahead of the full PostgreSQL suite.
 their exact published source SHA. No existing test deleted, disabled, skipped,
 or weakened; no customer Lease/occupancy or accounting posting enabled. The
 original external Yardi export and API source contract restrictions remain.
+
+## 106. Cross-run durable claims invalidate reviewed Yardi identity readiness (2026-10-16)
+
+A retained staff MATCH_EXISTING identity is not current merely because its
+customer target is active and its own same-run durable fingerprint agrees.
+Reconciliation now checks independently retained same-organization Yardi durable
+source-to-target history across all five identity resources. A different
+provider source ID durably claiming the same target or the SAME source ID
+durably mapped to a different customer target makes recorded review
+`needs_review`. Exact same source/target evidence across runs is not a
+competing identity. Original reviewed action and audit remain untouched.
+
+## 107. Unreviewed exact durable identity also fails closed on history
+
+Read-only reconciliation applies the same cross-run durable source and target
+conflict guard to exact-fingerprint unreviewed durable identity coverage,
+without changing existing current-target, source-duplicate, wrong-entity,
+reviewed-claim or Unit parent checks. The bounded scoped historical projection
+reuses the established Lease-claim helper, extended to Owner and Vendor and
+optional reviewed identity records. Existing Lease callers continue limiting
+their projection to Property, Unit and Tenant mapping inputs.
+
+## 108. Five-resource cross-run collision and recovery regressions
+
+A parameterized PostgreSQL test covers Property, Unit, Owner, Vendor and Tenant
+MATCH_EXISTING readiness; every case checks unrelated provider and organization
+isolation, competing different source-to-same-target refusal, same-source
+same-target recovery, same-source different-target refusal, exact review
+fingerprint restoration and unchanged customer data/password hashes. The
+fast Yardi CI gate includes the test and all old tests remain enabled.
+
+**Verification:** Sections 106-108 PROVISIONAL until exact-SHA all-six-job
+hosted CI. No customer mutation, Lease/occupancy commit, accounting posting,
+ownership change, or invented official Yardi API transport.
+
+## 109. Reviewed Unit identity follows contested original Property source (2026-10-16)
+
+Run-level Yardi resource reconciliation already checks a reviewed Unit's
+original source Property against the current same-run durable Property target.
+It now additionally fails closed when another same-organization Yardi durable
+source ID claims that same customer Property, or when the original Property
+source ID was mapped to a different target in another Yardi run. Independent
+retained differently identified staff Property reviews likewise block current
+review classification even when the customer Unit remains active and parented.
+
+## 110. Preserve unreviewed Unit parent claim parity
+
+An exact-fingerprint unreviewed durably mapped Unit can only count as mapped
+when the original mapped Property also has no competing durable or staff
+source-to-target claim. Different-source and same-source divergence are distinct
+from live customer property activity and Unit reparenting, both of which remain
+guarded independently. Same stable source and same customer Property evidence
+across runs remains valid.
+
+## 111. Original Unit parent reviewer/durable collision regression
+
+A two-mode PostgreSQL test starts with exact reviewed and exact unreviewed
+Unit identities, adds a competing different source-to-same-Property durable
+claim, restores the same stable source, then tests same-source divergence to
+another customer Property. It also simulates historical competing staff
+Property review and recovery, checking per-identity readiness, review
+fingerprints, preserved customer property/unit/user values and no mutations.
+Fast Yardi CI includes it; no existing tests removed, disabled or weakened.
+
+**Status:** Sections 109-111 detached and PROVISIONAL. Hosted CI must pass
+all six jobs at the exact eventually published SHA. No customer creation,
+Lease/occupancy mutation, accounting posting or undocumented Yardi API.
+
+## 112. Exact resource/source lookup for Yardi run reconciliation (2026-10-16)
+
+The provider-labelled Yardi source-to-target mapping table already enforces a
+unique mapping for (run, resource, source ID). Read-only run reconciliation now
+indexes those durable identities once using this exact composite key instead
+of scanning every historical item list for every staged source row.
+It preserves per-resource distinction even when Yardi uses identical literal
+source IDs for a Property, Vendor, Unit or other resource.
+
+## 113. Original Unit parent and Lease summary use the same identity index
+
+Both explicit MATCH_EXISTING Unit review and unreviewed exact-fingerprint
+durable Unit readiness resolve original source Property identity using the
+same composite mapping index, preserving target entity checks and all original
+parent collision safeguards. The Lease relationship aggregate likewise reuses
+the index for exact Property, Unit and Tenant source relationships. No change
+to aggregate counts, review fingerprints or business import permissions is
+intended for otherwise identical inputs.
+
+## 114. Resource collision, Unit parent and fingerprint regression
+
+A focused PostgreSQL regression stages a Property and Vendor sharing the same
+source ID literal and a Unit whose original source-parent is that Property.
+It proves all three remain separately mapped, then corrupts only the Vendor
+mapping target entity. Vendor readiness becomes stale while Property and Unit
+remain current. Restoring the Vendor target entity restores the exact original
+review fingerprint and leaves customer records unchanged. Fast Yardi CI adds
+this test without removing or weakening any existing assertion.
+
+**Status:** Sections 112-114 PREPARED and require exact-SHA six-job hosted CI
+before VERIFIED. This metadata-only optimization changes no customer record,
+Lease/occupancy, finance, ownership or unsupported official Yardi API.
+
+## Exact milestone verification and next gate (2026-10-16)
+
+Sections 103-105 exact product SHA
+`ea086b7a93171955422fb7744dea4443c98e3418`, GitHub Actions
+`38854378709` SUCCESS all six jobs: PostgreSQL/backend, frontend,
+platform-admin, security, E2E and staging-config. VERIFIED.
+Sections 106-114 comprise one three-group follow-up and remain PROVISIONAL
+until six-job CI passes on their actual published source SHA. The previous
+source-contract and no-customer-mutation safety restrictions apply unchanged.
