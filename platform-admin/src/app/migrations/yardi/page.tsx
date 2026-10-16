@@ -680,6 +680,7 @@ export default function YardiMigrationConsole() {
               {" · "}Missing exact Unit source-parent review evidence: {reconciliation.lease_relationship_readiness.unit_source_parent_unverified ?? 0}
               {" · "}Current Unit/Property mismatches: {reconciliation.lease_relationship_readiness.unit_property_mismatch ?? 0}
               {" · "}Original Unit source-parent conflicts: {reconciliation.lease_relationship_readiness.unit_source_parent_mismatch ?? 0}
+              {" · "}Changed original Property source versions: {reconciliation.lease_relationship_readiness.parent_property_source_drift ?? 0}
               {" · "}Unskipped lease source-ID collision rows: {reconciliation.lease_relationship_readiness.lease_source_id_collisions ?? 0}
               {" · "}Lease rows with conflicting Property/Unit/Tenant source identities: {reconciliation.lease_relationship_readiness.identity_source_id_collisions ?? 0}
               {" · "}Lease rows with competing reviewed customer targets: {reconciliation.lease_relationship_readiness.identity_target_review_collisions ?? 0}

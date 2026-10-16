@@ -1114,6 +1114,26 @@ def _yardi_lease_binding_conflicts(mapping, sources_by_target, targets_by_source
     return target_collision, source_collision
 
 
+def _yardi_stale_mapped_property_sources(mappings, unskipped_property_versions):
+    """Find original mapped Property source fingerprints contradicted by staging.
+
+    A missing source version is not silently invented; a present, unskipped
+    changed version invalidates the original source parent. The caller must
+    independently check unresolved duplicate versions and target activity.
+    """
+    exact = {
+        mapped.source_id: mapped.source_fingerprint
+        for mapped in mappings
+        if mapped.resource == "PROPERTIES"
+        and mapped.target_entity == "PROPERTY"
+        and mapped.source_id
+    }
+    return {
+        source_id for source_id, fingerprint in unskipped_property_versions
+        if source_id in exact and fingerprint != exact[source_id]
+    }
+
+
 @router.get("/runs/{run_id}/lease-relationships")
 def list_yardi_lease_relationships(
     run_id: int,
@@ -1172,6 +1192,25 @@ def list_yardi_lease_relationships(
             or_(*map_filters),
         ).all()
     by_source = {(m.resource, m.source_id): m for m in mappings}
+    # Compare every unskipped Property source version on the requested page
+    # to its durable exact fingerprint, not just the duplicate source count.
+    property_source_versions = []
+    if page_sources["PROPERTIES"]:
+        property_source_versions = db.query(
+            PlatformMigrationStagedRow.source_id,
+            PlatformMigrationStagedRow.row_fingerprint,
+        ).filter(
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "YARDI",
+            PlatformMigrationStagedRow.resource == "PROPERTIES",
+            PlatformMigrationStagedRow.source_id.in_(page_sources["PROPERTIES"]),
+            or_(PlatformMigrationStagedRow.resolution_action.is_(None),
+                PlatformMigrationStagedRow.resolution_action != "SKIP"),
+        ).all()
+    stale_property_sources = _yardi_stale_mapped_property_sources(
+        mappings, property_source_versions,
+    )
     durable_target_claims, durable_source_claims = _yardi_lease_durable_identity_claims(
         db, organization_id=run.organization_id, mappings=mappings,
     )
@@ -1341,6 +1380,8 @@ def list_yardi_lease_relationships(
                 and tenant.target_id in valid_tenants else None
             )
             current_identity_targets = (property_id, unit_id, tenant_id)
+            if prop is not None and prop.source_id in stale_property_sources:
+                blockers.append("PROPERTY_SOURCE_VERSION_DRIFT")
             for linked, name in ((prop, "PROPERTY"), (unit, "UNIT"), (tenant, "TENANT")):
                 target_collision, source_collision = _yardi_lease_binding_conflicts(
                     linked, durable_target_claims, durable_source_claims,
@@ -1510,6 +1551,17 @@ def get_yardi_reconciliation(
     # Avoid rescanning every mapping for every staged row or Unit parent.
     items_by_source = {(item.resource, item.source_id): item for item in items}
     existing = set(items_by_source)
+    # Source parent identity is not verified when the exact mapped Property
+    # fingerprint is contradicted by even ONE unskipped staged version.
+    stale_property_sources = _yardi_stale_mapped_property_sources(
+        items,
+        (
+            (staged.source_id, staged.row_fingerprint)
+            for staged in rows
+            if staged.resource == "PROPERTIES"
+            and staged.resolution_action != "SKIP"
+        ),
+    )
     identity_collisions = _yardi_unresolved_identity_sources(db, run)
     # Read-only reconciliation rechecks historical staff target claims. A
     # repeated SAME provider source ID in another run is not a new identity.
@@ -1675,7 +1727,8 @@ def get_yardi_reconciliation(
         if parent_binding is None:
             return True
         return (
-            conflicting_durable_identity(
+            parent_binding.source_id in stale_property_sources
+            or conflicting_durable_identity(
                 "PROPERTIES", parent_binding.source_id,
                 "PROPERTY", parent_binding.target_id,
             )
@@ -1856,11 +1909,12 @@ def get_yardi_reconciliation(
                 unskipped_lease_sources.get(lease.source_id, 0) + 1
             )
     lease_links = items_by_source
-    durable_target_claims, durable_source_claims = _yardi_lease_durable_identity_claims(
-        db, organization_id=run.organization_id, mappings=[
-            item for item in items if item.resource in ("PROPERTIES", "UNITS", "TENANTS")
-        ],
-    )
+    # The run identity pass above already queried all same-organization
+    # cross-run durable Property, Unit and Tenant claims needed by Lease
+    # coverage. Reuse that identical historical evidence instead of doing
+    # another overlapping database pass on every reconciliation request.
+    durable_target_claims = identity_durable_targets
+    durable_source_claims = identity_durable_sources
     mapped_properties = {item.target_id for item in items
                          if item.resource == "PROPERTIES" and item.target_entity == "PROPERTY"}
     mapped_units = {item.target_id for item in items
@@ -1897,6 +1951,7 @@ def get_yardi_reconciliation(
         "missing_property": 0, "missing_unit": 0, "missing_tenant": 0,
         "unit_property_mismatch": 0, "unit_source_parent_mismatch": 0,
         "unit_source_parent_unverified": 0, "source_review_ready": 0,
+        "parent_property_source_drift": 0,
         "lease_source_id_collisions": 0, "identity_source_id_collisions": 0,
         "identity_target_review_collisions": 0,
         "identity_target_binding_collisions": 0,
@@ -1943,6 +1998,12 @@ def get_yardi_reconciliation(
         )
         if identity_collision:
             lease_relationship_readiness["identity_source_id_collisions"] += 1
+        property_source_drift = (
+            property_link is not None
+            and property_link.source_id in stale_property_sources
+        )
+        if property_source_drift:
+            lease_relationship_readiness["parent_property_source_drift"] += 1
         target_review_collision = False
         # Reuse the existing organization-scoped reviewed-claim projection,
         # not an extra SELECT for each mapped identity on every staged Lease.
@@ -2016,8 +2077,9 @@ def get_yardi_reconciliation(
                  lease_row.resolution_target_tenant_user_id)
                 != (property_id, unit_id, tenant_id)
                 or not source_parent_current or identity_collision
-                or target_review_collision
+                or property_source_drift or target_review_collision
                 or durable_target_collision or durable_source_collision
+                or source_id_collision or target_parent_conflicts
             )
         )
         if accepted_review_stale:
@@ -2026,7 +2088,7 @@ def get_yardi_reconciliation(
             property_id is not None and unit_id is not None and tenant_id is not None
             and not source_parent_conflicts and not target_parent_conflicts
             and not source_id_collision and not identity_collision
-            and not target_review_collision
+            and not property_source_drift and not target_review_collision
             and not durable_target_collision and not durable_source_collision
             and not accepted_review_stale
         )
@@ -2040,7 +2102,7 @@ def get_yardi_reconciliation(
         lease_row_readiness_evidence.append((
             lease_row.id, property_id, unit_id, tenant_id,
             bool(identity_collision), bool(target_review_collision),
-            bool(durable_target_collision), bool(durable_source_collision),
+            bool(property_source_drift), bool(durable_target_collision), bool(durable_source_collision),
             bool(source_parent_conflicts), bool(source_parent_current),
             bool(complete_links and source_parent_current),
             bool(target_parent_conflicts), bool(source_id_collision),
@@ -2225,7 +2287,12 @@ def accept_yardi_staged_lease_relationship(
     }
     if not all(source_ids.values()):
         raise HTTPException(status_code=409, detail="Lease source IDs must identify Property, Unit and Tenant.")
-    collisions = _yardi_unresolved_identity_sources(db, run)
+    # This acceptance concerns exactly three source identity dependencies.
+    # Scan all unskipped staged versions for those IDs, across uploads, but
+    # do not aggregate unrelated Property/Unit/Owner/Vendor/Tenant sources.
+    collisions = _yardi_unresolved_identity_sources(
+        db, run, identities=set(source_ids.items()),
+    )
     if any((resource, source_id) in collisions for resource, source_id in source_ids.items()):
         raise HTTPException(
             status_code=409,
@@ -2245,6 +2312,27 @@ def accept_yardi_staged_lease_relationship(
         if mapped is None:
             raise HTTPException(status_code=409, detail="Durable Property, Unit and Tenant identity mappings are required.")
         mappings[resource] = mapped
+    # Re-check the original mapped Property source fingerprint on BOTH first
+    # acceptance and replay. One changed source version is enough to deny.
+    property_versions = db.query(
+        PlatformMigrationStagedRow.source_id,
+        PlatformMigrationStagedRow.row_fingerprint,
+    ).filter(
+        PlatformMigrationStagedRow.run_id == run.id,
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resource == "PROPERTIES",
+        PlatformMigrationStagedRow.source_id == source_ids["PROPERTIES"],
+        or_(PlatformMigrationStagedRow.resolution_action.is_(None),
+            PlatformMigrationStagedRow.resolution_action != "SKIP"),
+    ).all()
+    if _yardi_stale_mapped_property_sources(
+        mappings.values(), property_versions,
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Changed original Yardi Property source version requires review.",
+        )
     property_id = mappings["PROPERTIES"].target_id
     unit_id = mappings["UNITS"].target_id
     tenant_id = mappings["TENANTS"].target_id
@@ -2282,23 +2370,32 @@ def accept_yardi_staged_lease_relationship(
             status_code=409,
             detail="Conflicting durable Yardi source or target identity blocks lease source acceptance.",
         )
-    # Any competing, differently identified staff claim makes new and
-    # replayed source-relationship acceptance unsafe, without altering history.
-    for resource, source_id, target_id, target_column in (
-        ("PROPERTIES", source_ids["PROPERTIES"], property_id, PlatformMigrationStagedRow.resolution_target_id),
-        ("UNITS", source_ids["UNITS"], unit_id, PlatformMigrationStagedRow.resolution_target_unit_id),
-        ("TENANTS", source_ids["TENANTS"], tenant_id, PlatformMigrationStagedRow.resolution_target_tenant_user_id),
-    ):
-        claim = db.query(PlatformMigrationStagedRow.id).filter(
-            PlatformMigrationStagedRow.organization_id == run.organization_id,
-            PlatformMigrationStagedRow.provider == "YARDI",
+    # Revalidate all three customer targets through ONE scoped reviewed-claim
+    # SELECT, including historical unknown (NULL) provider source IDs.
+    # SQL's ordinary != comparison would accidentally ignore NULL evidence.
+    claim_filters = [
+        and_(
             PlatformMigrationStagedRow.resource == resource,
             PlatformMigrationStagedRow.source_id.is_distinct_from(source_id),
-            PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
             target_column == target_id,
-        ).first()
-        if claim:
-            raise HTTPException(status_code=409, detail="Competing Yardi identity review blocks lease source acceptance.")
+        )
+        for resource, source_id, target_id, target_column in (
+            ("PROPERTIES", source_ids["PROPERTIES"], property_id, PlatformMigrationStagedRow.resolution_target_id),
+            ("UNITS", source_ids["UNITS"], unit_id, PlatformMigrationStagedRow.resolution_target_unit_id),
+            ("TENANTS", source_ids["TENANTS"], tenant_id, PlatformMigrationStagedRow.resolution_target_tenant_user_id),
+        )
+    ]
+    claim = db.query(PlatformMigrationStagedRow.id).filter(
+        PlatformMigrationStagedRow.organization_id == run.organization_id,
+        PlatformMigrationStagedRow.provider == "YARDI",
+        PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+        or_(*claim_filters),
+    ).first()
+    if claim:
+        raise HTTPException(
+            status_code=409,
+            detail="Competing Yardi identity review blocks lease source acceptance.",
+        )
     verified_unit_rows = db.query(PlatformMigrationStagedRow).filter(
         PlatformMigrationStagedRow.run_id == run.id,
         PlatformMigrationStagedRow.organization_id == run.organization_id,

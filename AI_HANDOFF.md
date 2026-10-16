@@ -1,3 +1,176 @@
+# CURRENT YARDI PHASE 4.15 MILESTONE | 2026-10-16
+
+ONLY repository `yasirskhan/property-platform`, branch
+`chatgpt/checkpoint-005-safety`; never touch main or overwrite concurrent
+sessions.
+
+Last confirmed VERIFIED prerequisite: Sections 106–114 source
+`83f73c701a7415c4c6250bedd46f80670ca94b8d` with GitHub Actions
+`38855880719` SUCCESS, all six jobs. Sections 115–117 source
+`e18de7bf208b31aefa929e2b21ef8ffd3f2f1822` is VERIFIED:
+GitHub Actions `38860373827` SUCCESS at the exact source SHA,
+all six jobs: backend/PostgreSQL, frontend, platform-admin, security,
+authenticated E2E and staging-config.
+
+**Consolidated next milestone Sections 118–132, PROVISIONAL:**
+1. 118–120 reuse one cross-run durable identity source/target evidence
+   snapshot across both identity and Lease readiness, with SQL-count and
+   divergence/recovery PostgreSQL regression.
+2. 121–123 reject one changed original mapped Property source fingerprint
+   in reviewed Unit parent, Lease preview, first/replayed source acceptance,
+   aggregate/source fingerprint and staff warning; new regression.
+3. 124–126 bound explicit Lease source acceptance collision checks to the
+   three referenced Property/Unit/Tenant source IDs, preserving all same-ID
+   uploads and audited SKIP; new regression.
+4. 127–129 report accepted Lease source review stale for duplicate Lease
+   source or active customer Unit reparenting, with exact recovery regression.
+5. 130–132 query three retained staff-reviewed customer target claims in
+   one SQL SELECT, preserving unknown NULL source collision and recovery;
+   new regression.
+
+Audit against `docs/YARDI_MIGRATION_PLAN.md` §§118–132 and current code:
+five new PostgreSQL regression files, five additional fast CI gate entries,
+one diagnostic staff UI line, source and roadmap/handoff updated together.
+No existing tests removed, skipped, weakened or disabled. Existing routing,
+organization/role, provider, fingerprint, customer no-mutation and
+authoritative source-contract gates retained. No unsupported official Yardi
+API, ownership, customer Lease/occupancy, GL/AR/AP, deposits or payments.
+
+This source may be published only as a non-force fast-forward from the
+verified prerequisite with an expected-HEAD lease. Once published, do NOT
+mark VERIFIED until six hosted jobs pass its own exact SHA. Repair real
+failures without weakening tests; prepare successive coherent batches while
+CI runs. Historical preparation notes follow.
+
+---
+
+# DETACHED YARDI NEXT SECTIONS 130–132 | 2026-10-16
+
+Only `yasirskhan/property-platform` branch
+`chatgpt/checkpoint-005-safety`. Never touch main, force push or overwrite
+another session's changes.
+
+This prepared batch consolidates Property/Unit/Tenant competing historical
+staff-reviewed target checks into ONE query during both first-time and replayed
+Yardi Lease source identity acceptance. It keeps `is_distinct_from` for
+NULL historical source-ID safety and existing cross-run, organization,
+source-parent, live-target and customer-nonmutation guards. New fast-gated
+PostgreSQL regression enforces one SQL SELECT, NULL-source refusal and
+same-source recovery, unchanged login/customer Lease records.
+
+Prior Sections 115–117 product `e18de7bf208b31aefa929e2b21ef8ffd3f2f1822`
+was published and its exact-SHA CI run `38860373827` must be verified.
+Prepared Sections 118–129 are detached and require reconciled parent and
+hosted exact-SHA tests. This new Sections 130–132 batch remains detached,
+not VERIFIED. Roadmap §§130–132 updated, old test assertions preserved.
+No permission relaxation, unofficial Yardi API, Lease/occupancy customer
+creation or accounting posting.
+
+---
+
+# PREPARED YARDI FOLLOW-UP SECTIONS 127–129 | 2026-10-16
+
+Repository `yasirskhan/property-platform`, branch ONLY
+`chatgpt/checkpoint-005-safety`. Do not touch main.
+
+A retained accepted source Lease relationship is now classified stale
+in aggregate for an unresolved second non-skipped same Lease source ID
+or a moved, still-active customer Unit under a different Property.
+Previously per-Lease blockers correctly denied readiness but the
+aggregate accepted_relationship_stale count could remain zero.
+A new fast PostgreSQL test checks duplicate source upload, audited
+SKIP recovery, moved Unit, exact fingerprint restoration and customer
+data nonmutation. Original tests retained without skips or weakening.
+
+Sections 115–117 have been branch-published and await exact-SHA full CI.
+Sections 118–126 have been prepared in related detached batches, requiring
+safe reconciliation to the live parent and their own hosted CI.
+This new work is also DETACHED and NOT VERIFIED until published and
+verified on its own precise SHA. Never force-push or overwrite another
+session's changes. Continue coherent subsequent Yardi work while CI runs.
+No external Yardi source/finance/Lease business commit is authorized.
+
+---
+
+# DETACHED FOLLOW-UP SECTIONS 124–126 | 2026-10-16
+
+Continue ONLY `yasirskhan/property-platform` /
+`chatgpt/checkpoint-005-safety`. No main changes, force pushes, alternate
+branches, unsupported Yardi API/finance/Lease customer mutations.
+
+Sections 124–126 prepare a page/dependency-scoped duplicate-source check
+for first/replayed Lease source identity acceptance, while retaining off-upload
+duplicate detection, reason-coded SKIP anchor safeguards and exact prior
+review evidence. A new fast-gated PostgreSQL test covers unrelated Vendor
+collisions, exact three source-ID query scope, changed Unit source collision,
+audited SKIP recovery and unchanged customer records. No earlier tests
+removed, disabled or weakened. Roadmap §§124–126 and test gate updated.
+
+Prior Sections 118–123 remain detached/provisional until preceding Sections
+115–117 exact-SHA six-job CI is confirmed green. Publishing source should be
+consolidated into coherent batches, with audited changes, expected-HEAD
+checks, and exact-SHA full CI. Reconcile any other session's branch changes
+before publishing; never overwrite or force-update a divergent branch.
+
+---
+
+# YARDI DETACHED FOLLOW-UP SECTIONS 121–123 | 2026-10-16
+
+Repository: `yasirskhan/property-platform`.
+Only branch: `chatgpt/checkpoint-005-safety`; never touch main or force push.
+
+Sections 115–117 published as `e18de7bf208b31aefa929e2b21ef8ffd3f2f1822`,
+pending exact-SHA hosted CI at preparation time.
+Sections 118–120 are a separately PREPARED follow-up. Their source is not
+verified until the previous milestone is green and they pass their own
+all-six-job CI at exact SHA.
+
+Sections 121–123 now prepared DETACHED on top of 118–120: one unskipped
+changed original Property source version blocks reviewed/unreviewed Unit
+parent readiness; Lease preview and replay/initial acceptance fail closed;
+run-level Lease current coverage and exact private fingerprint include a
+new source-drift diagnostic, with staff console warning and PostgreSQL
+source drift/recovery/nonmutation tests in the fast gate.
+
+Never publish against an outdated parent. At publication first inspect
+live HEAD, previous exact-SHA CI, changed-file audit and repository handoff;
+rebase safely if another session advanced. No existing tests removed,
+disabled or weakened; no roadmap dependency skipped or stubbed out.
+No user/customer business mutation or unsupported Yardi API/finance.
+Do not label source VERIFIED until six hosted CI jobs pass at its SHA.
+Continue grouped development while CI runs.
+
+---
+
+# YARDI NEXT BATCH | 2026-10-16
+
+Repository `yasirskhan/property-platform`, ONLY
+`chatgpt/checkpoint-005-safety`. Never touch main.
+
+Sections 115–117 were published at product source
+`e18de7bf208b31aefa929e2b21ef8ffd3f2f1822`.
+Its CI run was not yet verified when this follow-up was prepared.
+Check the LIVE branch HEAD and exact CI before advancing.
+
+Sections 118–120 next cohesive milestone (prepared, NOT VERIFIED):
+- Reuse one scoped historical durable-claim projection for current-run identity
+  readiness and Lease relationship aggregate; avoid duplicate queries.
+- Preserve both target and original source identity divergence detection,
+  including cross-run same source/target recovery, stale fingerprints.
+- New fast-gated PostgreSQL regression enforces single helper invocation,
+  historical same-target different-source vs same-source different-target
+  behavior, recovery, unchanged customer records, zero Lease posting.
+All pre-existing tests retained and not disabled/relaxed. No existing roadmap
+dependency omitted or stubbed. No unofficial Yardi API, GL, financial,
+customer Lease/occupancy creation, ownership or permission changes.
+
+Prepare additional bounded work during CI; only publish after verifying
+upstream exact-SHA green and matching live HEAD, using non-force expected-HEAD.
+Any new product source remains PROVISIONAL until its own exact-SHA full six-job
+CI passes. Historical handoff retained below.
+
+---
+
 # YARDI CURRENT PRODUCT CHECKPOINT | 2026-10-16
 
 ONLY repository `yasirskhan/property-platform`, branch

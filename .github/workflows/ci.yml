@@ -81,6 +81,11 @@ jobs:
           tests/test_yardi_lease_identity_acceptance.py
           tests/test_yardi_reconciliation_batched_targets.py
           tests/test_yardi_reconciliation_lease_snapshot.py
+          tests/test_yardi_reconciliation_shared_durable_claims.py
+          tests/test_yardi_property_source_version_drift.py
+          tests/test_yardi_lease_accept_source_scope.py
+          tests/test_yardi_accepted_lease_stale_count.py
+          tests/test_yardi_lease_accept_review_claim_batch.py
           tests/test_yardi_reconciliation_durable_claims.py
           tests/test_yardi_reconciliation_unit_parent_claims.py
           tests/test_yardi_reconciliation_composite_sources.py

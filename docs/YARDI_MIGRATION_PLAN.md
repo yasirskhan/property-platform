@@ -1456,3 +1456,185 @@ disabling or weakening any other test.
 **Sections 115–117 status:** PROVISIONAL until all six hosted CI jobs pass at
 their exact source commit SHA. The authoritative Yardi export/API and
 accounting source-contract gates remain unchanged.
+
+
+## 118. Share one durable-claim history between identity and Lease readiness
+
+Run-level Yardi reconciliation already loads cross-run historical durable
+Property/Unit/Tenant and other identity source-to-target claims, including
+claims from explicit current-run staff-reviewed rows. The Lease aggregate
+now reuses this read-only historical projection rather than issuing a second
+overlapping organization-wide lookup. This reduces duplicate historical
+SELECTs while keeping the same resource/provider/organization boundaries.
+
+## 119. Preserve both directions of historical Lease identity conflict
+
+The shared source snapshot retains different source IDs durably claiming the
+same customer Property, Unit or Tenant, and the same provider source ID
+durably claiming a different customer target or target entity. Matching
+source/customer evidence in another run remains non-conflicting. Historical
+missing/unknown and divergent identities remain blocked, and exact private
+readiness fingerprints reflect relevant changes. Neither a Lease nor a payment
+nor occupancy is created from an accepted source review.
+
+## 120. Single-projection, target/source divergence and recovery regression
+
+A focused PostgreSQL regression instruments historical durable-claim helper
+invocation and enforces exactly one scoped projection per reconciliation
+request. It tests a competing Property target from another run, the
+same source/target identity recovery, divergent same-source/different-target
+rejection, exact review fingerprint restoration, role/organization-scoped
+source evidence, customer and login preservation, and zero Lease creation.
+The test is included in the fast Yardi CI gate. Previously required tests
+are neither deleted, weakened nor skipped.
+
+**Status:** Sections 118–120 PROVISIONAL until exact-SHA all-six-job hosted
+CI. Preserve all Yardi source-contract, accounting, Lease and customer-mutation
+prohibitions and all previously verified requirements.
+
+## 121. Original Property exact source version guards Yardi Lease acceptance
+
+The same-run Yardi Property source may have only ONE unskipped staged version,
+yet that version can differ from the previously bound exact Property source
+fingerprint. A read-only guard now compares all unskipped staged Property
+versions against exact durable Property identities in the current run and
+refuses current original Unit source-parent readiness where the original
+Property binding is contradicted. The paginated Lease preview reports
+`PROPERTY_SOURCE_VERSION_DRIFT`, and initial/replayed explicit
+ACCEPT_RELATIONSHIP returns 409 rather than silently reusing an older source
+review. A source version not staged in the run is never invented.
+
+## 122. Separate original Property drift from duplicate source identities
+
+Run-level Lease readiness now reports `parent_property_source_drift`, marks
+accepted review stale when affected, excludes affected Lease rows from complete
+identity links/source-review readiness, and fingerprints the exact per-Lease
+drift state to prevent aggregate count-swap masking. The platform-admin
+staff console presents the distinct source-version drift count. This is
+separate from unskipped Property source-ID collision, target activity,
+historical retained reviews, and cross-run durable claims; those independent
+guards remain active. All changes are diagnostics/metadata only, not
+customer Lease/occupancy or financial posting.
+
+## 123. Single-version source drift, replay 409 and source repair regression
+
+New fast-gated PostgreSQL regression uses an accepted Yardi Lease source with
+a previously verified Unit parent and no staged Property source duplicate.
+Staging one different Property source fingerprint makes current Unit and
+Lease readiness stale, changes review fingerprint, and blocks accepted replay.
+The existing protective rule denies skipping an unanchored mapped source as
+a workaround. Simulated exact source metadata correction restores verified
+readiness and idempotent replay without changing customer Property/Unit,
+Tenant credentials, durable mapping count or customer Lease count. Previous
+tests remain enabled with no weakenings or deletions.
+
+**Status:** Sections 121–123 PREPARED only, pending prior 115–117 and
+118–120 exact-SHA hosted CI and its own full six-job source verification.
+No unofficial Yardi source/API, accounting, ownership, finance, rent,
+deposit or customer business write is enabled.
+
+
+## 124. Lease identity acceptance scans only its dependency source IDs
+
+The explicit Yardi ACCEPT_RELATIONSHIP endpoint now calls the existing
+reason-code/duplicate-aware unresolved identity-source query with exactly
+its mapped Property, Unit and Tenant source IDs. The query still covers ALL
+unskipped versions of those exact source IDs across the same run's uploads.
+Unrelated Property, Owner or Vendor collisions cannot force a full-run
+identity scan for every Lease acceptance or replay, and unrelated source
+IDs can never be treated as missing dependency evidence.
+
+## 125. Preserve off-upload collisions and audited recovery
+
+A different upload's unskipped version of a referenced Unit source remains a
+blocking duplicate for initial/replayed Lease identity acceptance, even if
+the rest of the original Lease targets are still active and identical. Only
+a separately audited reason-coded SKIP with an exact original reviewed
+source binding anchor can resolve the second version; neither source
+version nor customer entity is automatically merged. Existing customer
+Lease/occupancy, payments, tenant credentials and accounting stay unchanged.
+
+## 126. Scoped-query and staged-version PostgreSQL gate
+
+New `test_yardi_lease_accept_source_scope.py` confirms that unrelated
+duplicated Vendor source versions do not pollute Lease source dependency
+checks, that only the three actual Property/Unit/Tenant keys reach the
+existing scoped collision helper, that an additional conflicting Unit upload
+blocks accepted replay with HTTP 409, and that audited duplicate SKIP restores
+metadata-only replay. It asserts unchanged customer Property/Unit/Tenant and
+customer Lease count. The fast Yardi CI gate includes the test with no
+existing tests removed, skipped or weakened.
+
+**Status:** Sections 124–126 PREPARED until all six hosted CI jobs verify
+the final exact-SHA milestone. Earlier source contracts, Lease/occupancy
+commit prohibitions, finance gate and prior safeguards remain unchanged.
+
+
+## 127. Accepted Lease review is stale when another Lease source version remains
+
+Read-only Yardi aggregate reconciliation now marks a previously accepted
+source Lease relationship stale whenever another non-SKIP staged row claims
+the exact same provider Lease source ID in the same run. The duplicate Lease
+source counter already prevented complete links, but the accepted-review
+stale counter had incorrectly stayed zero. The existing explicit duplicate
+SKIP path remains audited and required before accepted readiness is restored.
+
+## 128. Accepted Lease review is stale when customer Unit parent has moved
+
+An original Unit may retain its exact historical reviewed source parent even
+after its current customer Unit changes to another active Property. The
+aggregate's `accepted_relationship_stale` now includes live Unit/Property
+parent mismatch, matching the already enforced per-Lease preview blocker
+and complete-link/readiness refusal. The accepted review remains in audit
+history, not silently deleted or rewritten; no occupancy/Lease record
+creation or automatic reparenting is authorized.
+
+## 129. Duplicate/moved Unit stale counter and recovery PostgreSQL gate
+
+New `test_yardi_accepted_lease_stale_count.py` covers an accepted source
+Lease, a conflicting second upload with the same source ID, audited
+reason-coded SKIP recovery, later active customer Unit reparenting,
+exact restoration, per-Lease preview parity, fingerprint invalidation and
+preservation of customer Property/Unit/Tenant and Lease records. The fast
+Yardi regression gate includes the test. Every earlier test remains
+enabled and unchanged.
+
+**Status:** Sections 127–129 PREPARED, NOT VERIFIED; full exact-SHA hosted
+CI must pass all six jobs after prerequisite milestones. No customer record
+mutation, financial, accounting, deposit, Lease posting, ownership or
+undocumented Yardi API operations enabled.
+
+
+## 130. Batch three competing Lease identity target reviews into one read
+
+First-time and replayed Yardi Lease source identity acceptance formerly
+performed three separate historical MATCH_EXISTING customer target claim
+SELECTs for Property, Unit and Tenant. The same access and organization guard
+now resolves all three explicit resource/target/source conditions using one
+scoped `OR` projection, reducing repeated network/database roundtrips.
+No historical review decisions, customer records or existing mappings change.
+
+## 131. Preserve unknown historical source ID claim blocking
+
+Each batched resource condition uses SQLAlchemy `is_distinct_from`
+rather than `!=` so a retained staff MATCH_EXISTING review with a missing
+historical provider source ID remains a competing target claim. A second
+Yardi run reviewing the exact same stable source and target is still
+noncompeting; different or unknown source claims require explicit review
+and return HTTP 409 before an accepted source relationship may be replayed.
+All existing authentication, role, source, live target, original Unit parent,
+cross-run durable mapping and no-customer-commit checks remain unchanged.
+
+## 132. Query-count and unknown-source replay PostgreSQL regression
+
+New fast-gated `test_yardi_lease_accept_review_claim_batch.py` requires
+exactly one combined historical reviewed target claim SQL SELECT for an
+initial acceptance, a blocked replay due to a historical NULL-source
+Property review from another Yardi run, and a restored same-source replay.
+It verifies organization-scoped unchanged customer Property, Unit, Tenant
+credential and absence of customer Lease creation. All old tests remain
+enabled and unweakened.
+
+**Status:** Sections 130–132 PREPARED pending full exact-SHA six-job hosted
+CI on their eventual consolidated product source. No financial/accounting
+posting, Lease/occupancy customer mutation, ownership or unofficial API.
