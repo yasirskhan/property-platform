@@ -1860,3 +1860,17 @@ stale counters and requires a changed fingerprint, then exact recovery
 to PX followed by authoritative parent P1. No new database query,
 customer mutation or unsupported Yardi API source assumption.
 This source remains detached pending prerequisite and its own CI.
+
+### Prepared exact historical durable evidence for unbound staff reviews
+
+An existing Yardi MATCH_EXISTING identity row need not have a current-run
+durable mapping yet. Source-exact private fingerprint evidence must still
+include the existing scoped historical durable source/target contradictions
+for that explicit reviewed resource/customer target. The prepared source
+projection unifies (run item or staff-reviewed staged identity) evidence,
+with no new SQL, authorization or customer write. New fast-gated PostgreSQL
+Vendor review without a durable current item changes a competing historical
+source OLD-V-1 -> OLD-V-2 with unchanged stale counts, requiring a distinct
+fingerprint, and verifies exact conflict and same-source recovery without
+modifying customer Vendor. Detached and provisional until safe publication
+and all six hosted CI jobs verify exact source.

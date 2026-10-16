@@ -451,3 +451,63 @@ def test_reconciliation_fingerprint_changes_when_competing_target_swaps_but_tota
     finally:
         db.close()
         engine.dispose()
+
+
+def test_unbound_reviewed_vendor_fingerprint_tracks_competing_durable_source():
+    """A staff-reviewed row without a current mapping also has exact claim evidence."""
+    from app.models.platform_migration import PlatformMigrationItem
+
+    db, engine = _session()
+    try:
+        actor, org, vendor, run, row = seed_vendor(
+            db, slug="yardi-unbound-reviewed-vendor-source-provenance",
+        )
+        payload = YardiVendorMatchIn(target_vendor_id=vendor.id)
+        assert match_yardi_staged_vendor(run.id, row.id, payload, db, actor)["replayed"] is False
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["resource_coverage"]["VENDORS"]["matched_existing"] == 1
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+        ).count() == 0
+
+        historical_run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="old-vendor-durable-review", status="DRAFT",
+        )
+        db.add(historical_run)
+        db.flush()
+        historical = PlatformMigrationItem(
+            run_id=historical_run.id, organization_id=org.id, provider="YARDI",
+            resource="VENDORS", source_id="OLD-V-1",
+            target_entity="VENDOR", target_id=vendor.id,
+            source_fingerprint="historical-durable-vendor-source",
+        )
+        db.add(historical)
+        db.commit()
+        first = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert first["resource_coverage"]["VENDORS"]["matched_existing"] == 0
+        assert first["resource_coverage"]["VENDORS"]["needs_review"] == 1
+        assert first["review_fingerprint"] != baseline["review_fingerprint"]
+
+        historical.source_id = "OLD-V-2"
+        db.commit()
+        second = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert second["resource_coverage"] == first["resource_coverage"]
+        assert second["review_fingerprint"] != first["review_fingerprint"]
+
+        historical.source_id = "OLD-V-1"
+        db.commit()
+        assert get_yardi_reconciliation(
+            run.id, Response(), db, actor,
+        )["review_fingerprint"] == first["review_fingerprint"]
+        historical.source_id = row.source_id
+        db.commit()
+        restored = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert restored["resource_coverage"]["VENDORS"]["matched_existing"] == 1
+        assert restored["review_fingerprint"] == baseline["review_fingerprint"]
+        db.refresh(vendor)
+        assert vendor.company_name == "Untouched Vendor"
+        assert restored["customer_business_mutation"] is False
+    finally:
+        db.close()
+        engine.dispose()

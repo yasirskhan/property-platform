@@ -2160,29 +2160,45 @@ def get_yardi_reconciliation(
             tuple(target_review_claim_details),
         ))
 
-    # Preserve exact retained durable source/target contradictions. A
-    # competing original Property provider source may change while reviewed
-    # Unit parent and Lease blocker counts remain identical. Keep the private
-    # dry-run evidence source-exact without issuing another scoped SQL read.
+    # Preserve exact historical durable source/target contradictions for
+    # current durable mappings AND currently staff-reviewed identity rows.
+    # A reviewed row can precede its durable mapping. It must not silently
+    # reuse a stale fingerprint when a competing historical durable provider
+    # source changes but the target/stale counters remain the same.
+    resource_target_entities = {
+        "PROPERTIES": "PROPERTY", "UNITS": "UNIT",
+        "OWNERS": "OWNER_USER", "VENDORS": "VENDOR",
+        "TENANTS": "TENANT_USER",
+    }
+    current_claim_identities = {
+        (item.resource, item.source_id, item.target_entity, item.target_id)
+        for item in items
+    }
+    for reviewed in rows:
+        if (reviewed.resource in resource_target_entities
+                and reviewed.resolution_action == "MATCH_EXISTING"):
+            target_id = getattr(reviewed, review_columns[reviewed.resource])
+            if target_id is not None:
+                current_claim_identities.add((
+                    reviewed.resource, reviewed.source_id,
+                    resource_target_entities[reviewed.resource], target_id,
+                ))
     historical_durable_conflict_evidence = []
-    for current_item in items:
-        for historic_source in identity_durable_targets.get(
-            (current_item.resource, current_item.target_id), ()
-        ):
-            if historic_source != current_item.source_id:
+    for resource, source_id, target_entity, target_id in sorted(
+        current_claim_identities,
+        key=lambda claim: json.dumps(claim, separators=(",", ":")),
+    ):
+        for historic_source in identity_durable_targets.get((resource, target_id), ()):
+            if historic_source != source_id:
                 historical_durable_conflict_evidence.append((
-                    "TARGET", current_item.resource, current_item.target_id,
-                    current_item.source_id, historic_source,
+                    "TARGET", resource, target_id, source_id, historic_source,
                 ))
         for historic_entity, historic_target in identity_durable_sources.get(
-            (current_item.resource, current_item.source_id), ()
+            (resource, source_id), ()
         ):
-            if (historic_entity, historic_target) != (
-                current_item.target_entity, current_item.target_id,
-            ):
+            if (historic_entity, historic_target) != (target_entity, target_id):
                 historical_durable_conflict_evidence.append((
-                    "SOURCE", current_item.resource, current_item.source_id,
-                    historic_entity, historic_target,
+                    "SOURCE", resource, source_id, historic_entity, historic_target,
                 ))
     historical_durable_conflict_evidence.sort(
         key=lambda details: json.dumps(details, separators=(",", ":")),

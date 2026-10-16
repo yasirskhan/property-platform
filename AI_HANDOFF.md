@@ -1,3 +1,30 @@
+# DETACHED EXTENSION: UNBOUND REVIEWED IDENTITY DURABLE-CLAIM PROVENANCE
+
+A staff MATCH_EXISTING review of Property/Unit/Owner/Vendor/Tenant can
+precede an exact current-run durable mapping. Historical durable
+different-source/same-target claims can still make this reviewed row
+stale, but the private review fingerprint must reflect WHICH durable
+source now contests the target even if the stale counter stays 1.
+
+The prepared source helper now projects exact sorted historical durable
+target/source contradictions for both current-run durable items AND
+current-run staff-reviewed identity rows, deduplicating same identities.
+Uses existing organization/provider-scoped historical lookup only, no
+new SQL, data migration, customer mutation, Yardi API or accounting
+source assumption. Added fast-gated PostgreSQL Vendor regression with
+NO current-run durable item: OLD-V-1 -> OLD-V-2 keeps reviewed resource
+stale with changed fingerprint; restoring OLD-V-1 restores exact
+contested fingerprint, and exact source identity restores readiness
+and original baseline fingerprint. Customer Vendor remains unchanged.
+
+This is DETACHED following `4bad0a0d4508b13337043ca0092e0d9438271bf8`.
+Parent published `be8522586a711b074e7d24405bf5e03247011450` still requires
+its exact six-job CI `38947446055` to be green, then safe
+expected-HEAD branch publication and new six-job verification.
+All previous tests remain enabled; do not invent §§133–135.
+
+---
+
 # DETACHED ORIGINAL UNIT PROPERTY STAFF REVIEW SOURCE EXACTNESS
 
 This follow-on to the Unit original parent durable source fingerprint
