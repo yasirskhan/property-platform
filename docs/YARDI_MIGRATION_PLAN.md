@@ -1752,3 +1752,14 @@ review fingerprint, without customer mutation. Keep distinct-source,
 organization/provider isolation and existing tests active. Provisional
 detached source only until the previous exact-SHA six-job CI is verified;
 no §§133–135 source contract invented.
+
+### Prepared §131 organization/provider readiness parity checks
+
+The existing accepted-Yardi-source replay isolation tests for another
+organization's retained Yardi Property target claim and the same
+organization's retained AppFolio Property target claim now require matching
+read-only run reconciliation and per-Lease preview results. Irrelevant
+provider/organization evidence must NOT alter source readiness, accepted
+review currency, collision counters or exact private readiness fingerprint,
+and must never authorize Lease/occupancy creation. This candidate remains
+detached pending exact parent six-job hosted CI and its own future run.

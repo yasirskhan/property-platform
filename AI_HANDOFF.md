@@ -1,3 +1,22 @@
+# DETACHED FOLLOW-UP PREPARATION | YARDI §131 ISOLATION PARITY
+
+The next test-only candidate extends both same-organization APPFOLIO
+other-provider and foreign-organization YARDI historical NULL-source
+review scenarios to require reconciliation/preview parity with permitted
+acceptance replay. Both controls must retain zero target-review collisions,
+current accepted review, one complete ready Lease source, no occupation
+authorization, and EXACT unchanged review fingerprint before/after the
+irrelevant historical row. Existing Unit/Tenant NULL and known-different
+collision/recovery regressions stay active. No product router, schema,
+customer record, payments, Lease or accounting changed.
+
+This work is detached from `c4bd306c7e055ac991e49115e13c9ffbad5596b7`, currently under hosted
+CI `38945258561`; publish only after verifying all six exact-SHA jobs and
+unchanged authorized branch HEAD. This is existing §131 coverage, not
+an invented §133–135 source contract.
+
+---
+
 # DETACHED PREPARATION | YARDI §131 PREVIEW / AGGREGATE / ACCEPTANCE PARITY
 
 Parent product source `c4bd306c7e055ac991e49115e13c9ffbad5596b7` is undergoing exact-SHA hosted CI run

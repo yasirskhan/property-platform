@@ -232,6 +232,24 @@ def test_batched_claims_refuse_unknown_unit_and_tenant_sources_then_recover():
         engine.dispose()
 
 
+def _assert_yardi_lease_review_is_current(db, actor, run):
+    """Read-only acceptance/preview/reconciliation parity across isolation cases."""
+    summary = get_yardi_reconciliation(run.id, Response(), db, actor)
+    readiness = summary["lease_relationship_readiness"]
+    assert readiness["identity_target_review_collisions"] == 0
+    assert readiness["accepted_relationship_stale"] == 0
+    assert readiness["complete_identity_links"] == 1
+    assert readiness["source_review_ready"] == 1
+    assert summary["customer_business_mutation"] is False
+    preview = list_yardi_lease_relationships(
+        run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+    )["items"][0]
+    assert preview["blockers"] == []
+    assert preview["relationship_review_current"] is True
+    assert preview["occupancy_or_lease_authorized"] is False
+    return summary["review_fingerprint"]
+
+
 def test_historical_claim_from_other_organization_does_not_block_lease_replay():
     """A foreign organization's NULL-source claim must not leak into this run."""
     db, engine = _session()
@@ -243,6 +261,9 @@ def test_historical_claim_from_other_organization_does_not_block_lease_replay():
         assert accept_yardi_staged_lease_relationship(
             run.id, lease.id, db, actor,
         )["replayed"] is False
+        baseline_fingerprint = _assert_yardi_lease_review_is_current(
+            db, actor, run,
+        )
 
         foreign_org = _org(db, "yardi-lease-cross-org-review-claim-foreign")
         foreign_run = PlatformMigrationRun(
@@ -273,6 +294,9 @@ def test_historical_claim_from_other_organization_does_not_block_lease_replay():
         assert accept_yardi_staged_lease_relationship(
             run.id, lease.id, db, actor,
         )["replayed"] is True
+        assert _assert_yardi_lease_review_is_current(
+            db, actor, run,
+        ) == baseline_fingerprint
         db.refresh(prop)
         db.refresh(unit)
         db.refresh(tenant)
@@ -295,6 +319,9 @@ def test_other_provider_historical_claim_cannot_block_yardi_lease_acceptance():
         assert accept_yardi_staged_lease_relationship(
             run.id, lease.id, db, actor,
         )["replayed"] is False
+        baseline_fingerprint = _assert_yardi_lease_review_is_current(
+            db, actor, run,
+        )
 
         other_run = PlatformMigrationRun(
             organization_id=org.id, provider="APPFOLIO",
@@ -326,6 +353,9 @@ def test_other_provider_historical_claim_cannot_block_yardi_lease_acceptance():
         assert accept_yardi_staged_lease_relationship(
             run.id, lease.id, db, actor,
         )["replayed"] is True
+        assert _assert_yardi_lease_review_is_current(
+            db, actor, run,
+        ) == baseline_fingerprint
         db.refresh(prop)
         db.refresh(unit)
         db.refresh(tenant)
