@@ -1131,17 +1131,44 @@ def list_yardi_lease_relationships(
     staged = query.order_by(
         PlatformMigrationStagedRow.id.asc(),
     ).offset(offset).limit(limit).all()
-    mappings = db.query(PlatformMigrationItem).filter(
-        PlatformMigrationItem.run_id == run.id,
-        PlatformMigrationItem.organization_id == run.organization_id,
-        PlatformMigrationItem.provider == "YARDI",
-        PlatformMigrationItem.resource.in_(("PROPERTIES", "UNITS", "TENANTS")),
-    ).all()
+    # Page-specific lease dependencies, but verify ALL staged versions and
+    # retained cross-run claims for each referenced source identity.
+    page_sources = {"PROPERTIES": set(), "UNITS": set(), "TENANTS": set()}
+    field_by_resource = {
+        "PROPERTIES": "source_property_id",
+        "UNITS": "source_unit_id",
+        "TENANTS": "source_tenant_id",
+    }
+    for lease_row in staged:
+        normalized = lease_row.normalized_data or {}
+        for resource, field in field_by_resource.items():
+            source_id = str(normalized.get(field) or "").strip()
+            if source_id:
+                page_sources[resource].add(source_id)
+    identity_page = {
+        (resource, source_id) for resource, source_ids in page_sources.items()
+        for source_id in source_ids
+    }
+    map_filters = [
+        and_(PlatformMigrationItem.resource == resource,
+             PlatformMigrationItem.source_id.in_(ids))
+        for resource, ids in page_sources.items() if ids
+    ]
+    mappings = []
+    if map_filters:
+        mappings = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "YARDI",
+            or_(*map_filters),
+        ).all()
     by_source = {(m.resource, m.source_id): m for m in mappings}
     durable_target_claims, durable_source_claims = _yardi_lease_durable_identity_claims(
         db, organization_id=run.organization_id, mappings=mappings,
     )
-    identity_collisions = _yardi_unresolved_identity_sources(db, run)
+    identity_collisions = _yardi_unresolved_identity_sources(
+        db, run, identities=identity_page,
+    )
     property_targets = {
         item.target_id for item in mappings
         if item.resource == "PROPERTIES" and item.target_entity == "PROPERTY"
@@ -1180,13 +1207,16 @@ def list_yardi_lease_relationships(
             User.is_active.is_(True), User.deleted_at.is_(None),
         ).all()
     }
-    reviewed_unit_rows = db.query(PlatformMigrationStagedRow).filter(
-        PlatformMigrationStagedRow.run_id == run.id,
-        PlatformMigrationStagedRow.organization_id == run.organization_id,
-        PlatformMigrationStagedRow.provider == "YARDI",
-        PlatformMigrationStagedRow.resource == "UNITS",
-        PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
-    ).order_by(PlatformMigrationStagedRow.id.asc()).all()
+    reviewed_unit_rows = []
+    if page_sources["UNITS"]:
+        reviewed_unit_rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "YARDI",
+            PlatformMigrationStagedRow.resource == "UNITS",
+            PlatformMigrationStagedRow.source_id.in_(page_sources["UNITS"]),
+            PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+        ).order_by(PlatformMigrationStagedRow.id.asc()).all()
     # Only exact reviewed source fingerprint + destination Unit evidence is
     # acceptable. A similarly named Unit or another run's staging is not proof.
     # Preserve every exact reviewed Unit parent record. A dict comprehension
@@ -1207,17 +1237,20 @@ def list_yardi_lease_relationships(
     # The same run may contain conflicting lease revisions from multiple
     # uploads. Reviewed acceptance is only current when competing versions
     # remain explicitly skipped, including versions outside this page.
-    competing_sources = db.query(
-        PlatformMigrationStagedRow.id,
-        PlatformMigrationStagedRow.source_id,
-        PlatformMigrationStagedRow.resolution_action,
-    ).filter(
-        PlatformMigrationStagedRow.run_id == run.id,
-        PlatformMigrationStagedRow.organization_id == run.organization_id,
-        PlatformMigrationStagedRow.provider == "YARDI",
-        PlatformMigrationStagedRow.resource == "LEASE_OCCUPANCY",
-        PlatformMigrationStagedRow.source_id.isnot(None),
-    ).all()
+    page_lease_source_ids = {row.source_id for row in staged if row.source_id}
+    competing_sources = []
+    if page_lease_source_ids:
+        competing_sources = db.query(
+            PlatformMigrationStagedRow.id,
+            PlatformMigrationStagedRow.source_id,
+            PlatformMigrationStagedRow.resolution_action,
+        ).filter(
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "YARDI",
+            PlatformMigrationStagedRow.resource == "LEASE_OCCUPANCY",
+            PlatformMigrationStagedRow.source_id.in_(page_lease_source_ids),
+        ).all()
     non_skipped_lease_source_counts = {}
     for _, source_id, decision in competing_sources:
         if decision != "SKIP":
@@ -1228,18 +1261,34 @@ def list_yardi_lease_relationships(
     # once, including historical reviews whose provider source ID is NULL.
     # The paginated preview must not issue up to three claim lookups per Lease.
     reviewed_claim_sources = {}
-    reviewed_claims = db.query(
-        PlatformMigrationStagedRow.resource,
-        PlatformMigrationStagedRow.source_id,
-        PlatformMigrationStagedRow.resolution_target_id,
-        PlatformMigrationStagedRow.resolution_target_unit_id,
-        PlatformMigrationStagedRow.resolution_target_tenant_user_id,
-    ).filter(
-        PlatformMigrationStagedRow.organization_id == run.organization_id,
-        PlatformMigrationStagedRow.provider == "YARDI",
-        PlatformMigrationStagedRow.resource.in_(("PROPERTIES", "UNITS", "TENANTS")),
-        PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
-    ).all()
+    targets_by_resource = {
+        "PROPERTIES": property_targets, "UNITS": unit_targets,
+        "TENANTS": tenant_targets,
+    }
+    target_columns = {
+        "PROPERTIES": PlatformMigrationStagedRow.resolution_target_id,
+        "UNITS": PlatformMigrationStagedRow.resolution_target_unit_id,
+        "TENANTS": PlatformMigrationStagedRow.resolution_target_tenant_user_id,
+    }
+    claim_filters = [
+        and_(PlatformMigrationStagedRow.resource == resource,
+             target_columns[resource].in_(target_ids))
+        for resource, target_ids in targets_by_resource.items() if target_ids
+    ]
+    reviewed_claims = []
+    if claim_filters:
+        reviewed_claims = db.query(
+            PlatformMigrationStagedRow.resource,
+            PlatformMigrationStagedRow.source_id,
+            PlatformMigrationStagedRow.resolution_target_id,
+            PlatformMigrationStagedRow.resolution_target_unit_id,
+            PlatformMigrationStagedRow.resolution_target_tenant_user_id,
+        ).filter(
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "YARDI",
+            PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+            or_(*claim_filters),
+        ).all()
     for resource, source_id, property_target, unit_target, tenant_target in reviewed_claims:
         target = {
             "PROPERTIES": property_target,
@@ -1353,12 +1402,19 @@ def list_yardi_lease_relationships(
                     or unit_source_parent_matches_lease is not True):
                 blockers.append("ACCEPTED_RELATIONSHIP_STALE")
         review_current = is_accepted and not blockers
+        # Complete identity links are intentionally NOT the stronger source
+        # review readiness required by ACCEPT_RELATIONSHIP. An unreviewed Unit
+        # parent must never appear ready for that explicit staff action.
+        source_review_ready = (
+            not blockers and unit_source_parent_matches_lease is True
+        )
         results.append({
             "staged_row_id": staged_row.id,
             "row_number": staged_row.row_number,
             "source_id": staged_row.source_id,
             "blockers": blockers,
             "identity_links_complete": not blockers,
+            "source_review_ready": source_review_ready,
             "relationship_review_recorded": is_accepted,
             "relationship_review_current": review_current,
             "unit_source_parent_matches_lease": unit_source_parent_matches_lease,
@@ -1449,22 +1505,57 @@ def get_yardi_reconciliation(
     # issuing a competitor query for every staged identity row. A retained
     # review with a missing source ID remains a competing *unknown* identity:
     # SQL inequality would otherwise miss NULL and incorrectly mark ready.
-    reviewed_claim_rows = db.query(
-        PlatformMigrationStagedRow.resource,
-        PlatformMigrationStagedRow.source_id,
-        PlatformMigrationStagedRow.resolution_target_id,
-        PlatformMigrationStagedRow.resolution_target_unit_id,
-        PlatformMigrationStagedRow.resolution_target_owner_user_id,
-        PlatformMigrationStagedRow.resolution_target_vendor_id,
-        PlatformMigrationStagedRow.resolution_target_tenant_user_id,
-    ).filter(
-        PlatformMigrationStagedRow.organization_id == run.organization_id,
-        PlatformMigrationStagedRow.provider == "YARDI",
-        PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
-        PlatformMigrationStagedRow.resource.in_(
-            ("PROPERTIES", "UNITS", "OWNERS", "VENDORS", "TENANTS")
-        ),
-    ).all()
+    # All reviewed source claims can include older Yardi runs, but only
+    # customer target IDs referenced by this run's durable or staged review
+    # records can affect its readiness. Keep historical NULL source IDs.
+    review_columns = {
+        "PROPERTIES": "resolution_target_id",
+        "UNITS": "resolution_target_unit_id",
+        "OWNERS": "resolution_target_owner_user_id",
+        "VENDORS": "resolution_target_vendor_id",
+        "TENANTS": "resolution_target_tenant_user_id",
+    }
+    involved_targets = {resource: set() for resource in review_columns}
+    for item in items:
+        if item.resource in involved_targets and item.target_id is not None:
+            involved_targets[item.resource].add(item.target_id)
+    for staged_row in rows:
+        if staged_row.resource in involved_targets:
+            target_id = getattr(staged_row, review_columns[staged_row.resource])
+            if target_id is not None:
+                involved_targets[staged_row.resource].add(target_id)
+        if staged_row.resource == "LEASE_OCCUPANCY":
+            for resource, field in (
+                ("PROPERTIES", "resolution_target_id"),
+                ("UNITS", "resolution_target_unit_id"),
+                ("TENANTS", "resolution_target_tenant_user_id"),
+            ):
+                target_id = getattr(staged_row, field)
+                if target_id is not None:
+                    involved_targets[resource].add(target_id)
+    review_filters = [
+        and_(
+            PlatformMigrationStagedRow.resource == resource,
+            getattr(PlatformMigrationStagedRow, review_columns[resource]).in_(target_ids),
+        )
+        for resource, target_ids in involved_targets.items() if target_ids
+    ]
+    reviewed_claim_rows = []
+    if review_filters:
+        reviewed_claim_rows = db.query(
+            PlatformMigrationStagedRow.resource,
+            PlatformMigrationStagedRow.source_id,
+            PlatformMigrationStagedRow.resolution_target_id,
+            PlatformMigrationStagedRow.resolution_target_unit_id,
+            PlatformMigrationStagedRow.resolution_target_owner_user_id,
+            PlatformMigrationStagedRow.resolution_target_vendor_id,
+            PlatformMigrationStagedRow.resolution_target_tenant_user_id,
+        ).filter(
+            PlatformMigrationStagedRow.organization_id == run.organization_id,
+            PlatformMigrationStagedRow.provider == "YARDI",
+            PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+            or_(*review_filters),
+        ).all()
     reviewed_claim_sources = {}
     for resource, source_id, property_id, unit_id, owner_id, vendor_id, tenant_id in reviewed_claim_rows:
         target = {
@@ -1737,6 +1828,7 @@ def get_yardi_reconciliation(
         "staged": len(lease_rows), "complete_identity_links": 0,
         "missing_property": 0, "missing_unit": 0, "missing_tenant": 0,
         "unit_property_mismatch": 0, "unit_source_parent_mismatch": 0,
+        "unit_source_parent_unverified": 0, "source_review_ready": 0,
         "lease_source_id_collisions": 0, "identity_source_id_collisions": 0,
         "identity_target_review_collisions": 0,
         "identity_target_binding_collisions": 0,
@@ -1822,6 +1914,8 @@ def get_yardi_reconciliation(
             reviewed_parents = reviewed_lease_unit_parent_sources.get((
                 unit_link.source_id, unit_link.source_fingerprint, unit_link.target_id,
             ))
+            if not reviewed_parents:
+                lease_relationship_readiness["unit_source_parent_unverified"] += 1
             if reviewed_parents:
                 source_parent_current = (
                     None not in reviewed_parents
@@ -1860,13 +1954,18 @@ def get_yardi_reconciliation(
         )
         if accepted_review_stale:
             lease_relationship_readiness["accepted_relationship_stale"] += 1
-        if (property_id is not None and unit_id is not None and tenant_id is not None
-                and not source_parent_conflicts and not target_parent_conflicts
-                and not source_id_collision and not identity_collision
-                and not target_review_collision
-                and not durable_target_collision and not durable_source_collision
-                and not accepted_review_stale):
+        complete_links = (
+            property_id is not None and unit_id is not None and tenant_id is not None
+            and not source_parent_conflicts and not target_parent_conflicts
+            and not source_id_collision and not identity_collision
+            and not target_review_collision
+            and not durable_target_collision and not durable_source_collision
+            and not accepted_review_stale
+        )
+        if complete_links:
             lease_relationship_readiness["complete_identity_links"] += 1
+            if source_parent_current:
+                lease_relationship_readiness["source_review_ready"] += 1
         # A cross-run target review can move from lease A to lease B without
         # changing the aggregate stale/complete counts. Fingerprint each
         # source lease's readiness, not just the run-level totals.
@@ -1875,6 +1974,7 @@ def get_yardi_reconciliation(
             bool(identity_collision), bool(target_review_collision),
             bool(durable_target_collision), bool(durable_source_collision),
             bool(source_parent_conflicts), bool(source_parent_current),
+            bool(complete_links and source_parent_current),
             bool(target_parent_conflicts), bool(source_id_collision),
             bool(accepted_review_stale),
         ))

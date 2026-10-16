@@ -1195,3 +1195,252 @@ def test_yardi_lease_durable_claim_projection_respects_provider_and_organization
     finally:
         db.close()
         engine.dispose()
+
+
+
+def test_yardi_lease_preview_page_scopes_lookups_but_keeps_off_page_duplicates():
+    """A page must query only its dependencies without hiding outside-page conflicts."""
+    db, engine = _session()
+    try:
+        actor, org, run, original, alternate, unit, tenant, first_lease = _seed(
+            db, "yardi-lease-paged-source-claims",
+        )
+        second_upload = stage_yardi_file(
+            db, run=run, filename="later-leases.csv",
+            content=(
+                b"Lease,Tenant,Property,Unit\n"
+                b"L2,T-MISSING,P-MISSING,U-MISSING\n"
+                b"L1,T1,P1,U1\n"
+            ),
+            resource_override="LEASE_OCCUPANCY", sheet_name=None,
+            explicit_mapping={
+                "source_id": "Lease", "source_tenant_id": "Tenant",
+                "source_property_id": "Property", "source_unit_id": "Unit",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        assert second_upload.upload.id is not None
+
+        sql = []
+        def record_query(connection, cursor, statement, parameters, context, executemany):
+            if statement.lstrip().lower().startswith("select"):
+                sql.append(" ".join(statement.lower().split()))
+        event.listen(engine, "before_cursor_execute", record_query)
+        try:
+            first_page = list_yardi_lease_relationships(
+                run.id, Response(), offset=0, limit=1, db=db, current_user=actor,
+            )
+            page_sql = list(sql)
+            sql.clear()
+            second_page = list_yardi_lease_relationships(
+                run.id, Response(), offset=1, limit=1, db=db, current_user=actor,
+            )
+            sql.clear()
+            empty_page = list_yardi_lease_relationships(
+                run.id, Response(), offset=100, limit=1, db=db, current_user=actor,
+            )
+            empty_sql = list(sql)
+        finally:
+            event.remove(engine, "before_cursor_execute", record_query)
+        assert first_page["total"] == second_page["total"] == empty_page["total"] == 3
+        assert first_page["items"][0]["source_id"] == "L1"
+        assert first_page["items"][0]["blockers"] == ["LEASE_SOURCE_ID_COLLISION"]
+        assert second_page["items"][0]["source_id"] == "L2"
+        assert second_page["items"][0]["blockers"] == [
+            "PROPERTY_IDENTITY_UNMAPPED_OR_INACTIVE",
+            "UNIT_IDENTITY_UNMAPPED_OR_INACTIVE",
+            "TENANT_IDENTITY_UNMAPPED_OR_INACTIVE",
+        ]
+        assert empty_page["items"] == []
+        # No broad mapping, Unit review, or retained staff-review SELECT for
+        # an empty page. A nonempty page uses SQL source-ID pagination.
+        assert any("platform_migration_items.source_id in" in item for item in page_sql)
+        assert any("platform_migration_staged_rows.source_id in" in item
+                   for item in page_sql)
+        assert not any("platform_migration_items.source_id in" in item for item in empty_sql)
+        assert not any("platform_migration_staged_rows.source_id in" in item for item in empty_sql)
+        assert db.query(Lease).count() == 0
+        db.refresh(unit)
+        db.refresh(tenant)
+        assert unit.unit_number == "101"
+        assert tenant.hashed_password == "unchanged-password-hash"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_yardi_lease_preview_page_scoping_retains_other_upload_identity_versions():
+    db, engine = _session()
+    try:
+        actor, org, run, original, alternate, unit, tenant, first_lease = _seed(
+            db, "yardi-lease-paged-unit-collisions",
+        )
+        stage_yardi_file(
+            db, run=run, filename="another-unit-version.csv",
+            content=b"Unit,Parent,Label\nU1,P1,changed-101\n",
+            resource_override="UNITS", sheet_name=None,
+            explicit_mapping={
+                "source_id": "Unit", "source_property_id": "Parent",
+                "unit_name": "Label",
+            }, platform_user_id=actor.id,
+        )
+        db.commit()
+        preview = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=1, db=db, current_user=actor,
+        )
+        assert preview["total"] == 1
+        assert "UNIT_SOURCE_ID_COLLISION" in preview["items"][0]["blockers"]
+        assert preview["items"][0]["identity_links_complete"] is False
+        assert preview["customer_business_mutation"] is False
+        assert db.query(Lease).count() == 0
+        db.refresh(original)
+        db.refresh(unit)
+        assert original.name == "Original"
+        assert unit.unit_number == "101"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+def test_lease_identity_links_do_not_imply_exact_source_review_readiness():
+    """Staff cannot accept otherwise complete identities without the reviewed Unit parent."""
+    db, engine = _session()
+    try:
+        actor, org, run, original, alternate, unit, tenant, lease_row = _seed(
+            db, "yardi-lease-distinct-source-review-readiness",
+        )
+        exact_unit_review = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.run_id == run.id,
+            PlatformMigrationStagedRow.resource == "UNITS",
+            PlatformMigrationStagedRow.source_id == "U1",
+            PlatformMigrationStagedRow.resolution_action == "MATCH_EXISTING",
+        ).one()
+        exact_unit_review.resolution_action = None
+        db.commit()
+        first = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        assert first["identity_links_complete"] is True
+        assert first["blockers"] == []
+        assert first["unit_source_parent_matches_lease"] is None
+        assert first["source_review_ready"] is False
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        status = baseline["lease_relationship_readiness"]
+        assert status["complete_identity_links"] == 1
+        assert status["source_review_ready"] == 0
+        assert status["unit_source_parent_unverified"] == 1
+        with pytest.raises(HTTPException) as unsupported:
+            accept_yardi_staged_lease_relationship(run.id, lease_row.id, db, actor)
+        assert unsupported.value.status_code == 409
+        db.refresh(lease_row)
+        assert lease_row.resolution_action is None
+
+        exact_unit_review.resolution_action = "MATCH_EXISTING"
+        db.commit()
+        verified = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        assert verified["source_review_ready"] is True
+        summary = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert summary["lease_relationship_readiness"]["source_review_ready"] == 1
+        assert summary["lease_relationship_readiness"]["unit_source_parent_unverified"] == 0
+        assert summary["review_fingerprint"] != baseline["review_fingerprint"]
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease_row.id, db, actor,
+        )["replayed"] is False
+
+        # Even with original source-parent evidence, a live customer Unit
+        # moved to another Property must not become staff-review-ready.
+        unit.property_id = alternate.id
+        db.commit()
+        moved = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        assert moved["unit_source_parent_matches_lease"] is True
+        assert moved["source_review_ready"] is False
+        assert "UNIT_PROPERTY_MISMATCH" in moved["blockers"]
+        assert get_yardi_reconciliation(
+            run.id, Response(), db, actor,
+        )["lease_relationship_readiness"]["source_review_ready"] == 0
+        assert db.query(Lease).count() == 0
+        db.refresh(tenant)
+        assert tenant.hashed_password == "unchanged-password-hash"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+def test_yardi_aggregate_claims_are_scoped_to_run_customer_targets():
+    """Cross-run evidence remains authoritative without an org-wide claim scan."""
+    db, engine = _session()
+    try:
+        actor, org, run, original, alternate, unit, tenant, lease_row = _seed(
+            db, "yardi-aggregate-page-identity-claims",
+        )
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease_row.id, db, actor,
+        )["replayed"] is False
+        other_tenant = User(
+            organization_id=org.id, role=UserRole.TENANT,
+            email="unrelated-yardiclaim@example.test",
+            hashed_password="unrelated-hash",
+            first_name="Unrelated", last_name="Tenant", is_active=True,
+        )
+        unrelated_run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="unrelated-target-review", status="DRAFT",
+        )
+        db.add_all([other_tenant, unrelated_run])
+        db.commit()
+        upload = stage_yardi_file(
+            db, run=unrelated_run, filename="unrelated-resident.csv",
+            content=b"Resident Ref,Full Name\nT-OTHER,Unrelated Person\n",
+            resource_override="TENANTS", sheet_name=None,
+            explicit_mapping={"source_id": "Resident Ref", "name": "Full Name"},
+            platform_user_id=actor.id,
+        )
+        db.commit()
+        competitor = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).one()
+        competitor.resolution_action = "MATCH_EXISTING"
+        competitor.resolution_target_tenant_user_id = other_tenant.id
+        db.commit()
+
+        statements = []
+        def observe(connection, cursor, statement, parameters, context, executemany):
+            sql = " ".join(statement.lower().split())
+            if (sql.startswith("select") and "platform_migration_staged_rows" in sql
+                    and "resolution_target_vendor_id" in sql
+                    and "resolution_action =" in sql):
+                statements.append(sql)
+        event.listen(engine, "before_cursor_execute", observe)
+        try:
+            baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        finally:
+            event.remove(engine, "before_cursor_execute", observe)
+        assert any("resolution_target_tenant_user_id in" in sql for sql in statements)
+        assert baseline["lease_relationship_readiness"]["complete_identity_links"] == 1
+        assert baseline["lease_relationship_readiness"]["identity_target_review_collisions"] == 0
+
+        competitor.resolution_target_tenant_user_id = tenant.id
+        db.commit()
+        contested = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert contested["lease_relationship_readiness"]["identity_target_review_collisions"] == 1
+        assert contested["lease_relationship_readiness"]["complete_identity_links"] == 0
+        assert contested["review_fingerprint"] != baseline["review_fingerprint"]
+        competitor.source_id = "T1"
+        db.commit()
+        restored = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert restored["lease_relationship_readiness"]["identity_target_review_collisions"] == 0
+        assert restored["lease_relationship_readiness"]["complete_identity_links"] == 1
+        assert db.query(Lease).count() == 0
+        db.refresh(tenant)
+        db.refresh(other_tenant)
+        assert tenant.hashed_password == "unchanged-password-hash"
+        assert other_tenant.hashed_password == "unrelated-hash"
+    finally:
+        db.close()
+        engine.dispose()

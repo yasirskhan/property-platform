@@ -1,3 +1,137 @@
+# AI_HANDOFF.md | Yardi Phase 4.15 | 2026-10-16
+
+## VERIFIED Sections 88–90, exact source `76ddbf9a9797c61e587826d77972ce9a1a1893ef`
+
+GitHub Actions `38850364542`: SUCCESS. All six jobs completed: backend/
+PostgreSQL, frontend, security, platform-admin, staging-config, authenticated
+E2E. Historical cross-run durable Property/Unit/Tenant source and target
+collisions now invalidate Lease preview, accepted replay and run readiness
+without customer mutation. Do not repeat this verified work.
+
+## Sections 91–102: CURRENT PUBLISHED PRODUCT, PROVISIONAL UNTIL CI
+
+A consolidated 12-section Lease source-review, pagination and performance
+milestone follows the exact verified Sections 88–90 source. Read the live HEAD
+to obtain its full source SHA. Verify all six hosted CI jobs at that precise
+SHA before marking it VERIFIED. Its additions remain metadata-only and
+include targeted PostgreSQL regression extensions; prior tests remain.
+If CI fails, repair the actual error. Do not weaken tests or modify main.
+Immediately prepare the next coherent batch detached while CI runs.
+
+---
+# AI_HANDOFF.md | Phase 4.15 Yardi | 2026-10-16
+
+## Consolidated Sections 91–102: PREPARED, NOT VERIFIED
+
+This next single major Lease-source milestone combines three coherent
+four-requirement groups on verified-prerequisite source `76ddbf9a9797c61e587826d77972ce9a1a1893ef`:
+- Sections 91–94: scope paginated preview identity bindings, original Unit
+  reviewed source versions, duplicate Lease evidence and retained target claims
+  to the requested page, never hiding collisions in other uploads/runs.
+- Sections 95–98: distinguish exact original Unit source-review readiness
+  from mere identity links; expose counters and staff warning; test missing
+  review, recovery and reparented customer Unit.
+- Sections 99–102: scope aggregate retained cross-run reviewed-claim SELECTs
+  to relevant customer target IDs, preserving NULL-source and same-source
+  semantics, row fingerprints and customer data.
+
+Updated backend router, PostgreSQL regressions, staff Yardi console,
+`docs/YARDI_MIGRATION_PLAN.md` and this handoff together. No tests removed,
+skipped or weakened. No customer Property/Unit/User/Lease mutation, accounting
+posting, external API or undocumented source contract enabled. The old
+provisional descriptions below are historical preparation, not verification.
+The sole allowed branch is `chatgpt/checkpoint-005-safety`, never main.
+
+**Publication gate:** latest exact-SHA CI for `76ddbf9a9797c61e587826d77972ce9a1a1893ef` must pass all six
+jobs before fast-forward branch update. After publication, require another
+all-six-job GitHub Actions success at the exact newly published SHA.
+Do not overwrite another session or force-push. During hosted CI,
+immediately prepare the following bounded batch detached. If CI fails,
+fix genuine failures without weakening tests before marking verified.
+
+---
+# AI_HANDOFF.md | Phase 4.15 Yardi | 2026-10-16
+
+## Prepared batch: Sections 99–102 (NOT VERIFIED)
+
+Read-only run reconciliation's retained historical Yardi reviewed target claims
+are now scoped to resource/target IDs relevant to the run's durable mappings
+and staged source/Lease reviews. Preserve unknown historical NULL provider
+source claims, cross-run different-source safety, same-source identity reuse,
+and per-row/per-Lease private fingerprint behavior. PostgreSQL regression
+checks that an unrelated staff-reviewed Tenant claim stays isolated and
+that a moved claim invalidates Lease readiness, with SQL target filtering.
+No existing tests were removed or weakened, no customer business data edited.
+
+This is a detached source batch on top of Sections 95–98 source
+`c17e33aed51d89486f331208b12e0977733937d9`, and requires prior exact-SHA CI verification for Sections 88–90,
+91–94 and 95–98 before branch publication. Then perform its own full six-job
+hosted CI verification; do not claim local test execution in connector-only
+chat. The sole allowed branch is `chatgpt/checkpoint-005-safety`.
+Never touch main or force-push; check live HEAD and CI before updating refs.
+
+---
+# AI_HANDOFF.md | Phase 4.15 Yardi | 2026-10-16
+
+## Prepared follow-up Sections 95–98: NOT VERIFIED
+
+On top of detached Sections 91–94 source `e334c101cfb881867f9a36ad7f07470c07173107`, this grouped change:
+1. Separates read-only Lease `source_review_ready` from existing complete
+   identity links; requires exact reviewed Unit source-parent evidence.
+2. Adds `source_review_ready` and `unit_source_parent_unverified` aggregate
+   counters without changing the original complete identity links definition.
+3. Shows clear staff-level per-Lease and aggregate warnings about insufficient
+   original source-parent evidence, without enabling any customer data import.
+4. Adds a PostgreSQL regression for missing exact reviewed Unit evidence,
+   409 acceptance refusal, restored fingerprint/readiness and later moved Unit
+   invalidation. Historical review/tenant/customer data is preserved.
+
+No existing tests were removed, skipped or weakened. All original Yardi file,
+review, authorization, source contract, organization isolation and no-finance
+constraints remain. This is prepared only, NOT verified. Confirm live branch
+HEAD and exact-SHA Sections 88–90 CI, then publish Sections 91–94 with
+expected-head update and hosted CI, then proceed to this source after its
+prerequisite milestone verifies. Keep preparing independent batches without
+overwriting concurrent session changes.
+
+---
+# AI_HANDOFF.md | Phase 4.15 Yardi | 2026-10-16
+
+## Next development milestone: Sections 91–94 (PREPARED, NOT VERIFIED)
+
+On top of published Sections 88–90 source `76ddbf9a9797c61e587826d77972ce9a1a1893ef`, the next source:
+1. Filters the read-only Lease preview's Property/Unit/Tenant mapping query
+   to staged source identities on the current page.
+2. Filters exact original reviewed Unit parent evidence and unresolved
+   source collisions to page identity keys, retaining ALL versions across
+   same-run uploads and fail-closed conflicting/invalid rows.
+3. Restricts Lease duplicate-ID review and organization-wide retained staff
+   source claim projections to the relevant page IDs/customer targets,
+   including historical NULL provider source IDs.
+4. Adds PostgreSQL regressions for a duplicate Lease source on another
+   page, missing source identity, empty pages and SQL scope, and an original
+   Unit source duplicate on another upload.
+
+No existing test was deleted, disabled or weakened; the original Lease
+acceptance, initial/replayed durable identity and private fingerprint safety
+from Sections 88–90 remains unchanged. This is read-only metadata scope only.
+No customer mutation, Lease/occupancy creation, GL/AR/AP or unsupported Yardi
+API assumptions. Staff preview permissions and no-store responses remain.
+
+This is a detached proposed commit until exact SHA `76ddbf9a9797c61e587826d77972ce9a1a1893ef` passes hosted
+CI `38850364542`. Do not advance the sole branch across failures or
+concurrent work. After successful CI, inspect live HEAD and publish via
+expected-HEAD fast-forward only, then verify the new milestone's six jobs.
+If failures arise, repair and rerun before marking VERIFIED. Do not
+overwrite another session or force push. Prepare subsequent bounded batches
+while hosted CI runs.
+
+## Latest VERIFIED checkpoint before Sections 88–94
+
+Sections 76–87: `76508641742b1650f00404ed2f1ac483c35fc938`,
+CI `38846302757` SUCCESS, all six required jobs.
+
+---
 # AI_HANDOFF.md | Phase 4.15 Yardi | 2026-10-16
 
 ## Last VERIFIED milestone: Sections 76–87

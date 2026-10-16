@@ -95,6 +95,7 @@ type LeaseRelationshipRow = {
   source_id: string | null;
   blockers: string[];
   identity_links_complete: boolean;
+  source_review_ready: boolean;
   relationship_review_recorded: boolean;
   relationship_review_current: boolean;
   unit_source_parent_matches_lease: boolean | null;
@@ -675,6 +676,8 @@ export default function YardiMigrationConsole() {
             <p className="mt-2 break-all font-mono text-xs text-slate-500">Current fingerprint: {reconciliation.review_fingerprint}</p>
             <p className="mt-2 text-xs text-slate-700">
               Lease source identity links complete: {reconciliation.lease_relationship_readiness.complete_identity_links ?? 0}
+              {" · "}Source relationships ready for explicit staff identity review: {reconciliation.lease_relationship_readiness.source_review_ready ?? 0}
+              {" · "}Missing exact Unit source-parent review evidence: {reconciliation.lease_relationship_readiness.unit_source_parent_unverified ?? 0}
               {" · "}Current Unit/Property mismatches: {reconciliation.lease_relationship_readiness.unit_property_mismatch ?? 0}
               {" · "}Original Unit source-parent conflicts: {reconciliation.lease_relationship_readiness.unit_source_parent_mismatch ?? 0}
               {" · "}Unskipped lease source-ID collision rows: {reconciliation.lease_relationship_readiness.lease_source_id_collisions ?? 0}
@@ -791,6 +794,9 @@ export default function YardiMigrationConsole() {
                     <span>{item.identity_links_complete
                       ? "Identity links found — lease still not authorized"
                       : item.blockers.map((blocker) => blocker.replaceAll("_", " ").toLowerCase()).join("; ")}</span>
+                    <span className="block text-xs font-medium">
+                      {item.source_review_ready ? "Exact source relationships reviewed for staff acceptance" : "Not ready for source relationship acceptance; reconcile original Unit evidence and identity blockers"}
+                    </span>
                     {item.relationship_review_recorded && <span className="block text-xs font-medium">{item.relationship_review_current ? "Accepted review remains current" : "Accepted review is stale — reconcile before further action"}</span>}
                     <span className="mt-1 block text-xs text-slate-600">
                       {item.unit_source_parent_matches_lease === true

@@ -1128,3 +1128,152 @@ applicable contracts and read-only diagnostic staff console are modified.
 GitHub Actions run `38846302757` (all six required jobs PASS). Sections
 88-90 are PROVISIONAL pending their own exact-source six-job hosted CI.
 Financial and official Yardi API source contracts remain blocked.
+
+
+## 91. Bound lease source-to-target mapping by preview page (2026-10-16)
+
+The Yardi read-only Lease relationship preview now gathers the exact staged
+Property, Unit and Tenant source IDs referenced by only the selected page.
+Its durable identity mapping lookup is filtered by resource and source ID
+instead of loading every run-level binding. Missing source IDs remain missing;
+no synthetic matches or customer record updates are made. Empty pages do not
+query source-to-target mappings.
+
+## 92. Retain complete relevant Unit parent and source collision history (2026-10-16)
+
+The same preview scopes exact historical Unit MATCH_EXISTING parent evidence
+and unresolved staged Property/Unit/Tenant source collision aggregation to
+source identities referenced by that page. It still considers ALL historical
+same-run versions, including other uploads outside the page. It never
+chooses only the newest original Unit source parent or treats explicit
+SKIP as automatically merging conflicting identities.
+
+## 93. Page-bound lease duplicate and cross-run staff claim projection (2026-10-16)
+
+Duplicate Lease source-ID checks select all same-run source versions for only
+the Lease IDs displayed in the page, retaining off-page duplicate blockers.
+Reviewed Yardi source claims from ANY run in the organization are scoped to
+the current page's mapped customer target IDs and resource. Unknown historical
+NULL source IDs remain contested. The source/target exact durable history
+checks from Sections 88–90 remain independent and active.
+
+## 94. Pagination integrity, SQL-scope and customer preservation tests (2026-10-16)
+
+The existing PostgreSQL Lease acceptance regression suite adds a test for
+two Lease pages plus off-page duplicate version, a missing-identity page,
+empty-page query filtering, and source-ID-scoped SQL. A second test confirms
+a new Unit source version from a separate upload still makes the current
+page's Unit mapping ambiguous. All tests are retained; no test removed,
+relaxed, skipped or disabled. No customer Leases, Property/Unit details,
+Tenant login/hash, payments or accounting are created or changed.
+
+**Verification gate:** These four changes are a single provisional
+read-only source and regression batch. Require full six-job GitHub Actions
+at its exact published SHA before calling Sections 91–94 VERIFIED.
+Sections 88–90 source `76ddbf9a9797c61e587826d77972ce9a1a1893ef`
+was published before this follow-up and must be verified by its own CI
+run `38850364542`; the run was in progress when this batch was prepared.
+
+## 95. Explicit Lease source review readiness separate from identity linkage (2026-10-16)
+
+The read-only per-Lease Yardi source relationship preview now reports
+`source_review_ready` independently from `identity_links_complete`. Complete
+Property, Unit and Tenant customer identity links alone are not sufficient for
+an explicit staff ACCEPT_RELATIONSHIP decision. Source review readiness
+additionally requires exact explicitly reviewed Unit original source-parent
+evidence agreeing with the Lease's Yardi Property source, plus the absence of
+the existing source, durable claim, customer and duplicate blockers. No
+customer Lease or occupancy is authorized by this diagnostic flag.
+
+## 96. Aggregate unverified parent and accepted source readiness counts (2026-10-16)
+
+Run-level read-only reconciliation now separately reports
+`unit_source_parent_unverified` when a valid linked Unit has no exact
+MATCH_EXISTING source-parent evidence, and `source_review_ready` for Lease
+rows whose identity links and original Unit source relationship are currently
+verified. Existing `complete_identity_links` retains its original meaning
+and is not silently reinterpreted or weakened. Exact per-Lease readiness
+enters the private review fingerprint so old dry runs cannot mask changed
+source evidence. Initial and replayed acceptance remain strictly guarded.
+
+## 97. Staff console differentiates source readiness and identity links (2026-10-16)
+
+The authenticated internal Yardi staff console displays both aggregate counts
+and a per-Lease source review readiness indicator, explicitly warning when
+otherwise resolved identity links still lack the original Unit source-parent
+review or have current blockers. It never offers automatic Lease/customer
+record creation or financial posting.
+
+## 98. PostgreSQL incomplete source-review and recovery regression (2026-10-16)
+
+A regression starts with complete Property/Unit/Tenant durable identity links,
+then removes exact original Unit MATCH_EXISTING source evidence. Preview still
+reports complete identity links but no source-review readiness; aggregate
+counts classify the unknown parent; explicit acceptance returns HTTP 409.
+Restoring original exact reviewed evidence changes the review fingerprint,
+allows metadata-only acceptance and preserves customer business fields.
+Moving the currently active customer Unit later makes source readiness false
+even though historical source evidence remains. All earlier tests remain;
+no customer Lease, GL, payment, user hash or ownership is modified.
+
+Sections 95-98 are a single PROVISIONAL metadata-only milestone, prepared on
+top of Sections 91-94; neither is VERIFIED until hosted exact-SHA CI passes
+all six required jobs. The source transport contract blockers remain intact.
+
+## 99. Aggregate reconciliation projects only involved reviewed customer targets (2026-10-16)
+
+The run-level read-only Yardi reconciliation retains cross-run historical
+MATCH_EXISTING review claims but scopes them to relevant resource/target IDs
+from this run's durable identity metadata and its staged explicit source-review
+decisions. Historical accepted Lease target snapshots are also included for
+conservative visibility. Unrelated same-organization target review records
+are no longer loaded during every run reconciliation.
+
+## 100. Preserve cross-run unknown and different source collision semantics (2026-10-16)
+
+The scoped review projection continues treating a different Yardi provider
+source ID, including historical NULL/unknown IDs, as a conflict for the exact
+customer target. A stable identical provider source ID reviewed again in a
+second run remains a non-competing claim. Scope by resource and actual target
+ID to avoid unrelated Property, Owner, Tenant, Vendor and Unit contamination.
+All original record-level review decisions and mappings remain unmodified.
+
+## 101. Preserve exact per-identity and per-Lease fingerprints (2026-10-16)
+
+Read-only reconciliation continues to fingerprint the exact identity and
+Lease row readiness, not merely aggregate counts, so moving a reviewed claim
+between two relevant targets changes the digest even when totals do not.
+Non-affecting unrelated customer target claims must not create spurious
+collisions. No business data or staged historical audit evidence is edited.
+
+## 102. Scoped reviewed-claim SQL and customer-preservation regression (2026-10-16)
+
+A focused PostgreSQL regression uses a separately staged reviewed Tenant
+source whose customer target is initially unrelated to the migration run,
+then changes it to contest this run's Tenant and restores it to the same
+stable Yardi source identity. It asserts SQL target-ID-scoping, same-run
+Lease readiness invalidation, fingerprint changes and preserved customer
+Lease records and login hashes. Existing regression assertions are retained;
+no test removed, disabled or weakened.
+
+Sections 99-102 remain PROVISIONAL pending exact-SHA six-job hosted CI after
+Sections 95-98 have passed. The official Yardi source contract, accounting,
+lease/occupancy business commit and customer mutation gates remain unchanged.
+
+
+## Consolidated Sections 91–102 milestone gate (2026-10-16)
+
+Sections 91–102 form three four-requirement Lease read-only safety/performance
+batches in one source milestone and one intended hosted six-job CI. Existing
+coverage and source-contract blockers are preserved. Source `76ddbf9a9797c61e587826d77972ce9a1a1893ef`
+(Sections 88–90) must pass exact-SHA CI before publication; this consolidated
+milestone remains PROVISIONAL until its own full six-job CI succeeds.
+
+
+## Sections 88–90 exact-SHA verification (2026-10-16)
+
+Source `76ddbf9a9797c61e587826d77972ce9a1a1893ef` successfully completed GitHub Actions `38850364542`:
+all six required jobs passed (backend/PostgreSQL, frontend, security,
+platform-admin, staging-config, authenticated E2E). The three-resource
+cross-run durable Lease collision safety is VERIFIED. Sections 91–102
+remain PROVISIONAL until their own exact-source hosted six-job CI passes.
