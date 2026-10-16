@@ -133,3 +133,7 @@ After publishing, require full exact-SHA CI verification for the milestone.
 ## Prepared Sections 70–72 (NOT VERIFIED)
 
 Original Unit parent identity now has an independent Property target-review collision guard, using one scoped query per inventory page. Staff display a clear warning. PostgreSQL regression checks different source claim, recovery, identical source across runs, unknown historical source and query stability. This is diagnostic only. No customer, Lease or finance mutation and no weakening of tests. Publish only after confirming live HEAD and exact-SHA CI for the preceding batch.
+
+## Sections 67–72 hosted CI repair (2026-10-15)
+
+Run `38842820141` FAILED during Python compilation because a new regression fixture joined a header string and a variable without the required `+` operator in `backend/tests/test_yardi_durable_binding_inventory.py` line 717. This is a test syntax issue, not a Yardi runtime failure. The original tests and all new assertions are preserved; the concatenation is repaired with one character and requires a new exact-SHA all-six-job hosted CI before Sections 67–72 are VERIFIED. Platform-admin, security and frontend passed the failed run; backend failed and E2E/staging were skipped. Do not claim the failed SHA is verified. Continue preparing follow-up batches detached while CI runs.

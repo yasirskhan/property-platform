@@ -715,7 +715,7 @@ def test_yardi_unit_parent_inventory_rejects_ambiguous_mapped_property_source(mo
             upload = stage_yardi_file(
                 db, run=run, filename="property-parent.csv",
                 content=("ID,Name,Street,City,State,Zip\n"
-                         source_id + "," + name + ",1 Main,Cleveland,OH,44113\n").encode(),
+                         + source_id + "," + name + ",1 Main,Cleveland,OH,44113\n").encode(),
                 resource_override="PROPERTIES", sheet_name=None,
                 explicit_mapping={
                     "source_id": "ID", "name": "Name", "address_line1": "Street",
