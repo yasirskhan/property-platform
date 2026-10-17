@@ -1238,3 +1238,111 @@ def test_contested_lease_historic_identity_stays_blocked_after_tenant_profile_up
     finally:
         db.close()
         engine.dispose()
+
+
+@pytest.mark.parametrize("unrelated_resource", ["OWNERS", "VENDORS"])
+def test_accepted_lease_review_ignores_unrelated_owner_or_vendor_eligibility_change(
+    unrelated_resource,
+):
+    """An unreferenced customer type cannot expire a Lease-only source snapshot."""
+    from datetime import datetime
+    from app.models.audit_log import AuditLog
+    from app.models.platform_migration import PlatformMigrationItem
+    from app.models.user import User, UserRole
+    from app.models.vendor import Vendor
+
+    db, engine = _session()
+    try:
+        actor, org, run, prop, alternate, unit, tenant, lease = _seed(
+            db, slug=f"yardi-lease-unrelated-{unrelated_resource.lower()}-eligibility",
+        )
+        before_leases = db.query(Lease).count()
+        before_mappings = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+        ).count()
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease.id, db, actor,
+        )["replayed"] is False
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["lease_relationship_readiness"]["source_review_ready"] == 1
+        saved = dry_run_yardi_review(run.id, db, actor)
+        assert saved["review_fingerprint"] == baseline["review_fingerprint"]
+        before_review_audits = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "yardi_review_dry_run",
+        ).count()
+        assert before_review_audits == 1
+
+        if unrelated_resource == "OWNERS":
+            unrelated = User(
+                organization_id=org.id, role=UserRole.OWNER,
+                email="unrelated-lease-owner@example.test",
+                hashed_password="unrelated-owner-preserved-hash",
+                first_name="Unrelated", last_name="Owner", is_active=True,
+            )
+        else:
+            unrelated = Vendor(
+                organization_id=org.id, company_name="Unrelated Lease Vendor",
+            )
+        db.add(unrelated)
+        db.commit()
+
+        if unrelated_resource == "OWNERS":
+            unrelated.is_active = False
+        else:
+            unrelated.deleted_at = datetime.utcnow()
+        db.commit()
+        unchanged = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert unchanged["lease_relationship_readiness"] == baseline["lease_relationship_readiness"]
+        assert unchanged["review_fingerprint"] == baseline["review_fingerprint"]
+        assert unchanged["customer_business_mutation"] is False
+        preview = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10,
+            db=db, current_user=actor,
+        )["items"][0]
+        assert preview["blockers"] == []
+        assert preview["relationship_review_current"] is True
+        assert preview["occupancy_or_lease_authorized"] is False
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is True
+        assert dry_run_yardi_review(run.id, db, actor)["replayed"] is True
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "yardi_review_dry_run",
+        ).count() == before_review_audits
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease.id, db, actor,
+        )["replayed"] is True
+
+        if unrelated_resource == "OWNERS":
+            unrelated.is_active = True
+        else:
+            unrelated.deleted_at = None
+        db.commit()
+        restored = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert restored["review_fingerprint"] == baseline["review_fingerprint"]
+        assert restored["lease_relationship_readiness"]["source_review_ready"] == 1
+        assert db.query(Lease).count() == before_leases
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+        ).count() == before_mappings
+        db.refresh(unrelated)
+        db.refresh(tenant)
+        db.refresh(prop)
+        db.refresh(unit)
+        if unrelated_resource == "OWNERS":
+            assert unrelated.is_active is True
+            assert unrelated.hashed_password == "unrelated-owner-preserved-hash"
+        else:
+            assert unrelated.deleted_at is None
+            assert unrelated.company_name == "Unrelated Lease Vendor"
+        assert tenant.hashed_password == "unchanged-password-hash"
+        assert prop.name == "Original"
+        assert unit.property_id == prop.id
+        assert lease.resolution_action == "ACCEPT_RELATIONSHIP"
+    finally:
+        db.close()
+        engine.dispose()

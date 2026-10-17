@@ -2658,3 +2658,17 @@ historical source identity must still expire the saved snapshot before
 restoration. No Yardi product or customer mutation, no migration
 Lease/occupancy or financial posting. Detached and provisional until
 verified hosted CI at the exact predecessor and successor commits.
+
+
+### Unlinked Owner/Vendor eligibility must not expire a Yardi Lease review (2026-10-16)
+
+Two additional PostgreSQL cases check that an unreferenced same-organization
+Owner becoming inactive or Vendor being archived cannot expire an accepted
+Lease's source-exact reviewed Property/Unit/Tenant snapshot, page preview,
+or idempotent review/acceptance replay. Original customer fixture states
+are restored and unrelated password/company names remain intact, while
+no new Lease, migration binding, or duplicate dry-run audit is created.
+This is source-dependency isolation only; no migration endpoints write
+customer business records or enable unsupported Yardi API, Lease/occupancy
+creation, owner allocation or financial posting. Detached until hosted
+six-job verification on the parent and final published descendant.

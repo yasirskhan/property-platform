@@ -1,3 +1,21 @@
+# 2026-10-16 | DETACHED unrelated Owner/Vendor Lease-source isolation
+
+Two additional parameterized PostgreSQL regressions check that an
+unreferenced, same-org Owner account becoming inactive or Vendor being
+archived leaves an existing accepted YARDI Lease's Property/Unit/Tenant
+exact review fingerprint, pagination blockers, saved dry-run status and
+replay unchanged, without duplicate audit events. Customer fixture
+states, no-mutation guarantees and prior tests preserved.
+DETACHED successor of `a66aade4d6cc9433c281f285636907337bfdc11b`, itself unpublished. The only
+published predecessor `27db379b2abe046c447b33cd6faa118f84efef9c`
+requires all SIX successful CI `38996279387` jobs and current sole
+branch HEAD check before final consolidated non-force expected-SHA
+fast-forward. Final source must pass its OWN six-job hosted CI.
+No main/force/new branch, unprovided Yardi §§133–135, source APIs,
+Lease/occupancy creation, owner allocations or financial posting.
+
+---
+
 # 2026-10-16 | DETACHED exact source restoration audit replay safety
 
 The six-case NULL-safe contested Lease profile review matrix now explicitly
