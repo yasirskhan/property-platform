@@ -103,6 +103,42 @@ def test_yardi_unit_required_field_summary_is_distinct_from_duplicate_ids():
 
 
 
+
+def test_yardi_missing_mapping_column_is_reported_for_each_staged_row():
+    """Incomplete explicit field maps remain blocked, with no customer Unit writes."""
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-unit-mapping-required")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="missing-unit-column-map", status="DRAFT",
+        )
+        db.add(run)
+        db.commit()
+        before = db.query(Unit).count()
+        upload = stage_yardi_file(
+            db, run=run, filename="missing-unit-map.csv",
+            content=b"ID,Parent\nU1,P1\nU2,P2\n",
+            resource_override="UNITS", sheet_name=None,
+            explicit_mapping={"source_id": "ID", "source_property_id": "Parent"},
+            platform_user_id=actor.id,
+        )
+        summary = upload.upload.validation_summary
+        assert upload.upload.status == "MAPPING_REQUIRED"
+        assert summary["missing_required_columns"] == ["unit_name"]
+        assert summary["missing_required_by_field"] == {
+            "source_id": 0, "source_property_id": 0, "unit_name": 2,
+        }
+        assert summary["invalid_required_rows"] == 2
+        assert summary["disposition_counts"]["INVALID"] == 2
+        assert db.query(Unit).count() == before
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
 def test_yardi_unit_staging_batches_parent_source_checks():
     """Many Unit source rows require bounded mapping reads, not N per-row queries."""
     from sqlalchemy import event
