@@ -1,3 +1,31 @@
+# 2026-10-16 | EIGHT-CASE CONSOLIDATED REVIEW FOLLOW-UP PUBLICATION
+
+**PREPARED DETACHED and NOT VERIFIED:** The related unpublished descendants
+of source `74bb1a22e1febac8e4a9e62b2f17d319c1eabd13` are ONE
+consolidated test-only Yardi source review milestone with EIGHT additional
+PostgreSQL cases. It includes four reviewed/durable Owner/Tenant password
+hash rotation invariants, two reviewed/durable exact Unit parent reassignment
+swap invalidations, and two reviewed/durable unrelated Unit reparenting
+isolation negatives. Customer fixture edits are restored; no production
+router changes, source API, Lease/occupancy, owner allocations, financial
+posting or customer-business migration mutation. ALL prior tests retained.
+
+The intermediate detached Git objects are ancestry only, NOT separately
+published/verified checkpoints. This top contract expressly supersedes
+earlier text below that requested their own prior hosted CI. Publish the
+FINAL consolidated descendant ONLY after all SIX hosted CI jobs of
+`38989472466` on exact published parent
+`74bb1a22e1febac8e4a9e62b2f17d319c1eabd13` succeed, and sole
+branch `chatgpt/checkpoint-005-safety` still equals that expected SHA.
+Use non-force expected-HEAD fast-forward, then require all SIX hosted
+CI jobs SUCCESS on final exact source SHA. Repair reds without weakening
+assertions, update plan and handoff with verified evidence, then continue
+the next independently supportable source safety batch.
+Never touch main or another branch. Do not invent unavailable
+original numbered Sections 133–135.
+
+---
+
 # 2026-10-16 | PREPARED unrelated Unit parent reassignment isolation
 
 Two PostgreSQL cases extend Unit original-parent review protections with

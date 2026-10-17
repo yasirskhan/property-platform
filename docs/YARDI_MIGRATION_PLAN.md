@@ -2259,3 +2259,20 @@ run, source binding or replay. The original unrelated Unit parent is restored
 inside the isolated test fixture; no customer business writes by migration,
 unsupported APIs, Lease/occupancy, financial posting or ownership allocation.
 Detached provisional successor pending exact predecessor and its own hosted CI.
+
+
+### Consolidated eight-case Yardi source identity/parent review gate (2026-10-16)
+
+The three unpublished related test-only successors after published 74bb1a22
+are ONE consolidated milestone requiring a single exact final-SHA six-job
+hosted verification. The eight new parameterized PostgreSQL cases cover
+Owner/Tenant credential-hash rotation, exact reassigned Unit source parent
+swap, and unreferenced same-org Unit reparenting isolation across reviewed
+and durable source bindings. Unpublished intermediate Git objects are
+ancestry only, and earlier notes asking for individually verified CI on
+those objects are superseded. The prior published 74bb1a22 must first
+pass all six jobs in GitHub Actions 38989472466, then branch HEAD must
+still match, before non-force expected-HEAD fast-forward directly to
+the final combined descendant. The final exact published SHA must pass
+its own six-job hosted CI before VERIFIED; no customer-business mutation
+or unsupported Yardi features are authorized.
