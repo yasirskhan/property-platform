@@ -1,3 +1,21 @@
+# 2026-10-16 | DETACHED contested Lease target profile safety
+
+Two new parameterized PostgreSQL cases prove that an already-contested
+Lease Tenant cannot shed a genuine same-org YARDI cross-run staff target
+claim by changing customer name or password-hash fields. Confirm exact
+stale fingerprint and paginated blocker, unchanged readiness counters,
+409 on repeat acceptance, scoped historical source restoration and
+no Yardi product/customer Lease or financial mutation. The fixture
+restores customer profile data. All previous tests remain unchanged.
+Detached parent `27db379b2abe046c447b33cd6faa118f84efef9c`; predecessor CI `38996279387` MUST pass all
+SIX jobs before safe non-force expected-HEAD branch publication.
+The new exact published SHA then needs its own six-job hosted CI.
+Only `chatgpt/checkpoint-005-safety`, no main/new branch/force,
+unsupported source contract, customer Lease/occupancy, owner allocation,
+financial posting or invented §§133–135.
+
+---
+
 # 2026-10-16 | PROVISIONAL accepted Lease eligible Tenant profile-change regressions
 
 Parent source `a344f781774bae282d792b182461e90f242ed8b1` is VERIFIED by hosted CI `38994769633`

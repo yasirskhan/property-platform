@@ -1074,3 +1074,101 @@ def test_accepted_lease_review_survives_eligible_tenant_profile_only_update(
     finally:
         db.close()
         engine.dispose()
+
+
+@pytest.mark.parametrize("profile_field,replacement", [
+    ("first_name", "Renamed Tenant While Contested"),
+    ("hashed_password", "rotated-contested-fixture-hash"),
+])
+def test_contested_lease_historic_identity_stays_blocked_after_tenant_profile_update(
+    profile_field, replacement,
+):
+    """Cosmetic or credential edits cannot resolve another Yardi run's target claim."""
+    db, engine = _session()
+    try:
+        actor, org, run, prop, alternate, unit, tenant, lease = _seed(
+            db, slug=f"yardi-lease-contested-profile-{profile_field}",
+        )
+        before_leases = db.query(Lease).count()
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease.id, db, actor,
+        )["replayed"] is False
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["lease_relationship_readiness"]["source_review_ready"] == 1
+
+        other_run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="historic-competing-tenant-review", status="DRAFT",
+        )
+        db.add(other_run)
+        db.flush()
+        upload = stage_yardi_file(
+            db, run=other_run, filename="competing-tenant-review.csv",
+            content=b"Resident Ref,Full Name\nT-OTHER,Another Tenant Source\n",
+            resource_override="TENANTS", sheet_name=None,
+            explicit_mapping={"source_id": "Resident Ref", "name": "Full Name"},
+            platform_user_id=actor.id,
+        )
+        db.commit()
+        historical = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).one()
+        historical.resolution_action = "MATCH_EXISTING"
+        historical.resolution_target_tenant_user_id = tenant.id
+        db.commit()
+
+        contested = get_yardi_reconciliation(run.id, Response(), db, actor)
+        readiness = contested["lease_relationship_readiness"]
+        assert readiness["identity_target_review_collisions"] == 1
+        assert readiness["accepted_relationship_stale"] == 1
+        assert readiness["source_review_ready"] == 0
+        assert readiness["complete_identity_links"] == 0
+        saved = dry_run_yardi_review(run.id, db, actor)
+        assert saved["review_fingerprint"] == contested["review_fingerprint"]
+
+        previous_value = getattr(tenant, profile_field)
+        setattr(tenant, profile_field, replacement)
+        db.commit()
+        current = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert current["lease_relationship_readiness"] == contested["lease_relationship_readiness"]
+        assert current["review_fingerprint"] == contested["review_fingerprint"]
+        status = get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )
+        assert status["is_current"] is True
+        assert status["saved_review_fingerprint"] == saved["review_fingerprint"]
+        assert dry_run_yardi_review(run.id, db, actor)["replayed"] is True
+        preview = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10,
+            db=db, current_user=actor,
+        )["items"][0]
+        assert "TENANT_TARGET_REVIEW_COLLISION" in preview["blockers"]
+        assert preview["relationship_review_current"] is False
+        assert preview["occupancy_or_lease_authorized"] is False
+        with pytest.raises(HTTPException) as still_blocked:
+            accept_yardi_staged_lease_relationship(run.id, lease.id, db, actor)
+        assert still_blocked.value.status_code == 409
+        assert current["customer_business_mutation"] is False
+
+        setattr(tenant, profile_field, previous_value)
+        historical.source_id = "T1"
+        db.commit()
+        restored = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert restored["review_fingerprint"] == baseline["review_fingerprint"]
+        assert restored["lease_relationship_readiness"]["source_review_ready"] == 1
+        assert restored["lease_relationship_readiness"]["identity_target_review_collisions"] == 0
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is False
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease.id, db, actor,
+        )["replayed"] is True
+        db.refresh(tenant)
+        db.refresh(unit)
+        db.refresh(prop)
+        assert getattr(tenant, profile_field) == previous_value
+        assert unit.property_id == prop.id and prop.name == "Original"
+        assert db.query(Lease).count() == before_leases
+    finally:
+        db.close()
+        engine.dispose()

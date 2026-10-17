@@ -2585,3 +2585,18 @@ Existing source identity, mapped Unit/Property/Tenant, Lease count and
 all prior assertions are preserved. New source is provisional until
 exact hosted six-job CI. Unsupported API, Lease/occupancy creation,
 owner allocations, GL/AR/AP and unprovided §§133–135 remain blocked.
+
+
+### Profile-only changes cannot clear genuine historical Tenant source disputes (2026-10-16)
+
+Two additional PostgreSQL cases cover an accepted Yardi Lease whose
+original linked Tenant is historically contested by a different
+same-organization YARDI staff-reviewed source in another run.
+Changing that Tenant's first name or password hash must preserve the
+exact contested source fingerprint, stale accepted relationship,
+paginated review-collision blocker, and 409 refusal to reaccept.
+Restoring the original exact historic source ID recovers the baseline
+without creating customer Leases or changing business records through
+Yardi endpoints. No previous assertion or security gate is relaxed.
+Prepared detached follow-up; needs exact predecessor six-job hosted CI
+and its own all-six job verification after non-force expected-HEAD publish.
