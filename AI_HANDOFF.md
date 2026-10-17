@@ -1,3 +1,33 @@
+# 2026-10-16 | FINAL CONSOLIDATED YARDI LEASE REVIEW FOLLOW-UP
+
+**Published, awaiting its own full CI:** `27db379b2abe046c447b33cd6faa118f84efef9c`,
+CI `38996279387`. Backend, frontend, security and platform-admin passed;
+authenticated E2E and staging-config were pending at latest preparation.
+Only if ALL SIX complete SUCCESS at EXACT SHA and live branch HEAD remains
+that same SHA, non-force expected-HEAD fast-forward directly to the FINAL
+detached descendant after `9f31567c2490817afb35eec087941f5698f3571f`.
+
+This is ONE consolidated follow-up, not separate releases of intermediate
+unpublished Git objects. It contains 8 new parameterized PostgreSQL-CI
+route cases (6 known/NULL historically contested Tenant profiles, 2
+unrelated Owner/Vendor availability changes), saved snapshot/audit replay
+idempotency and name/password-hash redaction assertions. It also adds
+a genuinely PostgreSQL-backed NULL source/tenant review smoke test using
+rollback-protected savepoints, guarding against accidental access to any
+non-test database. The test is registered in the existing FAST Yardi CI
+step so database-dialect regressions fail early. Previous 3-case eligible
+Tenant Lease profile snapshot release remains intact.
+
+**Exact-SHA mandate:** After fast-forward, require all six hosted jobs on
+the new commit before VERIFIED. If failing, fix actual regression and
+verify exact repaired source, never disable/weaken prior tests.
+Use ONLY `yasirskhan/property-platform` and
+`chatgpt/checkpoint-005-safety`. Never touch main/new branch, force-push,
+Yardi unofficial API, production customer Lease/occupancy, ownership,
+payments, GL/AR/AP posting, or invent missing original §§133–135.
+
+---
+
 # 2026-10-16 | DETACHED native PostgreSQL NULL-safe historical Lease claim check
 
 Adds `backend/tests/test_yardi_postgres_lease_exact_claim.py` so the

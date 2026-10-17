@@ -2708,3 +2708,24 @@ plus SAVEPOINTs to roll back fixture data. Local SQLite-only environments
 skip this PG-specific test. No production customer write or undocumented
 API/Lease creation/accounting feature is enabled. Requires exact hosted
 six-job CI and test confirmation, provisional until verified.
+
+
+### Final consolidated fast PostgreSQL-backed source claim verification (2026-10-16)
+
+The next release candidate now contains the eight additional SQLite
+isolation-backed Yardi route test parameter cases, one separate
+actual-PostgreSQL NULL-safe Tenant source claim test (using disposable
+TEST_DATABASE_URL, outer transaction and savepoints), and a one-line CI
+addition to run this native PostgreSQL smoke test inside the existing
+Fast Yardi review and route regressions gate, before the full backend
+suite. The PostgreSQL test REFUSES to write to database names without
+"test". Earlier route tests continue to use disposable SQLite sessions,
+while other hosted backend tests run against PostgreSQL; these are
+distinct kinds of coverage and are not interchangeable.
+No product mutation or supported importer contract changed.
+Only once CI 38996279387 at exact published 27db379b is green in ALL
+six jobs and the sole branch SHA matches, publish the FINAL descendant
+by non-force expected-HEAD fast-forward. It requires own exact-SHA
+all-six hosted CI for VERIFIED. Never enable undocumented Yardi APIs,
+customer Lease/occupancy, owner allocation, financial posting, or invent
+original §§133–135.
