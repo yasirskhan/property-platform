@@ -802,9 +802,17 @@ def test_unavailable_lease_tenant_ignores_other_customer_historical_source_claim
         historical.source_id = None
         db.commit()
 
-        unchanged = get_yardi_reconciliation(run.id, Response(), db, actor)
-        assert unchanged["lease_relationship_readiness"] == baseline["lease_relationship_readiness"]
-        assert unchanged["review_fingerprint"] == baseline["review_fingerprint"]
+        # A same-organization but UNREFERENCED historical review may change
+        # source identity repeatedly without affecting this Lease's evidence.
+        for historical_source in (None, "T-OTHER-2", "T-OTHER-3", "T1"):
+            historical.source_id = historical_source
+            db.commit()
+            unchanged = get_yardi_reconciliation(run.id, Response(), db, actor)
+            assert unchanged["lease_relationship_readiness"] == baseline["lease_relationship_readiness"]
+            assert unchanged["review_fingerprint"] == baseline["review_fingerprint"]
+            assert get_yardi_review_dry_run_status(
+                run.id, Response(), db, actor,
+            )["is_current"] is True
 
         inactive_preview = list_yardi_lease_relationships(
             run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
