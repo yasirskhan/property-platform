@@ -1,3 +1,15 @@
+# 2026-10-17 | UNIT STAGING BATCH AND SOURCE ISOLATION
+
+**Last exact six-job VERIFIED:** `fac3853cfeed31370a97dd7e9383da14694bc67f`, Actions `39042790677`, SUCCESS. It verifies source-exact parent and durable identity lookup batching during Yardi export staging.
+
+**Subsequent published provisional test batch:** `64efa5c7b245e8d5f68ae942ddef78a6e8c16454` adds same-run YARDI Unit mapping provenance and cross-run/provider negative coverage. `8cd21d2c481c59237c1b3fa7cf57541e54c19daa` corrects fixture CSV delimiters. Both require the final SHA's own six-job hosted SUCCESS before marking VERIFIED.
+
+**Remaining Phase 4.15 blockers:** Source-verified lease/occupancy creation contract, owner allocation source semantics, Yardi financial row grain and debit/credit/period/settlement contracts, and official Yardi API interface documentation are absent. Preserve stage/review and metadata-only binding support; do not treat staging as completed import, enable unsupported posting, or fabricate §§133–135.
+
+**Immediate next:** Retrieve exact CI for `8cd21d2c`, repair failures, then continue independently supportable metadata-only Yardi reconciliation. Do not repeat already VERIFIED batches, touch main, force-push or overwrite another session.
+
+---
+
 # 2026-10-17 | EXACT-SHA YARDI STAFF REVIEW AND LEASE STAGING VERIFIED
 
 **Published source VERIFIED:** `9194e4e0b7bfd3bc919e37c357101e79e13cbe3e` on the sole authorized branch `chatgpt/checkpoint-005-safety`. GitHub Actions [run 39003768426](https://github.com/yasirskhan/property-platform/actions/runs/39003768426) completed **SUCCESS for all six** required hosted jobs: backend PostgreSQL, frontend, security, platform-admin, authenticated E2E, and staging-config. This supersedes the immediate prior note that described this now-published consolidated release as provisional.
