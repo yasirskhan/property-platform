@@ -87,3 +87,27 @@ def test_yardi_saved_review_status_rejects_other_provider_run():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_yardi_saved_review_status_rejects_sales_role():
+    """A non-migration platform role cannot view source review fingerprints."""
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_SALES)
+        org = _org(db, "yardi-review-sales-denied")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="sales-denied", status="DRAFT",
+            last_dry_run_fingerprint="b" * 64,
+        )
+        db.add(run)
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            get_yardi_review_dry_run_status(run.id, Response(), db, actor)
+        assert exc.value.status_code == 403
+        assert db.query(PlatformMigrationRun).filter(
+            PlatformMigrationRun.id == run.id,
+        ).one().last_dry_run_fingerprint == "b" * 64
+    finally:
+        db.close()
+        engine.dispose()
