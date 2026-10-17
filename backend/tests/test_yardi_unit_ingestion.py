@@ -98,6 +98,8 @@ def test_yardi_unit_staging_batches_parent_source_checks():
         assert len(selects) == 4
         assert result.upload.row_count == 301
         assert result.upload.status == "REVIEW_REQUIRED"
+        assert result.upload.validation_summary["blocked_parent_relationships"] == 301
+        assert result.upload.validation_summary["rows_with_blocked_parents"] == 301
         assert db.query(PlatformMigrationStagedRow).filter(
             PlatformMigrationStagedRow.upload_id == result.upload.id,
         ).count() == 301
