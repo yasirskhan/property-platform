@@ -1,3 +1,37 @@
+# 2026-10-16 | CONSOLIDATED next Yardi Lease source/review parity gate
+
+**PREPARED, DETACHED AND NOT VERIFIED / NOT PUBLISHED.**
+The related two unpublished descendants after published
+`0a0c3b39697bd0d9a5ae6b5fdbea14f3e078228f`
+form ONE coherent read-only Yardi Lease safety milestone:
+(1) a new PostgreSQL negative regression proving a reviewed
+same-organization historical Tenant source claim against an UNREFERENCED
+customer user cannot make a different unavailable Lease Tenant's exact
+saved dry-run expire, and (2) an endpoint correction retaining scoped
+historical retained review-collision blockers in the Lease paginated
+preview when its ORIGINAL linked customer Property, Unit or Tenant
+target is unavailable, with three existing resource regression
+variants additionally checking preview/reconciliation parity,
+recovery and customer-business nonmutation. All prior tests preserved.
+No new queries, customer Lease/occupancy, owner allocations, financial
+posting or unsupported source API.
+
+**Publication gate:** The published sole-branch parent must still be
+`0a0c3b39697bd0d9a5ae6b5fdbea14f3e078228f` and GitHub Actions
+`38990736808` for that EXACT SHA must have ALL SIX jobs SUCCESS.
+Only then advance to the FINAL consolidated descendant using non-force
+`expected_sha` fast-forward, and demand its own full six-job hosted
+CI on that exact FINAL published SHA before marking verified.
+Intermediate unpublished Git commits are merely ancestry, and this
+top publication gate supersedes old detached text below requiring
+separate CI for intermediate unpublished nodes. On red, repair real
+regressions without relaxing tests, verify and update this handoff,
+then continue independently supportable Phase 4.15 safeguards.
+Never touch main/new branch, force-push, another project or invent
+original missing Yardi §§133–135.
+
+---
+
 # 2026-10-16 | DETACHED Lease preview and reconciliation parity
 
 A read-only Yardi Lease preview correction now includes retained staff

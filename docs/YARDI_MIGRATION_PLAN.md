@@ -2399,3 +2399,20 @@ is reused without additional SQL. The three inactive target PostgreSQL
 regressions now also assert preview collision, resolution of the source
 collision while inactive, and final full recovery. No customer business
 mutation, Lease/occupancy or financial posting.
+
+
+### Consolidated unrelated history and unavailable Lease preview parity follow-up (2026-10-16)
+
+The one new PostgreSQL unreferenced same-organization historical Tenant
+claim isolation test and the read-only Lease preview/reconciliation collision
+parity correction, with reinforced inactive Property/Unit/Tenant variants,
+form ONE coherent unpublished follow-up integration batch after exact
+published 0a0c3b. Intermediate detached objects are ancestry only, not
+independently verified releases. Published ancestor must complete all SIX
+GitHub Actions 38990736808 jobs SUCCESS at exact SHA, and branch HEAD must
+still match, before non-force expected-HEAD publication of the FINAL
+consolidated descendant. It must pass its own all-six-job hosted CI. The
+corrected preview reuses the existing organization/provider-scoped historical
+claim projection without new SQL, and retains the separate inactive-target
+blockers. All customer data and existing tests are preserved. No new Yardi
+API, Lease/occupancy, ownership, finance or invented §§133–135.
