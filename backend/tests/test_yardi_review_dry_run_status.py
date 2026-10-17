@@ -1,5 +1,6 @@
 """Yardi dry-run status always compares against live review evidence."""
-from fastapi import Response
+import pytest
+from fastapi import Response, HTTPException
 from app.models.platform_migration import PlatformMigrationRun, PlatformMigrationItem, PlatformMigrationStagedRow
 from app.models.lease import Lease
 from app.models.platform_user import PlatformUserRole
@@ -59,6 +60,30 @@ def test_yardi_dry_run_status_rejects_stale_and_missing_snapshots():
             assert review["controlled_commit_enabled"] is False
             assert review["customer_business_mutation"] is False
         assert (db.query(Lease).count(), db.query(PlatformMigrationItem).count(), db.query(PlatformMigrationStagedRow).count()) == before
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_yardi_saved_review_status_rejects_other_provider_run():
+    """A provider-mismatched run cannot reveal a saved review fingerprint."""
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-snapshot-wrong-provider")
+        other = PlatformMigrationRun(
+            organization_id=org.id, provider="APPFOLIO",
+            source_account_ref="other-provider", status="DRAFT",
+            last_dry_run_fingerprint="a" * 64,
+        )
+        db.add(other)
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            get_yardi_review_dry_run_status(other.id, Response(), db, actor)
+        assert exc.value.status_code == 404
+        assert db.query(PlatformMigrationRun).filter(
+            PlatformMigrationRun.id == other.id,
+        ).one().last_dry_run_fingerprint == "a" * 64
     finally:
         db.close()
         engine.dispose()
