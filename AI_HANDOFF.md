@@ -1,3 +1,13 @@
+# 2026-10-17 | YARDI SOURCE VALIDATION COUNTS
+
+**Last fully verified SHA:** `e78927fc2f29b49106b6598de566be7a80994c04`, GitHub Actions `39074679858`, SUCCESS on the sole authorized `chatgpt/checkpoint-005-safety` branch.
+
+**Latest published provisional changes:** `cbbe8a6fdc4715c628b7b119d7178f2743a1138f` adds `invalid_required_rows` and `duplicate_source_rows` to the Yardi upload validation summary; `f02349c120eca7b35de62ccc8db7bd482860a383` asserts duplicate counts; `9307cc5ebcafff8002e7bc8ba67db3afea8ec6be` tests mixed missing required and valid Unit rows. Their own final hosted six-job exact SHA must pass before marking verified.
+
+**Product reality:** Yardi CSV/XLSX explicit field mapping, staging, provider/org/run identity review, safe existing-target mapping and review statuses remain supported; new summary data is read-only. Customer Lease/owner relationship creation and financial posting stay blocked by missing verified Yardi schema/semantics and are NOT feature-complete. Do not invent APIs or business mutations. Resume only from live HEAD, never main/new branches/force; repair CI failures and continue supported work.
+
+---
+
 # 2026-10-17 | YARDI RESOURCE BREAKDOWN STAGING
 
 **Last VERIFIED:** `ea68665122229bf54a50db908b9f3689cf0dcc27`, Actions `39070783503`, six-job SUCCESS. The later `dd8476d5ed2344566c8b2ee21203bccef14e8da7` handoff/test checkpoint was still undergoing CI at inspection.
