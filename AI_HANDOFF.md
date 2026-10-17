@@ -1,3 +1,13 @@
+# 2026-10-17 | YARDI BLOCKED-PARENT COUNTS
+
+**Last six-job exact-SHA VERIFIED:** `ea68665122229bf54a50db908b9f3689cf0dcc27`, hosted Actions `39070783503` SUCCESS. Yardi staging now includes additive `blocked_parent_relationships` and `rows_with_blocked_parents` in validation summaries for Units and Lease occupancy. No customer-side record/finance mutation.
+
+**Next published provisional test:** `003688e9d4d9f72cbd5984e90eea6d56f7df9963` asserts both counts remain 301 for a bounded 301-row Unit export; requires own hosted all-six-job SUCCESS.
+
+**Safety and remaining scope:** Source contracts for Yardi Lease creation, ownership allocation, financial import and API integration are unverified and must remain disabled. Keep only `chatgpt/checkpoint-005-safety`, do not touch main or unrelated repos. Inspect latest hosted CI, repair any regressions and continue independently grounded read-only/staff migration review tasks. Never present provisional HEAD as verified.
+
+---
+
 # 2026-10-17 | UNIT STAGING BATCH AND SOURCE ISOLATION
 
 **Last exact six-job VERIFIED:** `fac3853cfeed31370a97dd7e9383da14694bc67f`, Actions `39042790677`, SUCCESS. It verifies source-exact parent and durable identity lookup batching during Yardi export staging.
