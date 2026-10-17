@@ -160,6 +160,12 @@ def stage_yardi_file(
     # Resolve durable source identities in bounded metadata-only batches.
     # A per-row database lookup makes large export staging unnecessarily slow.
     mapped_source_ids: set[str] = set()
+    # Do not classify incorrectly typed legacy target mappings as resolved.
+    expected_target = {
+        "PROPERTIES": "PROPERTY", "UNITS": "UNIT",
+        "OWNERS": "OWNER_USER", "VENDORS": "VENDOR",
+        "TENANTS": "TENANT_USER",
+    }.get(resource)
     source_ids = sorted({
         str(_mapped_value(row, mapping, "source_id") or "").strip()
         for _, row in parsed.rows
@@ -171,6 +177,8 @@ def stage_yardi_file(
             PlatformMigrationItem.provider == "YARDI",
             PlatformMigrationItem.resource == resource,
             PlatformMigrationItem.source_id.in_(source_ids[start:start + 300]),
+            *( [PlatformMigrationItem.target_entity == expected_target]
+               if expected_target else [] ),
         ).all()
         mapped_source_ids.update(source_id for (source_id,) in found)
 
