@@ -2387,3 +2387,15 @@ counts, exact saved dry-run or replay. Both customers retain original
 password hashes and the accepted Lease source decision remains unchanged.
 The test restores the linked Tenant's active state and verifies full
 fingerprint recovery. No Yardi customer business writes or new source/API.
+
+
+### Inactive Lease target preview parity with exact historical claims (2026-10-16)
+
+The read-only paginated Yardi Lease preview now checks retained staff
+source disputes using the original valid-entity linked Property, Unit
+or Tenant ID even when that target is inactive. The live-unavailable
+blocker remains, and org/provider-scoped historical source evidence
+is reused without additional SQL. The three inactive target PostgreSQL
+regressions now also assert preview collision, resolution of the source
+collision while inactive, and final full recovery. No customer business
+mutation, Lease/occupancy or financial posting.

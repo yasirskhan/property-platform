@@ -1390,11 +1390,19 @@ def list_yardi_lease_relationships(
                     blockers.append(name + "_TARGET_BINDING_COLLISION")
                 if source_collision:
                     blockers.append(name + "_SOURCE_BINDING_COLLISION")
-            for resource, source_field, target_id, blocker in (
-                ("PROPERTIES", "source_property_id", property_id, "PROPERTY_TARGET_REVIEW_COLLISION"),
-                ("UNITS", "source_unit_id", unit_id, "UNIT_TARGET_REVIEW_COLLISION"),
-                ("TENANTS", "source_tenant_id", tenant_id, "TENANT_TARGET_REVIEW_COLLISION"),
+            # Report retained historical review collisions on the
+            # ORIGINAL exact linked target even if it is now unavailable.
+            # Identity mappings and historical claims remain org/provider
+            # scoped, while inactive-target blockers still apply below.
+            for resource, source_field, linked, entity, blocker in (
+                ("PROPERTIES", "source_property_id", prop, "PROPERTY", "PROPERTY_TARGET_REVIEW_COLLISION"),
+                ("UNITS", "source_unit_id", unit, "UNIT", "UNIT_TARGET_REVIEW_COLLISION"),
+                ("TENANTS", "source_tenant_id", tenant, "TENANT_USER", "TENANT_TARGET_REVIEW_COLLISION"),
             ):
+                target_id = (
+                    linked.target_id if linked is not None
+                    and linked.target_entity == entity else None
+                )
                 if target_id is None:
                     continue
                 source_id = str(source.get(source_field) or "").strip()

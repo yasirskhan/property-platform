@@ -1,3 +1,20 @@
+# 2026-10-16 | DETACHED Lease preview and reconciliation parity
+
+A read-only Yardi Lease preview correction now includes retained staff
+source identity collisions for original same-run Property/Unit/Tenant
+target IDs even when the linked customer target is unavailable, matching
+the corrected aggregate reconciliation fingerprint. Three resource
+variants verify preview history blockers and recovery. No extra SQL
+query or customer Lease/occupancy/financial mutation. DETACHED child of
+`be4a66453ee57ec9ca9c4f22059fbf4884efbad6`, NOT VERIFIED.
+Parent published exact `0a0c3b39697bd0d9a5ae6b5fdbea14f3e078228f`
+must first pass all SIX hosted jobs at CI `38990736808`; then check
+live sole branch, publish consolidated descendant non-force with
+expected-HEAD, verify its OWN exact-SHA six-job hosted CI.
+No main/new branch/force push or invented Yardi §§133–135.
+
+---
+
 # 2026-10-16 | DETACHED unrelated same-org Lease Tenant history isolation
 
 One additional PostgreSQL regression guards scoped review fingerprints

@@ -571,6 +571,18 @@ def test_inactive_lease_tenant_keeps_exact_historical_review_source_evidence(res
                 assert check["is_current"] is False
 
         assert len(set(fingerprints)) == 3
+        collision_blocker = {
+            "PROPERTIES": "PROPERTY_TARGET_REVIEW_COLLISION",
+            "UNITS": "UNIT_TARGET_REVIEW_COLLISION",
+            "TENANTS": "TENANT_TARGET_REVIEW_COLLISION",
+        }[resource]
+        preview = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        assert collision_blocker in preview["blockers"]
+        assert preview["relationship_review_current"] is False
+        assert preview["occupancy_or_lease_authorized"] is False
+
         historical.source_id = options["old"]
         db.commit()
         assert get_yardi_reconciliation(
@@ -587,6 +599,11 @@ def test_inactive_lease_tenant_keeps_exact_historical_review_source_evidence(res
         )
         assert recovered_inactive["review_fingerprint"] == unavailable["review_fingerprint"]
         assert recovered_inactive["lease_relationship_readiness"]["identity_target_review_collisions"] == 0
+        inactive_preview = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        assert collision_blocker not in inactive_preview["blockers"]
+        assert inactive_preview["relationship_review_current"] is False
 
         target.is_active = True
         db.commit()
@@ -594,6 +611,11 @@ def test_inactive_lease_tenant_keeps_exact_historical_review_source_evidence(res
         assert recovered["review_fingerprint"] == baseline["review_fingerprint"]
         assert recovered["lease_relationship_readiness"]["source_review_ready"] == 1
         assert recovered["customer_business_mutation"] is False
+        current_preview = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        assert current_preview["blockers"] == []
+        assert current_preview["relationship_review_current"] is True
         assert accept_yardi_staged_lease_relationship(
             run.id, lease.id, db, actor,
         )["replayed"] is True
