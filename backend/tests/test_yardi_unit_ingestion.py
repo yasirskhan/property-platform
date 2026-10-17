@@ -139,7 +139,7 @@ def test_yardi_unit_batch_distinguishes_same_run_and_unrelated_mappings():
         units_before = db.query(Unit).count()
         upload = stage_yardi_file(
             db, run=run, filename="scoped-units.csv",
-            content=b"Unit,Parent,Label\\nU1,P1,One\\nU2,P1,Two\\nU3,P1,Three\\n",
+            content=b"Unit,Parent,Label\nU1,P1,One\nU2,P1,Two\nU3,P1,Three\n",
             resource_override="UNITS", sheet_name=None,
             explicit_mapping={
                 "source_id": "Unit", "source_property_id": "Parent",
