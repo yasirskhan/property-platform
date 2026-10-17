@@ -862,3 +862,120 @@ def test_unavailable_lease_tenant_ignores_other_customer_historical_source_claim
     finally:
         db.close()
         engine.dispose()
+
+
+@pytest.mark.parametrize("resource", ["PROPERTIES", "UNITS"])
+def test_unavailable_lease_unit_ignores_unrelated_property_or_unit_history(resource):
+    """Unrelated same-org Yardi source swaps cannot stale another blocked Lease."""
+    from app.models.platform_migration import PlatformMigrationItem
+    from app.models.property import Property, Unit
+
+    db, engine = _session()
+    try:
+        actor, org, run, prop, alternate, unit, tenant, lease = _seed(
+            db, slug=f"yardi-unavailable-lease-unrelated-{resource.lower()}",
+        )
+        before_leases = db.query(Lease).count()
+        before_bindings = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+        ).count()
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease.id, db, actor,
+        )["replayed"] is False
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["lease_relationship_readiness"]["source_review_ready"] == 1
+
+        unit.is_active = False
+        db.commit()
+        unavailable = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert unavailable["lease_relationship_readiness"]["missing_unit"] == 1
+        assert unavailable["lease_relationship_readiness"]["accepted_relationship_stale"] == 1
+        assert unavailable["lease_relationship_readiness"]["identity_target_review_collisions"] == 0
+        saved = dry_run_yardi_review(run.id, db, actor)
+        assert saved["review_fingerprint"] == unavailable["review_fingerprint"]
+
+        other_run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref=f"unrelated-{resource.lower()}-history", status="DRAFT",
+        )
+        db.add(other_run)
+        db.flush()
+        if resource == "PROPERTIES":
+            unrelated = Property(
+                organization_id=org.id, name="Unreferenced Third Property",
+                address_line1="3 Other", city="Cleveland", state="OH", zip_code="44113",
+            )
+            filename = "unreferenced-property.csv"
+            content = b"ID,Name,Street,City,State,Zip\nH-P,Unrelated,3 Other,Cleveland,OH,44113\n"
+            mapping = {
+                "source_id": "ID", "name": "Name", "address_line1": "Street",
+                "city": "City", "state": "State", "zip_code": "Zip",
+            }
+            target_field = "resolution_target_id"
+            same_source_id = "P1"
+        else:
+            unrelated = Unit(property_id=alternate.id, unit_number="999")
+            filename = "unreferenced-unit.csv"
+            content = b"Unit,Parent,Label\nH-U,P2,999\n"
+            mapping = {"source_id": "Unit", "source_property_id": "Parent",
+                       "unit_name": "Label"}
+            target_field = "resolution_target_unit_id"
+            same_source_id = "U1"
+        db.add(unrelated)
+        db.commit()
+        upload = stage_yardi_file(
+            db, run=other_run, filename=filename, content=content,
+            resource_override=resource, sheet_name=None,
+            explicit_mapping=mapping, platform_user_id=actor.id,
+        )
+        db.commit()
+        historic = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).one()
+        historic.resolution_action = "MATCH_EXISTING"
+        setattr(historic, target_field, unrelated.id)
+        db.commit()
+
+        for source in (None, "HIST-OLD-1", "HIST-OLD-2", same_source_id):
+            historic.source_id = source
+            db.commit()
+            still_blocked = get_yardi_reconciliation(run.id, Response(), db, actor)
+            assert still_blocked["lease_relationship_readiness"] == unavailable["lease_relationship_readiness"]
+            assert still_blocked["review_fingerprint"] == saved["review_fingerprint"]
+            status = get_yardi_review_dry_run_status(run.id, Response(), db, actor)
+            assert status["is_current"] is True
+            assert dry_run_yardi_review(run.id, db, actor)["replayed"] is True
+            preview = list_yardi_lease_relationships(
+                run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+            )["items"][0]
+            assert preview["relationship_review_current"] is False
+            assert "UNIT_IDENTITY_UNMAPPED_OR_INACTIVE" in preview["blockers"]
+            assert "PROPERTY_TARGET_REVIEW_COLLISION" not in preview["blockers"]
+            assert "UNIT_TARGET_REVIEW_COLLISION" not in preview["blockers"]
+            assert preview["occupancy_or_lease_authorized"] is False
+
+        unit.is_active = True
+        db.commit()
+        restored = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert restored["review_fingerprint"] == baseline["review_fingerprint"]
+        assert restored["lease_relationship_readiness"]["source_review_ready"] == 1
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease.id, db, actor,
+        )["replayed"] is True
+        assert list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]["blockers"] == []
+        assert db.query(Lease).count() == before_leases
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+        ).count() == before_bindings
+        assert restored["customer_business_mutation"] is False
+        db.refresh(prop)
+        db.refresh(unit)
+        db.refresh(tenant)
+        assert prop.name == "Original" and unit.property_id == prop.id
+        assert unit.is_active is True and unit.unit_number == "101"
+        assert tenant.hashed_password == "unchanged-password-hash"
+    finally:
+        db.close()
+        engine.dispose()

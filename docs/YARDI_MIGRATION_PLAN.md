@@ -2492,3 +2492,19 @@ collision. Customer business endpoints remain read-only. Detached pending
 exact parent `f2efb06e` all-six CI and own six-job hosted CI following
 sole-branch non-force expected-HEAD publication. No unsupported API,
 customer Lease/occupancy, allocations or accounting writes.
+
+
+### Unavailable Lease Unit: unrelated Property/Unit historical claim isolation (2026-10-16)
+
+Two parameterized fast PostgreSQL cases extend the exact-source negative
+scope to same-organization unreferenced Property and Unit targets while a
+different mapped Lease Unit is inactive. Historical staff claims against
+those unrelated customer targets switch between NULL, two distinct foreign
+source IDs and the Lease's own textual source ID, without changing the
+current run's source-exact review fingerprint, blocked readiness, saved
+dry-run replay or page-level blockers. Restoring the linked Unit exactly
+recovers the original accepted read-only relationship. Test fixtures
+restore customer values. No production Yardi route, customer mutation,
+unofficial API, Lease creation, accounting or owner allocations.
+Detached and provisional pending published parent CI, then own
+full six-job hosted exact-SHA CI after non-force expected-HEAD advance.

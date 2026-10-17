@@ -1,3 +1,22 @@
+# 2026-10-16 | PREPARED unrelated Property/Unit source claim isolation
+
+Two additional PostgreSQL parameters prove that changing a
+same-organization retained YARDI Property or Unit staff claim targeting
+a different, unreferenced customer object does not alter the exact
+saved Yardi dry run for an already unavailable Lease Unit. NULL,
+two foreign source identities and a source text matching the linked
+Lease source are all isolated; page preview retains only the real
+unavailable Unit blocker and review recovers when the original Unit
+becomes active again. Source bindings/customer rows are unchanged by
+migration routes and fixture changes restored.
+DETACHED on `6b010159d4db1a489658b058e01dadf71064b129`,
+not verified or published. Require current exact parent six-job CI,
+sole branch `chatgpt/checkpoint-005-safety`, non-force expected HEAD,
+and own six-job hosted CI. No main/new branches or invented §§133–135,
+API, customer Lease/occupancy, ownership or finance operations.
+
+---
+
 # 2026-10-16 | PREPARED foreign provider and org historical Lease review isolation
 
 One bounded regression extension tests multiple retained, out-of-scope
