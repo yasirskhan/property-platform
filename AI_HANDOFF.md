@@ -1,3 +1,13 @@
+# 2026-10-17 | YARDI REVIEW QUEUE COUNT
+
+**Last exact-SHA VERIFIED:** `4f97b4fb56c92aa38276c81719aefdaf03448f3b`, Actions `39078727943`, SUCCESS all required jobs.
+
+**Latest provisional changes:** `6dfd7ae09d41798c664ecfbfbc9bc2681341dcf5` strengthens incomplete mapping identity regression; `27be5e919e52e084d1498fc205c726631d4229ce` adds `requires_human_review_rows` to uploaded Yardi validation summaries to distinguish valid reviewable identities from invalid rows; `deccc23b31b579b3149237a2f7d9776c702f7565` tests that invalid rows are excluded while REVIEW/ALREADY_MAPPED rows are included. Need exact-SHA full hosted CI before verified.
+
+**Scope boundary:** Staging only; no customer-side mutation, financial posting or Lease creation. Missing authoritative Yardi source contracts prevent claiming full supported relationship/accounting migration complete. Continue source-verified safe workflows on sole `chatgpt/checkpoint-005-safety` branch; never touch main, create another branch, or force-push.
+
+---
+
 # 2026-10-17 | YARDI FIELD-LEVEL REQUIRED DATA DIAGNOSTICS
 
 **Last fully verified exact SHA:** `2b4febdd0e9e54313044208c098b2aaf7601c533` — hosted Actions `39076585667` SUCCESS, all six jobs.
