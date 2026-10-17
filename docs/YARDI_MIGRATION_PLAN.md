@@ -2459,3 +2459,23 @@ claim changes, saved dry-run expiry, historical provider-source NULL
 evidence, and paginated Lease preview collisions. Exact provider source and
 customer eligibility restoration returns original staff review and no
 customer-business mutation. Four additional cases, no old cases removed.
+
+
+### One consolidated unavailable Lease preview safety batch (2026-10-16)
+
+The four related unpublished descendants after current published 0a0c3b
+are one prepared review-only integration release candidate. They add one
+unreferenced same-organization Tenant retained historical source isolation
+test; a scoped read-only paginated Lease preview correction for historical
+staff-source collisions on unavailable linked original Property/Unit/Tenant
+targets; positive and negative preview parity assertions; and four extra
+status variants for soft-deleted Property/Unit/Tenant and wrong-role Tenant.
+All seven valid/inactive/deleted/role-ineligible fixture cases assert exact
+saved dry-run invalidation and recovery without customer business writes.
+No original assertion removed/weakened. Intermediate detached commit objects
+are ancestry, not independently verified. Publish only after six green
+CI jobs on exact parent 0a0c3b in 38990736808, matching live branch
+HEAD and non-force expected-SHA fast-forward to the FINAL candidate.
+Require own exact-SHA full six-job hosted CI, no unsupported provider
+source contracts or Yardi §§133–135 invention, finance, ownership or
+Lease/occupancy posting.

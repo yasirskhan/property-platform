@@ -1,3 +1,40 @@
+# 2026-10-16 | CONSOLIDATED unavailable Lease historical-preview safety batch
+
+**SINGLE PREPARED DETACHED integration milestone, NOT VERIFIED/PUBLISHED.**
+The FOUR related unpublished Git-object successors after the current
+published source `0a0c3b39697bd0d9a5ae6b5fdbea14f3e078228f`
+form ONE bounded integration candidate:
+1. Exact saved Lease Tenant dry-run isolation from a same-organization
+   YARDI historical NULL-source staff review targeting an UNREFERENCED
+   customer;
+2. A read-only paginated Lease preview correction: retain historical
+   source conflict blockers for original SAME-RUN valid-entity mapped
+   customer Property/Unit/Tenant, even when unavailable, using existing
+   batch org/provider-scoped historical claim evidence and no added query;
+3. Both positive collision and negative provider/organization/unrelated
+   target preview parity assertions, including restored zero-blocker state;
+4. Four more PostgreSQL variants extending inactive Property/Unit/Tenant
+   exact historic source tests to soft-deleted targets and wrong-role
+   Tenant; original three inactive variants and all old tests remain.
+All fixture changes restored. No Yardi product customer mutation,
+Lease/occupancy creation, ownership allocation, GL/AR/AP posting, or
+unsupported external API. No invented original numbered §§133–135.
+
+**EXACT-SHA PUBLICATION GATE:** GitHub Actions `38990736808`
+must complete ALL SIX jobs SUCCESS on exact parent
+`0a0c3b39697bd0d9a5ae6b5fdbea14f3e078228f`. Check current
+sole-branch HEAD still equals that SHA immediately before publishing.
+Advance ONLY the FINAL consolidated descendant with non-force
+`expected_sha` fast-forward. Its own six-job hosted CI must then
+succeed at exact FINAL published SHA before VERIFIED; fix genuine
+failures without weakening tests and update both handoff and plan.
+Intermediate detached Git commits are merely ancestry, not independent
+verification checkpoints. This supersedes all older detached notes
+below requiring separate CI for intermediate unpublished commits.
+Only chatgpt/checkpoint-005-safety, never main/new branch/force push.
+
+---
+
 # 2026-10-16 | DETACHED expanded Lease unavailable identity status matrix
 
 The three historical staff-claim Property/Unit/Tenant preview/reconciliation
