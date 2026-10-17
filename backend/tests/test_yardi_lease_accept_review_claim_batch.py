@@ -709,9 +709,17 @@ def test_unavailable_lease_tenant_ignores_foreign_historical_target_claim(
         db.add(old_review)
         db.commit()
 
-        unchanged = get_yardi_reconciliation(run.id, Response(), db, actor)
-        assert unchanged["lease_relationship_readiness"] == unavailable["lease_relationship_readiness"]
-        assert unchanged["review_fingerprint"] == unavailable["review_fingerprint"]
+        # Out-of-scope retained historical sources must remain isolated
+        # even when the linked Yardi Tenant was already made unavailable.
+        for historical_source in (None, "FOREIGN-SOURCE-1", "FOREIGN-SOURCE-2", "T1"):
+            old_review.source_id = historical_source
+            db.commit()
+            unchanged = get_yardi_reconciliation(run.id, Response(), db, actor)
+            assert unchanged["lease_relationship_readiness"] == unavailable["lease_relationship_readiness"]
+            assert unchanged["review_fingerprint"] == unavailable["review_fingerprint"]
+            assert get_yardi_review_dry_run_status(
+                run.id, Response(), db, actor,
+            )["is_current"] is True
 
         inactive_preview = list_yardi_lease_relationships(
             run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
