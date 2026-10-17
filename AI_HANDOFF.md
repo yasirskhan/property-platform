@@ -1,3 +1,21 @@
+# 2026-10-16 | DETACHED expanded Lease unavailable identity status matrix
+
+The three historical staff-claim Property/Unit/Tenant preview/reconciliation
+regressions now add four coverage combinations: Property/Unit/Tenant
+soft-deletion and Tenant wrong-role, alongside all three original inactive
+variants. Test-fixture original eligible fields are restored, with
+identical target-claim fingerprint and preview expectations. No product
+changes beyond the already prepared read-only preview parity fix, no
+customer mutations by Yardi endpoints, no API/finance/Lease/occupancy.
+DETACHED successor of `86bad149959a1224cfc1b94ec8481f00dc020f9c`,
+NOT published/verified; ancestor exact published source
+`0a0c3b39697bd0d9a5ae6b5fdbea14f3e078228f` requires complete
+all-six-job hosted CI `38990736808` and sole branch HEAD gate before
+non-force expected-SHA fast-forward of FINAL consolidated descendant.
+Then require its own six-job CI. No main/new branch/force or §§133–135.
+
+---
+
 # 2026-10-16 | SINGLE CONSOLIDATED YARDI LEASE REVIEW PARITY FOLLOW-UP
 
 **DETACHED, NOT PUBLISHED, NOT VERIFIED.** The three unpublished

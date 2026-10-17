@@ -2447,3 +2447,15 @@ before non-force expected-HEAD fast-forward of final consolidated SHA.
 Final exact SHA must pass its own complete six-job hosted CI. No Yardi
 customer business writes, undocumented API, missing §133–135 scope,
 Lease/occupancy, owner allocation or financial posting.
+
+
+### Inactive, soft-deleted and role-invalid Lease historical staff claim parity (2026-10-16)
+
+The previously added three-resource invalid Lease target historical reviewed
+source test now runs seven targeted PostgreSQL parameter scenarios: inactive
+and soft-deleted Property, Unit and Tenant plus wrong-role Tenant. In every
+case identical aggregate blocked readiness must still preserve exact source
+claim changes, saved dry-run expiry, historical provider-source NULL
+evidence, and paginated Lease preview collisions. Exact provider source and
+customer eligibility restoration returns original staff review and no
+customer-business mutation. Four additional cases, no old cases removed.

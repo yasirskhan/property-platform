@@ -470,13 +470,25 @@ def test_changed_competing_lease_review_source_invalidates_exact_fingerprint():
         engine.dispose()
 
 
-@pytest.mark.parametrize("resource", ["PROPERTIES", "UNITS", "TENANTS"])
-def test_inactive_lease_tenant_keeps_exact_historical_review_source_evidence(resource):
-    """Already-stale target must still track WHICH retained source disputes it."""
+@pytest.mark.parametrize("resource,unavailable_field", [
+    ("PROPERTIES", "is_active"), ("PROPERTIES", "deleted_at"),
+    ("UNITS", "is_active"), ("UNITS", "deleted_at"),
+    ("TENANTS", "is_active"), ("TENANTS", "deleted_at"),
+    ("TENANTS", "role"),
+])
+def test_inactive_lease_tenant_keeps_exact_historical_review_source_evidence(
+    resource, unavailable_field,
+):
+    """Unavailable exact targets must preserve retained historic source disputes."""
+    from datetime import datetime
+    from app.models.user import UserRole
+
     db, engine = _session()
     try:
         actor, org, run, prop, alternate, unit, tenant, lease = _seed(
-            db, slug=f"yardi-inactive-{resource.lower()}-historic-source-swap",
+            db, slug=(
+                f"yardi-inactive-{resource.lower()}-{unavailable_field}-historic-source-swap"
+            ),
         )
         options = {
             "PROPERTIES": {
@@ -513,8 +525,14 @@ def test_inactive_lease_tenant_keeps_exact_historical_review_source_evidence(res
         baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert baseline["lease_relationship_readiness"]["source_review_ready"] == 1
 
-        # Disable just the linked fixture identity, not business records.
-        target.is_active = False
+        # Change only the linked customer's eligibility in the fixture.
+        original_eligibility = getattr(target, unavailable_field)
+        invalid_eligibility = (
+            False if unavailable_field == "is_active" else
+            datetime.utcnow() if unavailable_field == "deleted_at" else
+            UserRole.OWNER
+        )
+        setattr(target, unavailable_field, invalid_eligibility)
         db.commit()
         unavailable = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert unavailable["lease_relationship_readiness"][options["missing"]] == 1
@@ -605,7 +623,7 @@ def test_inactive_lease_tenant_keeps_exact_historical_review_source_evidence(res
         assert collision_blocker not in inactive_preview["blockers"]
         assert inactive_preview["relationship_review_current"] is False
 
-        target.is_active = True
+        setattr(target, unavailable_field, original_eligibility)
         db.commit()
         recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert recovered["review_fingerprint"] == baseline["review_fingerprint"]
@@ -622,6 +640,7 @@ def test_inactive_lease_tenant_keeps_exact_historical_review_source_evidence(res
         db.refresh(tenant)
         db.refresh(prop)
         db.refresh(unit)
+        assert getattr(target, unavailable_field) == original_eligibility
         assert target.is_active is True
         assert tenant.hashed_password == "unchanged-password-hash"
         assert prop.name == "Original" and unit.property_id == prop.id
