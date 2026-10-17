@@ -188,6 +188,8 @@ def stage_yardi_file(
     rows_with_blocked_parents = 0
     blocked_by_resource = {"TENANTS": 0, "PROPERTIES": 0, "UNITS": 0}
     dispositions = {"INVALID": 0, "REVIEW": 0, "ALREADY_MAPPED": 0, "POSSIBLE_MATCH": 0}
+    invalid_required_rows = 0
+    duplicate_source_rows = 0
     for row_number, source in parsed.rows:
         data: dict[str, Any] = {
             field: _mapped_value(source, mapping, field)
@@ -202,6 +204,7 @@ def stage_yardi_file(
             if source_id in seen:
                 errors.append("Duplicate Yardi source ID within this upload.")
                 duplicates += 1
+                duplicate_source_rows += 1
             else:
                 seen.add(source_id)
         disposition = "INVALID" if errors else "REVIEW"
@@ -209,6 +212,8 @@ def stage_yardi_file(
         blocked_on_row = 0
         if errors:
             invalid += 1
+            if any("is required." in error or "Missing required source column:" in error for error in errors):
+                invalid_required_rows += 1
         else:
             valid += 1
             if source_id in mapped_source_ids:
@@ -283,6 +288,8 @@ def stage_yardi_file(
         "rows_with_blocked_parents": rows_with_blocked_parents,
         "blocked_parent_by_resource": blocked_by_resource,
         "disposition_counts": dispositions,
+        "invalid_required_rows": invalid_required_rows,
+        "duplicate_source_rows": duplicate_source_rows,
         "target_mutation": False, "requires_explicit_review": True,
         "unit_relationships_auto_created": False,
         "ownership_relationships_auto_created": False,
