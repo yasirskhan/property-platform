@@ -2729,3 +2729,17 @@ by non-force expected-HEAD fast-forward. It requires own exact-SHA
 all-six hosted CI for VERIFIED. Never enable undocumented Yardi APIs,
 customer Lease/occupancy, owner allocation, financial posting, or invent
 original §§133–135.
+
+
+### Native PostgreSQL three-resource NULL historical review claim matrix (2026-10-17)
+
+Following exact six-job SUCCESS for `bea7289c642f5152b2e5398775b19f06d24c8817` in run `39000591586`,
+the next provisional regression batch expands the rollback-only PostgreSQL
+Lease acceptance fixture across linked Property, Unit and Tenant target
+claims, each in both eligible and inactive states. All six cases enforce
+SQL NULL historical reviewed-source collision, failed repeat acceptance,
+paged blockers, source-exact changed fingerprints even with unchanged
+readiness counts, stale saved dry-run status and exact restoration.
+This supplements existing SQLite route-case coverage without deleting or
+relaxing assertions. Hosted exact-SHA CI is required before VERIFIED;
+no production migration route or customer business write is added.

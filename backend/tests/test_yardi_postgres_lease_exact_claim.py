@@ -24,11 +24,12 @@ from app.services.yardi_file_ingestion import stage_yardi_file
 from test_yardi_lease_identity_acceptance import _seed
 
 
-@pytest.mark.parametrize("tenant_unavailable", [False, True])
-def test_postgresql_null_source_historical_tenant_review_blocks_lease_reaccept(
-    tenant_unavailable,
+@pytest.mark.parametrize("resource", ["PROPERTIES", "UNITS", "TENANTS"])
+@pytest.mark.parametrize("target_unavailable", [False, True])
+def test_postgresql_null_source_historical_identity_review_blocks_lease_reaccept(
+    resource, target_unavailable,
 ):
-    """Real PostgreSQL must preserve NULL historical sources even for stale targets."""
+    """Real PostgreSQL must preserve all three NULL historical Lease target claims."""
     url = os.environ.get("TEST_DATABASE_URL") or os.environ.get("DATABASE_URL", "")
     if not url.startswith(("postgresql://", "postgresql+")):
         pytest.skip("PostgreSQL test database URL not configured")
@@ -50,8 +51,37 @@ def test_postgresql_null_source_historical_tenant_review_blocks_lease_reaccept(
     )()
     try:
         actor, org, run, prop, alternate, unit, tenant, lease = _seed(
-            db, slug=f"yardi-pg-null-historic-tenant-claim-{tenant_unavailable}",
+            db, slug=f"yardi-pg-null-historic-{resource.lower()}-{target_unavailable}",
         )
+        options = {
+            "PROPERTIES": {
+                "target": prop, "missing": "missing_property", "current": "P1",
+                "content": b"ID,Name,Street,City,State,Zip\nP-OLD,Historical,1 Main,Cleveland,OH,44113\n",
+                "mapping": {
+                    "source_id": "ID", "name": "Name", "address_line1": "Street",
+                    "city": "City", "state": "State", "zip_code": "Zip",
+                },
+                "field": "resolution_target_id",
+                "blocker": "PROPERTY_TARGET_REVIEW_COLLISION",
+            },
+            "UNITS": {
+                "target": unit, "missing": "missing_unit", "current": "U1",
+                "content": b"ID,Parent,Label\nU-OLD,P1,101\n",
+                "mapping": {
+                    "source_id": "ID", "source_property_id": "Parent",
+                    "unit_name": "Label",
+                },
+                "field": "resolution_target_unit_id",
+                "blocker": "UNIT_TARGET_REVIEW_COLLISION",
+            },
+            "TENANTS": {
+                "target": tenant, "missing": "missing_tenant", "current": "T1",
+                "content": b"Resident Ref,Full Name\nT-OLD,Historical Tenant\n",
+                "mapping": {"source_id": "Resident Ref", "name": "Full Name"},
+                "field": "resolution_target_tenant_user_id",
+                "blocker": "TENANT_TARGET_REVIEW_COLLISION",
+            },
+        }[resource]
         before_leases = db.query(Lease).count()
         assert accept_yardi_staged_lease_relationship(
             run.id, lease.id, db, actor,
@@ -60,25 +90,25 @@ def test_postgresql_null_source_historical_tenant_review_blocks_lease_reaccept(
         assert baseline["lease_relationship_readiness"]["source_review_ready"] == 1
         saved = dry_run_yardi_review(run.id, db, actor)
         assert saved["review_fingerprint"] == baseline["review_fingerprint"]
-        if tenant_unavailable:
-            tenant.is_active = False
+        if target_unavailable:
+            options["target"].is_active = False
             db.commit()
             unavailable = get_yardi_reconciliation(run.id, Response(), db, actor)
-            assert unavailable["lease_relationship_readiness"]["missing_tenant"] == 1
+            assert unavailable["lease_relationship_readiness"][options["missing"]] == 1
             assert unavailable["lease_relationship_readiness"]["accepted_relationship_stale"] == 1
             assert unavailable["lease_relationship_readiness"]["identity_target_review_collisions"] == 0
 
         other_run = PlatformMigrationRun(
             organization_id=org.id, provider="YARDI",
-            source_account_ref="pgsql-historical-staff-claim", status="DRAFT",
+            source_account_ref=f"pgsql-historical-{resource.lower()}-claim", status="DRAFT",
         )
         db.add(other_run)
         db.flush()
         upload = stage_yardi_file(
-            db, run=other_run, filename="pgsql-old-tenant.csv",
-            content=b"Resident Ref,Full Name\nT-OLDER,Historical Tenant\n",
-            resource_override="TENANTS", sheet_name=None,
-            explicit_mapping={"source_id": "Resident Ref", "name": "Full Name"},
+            db, run=other_run, filename=f"pgsql-old-{resource.lower()}.csv",
+            content=options["content"],
+            resource_override=resource, sheet_name=None,
+            explicit_mapping=options["mapping"],
             platform_user_id=actor.id,
         )
         db.commit()
@@ -86,7 +116,7 @@ def test_postgresql_null_source_historical_tenant_review_blocks_lease_reaccept(
             PlatformMigrationStagedRow.upload_id == upload.upload.id,
         ).one()
         historical.resolution_action = "MATCH_EXISTING"
-        historical.resolution_target_tenant_user_id = tenant.id
+        setattr(historical, options["field"], options["target"].id)
         historical.source_id = None
         db.commit()
 
@@ -104,7 +134,7 @@ def test_postgresql_null_source_historical_tenant_review_blocks_lease_reaccept(
             run.id, Response(), offset=0, limit=10,
             db=db, current_user=actor,
         )["items"][0]
-        assert "TENANT_TARGET_REVIEW_COLLISION" in preview["blockers"]
+        assert options["blocker"] in preview["blockers"]
         assert preview["relationship_review_current"] is False
         assert preview["occupancy_or_lease_authorized"] is False
         with pytest.raises(HTTPException) as conflict:
@@ -114,7 +144,7 @@ def test_postgresql_null_source_historical_tenant_review_blocks_lease_reaccept(
         # PostgreSQL should preserve WHICH historical source contested
         # this mapped Tenant even with identical stale aggregate counts.
         seen_fingerprints = {blocked["review_fingerprint"]}
-        for other_source in ("T-OLDER-2", "T-OLDER-3", "T-OLDER-4"):
+        for other_source in ("HISTORICAL-2", "HISTORICAL-3", "HISTORICAL-4"):
             historical.source_id = other_source
             db.commit()
             changed_claim = get_yardi_reconciliation(run.id, Response(), db, actor)
@@ -131,9 +161,9 @@ def test_postgresql_null_source_historical_tenant_review_blocks_lease_reaccept(
         assert restored_blocked["review_fingerprint"] == blocked["review_fingerprint"]
         assert restored_blocked["lease_relationship_readiness"] == blocked["lease_relationship_readiness"]
 
-        historical.source_id = "T1"
-        if tenant_unavailable:
-            tenant.is_active = True
+        historical.source_id = options["current"]
+        if target_unavailable:
+            options["target"].is_active = True
         db.commit()
         recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert recovered["review_fingerprint"] == baseline["review_fingerprint"]

@@ -1,3 +1,25 @@
+# 2026-10-17 | Verified PostgreSQL Tenant claim and six-case identity extension
+
+Verified published `bea7289c642f5152b2e5398775b19f06d24c8817` in GitHub Actions `39000591586`: **SUCCESS** on
+all six hosted jobs (backend, frontend, security, platform-admin, authenticated
+E2E and staging-config). This verifies the prior exact historical Tenant
+source-claim fingerprint permutation batch.
+
+**Next batch, provisional until its own exact-SHA six-job CI:** Extend the
+actual PostgreSQL rollback-only historical NULL-source Lease acceptance smoke
+test from Tenant-only (eligible/inactive) to **Property, Unit and Tenant**
+claims × eligible/inactive linked target (six parameter combinations).
+Each case asserts retained NULL historical source collision, distinct
+source-exact fingerprints for three different competing IDs despite equal
+aggregate readiness, stale saved dry-run, page blocker, 409 reacceptance,
+exact-source restoration, and no customer Lease/credential mutation.
+Source schema, staff-reviewed metadata, audit and fail-closed rules unchanged.
+Only test and documentation, no Yardi route, database migration or product
+posting change. No unsupported Yardi API, production Lease/occupancy, owner
+allocation, financial GL/AR/AP, or invented original §§133–135.
+
+---
+
 # 2026-10-16 | PostgreSQL exact competing Tenant source fingerprint permutations
 
 Prepared source extension of the native PostgreSQL read-only Yardi Lease
