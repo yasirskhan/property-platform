@@ -86,6 +86,7 @@ jobs:
           tests/test_yardi_lease_accept_source_scope.py
           tests/test_yardi_accepted_lease_stale_count.py
           tests/test_yardi_lease_accept_review_claim_batch.py
+          tests/test_yardi_postgres_lease_exact_claim.py
           tests/test_yardi_reconciliation_durable_claims.py
           tests/test_yardi_reconciliation_unit_parent_claims.py
           tests/test_yardi_reconciliation_composite_sources.py
