@@ -157,6 +157,23 @@ def stage_yardi_file(
     )
     db.add(upload)
     db.flush()
+    # Resolve durable source identities in bounded metadata-only batches.
+    # A per-row database lookup makes large export staging unnecessarily slow.
+    mapped_source_ids: set[str] = set()
+    source_ids = sorted({
+        str(_mapped_value(row, mapping, "source_id") or "").strip()
+        for _, row in parsed.rows
+    } - {""})
+    for start in range(0, len(source_ids), 300):
+        found = db.query(PlatformMigrationItem.source_id).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.organization_id == run.organization_id,
+            PlatformMigrationItem.provider == "YARDI",
+            PlatformMigrationItem.resource == resource,
+            PlatformMigrationItem.source_id.in_(source_ids[start:start + 300]),
+        ).all()
+        mapped_source_ids.update(source_id for (source_id,) in found)
+
     seen: set[str] = set()
     invalid = duplicates = matches = valid = 0
     for row_number, source in parsed.rows:
@@ -181,14 +198,7 @@ def stage_yardi_file(
             invalid += 1
         else:
             valid += 1
-            mapped = db.query(PlatformMigrationItem).filter(
-                PlatformMigrationItem.run_id == run.id,
-                PlatformMigrationItem.organization_id == run.organization_id,
-                PlatformMigrationItem.provider == "YARDI",
-                PlatformMigrationItem.resource == resource,
-                PlatformMigrationItem.source_id == source_id,
-            ).first()
-            if mapped:
+            if source_id in mapped_source_ids:
                 disposition = "ALREADY_MAPPED"
                 warnings.append("Source identity is already mapped; review before action.")
             elif resource == "LEASE_OCCUPANCY":
