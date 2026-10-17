@@ -79,6 +79,8 @@ def test_yardi_lease_parent_source_mapping_diagnostics_use_one_scoped_batch():
             # Legacy provider-mismatched metadata in a Yardi run must not
             # make T2 appear resolved: a source identity is provider-qualified.
             (run, "TENANTS", "T2", "TENANT_USER", "APPFOLIO"),
+            # Wrong target entity is not a verified Unit source parent.
+            (run, "UNITS", "U2", "PROPERTY", "YARDI"),
         ):
             db.add(PlatformMigrationItem(
                 run_id=owner_run.id, organization_id=org.id, provider=provider,
