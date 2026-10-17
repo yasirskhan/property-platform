@@ -2156,3 +2156,18 @@ are not separately published or VERIFIED; this explicitly supersedes
 any earlier draft text implying each would require an individual
 hosted CI before the final integration. Missing original §§133–135
 remain unavailable and must not be invented.
+
+
+### Cross-target role/soft-delete isolation for reviewed and durable user identities (2026-10-16)
+
+Four additional fast-gated PostgreSQL cases each for independently reviewed
+and unreviewed durable Owner/Tenant source identities verify that changing an
+UNREFERENCED same-organization user to the opposite authorization role or
+soft-deleting that user cannot expire another exact source-target binding's
+saved reviewed dry run, source evidence, or mapping. Existing inactive-user
+and Vendor-archive assertions are preserved. Recovery restores original
+user state, source fingerprint, and current dry-run status. Test fixtures
+only; no Yardi router or customer-business mutation, source API, ownership,
+Lease/occupancy or financial posting. This follow-up is PROVISIONAL until
+its own exact-SHA hosted all-six-job CI passes; Sections 133-135 remain
+unavailable and must not be invented.

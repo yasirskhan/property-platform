@@ -1,3 +1,19 @@
+# 2026-10-16 | PREPARED out-of-scope role and soft-delete identity isolation
+
+Eight additional PostgreSQL parameterized cases extend the existing
+unreferenced-customer negative review tests for Owner/Tenant roles and
+soft deletions, both staff-reviewed unbound and unreviewed durable.
+All previously verified inactive-user and Vendor archival cases remain;
+no production Yardi code or customer business endpoint changes.
+This is a DETACHED provisional descendant of
+`916cbdf491f723cdd5e7c264b46da51d9c632ed4`, pending its parent
+six-job CI `38988402219`. Do not publish unless parent CI is all green
+and live branch HEAD matches. Require exact-SHA six-job CI after a
+non-force expected-HEAD fast-forward. Do not invent missing §§133-135,
+new APIs, Lease/occupancy, owner allocation or accounting import.
+
+---
+
 # 2026-10-16 | VERIFIED consolidated Yardi eligibility regression gate
 
 **Exact verified source:** `3ceff9ba2f07042489db39ce09843084c91337e6`.

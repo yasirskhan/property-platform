@@ -1680,27 +1680,35 @@ def test_durable_unit_source_parent_eligibility_swap_expires_equal_count_dry_run
         engine.dispose()
 
 
-@pytest.mark.parametrize("resource,seed,match,request_cls,target_field", [
+@pytest.mark.parametrize("resource,seed,match,request_cls,target_field,invalid_field", [
     ("OWNERS", seed_owner, match_yardi_staged_owner, YardiOwnerMatchIn,
-     "target_owner_user_id"),
+     "target_owner_user_id", "is_active"),
+    ("OWNERS", seed_owner, match_yardi_staged_owner, YardiOwnerMatchIn,
+     "target_owner_user_id", "role"),
+    ("OWNERS", seed_owner, match_yardi_staged_owner, YardiOwnerMatchIn,
+     "target_owner_user_id", "deleted_at"),
     ("TENANTS", seed_tenant, match_yardi_staged_tenant, YardiTenantMatchIn,
-     "target_tenant_user_id"),
+     "target_tenant_user_id", "is_active"),
+    ("TENANTS", seed_tenant, match_yardi_staged_tenant, YardiTenantMatchIn,
+     "target_tenant_user_id", "role"),
+    ("TENANTS", seed_tenant, match_yardi_staged_tenant, YardiTenantMatchIn,
+     "target_tenant_user_id", "deleted_at"),
     ("VENDORS", seed_vendor, match_yardi_staged_vendor, YardiVendorMatchIn,
-     "target_vendor_id"),
+     "target_vendor_id", "deleted_at"),
 ])
 def test_unbound_reviewed_identity_ignores_unrelated_customer_eligibility(
-    resource, seed, match, request_cls, target_field,
+    resource, seed, match, request_cls, target_field, invalid_field,
 ):
     """Unrelated customer status never expires a different reviewed identity."""
     from datetime import datetime
     from app.models.platform_migration import PlatformMigrationItem
-    from app.models.user import User
+    from app.models.user import User, UserRole
     from app.models.vendor import Vendor
     from app.routers.yardi_migrations import get_yardi_review_dry_run_status
 
     db, engine = _session()
     try:
-        slug = f"yardi-unrelated-customer-status-{resource.lower()}"
+        slug = f"yardi-unrelated-customer-status-{resource.lower()}-{invalid_field}"
         actor, org, reviewed_target, run, row = seed(db, slug=slug)
         if resource == "VENDORS":
             unrelated = Vendor(
@@ -1727,10 +1735,13 @@ def test_unbound_reviewed_identity_ignores_unrelated_customer_eligibility(
             run.id, Response(), db, actor,
         )["is_current"] is True
 
-        if resource == "VENDORS":
-            unrelated.deleted_at = datetime.utcnow()
-        else:
+        original = getattr(unrelated, invalid_field)
+        if invalid_field == "role":
+            unrelated.role = UserRole.TENANT if resource == "OWNERS" else UserRole.OWNER
+        elif invalid_field == "is_active":
             unrelated.is_active = False
+        else:
+            unrelated.deleted_at = datetime.utcnow()
         db.commit()
         unchanged = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert unchanged["resource_coverage"] == baseline["resource_coverage"]
@@ -1740,10 +1751,7 @@ def test_unbound_reviewed_identity_ignores_unrelated_customer_eligibility(
         assert status["saved_review_fingerprint"] == saved["review_fingerprint"]
         assert unchanged["customer_business_mutation"] is False
 
-        if resource == "VENDORS":
-            unrelated.deleted_at = None
-        else:
-            unrelated.is_active = True
+        setattr(unrelated, invalid_field, original)
         db.commit()
         recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert recovered["review_fingerprint"] == baseline["review_fingerprint"]
@@ -1753,6 +1761,7 @@ def test_unbound_reviewed_identity_ignores_unrelated_customer_eligibility(
         ).count() == 0
         db.refresh(reviewed_target)
         assert reviewed_target.id != unrelated.id
+        assert getattr(unrelated, invalid_field) == original
         if resource == "VENDORS":
             assert reviewed_target.company_name == "Untouched Vendor"
         else:
@@ -1887,24 +1896,28 @@ def test_unbound_reviewed_inventory_ignores_unrelated_target_eligibility(
         engine.dispose()
 
 
-@pytest.mark.parametrize("resource,seed,entity", [
-    ("OWNERS", seed_owner, "OWNER_USER"),
-    ("TENANTS", seed_tenant, "TENANT_USER"),
-    ("VENDORS", seed_vendor, "VENDOR"),
+@pytest.mark.parametrize("resource,seed,entity,invalid_field", [
+    ("OWNERS", seed_owner, "OWNER_USER", "is_active"),
+    ("OWNERS", seed_owner, "OWNER_USER", "role"),
+    ("OWNERS", seed_owner, "OWNER_USER", "deleted_at"),
+    ("TENANTS", seed_tenant, "TENANT_USER", "is_active"),
+    ("TENANTS", seed_tenant, "TENANT_USER", "role"),
+    ("TENANTS", seed_tenant, "TENANT_USER", "deleted_at"),
+    ("VENDORS", seed_vendor, "VENDOR", "deleted_at"),
 ])
 def test_unreviewed_durable_identity_ignores_unrelated_customer_eligibility(
-    resource, seed, entity,
+    resource, seed, entity, invalid_field,
 ):
     """Unrelated customer eligibility never changes a durable identity snapshot."""
     from datetime import datetime
     from app.models.platform_migration import PlatformMigrationItem
-    from app.models.user import User
+    from app.models.user import User, UserRole
     from app.models.vendor import Vendor
     from app.routers.yardi_migrations import get_yardi_review_dry_run_status
 
     db, engine = _session()
     try:
-        slug = f"yardi-durable-unrelated-status-{resource.lower()}"
+        slug = f"yardi-durable-unrelated-status-{resource.lower()}-{invalid_field}"
         actor, org, target, run, row = seed(db, slug=slug)
         if resource == "VENDORS":
             unrelated = Vendor(
@@ -1931,10 +1944,13 @@ def test_unreviewed_durable_identity_ignores_unrelated_customer_eligibility(
         saved = dry_run_yardi_review(run.id, db, actor)
         assert saved["review_fingerprint"] == baseline["review_fingerprint"]
 
-        if resource == "VENDORS":
-            unrelated.deleted_at = datetime.utcnow()
-        else:
+        original = getattr(unrelated, invalid_field)
+        if invalid_field == "role":
+            unrelated.role = UserRole.TENANT if resource == "OWNERS" else UserRole.OWNER
+        elif invalid_field == "is_active":
             unrelated.is_active = False
+        else:
+            unrelated.deleted_at = datetime.utcnow()
         db.commit()
         unchanged = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert unchanged["resource_coverage"] == baseline["resource_coverage"]
@@ -1946,14 +1962,13 @@ def test_unreviewed_durable_identity_ignores_unrelated_customer_eligibility(
         assert replay["replayed"] is True
         assert replay["review_fingerprint"] == saved["review_fingerprint"]
 
-        if resource == "VENDORS":
-            unrelated.deleted_at = None
-        else:
-            unrelated.is_active = True
+        setattr(unrelated, invalid_field, original)
         db.commit()
         recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert recovered["review_fingerprint"] == baseline["review_fingerprint"]
         assert recovered["customer_business_mutation"] is False
+        db.refresh(unrelated)
+        assert getattr(unrelated, invalid_field) == original
         assert row.resolution_action is None
         mapped = db.query(PlatformMigrationItem).filter(
             PlatformMigrationItem.run_id == run.id,
