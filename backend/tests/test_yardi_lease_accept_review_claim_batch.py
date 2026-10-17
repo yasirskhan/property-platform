@@ -1209,6 +1209,12 @@ def test_contested_lease_historic_identity_stays_blocked_after_tenant_profile_up
         assert get_yardi_review_dry_run_status(
             run.id, Response(), db, actor,
         )["is_current"] is True
+        assert dry_run_yardi_review(run.id, db, actor)["replayed"] is True
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "yardi_review_dry_run",
+        ).count() == original_audit_count
 
         setattr(tenant, profile_field, previous_value)
         historical.source_id = "T1"

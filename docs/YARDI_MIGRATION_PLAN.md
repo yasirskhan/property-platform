@@ -2646,3 +2646,15 @@ fingerprint and remains blocked while restored source state recovers it.
 This is test-only; production/customer migrations, Lease occupancy,
 owner allocations, GL/AR/AP posting and undocumented APIs remain blocked.
 The final descendant requires exact prior and own hosted all-six CI.
+
+
+### Original disputed source restoration does not duplicate Yardi review audit (2026-10-16)
+
+The NULL-safe historical Tenant source-swap regression also replays the
+saved dry-run after exact restoration of its original already-contested
+provider source identity, and verifies that this idempotent recovery does
+not emit another `yardi_review_dry_run` audit row. Changed competing
+historical source identity must still expire the saved snapshot before
+restoration. No Yardi product or customer mutation, no migration
+Lease/occupancy or financial posting. Detached and provisional until
+verified hosted CI at the exact predecessor and successor commits.

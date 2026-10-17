@@ -1,3 +1,20 @@
+# 2026-10-16 | DETACHED exact source restoration audit replay safety
+
+The six-case NULL-safe contested Lease profile review matrix now explicitly
+requires idempotent dry-run replay after an original historical competing
+source ID is restored, without generating a second append-only audit entry.
+This complements true source-swap expiration and redacted audit evidence.
+All previous assertions retained, no production writes or unsupported APIs.
+Detached parent `e75f8d03ee529ca5135ea7c0b239e51a5610a60d`; published predecessor remains
+`27db379b2abe046c447b33cd6faa118f84efef9c` with hosted CI
+`38996279387` requiring SIX green jobs before final descendant may
+be non-force expected-HEAD fast-forwarded to the only authorized branch.
+Then require full exact six-job hosted CI and update this handoff.
+No main/new branches/force push/customer Lease/occupancy, owner allocation,
+GL/AP/AR posting, undocumented Yardi API or invented §§133–135.
+
+---
+
 # 2026-10-16 | DETACHED source-review audit idempotency and redaction checks
 
 A further focused test-only descendant validates that the existing
