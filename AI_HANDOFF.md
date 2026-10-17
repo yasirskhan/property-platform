@@ -1,3 +1,13 @@
+# 2026-10-17 | YARDI FIELD-LEVEL REQUIRED DATA DIAGNOSTICS
+
+**Last fully verified exact SHA:** `2b4febdd0e9e54313044208c098b2aaf7601c533` — hosted Actions `39076585667` SUCCESS, all six jobs.
+
+**Published provisional batch:** `a7b4f28c2d66d84bcf9e903543f55c713cb80d11` adds additive per-required-field counts (`missing_required_by_field`) to Yardi staging validation, separate from total invalid rows and duplicate source IDs; `32f52da933c419393ce45428324b292eb0d6d404` tests missing Unit source and Property references; `d5b194f204f9d88e31cd98681df0dbde5aea0c00` checks zero missing fields for a fully provided Lease source row. Do not mark these verified until the final SHA's hosted CI passes all six required jobs.
+
+**Boundaries:** This is diagnostics on staging metadata only, not customer migration commit. Source contract gaps still block customer Lease creation, ownership allocations, financial posting, and private Yardi API transport. Maintain sole branch `chatgpt/checkpoint-005-safety`, no main/new branch/force. Verify latest hosted CI, fix failures, and continue independent source-reviewed Yardi migration functionality.
+
+---
+
 # 2026-10-17 | YARDI SOURCE VALIDATION COUNTS
 
 **Last fully verified SHA:** `e78927fc2f29b49106b6598de566be7a80994c04`, GitHub Actions `39074679858`, SUCCESS on the sole authorized `chatgpt/checkpoint-005-safety` branch.
