@@ -105,6 +105,61 @@ def test_yardi_unit_staging_batches_parent_source_checks():
         engine.dispose()
 
 
+
+def test_yardi_unit_batch_distinguishes_same_run_and_unrelated_mappings():
+    """Only exact same-run Yardi Unit IDs count as already mapped."""
+    from app.models.platform_migration import PlatformMigrationItem
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-unit-batch-scope")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="batch-scope", status="DRAFT",
+        )
+        other = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="other-batch-scope", status="DRAFT",
+        )
+        db.add_all([run, other])
+        db.flush()
+        for owner_run, provider, resource, source_id, target_entity in (
+            (run, "YARDI", "PROPERTIES", "P1", "PROPERTY"),
+            (run, "YARDI", "UNITS", "U1", "UNIT"),
+            (other, "YARDI", "UNITS", "U2", "UNIT"),
+            (run, "APPFOLIO", "UNITS", "U3", "UNIT"),
+        ):
+            db.add(PlatformMigrationItem(
+                run_id=owner_run.id, organization_id=org.id,
+                provider=provider, resource=resource,
+                source_id=source_id, target_entity=target_entity,
+                target_id=1, source_fingerprint="fixture-" + source_id,
+            ))
+        db.commit()
+        units_before = db.query(Unit).count()
+        upload = stage_yardi_file(
+            db, run=run, filename="scoped-units.csv",
+            content=b"Unit,Parent,Label\\nU1,P1,One\\nU2,P1,Two\\nU3,P1,Three\\n",
+            resource_override="UNITS", sheet_name=None,
+            explicit_mapping={
+                "source_id": "Unit", "source_property_id": "Parent",
+                "unit_name": "Label",
+            }, platform_user_id=actor.id,
+        )
+        rows = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).order_by(PlatformMigrationStagedRow.row_number).all()
+        assert [row.disposition for row in rows] == [
+            "ALREADY_MAPPED", "REVIEW", "REVIEW",
+        ]
+        assert all(row.errors == [] for row in rows)
+        assert all(row.provider == "YARDI" for row in rows)
+        assert db.query(Unit).count() == units_before
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_yardi_unit_match_requires_mapped_parent_and_preserves_customer_unit():
     import pytest
     from fastapi import HTTPException
