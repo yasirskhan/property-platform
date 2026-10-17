@@ -1,3 +1,37 @@
+# 2026-10-16 | ELEVEN CASE CONSOLIDATED YARDI REVIEW PUBLICATION GATE
+
+**PREPARED DETACHED, NOT VERIFIED OR PUBLISHED.**
+This single candidate contains ELEVEN new parameterized PostgreSQL
+cases after the current published `74bb1a22e1febac8e4a9e62b2f17d319c1eabd13`:
+four Owner/Tenant reviewed/durable credential-hash changes,
+two exact Unit parent-reassignment status swaps,
+two unrelated customer Unit parent-reassignment isolations,
+and three unavailable Lease Property/Unit/Tenant historical review-source
+swaps between different IDs and NULL. The old Tenant case is preserved,
+with two additional resource parameter scenarios. A narrowly scoped
+READ-ONLY Yardi reconciliation correction includes original validly bound
+customer target identities in scoped historical staff source-claim
+fingerprints even if the target is currently inactive/deleted/role-invalid.
+A CSV-fixture newline escape was repaired in a detached child before
+publication. All existing test assertions remain; no Yardi product
+customer business mutation or unsupported transport enabled.
+
+All unpublished intermediate commits after parent `74bb1a22` are one
+related consolidated integration chain; they are ancestry only, not
+independently published or marked VERIFIED. This top contract supersedes
+all lower provisional instructions requiring intermediate-hosted CI.
+Publication REQUIRES all six jobs SUCCESS for exact
+`74bb1a22e1febac8e4a9e62b2f17d319c1eabd13` at Actions
+`38989472466`, plus a fresh same-SHA sole-branch HEAD check.
+Only then non-force `expected_sha` fast-forward the FINAL descendant,
+followed by full hosted six-job CI on the final exact SHA. Resolve real
+failures, record actual results, then continue. Never force push, modify
+main, create another branch or touch Zargul. Do not invent unavailable
+Yardi original numbered Sections 133-135, Lease/occupancy creation,
+owner allocation, unsupported source APIs or accounting posting.
+
+---
+
 # 2026-10-16 | DETACHED full identity-scope unavailable Lease source evidence
 
 Extends the exact inactive linked Tenant historical review-claim test to

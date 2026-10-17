@@ -2326,3 +2326,20 @@ only after original source and customer eligibility both return. Same
 read-only reconciliation correction, no new query, no customer Lease/occupancy
 or financial mutation, no undocumented Yardi API and no invented §§133–135.
 Two additional PostgreSQL parameter cases; original Tenant assertions retained.
+
+
+### Eleven-case consolidated Yardi source review and unavailable Lease fingerprint gate (2026-10-16)
+
+The nine earlier detached regression cases and two new unavailable
+Property/Unit historical review-claim variants plus the scoped read-only
+reconciliation correction form one consolidated integration milestone
+after the exact published parent 74bb1a22. Parameterization of the
+previous Tenant case preserves all existing assertions. The source includes
+a corrected newline fixture and independently checks Property, Unit and
+Tenant linked targets when inactive. Unpublished intermediate commits are
+only ancestry, not individually verified release milestones. The final
+candidate must wait for all six green GitHub Actions jobs of 38989472466
+at exact 74bb1a22, a fresh sole-branch SHA check and non-force
+expected-HEAD fast-forward; final exact SHA must then pass full six-job
+hosted CI before VERIFIED. No customer Lease/occupancy/financial
+mutation, source API expansion or invented Yardi §§133-135.
