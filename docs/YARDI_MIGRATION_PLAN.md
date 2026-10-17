@@ -2571,3 +2571,17 @@ isolation tests. Older notes suggesting equal source text for this
 specific new Property/Unit pair are superseded by this explicit
 collision-safety distinction. Existing foreign provider/organization
 scope coverage remains. This is test-only; no product mutation.
+
+
+### Exact accepted Lease snapshot stays current for ordinary Tenant profile edits (2026-10-16)
+
+Three PostgreSQL parameter cases verify that first name, last name, and
+password-hash updates on an otherwise eligible mapped Tenant do not
+invalidate a Yardi accepted Lease relationship's saved review fingerprint,
+read-only paginated preview, or idempotent dry-run/acceptance replay.
+Only test fixtures change customer fields and restore them. The Yardi
+migration itself never updates customer credentials or business records.
+Existing source identity, mapped Unit/Property/Tenant, Lease count and
+all prior assertions are preserved. New source is provisional until
+exact hosted six-job CI. Unsupported API, Lease/occupancy creation,
+owner allocations, GL/AR/AP and unprovided §§133–135 remain blocked.

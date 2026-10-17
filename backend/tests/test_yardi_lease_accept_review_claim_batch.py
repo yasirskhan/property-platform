@@ -999,3 +999,78 @@ def test_unavailable_lease_unit_ignores_unrelated_property_or_unit_history(resou
     finally:
         db.close()
         engine.dispose()
+
+
+@pytest.mark.parametrize("profile_field,new_value", [
+    ("first_name", "Updated Existing"),
+    ("last_name", "Tenant Profile Update"),
+    ("hashed_password", "rotated-tenant-fixture-password-hash"),
+])
+def test_accepted_lease_review_survives_eligible_tenant_profile_only_update(
+    profile_field, new_value,
+):
+    """Customer profile changes cannot silently expire a source-exact Lease review."""
+    from app.models.platform_migration import PlatformMigrationItem
+
+    db, engine = _session()
+    try:
+        actor, org, run, prop, alternate, unit, tenant, lease = _seed(
+            db, slug=f"yardi-lease-valid-tenant-profile-{profile_field}",
+        )
+        before_leases = db.query(Lease).count()
+        before_mappings = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+        ).count()
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease.id, db, actor,
+        )["replayed"] is False
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["lease_relationship_readiness"]["source_review_ready"] == 1
+        assert baseline["lease_relationship_readiness"]["accepted_relationship_stale"] == 0
+        saved = dry_run_yardi_review(run.id, db, actor)
+        assert saved["review_fingerprint"] == baseline["review_fingerprint"]
+
+        previous_value = getattr(tenant, profile_field)
+        setattr(tenant, profile_field, new_value)
+        db.commit()
+        assert getattr(tenant, profile_field) == new_value
+        changed = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert changed["review_fingerprint"] == baseline["review_fingerprint"]
+        assert changed["lease_relationship_readiness"] == baseline["lease_relationship_readiness"]
+        assert changed["customer_business_mutation"] is False
+        preview = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10,
+            db=db, current_user=actor,
+        )["items"][0]
+        assert preview["blockers"] == []
+        assert preview["relationship_review_current"] is True
+        assert preview["occupancy_or_lease_authorized"] is False
+        snapshot = get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )
+        assert snapshot["is_current"] is True
+        assert snapshot["saved_review_fingerprint"] == saved["review_fingerprint"]
+        replay = dry_run_yardi_review(run.id, db, actor)
+        assert replay["replayed"] is True
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease.id, db, actor,
+        )["replayed"] is True
+
+        setattr(tenant, profile_field, previous_value)
+        db.commit()
+        db.refresh(tenant)
+        db.refresh(prop)
+        db.refresh(unit)
+        assert getattr(tenant, profile_field) == previous_value
+        restored = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert restored["review_fingerprint"] == baseline["review_fingerprint"]
+        assert db.query(Lease).count() == before_leases
+        assert db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+        ).count() == before_mappings
+        assert lease.resolution_action == "ACCEPT_RELATIONSHIP"
+        assert prop.name == "Original"
+        assert unit.property_id == prop.id
+    finally:
+        db.close()
+        engine.dispose()

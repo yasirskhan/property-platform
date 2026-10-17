@@ -1,3 +1,20 @@
+# 2026-10-16 | PROVISIONAL accepted Lease eligible Tenant profile-change regressions
+
+Parent source `a344f781774bae282d792b182461e90f242ed8b1` is VERIFIED by hosted CI `38994769633`
+(SUCCESS all six jobs: backend, frontend, security, platform-admin, e2e,
+staging-config). This prepared descendant adds three parameterized
+PostgreSQL regression cases proving that current Yardi Lease identity
+acceptance and saved source-exact dry-run remain current when the mapped
+Tenant's first name, last name or password hash changes, with original
+source/target relationships, customer fixture restoration and no
+customer business mutation. The migration code is unchanged and previous
+tests remain. This commit is NOT VERIFIED until its own hosted all-six-job
+CI passes. Only `chatgpt/checkpoint-005-safety`, non-force expected-HEAD
+publication after live branch check, no main/new branch, no unsupported
+Yardi API/Lease/occupancy/financial posting or invented §§133–135.
+
+---
+
 # 2026-10-16 | PREPARED safe source-ID scope correction
 
 The two new unrelated Property/Unit historical negative cases now vary
