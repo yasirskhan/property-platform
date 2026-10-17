@@ -134,3 +134,30 @@ def test_yardi_saved_review_status_rejects_billing_role():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_yardi_support_role_can_read_saved_review_without_mutation():
+    """Authorized support may inspect review freshness but never enable commit."""
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_SUPPORT)
+        org = _org(db, "yardi-review-support-readonly")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="support-readonly", status="DRAFT",
+        )
+        db.add(run)
+        db.commit()
+        response = Response()
+        result = get_yardi_review_dry_run_status(run.id, response, db, actor)
+        assert result["has_saved_dry_run"] is False
+        assert result["is_current"] is False
+        assert result["controlled_commit_enabled"] is False
+        assert result["customer_business_mutation"] is False
+        assert response.headers["cache-control"] == "no-store"
+        assert db.query(PlatformMigrationRun).filter(
+            PlatformMigrationRun.id == run.id,
+        ).one().last_dry_run_fingerprint is None
+    finally:
+        db.close()
+        engine.dispose()
