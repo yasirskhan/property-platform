@@ -2672,3 +2672,24 @@ This is source-dependency isolation only; no migration endpoints write
 customer business records or enable unsupported Yardi API, Lease/occupancy
 creation, owner allocation or financial posting. Detached until hosted
 six-job verification on the parent and final published descendant.
+
+
+### Consolidated review/audit source-exact isolation follow-up (2026-10-16)
+
+Eight new fast-gated parameterized regressions after the published
+three-case accepted Lease customer Tenant profile milestone protect:
+six historically contested provider source claims (including NULL)
+across valid Tenant first-name, last-name and credential-hash edits,
+and two out-of-scope Owner/Vendor status changes on unrelated same-org
+customers. Exact saved dry runs expire only for actual source-claim
+changes, recover with exact restoration, replay without extra audit rows
+and do not expose changed Tenant name or password hashes in audit values.
+Tenant/Owner/Vendor test fixture data is restored; source rows, customer
+Leases and durable mappings are unchanged by migration routes.
+The associated unpublished intermediate Git commits are integrated
+as ONE final descendant of published 27db379b, not separately
+published/verified. Await ALL SIX jobs SUCCESS in CI 38996279387,
+live sole-branch exact-parent check, then non-force expected-HEAD
+publication. Require own all-six hosted exact-SHA CI.
+No unofficial Yardi API, Lease/occupancy creation, ownership allocations,
+financial posting or unavailable §§133–135 introduced.

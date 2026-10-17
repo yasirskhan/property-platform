@@ -1,3 +1,40 @@
+# 2026-10-16 | CONSOLIDATED 11-CASE EXACT YARDI LEASE REVIEW RELEASE GATE
+
+**LATEST PUBLISHED predecessor**:
+`27db379b2abe046c447b33cd6faa118f84efef9c`, GitHub Actions
+`38996279387` was IN PROGRESS when preparing this note. The preceding
+`a344f781774bae282d792b182461e90f242ed8b1` had ALL SIX hosted CI
+jobs SUCCESS in `38994769633`.
+
+**FINAL FOLLOW-UP DETACHED candidate**: the five related unpublished
+Git-object successors after `27db379b` comprise ONE consolidated
+read-only regression release. Final descendant is the child of
+`44807b0e22ef67571de8db8d5aeeebd3ff5d3930`.
+Three already-published eligible Tenant first/last-name and credential
+rotation cases remain; this new unpublished integration adds EIGHT
+new cases: six cross-run historically contested Tenant source IDs
+(known different and retained NULL) times benign profile changes, plus
+two unrelated Owner/Vendor eligibility isolation cases for accepted Lease
+reviews. It enforces exact-source stale fingerprint changes on genuine
+historic claim swaps, their restoration, audit idempotency without
+credential/name leakage, and no customer business mutation. Existing
+tests preserved, no product code changes.
+
+**RELEASE**: Only if all SIX jobs in CI `38996279387` pass on EXACT
+`27db379b2abe046c447b33cd6faa118f84efef9c`, AND live sole branch
+`chatgpt/checkpoint-005-safety` still equals that SHA, publish the FINAL
+descendant directly by `force=false` and `expected_sha` equal to
+that predecessor. The intermediate unpublished commits are ancestry
+only, NOT separate verified releases; this supersedes older instructions
+below that imply separate CI on each intermediary. Hosted all-six-job CI
+on the FINAL published exact SHA is mandatory before VERIFIED. On red,
+fix the real regression without weakening or removing earlier tests.
+Never touch main, create another branch, force-push, or enable unofficial
+Yardi source APIs, customer Lease/occupancy creation, owner allocations,
+GL/AR/AP postings or invent unavailable §§133–135.
+
+---
+
 # 2026-10-16 | DETACHED unrelated Owner/Vendor Lease-source isolation
 
 Two additional parameterized PostgreSQL regressions check that an
