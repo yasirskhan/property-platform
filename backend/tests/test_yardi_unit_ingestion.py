@@ -128,6 +128,7 @@ def test_yardi_unit_batch_distinguishes_same_run_and_unrelated_mappings():
             (run, "YARDI", "UNITS", "U1", "UNIT"),
             (other, "YARDI", "UNITS", "U2", "UNIT"),
             (run, "APPFOLIO", "UNITS", "U3", "UNIT"),
+            (run, "YARDI", "UNITS", "U4", "PROPERTY"),
         ):
             db.add(PlatformMigrationItem(
                 run_id=owner_run.id, organization_id=org.id,
@@ -139,7 +140,7 @@ def test_yardi_unit_batch_distinguishes_same_run_and_unrelated_mappings():
         units_before = db.query(Unit).count()
         upload = stage_yardi_file(
             db, run=run, filename="scoped-units.csv",
-            content=b"Unit,Parent,Label\nU1,P1,One\nU2,P1,Two\nU3,P1,Three\n",
+            content=b"Unit,Parent,Label\nU1,P1,One\nU2,P1,Two\nU3,P1,Three\nU4,P1,Four\n",
             resource_override="UNITS", sheet_name=None,
             explicit_mapping={
                 "source_id": "Unit", "source_property_id": "Parent",
@@ -150,7 +151,7 @@ def test_yardi_unit_batch_distinguishes_same_run_and_unrelated_mappings():
             PlatformMigrationStagedRow.upload_id == upload.upload.id,
         ).order_by(PlatformMigrationStagedRow.row_number).all()
         assert [row.disposition for row in rows] == [
-            "ALREADY_MAPPED", "REVIEW", "REVIEW",
+            "ALREADY_MAPPED", "REVIEW", "REVIEW", "REVIEW",
         ]
         assert all(row.errors == [] for row in rows)
         assert all(row.provider == "YARDI" for row in rows)
