@@ -129,6 +129,8 @@ def test_yardi_lease_parent_source_mapping_diagnostics_use_one_scoped_batch():
         assert all(row.disposition == "REVIEW" for row in rows)
         assert db.query(Lease).count() == before
         assert staged.upload.validation_summary["lease_occupancy_auto_created"] is False
+        assert staged.upload.validation_summary["blocked_parent_relationships"] == 4
+        assert staged.upload.validation_summary["rows_with_blocked_parents"] == 2
     finally:
         db.close()
         engine.dispose()
