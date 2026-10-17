@@ -186,6 +186,7 @@ def stage_yardi_file(
     invalid = duplicates = matches = valid = 0
     blocked_parent_relationships = 0
     rows_with_blocked_parents = 0
+    blocked_by_resource = {"TENANTS": 0, "PROPERTIES": 0, "UNITS": 0}
     for row_number, source in parsed.rows:
         data: dict[str, Any] = {
             field: _mapped_value(source, mapping, field)
@@ -225,6 +226,7 @@ def stage_yardi_file(
                     ) not in lease_parent_pairs:
                         warnings.append(f"{parent_resource} stable source relationship remains unmapped; commit blocked.")
                         blocked_on_row += 1
+                        blocked_by_resource[parent_resource] += 1
                 warnings.append("Lease identity staged only; no occupancy, liability, payment, rent or deposit receipt inferred.")
             elif resource == "TENANTS":
                 disposition = "REVIEW"
@@ -241,6 +243,7 @@ def stage_yardi_file(
                 if source_property_id not in unit_parent_sources:
                     warnings.append("Source Property ID has no verified same-run Property mapping; relationship blocked.")
                     blocked_on_row += 1
+                    blocked_by_resource["PROPERTIES"] += 1
                 else:
                     warnings.append("Parent Property mapping exists; Unit identity and relationship require explicit review.")
             else:
@@ -276,6 +279,7 @@ def stage_yardi_file(
         "missing_required_columns": missing,
         "blocked_parent_relationships": blocked_parent_relationships,
         "rows_with_blocked_parents": rows_with_blocked_parents,
+        "blocked_parent_by_resource": blocked_by_resource,
         "target_mutation": False, "requires_explicit_review": True,
         "unit_relationships_auto_created": False,
         "ownership_relationships_auto_created": False,
