@@ -1,3 +1,28 @@
+# 2026-10-16 | CONSOLIDATED FOLLOW-UP: 6 Yardi review invariants
+
+**SINGLE DETACHED INTEGRATION CANDIDATE, NOT VERIFIED/PUBLISHED.**
+Two unpublished related successors after the current published source
+`74bb1a22e1febac8e4a9e62b2f17d319c1eabd13` form ONE complete
+regression-only milestone: four Owner/Tenant reviewed-and-durable password
+hash rotation isolation cases and two Unit Property reassignment swap cases
+(one reviewed, one durable). The intermediate `42748f085342be0d7e2eabf6fac7765f349bb7d2`
+and `ca89b31b898b5639308f2647d9724c70ab31e1ce` Git objects are
+ancestry ONLY, not separately published/verified release milestones.
+This consolidated publication contract supersedes earlier detached
+text below that required individual hosted CI on those unpublished nodes.
+
+Only once GitHub Actions `38989472466` has SIX successful jobs
+at exact SHA `74bb1a22e1febac8e4a9e62b2f17d319c1eabd13`,
+and the current sole branch HEAD still equals that SHA, advance by a
+non-force expected-HEAD fast-forward to the FINAL consolidated candidate.
+It MUST then pass its OWN exact-SHA six-job hosted CI. On red, repair
+genuine regressions without dropping old tests. No production Yardi
+router changes, customer record writes, unsupported APIs, Lease/occupancy,
+owner allocation or finance posting. Never touch main/new branch;
+do not invent unavailable numbered §§133-135.
+
+---
+
 # 2026-10-16 | DETACHED Unit Property reassignment swap snapshot regression
 
 Two additional PostgreSQL cases verify both staff-reviewed and durable

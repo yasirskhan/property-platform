@@ -2231,3 +2231,20 @@ modify Unit.property_id. No customer business operation, unsupported Yardi
 API, Lease/occupancy, owner allocation or financial posting is enabled.
 This follow-up is detached/unverified until exact-SHA parent and own hosted
 six-job CI pass.
+
+
+### Consolidated credential and Unit-parent regression integration (2026-10-16)
+
+The two newer detached follow-ups are one integration candidate containing
+six additional fast-gated PostgreSQL regressions: four user password-hash
+rotation snapshots (reviewed and durable Owner/Tenant) and two changes in WHICH
+reviewed or durable Unit is reassigned to the wrong valid customer Property
+while resource totals remain identical. Only tests and these documents change.
+Do not publish until the prior published exact SHA 74bb1a22 passes all six
+jobs in CI 38989472466 and sole branch still matches it. Publish the FINAL
+descendant by non-force expected-HEAD advance and require full six-job hosted
+CI on that final exact SHA. Intermediate detached object commits are ancestry,
+not separate verification releases, superseding earlier detached statements
+about one CI per unpublished intermediate. Source target identity, user hash,
+Unit Property parent restoration, customer nonmutation and all previous tests
+remain enforced. Unsupported Yardi transport and §§133-135 remain blocked.
