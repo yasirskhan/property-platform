@@ -2479,3 +2479,16 @@ HEAD and non-force expected-SHA fast-forward to the FINAL candidate.
 Require own exact-SHA full six-job hosted CI, no unsupported provider
 source contracts or Yardi §§133–135 invention, finance, ownership or
 Lease/occupancy posting.
+
+
+### Foreign provider/organization retained source-swap isolation (2026-10-16)
+
+Extend an existing fast PostgreSQL Lease review regression to exercise
+four historical source variants each for a foreign organization's YARDI
+review and another provider's same-organization APPFOLIO review, targeting
+a currently inactive YARDI-linked Tenant. Neither historical change should
+affect the exact stored source-review dry-run fingerprint or create a Yardi
+collision. Customer business endpoints remain read-only. Detached pending
+exact parent `f2efb06e` all-six CI and own six-job hosted CI following
+sole-branch non-force expected-HEAD publication. No unsupported API,
+customer Lease/occupancy, allocations or accounting writes.

@@ -1,3 +1,21 @@
+# 2026-10-16 | PREPARED foreign provider and org historical Lease review isolation
+
+One bounded regression extension tests multiple retained, out-of-scope
+historical source-ID substitutions (NULL, foreign identifiers, same textual
+source) when the linked Yardi Lease Tenant is already inactive. Both foreign
+organization YARDI and same-organization APPFOLIO fixtures must preserve
+the same exact saved Yardi review fingerprint and no new collision.
+No production mutation or new feature scope. The detached implementation
+`b0865862d3fd6103e12645010df1a22d695a349d` is NOT published and
+NOT CI verified. Parent published `f2efb06e438e8fa15af57ef055a39bc00a346d12`
+has CI `38993664402` pending. Advance only when all six predecessor jobs
+are green and sole-branch HEAD matches, using non-force expected-SHA
+fast-forward; verify full six-job CI on descendant exact SHA.
+Preserve original tests and blocked Yardi APIs/Lease occupancy/finance
+and unavailable numbered §§133–135.
+
+---
+
 # 2026-10-16 | CONSOLIDATED unavailable Lease historical-preview safety batch
 
 **SINGLE PREPARED DETACHED integration milestone, NOT VERIFIED/PUBLISHED.**
