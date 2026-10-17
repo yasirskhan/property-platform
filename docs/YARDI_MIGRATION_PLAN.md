@@ -2355,3 +2355,23 @@ same target ID and must remain invisible to scoped Yardi reconciliation,
 preserve the exact saved dry-run, and permit replay when the real customer
 identity recovers. Source is no mutation of customer business records, with
 all fixtures restored. No unsupported APIs, Lease/occupancy or finance writes.
+
+
+### Final 13-case consolidated source-exact Yardi review safety milestone (2026-10-16)
+
+All related unpublished follow-ups after exact published source 74bb1a22
+are consolidated into ONE final descendant, adding thirteen PostgreSQL
+parameter scenarios including credential rotation, referenced/unreferenced
+Unit parent reassignment and unavailable Property/Unit/Tenant historical
+Lease source-claim details. The original Tenant exact-source regression
+is preserved and extended. Two negative tests ensure an inactive Tenant
+does not leak retained APPFOLIO or foreign-organization YARDI review claims.
+A read-only reconciliation correction preserves original same-run linked
+targets when customer eligibility changes, without extra database queries
+or customer business writes. Intermediate detached objects are ancestry
+and do not require individual hosted CI. Do not publish until all six
+CI jobs pass at parent 74bb1a22 in 38989472466, and sole branch matches
+that exact SHA. Publish FINAL descendant only with non-force
+expected-HEAD update, then verify exact final SHA by six hosted jobs.
+Previous assertions, source transport boundaries, customer data and
+unknown §§133-135 restrictions remain preserved.

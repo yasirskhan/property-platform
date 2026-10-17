@@ -1,3 +1,35 @@
+# 2026-10-16 | FINAL THIRTEEN-CASE PREPARED YARDI REVIEW SOURCE GATE
+
+**DETACHED, NOT PUBLISHED / NOT VERIFIED.** This SINGLE coherent
+integration descendant of the published source
+`74bb1a22e1febac8e4a9e62b2f17d319c1eabd13` adds THIRTEEN fast
+PostgreSQL parameter scenarios: four reviewed/durable Owner/Tenant
+credential rotations, two original Unit-parent eligibility swaps,
+two unrelated Unit-reparenting isolation checks, three inactive
+Property/Unit/Tenant exact retained Lease staff-source swaps including
+NULL, and two inactive Tenant historical review isolation checks for
+other organizations and APPFOLIO. A narrow read-only Yardi reconciliation
+change retains a linked unavailable target's original same-run durable
+identity for scoped historical claims. No extra query, customer business
+mutations, financial posting, Lease/occupancy creation, owner allocations
+or unauthorized external Yardi API. A detached fixture newline repair
+is included. All existing test assertions are retained.
+
+All unpublished intermediate objects are ancestry ONLY, not separately
+published/verified checkpoints, overriding older detached notes below
+that request individual hosted CI for those unpublished Git objects.
+**Publish only after SIX SUCCESSFUL jobs in GitHub Actions 38989472466
+at exact parent 74bb1a22 and fresh matching sole branch HEAD.**
+Use `force=false` and `expected_sha` for safe fast-forward, then
+require all six hosted GitHub CI jobs SUCCESS at the FINAL exact
+published commit before marking it verified. Fix genuine failures
+without dropping assertions. Update this handoff and plan with true CI
+numbers after verification, then continue an independently supportable
+bounded Phase 4.15 safety batch. Never main/new branch, no force push,
+no fabrication of missing original Sections 133-135.
+
+---
+
 # 2026-10-16 | DETACHED unavailable linked Lease tenant source scope isolation
 
 Two additional PostgreSQL negative paths verify the updated read-only
