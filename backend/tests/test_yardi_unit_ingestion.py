@@ -90,6 +90,9 @@ def test_yardi_unit_required_field_summary_is_distinct_from_duplicate_ids():
         summary = upload.upload.validation_summary
         assert summary["invalid"] == 2
         assert summary["invalid_required_rows"] == 2
+        assert summary["missing_required_by_field"] == {
+            "source_id": 1, "source_property_id": 1, "unit_name": 0,
+        }
         assert summary["duplicate_source_rows"] == 0
         assert summary["disposition_counts"]["INVALID"] == 2
         assert summary["disposition_counts"]["REVIEW"] == 1
