@@ -1010,6 +1010,7 @@ def test_accepted_lease_review_survives_eligible_tenant_profile_only_update(
     profile_field, new_value,
 ):
     """Customer profile changes cannot silently expire a source-exact Lease review."""
+    from app.models.audit_log import AuditLog
     from app.models.platform_migration import PlatformMigrationItem
 
     db, engine = _session()
@@ -1029,6 +1030,12 @@ def test_accepted_lease_review_survives_eligible_tenant_profile_only_update(
         assert baseline["lease_relationship_readiness"]["accepted_relationship_stale"] == 0
         saved = dry_run_yardi_review(run.id, db, actor)
         assert saved["review_fingerprint"] == baseline["review_fingerprint"]
+        original_audit_count = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "yardi_review_dry_run",
+        ).count()
+        assert original_audit_count == 1
 
         previous_value = getattr(tenant, profile_field)
         setattr(tenant, profile_field, new_value)
@@ -1052,6 +1059,13 @@ def test_accepted_lease_review_survives_eligible_tenant_profile_only_update(
         assert snapshot["saved_review_fingerprint"] == saved["review_fingerprint"]
         replay = dry_run_yardi_review(run.id, db, actor)
         assert replay["replayed"] is True
+        audit_rows = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "yardi_review_dry_run",
+        ).all()
+        assert len(audit_rows) == original_audit_count
+        assert all(new_value not in str(audit.new_value or "") for audit in audit_rows)
         assert accept_yardi_staged_lease_relationship(
             run.id, lease.id, db, actor,
         )["replayed"] is True
@@ -1086,6 +1100,8 @@ def test_contested_lease_historic_identity_stays_blocked_after_tenant_profile_up
     profile_field, replacement, historical_source,
 ):
     """Cosmetic or credential edits cannot resolve another Yardi run's target claim."""
+    from app.models.audit_log import AuditLog
+
     db, engine = _session()
     try:
         actor, org, run, prop, alternate, unit, tenant, lease = _seed(
@@ -1128,6 +1144,12 @@ def test_contested_lease_historic_identity_stays_blocked_after_tenant_profile_up
         assert readiness["complete_identity_links"] == 0
         saved = dry_run_yardi_review(run.id, db, actor)
         assert saved["review_fingerprint"] == contested["review_fingerprint"]
+        original_audit_count = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "yardi_review_dry_run",
+        ).count()
+        assert original_audit_count == 1
 
         previous_value = getattr(tenant, profile_field)
         setattr(tenant, profile_field, replacement)
@@ -1141,6 +1163,13 @@ def test_contested_lease_historic_identity_stays_blocked_after_tenant_profile_up
         assert status["is_current"] is True
         assert status["saved_review_fingerprint"] == saved["review_fingerprint"]
         assert dry_run_yardi_review(run.id, db, actor)["replayed"] is True
+        audit_rows = db.query(AuditLog).filter(
+            AuditLog.entity_type == "platform_migration_run",
+            AuditLog.entity_id == run.id,
+            AuditLog.action == "yardi_review_dry_run",
+        ).all()
+        assert len(audit_rows) == original_audit_count
+        assert all(replacement not in str(audit.new_value or "") for audit in audit_rows)
         preview = list_yardi_lease_relationships(
             run.id, Response(), offset=0, limit=10,
             db=db, current_user=actor,

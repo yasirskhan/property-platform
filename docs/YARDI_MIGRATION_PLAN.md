@@ -2632,3 +2632,17 @@ snapshot, and restoring the true same-source identity recovers legitimate
 Lease readiness. This is a detached, test-only follow-up: no migration
 customer writes, new Lease, provider API or accounting/owner allocation.
 Prior cases are retained and expanded, pending exact six-job verification.
+
+
+### Audit idempotency and credential redaction on exact Lease profile review (2026-10-16)
+
+The three valid, six contested Tenant profile source-exact PostgreSQL cases
+also verify that the initial reviewed dry run creates exactly one
+append-only audit record and that later idempotent replay after a harmless
+name/password-hash change adds no duplicate review audit entry. No
+changed display name or rotated credential hash is disclosed in the
+saved audit value. A true changed historic claim still expires the
+fingerprint and remains blocked while restored source state recovers it.
+This is test-only; production/customer migrations, Lease occupancy,
+owner allocations, GL/AR/AP posting and undocumented APIs remain blocked.
+The final descendant requires exact prior and own hosted all-six CI.

@@ -1,3 +1,25 @@
+# 2026-10-16 | DETACHED source-review audit idempotency and redaction checks
+
+A further focused test-only descendant validates that the existing
+valid Tenant-profile and historically contested Lease dry-run regressions
+create ONE initial `yardi_review_dry_run` audit event and create NO
+additional audit event on idempotent profile-only replay. Changed
+customer name/password hash values must not appear in these append-only
+source-review audit records. All original source/target, pagination,
+NULL-safe historical collision and customer no-business-mutation checks
+remain. No production router/schema changes and no old test weakening.
+Parent of this DETACHED descendant: `5c3773514bb929b1286668890f9af32e2550105f`.
+The only published predecessor is still
+`27db379b2abe046c447b33cd6faa118f84efef9c`, with exact hosted
+CI `38996279387` pending. Publish only the final consolidated
+fast-forward when all SIX jobs are successful and live sole branch
+HEAD still equals the predecessor, using non-force expected_sha.
+The new exact SHA must pass hosted six-job CI before VERIFIED.
+No main/new branches, undocumented Yardi APIs, Lease/customer/financial
+posting or invented original §§133–135.
+
+---
+
 # 2026-10-16 | DETACHED NULL-safe contested Lease profile/source matrix
 
 Final prepared descendant after published
