@@ -9,6 +9,7 @@ import os
 import pytest
 from fastapi import HTTPException, Response
 from sqlalchemy import create_engine
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 
 from app.core.database import Base
@@ -28,6 +29,11 @@ def test_postgresql_null_source_historical_tenant_review_blocks_lease_reaccept()
     url = os.environ.get("TEST_DATABASE_URL") or os.environ.get("DATABASE_URL", "")
     if not url.startswith(("postgresql://", "postgresql+")):
         pytest.skip("PostgreSQL test database URL not configured")
+    # Never create schema or fixtures against an accidentally supplied
+    # production database, even if its driver happens to be PostgreSQL.
+    database_name = (make_url(url).database or "").lower()
+    if "test" not in database_name:
+        pytest.fail("Refuse PostgreSQL fixture writes outside a named test database")
     engine = create_engine(url)
     # CREATE IF MISSING only in the explicitly configured disposable TEST DB.
     # Do not rely on an SQLite dialect to validate NULL-safe PostgreSQL SQL.
