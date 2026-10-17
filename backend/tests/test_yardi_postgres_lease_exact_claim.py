@@ -90,6 +90,9 @@ def test_postgresql_null_source_historical_identity_review_blocks_lease_reaccept
         assert baseline["lease_relationship_readiness"]["source_review_ready"] == 1
         saved = dry_run_yardi_review(run.id, db, actor)
         assert saved["review_fingerprint"] == baseline["review_fingerprint"]
+        assert get_yardi_reconciliation(
+            run.id, Response(), db, actor,
+        )["saved_review_current"] is True
         if target_unavailable:
             options["target"].is_active = False
             db.commit()
@@ -127,9 +130,20 @@ def test_postgresql_null_source_historical_identity_review_blocks_lease_reaccept
         assert readiness["source_review_ready"] == 0
         assert readiness["complete_identity_links"] == 0
         assert blocked["review_fingerprint"] != baseline["review_fingerprint"]
+        assert blocked["saved_review_current"] is False
         assert get_yardi_review_dry_run_status(
             run.id, Response(), db, actor,
         )["is_current"] is False
+        # Save the *contested* source evidence too. The next source swap
+        # must expire this newer snapshot even if all aggregate counts match.
+        saved_blocked = dry_run_yardi_review(run.id, db, actor)
+        assert saved_blocked["review_fingerprint"] == blocked["review_fingerprint"]
+        assert get_yardi_reconciliation(
+            run.id, Response(), db, actor,
+        )["saved_review_current"] is True
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is True
         preview = list_yardi_lease_relationships(
             run.id, Response(), offset=0, limit=10,
             db=db, current_user=actor,
@@ -150,6 +164,7 @@ def test_postgresql_null_source_historical_identity_review_blocks_lease_reaccept
             changed_claim = get_yardi_reconciliation(run.id, Response(), db, actor)
             assert changed_claim["lease_relationship_readiness"] == blocked["lease_relationship_readiness"]
             assert changed_claim["review_fingerprint"] not in seen_fingerprints
+            assert changed_claim["saved_review_current"] is False
             seen_fingerprints.add(changed_claim["review_fingerprint"])
             assert get_yardi_review_dry_run_status(
                 run.id, Response(), db, actor,
@@ -159,7 +174,13 @@ def test_postgresql_null_source_historical_identity_review_blocks_lease_reaccept
         db.commit()
         restored_blocked = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert restored_blocked["review_fingerprint"] == blocked["review_fingerprint"]
+        assert restored_blocked["saved_review_current"] is True
         assert restored_blocked["lease_relationship_readiness"] == blocked["lease_relationship_readiness"]
+        recovered_blocked_status = get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )
+        assert recovered_blocked_status["is_current"] is True
+        assert recovered_blocked_status["saved_review_fingerprint"] == saved_blocked["review_fingerprint"]
 
         historical.source_id = options["current"]
         if target_unavailable:
@@ -167,6 +188,10 @@ def test_postgresql_null_source_historical_identity_review_blocks_lease_reaccept
         db.commit()
         recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert recovered["review_fingerprint"] == baseline["review_fingerprint"]
+        assert recovered["saved_review_current"] is False
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is False
         assert recovered["lease_relationship_readiness"]["source_review_ready"] == 1
         assert recovered["lease_relationship_readiness"]["identity_target_review_collisions"] == 0
         assert accept_yardi_staged_lease_relationship(

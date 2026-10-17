@@ -94,6 +94,32 @@ def stage_yardi_file(
     if existing:
         return StagedUploadResult(upload=existing, replayed=True)
 
+    # Source Lease parent readiness is only a diagnostic, never an automatic
+    # relationship bind. Resolve the existing run/provider/org mappings in
+    # bounded batches rather than issuing three identical lookups per Lease.
+    # Preserve resource-specific source IDs and the historical missing-parent
+    # warnings exactly; do not query customer business records.
+    lease_parent_pairs: set[tuple[str, str]] = set()
+    if resource == "LEASE_OCCUPANCY":
+        source_keys = set()
+        for _, source in parsed.rows:
+            for field in ("source_tenant_id", "source_property_id", "source_unit_id"):
+                source_key = str(_mapped_value(source, mapping, field) or "").strip()
+                if source_key:
+                    source_keys.add(source_key)
+        ordered_keys = sorted(source_keys)
+        for start in range(0, len(ordered_keys), 300):
+            found = db.query(
+                PlatformMigrationItem.resource, PlatformMigrationItem.source_id,
+            ).filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "YARDI",
+                PlatformMigrationItem.resource.in_(("TENANTS", "PROPERTIES", "UNITS")),
+                PlatformMigrationItem.source_id.in_(ordered_keys[start:start + 300]),
+            ).all()
+            lease_parent_pairs.update((mapped_resource, mapped_source) for mapped_resource, mapped_source in found)
+
     upload = PlatformMigrationUpload(
         run_id=run.id, organization_id=run.organization_id,
         provider="YARDI", filename=filename,
@@ -149,14 +175,10 @@ def stage_yardi_file(
                     ("PROPERTIES", "source_property_id"),
                     ("UNITS", "source_unit_id"),
                 ):
-                    parent = db.query(PlatformMigrationItem).filter(
-                        PlatformMigrationItem.run_id == run.id,
-                        PlatformMigrationItem.organization_id == run.organization_id,
-                        PlatformMigrationItem.provider == "YARDI",
-                        PlatformMigrationItem.resource == parent_resource,
-                        PlatformMigrationItem.source_id == str(data.get(field) or "").strip(),
-                    ).first()
-                    if parent is None:
+                    if (
+                        parent_resource,
+                        str(data.get(field) or "").strip(),
+                    ) not in lease_parent_pairs:
                         warnings.append(f"{parent_resource} stable source relationship remains unmapped; commit blocked.")
                 warnings.append("Lease identity staged only; no occupancy, liability, payment, rent or deposit receipt inferred.")
             elif resource == "TENANTS":

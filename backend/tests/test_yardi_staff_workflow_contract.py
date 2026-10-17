@@ -35,6 +35,10 @@ def test_yardi_staff_workflow_endpoints_are_mounted_and_upload_is_multipart():
     ):
         assert any(operation.get("security") for operation in operations[base + endpoint].values())
 
+    direct_run = operations[base + "/runs/{run_id}"]
+    assert "get" in direct_run and "post" not in direct_run
+    assert direct_run["get"].get("security"), "Older run lookup must require authentication"
+
     readiness = operations[base + "/resource-readiness"]
     assert readiness["get"].get("security")
     candidates = operations[base + "/runs/{run_id}/existing-targets"]["get"]

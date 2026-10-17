@@ -126,6 +126,8 @@ type SourceCollisionInventory = {
 };
 type Reconciliation = {
   review_fingerprint: string;
+  saved_review_fingerprint: string | null;
+  saved_review_current: boolean;
   staged_rows: number;
   invalid_rows: number;
   unresolved_rows: number;
@@ -165,6 +167,7 @@ export default function YardiMigrationConsole() {
   const [me, setMe] = useState<PlatformUser | null>(null);
   const [runs, setRuns] = useState<MigrationRun[]>([]);
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
+  const [runIdLookup, setRunIdLookup] = useState("");
   const [orgId, setOrgId] = useState("");
   const [sourceRef, setSourceRef] = useState("");
   const [uploads, setUploads] = useState<MigrationUpload[]>([]);
@@ -246,7 +249,16 @@ export default function YardiMigrationConsole() {
       platformGet(ROOT + "/runs/" + selectedRunId + "/reconciliation") as Promise<Reconciliation>,
     ]).then(([nextUploads, review]) => {
       if (!active) return;
-      setDryRun((previous) => previous?.review_fingerprint === review.review_fingerprint ? previous : null);
+      // The backend validates the saved review against this exact same
+      // snapshot. Never trust an older browser-only fingerprint after reload.
+      const savedCurrent = review.saved_review_current
+        && review.saved_review_fingerprint === review.review_fingerprint;
+      setDryRun(savedCurrent ? {
+        review_fingerprint: review.review_fingerprint,
+        invalid_rows: review.invalid_rows,
+        unresolved_rows: review.unresolved_rows,
+        replayed: true,
+      } : null);
       setUploads(nextUploads);
       setReconciliation(review);
       setSelectedUploadId((previous) => {
@@ -311,6 +323,36 @@ export default function YardiMigrationConsole() {
       .catch((err: unknown) => { if (active) setError(readableError(err)); });
     return () => { active = false; };
   }, [selectedRunId, collisionOffset, collisionResource, refreshKey]);
+
+  function selectRun(runId: number | null) {
+    setSelectedRunId(runId);
+    // Never render another organization's last upload headers or review
+    // evidence while the newly authorized run is loading.
+    setUploads([]);
+    setSelectedUploadId(null);
+    setRows([]);
+    setRowOffset(0);
+    setSourceHeaders([]);
+    setSourceRowCount(null);
+    setSkipReasons({});
+    setFile(null);
+    setSheetName("");
+    setMappingText("{}");
+    setError("");
+    setNotice("");
+    setCandidateResults({});
+    setTargetQueries({});
+    setTargetIds({});
+    setBindingInventory(null);
+    setBindingOffset(0);
+    setLeasePreview(null);
+    setLeaseOffset(0);
+    setSourceCollisions(null);
+    setCollisionOffset(0);
+    setCollisionResource("ALL");
+    setDryRun(null);
+    setReconciliation(null);
+  }
 
   async function perform(work: () => Promise<void>) {
     if (busy) return;
@@ -476,6 +518,28 @@ export default function YardiMigrationConsole() {
     });
   }
 
+  async function openRunById() {
+    const requestedId = Number(runIdLookup);
+    if (!Number.isSafeInteger(requestedId) || requestedId < 1) {
+      setError("Enter a positive, valid migration run ID.");
+      return;
+    }
+    await perform(async () => {
+      // Existing authenticated single-run route enforces the same role and
+      // organization scopes. Do not use untrusted IDs to change anything.
+      const found = await platformGet(ROOT + "/runs/" + requestedId) as MigrationRun;
+      if (found.provider !== "YARDI" || found.id !== requestedId) {
+        throw new Error("The requested Yardi migration run was not found.");
+      }
+      setRuns((previous) => previous.some((run) => run.id === found.id)
+        ? previous.map((run) => run.id === found.id ? found : run)
+        : [found, ...previous]);
+      selectRun(found.id);
+      setRunIdLookup("");
+      setNotice("Yardi migration run #" + found.id + " opened for read-only review.");
+    });
+  }
+
   async function recordDryRun() {
     if (!canWrite || selectedRunId === null) return;
     await perform(async () => {
@@ -483,6 +547,13 @@ export default function YardiMigrationConsole() {
         ROOT + "/runs/" + selectedRunId + "/review-dry-run", {}
       ) as ReviewDryRun;
       setDryRun(result);
+      // The successful server response authorizes a current saved review
+      // only for the exact fingerprint the console most recently displayed.
+      // Source changes concurrent with the POST remain fail-closed.
+      setReconciliation((previous) => previous?.review_fingerprint === result.review_fingerprint
+        ? { ...previous, saved_review_fingerprint: result.review_fingerprint, saved_review_current: true }
+        : previous);
+      setRefreshKey((key) => key + 1);
       setNotice("Read-only reviewed snapshot recorded. No customer records or financial data committed.");
     });
   }
@@ -516,27 +587,23 @@ export default function YardiMigrationConsole() {
           <p className="mt-1 text-sm text-slate-600">Only authorized platform staff can create or modify runs.</p>
           <label className="mt-3 block text-sm" htmlFor="yardi-run">Select a run</label>
           <select id="yardi-run" className="input mt-1" value={selectedRunId ?? ""} onChange={(event) => {
-            setSelectedRunId(event.target.value ? Number(event.target.value) : null);
-            setSelectedUploadId(null);
-            setRows([]);
-            setRowOffset(0);
-            setCandidateResults({});
-            setTargetQueries({});
-            setTargetIds({});
-            setBindingInventory(null);
-            setBindingOffset(0);
-            setLeasePreview(null);
-            setLeaseOffset(0);
-            setSourceCollisions(null);
-            setCollisionOffset(0);
-            setCollisionResource("ALL");
-            setDryRun(null);
+            selectRun(event.target.value ? Number(event.target.value) : null);
           }}>
             <option value="">Select run</option>
             {runs.map((run) => (
               <option key={run.id} value={run.id}>#{run.id} · Org {run.organization_id} · {run.source_account_ref} · {run.status}</option>
             ))}
           </select>
+          <form className="mt-3 flex flex-wrap items-end gap-2" onSubmit={(event) => {
+            event.preventDefault();
+            void openRunById();
+          }}>
+            <label className="text-sm">Open older run by ID
+              <input className="input mt-1 w-40" inputMode="numeric" required value={runIdLookup} onChange={(event) => setRunIdLookup(event.target.value)} placeholder="Run ID" />
+            </label>
+            <button type="submit" disabled={busy} className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">Open run</button>
+            <p className="w-full text-xs text-slate-600">Use this to open an authorized Yardi run not shown among the newest 100. Organization and role checks still apply.</p>
+          </form>
           {canWrite && <form className="mt-4 grid gap-3 sm:grid-cols-[8rem_1fr_auto]" onSubmit={(event) => { void createRun(event); }}>
             <label className="text-sm">Organization ID<input className="input mt-1" required inputMode="numeric" value={orgId} onChange={(event) => setOrgId(event.target.value)} /></label>
             <label className="text-sm">Source account label (never credentials)<input className="input mt-1" required maxLength={255} value={sourceRef} onChange={(event) => setSourceRef(event.target.value)} /></label>
@@ -558,7 +625,7 @@ export default function YardiMigrationConsole() {
               </select>
             </label>
             <label className="block text-sm">CSV or XLSX file
-              <input type="file" className="input mt-1" accept=".csv,.xlsx" required onChange={(event) => {
+              <input key={selectedRunId ?? "no-run"} type="file" className="input mt-1" accept=".csv,.xlsx" required onChange={(event) => {
                 setFile(event.target.files?.[0] ?? null);
                 setSourceHeaders([]);
                 setSourceRowCount(null);
@@ -674,6 +741,16 @@ export default function YardiMigrationConsole() {
           {reconciliation && <>
             <p className="mt-2 text-sm">Staged: {reconciliation.staged_rows} · Invalid: {reconciliation.invalid_rows} · Needs review: {reconciliation.unresolved_rows} · Durable source mappings: {reconciliation.durable_mapping_count}</p>
             <p className="mt-2 break-all font-mono text-xs text-slate-500">Current fingerprint: {reconciliation.review_fingerprint}</p>
+            {reconciliation.saved_review_current && (
+              <p role="status" className="mt-2 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+                Previously recorded source review is still current. Existing-target identity bindings may proceed through the server checks.
+              </p>
+            )}
+            {reconciliation.saved_review_fingerprint && !reconciliation.saved_review_current && (
+              <p role="status" className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+                Saved review is stale. Source rows, linked identity or customer eligibility evidence changed. Resolve blockers and record a new review dry run before binding identities. No customer records have been changed by this check.
+              </p>
+            )}
             <p className="mt-2 text-xs text-slate-700">
               Lease source identity links complete: {reconciliation.lease_relationship_readiness.complete_identity_links ?? 0}
               {" · "}Source relationships ready for explicit staff identity review: {reconciliation.lease_relationship_readiness.source_review_ready ?? 0}

@@ -123,6 +123,50 @@ def test_yardi_run_roles_scope_no_store_and_no_business_mutation():
         engine.dispose()
 
 
+
+def test_yardi_older_run_id_lookup_reuses_scoped_read_only_endpoint():
+    """A run outside the newest page remains available by exact authorized ID."""
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_SUPPORT)
+        org = _org(db, slug="yardi-older-run-lookup")
+        old, middle, newest = [
+            PlatformMigrationRun(
+                organization_id=org.id, provider="YARDI",
+                source_account_ref=f"older-{i}", status="DRAFT",
+            )
+            for i in range(3)
+        ]
+        other_provider = PlatformMigrationRun(
+            organization_id=org.id, provider="APPFOLIO",
+            source_account_ref="not-a-yardirun", status="DRAFT",
+        )
+        db.add_all([old, middle, newest, other_provider])
+        db.commit()
+        limited = api.list_yardi_runs(
+            response=Response(), organization_id=org.id, limit=2,
+            db=db, current_user=actor,
+        )
+        assert [run.id for run in limited] == [newest.id, middle.id]
+        read_response = Response()
+        recovered = api.get_yardi_run(
+            old.id, response=read_response, db=db, current_user=actor,
+        )
+        assert recovered.id == old.id
+        assert recovered.provider == "YARDI"
+        assert recovered.status == "DRAFT"
+        assert read_response.headers["cache-control"] == "no-store"
+        with pytest.raises(HTTPException) as wrong_provider:
+            api.get_yardi_run(
+                other_provider.id, response=Response(), db=db,
+                current_user=actor,
+            )
+        assert wrong_provider.value.status_code == 404
+        assert db.query(PlatformMigrationRun).count() == 4
+    finally:
+        db.close()
+        engine.dispose()
+
 def test_yardi_run_rejects_credentials_raw_payloads_and_audit_is_redacted():
     db, engine = _session()
     try:

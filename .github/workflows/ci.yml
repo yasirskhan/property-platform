@@ -63,6 +63,7 @@ jobs:
         run: >-
           pytest -q
           tests/test_yardi_migrations.py::test_yardi_binding_routes_have_correct_handlers
+          tests/test_yardi_migrations.py::test_yardi_older_run_id_lookup_reuses_scoped_read_only_endpoint
           tests/test_yardi_vendor_review_binding.py
           tests/test_yardi_tenant_review_binding.py
           tests/test_yardi_owner_review_binding.py
@@ -74,6 +75,7 @@ jobs:
           tests/test_yardi_lease_reconciliation.py
           tests/test_yardi_header_inspection.py
           tests/test_yardi_staff_workflow_contract.py
+          tests/test_yardi_review_dry_run_status.py
           tests/test_yardi_existing_target_candidates.py
           tests/test_yardi_durable_binding_inventory.py
           tests/test_yardi_lease_row_relationships.py
@@ -87,6 +89,7 @@ jobs:
           tests/test_yardi_accepted_lease_stale_count.py
           tests/test_yardi_lease_accept_review_claim_batch.py
           tests/test_yardi_postgres_lease_exact_claim.py
+          tests/test_yardi_lease_ingestion.py
           tests/test_yardi_reconciliation_durable_claims.py
           tests/test_yardi_reconciliation_unit_parent_claims.py
           tests/test_yardi_reconciliation_composite_sources.py

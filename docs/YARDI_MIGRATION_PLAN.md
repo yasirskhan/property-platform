@@ -2743,3 +2743,193 @@ readiness counts, stale saved dry-run status and exact restoration.
 This supplements existing SQLite route-case coverage without deleting or
 relaxing assertions. Hosted exact-SHA CI is required before VERIFIED;
 no production migration route or customer business write is added.
+
+
+### Prepared PostgreSQL saved contested-review exact restoration (2026-10-17)
+
+A detached follow-up to the six-case native PostgreSQL NULL claim matrix
+saves a second review dry run while the original identity is contested.
+Subsequent distinct historical source IDs must expire it even with equal
+aggregate counters. Exact restoration of retained NULL source evidence
+must recover that *blocked* snapshot, while final resolution to the
+original legitimate source must expire it again. This complements the
+separately saved pre-conflict review and preserves all older assertions.
+Only publish after exact predecessor six-job CI success, then run the
+full six jobs on the published follow-up SHA; no customer records or
+product importer/financial contracts change.
+
+
+### Persist server-verified Yardi review dry run in staff console (prepared 2026-10-17)
+
+Previously the Yardi staff UI stored the last review fingerprint only in
+ephemeral browser component state. A page reload unnecessarily disabled
+existing-target identity binding even if the server still held a current
+saved review. The prepared UI change fetches authenticated read-only saved
+status with reconciliation and restores the binding controls only when
+`has_saved_dry_run` and `is_current` are true and saved, status-current
+and independently fetched current reconciliation fingerprints all match.
+Status/reconciliation disagreement fails closed; every actual bind still
+uses a freshly server-validated fingerprint. This is not a customer record
+commit, automatic review, or new Yardi source-contract adapter. Pending
+exact-SHA six-job CI of its published final descendant.
+
+
+### Exact single-snapshot saved review status for Yardi staff UX (2026-10-17)
+
+Supersedes the earlier proposed extra staff UI GET dry-run status call.
+The existing authenticated read-only reconciliation response now exposes
+`saved_review_fingerprint` and `saved_review_current` from the SAME
+source-exact digest, avoiding duplicate reconciliation queries and
+cross-request observation skew. The Yardi platform-admin console restores
+persisted dry-run state after reload only when the source-exact fingerprint
+is still current. Stale/missing saved review continues to disable all
+identity-bind buttons, with independently revalidated server POST guards.
+Expand missing/current/stale reconciliation status regressions without
+changing customer business records or unsupported migration contracts.
+This descendant remains provisional until six-job exact-SHA hosted CI.
+
+
+### PostgreSQL source-exact saved UI review parity (prepared 2026-10-17)
+
+The linked Property, Unit and Tenant native PostgreSQL claim fixture now
+also tests the server's atomic `saved_review_current` field throughout
+fresh saved, contested NULL, changed historical source, exact restored
+contested review, and final eligible legitimate source recovery states.
+This ensures the staff UI persistence gate mirrors genuine source-exact
+database behavior rather than just a manually synthetic stale hash.
+Existing SQL NULL, dry-run GET, preview, rollback and no-customer-business-
+mutation checks remain. Detached until exact all-six hosted CI verification.
+
+
+### Staff visibility of saved reviewed source-currentness (prepared 2026-10-17)
+
+The read-only Yardi reconciliation panel explicitly explains when
+a persisted reviewed source fingerprint still matches the current
+reconciliation snapshot, or when a saved review is stale and must be
+recorded again after checking blockers. The stale/current indicators
+use atomic server reconciliation metadata, add zero new requests,
+do not authorize a bind without independent backend checks, and
+do not create or overwrite customer business data. Prepared detached
+pending exact-SHA six-job CI on the final published source.
+
+
+### Older Yardi run retrieval for authorized staff (prepared 2026-10-17)
+
+The platform migration console now has an explicit positive-integer
+run ID lookup for supported older Yardi runs not present in the first
+100 newest runs. This reuses the existing read-authenticated,
+provider-gated GET single-run contract, with a staff role/organization
+access check on the server. A newly selected run resets all prior
+run-scoped data and prompts fresh read-only loading. The single-run
+endpoint's authentication and GET-only status are checked in the
+existing staff workflow OpenAPI contract regression. No new API,
+customer record mutation or unsupported Yardi source contract.
+Provisional until full hosted six-job CI at the exact published SHA.
+
+
+### Fast hosted saved-review currentness regression gate (prepared 2026-10-17)
+
+The backend CI fast Yardi suite now includes the existing read-only
+review dry-run status regression alongside its workflow contract checks.
+It explicitly requires source-exact saved fingerprint status to remain
+fail closed for missing and stale reviews, and current for exact verified
+snapshots. This catches stale-state/console gate issues before the
+full backend suite. The full suite is retained; no tests suppressed or
+customer business paths changed. Pending exact-SHA hosted CI.
+
+
+### Previous-run source metadata reset on Yardi run selection (2026-10-17)
+
+The older-run lookup and normal run selector share a single state-reset
+helper. It now clears the prior run's upload listing, inspected header
+and row-count metadata and per-row skip reasons immediately, before
+authorized replacement data loads. This prevents transient display of
+another selected run's source-upload metadata. Previous role/org
+scoping, read-only review, no-customer-write, audit and fingerprints
+remain unchanged. Detached pending its own six hosted CI jobs after
+controlled publication.
+
+
+### Batched read-only Lease source-parent mapping warnings (2026-10-17)
+
+Lease source staging now projects the same-run, same-provider/organization
+source Property, Unit and Tenant mapping identities in deterministic
+300-key batches, instead of issuing three separate parent mapping
+queries for every staged Lease row. Source resource and exact source ID
+still qualify each parent. An unrelated run's source ID never satisfies
+the original run's parent, no target relationship is inferred, and the
+existing unmapped/commit-blocked warnings are preserved. An additional
+fast-gated staging regression exercises mixed linked/unlinked rows,
+cross-run isolation, constant-batch SQL count and customer Lease
+nonmutation. The source-only pipeline remains controlled and no
+accounting, occupancy or ownership import is enabled. Provisional
+until all-six hosted CI on exact final published SHA.
+
+
+### Bounded source-lookup batch-edge safety regression (prepared 2026-10-17)
+
+The read-only Yardi Lease staging mapping lookup now has a test at
+the deterministic 300-source-key SQL batch boundary: 101 Lease source
+rows present 303 unique Property/Unit/Tenant source values and must
+cause precisely two scoped mapping reads, preserving 101 fully staged
+review rows and three missing-parent blockers per row with no
+customer Lease mutation. Existing smaller mixed mapping and
+cross-run resource isolation regressions remain intact. Provisional
+until final SHA six-job CI.
+
+
+### Correct 101-row SQL batch test CSV newline fixture (2026-10-17)
+
+The prepared >300-parent-source boundary fixture now uses proper Python
+newline escapes for all staged CSV records. Its scope remains 101
+source Leases, 303 distinct parent IDs, two bounded source mapping
+SELECTs, identical missing-parent warning behavior and no Lease
+business writes. No assertions removed, no product importer changes.
+Provisional pending final exact hosted CI.
+
+
+### Recorded review status immediate reconciliation safety (2026-10-17)
+
+After staff explicitly record a successful read-only Yardi source
+dry run, the console now refreshes the server evidence and may
+update its saved/current indicator only when the successful POST
+fingerprint matches the exact displayed reconciliation fingerprint.
+This prevents stale banners after successful saves while remaining
+fail closed on concurrent source changes. Backend POST binding
+verification and all pre-existing role and source safeguards
+remain authoritative. Detached pending final all-six-job CI.
+
+
+### Authenticated older-run lookup and provider exclusion regression (2026-10-17)
+
+The existing exact-ID Yardi GET API must retrieve a valid provider run
+even if a short paginated latest-runs list excludes it. It must enforce
+read-role authorization, return no-store caching and refuse a run ID
+belonging to a different provider. A dedicated isolated backend test
+now covers these cases and is listed in the Fast Yardi hosted CI gate.
+No API schema, customer data or financial/Lease functionality changes.
+Pending exact final-SHA six-job CI.
+
+
+### Yardi parent-source staging must exclude foreign provider mappings (2026-10-17)
+
+The mixed valid/unmapped read-only Lease source batching regression
+now includes provider-mismatched AppFolio mapping metadata in the
+Yardi run for a missing Tenant source. The Yardi warning stays
+blocked: only the exact run, organization, YARDI provider,
+resource and source ID mapping can satisfy a source parent.
+Prior query-count, other-run and Lease customer nonmutation checks
+remain intact. Detached until full exact-SHA hosted CI.
+
+
+### Clear actual selected source file when switching Yardi migration runs (2026-10-17)
+
+Switching between Yardi runs now clears the browser's selected CSV/XLSX
+file, sheet name, and source-column mapping as well as existing review,
+upload and inspection state. The HTML file control is remounted
+with the run ID as key so a previously selected file cannot remain
+silently present in the DOM after the React state is cleared. The
+operator must explicitly select and map a new source file for the
+new authorized run. No new endpoints, customer record changes,
+unofficial API or import-side Lease/ownership/financial posting.
+This is part of the consolidated pending exact-SHA CI release.

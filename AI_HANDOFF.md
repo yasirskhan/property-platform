@@ -1,3 +1,459 @@
+# 2026-10-17 | VERIFIED PRIOR SOURCE | PUBLISHED NEXT YARDI BATCH PROVISIONAL
+
+**Exact predecessor now VERIFIED:** Published sole-branch
+`8a0ecd5d76fc9571398c4d001647ee9633f11b57`, hosted Actions `39002418354`:
+**SUCCESS, all six jobs** (backend PostgreSQL, frontend, security,
+platform-admin, authenticated E2E, staging-config). The expanded
+native PostgreSQL Property/Unit/Tenant × eligible/inactive historical
+NULL source-claim matrix passed both its Fast Yardi and full backend
+gates, with no customer business mutations.
+
+**This consolidated successor is PROVISIONAL until its OWN new hosted
+all-six-job exact-SHA SUCCESS.** The prepared release contains:
+- Single-snapshot persisted Yardi staff review currentness and
+  safe recovery after reload, explicit save and source changes.
+- Clear stale/current review guidance and authorized older migration
+  run lookup with strict provider/role scoping.
+- Full previous-run source-file picker, sheet/mapping, upload listing,
+  candidates and reconciliation state reset.
+- Scoped, bounded SQL batching for read-only Lease Property/Unit/Tenant
+  source-parent warnings, protecting provider/org/run boundaries.
+- Additional PostgreSQL and SQLite regressions for exact sources,
+  cross-run and wrong-provider contamination, 101-row batch boundary,
+  unchanged no-customer-Lease guarantees; fast CI selector additions.
+- No API contract extension except additive server-computed read-only
+  saved review status fields; no unapproved migrations or postings.
+
+**Publication safety:** Single squashed/direct child of exact
+`8a0ecd5d76fc9571398c4d001647ee9633f11b57`, created from the reviewed detached
+candidate tree only after prior six-job green. Advance exclusively
+by nonforce `expected_sha` on sole
+`chatgpt/checkpoint-005-safety` after live HEAD check. The earlier
+many detached preparatory commits are NOT published milestones.
+Once published, find the new Actions run and verify all six jobs on
+its final exact SHA, repair reds and update this handoff before
+calling the source VERIFIED or starting conflicting publication.
+
+**Boundaries:** Never modify `main`, create another branch, force,
+overwrite other sessions, enable undocumented Yardi API transport,
+customer Lease/occupancy/ownership or financial posting, destructive
+customer writes or unprovided original §§133–135.
+
+---
+
+# 2026-10-17 | CONSOLIDATED NEXT YARDI RELEASE WITH SOURCE-FILE RUN SWITCH PROTECTION
+
+**SINGLE PREPARED COMMIT, NOT PUBLISHED AND NOT VERIFIED.** This
+consolidated successor supersedes the earlier detached consolidated
+candidate and all unpublished intermediate Git objects. It carries
+the same prepared Yardi read-only Lease staging and staff review
+changes, PLUS clears the previous run's selected browser upload
+file, XLSX sheet, column mapping, error/notice state, and remounts
+the actual file picker keyed to the selected run ID whenever a
+different Yardi run is chosen. This prevents a previous
+organization/run's file selection and source mapping from being
+silently reused for another run. Upload POST retains existing
+authenticated org/provider/read-write scope and no customer
+Lease/financial mutation.
+
+The sole branch must remain
+`chatgpt/checkpoint-005-safety`. Published predecessor
+`8a0ecd5d76fc9571398c4d001647ee9633f11b57` requires **all six SUCCESS** on hosted
+`39002418354` before publication. Once green, recheck
+exact live HEAD and publish only the final consolidated
+single child of that predecessor by `force=false` and
+`expected_sha=8a0ecd5d76fc9571398c4d001647ee9633f11b57`. Then require all six
+hosted CI jobs SUCCESS at the new exact SHA before VERIFIED.
+The previous detached commits were preparation only and
+must not be published as separate milestones.
+
+Unprovided original Yardi §§133–135, unofficial API transport,
+customer Lease/occupancy, ownership allocation, GL/AR/AP,
+destructive customer changes and new branches/main/force remain
+strictly prohibited.
+
+---
+
+# 2026-10-17 | SINGLE CONSOLIDATED YARDI NEXT RELEASE | DETACHED
+
+**One prepared release commit, NOT PUBLISHED and NOT VERIFIED.**
+All related unpublished test and staff-console source from the detached
+preparation chain after the currently published
+`8a0ecd5d76fc9571398c4d001647ee9633f11b57` is consolidated into ONE new Git commit whose
+parent is exactly that published SHA. Intermediate detached Git
+objects are preparation history only and are NOT separate branch
+milestones or independently verified releases. This top note
+supersedes older prep notes below that describe incremental descendants.
+
+**Product:** Yardi staff console restores a persisted source-exact dry
+run only when the server's SAME reconciliation snapshot marks the
+saved source fingerprint current. It explains stale/current reviews,
+refreshes after explicit recording without trusting concurrent source
+changes, allows authorized older run selection by exact authenticated
+read-only ID, and clears previous run uploads, source inspection and
+reconciliation state when switching runs. Backend binding still
+rechecks all credentials/roles, organization, provider, source and
+fingerprint safety conditions.
+
+**Read-only staging:** batch exact current-run, current-organization,
+YARDI provider and resource-qualified Lease Property/Unit/Tenant parent
+source mapping diagnostics in bounded 300-key SQL projections without
+creating customer Lease or occupancy relationships.
+
+**Regressions and CI:** six native PostgreSQL NULL-safe historical
+Property/Unit/Tenant source review cases for eligible/inactive linked
+targets, exact saved contested review recovery, saved currentness
+fingerprint evidence, missing/current/stale status assertions,
+authenticated older-run API provider and pagination checks, and
+small plus 101-row SQL parent batch fixtures including unrelated
+other-run and foreign-provider negative scenarios. Fast hosted
+Yardi test selectors retain all prior checks and add these focused
+suites. No tests removed, skipped, or relaxed.
+
+**Mandatory publication gate:** First require ALL SIX GitHub Actions
+jobs to complete SUCCESS in `39002418354` at the currently
+published exact `8a0ecd5d76fc9571398c4d001647ee9633f11b57`. Recheck live sole-branch
+`chatgpt/checkpoint-005-safety` HEAD immediately before publication.
+Only if still exactly that predecessor, publish this consolidated
+single child by `force=false`, `expected_sha` equal to the
+predecessor. Then verify ALL SIX hosted jobs SUCCESS at the NEW
+published exact SHA; repair any red, never mark provisional source
+VERIFIED. If HEAD advanced concurrently, reconcile rather than
+overwriting anybody else's work. Do not touch `main` or another
+repository; no new branches or force pushes.
+
+**Source-contract gates unchanged:** no undocumented Yardi APIs,
+customer Lease/occupancy creation, owner allocations, financial
+posting, destructive changes, or invented original §§133–135.
+Existing reviewed evidence, source fingerprint, provider/organization
+scope and replay/idempotency rules remain authoritative.
+
+---
+
+# 2026-10-17 | DETACHED Yardi Lease staging provider isolation proof
+
+**Prepared, unpublished and not verified.** Extend the read-only
+batch-source-parent regression's same-org cross-run negative case
+with a deliberately provider-mismatched historical mapping
+(`APPFOLIO` metadata recorded in the same migration run for a
+Tenant source ID). A YARDI Lease must keep its missing Tenant
+source relationship blocked rather than trusting the other provider.
+Preserve the original three-row SQL count, unmapped warnings,
+and no customer Lease mutation assertions. The production batch
+query was already explicitly filtered by YARDI provider; this
+adds no product code change and no weakened tests.
+
+Detached successor to `7a53cf038e6027049d77aff32717dabc5afe4877`. Publish only after predecessor
+`8a0ecd5d76fc9571398c4d001647ee9633f11b57`
+has all six hosted jobs SUCCESS in `39002418354`, the live
+sole branch still matches, and the new consolidated SHA is
+published by nonforce expected-head fast-forward. That exact
+new published SHA needs its own six-job hosted CI before VERIFIED.
+No main/new branch, unsupported Yardi APIs, production
+Lease/occupancy, ownership or finance posting.
+
+---
+
+# 2026-10-17 | DETACHED older Yardi run lookup integration safety regression
+
+**Prepared, not branch-published or verified.** Add a focused backend
+regression proving authorized support staff may use existing scoped
+`GET /yardi/runs/{id}` to open a YARDI run excluded from
+the latest limited list, without elevating write access.
+The same endpoint must fail with 404 for another provider's run ID,
+remain Cache-Control no-store, and preserve migration rows. Include the
+test in the FAST Yardi CI gate, retain all existing regression selectors.
+This verifies the new older-run UI behavior against real backend role,
+provider and pagination contracts; no new API or customer business writes.
+
+This newest detached integration follows
+`fce0516669df29c96aa0df1cb3fce44feffa0134`. The live published predecessor
+`8a0ecd5d76fc9571398c4d001647ee9633f11b57` still
+requires all six hosted jobs SUCCESS on `39002418354`.
+Once green, verify sole-branch HEAD, fast-forward nonforce to the
+consolidated last SHA with `expected_sha`, then require all six new
+CI jobs at exact final SHA before VERIFIED. No main/new branch/force,
+unsupported Yardi API, Lease/occupancy, ownership/financial posting
+or source-contract invention.
+
+---
+
+# 2026-10-17 | DETACHED safe saved-review status after recording dry run
+
+**Prepared, not published or verified.** When staff explicitly record
+a Yardi read-only dry run, refresh the server reconciliation snapshot
+and update the newly added saved/current UI status only if the successful
+POST response's exact source fingerprint matches the displayed review.
+A concurrently changed source fingerprint never becomes current from
+an optimistic UI update; the backend binding check remains independent.
+This prevents a previous stale-review banner from lingering after a
+successful reviewed source snapshot, without adding customer business
+mutations or unapproved provider operations. Preserve the GET single
+snapshot rehydration, stale fail-closed controls and all tests.
+
+Follows detached `f3c73d05b9fe54bd2ce2e24e1a91354fca939314`. The sole published
+`8a0ecd5d76fc9571398c4d001647ee9633f11b57`
+needs six-job exact SUCCESS in hosted `39002418354` before branch
+head recheck and one nonforce expected-SHA final descendant
+publication. Verify all six jobs on new exact SHA. Do not alter main,
+create alternate branches, force, or enable unsupported Yardi
+Lease/occupancy, ownership or financial/customer updates.
+
+---
+
+# 2026-10-17 | DETACHED 101-row CSV newline regression fixture correction
+
+**Prepared, unverified and not published.** Correct the new
+read-only staging batch-boundary test's two Python CSV string literals
+to use actual newline escape sequences, not literal backslash+n.
+The 101-row/303-key/two-batch assertions and all prior checks remain
+unchanged. The importer product code is unchanged by this fixture
+correction. Success still requires hosted six-job exact SHA CI.
+
+This is a detached descendant of `e9d0168a3eb6e1bbd81b5f5b8391d9921139af4e`; publish no earlier
+unpublished intermediate. Verify the predecessor published
+`8a0ecd5d76fc9571398c4d001647ee9633f11b57`
+six-job run `39002418354`, live HEAD and sole branch before one safe
+nonforce expected-SHA consolidated publication. No main/new branch
+or unauthorized Yardi financial/Lease/customer changes.
+
+---
+
+# 2026-10-17 | DETACHED bounded Lease source-parent batch edge regression
+
+**Prepared, not published/verified.** Extend the previous read-only
+Yardi Lease source-parent batching change with a boundary fixture
+staging 101 Lease rows with 303 distinct parent source IDs. It requires
+exactly two bounded SQL parent identity projections (300 + 3
+distinct keys), preserves all three unmapped-parent warnings per row
+and retains zero customer Lease changes. The preceding 3-row test
+continues to verify same-org cross-run exclusion, mixed mapped/missing
+parents and one batched query. No product/source-contract relaxation.
+Previously prepared CI fast gate for Lease source staging is preserved.
+
+This detached descendant follows `44454bd79dc67e2a5b37ae84b60f800527a443f9`. Publish consolidated
+final descendant only after the sole published predecessor
+`8a0ecd5d76fc9571398c4d001647ee9633f11b57` succeeds in all six
+hosted CI jobs on workflow `39002418354` and branch HEAD still matches.
+Publish by non-force expected-SHA ref update, then verify all six jobs
+on the new exact SHA. No main/new branch/force, customer Lease/occupancy,
+ownership or finance posting, unofficial Yardi API or §§133–135.
+
+---
+
+# 2026-10-17 | DETACHED scoped-batch Yardi Lease source-parent staging
+
+**Prepared, unpublished and unverified.** Optimize only the read-only
+source-parent warning lookup performed while staging Yardi Lease/occupancy
+source files: replace three same-run identity mapping SQL lookups per
+validated Lease row with one bounded batched projection across resource-
+qualified source IDs (300 unique source IDs per safe batch). Require
+run, organization, provider and exact resource/source ID match; the
+warnings for unmapped Tenant/Property/Unit source parents remain unchanged,
+and even a same-organization other-run source is NOT a valid parent.
+No customer business target, Lease or finance records are read or written
+to infer relationships, no schema or API change, and no customer import
+commit enabled. The new SQLite staging regression checks a three-row
+mixed mapped/unmapped source file, other-run isolation, exactly one
+batched parent-query, and zero Lease record mutations. Add this fast test
+to the existing Yardi hosted CI gate, preserving all older selectors.
+
+This newest detached candidate builds on
+`75c6887e2b8fee864aa02261493ecb1e1d7fd45c`. The sole-branch verified predecessor is still pending all
+six hosted CI jobs on `8a0ecd5d76fc9571398c4d001647ee9633f11b57`
+workflow `39002418354`. Require exact predecessor SUCCESS, current
+branch HEAD check, non-force expected-SHA publication of final descendant,
+and six hosted successful jobs on final exact SHA before VERIFIED.
+Never main/new branch/force, customer Lease/occupancy creation,
+owner allocation, financial posting, unofficial Yardi API, or fabricated
+§§133–135.
+
+---
+
+# 2026-10-17 | DETACHED Yardi run-switch upload metadata isolation
+
+**Prepared, not published or CI verified.** Extend the explicit run
+selection reset used by the new authorized older-run lookup and ordinary
+selector to clear previous-run uploads, inspected source headers and row
+counts, and row skip-reason inputs immediately on switch. These transient
+UI values were not part of the original cache reset; without clearing,
+old upload names/header evidence could appear until asynchronous scoped
+GETs completed. The API already authorizes each new read separately.
+No new request/endpoint, customer mutation or entitlement change.
+Prepared above `b5c199d4b8878c60c2bb55b9c444437e8e3e7c45`.
+
+This newest detached successor supersedes the previous detached SHA as
+the intended consolidated release. Wait until exact source
+`8a0ecd5d76fc9571398c4d001647ee9633f11b57`
+completes six-job CI `39002418354` successfully and the sole-branch
+HEAD is verified before a non-force expected-SHA fast-forward directly
+to this descendant. Require full exact final SHA six-job hosted CI
+before VERIFIED. No main/new branch/force and no unsupported Yardi
+API, customer Lease/occupancy, ownership allocation or finance posting.
+
+---
+
+# 2026-10-17 | DETACHED fast Yardi saved review status CI gate
+
+**Prepared; NOT published/verified.** Add existing
+`backend/tests/test_yardi_review_dry_run_status.py` to the FAST hosted Yardi
+review and route regression command, so absent/current/stale exact
+source-fingerprint status regressions fail before the full PostgreSQL
+backend run. Its newly expanded assertions also check atomic server
+reconciliation fields consumed by staff console UI. All previous test
+selectors preserved, no disabled tests, no production/customer changes.
+The final prepared descendant follows
+`62672caea129cd90e0e36a964b5fc92e7c0c10c2`; intermediate unpushed Git commits are ancestry only.
+
+Before publishing, require all six SUCCESS for parent
+`8a0ecd5d76fc9571398c4d001647ee9633f11b57` workflow
+`39002418354`, verify the sole-branch expected HEAD, publish the
+consolidated final SHA without force and check its own six hosted jobs.
+No alternative branch, uncontracted Yardi API, customer Lease,
+occupancy, ownership allocation or financial posting.
+
+---
+
+# 2026-10-17 | DETACHED authorized older Yardi run lookup in staff console
+
+**Prepared, UNPUBLISHED and NOT VERIFIED.** The Yardi platform migration
+run selector currently lists only the newest 100 runs, even though the
+backend already has an authenticated single-run GET. This UI-only workflow
+adds a positive-integer run ID lookup to find older Yardi runs through
+that EXISTING GET, honoring backend organization and platform-role scope.
+It adds no new API, permissions or write operation. When switching runs,
+all cached selected source rows, binding inventory, preview, collisions,
+candidate lookups, reconciliation and saved dry-run state are cleared
+before new scoped data loads. Existing staff operation semantics remain.
+The API workflow contract regression additionally requires authentication
+and GET-only access for the per-run lookup endpoint.
+
+Prepared descendant of `bc6cb3ba30f084ce187de44496347d36a046e43c`, NOT yet on the sole branch.
+The sole published predecessor remains `8a0ecd5d76fc9571398c4d001647ee9633f11b57`
+with hosted run `39002418354` still requiring six-job exact
+SUCCESS before one consolidated non-force expected-SHA fast-forward
+to this newest descendant. Verify all six jobs at its exact published
+SHA before VERIFIED. No main/new branch/force, unofficial APIs,
+production Lease/occupancy creation, owner allocations, financial
+posting, customer overwrites or invented §§133–135.
+
+---
+
+# 2026-10-17 | DETACHED saved Yardi source-review staff status explanation
+
+**Prepared, unpublished, not verified.** On top of `41054686c7cbf59783985646d13ade2575736650`,
+the Yardi read-only reconciliation UI now plainly distinguishes a
+server-current saved exact-fingerprint review from a stale saved review.
+Stale evidence explains why identity-binding controls cannot proceed
+until a newly recorded dry run; current reviews still pass independently
+enforced backend binding validations. No new API calls, permissions,
+customer mutation, source transport, Lease/occupancy, ownership allocation
+or financial posting. Preserve all safety and test gates.
+
+Final consolidated descendant may be non-force expected-HEAD published
+only after published predecessor
+`8a0ecd5d76fc9571398c4d001647ee9633f11b57` completes all six
+successful hosted CI jobs on `39002418354` and the sole branch still
+matches. Require final new exact-SHA six-job hosted CI. The intervening
+unpublished commits are ancestry only, not verified branch releases.
+
+---
+
+# 2026-10-17 | DETACHED native PostgreSQL UI saved-review evidence parity
+
+**Prepared, NOT PUBLISHED and NOT VERIFIED**, descendant of
+`e52d45a7dd0626e7f16fe4c88a23c71aa93d4103`. Complete the single-snapshot staff UI regression
+with six real-PostgreSQL Property/Unit/Tenant × eligible/inactive source
+claim cases: reconciliation's new `saved_review_current` must be
+true for exactly a saved source snapshot, false on NULL historical
+conflict or each changed competing source, recover on exact retained
+NULL restoration, and expire after legitimate source recovery when
+the stored snapshot was the contested one. Existing SQL NULL,
+fingerprints, saved GET status, paginated blockers, replay, protected
+rollback and customer no-mutation assertions are preserved.
+
+This is the last prepared descendant of the latest currently published
+`8a0ecd5d76fc9571398c4d001647ee9633f11b57`. Publish the
+consolidated final detached SHA only if all six jobs in workflow
+`39002418354` succeed on its exact published predecessor and the
+authorized branch still matches. Use non-force expected-SHA advance
+and then require all six new hosted jobs at the final exact SHA.
+No main/new branch, uncontracted Yardi APIs, customer Lease/occupancy,
+owner allocation, financial posting, or invented §§133–135.
+
+---
+
+# 2026-10-17 | DETACHED single-snapshot saved Yardi staff review UX
+
+**Prepared, NOT PUBLISHED and NOT VERIFIED.** This batch supersedes the
+preceding detached staff UI proposal's extra GET status request: add
+`saved_review_fingerprint` and `saved_review_current` to the existing,
+authenticated read-only Yardi reconciliation response. Both are calculated
+from the SAME fingerprint and run source snapshot with zero additional SQL.
+The UI restores persisted staff dry runs after page reload using only this
+single response, and only if saved currentness is true with an exact
+matching fingerprint. Back-end identity bind endpoints still independently
+revalidate all source and scope guards. Expand current/stale/absent saved
+review regression assertions. No new routes, customer records, source
+contracts, unsupported Yardi API, Lease/occupancy, accounting or owner
+allocations enabled.
+
+Predecessor chain: published `8a0ecd5d76fc9571398c4d001647ee9633f11b57`
+in six-job CI `39002418354`, then two unpublished descendants
+`d05d2102` and `5d10665f`. This FINAL detached candidate requires
+prior exact-SHA parent all-six CI SUCCESS and live sole-branch HEAD match
+before non-force expected-SHA publication. Require all six hosted jobs
+at the final published source SHA before VERIFIED. Supersede prior
+intermediate publication notes; never overwrite concurrent work.
+
+---
+
+# 2026-10-17 | DETACHED staff-console persisted Yardi dry-run rehydration
+
+**Prepared, UNPUBLISHED and NOT VERIFIED**, based on detached predecessor
+`d05d210202049230bdcc94a68e075ce474d6d674`. The first new live parent `8a0ecd5d76fc9571398c4d001647ee9633f11b57`
+must pass all six hosted jobs on run `39002418354` before any subsequent
+publication. This successor teaches the staff console to load the already
+available authenticated read-only `GET /review-dry-run` status along with
+reconciliation and uploads when selecting/refreshing a Yardi run.
+A previously saved exact-source review can now be reused after page reload
+*only* when the server says it is current AND the independently fetched
+reconciliation fingerprint matches both saved and status-current values.
+Missing/stale/inconsistent evidence disables the identity-binding buttons;
+POST still enforces exact-source checks in the backend. No automatic
+reviews, new mapping actions, customer mutation or source contract bypass.
+
+After exact parent CI success and live sole-branch comparison, consolidate
+unpublished descendants through this SHA with non-force expected-SHA
+fast-forward, then require all six jobs on the final published exact SHA.
+Never touch main/new branch, force, unsupported Yardi APIs, customer
+Lease/occupancy, owner allocations, GL/AR/AP or §§133–135 without source
+contract.
+
+---
+
+# 2026-10-17 | DETACHED follow-up: PostgreSQL exact saved blocked review recovery
+
+**Prepared, NOT PUBLISHED and NOT VERIFIED** on top of source
+`8a0ecd5d76fc9571398c4d001647ee9633f11b57`, whose GitHub Actions `39002418354` must first pass all six
+jobs on exactly that SHA. Extend the six-case real-PostgreSQL Property,
+Unit and Tenant historical claim matrix with a SECOND dry-run saved
+while a genuine NULL historical target review is contested.
+Three changed competing source IDs must each expire the newer blocked
+snapshot with unchanged aggregate counts; restoring exact retained
+NULL history must recover that saved blocked review as CURRENT, and
+finally restoring the true legitimate source must invalidate the
+previously saved *blocked* review. Existing preview, 409, source,
+no-business-mutation and rollback tests stay intact.
+
+This is test/documentation only. Do not publish before predecessor green,
+and re-check the sole branch exact HEAD. Publish safely by non-force
+expected-SHA update; verify all six jobs at the resulting new SHA.
+No main/new branch/force, unofficial API, Lease/occupancy creation,
+ownership or financial postings, or unprovided original §§133–135.
+
+---
+
 # 2026-10-17 | Verified PostgreSQL Tenant claim and six-case identity extension
 
 Verified published `bea7289c642f5152b2e5398775b19f06d24c8817` in GitHub Actions `39000591586`: **SUCCESS** on

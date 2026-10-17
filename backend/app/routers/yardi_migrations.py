@@ -2251,6 +2251,14 @@ def get_yardi_reconciliation(
         "invalid_rows": invalid, "unresolved_rows": unresolved,
         "skipped_rows": skipped,
         "review_fingerprint": digest,
+        # Return saved review status from this same atomic reconciliation
+        # snapshot: staff UIs need not run a second expensive review query.
+        # A stale saved fingerprint never authorizes identity binding.
+        "saved_review_fingerprint": run.last_dry_run_fingerprint,
+        "saved_review_current": (
+            run.last_dry_run_fingerprint is not None
+            and run.last_dry_run_fingerprint == digest
+        ),
         "controlled_commit_enabled": False,
         "customer_business_mutation": False,
     }
