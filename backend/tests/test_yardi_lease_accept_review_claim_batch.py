@@ -693,6 +693,13 @@ def test_unavailable_lease_tenant_ignores_foreign_historical_target_claim(
         unchanged = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert unchanged["lease_relationship_readiness"] == unavailable["lease_relationship_readiness"]
         assert unchanged["review_fingerprint"] == unavailable["review_fingerprint"]
+
+        inactive_preview = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        assert "TENANT_TARGET_REVIEW_COLLISION" not in inactive_preview["blockers"]
+        assert "TENANT_IDENTITY_UNMAPPED_OR_INACTIVE" in inactive_preview["blockers"]
+        assert inactive_preview["relationship_review_current"] is False
         status = get_yardi_review_dry_run_status(run.id, Response(), db, actor)
         assert status["is_current"] is True
         assert status["saved_review_fingerprint"] == saved["review_fingerprint"]
@@ -703,6 +710,11 @@ def test_unavailable_lease_tenant_ignores_foreign_historical_target_claim(
         recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert recovered["review_fingerprint"] == original["review_fingerprint"]
         assert recovered["lease_relationship_readiness"]["source_review_ready"] == 1
+        current_preview = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        assert current_preview["blockers"] == []
+        assert current_preview["relationship_review_current"] is True
         assert recovered["customer_business_mutation"] is False
         assert accept_yardi_staged_lease_relationship(
             run.id, lease.id, db, actor,
@@ -774,6 +786,13 @@ def test_unavailable_lease_tenant_ignores_other_customer_historical_source_claim
         unchanged = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert unchanged["lease_relationship_readiness"] == baseline["lease_relationship_readiness"]
         assert unchanged["review_fingerprint"] == baseline["review_fingerprint"]
+
+        inactive_preview = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        assert "TENANT_TARGET_REVIEW_COLLISION" not in inactive_preview["blockers"]
+        assert "TENANT_IDENTITY_UNMAPPED_OR_INACTIVE" in inactive_preview["blockers"]
+        assert inactive_preview["relationship_review_current"] is False
         saved_status = get_yardi_review_dry_run_status(
             run.id, Response(), db, actor,
         )
@@ -787,6 +806,11 @@ def test_unavailable_lease_tenant_ignores_other_customer_historical_source_claim
         recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert recovered["review_fingerprint"] == original["review_fingerprint"]
         assert recovered["lease_relationship_readiness"]["source_review_ready"] == 1
+        current_preview = list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]
+        assert current_preview["blockers"] == []
+        assert current_preview["relationship_review_current"] is True
         assert recovered["customer_business_mutation"] is False
         assert accept_yardi_staged_lease_relationship(
             run.id, lease.id, db, actor,

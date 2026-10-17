@@ -2416,3 +2416,15 @@ corrected preview reuses the existing organization/provider-scoped historical
 claim projection without new SQL, and retains the separate inactive-target
 blockers. All customer data and existing tests are preserved. No new Yardi
 API, Lease/occupancy, ownership, finance or invented §§133–135.
+
+
+### Unavailable Lease preview non-collision parity for unrelated claims (2026-10-16)
+
+Existing cross-provider, cross-organization and same-organization
+unreferenced-target historical Tenant source regressions now explicitly
+assert paginated Lease preview remains free of false target-review
+collision blockers even though the actual linked Tenant is inactive.
+Existing inactive-identity blockers must remain, and full valid customer
+restoration must recover an empty-blocker preview and original exact
+saved source evidence. Three existing test variants strengthened,
+none removed; read-only Yardi correction unchanged.

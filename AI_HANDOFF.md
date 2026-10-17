@@ -1,3 +1,22 @@
+# 2026-10-16 | DETACHED negative Lease preview collision-scope regressions
+
+The existing two cross-provider/organization and one same-organization
+unreferenced Tenant historical review regressions are strengthened to
+require no false paginated preview target-review collision while the
+current Lease tenant is inactive, retention of the inactive blocker,
+and an empty-blocker recovered customer preview. This complements
+the historical claim preview positive cases. No tests weakened,
+no product writes, financial posting, unofficial Yardi API or new
+Lease/occupancy creation. Detached successor of
+`3bafd85a9683217dacad85f1764d0db15f6832be`, provisional.
+After exact parent published `0a0c3b39697bd0d9a5ae6b5fdbea14f3e078228f`
+has all-six CI green, validate sole-branch HEAD, non-force
+expected-SHA publish consolidated FINAL candidate and require
+six-job exact CI before marking verified. Never main, new branch,
+force push or invented Yardi §§133–135.
+
+---
+
 # 2026-10-16 | CONSOLIDATED next Yardi Lease source/review parity gate
 
 **PREPARED, DETACHED AND NOT VERIFIED / NOT PUBLISHED.**
