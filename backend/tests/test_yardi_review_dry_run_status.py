@@ -154,6 +154,9 @@ def test_yardi_support_role_can_read_saved_review_without_mutation():
         assert result["is_current"] is False
         assert result["controlled_commit_enabled"] is False
         assert result["customer_business_mutation"] is False
+        # Support inspection must not persist a dry run, mapping or staged row.
+        assert db.query(PlatformMigrationItem).count() == 0
+        assert db.query(PlatformMigrationStagedRow).count() == 0
         assert response.headers["cache-control"] == "no-store"
         assert db.query(PlatformMigrationRun).filter(
             PlatformMigrationRun.id == run.id,
