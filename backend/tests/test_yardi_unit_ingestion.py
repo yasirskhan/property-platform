@@ -92,7 +92,8 @@ def test_yardi_unit_staging_batches_parent_source_checks():
             )
         finally:
             event.remove(engine, "before_cursor_execute", observe)
-        assert len(selects) == 2
+        # Two Property-parent batches plus two current-Unit identity batches.
+        assert len(selects) == 4
         assert result.upload.row_count == 301
         assert result.upload.status == "REVIEW_REQUIRED"
         assert db.query(PlatformMigrationStagedRow).filter(
