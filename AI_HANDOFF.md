@@ -1,3 +1,20 @@
+# 2026-10-16 | DETACHED full identity-scope unavailable Lease source evidence
+
+Extends the exact inactive linked Tenant historical review-claim test to
+parametrize current unavailable Property, Unit and Tenant, adding two
+cases without removing earlier Tenant assertions. A valid previous source
+claim must restore original review evidence even when the customer target
+remains inactive, and distinct competing old source IDs/NULL must yield
+distinct private fingerprints despite the same blocked counts. Existing
+read-only Yardi router fix retained; no customer or accounting writes.
+DETACHED descendant of `5b3c32f87a41f58526260755e9cfafef45b544c8`;
+this is part of the same related integration before publication, not yet
+verified. Only non-force expected-HEAD publication after all six green
+jobs of previous exact published source. Never main/another branch,
+unsupported APIs, Lease/occupancy or financial posting, invented §§133–135.
+
+---
+
 # 2026-10-16 | SINGLE NINE-REGRESSION YARDI REVIEW INTEGRATION GATE
 
 **PREPARED, DETACHED, NOT PUBLISHED/VERIFIED.** The unpublished commits

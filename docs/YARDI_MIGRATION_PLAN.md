@@ -2311,3 +2311,18 @@ a non-force expected-HEAD fast-forward to the final descendant and its own
 full six-job hosted exact-SHA CI before VERIFIED. Original unprovided
 §§133-135, official API contracts, Lease/occupancy, owner allocation and
 financial posting are not enabled.
+
+
+### All three unavailable Lease targets retain exact historical review-source fingerprints (2026-10-16)
+
+The existing inactive Tenant historical reviewed-claim fingerprint test is
+expanded to parameterize three separate supported identity resources:
+Property, Unit and Tenant. For each, an already unavailable current customer
+target must still retain source-exact historical provider review conflicts,
+distinguish two different old source IDs and NULL even with identical aggregate
+blocked readiness, keep dry-run stale when the source changes, and recover on
+identical original source restoration. The test verifies accepted Lease replay
+only after original source and customer eligibility both return. Same
+read-only reconciliation correction, no new query, no customer Lease/occupancy
+or financial mutation, no undocumented Yardi API and no invented §§133–135.
+Two additional PostgreSQL parameter cases; original Tenant assertions retained.
