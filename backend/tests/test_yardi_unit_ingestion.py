@@ -96,6 +96,7 @@ def test_yardi_unit_required_field_summary_is_distinct_from_duplicate_ids():
         assert summary["duplicate_source_rows"] == 0
         assert summary["disposition_counts"]["INVALID"] == 2
         assert summary["disposition_counts"]["REVIEW"] == 1
+        assert summary["requires_human_review_rows"] == 1
         assert db.query(Unit).count() == before
     finally:
         db.close()
@@ -244,6 +245,7 @@ def test_yardi_unit_batch_distinguishes_same_run_and_unrelated_mappings():
             "INVALID": 0, "REVIEW": 3, "ALREADY_MAPPED": 1,
             "POSSIBLE_MATCH": 0,
         }
+        assert upload.upload.validation_summary["requires_human_review_rows"] == 4
         assert all(row.errors == [] for row in rows)
         assert all(row.provider == "YARDI" for row in rows)
         assert db.query(Unit).count() == units_before
