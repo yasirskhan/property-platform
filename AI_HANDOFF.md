@@ -1,3 +1,24 @@
+# 2026-10-16 | DETACHED native PostgreSQL NULL-safe historical Lease claim check
+
+Adds `backend/tests/test_yardi_postgres_lease_exact_claim.py` so the
+`IS DISTINCT FROM` review claim query is executed against a disposable
+PostgreSQL test database (not just the SQLite route fixture). A retained
+same-org YARDI staff review with NULL Tenant source must still block an
+accepted Lease's replay, expire its saved exact dry-run and appear in
+paginated blockers; restoring exact same original source recovers it.
+All test writes run inside a rollback-protected outer transaction with
+session SAVEPOINTs and no customer data migrations. Local runs without
+a PostgreSQL URL skip this PG-specific test.
+Detached behind `8041c9f0776c924bb69d5fcd81208a036c84f6b5`; the sole published predecessor remains
+`27db379b2abe046c447b33cd6faa118f84efef9c`, whose six-job CI
+`38996279387` must conclude SUCCESS and branch still match before
+non-force expected-HEAD final publication. New exact published SHA must
+pass all six hosted jobs. Preserve old tests, no main/new branch/force,
+unsupported Yardi APIs, customer Lease/occupancy, owner allocations,
+financial posting or invented original §§133–135.
+
+---
+
 # 2026-10-16 | CONSOLIDATED 11-CASE EXACT YARDI LEASE REVIEW RELEASE GATE
 
 **LATEST PUBLISHED predecessor**:

@@ -2693,3 +2693,18 @@ live sole-branch exact-parent check, then non-force expected-HEAD
 publication. Require own all-six hosted exact-SHA CI.
 No unofficial Yardi API, Lease/occupancy creation, ownership allocations,
 financial posting or unavailable §§133–135 introduced.
+
+
+### Native PostgreSQL NULL-safe historical Tenant review regression (2026-10-16)
+
+A separate PostgreSQL-backed test, not just an isolated SQLite fixture,
+checks the Yardi accepted Lease source review against a retained historical
+same-org YARDI Tenant staff claim whose source_id is SQL NULL. PostgreSQL
+`IS DISTINCT FROM` must recognize that claim, block reacceptance with 409,
+show a paginated review-collision blocker and expire the saved dry-run;
+restoring the exact original source ID must recover readiness. The test
+uses an explicitly configured TEST_DATABASE_URL and external transaction
+plus SAVEPOINTs to roll back fixture data. Local SQLite-only environments
+skip this PG-specific test. No production customer write or undocumented
+API/Lease creation/accounting feature is enabled. Requires exact hosted
+six-job CI and test confirmation, provisional until verified.
