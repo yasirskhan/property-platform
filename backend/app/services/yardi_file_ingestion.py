@@ -189,6 +189,7 @@ def stage_yardi_file(
     blocked_by_resource = {"TENANTS": 0, "PROPERTIES": 0, "UNITS": 0}
     dispositions = {"INVALID": 0, "REVIEW": 0, "ALREADY_MAPPED": 0, "POSSIBLE_MATCH": 0}
     invalid_required_rows = 0
+    missing_required_by_field = {field: 0 for field in required}
     duplicate_source_rows = 0
     for row_number, source in parsed.rows:
         data: dict[str, Any] = {
@@ -199,6 +200,7 @@ def stage_yardi_file(
         for field in required:
             if not data.get(field) or not str(data[field]).strip():
                 errors.append(f"{field} is required.")
+                missing_required_by_field[field] += 1
         source_id = str(data.get("source_id") or "").strip() or None
         if source_id is not None:
             if source_id in seen:
@@ -289,6 +291,7 @@ def stage_yardi_file(
         "blocked_parent_by_resource": blocked_by_resource,
         "disposition_counts": dispositions,
         "invalid_required_rows": invalid_required_rows,
+        "missing_required_by_field": missing_required_by_field,
         "duplicate_source_rows": duplicate_source_rows,
         "target_mutation": False, "requires_explicit_review": True,
         "unit_relationships_auto_created": False,
