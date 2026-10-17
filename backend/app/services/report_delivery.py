@@ -1,0 +1,707 @@
+"""Backend-generated report datasets used by export and email delivery."""
+from __future__ import annotations
+
+import csv
+import io
+import json
+from dataclasses import dataclass
+from datetime import date
+from decimal import Decimal
+from typing import Mapping
+
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from app.models.gl_account import GLAccount
+from app.models.gl_entry import GLEntry
+from app.models.gl_transaction import GLTransaction
+from app.models.owner_statement import OwnerStatement
+
+
+class ReportDeliveryError(ValueError):
+    pass
+
+
+@dataclass(frozen=True)
+class ReportPayload:
+    title: str
+    filename: str
+    headers: tuple[str, ...]
+    rows: tuple[tuple[object, ...], ...]
+
+
+REPORT_PERMISSIONS: dict[str, str] = {
+    "accounting.chart_of_accounts": "ACCOUNTING.GL_ACCOUNTS",
+    "accounting.account_totals": "ACCOUNTING.GL_ACCOUNTS",
+    "accounting.balance_sheet": "ACCOUNTING.GL_ACCOUNTS",
+    "accounting.bank_activity": "ACCOUNTING.BANK_ACCOUNTS",
+    "accounting.bank_association": "ACCOUNTING.BANK_ACCOUNTS",
+    "accounting.cash_flow": "ACCOUNTING.BANK_ACCOUNTS",
+    "accounting.cash_flow_12_month": "ACCOUNTING.BANK_ACCOUNTS",
+    "accounting.expense_distribution": "ACCOUNTING.GL_ACCOUNTS",
+    "accounting.income_statement": "ACCOUNTING.GL_ACCOUNTS",
+    "accounting.trust_account_balance": "ACCOUNTING.BANK_ACCOUNTS",
+    "accounting.trust_account_detail": "ACCOUNTING.BANK_ACCOUNTS",
+    "transaction.aged_payables": "ACCOUNTING.PAYABLES",
+    "transaction.aged_receivables": "LEASING",
+    "transaction.bill_detail": "ACCOUNTING.PAYABLES",
+    "transaction.charge_detail": "ACCOUNTING.CHARGES",
+    "transaction.check_register": "ACCOUNTING.BANK_ACCOUNTS",
+    "transaction.check_register_detail": "ACCOUNTING.BANK_ACCOUNTS",
+    "transaction.deposit_register": "ACCOUNTING.DEPOSITS",
+    "transaction.expense_register": "ACCOUNTING.GL_ACCOUNTS",
+    "transaction.income_register": "ACCOUNTING.GL_ACCOUNTS",
+    "transaction.journal_entry_register": "ACCOUNTING.JOURNAL_ENTRIES",
+    "accounting.general_ledger": "ACCOUNTING.GL_ACCOUNTS",
+    "accounting.trial_balance": "ACCOUNTING.GL_ACCOUNTS",
+    "owner.statement": "ACCOUNTING.OWNER_STATEMENTS",
+    "owner.directory": "PEOPLE.OWNERS",
+    "vendor.directory": "PEOPLE.VENDORS",
+    "vendor.ledger": "ACCOUNTING.PAYABLES",
+    "maintenance.work_order": "MAINTENANCE.WORK_ORDERS",
+    "mailing.labels": "PROPERTIES.ALL",
+    "tenant.delinquency": "LEASING",
+    "tenant.security_deposit_funds_detail": "ACCOUNTING.GL_ACCOUNTS",
+    "tenant.directory": "LEASING",
+    "tenant.ledger": "LEASING",
+    "tenant.tickler": "LEASING",
+    "tenant.unpaid_charges": "ACCOUNTING.CHARGES",
+    "tenant.summary": "ACCOUNTING.CHARGES",
+    "property.budget_comparison": "ACCOUNTING.GL_ACCOUNTS",
+    "property.budget_detail": "ACCOUNTING.GL_ACCOUNTS",
+    "property.gross_potential_rent": "ACCOUNTING.GL_ACCOUNTS",
+    "commercial.lease_references": "LEASING",
+    "property.lease_expiration_detail": "LEASING",
+    "property.lease_expiration_summary": "LEASING",
+    "property.directory": "PROPERTIES.ALL",
+    "property.group_directory": "PROPERTIES.GROUPS",
+    "property.performance": "ACCOUNTING.GL_ACCOUNTS",
+    "property.rent_roll": "LEASING",
+    "property.unit_directory": "PROPERTIES.UNITS",
+    "property.unit_inspection": "PROPERTIES.UNITS",
+    "property.unit_vacancy_detail": "PROPERTIES.UNITS",
+}
+
+
+def _date_param(parameters: Mapping[str, object], key: str) -> date | None:
+    raw = parameters.get(key)
+    if raw in (None, ""):
+        return None
+    try:
+        return date.fromisoformat(str(raw))
+    except ValueError as exc:
+        raise ReportDeliveryError(f"{key} must be YYYY-MM-DD") from exc
+
+
+def _int_param(parameters: Mapping[str, object], key: str, *, required: bool = False) -> int | None:
+    raw = parameters.get(key)
+    if raw in (None, ""):
+        if required:
+            raise ReportDeliveryError(f"{key} is required")
+        return None
+    try:
+        value = int(str(raw))
+    except (TypeError, ValueError) as exc:
+        raise ReportDeliveryError(f"{key} must be an integer") from exc
+    if value <= 0:
+        raise ReportDeliveryError(f"{key} must be greater than zero")
+    return value
+
+
+def _bool_param(parameters: Mapping[str, object], key: str, default: bool = False) -> bool:
+    raw = parameters.get(key)
+    if raw in (None, ""):
+        return default
+    if isinstance(raw, bool):
+        return raw
+    value = str(raw).strip().lower()
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    if value in {"0", "false", "no", "off"}:
+        return False
+    raise ReportDeliveryError(f"{key} must be true or false")
+
+
+def _chart_of_accounts(db: Session, *, organization_id: int, parameters: Mapping[str, object]) -> ReportPayload:
+    include_inactive = _bool_param(parameters, "include_inactive", False)
+    query = db.query(GLAccount).filter(GLAccount.organization_id == organization_id)
+    if not include_inactive:
+        query = query.filter(GLAccount.is_active.is_(True))
+    accounts = query.order_by(GLAccount.gl_number.asc(), GLAccount.id.asc()).all()
+    return ReportPayload(
+        title="Chart of Accounts",
+        filename="chart-of-accounts.csv",
+        headers=("GL Number", "Account Name", "Type", "Active", "Subject to Management Fees", "Cash Flow"),
+        rows=tuple(
+            (
+                account.gl_number,
+                account.name,
+                account.account_type,
+                "Yes" if account.is_active else "No",
+                "Yes" if account.subject_to_mgmt_fees else "No",
+                "Yes" if account.include_on_cash_flow else "No",
+            )
+            for account in accounts
+        ),
+    )
+
+
+def _trial_balance(db: Session, *, organization_id: int, parameters: Mapping[str, object]) -> ReportPayload:
+    as_of = _date_param(parameters, "as_of")
+    include_zero = _bool_param(parameters, "include_zero", False)
+    query = (
+        db.query(
+            GLEntry.gl_account_id,
+            func.coalesce(func.sum(GLEntry.debit), 0).label("debits"),
+            func.coalesce(func.sum(GLEntry.credit), 0).label("credits"),
+        )
+        .join(GLTransaction, GLTransaction.id == GLEntry.transaction_id)
+        .filter(GLEntry.organization_id == organization_id)
+    )
+    if as_of is not None:
+        query = query.filter(GLTransaction.transaction_date <= as_of)
+    totals = {
+        row.gl_account_id: (Decimal(row.debits or 0), Decimal(row.credits or 0))
+        for row in query.group_by(GLEntry.gl_account_id).all()
+    }
+    accounts = (
+        db.query(GLAccount)
+        .filter(
+            GLAccount.organization_id == organization_id,
+            GLAccount.is_active.is_(True),
+        )
+        .order_by(GLAccount.gl_number.asc(), GLAccount.id.asc())
+        .all()
+    )
+    rows: list[tuple[object, ...]] = []
+    for account in accounts:
+        debit, credit = totals.get(account.id, (Decimal("0"), Decimal("0")))
+        if not include_zero and debit == 0 and credit == 0:
+            continue
+        rows.append((account.gl_number, account.name, account.account_type, debit, credit))
+    label = (as_of or date.today()).isoformat()
+    return ReportPayload(
+        title=f"Trial Balance as of {label}",
+        filename=f"trial-balance-{label}.csv",
+        headers=("GL Number", "Account Name", "Type", "Debit", "Credit"),
+        rows=tuple(rows),
+    )
+
+
+def _general_ledger(db: Session, *, organization_id: int, parameters: Mapping[str, object]) -> ReportPayload:
+    account_id = _int_param(parameters, "account_id", required=True)
+    assert account_id is not None
+    account = (
+        db.query(GLAccount)
+        .filter(
+            GLAccount.id == account_id,
+            GLAccount.organization_id == organization_id,
+        )
+        .first()
+    )
+    if account is None:
+        raise ReportDeliveryError("GL account not found")
+
+    date_from = _date_param(parameters, "date_from")
+    date_to = _date_param(parameters, "date_to")
+    if date_from and date_to and date_from > date_to:
+        raise ReportDeliveryError("date_from cannot be after date_to")
+    property_id = _int_param(parameters, "property_id")
+
+    opening = Decimal("0")
+    if date_from is not None:
+        opening_debit, opening_credit = (
+            db.query(
+                func.coalesce(func.sum(GLEntry.debit), 0),
+                func.coalesce(func.sum(GLEntry.credit), 0),
+            )
+            .join(GLTransaction, GLTransaction.id == GLEntry.transaction_id)
+            .filter(
+                GLEntry.organization_id == organization_id,
+                GLEntry.gl_account_id == account_id,
+                GLTransaction.transaction_date < date_from,
+            )
+            .one()
+        )
+        opening = Decimal(opening_debit or 0) - Decimal(opening_credit or 0)
+
+    query = (
+        db.query(GLEntry, GLTransaction)
+        .join(GLTransaction, GLTransaction.id == GLEntry.transaction_id)
+        .filter(
+            GLEntry.organization_id == organization_id,
+            GLEntry.gl_account_id == account_id,
+        )
+    )
+    if date_from is not None:
+        query = query.filter(GLTransaction.transaction_date >= date_from)
+    if date_to is not None:
+        query = query.filter(GLTransaction.transaction_date <= date_to)
+    if property_id is not None:
+        query = query.filter(GLEntry.property_id == property_id)
+
+    running = opening
+    rows: list[tuple[object, ...]] = []
+    for entry, transaction in query.order_by(
+        GLTransaction.transaction_date.asc(),
+        GLTransaction.id.asc(),
+        GLEntry.id.asc(),
+    ).all():
+        debit = Decimal(entry.debit or 0)
+        credit = Decimal(entry.credit or 0)
+        running = running + debit - credit
+        rows.append(
+            (
+                transaction.transaction_date,
+                transaction.transaction_type,
+                transaction.reference_number or "",
+                entry.description or transaction.memo or "",
+                entry.property_id or "",
+                debit,
+                credit,
+                running,
+            )
+        )
+
+    return ReportPayload(
+        title=f"General Ledger - {account.gl_number} {account.name}",
+        filename=f"general-ledger-{account.gl_number}.csv",
+        headers=("Date", "Type", "Reference", "Description", "Property ID", "Debit", "Credit", "Balance"),
+        rows=tuple(rows),
+    )
+
+
+def _owner_statement(db: Session, *, organization_id: int, parameters: Mapping[str, object]) -> ReportPayload:
+    statement_id = _int_param(parameters, "statement_id", required=True)
+    assert statement_id is not None
+    statement = (
+        db.query(OwnerStatement)
+        .filter(
+            OwnerStatement.id == statement_id,
+            OwnerStatement.organization_id == organization_id,
+            OwnerStatement.is_active.is_(True),
+        )
+        .first()
+    )
+    if statement is None:
+        raise ReportDeliveryError("Owner statement not found")
+    try:
+        blocks = json.loads(statement.property_data or "[]")
+    except json.JSONDecodeError:
+        blocks = []
+
+    rows: list[tuple[object, ...]] = []
+    for block in blocks if isinstance(blocks, list) else []:
+        property_name = str(block.get("property_name") or "")
+        transactions = block.get("transactions") or []
+        for transaction in transactions if isinstance(transactions, list) else []:
+            rows.append(
+                (
+                    property_name,
+                    transaction.get("date") or "",
+                    transaction.get("description") or "",
+                    transaction.get("reference") or "",
+                    transaction.get("income") or "0.00",
+                    transaction.get("expense") or "0.00",
+                    transaction.get("running_balance") or "0.00",
+                )
+            )
+    return ReportPayload(
+        title=f"Owner Statement {statement.period_start} to {statement.period_end}",
+        filename=f"owner-statement-{statement.id}.csv",
+        headers=("Property", "Date", "Description", "Reference", "Income", "Expense", "Running Balance"),
+        rows=tuple(rows),
+    )
+
+
+_BUILDERS = {
+    "accounting.chart_of_accounts": _chart_of_accounts,
+    "accounting.general_ledger": _general_ledger,
+    "accounting.trial_balance": _trial_balance,
+    "owner.statement": _owner_statement,
+}
+
+
+def build_report_payload(
+    db: Session,
+    *,
+    organization_id: int,
+    report_key: str,
+    parameters: Mapping[str, object],
+    current_user: object | None = None,
+) -> ReportPayload:
+    if report_key == "mailing.labels":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated label report access required")
+        from app.services.label_report import build_label_report
+        return build_label_report(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "tenant.delinquency":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated delinquency report access required")
+        from app.services.tenant_delinquency import build_delinquency_report
+        return build_delinquency_report(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "tenant.security_deposit_funds_detail":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated deposit liability report access required")
+        from app.services.security_deposit_funds import build_security_deposit_funds_report
+        return build_security_deposit_funds_report(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "tenant.directory":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated tenant directory access required")
+        from app.services.tenant_directory import build_tenant_directory
+        return build_tenant_directory(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "tenant.ledger":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated tenant ledger access required")
+        from app.services.tenant_ledger import build_tenant_ledger
+        return build_tenant_ledger(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "tenant.tickler":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated tenant tickler access required")
+        from app.services.tenant_tickler import build_tenant_tickler
+        return build_tenant_tickler(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "tenant.unpaid_charges":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated unpaid charge report access required")
+        from app.services.tenant_unpaid_charges import build_tenant_unpaid_charges
+        return build_tenant_unpaid_charges(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "tenant.summary":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated tenant unpaid charges summary required")
+        from app.services.tenant_unpaid_summary import build_tenant_unpaid_summary
+        return build_tenant_unpaid_summary(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "property.budget_comparison":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated property budget report required")
+        from app.services.property_budgets import build_budget_comparison
+        return build_budget_comparison(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "property.budget_detail":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated property budget detail required")
+        from app.services.property_budget_detail import build_budget_detail
+        return build_budget_detail(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "property.gross_potential_rent":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated GPR report required")
+        from app.services.gpr_report import build_gpr_report
+        return build_gpr_report(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key in ("property.lease_expiration_detail", "property.lease_expiration_summary"):
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated lease expiration report required")
+        from app.services.lease_expiration_report import build_lease_expiration_report
+        return build_lease_expiration_report(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters, report_key=report_key,
+        )
+    if report_key == "commercial.lease_references":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated commercial lease report required")
+        from app.services.commercial_lease_report import build_commercial_lease_report
+        return build_commercial_lease_report(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "property.directory":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated property directory required")
+        from app.services.property_directory import build_property_directory
+        return build_property_directory(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "property.group_directory":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated property group report required")
+        from app.services.property_groups import build_property_group_directory
+        return build_property_group_directory(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "property.performance":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated property performance report required")
+        from app.services.property_performance import build_property_performance
+        return build_property_performance(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "property.rent_roll":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated rent roll required")
+        from app.services.rent_roll import build_rent_roll
+        return build_rent_roll(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "property.unit_directory":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated unit directory required")
+        from app.services.unit_directory import build_unit_directory
+        return build_unit_directory(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "property.unit_inspection":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated unit inspection report required")
+        from app.services.unit_inspections import build_inspection_report
+        return build_inspection_report(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "property.unit_vacancy_detail":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated unit vacancy detail required")
+        from app.services.unit_vacancy_detail import build_unit_vacancy_detail
+        return build_unit_vacancy_detail(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "owner.directory":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated owner directory required")
+        from app.services.owner_directory import build_owner_directory
+        return build_owner_directory(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "transaction.journal_entry_register":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated Journal Entry Register required")
+        from app.services.journal_entry_register import build_journal_entry_register
+        return build_journal_entry_register(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "transaction.income_register":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated Income Register required")
+        from app.services.income_register import build_income_register
+        return build_income_register(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "transaction.expense_register":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated Expense Register required")
+        from app.services.expense_register import build_expense_register
+        return build_expense_register(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "transaction.deposit_register":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated Deposit Register required")
+        from app.services.deposit_register import build_deposit_register
+        return build_deposit_register(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "transaction.check_register_detail":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated Check Register Detail required")
+        from app.services.check_register_detail import build_check_register_detail
+        return build_check_register_detail(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "transaction.check_register":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated Check Register required")
+        from app.services.check_register_report import build_check_register
+        return build_check_register(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "transaction.charge_detail":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated Charge Detail required")
+        from app.services.charge_detail_report import build_charge_detail
+        return build_charge_detail(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "transaction.bill_detail":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated bill detail required")
+        from app.services.bill_detail_report import build_bill_detail
+        return build_bill_detail(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "transaction.aged_receivables":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated aged receivables required")
+        from app.services.aged_receivables import build_aged_receivables
+        return build_aged_receivables(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "transaction.aged_payables":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated aged payables required")
+        from app.services.aged_payables import build_aged_payables
+        return build_aged_payables(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "accounting.trust_account_detail":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated trust account detail required")
+        from app.services.trust_account_detail import build_trust_account_detail
+        return build_trust_account_detail(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "accounting.trust_account_balance":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated trust account balance required")
+        from app.services.trust_account_balance import build_trust_account_balance
+        return build_trust_account_balance(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "accounting.income_statement":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated income statement required")
+        from app.services.income_statement import build_income_statement
+        return build_income_statement(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "accounting.expense_distribution":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated expense distribution required")
+        from app.services.expense_distribution import build_expense_distribution
+        return build_expense_distribution(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "accounting.cash_flow_12_month":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated twelve-month cash flow required")
+        from app.services.cash_flow_12_month import build_cash_flow_12_month
+        return build_cash_flow_12_month(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "accounting.cash_flow":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated cash flow access required")
+        from app.services.cash_flow import build_cash_flow
+        return build_cash_flow(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "accounting.bank_association":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated bank associations required")
+        from app.services.bank_account_association import build_bank_account_association
+        return build_bank_account_association(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "accounting.bank_activity":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated bank activity required")
+        from app.services.bank_account_activity import build_bank_account_activity
+        return build_bank_account_activity(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "accounting.balance_sheet":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated balance sheet required")
+        from app.services.balance_sheet import build_balance_sheet
+        return build_balance_sheet(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "accounting.account_totals":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated account totals required")
+        from app.services.account_totals import build_account_totals
+        return build_account_totals(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "maintenance.work_order":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated work order report required")
+        from app.services.work_order_report import build_work_order_report
+        return build_work_order_report(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "vendor.ledger":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated vendor payable ledger required")
+        from app.services.vendor_ledger import build_vendor_ledger
+        return build_vendor_ledger(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    if report_key == "vendor.directory":
+        if current_user is None:
+            raise ReportDeliveryError("Authenticated vendor directory required")
+        from app.services.vendor_directory import build_vendor_directory
+        return build_vendor_directory(
+            db, organization_id=organization_id, current_user=current_user,
+            parameters=parameters,
+        )
+    builder = _BUILDERS.get(report_key)
+    if builder is None:
+        raise ReportDeliveryError("Report is not available for delivery")
+    return builder(db, organization_id=organization_id, parameters=parameters)
+
+
+def _csv_cell(value: object) -> object:
+    if value is None:
+        return ""
+    if isinstance(value, (Decimal, date)):
+        return str(value)
+    if isinstance(value, str) and value.startswith(("=", "+", "-", "@")):
+        return "'" + value
+    return value
+
+
+def report_csv_bytes(payload: ReportPayload) -> bytes:
+    stream = io.StringIO(newline="")
+    writer = csv.writer(stream)
+    writer.writerow(payload.headers)
+    for row in payload.rows:
+        writer.writerow([_csv_cell(value) for value in row])
+    return stream.getvalue().encode("utf-8-sig")

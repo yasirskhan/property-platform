@@ -94,9 +94,10 @@ export function updateAppliance(
 
 export function deleteAppliance(
   propertyId: number,
-  applianceId: number
+  applianceId: number,
+  reason: string
 ): Promise<null> {
   return apiDelete(
-    `/api/properties/${propertyId}/appliances/${applianceId}`
+    `/api/properties/${propertyId}/appliances/${applianceId}?reason=${encodeURIComponent(reason.trim())}`
   );
 }

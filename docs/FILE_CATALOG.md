@@ -1,3 +1,39 @@
+> **2026-09-26 Phase 3.7 Universal Attachments locator update:** durable metadata is in `backend/app/models/entity_attachment.py`; private storage abstraction is in `backend/app/services/attachment_storage.py`; target-scoped contracts/routes are in `backend/app/schemas/entity_attachment.py` and `backend/app/routers/entity_attachments.py`; migration `backend/alembic/versions/a3d5f7b9c1e4_add_entity_attachments.py` raises the model-table count to 99; reusable customer API/UI lives in `frontend/src/lib/entityAttachments.ts`, `frontend/src/components/EntityAttachments.tsx`, and Property Detail; regression coverage is in `backend/tests/test_entity_attachments.py`. Verified in CI run 36219990832: backend 372 passed / 3 deselected, E2E 3 passed, all other required gates green.
+
+> **2026-09-25 Phase 3.6 Management Fee Overcollection locator update:** the org-scoped policy is stored on `Organization.management_fee_overcollection_strategy`; API contracts/routes are in `backend/app/schemas/management_fee.py` and `backend/app/routers/management_fees.py`; migration `backend/alembic/versions/e4f6a8c0d2b5_management_fee_overcollection_strategy.py` advances the Alembic head without adding a table; regression coverage is in `backend/tests/test_management_fee_overcollection.py`; customer API/UI lives in `frontend/src/lib/managementFees.ts` and `frontend/src/app/dashboard/accounting/management-fees/overcollection/page.tsx`. Default/recommended policy is Credits then Receipts. Hosted CI pending.
+
+> **2026-09-25 Phase 3.6 Pay Owners locator update:** durable payout drafts are in `backend/app/models/owner_payout.py`; masked preview/draft validation is in `backend/app/services/owner_payouts.py`; human-confirmed external-payment accounting is isolated in `backend/app/services/owner_payout_confirmation.py`; contracts/routes are in `backend/app/schemas/owner_payout.py` and `backend/app/routers/owner_payouts.py`; migration `backend/alembic/versions/d3f5a7c9e1b4_owner_payouts.py` raises the model-table count to 93; customer workflow is in `frontend/src/lib/ownerPayouts.ts` and `frontend/src/app/dashboard/accounting/management-fees/pay-owners/page.tsx`; regression coverage is in `backend/tests/test_owner_payouts.py`. Draft creation moves no funds and posts no accounting; central OWNER_DRAW posting occurs only after staff confirms external payment completion. Verified in CI run 36181749221: backend 316 passed, 3 deselected; E2E 3 passed; frontend/platform-admin/security/staging and PostgreSQL backup/restore passed.
+
+> **2026-09-25 Phase 3.6 Owner ACH locator update:** owner payout bank configuration is stored in `backend/app/models/owner_ach.py`; masked contracts and validation live in `backend/app/schemas/owner_ach.py` and `backend/app/services/owner_ach.py`; authorization/routes are in `backend/app/routers/owner_ach.py`; migration `backend/alembic/versions/b6d8f0a2c4e7_owner_ach_accounts.py` raises the model-table count to 91; customer API/UI lives in `frontend/src/lib/ownerAch.ts`, `frontend/src/app/dashboard/accounting/owners/[id]/ach/page.tsx`, and the owner detail link; regression coverage is in `backend/tests/test_owner_ach.py`. Verified in CI run 36100394485: backend 302 passed, 3 deselected; E2E 3 passed; frontend/platform-admin/security/staging and PostgreSQL backup/restore all passed.\n\n> **2026-09-25 Phase 3.6 Bank Feed locator update:** durable feed rows are in `backend/app/models/bank_feed.py`; import/matching logic is in `backend/app/services/bank_feed.py`; contracts/routes are in `backend/app/schemas/bank_feed.py` and `backend/app/routers/bank_feed.py`; migration `backend/alembic/versions/a4b6c8d0e2f1_bank_feed_transactions.py` raises the model-table count to 90; customer workflow is in `frontend/src/lib/bankFeed.ts` and `frontend/src/app/dashboard/accounting/bank-accounts/[id]/bank-feed/page.tsx`; regression coverage is in `backend/tests/test_bank_feed.py`. Verified in CI run 36099568648: backend 298 passed, 3 deselected; E2E 3 passed; frontend/platform-admin/security/staging and PostgreSQL backup/restore all passed.\n\n> **2026-09-25 Phase 3.6 Bank Adjustments locator update:** ledger-native adjustment contracts are in `backend/app/schemas/bank_adjustment.py`; posting/list/reversal logic is in `backend/app/services/bank_adjustments.py`; capability-gated org-scoped routes are in `backend/app/routers/bank_adjustments.py`; `BANK_ADJUSTMENT` is registered in `backend/app/services/gl_posting.py` and the router in `backend/app/main.py`; customer API/UI is in `frontend/src/lib/bankAdjustments.ts`, `frontend/src/app/dashboard/accounting/bank-accounts/[id]/adjustments/page.tsx`, and the Bank Accounts list link; regression coverage is in `backend/tests/test_bank_adjustments.py`. No migration or duplicate adjustment table was added; Alembic head remains `f2a4c6e8b0d5` and model-table count remains 89. Verified in CI run 36097448099: backend 295 passed, 3 deselected; E2E 3 passed.
+
+> **2026-09-24 Phase 3.6 Recurring Bills / Vendor Credits locator update:** persistence is in `backend/app/models/bill_workflow.py`; scheduling, manual due posting, organization isolation, access gating, and positive vendor-credit accounting are in `backend/app/services/bill_workflows.py`; contracts/routes are in `backend/app/schemas/bill_workflow.py` and `backend/app/routers/bills.py`; the daily durable sweep is in `backend/app/jobs/handlers.py` + `backend/app/jobs/worker.py`; customer workflows are in `frontend/src/app/dashboard/accounting/bills/recurring/page.tsx`, `frontend/src/app/dashboard/accounting/bills/credits/new/page.tsx`, and `frontend/src/lib/bills.ts`; regression coverage is in `backend/tests/test_bill_workflows.py` and `backend/tests/test_bill_access.py`. Migration: `ad3e5f7b9c21_add_recurring_bills_and_vendor_credits.py`; current model-table count: 83.
+
+> **2026-09-24 Phase 3.6 Bills lifecycle locator update:** Bill model/payment metadata is in `backend/app/models/bill.py`; creation/payment/reversal/delete accounting behavior is in `backend/app/services/bill_posting.py` and `backend/app/routers/bills.py`; schemas are in `backend/app/schemas/bill.py`; customer Bills list/payment/delete UI is in `frontend/src/app/dashboard/accounting/bills/page.tsx`, New Bill cash-account entry is in `frontend/src/app/dashboard/accounting/bills/new/page.tsx`, and typed calls are in `frontend/src/lib/bills.ts`. Regression coverage is in `backend/tests/test_bill_polish.py`. Alembic head is `9c2e4f6a8b10`; model-table count remains 79.
+
+> **2026-09-24 Phase 3.6 Receipts locator update:** receipt actions and org/deposit visibility live in `backend/app/routers/receipts.py`; Automatic/Application Fee/NSF accounting logic lives in `backend/app/services/receipt_posting.py`; contracts live in `backend/app/schemas/receipt.py`; customer list/new/print workflows live under `frontend/src/app/dashboard/accounting/receipts/` with typed calls in `frontend/src/lib/receipts.ts`; regression coverage is in `backend/tests/test_receipt_polish.py` and existing receipt access tests. No migration was added; Alembic head remains `6a1d9e3f4b72`.
+
+> **2026-09-24 Phase 3.6 Post GPR locator update:** GPR candidate calculation and posting live in `backend/app/services/gpr_posting.py`; API contracts/routes live in `backend/app/schemas/journal_entry.py` and `backend/app/routers/journal_entries.py`; customer workflow lives in `frontend/src/app/dashboard/accounting/journal-entries/post-gpr/page.tsx` with typed calls in `frontend/src/lib/journalEntries.ts`; regression coverage is in `backend/tests/test_gpr_posting.py`. No migration was added; current head remains `6a1d9e3f4b72`.
+
+> **2026-09-24 Phase 3.6 Journal Entries locator update:** recurring JE persistence lives in `backend/app/models/recurring_journal_entry.py`, monthly schedule/due-posting logic in `backend/app/services/recurring_journal_entries.py`, API contracts/routes in `backend/app/schemas/journal_entry.py` and `backend/app/routers/journal_entries.py`, durable execution in `backend/app/jobs/handlers.py` + `backend/app/jobs/worker.py`, customer History/Recurring UI in `frontend/src/app/dashboard/accounting/journal-entries/page.tsx` and `frontend/src/app/dashboard/accounting/journal-entries/recurring/new/page.tsx`, and regression coverage in `backend/tests/test_recurring_journal_entries.py`. Migration: `6a1d9e3f4b72_add_recurring_journal_entries.py`.
+
+> **2026-09-24 Phase 3.6 Chart of Accounts locator update:** Recalculate Balances is implemented in `backend/app/routers/gl_accounts.py` with contract shape in `backend/app/schemas/gl_account.py`, typed customer call in `frontend/src/lib/glAccounts.ts`, UI trigger/result in `frontend/src/app/dashboard/accounting/gl-accounts/page.tsx`, and regression coverage in `backend/tests/test_gl_posting.py`. It recomputes from immutable `gl_entries` and stores no cached balance state. The generated catalog body remains older than this locator update; source + Git are authoritative until the next checked-out generator run.
+
+> **2026-09-24 Phase 3.4.22 locator update:** Properties compatibility work touches `backend/app/routers/properties.py`, `frontend/src/app/dashboard/properties/page.tsx`, `frontend/src/app/dashboard/properties/new/page.tsx`, `frontend/src/app/dashboard/properties/[id]/page.tsx`, `frontend/src/app/dashboard/properties/[id]/edit/page.tsx`, unit new/edit surfaces, and `backend/tests/test_property_compatibility.py`; existing `backend/tests/test_property_org_isolation.py` remains the scope-regression contract. Hidden capability proof extends `backend/tests/e2e/test_smoke.py`.
+
+> **2026-09-24 Phase 3.4.21 locator update:** Charges compatibility work touches `backend/app/routers/charges.py`, `frontend/src/app/dashboard/accounting/charges/page.tsx`, `frontend/src/app/dashboard/accounting/charges/new/page.tsx`, and `backend/tests/test_charges_compatibility.py`; authenticated hidden-slot proof also extends `backend/tests/e2e/test_smoke.py`. The generated catalog body remains older than this locator update; source + Git are authoritative until the next checked-out generator run.
+
+> **2026-09-24 Phase 3.4.18 locator update:** Management Fees compatibility work touches `backend/app/routers/management_fees.py`, `frontend/src/app/dashboard/accounting/management-fees/page.tsx`, and `frontend/src/app/dashboard/accounting/management-fees/new/page.tsx`; permission/write-role regression coverage is in `backend/tests/test_management_fee_compatibility.py`. The generated catalog body remains older than this locator update; source + Git are authoritative until the next checked-out generator run.
+
+> **2026-09-24 Phase 3.4.17 locator update:** Journal Entries compatibility work touches `backend/app/routers/journal_entries.py`, `frontend/src/app/dashboard/accounting/journal-entries/page.tsx`, `frontend/src/app/dashboard/accounting/journal-entries/new/page.tsx`, and `frontend/src/app/dashboard/accounting/journal-entries/[id]/page.tsx`; permission/write-role regression coverage is in new `backend/tests/test_journal_entry_compatibility.py`.
+
+> **2026-09-24 Phase 3.4.16 locator update:** GL Accounts compatibility work touches `backend/app/routers/gl_accounts.py`, `backend/app/schemas/gl_account.py`, `frontend/src/lib/glAccounts.ts`, `frontend/src/components/accounting/GLAccountDrawer.tsx`, and `frontend/src/app/dashboard/accounting/gl-accounts/page.tsx`; permission/API-contract regression coverage is in new `backend/tests/test_gl_account_compatibility.py`. The generated catalog body remains older than this locator update; source + Git are authoritative until the next checked-out generator run.
+
+> **2026-09-24 Phase 3.4.15 locator update:** Bank Deposits compatibility work touches `backend/app/routers/deposits.py`, `frontend/src/app/dashboard/accounting/deposits/page.tsx`, and `frontend/src/app/dashboard/accounting/deposits/new/page.tsx`; permission regression coverage is in new `backend/tests/test_deposit_permissions.py`. The generated catalog body remains older than this locator update; source + Git are authoritative until the next checked-out generator run.
+
+> **2026-09-24 Foundation 3.4.11 locator update:** Customer capability runtime adds `backend/app/constants/organization_features.py`, `backend/app/models/organization_feature_setting.py`, `backend/app/services/customer_features.py`, `backend/app/routers/features.py`, `backend/app/schemas/features.py`, migration `3b8d1f5c7a20`, and `backend/tests/test_customer_features.py`. Customer UI additions are `frontend/src/contexts/FeatureContext.tsx`, `frontend/src/hooks/useFlag.ts`, `frontend/src/components/features/Flag.tsx`, and `frontend/src/app/dashboard/settings/features/page.tsx`. The generated catalog body remains older than these locator updates; source + Git are authoritative until the next checked-out generator run.
+
+> **2026-09-24 Foundation 3.4.10 locator update:** Phase 3.4.10 adds the separate `platform-admin/` tree with `src/app/login/page.tsx`, `src/app/dashboard/page.tsx`, `src/lib/platformApi.ts`, root/layout/global files, and its own package/config files. Backend additions include `backend/app/routers/platform_admin.py` plus the previously added platform auth, release-gate, fraud, and audit foundations; browser proof lives at `backend/tests/e2e/test_platform_admin_e2e.py`. The catalog generator now scans backend, customer frontend, and platform-admin trees. The generated body below predates this third-tree refresh; source + Git are authoritative until the next full generator run in a checked-out workspace.
+
 # FILE CATALOG
 
 _Auto-generated by `backend/generate_file_catalog.py` on 2026-09-22 19:56._
@@ -2595,10 +2631,222 @@ Re-run `python generate_file_catalog.py` after adding or renaming files.
   - const `PARKING_TYPES`
 
 
+## Phase 3.6 Write Checks / Checks checkpoint additions
+
+#### `backend/app/models/check.py`
+  _"Bank-account-backed checks and bill allocations."_
+  **Classes:** `Check`, `CheckBillAllocation`
+
+#### `backend/app/schemas/check.py`
+  **Classes:** check issue, void, memo, eligible-bill, bank-account, allocation, detail and list schemas
+
+#### `backend/app/services/checks.py`
+  _"Accounting-safe check issue/void workflows."_
+  **Functions:** `issue_check`, `void_check`
+
+#### `backend/app/routers/checks.py`
+  **Routes:** eligible bills, bank accounts, list/create/detail, memo, void and print under `/api/accounting/checks`
+
+#### `backend/alembic/versions/f4a6c8d0e2b1_add_checks_and_bill_allocations.py`
+  - revision: `f4a6c8d0e2b1`
+  - down_revision: `ad3e5f7b9c21`
+  - creates `checks` and `check_bill_allocations`
+
+#### `backend/tests/test_checks.py`
+  **Coverage:** atomic issue/void accounting and cross-organization rejection
+
+#### `frontend/src/lib/checks.ts`
+  **Exports:** checks API types and list/issue/void/memo/print helpers
+
+#### `frontend/src/app/dashboard/accounting/checks/page.tsx`
+  **Export:** default `ChecksPage`
+
+#### `frontend/src/app/dashboard/accounting/checks/write/page.tsx`
+  **Export:** default `WriteChecksPage`
+
+#### `frontend/src/app/dashboard/accounting/checks/[id]/page.tsx`
+  **Export:** default `CheckDetailPage`
+
+#### `frontend/src/app/dashboard/accounting/checks/[id]/print/page.tsx`
+  **Export:** default `PrintCheckPage`
+
+## Phase 3.6 Bank Deposits polish checkpoint additions
+
+#### `backend/alembic/versions/c7d9e1f3a5b2_deposit_polish.py`
+  - revision: `c7d9e1f3a5b2`
+  - down_revision: `f4a6c8d0e2b1`
+  - adds durable per-bank deposit sequencing and enables deposit print/edit gates
+
+#### `backend/tests/test_deposit_polish.py`
+  **Coverage:** per-bank automatic numbering and safe deposit membership/total edits
+
+#### `frontend/src/app/dashboard/accounting/deposits/[id]/edit/page.tsx`
+  **Export:** default `EditDepositPage`
+
+#### `frontend/src/app/dashboard/accounting/deposits/[id]/print/page.tsx`
+  **Export:** default `PrintDepositPage`
+
 ---
 
 ## Counts
 
-- Backend Python files: 164
-- Frontend TS/TSX files: 92
-- Total: 256
+- Backend Python files: 322
+- Frontend TS/TSX files: 112
+- Platform admin TS/TSX files: 6
+- Total: 440
+
+
+## Phase 3.6 Bank Reconciliation + QIF checkpoint additions
+
+#### `backend/app/models/bank_reconciliation.py`
+- `BankReconciliation`, `BankReconciliationItem`, and `BankStatementLine` durable reconciliation state.
+
+#### `backend/app/schemas/bank_reconciliation.py`
+- Reconciliation start/selection/output and QIF import schemas.
+
+#### `backend/app/services/bank_reconciliation.py`
+- Candidate snapshots, clear selection, balance calculation, finish guard, QIF parsing and matching.
+
+#### `backend/app/routers/bank_reconciliation.py`
+- Org-scoped reconciliation/QIF API under `/api/accounting/bank-accounts`.
+
+#### `backend/alembic/versions/d8e0f2a4b6c3_bank_reconciliation.py`
+- revision: `d8e0f2a4b6c3`
+- down_revision: `c7d9e1f3a5b2`
+- creates reconciliation, reconciliation-item, and bank-statement-line storage plus release gates.
+
+#### `backend/tests/test_bank_reconciliation.py`
+- Coverage for balanced finish rejection/acceptance and exact QIF matching.
+
+#### `frontend/src/lib/bankReconciliation.ts`
+- Reconciliation and QIF API client helpers.
+
+#### `frontend/src/app/dashboard/accounting/bank-accounts/[id]/reconcile/page.tsx`
+- Bank reconciliation customer workflow and QIF upload surface.
+
+
+## Phase 3.6 Check Setup checkpoint additions
+
+#### `backend/app/models/bank_check_setup.py`
+- `BankCheckSetup` stores one per-bank numbering and check-stock configuration.
+
+#### `backend/app/schemas/bank_check_setup.py`
+- Check Setup read/write schemas and stock-position validation.
+
+#### `backend/app/routers/check_setup.py`
+- Independently gated org-scoped Check Setup GET/PUT routes.
+
+#### `backend/alembic/versions/f2a4c6e8b0d5_add_bank_check_setup.py`
+- revision: `f2a4c6e8b0d5`
+- down_revision: `d8e0f2a4b6c3`
+- creates per-bank check setup storage.
+
+#### `frontend/src/lib/checkSetup.ts`
+- Typed Check Setup API client.
+
+#### `frontend/src/app/dashboard/accounting/bank-accounts/[id]/check-setup/page.tsx`
+- Customer Check Setup workflow.
+
+#### `backend/app/services/checks.py`
+- Write Checks reserves and advances configured automatic numbers when no explicit check number is supplied.
+
+
+## Phase 3.6 ACH File Generation checkpoint additions
+
+#### `backend/app/schemas/ach_file.py`
+- ACH recipient/generation request and response schemas.
+
+#### `backend/app/services/ach_file.py`
+- Stateless CSV/NACHA credit-file generation with ABA validation and no accounting-state mutation.
+
+#### `backend/app/routers/ach_files.py`
+- Independently gated org-scoped ACH generation route under `/api/accounting/bank-accounts/{bank_id}/ach-file`.
+
+#### `backend/tests/test_ach_file.py`
+- Coverage for CSV/NACHA generation, routing validation, and non-mutating behavior.
+
+#### `frontend/src/app/dashboard/accounting/bank-accounts/[id]/ach/page.tsx`
+- Customer ACH file generation workflow.
+
+#### `frontend/src/lib/achFiles.ts`
+- Typed ACH generation API client.
+
+
+## Phase 3.6 Management Fees Post GPR checkpoint additions
+
+#### `backend/app/routers/management_fees.py`
+- Adds independently gated Management Fees GET/POST Post GPR endpoints that delegate to the verified shared GPR service.
+
+#### `backend/tests/test_management_fee_post_gpr.py`
+- Covers independent capability gating, organization/month normalization, and delegation to the shared GPR candidate/posting engine.
+
+#### `frontend/src/lib/managementFees.ts`
+- Adds typed Management Fees GPR candidate and posting API helpers.
+
+#### `frontend/src/app/dashboard/accounting/management-fees/post-gpr/page.tsx`
+- Customer workflow for selecting monthly unit GPR rows and posting through the shared accounting engine.
+
+
+## 2026-09-25 Phase 3.6 Owner Statements + Owner Packet checkpoint additions
+
+### Owner statement financial detail
+- `backend/app/services/owner_statements.py` — freezes required reserves, prepaid-rent liability, available cash, and cash-summary totals.
+- `backend/app/routers/owner_statements.py` — Property Cash Summary API plus owner packet settings API.
+- `backend/tests/test_owner_statement_financials.py` — reserve/prepaid/cash snapshot regression coverage.
+- `backend/alembic/versions/f5a7c9e1b3d6_property_required_reserve.py` — adds explicit property reserve configuration.
+
+### Owner Packet customizer
+- `backend/app/models/owner_statement.py` — `OwnerPacketSettings`.
+- `backend/app/schemas/owner_statement.py` — packet settings read/write contracts and report validation.
+- `backend/alembic/versions/a6c8e0f2b4d7_owner_packet_settings.py` — creates `owner_packet_settings`.
+- `backend/tests/test_owner_packet_settings.py` — default/update/gating/validation coverage.
+- `frontend/src/lib/ownerStatements.ts` — packet settings API helpers.
+- `frontend/src/app/dashboard/accounting/owner-statements/packet-settings/page.tsx` — customer customizer page.
+- Verified CI: run `36200032326`, backend 344 passed / 3 deselected, E2E 3 passed.
+
+
+## Phase 3.6 Settings additions
+
+- `backend/app/routers/audit_center.py` — org-scoped read-only Auditing Center list and CSV export.
+- `backend/app/schemas/audit_center.py` — audit list response contracts.
+- `backend/tests/test_audit_center.py` — Auditing Center isolation/authorization/export regression coverage.
+- `frontend/src/lib/auditCenter.ts` — customer Auditing Center API helper.
+- `frontend/src/app/dashboard/settings/audit/page.tsx` — filtered/exportable Auditing Center customer page.
+- `backend/app/routers/my_settings.py` — current-user personal settings API.
+- `backend/app/models/user_personal_settings.py` — durable per-user personal preferences.
+- `frontend/src/app/dashboard/settings/my/page.tsx` — My Settings customer page.
+
+- `backend/app/models/user_two_factor.py` — encrypted per-user TOTP/recovery-code state.
+- `backend/app/services/two_factor.py` — RFC 6238 TOTP, recovery-code, encryption, and verification service.
+- `backend/app/routers/two_factor.py` — authenticated My Settings two-step enrollment/disable endpoints.
+- `backend/app/schemas/two_factor.py` — two-step API contracts.
+- `backend/tests/test_two_factor.py` — MFA login/encryption/recovery-code regression coverage.
+- `backend/alembic/versions/e1b3d5f7a9c2_add_user_two_factor_settings.py` — two-step settings migration.
+
+- `backend/app/services/login_history.py` — immutable audit-backed customer login activity recording and self-only history projection.
+- `backend/app/schemas/login_history.py` — login history response contract.
+- `backend/tests/test_login_history.py` — login success/failure capture and self-isolation regression coverage.
+
+
+## 2026-09-25 Phase 3.6 Universal delete-reason checkpoint additions
+
+#### `backend/tests/test_delete_reason.py`
+- Regression coverage proving property amenity, appliance, and improvement soft deletes persist their supplied removal reason.
+
+#### Existing property-detail files extended
+- `backend/app/routers/property_amenities.py`, `property_appliances.py`, `property_improvements.py` — accept and persist soft-delete reasons.
+- `frontend/src/lib/propertyAmenities.ts`, `propertyAppliances.ts`, `propertyImprovements.ts` — send removal reasons on delete.
+- `frontend/src/components/property/AmenitiesTab.tsx`, `AppliancesTab.tsx`, `ImprovementsTab.tsx` — require a reason in the removal confirmation modal.
+
+
+## 2026-09-25 Phase 3.6 Universal Notes checkpoint additions
+
+- `backend/app/models/entity_note.py` — organization-scoped timestamped note stream keyed by entity type/id.
+- `backend/app/schemas/entity_note.py` — note create/list/output contracts.
+- `backend/app/services/entity_notes.py` — target resolution, organization isolation, permission and property-assignment authorization.
+- `backend/app/routers/entity_notes.py` — generic GET/POST note API under `/api/notes`.
+- `backend/alembic/versions/f2c4e6a8b0d3_add_entity_notes.py` — creates `entity_notes`.
+- `backend/tests/test_entity_notes.py` — timestamping, cross-organization isolation, property assignment and forbidden-internal-target coverage.
+- `frontend/src/lib/entityNotes.ts` — typed universal notes API client.
+- `frontend/src/components/EntityNotes.tsx` — reusable internal-notes detail component.
+- `frontend/src/app/dashboard/properties/[id]/page.tsx` — live Notes tab using the universal component.

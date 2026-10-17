@@ -5,7 +5,8 @@
 # ============================================================
 
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict
+from decimal import Decimal
 from pydantic import BaseModel, Field
 
 
@@ -21,6 +22,7 @@ class GLAccountCreate(BaseModel):
     offset_account: Optional[str] = Field(None, max_length=20)
     subject_to_mgmt_fees: bool = False
     include_on_cash_flow: bool = True
+    must_clear: bool = False
 
 
 class GLAccountUpdate(BaseModel):
@@ -31,6 +33,7 @@ class GLAccountUpdate(BaseModel):
     offset_account: Optional[str] = Field(None, max_length=20)
     subject_to_mgmt_fees: Optional[bool] = None
     include_on_cash_flow: Optional[bool] = None
+    must_clear: Optional[bool] = None
 
 
 # ------------------------------------------------------------
@@ -47,6 +50,7 @@ class GLAccountOut(BaseModel):
     offset_account: Optional[str] = None
     subject_to_mgmt_fees: bool
     include_on_cash_flow: bool
+    must_clear: bool
     is_active: bool
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -67,3 +71,26 @@ class GLAccountGroup(BaseModel):
 class GLAccountListOut(BaseModel):
     groups: List[GLAccountGroup]
     total: int
+
+class GLAccountPostingPermissionRow(BaseModel):
+    gl_account_id: int
+    gl_number: str
+    name: str
+    permissions: Dict[str, bool]
+
+class GLAccountPostingPermissionMatrixOut(BaseModel):
+    roles: List[str]
+    rows: List[GLAccountPostingPermissionRow]
+
+class GLAccountPostingPermissionMatrixUpdate(BaseModel):
+    values: Dict[int, Dict[str, bool]]
+
+class GLAccountRecalculationOut(BaseModel):
+    source: str
+    account_count: int
+    entry_count: int
+    total_debits: Decimal
+    total_credits: Decimal
+    net_balance: Decimal
+    is_balanced: bool
+    recalculated_at: datetime

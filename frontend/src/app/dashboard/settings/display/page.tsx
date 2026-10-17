@@ -9,7 +9,8 @@
 //
 // The currency dropdown fetches the org's real currency list
 // from /api/settings/currencies (built in Section 68) so custom
-// currencies show up. Falls back to USD if the fetch fails.
+// currencies show up. If the catalog fetch fails, only the already-selected
+// organization currency remains available; no alternate hardcoded choices are offered.
 //
 // Density, number format, font size, accent, reduce motion
 // are shown but marked "Coming soon".
@@ -22,6 +23,7 @@
 import { useEffect, useState } from "react";
 import { apiGet, apiPut } from "@/lib/api";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useDisplay } from "@/contexts/DisplayContext";
 import type {
   DisplayPreferences,
   LayoutMode,
@@ -46,13 +48,9 @@ type CurrencyRow = {
   is_active: boolean;
 };
 
-// Fallback if the API call fails - keeps the page usable.
-const FALLBACK_CURRENCIES: CurrencyRow[] = [
-  { id: 0, code: "USD", name: "US Dollar", symbol: "$", locale: "en-US", decimal_places: 2, is_system: true, is_active: true },
-  { id: 0, code: "EUR", name: "Euro", symbol: "€", locale: "de-DE", decimal_places: 2, is_system: true, is_active: true },
-  { id: 0, code: "GBP", name: "British Pound", symbol: "£", locale: "en-GB", decimal_places: 2, is_system: true, is_active: true },
-  { id: 0, code: "INR", name: "Indian Rupee", symbol: "₹", locale: "en-IN", decimal_places: 2, is_system: true, is_active: true },
-];
+// The selector is API-backed. Start empty and keep the currently selected
+// organization currency as the only fallback option if loading fails.
+const INITIAL_CURRENCIES: CurrencyRow[] = [];
 
 // ------------------------------------------------------------
 // Small building blocks
@@ -99,7 +97,7 @@ function Segmented<T extends string>({
           className={
             "px-3 py-1.5 text-sm border-r border-slate-200 last:border-r-0 transition " +
             (value === opt.value
-              ? "bg-blue-600 text-white"
+              ? "display-accent-bg text-white"
               : "bg-white text-slate-700 hover:bg-slate-50") +
             (disabled ? " opacity-50 cursor-not-allowed" : "")
           }
@@ -116,13 +114,14 @@ function Segmented<T extends string>({
 // ------------------------------------------------------------
 export default function DisplaySettingsPage() {
   const { prefs, refresh, setPrefs } = useCurrency();
+  const { prefs: appliedPrefs } = useDisplay();
   const [local, setLocal] = useState<DisplayPreferences | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Org currency list, fetched from the API (Section 68).
-  const [currencies, setCurrencies] = useState<CurrencyRow[]>(FALLBACK_CURRENCIES);
+  const [currencies, setCurrencies] = useState<CurrencyRow[]>(INITIAL_CURRENCIES);
   const [currenciesLoaded, setCurrenciesLoaded] = useState(false);
 
   useEffect(() => {
@@ -144,7 +143,7 @@ export default function DisplaySettingsPage() {
         if (active.length > 0) setCurrencies(active);
       })
       .catch(() => {
-        // leave fallback list in place
+        // Keep the selector limited to the organization's current value below.
       })
       .finally(() => {
         if (!cancelled) setCurrenciesLoaded(true);
@@ -194,10 +193,14 @@ export default function DisplaySettingsPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
+    <div
+      className="max-w-3xl mx-auto p-6"
+      data-layout-mode={(appliedPrefs?.layout_mode ?? "TABS").toLowerCase()}
+      data-density={(appliedPrefs?.density ?? "COMFORTABLE").toLowerCase()}
+    >
       <h1 className="text-xl font-semibold text-slate-900 mb-1">Display</h1>
       <p className="text-sm text-slate-500 mb-6">
-        Personal preferences for how the app looks, plus your organization's
+        Personal preferences for how the app looks, plus your organization&apos;s
         currency.
       </p>
 
@@ -284,11 +287,10 @@ export default function DisplaySettingsPage() {
         </Field>
 
         {/* Density */}
-        <Field label="Density" hint="Row height and spacing. Coming soon.">
+        <Field label="Density" hint="Row height and spacing.">
           <Segmented<Density>
             value={local.density}
             onChange={(v) => update("density", v)}
-            disabled
             options={[
               { value: "COMPACT", label: "Compact" },
               { value: "COMFORTABLE", label: "Comfortable" },
@@ -325,11 +327,10 @@ export default function DisplaySettingsPage() {
         </Field>
 
         {/* Font size */}
-        <Field label="Font size" hint="Coming soon.">
+        <Field label="Font size" hint="Base text size across the app.">
           <Segmented<FontSize>
             value={local.font_size}
             onChange={(v) => update("font_size", v)}
-            disabled
             options={[
               { value: "SMALL", label: "Small" },
               { value: "NORMAL", label: "Normal" },
@@ -338,15 +339,34 @@ export default function DisplaySettingsPage() {
           />
         </Field>
 
+        {/* Accent color */}
+        <Field label="Accent color" hint="Used by compatible highlighted controls.">
+          <div className="flex items-center gap-3">
+            <input
+              type="color"
+              value={local.accent_color || "#2563eb"}
+              onChange={(e) => update("accent_color", e.target.value)}
+              className="h-9 w-12 rounded border border-slate-300 bg-white p-1"
+              aria-label="Accent color"
+            />
+            <button
+              type="button"
+              onClick={() => update("accent_color", null)}
+              className="text-xs text-slate-600 hover:underline"
+            >
+              Use default
+            </button>
+          </div>
+        </Field>
+
         {/* Reduce motion */}
         <Field
           label="Reduce motion"
-          hint="Disable non-essential animations. Coming soon."
+          hint="Disable non-essential animations."
         >
-          <label className="inline-flex items-center gap-2 opacity-50">
+          <label className="inline-flex items-center gap-2">
             <input
               type="checkbox"
-              disabled
               checked={local.reduce_motion}
               onChange={(e) => update("reduce_motion", e.target.checked)}
             />
@@ -369,7 +389,7 @@ export default function DisplaySettingsPage() {
           type="button"
           onClick={save}
           disabled={saving}
-          className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+          className="display-accent-bg px-4 py-2 rounded-md text-white text-sm font-medium disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save"}
         </button>

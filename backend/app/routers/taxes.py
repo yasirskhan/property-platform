@@ -189,9 +189,19 @@ def list_tax_payments(
 ):
     require_non_tenant(current_user)
     check_property_access(db, current_user, property_id)
+    tax = (
+        db.query(PropertyTax)
+        .filter(
+            PropertyTax.id == tax_id,
+            PropertyTax.property_id == property_id,
+        )
+        .first()
+    )
+    if not tax:
+        raise HTTPException(status_code=404, detail="Tax record not found")
     return (
         db.query(PropertyTaxPayment)
-        .filter(PropertyTaxPayment.tax_id == tax_id)
+        .filter(PropertyTaxPayment.tax_id == tax.id)
         .order_by(PropertyTaxPayment.paid_at.desc())
         .all()
     )

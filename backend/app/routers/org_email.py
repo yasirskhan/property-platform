@@ -9,7 +9,7 @@
 #   POST   /organizations/{org_id}/email-settings/disable
 #   POST   /organizations/{org_id}/email-settings/enable
 #
-# Only Admin (any org) and Owner (own org) can manage.
+# Customer Admin and Owner can manage only their own organization.
 # ============================================================
 
 from datetime import datetime
@@ -36,9 +36,10 @@ router = APIRouter(tags=["Organization Email"])
 
 
 def _check_org_access(current_user: User, org_id: int):
-    if current_user.role == UserRole.ADMIN:
-        return
-    if current_user.role == UserRole.OWNER and current_user.organization_id == org_id:
+    if (
+        current_user.role in (UserRole.ADMIN, UserRole.OWNER)
+        and current_user.organization_id == org_id
+    ):
         return
     raise HTTPException(status_code=403, detail="Not allowed for this organization")
 

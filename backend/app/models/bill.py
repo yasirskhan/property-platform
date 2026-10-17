@@ -58,6 +58,8 @@ class Bill(Base):
     # The payee (vendor name, company, or person). Free text
     # for now — Vendors become a real entity in Phase 4.
     payee_name = Column(String(200), nullable=False)
+    # Explicit company relationship; historical payee_name is a posting snapshot.
+    vendor_id = Column(Integer, ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Optional link to a User if the payee happens to be one
     # (e.g. paying an owner, a manager, or a Vendor-type user).
@@ -124,6 +126,15 @@ class Bill(Base):
         index=True,
     )
 
+    # Optional default cash account used when this bill is paid.
+    # Entering the bill remains accrual-only; this is payment metadata.
+    cash_gl_account_id = Column(
+        Integer,
+        ForeignKey("gl_accounts.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+
     # Free-text remarks.
     remarks = Column(Text, nullable=True)
 
@@ -152,6 +163,7 @@ class Bill(Base):
     # ---------------- Universal patterns ----------------
     notes = Column(Text, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True, index=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
 
     created_by_id = Column(
         Integer,
@@ -171,6 +183,9 @@ class Bill(Base):
     scoped_owner = relationship("User", foreign_keys=[owner_id])
     payable_gl_account = relationship(
         "GLAccount", foreign_keys=[payable_gl_account_id]
+    )
+    cash_gl_account = relationship(
+        "GLAccount", foreign_keys=[cash_gl_account_id]
     )
     property = relationship("Property")
     unit = relationship("Unit")

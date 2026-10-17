@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPost } from "@/lib/api";
 import { formatMoney } from "@/lib/money";
+import { useDisplay } from "@/contexts/DisplayContext";
 
 interface Property {
   id: number;
@@ -37,6 +38,7 @@ interface LineRow {
 
 export default function NewJournalEntryPage() {
   const router = useRouter();
+  const { prefs } = useDisplay();
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [accounts, setAccounts] = useState<GLAccount[]>([]);
@@ -50,11 +52,9 @@ export default function NewJournalEntryPage() {
   const [referenceNumber, setReferenceNumber] = useState("");
   const [memo, setMemo] = useState("");
 
-  let rowCounter = 0;
-  function newRow(): LineRow {
-    rowCounter += 1;
+  function newRow(key: string): LineRow {
     return {
-      key: `row-${Date.now()}-${rowCounter}`,
+      key,
       gl_account_id: "",
       property_id: "",
       description: "",
@@ -63,7 +63,10 @@ export default function NewJournalEntryPage() {
     };
   }
 
-  const [lines, setLines] = useState<LineRow[]>(() => [newRow(), newRow()]);
+  const [lines, setLines] = useState<LineRow[]>(() => [
+    newRow("row-initial-1"),
+    newRow("row-initial-2"),
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,7 +103,7 @@ export default function NewJournalEntryPage() {
   }, []);
 
   function addRow() {
-    setLines((prev) => [...prev, newRow()]);
+    setLines((prev) => [...prev, newRow(`row-${crypto.randomUUID()}`)]);
   }
 
   function removeRow(key: string) {
@@ -175,7 +178,7 @@ export default function NewJournalEntryPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
+    <div className="max-w-5xl mx-auto p-6" data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()} data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}>
       <h1 className="text-xl font-semibold text-slate-900 mb-1">
         New Journal Entry
       </h1>

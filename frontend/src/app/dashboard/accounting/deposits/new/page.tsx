@@ -16,7 +16,8 @@ import {
   listUndepositedReceipts,
   type UndepositedReceiptRow,
 } from "@/lib/deposits";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, formatDate } from "@/lib/money";
+import { useDisplay } from "@/contexts/DisplayContext";
 
 interface BankAccount {
   id: number;
@@ -28,6 +29,7 @@ interface BankAccount {
 
 export default function NewDepositPage() {
   const router = useRouter();
+  const { prefs } = useDisplay();
 
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [bankAccountId, setBankAccountId] = useState<number | "">("");
@@ -102,6 +104,9 @@ export default function NewDepositPage() {
 
   const includedRows = receipts.filter((r) => included.has(r.id));
   const total = includedRows.reduce((acc, r) => acc + parseFloat(r.amount), 0);
+  const mismatchedReceiptDates = includedRows.filter(
+    (r) => r.receipt_date !== depositDate
+  );
 
   async function submit() {
     if (!bankAccountId) {
@@ -138,17 +143,24 @@ export default function NewDepositPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-4xl mx-auto p-6" data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()} data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}>
       <h1 className="text-xl font-semibold text-slate-900 mb-1">
         New Bank Deposit
       </h1>
       <p className="text-sm text-slate-500 mb-6">
         Group un-deposited receipts into a batch for the bank.
       </p>
+      <span hidden aria-hidden="true" data-compat-slot="deposits.bank-specific-numbering" />
 
       {error && (
         <div className="text-sm text-red-600 mb-4 bg-red-50 border border-red-200 rounded-md px-3 py-2">
           {error}
+        </div>
+      )}
+
+      {mismatchedReceiptDates.length > 0 && (
+        <div className="text-sm text-amber-800 mb-4 bg-amber-50 border border-amber-200 rounded-md px-3 py-2" role="status">
+          {mismatchedReceiptDates.length} selected {mismatchedReceiptDates.length === 1 ? "receipt has" : "receipts have"} a date different from the deposit date. Review the dates before creating the deposit.
         </div>
       )}
 
@@ -277,7 +289,7 @@ export default function NewDepositPage() {
                     onChange={() => toggle(r.id)}
                   />
                 </td>
-                <td className="px-4 py-2">{r.receipt_date}</td>
+                <td className="px-4 py-2">{formatDate(r.receipt_date)}</td>
                 <td className="px-4 py-2">{r.type}</td>
                 <td className="px-4 py-2 text-slate-500">
                   {r.payer_label || "—"}

@@ -25,6 +25,7 @@ from datetime import datetime
 ROOT = Path(r"C:\Projects\property-platform")
 BACKEND = ROOT / "backend"
 FRONTEND = ROOT / "frontend"
+PLATFORM_ADMIN = ROOT / "platform-admin"
 OUT = ROOT / "docs" / "FILE_CATALOG.md"
 
 SKIP_DIRS = {
@@ -224,11 +225,27 @@ def main() -> None:
             lines.append(summarize_typescript(p))
             lines.append("")
 
+    lines.append("## Platform Admin (TypeScript / TSX)\n")
+    platform_admin_files = walk(PLATFORM_ADMIN, {".ts", ".tsx"})
+
+    by_folder_p: dict[str, list[Path]] = {}
+    for p in platform_admin_files:
+        folder = rel(p.parent)
+        by_folder_p.setdefault(folder, []).append(p)
+
+    for folder in sorted(by_folder_p.keys()):
+        lines.append(f"### `{folder}/`\n")
+        for p in by_folder_p[folder]:
+            lines.append(f"#### `{rel(p)}`\n")
+            lines.append(summarize_typescript(p))
+            lines.append("")
+
     lines.append("---\n")
     lines.append("## Counts\n")
     lines.append(f"- Backend Python files: {len(backend_files)}")
-    lines.append(f"- Frontend TS/TSX files: {len(frontend_files)}")
-    lines.append(f"- Total: {len(backend_files) + len(frontend_files)}\n")
+    lines.append(f"- Customer frontend TS/TSX files: {len(frontend_files)}")
+    lines.append(f"- Platform admin TS/TSX files: {len(platform_admin_files)}")
+    lines.append(f"- Total: {len(backend_files) + len(frontend_files) + len(platform_admin_files)}\n")
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join(lines), encoding="utf-8")

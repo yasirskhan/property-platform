@@ -78,9 +78,10 @@ export function updateAmenity(
 
 export function deleteAmenity(
   propertyId: number,
-  amenityId: number
+  amenityId: number,
+  reason: string
 ): Promise<null> {
   return apiDelete(
-    `/api/properties/${propertyId}/amenities/${amenityId}`
+    `/api/properties/${propertyId}/amenities/${amenityId}?reason=${encodeURIComponent(reason.trim())}`
   );
 }

@@ -76,6 +76,7 @@ class PropertyTax(Base):
 
     # --- Status ---
     is_active = Column(Boolean, default=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
     notes = Column(Text, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)

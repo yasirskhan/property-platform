@@ -43,6 +43,7 @@ from app.services.menu_resolver import (
     editable_roles_for,
     _norm_role,
     _parent_of,
+    permission_allows_user,
 )
 from app.schemas.menu_permission import (
     ResolvedMenuOut,
@@ -64,6 +65,21 @@ router = APIRouter(prefix="/api/menu", tags=["Menu Permissions"])
 # ------------------------------------------------------------
 # Internal helpers
 # ------------------------------------------------------------
+
+def _require_permissions_management(db: Session, current_user: User) -> int:
+    if current_user.organization_id is None:
+        raise HTTPException(status_code=400, detail="User has no organization.")
+    if not permission_allows_user(
+        db,
+        user=current_user,
+        menu_key="SETTINGS.PERMISSIONS",
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permissions management access required.",
+        )
+    return current_user.organization_id
+
 
 def _require_role_editor(current_user: User, role: str) -> None:
     """Raise 403 if current_user cannot edit the given role."""
@@ -112,8 +128,7 @@ def get_role_matrix(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.organization_id is None:
-        raise HTTPException(status_code=400, detail="User has no organization.")
+    _require_permissions_management(db, current_user)
 
     editable = editable_roles_for(current_user)
     if not editable:
@@ -163,11 +178,9 @@ def update_role_matrix(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    _require_permissions_management(db, current_user)
     _require_role_editor(current_user, role)
     role = _norm_role(role)
-
-    if current_user.organization_id is None:
-        raise HTTPException(status_code=400, detail="User has no organization.")
 
     bad_keys = [k for k in payload.values.keys() if k not in MENU_KEYS]
     if bad_keys:
@@ -224,11 +237,9 @@ def reset_role_matrix(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    _require_permissions_management(db, current_user)
     _require_role_editor(current_user, role)
     role = _norm_role(role)
-
-    if current_user.organization_id is None:
-        raise HTTPException(status_code=400, detail="User has no organization.")
 
     defaults = DEFAULT_MATRIX.get(role, set())
 
@@ -279,8 +290,7 @@ def list_editable_users(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.organization_id is None:
-        return []
+    _require_permissions_management(db, current_user)
 
     candidates = (
         db.query(User)
@@ -314,6 +324,7 @@ def get_user_overrides(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    _require_permissions_management(db, current_user)
     target = db.query(User).filter(User.id == user_id).first()
     if target is None:
         raise HTTPException(status_code=404, detail="User not found.")
@@ -380,6 +391,7 @@ def update_user_overrides(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    _require_permissions_management(db, current_user)
     target = db.query(User).filter(User.id == user_id).first()
     if target is None:
         raise HTTPException(status_code=404, detail="User not found.")
@@ -450,6 +462,7 @@ def clear_user_overrides(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    _require_permissions_management(db, current_user)
     target = db.query(User).filter(User.id == user_id).first()
     if target is None:
         raise HTTPException(status_code=404, detail="User not found.")

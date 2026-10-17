@@ -34,6 +34,7 @@ class PropertyBase(BaseModel):
     parking_type: Optional[str] = None
     estimated_rent: Optional[Decimal] = None
     security_deposit: Optional[Decimal] = None
+    required_reserve_amount: Decimal = Field(Decimal("0.00"), ge=0)
     ownership_status: Optional[str] = None
 
     # Policies
@@ -85,6 +86,7 @@ class PropertyUpdate(BaseModel):
     parking_type: Optional[str] = None
     estimated_rent: Optional[Decimal] = None
     security_deposit: Optional[Decimal] = None
+    required_reserve_amount: Optional[Decimal] = Field(None, ge=0)
     ownership_status: Optional[str] = None
 
     # Policies

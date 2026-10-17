@@ -33,18 +33,25 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.property import Property, Unit, PropertyAssignment
 from app.models.user import User, UserRole
+from app.models.vendor import Vendor
+from app.routers.vendors import _access as _vendor_menu_access
+from app.services.menu_resolver import permission_allows_user
+from app.services.audit import append_audit_log
 from app.models.work_order import (
     WorkOrder,
     WorkOrderUpdate,
     WorkOrderStatus,
 )
 from app.routers.auth import get_current_user
+from app.routers.properties import check_property_access
 from app.schemas.work_order import (
     WorkOrderCreate,
     WorkOrderOut,
     WorkOrderDetail,
     WorkOrderUpdateFields,
     WorkOrderAssign,
+    WorkOrderVendorAssign,
+    WorkOrderVendorOut,
     WorkOrderComplete,
     WorkOrderComment,
     WorkOrderUpdateOut,
@@ -96,19 +103,16 @@ def _get_property_for_work_order(db: Session, wo: WorkOrder) -> Property:
 
 def _user_can_access_work_order(db: Session, user: User, wo: WorkOrder) -> bool:
     """Returns True if the user is allowed to view this work order."""
-    if user.role == UserRole.ADMIN:
-        return True
-
     if user.role == UserRole.TENANT:
         return wo.tenant_id == user.id
 
     if user.role == UserRole.CREW:
         return wo.assigned_to_id == user.id
 
-    if user.role in (UserRole.OWNER, UserRole.MANAGER):
+    if user.role in (UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER):
         prop = _get_property_for_work_order(db, wo)
 
-        if user.role == UserRole.OWNER:
+        if user.role in (UserRole.ADMIN, UserRole.OWNER):
             return prop.organization_id == user.organization_id
 
         # Manager: must be assigned to the property
@@ -136,16 +140,13 @@ def _visible_work_orders(db: Session, user: User):
     """Return a query pre-filtered to what this user can see."""
     q = db.query(WorkOrder)
 
-    if user.role == UserRole.ADMIN:
-        return q
-
     if user.role == UserRole.TENANT:
         return q.filter(WorkOrder.tenant_id == user.id)
 
     if user.role == UserRole.CREW:
         return q.filter(WorkOrder.assigned_to_id == user.id)
 
-    if user.role == UserRole.OWNER:
+    if user.role in (UserRole.ADMIN, UserRole.OWNER):
         return (
             q.join(Property, Property.id == WorkOrder.property_id)
             .filter(Property.organization_id == user.organization_id)
@@ -202,8 +203,9 @@ def submit_work_order(
             raise HTTPException(status_code=403, detail="You are not an active tenant in this unit")
         tenant_id = current_user.id
     else:
-        # Manager/owner/admin submitting on behalf. Require tenant_id in payload? No.
-        # Simplest: use the requesting user's ID as the submitter (staff member).
+        _require_role(current_user, UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER)
+        check_property_access(db, current_user, prop.id)
+        # Staff-originated work order: preserve existing submitter behavior.
         tenant_id = current_user.id
 
     wo = WorkOrder(
@@ -243,6 +245,99 @@ def list_work_orders(
     if status is not None:
         q = q.filter(WorkOrder.status == status)
     return q.order_by(WorkOrder.created_at.desc()).all()
+
+
+def _vendor_work_order_access(db: Session, user: User) -> int:
+    # Deny before reading WorkOrder IDs; legacy tenant/crew routes unchanged.
+    org_id = _vendor_menu_access(db, user)
+    if not permission_allows_user(db, user=user, menu_key="MAINTENANCE.WORK_ORDERS"):
+        raise HTTPException(status_code=403, detail="Maintenance work order access required.")
+    return org_id
+
+
+def _vendor_work_order_out(row: WorkOrder) -> WorkOrderVendorOut:
+    # Deliberately omit tenant names, entry instructions, photographs and
+    # company data; the picker calls the existing authorized vendor list.
+    return WorkOrderVendorOut(
+        id=row.id, property_id=row.property_id, title=row.title,
+        status=row.status, assigned_to_id=row.assigned_to_id,
+        vendor_id=row.vendor_id,
+    )
+
+
+@router.get("/vendor-assignments", response_model=list[WorkOrderVendorOut])
+def list_vendor_assignments(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _vendor_work_order_access(db, current_user)
+    # WorkOrder organization is derived from its actual Unit->Property.
+    rows = (
+        db.query(WorkOrder)
+        .join(Unit, Unit.id == WorkOrder.unit_id)
+        .join(Property, Property.id == Unit.property_id)
+        .filter(
+            Property.organization_id == org_id,
+            WorkOrder.property_id == Property.id,
+        )
+        .order_by(WorkOrder.created_at.desc(), WorkOrder.id.desc())
+        .limit(1001).all()
+    )
+    if len(rows) > 1000:
+        raise HTTPException(status_code=422, detail="Too many work orders for vendor selection.")
+    return [_vendor_work_order_out(row) for row in rows]
+
+
+@router.post("/{wo_id}/vendor", response_model=WorkOrderVendorOut)
+def set_work_order_vendor(
+    wo_id: int,
+    payload: WorkOrderVendorAssign,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    org_id = _vendor_work_order_access(db, current_user)
+    row = (
+        db.query(WorkOrder)
+        .join(Unit, Unit.id == WorkOrder.unit_id)
+        .join(Property, Property.id == Unit.property_id)
+        .filter(
+            WorkOrder.id == wo_id,
+            Property.organization_id == org_id,
+            WorkOrder.property_id == Property.id,
+        )
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Work order not found.")
+    if row.status in (WorkOrderStatus.CLOSED, WorkOrderStatus.CANCELLED):
+        raise HTTPException(status_code=409, detail="A completed work order cannot change vendor assignment.")
+    if payload.vendor_id is not None:
+        vendor = db.query(Vendor).filter(
+            Vendor.id == payload.vendor_id,
+            Vendor.organization_id == org_id,
+            Vendor.is_active.is_(True),
+            Vendor.deleted_at.is_(None),
+        ).first()
+        if vendor is None:
+            raise HTTPException(status_code=404, detail="Vendor company not found.")
+    if row.vendor_id == payload.vendor_id:
+        return _vendor_work_order_out(row)
+    previous = row.vendor_id
+    row.vendor_id = payload.vendor_id
+    _log_update(
+        db, row, current_user,
+        message="Vendor company linked" if payload.vendor_id is not None
+        else "Vendor company unlinked",
+    )
+    db.flush()
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=org_id,
+        entity_type="work_order", entity_id=row.id, action="vendor_assigned",
+        old_value={"vendor_id": previous}, new_value={"vendor_id": payload.vendor_id},
+    )
+    db.commit()
+    db.refresh(row)
+    return _vendor_work_order_out(row)
 
 
 # ------------------------------------------------------------
@@ -343,6 +438,9 @@ def assign_work_order(
     crew = db.query(User).filter(User.id == payload.crew_user_id).first()
     if not crew or crew.role != UserRole.CREW:
         raise HTTPException(status_code=400, detail="Invalid crew member")
+    prop = _get_property_for_work_order(db, wo)
+    if crew.organization_id != prop.organization_id:
+        raise HTTPException(status_code=403, detail="Crew member is not in this organization")
 
     assigned = (
         db.query(PropertyAssignment)

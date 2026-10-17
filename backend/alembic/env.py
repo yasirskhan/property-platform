@@ -9,7 +9,7 @@
 #   2. Consistency — the list here should match init_db.py.
 
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import create_engine, pool
 from alembic import context
 import os
 import sys
@@ -81,9 +81,14 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def get_database_url() -> str:
+    """Use DATABASE_URL when supplied (CI/staging), otherwise alembic.ini."""
+    return os.getenv("DATABASE_URL") or config.get_main_option("sqlalchemy.url")
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
-    url = config.get_main_option("sqlalchemy.url")
+    url = get_database_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -98,9 +103,8 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    connectable = create_engine(
+        get_database_url(),
         poolclass=pool.NullPool,
     )
 

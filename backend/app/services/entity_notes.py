@@ -1,0 +1,292 @@
+"""Authorization and target resolution for universal entity notes."""
+from __future__ import annotations
+
+from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
+
+import init_db  # noqa: F401
+from app.core.database import Base
+from app.models.property import Property, PropertyAssignment, Unit
+from app.models.user import User
+from app.services.menu_resolver import permission_allows_user
+
+
+_FORBIDDEN_TABLES = {
+    "audit_log",
+    "entity_notes",
+    "entity_attachments",
+    "tax_profiles",  # Tax identifiers must never use generic notes/unencrypted attachments.
+    "tax_w9_documents",
+    "application_private_details",
+    "affordable_program_interests",  # CRM-linked contact records require live LEASING.CRM scope.
+    "affordable_program_evidence",  # Checklist has a narrower compliance-only access boundary.
+    "hoa_associations",  # HOA registry requires association-scoped permission, not generic notes.
+    "hoa_property_memberships",
+    "hoa_contact_links",  # Requires joint HOA + contact scope.
+    "hoa_assessment_proposals",
+    "hoa_observations",
+    "hoa_meeting_drafts",
+    "hoa_meeting_participation",  # Scoped staff-reported attendance, not public board membership.
+    "hoa_board_seats",  # Staff-proposed board identity, no generic notes.
+    "hoa_ballot_records",
+    "hoa_board_votes",
+    "hoa_board_rule_adoptions",
+    "hoa_board_motion_outcomes",
+    "hoa_meeting_minutes_drafts",
+    "hoa_meeting_minutes_approvals",
+    "hoa_planned_occurrences",  # Joint HOA/proposal/contact scope and immutable planning history.
+    "hoa_payer_drafts",  # Joint association/contact compliance scope, not generic notes.  # Scope staff minutes through meeting + property authorization.  # Restrict staff ballots to joint board/motion scope.
+    "hoa_board_rule_drafts",  # No generic access to governance thresholds.
+    "hoa_motion_drafts",  # Proposed motions never use generic notes or file sharing.
+    "hoa_arc_intakes",
+    "hoa_arc_applications",
+    "hoa_arc_application_attachments",
+    "hoa_arc_review_events",
+    "hoa_arc_decisions",  # Scoped irreversible board decision history.
+    "hoa_arc_member_charges",  # Sensitive member receivables and financial links.
+    "hoa_arc_follow_ups",  # Scoped HOA followup tasks.
+    "hoa_arc_notifications",  # Sensitive notification queue.
+    "commercial_lease_abstracts",  # Staff-only commencement metadata needs both property and leasing scope.
+    "commercial_percentage_rent_charges",  # Source-backed tenant sales and financial posting require narrow Commercial scope.
+    "commercial_ti_allowance_uses",  # Private TI evidence and allowance history use narrow Commercial scope.
+    "commercial_lease_terms",  # Versioned private-source terms use dedicated Commercial scope.
+    "commercial_rent_escalations",
+    "commercial_lease_options",
+    "commercial_operating_charges",  # Immutable source-linked Commercial accounting execution.
+    "commercial_cam_reconciliations",  # Annual private-evidence CAM true-up.
+    "hoa_procedure_policies",  # Restricted staff policy/notice templates.
+    "hoa_violation_cases",
+    "hoa_violation_case_events",
+    "hoa_violation_recipient_drafts",
+    "hoa_violation_correspondence_drafts",
+    "hoa_violation_service_records",
+    "hoa_violation_fines",
+    "hoa_violation_fine_payments",
+    "hoa_violation_fine_appeals",  # Private appeal and board decision; must respect association/case scopes.
+    "hoa_fine_appeal_notifications",  # Private recipient, message snapshot and email attempt history.
+    "hoa_violation_notice_deliveries",  # Board-authorized private email transport history.
+    "hoa_violation_evidence",
+    "hoa_case_tasks",  # Case/property/role-scoped staff operations and private notes.  # Joint scope-checked private case document references.  # Confidential scope-checked staff drafts; deny generic notes.  # Needs live case plus scoped verified contact and user.  # Scoped review history, no generic exports.
+    "hoa_reserve_movement_decisions",  # Private board authority and financial posting.
+    "hoa_reserve_movement_drafts",  # Requires restricted HOA reserve authorization.
+    "hoa_reserve_accounts",  # Restricted accounting scope; deny generic notes and attachments.  # Joint observation/compliance access, not generic notes.
+    "hoa_document_deliveries",  # Restricted contact/document delivery history.
+    "hoa_assessment_decisions",  # Scoped final board decisions and private notes.
+    "hoa_annual_budgets",
+    "hoa_annual_assessment_increases",  # Association-scoped approval history and confidential budget details.
+    "hoa_member_assessment_payments",  # Private receipt-backed member allocation.
+    "hoa_member_assessment_charges",  # Member-specific receivable GL records.
+    "hoa_governing_evidence",  # Evidence metadata is gated by HOA compliance/property scope.  # Staff architectural-interest intake is not an approved ARC decision.  # Staff-planned HOA meetings are not generic documents or legal minutes.  # Staff-only potential-issue notes; not public evidence or documents.  # Not a generic note or tenant liability.
+    "affordable_lihtc_buildings",
+    "affordable_lihtc_8609_readiness",
+    "affordable_lihtc_8609_documents",
+    "affordable_lihtc_8609_annual",  # Annual tax reference indexes require compliance-specific permissions.  # Encrypted only, never use generic notes or attachments.  # Compliance-only Form 8609 reference, not generic attachments.  # BIN register is compliance-gated, not a generic note target.
+    "application_fee_attempts",  # Encrypted applicant address and income are not generic note targets.
+    "tax_1099_reviews",  # Restricted tax-year review data is not a generic note/attachment target.  # Signed documents require dedicated encrypted access.
+    "platform_users",
+    "release_gates",
+    "release_gate_organizations",
+    "job_runs",
+    "job_dead_letters",
+    "fraud_cases",
+    "fraud_signals",
+}
+_FORBIDDEN_PREFIXES = (
+    "billing_",
+    "subscription_",
+    "plans",
+    "modules",
+    "pricing_",
+    "platform_",
+)
+
+_ENTITY_PERMISSION_PREFIXES = (
+    (("properties", "property_"), "PROPERTIES.ALL"),
+    (("vendors", "vendor_insurances"), "PEOPLE.VENDORS"),
+    (("contacts",), "PEOPLE.CONTACTS"),
+    (("units",), "PROPERTIES.UNITS"),
+    (("lease_templates", "lease_template_addenda"), "LEASING.TEMPLATES"),
+    (("leases", "rent_invoices", "payments"), "LEASING"),
+    (("work_orders", "work_order_updates"), "MAINTENANCE.WORK_ORDERS"),
+    (("receipts", "receipt_lines"), "ACCOUNTING.RECEIVABLES"),
+    (("bills", "bill_lines", "recurring_bills", "recurring_bill_lines", "vendor_credits", "vendor_credit_lines", "checks", "check_bill_allocations"), "ACCOUNTING.PAYABLES"),
+    (("charges",), "ACCOUNTING.CHARGES"),
+    (("deposits", "deposit_lines"), "ACCOUNTING.DEPOSITS"),
+    (("bank_", "owner_ach_accounts"), "ACCOUNTING.BANK_ACCOUNTS"),
+    (("gl_accounts", "gl_account_posting_restrictions"), "ACCOUNTING.GL_ACCOUNTS"),
+    (("gl_transactions", "gl_entries", "recurring_journal_entries", "recurring_journal_entry_lines"), "ACCOUNTING.JOURNAL_ENTRIES"),
+    (("management_fee_runs", "owner_payouts"), "ACCOUNTING.MANAGEMENT_FEES"),
+    (("owner_statements", "owner_packet_settings"), "ACCOUNTING.OWNER_STATEMENTS"),
+)
+
+
+def _role(user: User) -> str:
+    value = user.role.value if hasattr(user.role, "value") else user.role
+    return str(value or "").upper()
+
+
+def _model_for_table(entity_type: str):
+    clean = entity_type.strip().lower()
+    if (
+        not clean
+        or clean in _FORBIDDEN_TABLES
+        or any(clean.startswith(prefix) for prefix in _FORBIDDEN_PREFIXES)
+    ):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Entity type not available for notes.")
+
+    for mapper in Base.registry.mappers:
+        if mapper.local_table.name == clean:
+            return clean, mapper.class_
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Entity type not found.")
+
+
+def _permission_for(entity_type: str) -> str | None:
+    for names, permission in _ENTITY_PERMISSION_PREFIXES:
+        for name in names:
+            if entity_type == name or (name.endswith("_") and entity_type.startswith(name)):
+                return permission
+    return None
+
+
+def _row(db: Session, table: str, entity_id: int):
+    _, model = _model_for_table(table)
+    obj = db.query(model).filter(model.id == entity_id).first()
+    if obj is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Entity not found.")
+    return obj
+
+
+def _property_id_for_target(db: Session, entity_type: str, obj) -> int | None:
+    if entity_type == "properties":
+        return int(obj.id)
+    value = getattr(obj, "property_id", None)
+    if value is not None:
+        return int(value)
+
+    unit_id = getattr(obj, "unit_id", None)
+    if unit_id is not None:
+        unit = db.query(Unit).filter(Unit.id == unit_id).first()
+        return int(unit.property_id) if unit else None
+
+    lease_id = getattr(obj, "lease_id", None)
+    if lease_id is not None:
+        lease = _row(db, "leases", int(lease_id))
+        unit = db.query(Unit).filter(Unit.id == lease.unit_id).first()
+        return int(unit.property_id) if unit else None
+
+    invoice_id = getattr(obj, "invoice_id", None)
+    if invoice_id is not None:
+        invoice = _row(db, "rent_invoices", int(invoice_id))
+        lease = _row(db, "leases", int(invoice.lease_id))
+        unit = db.query(Unit).filter(Unit.id == lease.unit_id).first()
+        return int(unit.property_id) if unit else None
+
+    return None
+
+
+_REFERENCE_KEYS = (
+    ("receipt_id", "receipts"),
+    ("bill_id", "bills"),
+    ("deposit_id", "deposits"),
+    ("transaction_id", "gl_transactions"),
+    ("bank_account_id", "bank_accounts"),
+    ("owner_statement_id", "owner_statements"),
+    ("work_order_id", "work_orders"),
+    ("subscription_id", "subscriptions"),
+)
+
+
+def _organization_id_for_target(
+    db: Session,
+    entity_type: str,
+    obj,
+    *,
+    visited: set[tuple[str, int]] | None = None,
+) -> int:
+    visited = visited or set()
+    key = (entity_type, int(obj.id))
+    if key in visited:
+        raise HTTPException(status_code=400, detail="Unable to resolve entity organization.")
+    visited.add(key)
+
+    organization_id = getattr(obj, "organization_id", None)
+    if organization_id is not None:
+        return int(organization_id)
+    if entity_type == "organizations":
+        return int(obj.id)
+
+    property_id = _property_id_for_target(db, entity_type, obj)
+    if property_id is not None:
+        prop = db.query(Property).filter(Property.id == property_id).first()
+        if prop is None:
+            raise HTTPException(status_code=404, detail="Related property not found.")
+        return int(prop.organization_id)
+
+    for attr, parent_table in _REFERENCE_KEYS:
+        parent_id = getattr(obj, attr, None)
+        if parent_id is not None:
+            parent = _row(db, parent_table, int(parent_id))
+            return _organization_id_for_target(
+                db,
+                parent_table,
+                parent,
+                visited=visited,
+            )
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="This entity type does not expose an organization scope for notes.",
+    )
+
+
+def resolve_note_target(
+    db: Session,
+    *,
+    current_user: User,
+    entity_type: str,
+    entity_id: int,
+):
+    if current_user.organization_id is None:
+        raise HTTPException(status_code=400, detail="User has no organization.")
+
+    clean, _ = _model_for_table(entity_type)
+    obj = _row(db, clean, entity_id)
+    target_org_id = _organization_id_for_target(db, clean, obj)
+    if target_org_id != current_user.organization_id:
+        raise HTTPException(status_code=403, detail="Entity belongs to another organization.")
+
+    role = _role(current_user)
+    if role not in {"ADMIN", "OWNER", "MANAGER", "CREW"}:
+        raise HTTPException(status_code=403, detail="Staff access required for internal notes.")
+    if clean in {"lease_templates", "lease_template_addenda"} and role not in {"ADMIN", "OWNER", "MANAGER"}:
+        raise HTTPException(status_code=403, detail="Lease template permission required.")
+
+    permission = _permission_for(clean)
+    if permission is not None and not permission_allows_user(
+        db,
+        user=current_user,
+        menu_key=permission,
+    ):
+        raise HTTPException(status_code=403, detail="Entity permission required.")
+
+    property_id = _property_id_for_target(db, clean, obj)
+    if property_id is not None and role in {"MANAGER", "CREW"}:
+        assigned = (
+            db.query(PropertyAssignment)
+            .filter(
+                PropertyAssignment.property_id == property_id,
+                PropertyAssignment.user_id == current_user.id,
+                PropertyAssignment.is_active.is_(True),
+            )
+            .first()
+        )
+        if assigned is None:
+            raise HTTPException(status_code=403, detail="Not assigned to this property.")
+
+    if permission is None and role not in {"ADMIN", "OWNER"}:
+        raise HTTPException(
+            status_code=403,
+            detail="This entity type requires administrator or owner access for notes.",
+        )
+
+    return clean, obj, target_org_id

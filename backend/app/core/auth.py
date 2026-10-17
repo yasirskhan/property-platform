@@ -23,7 +23,12 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, verify_password
-from app.models.user import User, UserRole, Organization
+from app.models.user import (
+    SELF_SERVE_PENDING_BILLING_STATE,
+    Organization,
+    User,
+    UserRole,
+)
 from app.schemas.user import UserCreate
 from app.services.menu_seed import seed_menu_permissions_for_org
 
@@ -67,13 +72,13 @@ def _unique_slug(db: Session, base: str) -> str:
 
 
 def _create_organization(db: Session, name: str) -> Organization:
-    """Create a new Organization with a unique slug. No commit."""
+    """Create a self-serve Organization pending verified billing. No commit."""
     slug = _unique_slug(db, _slugify(name))
     org = Organization(
         name=name.strip(),
         slug=slug,
         is_active=True,
-        state="ACTIVE",
+        state=SELF_SERVE_PENDING_BILLING_STATE,
     )
     db.add(org)
     db.flush()  # assigns org.id
