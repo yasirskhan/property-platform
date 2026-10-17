@@ -1,3 +1,13 @@
+# 2026-10-17 | EXACT-SHA YARDI STAFF REVIEW AND LEASE STAGING VERIFIED
+
+**Published source VERIFIED:** `9194e4e0b7bfd3bc919e37c357101e79e13cbe3e` on the sole authorized branch `chatgpt/checkpoint-005-safety`. GitHub Actions [run 39003768426](https://github.com/yasirskhan/property-platform/actions/runs/39003768426) completed **SUCCESS for all six** required hosted jobs: backend PostgreSQL, frontend, security, platform-admin, authenticated E2E, and staging-config. This supersedes the immediate prior note that described this now-published consolidated release as provisional.
+
+**Verified scope:** saved/current Yardi review-state reporting and safe staff-console continuity; prior-run file/source reset; authenticated older-run lookup; bounded, run/provider/organization-scoped read-only Lease parent identity diagnostics; PostgreSQL NULL-source regression checks. No customer Lease, occupancy, owner allocation, financial posting or undocumented Yardi API enabled. Older detached candidate references are historical, not publication instructions.
+
+**Next safe Phase 4.15 batch:** Inspect current resource review and staff-console regressions for independently provable read-only gaps. Do not invent Yardi source contracts, resume historical detached commits, or modify customer business records. Require new exact-SHA hosted six-job verification after any code change.
+
+---
+
 # 2026-10-17 | VERIFIED PRIOR SOURCE | PUBLISHED NEXT YARDI BATCH PROVISIONAL
 
 **Exact predecessor now VERIFIED:** Published sole-branch
