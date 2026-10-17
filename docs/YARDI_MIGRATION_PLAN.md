@@ -2248,3 +2248,14 @@ not separate verification releases, superseding earlier detached statements
 about one CI per unpublished intermediate. Source target identity, user hash,
 Unit Property parent restoration, customer nonmutation and all previous tests
 remain enforced. Unsupported Yardi transport and §§133-135 remain blocked.
+
+
+### Unreferenced same-organization Unit reparenting isolation (2026-10-16)
+
+Two new fast-gated PostgreSQL cases confirm an unrelated Unit moving between
+two valid Properties in the same customer organization does not stale a
+separate exact-source reviewed or durable Unit mapping, existing saved dry
+run, source binding or replay. The original unrelated Unit parent is restored
+inside the isolated test fixture; no customer business writes by migration,
+unsupported APIs, Lease/occupancy, financial posting or ownership allocation.
+Detached provisional successor pending exact predecessor and its own hosted CI.

@@ -1,3 +1,18 @@
+# 2026-10-16 | PREPARED unrelated Unit parent reassignment isolation
+
+Two PostgreSQL cases extend Unit original-parent review protections with
+the negative scope: a different, unreferenced Unit moving to the reviewed
+customer Property must not alter an independent exact reviewed/durable
+Unit binding, source fingerprint, readiness, or saved dry-run replay.
+Fixture reparenting is restored; customer business data is unchanged by
+Yardi product endpoints. Detached successor of
+`1ff85c036c007a682543869cdc73b2680ce77dcc`. NOT published or
+verified. Check all-six CI of the prior published exact source and
+preserve non-force expected-HEAD sole-branch advances. No invented
+Yardi §§133-135, source API, Lease/occupancy, owner or finance mutations.
+
+---
+
 # 2026-10-16 | CONSOLIDATED FOLLOW-UP: 6 Yardi review invariants
 
 **SINGLE DETACHED INTEGRATION CANDIDATE, NOT VERIFIED/PUBLISHED.**
