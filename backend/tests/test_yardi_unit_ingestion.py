@@ -131,6 +131,7 @@ def test_yardi_missing_mapping_column_is_reported_for_each_staged_row():
             "source_id": 0, "source_property_id": 0, "unit_name": 2,
         }
         assert summary["invalid_required_rows"] == 2
+        assert summary["duplicate_source_rows"] == 0
         assert summary["disposition_counts"]["INVALID"] == 2
         assert db.query(Unit).count() == before
     finally:
