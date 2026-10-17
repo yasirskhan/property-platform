@@ -1,3 +1,13 @@
+# 2026-10-17 | YARDI RESOURCE BREAKDOWN STAGING
+
+**Last VERIFIED:** `ea68665122229bf54a50db908b9f3689cf0dcc27`, Actions `39070783503`, six-job SUCCESS. The later `dd8476d5ed2344566c8b2ee21203bccef14e8da7` handoff/test checkpoint was still undergoing CI at inspection.
+
+**Latest published provisional implementation:** `9d0d550f646db3cf894533d62d9eb97d9c20d6ba` adds read-only `blocked_parent_by_resource` counters to Yardi validation summaries, alongside existing overall blocked-relationship and affected-row totals. Subsequent tests `b3046c5cdcffaeec10e2a1f8a15397fd0c163736` and `e3ef63fcd8e2be6f29fcc3f20d840faed0a1da93` verify exact Lease / Unit category counters. Require exact final SHA six-job green before VERIFIED. Correct failures rather than bypassing tests.
+
+**Scope:** No customer Lease/occupancy/ownership or financial mutation. Unverified Yardi source contracts and official API integration remain blocked. Continue independently grounded metadata-only and review UX work on sole `chatgpt/checkpoint-005-safety`; no main/new branches/force.
+
+---
+
 # 2026-10-17 | YARDI BLOCKED-PARENT COUNTS
 
 **Last six-job exact-SHA VERIFIED:** `ea68665122229bf54a50db908b9f3689cf0dcc27`, hosted Actions `39070783503` SUCCESS. Yardi staging now includes additive `blocked_parent_relationships` and `rows_with_blocked_parents` in validation summaries for Units and Lease occupancy. No customer-side record/finance mutation.
