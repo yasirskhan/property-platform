@@ -55,6 +55,55 @@ def test_yardi_units_missing_verified_parent_remains_review_only():
         engine.dispose()
 
 
+
+def test_yardi_unit_staging_batches_parent_source_checks():
+    """Many Unit source rows require bounded mapping reads, not N per-row queries."""
+    from sqlalchemy import event
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-unit-parent-batch")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="unit-parent-batch", status="DRAFT",
+        )
+        db.add(run)
+        db.commit()
+        before = db.query(Unit).count()
+        selects = []
+        def observe(connection, cursor, statement, parameters, context, executemany):
+            sql = " ".join(statement.lower().split())
+            if (" from platform_migration_items " in sql
+                    and "platform_migration_items.source_id in (" in sql
+                    and "platform_migration_items.resource = " in sql):
+                selects.append(statement)
+        content = ("Unit,Parent,Label\\n" + "".join(
+            f"U{i},P{i},Unit {i}\\n" for i in range(301)
+        )).encode()
+        event.listen(engine, "before_cursor_execute", observe)
+        try:
+            result = stage_yardi_file(
+                db, run=run, filename="many-units.csv", content=content,
+                resource_override="UNITS", sheet_name=None,
+                explicit_mapping={
+                    "source_id": "Unit", "source_property_id": "Parent",
+                    "unit_name": "Label",
+                }, platform_user_id=actor.id,
+            )
+        finally:
+            event.remove(engine, "before_cursor_execute", observe)
+        assert len(selects) == 2
+        assert result.upload.row_count == 301
+        assert result.upload.status == "REVIEW_REQUIRED"
+        assert db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == result.upload.id,
+        ).count() == 301
+        assert db.query(Unit).count() == before
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_yardi_unit_match_requires_mapped_parent_and_preserves_customer_unit():
     import pytest
     from fastapi import HTTPException
