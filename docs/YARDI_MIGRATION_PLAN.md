@@ -2537,3 +2537,24 @@ and no TARGET_REVIEW_COLLISION leaks from those out-of-scope claims.
 Read-only fixture tests only. No business writes, new source API,
 Lease/occupancy, ownership or financial posting. Detached and
 provisional until parent exact six-job CI and own hosted verification.
+
+
+### Consolidated source-exact unavailable Lease review isolation gate (2026-10-16)
+
+This final prepared test-only batch contains four related unpublished
+descendant object commits after exact published f2efb06e, including the
+two new parametric same-organization unreferenced Property/Unit historical
+target cases and per-source page blocker checks added to retained foreign
+YARDI, AppFolio and unrelated Tenant review negatives. It verifies that
+unavailable customer targets keep their genuine blocker but do not
+import unrelated or foreign historical provider source claims, and that
+saved dry runs remain current through all four source variants. No
+production customer mutation or unsupported source/financial/Lease write.
+
+Only publish the FINAL consolidated descendant when CI 38993664402
+for predecessor f2efb06e finishes all six successful jobs, and live
+authorized sole branch HEAD still equals that SHA. Use non-force
+expected-HEAD fast-forward and require six-job exact hosted CI on the
+new final SHA before VERIFIED. Intermediate unpublished Git commits
+are ancestry, not independently verified source. All prior regressions
+are preserved; original §§133–135 remain unsupported.

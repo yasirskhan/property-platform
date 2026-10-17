@@ -1,3 +1,40 @@
+# 2026-10-16 | SINGLE CONSOLIDATED unavailable Lease review source-isolation release
+
+**PREPARED DETACHED, NOT YET PUBLISHED/VERIFIED.** The four direct
+unpublished follow-up objects after source
+`f2efb06e438e8fa15af57ef055a39bc00a346d12`
+comprise one related regression-only milestone. Source changes are
+limited to the fast Yardi PostgreSQL Lease review suite and
+`AI_HANDOFF.md` / `docs/YARDI_MIGRATION_PLAN.md`.
+
+Coverage: historic AppFolio/foreign-org provider and same-org unrelated
+customer Tenant source IDs swapping among NULL, different IDs and exact
+same text, preserving an unavailable Lease Tenant's valid scoped
+fingerprint and true blocker; two additional parameterized same-org
+unreferenced YARDI Property and Unit targets swapping historic source
+IDs while a different Lease Unit is unavailable; and positive/negative
+page-preview blocker parity on EACH historic source permutation.
+Original fixture data is restored; customer migrations are read-only,
+no Lease/occupancy creation, source API, owner allocation or financial
+posting enabled. No previous tests removed or weakened.
+
+**Mandatory publication gate:** GitHub Actions `38993664402`
+MUST conclude six SUCCESSFUL jobs on exact published predecessor
+`f2efb06e438e8fa15af57ef055a39bc00a346d12`.
+Then check live sole branch `chatgpt/checkpoint-005-safety` HEAD
+has not changed and advance to the FINAL consolidated descendant
+directly with `force=false` and `expected_sha` matching predecessor.
+Do not publish individual intermediate objects or require separate
+CI for each unpublished ancestor: they form ONE coherent integration
+milestone; this supersedes earlier detached instructions below.
+The FINAL exact published SHA requires its own six-job hosted CI
+before VERIFIED. If any job fails, repair genuine issue without
+removing assertions and verify the exact repaired commit, then update
+handoff and Yardi plan. Never touch main, another project, new branch,
+or invent original unprovided Sections 133–135.
+
+---
+
 # 2026-10-16 | DETACHED per-source Lease preview negative-scope parity
 
 Extend the two existing unavailable-Tenant negative regressions to assert
