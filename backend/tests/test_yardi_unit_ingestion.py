@@ -64,6 +64,42 @@ def test_yardi_units_missing_verified_parent_remains_review_only():
 
 
 
+
+def test_yardi_unit_required_field_summary_is_distinct_from_duplicate_ids():
+    """Missing source identity and parent data are reported without creating Units."""
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-unit-missing-required")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="missing-required", status="DRAFT",
+        )
+        db.add(run)
+        db.commit()
+        before = db.query(Unit).count()
+        upload = stage_yardi_file(
+            db, run=run, filename="missing-units.csv",
+            content=b"ID,Parent,Label\nU1,,One\n,P1,Two\nU2,P2,Three\n",
+            resource_override="UNITS", sheet_name=None,
+            explicit_mapping={
+                "source_id": "ID", "source_property_id": "Parent",
+                "unit_name": "Label",
+            }, platform_user_id=actor.id,
+        )
+        summary = upload.upload.validation_summary
+        assert summary["invalid"] == 2
+        assert summary["invalid_required_rows"] == 2
+        assert summary["duplicate_source_rows"] == 0
+        assert summary["disposition_counts"]["INVALID"] == 2
+        assert summary["disposition_counts"]["REVIEW"] == 1
+        assert db.query(Unit).count() == before
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
 def test_yardi_unit_staging_batches_parent_source_checks():
     """Many Unit source rows require bounded mapping reads, not N per-row queries."""
     from sqlalchemy import event
