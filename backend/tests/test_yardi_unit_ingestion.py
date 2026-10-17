@@ -35,6 +35,8 @@ def test_yardi_units_missing_verified_parent_remains_review_only():
         assert result.upload.detected_resource == "UNITS"
         assert result.upload.provider == "YARDI"
         assert result.upload.validation_summary["duplicates"] == 1
+        assert result.upload.validation_summary["blocked_parent_relationships"] == 1
+        assert result.upload.validation_summary["rows_with_blocked_parents"] == 1
         assert rows[0].disposition == "REVIEW"
         assert "relationship blocked" in rows[0].warnings[0]
         assert rows[1].disposition == "INVALID"
