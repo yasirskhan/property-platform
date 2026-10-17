@@ -2292,3 +2292,22 @@ and unchanged blocked readiness, then restores the original source and
 customer status. No additional SQL fetch or actual Lease/occupancy/customer
 mutation is introduced. Detached/provisional until exact preceding and own
 hosted all-six-job CI, no invented source API or §§133-135 scope.
+
+
+### Nine-case consolidated reviewed/durable and stale Lease safety release (2026-10-16)
+
+Nine PostgreSQL cases are consolidated into ONE final exact-SHA integration
+candidate after published 74bb1a22. Eight are reviewed/durable eligibility,
+credential and Unit Property-parent positive/negative scope regressions;
+the ninth covers a linked Lease Tenant becoming unavailable while the exact
+historical reviewed source claim changes even though blocked readiness remains
+identical. A corresponding read-only router correction retains exact
+organization-scoped original durable link targets for the historical claim
+projection, without extra SQL or customer business mutations. Intermediate
+detached objects are not individually published or verified; this supersedes
+previous intermediate CI wording. Require ALL SIX jobs successful in
+38989472466 for parent 74bb1a22 and matching live branch HEAD, then
+a non-force expected-HEAD fast-forward to the final descendant and its own
+full six-job hosted exact-SHA CI before VERIFIED. Original unprovided
+§§133-135, official API contracts, Lease/occupancy, owner allocation and
+financial posting are not enabled.

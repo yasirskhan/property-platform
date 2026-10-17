@@ -1,3 +1,37 @@
+# 2026-10-16 | SINGLE NINE-REGRESSION YARDI REVIEW INTEGRATION GATE
+
+**PREPARED, DETACHED, NOT PUBLISHED/VERIFIED.** The unpublished commits
+after exact published parent `74bb1a22e1febac8e4a9e62b2f17d319c1eabd13`
+are one coherent source-exact read-only Yardi safety integration candidate:
+- four Owner/Tenant password-hash rotation reviewed/durable isolation cases;
+- two reviewed/durable Unit original Property reassignment swap cases;
+- two reviewed/durable unrelated Unit reassignment isolation cases;
+- one stale Lease Tenant exact historical reviewed-source swap case,
+  including changed source ID and NULL with identical blocked counts;
+- a narrowly scoped reconciliation correction retaining original durable
+  linked target identities for cross-run, org/provider-scoped historical
+  Lease review-claim evidence when the customer target is currently unavailable.
+
+Only the read-only Yardi reconciliation router, PostgreSQL regressions,
+migration plan and this handoff are changed. No customer Lease/occupancy,
+owner allocation, financial posting, password update, unofficial API or
+new source transport is authorized. Prior assertions are all retained.
+
+**PUBLISH CONDITION:** GitHub Actions `38989472466` must succeed on ALL SIX
+jobs at exact source `74bb1a22e1febac8e4a9e62b2f17d319c1eabd13`,
+and live sole branch HEAD must still be that SHA. Publish the FINAL
+consolidated descendant only by non-force `expected_sha` fast-forward,
+then demand full six-job hosted CI at the FINAL exact published SHA
+before marking any new source VERIFIED. Intermediate unpublished Git
+objects are ancestry only, not separately published/verified releases.
+This supersedes all older detached notes below requiring hosted CI on each
+unpublished intermediate. On red, fix the genuine regression without
+weakening any test. Do not touch main/create a branch or invent original
+missing numbered Yardi §§133-135. Continue independently supportable
+safety work and update this handoff upon exact verification.
+
+---
+
 # 2026-10-16 | PREPARED unavailable Lease target exact historical source protection
 
 One additional fast PostgreSQL regression plus a narrowly scoped read-only
