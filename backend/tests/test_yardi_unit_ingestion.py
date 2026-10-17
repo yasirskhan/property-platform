@@ -35,6 +35,8 @@ def test_yardi_units_missing_verified_parent_remains_review_only():
         assert result.upload.detected_resource == "UNITS"
         assert result.upload.provider == "YARDI"
         assert result.upload.validation_summary["duplicates"] == 1
+        assert result.upload.validation_summary["duplicate_source_rows"] == 1
+        assert result.upload.validation_summary["invalid_required_rows"] == 0
         assert result.upload.validation_summary["disposition_counts"] == {
             "INVALID": 1, "REVIEW": 1, "ALREADY_MAPPED": 0,
             "POSSIBLE_MATCH": 0,
