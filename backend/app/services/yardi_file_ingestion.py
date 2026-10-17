@@ -116,6 +116,10 @@ def stage_yardi_file(
                 PlatformMigrationItem.organization_id == run.organization_id,
                 PlatformMigrationItem.provider == "YARDI",
                 PlatformMigrationItem.resource.in_(("TENANTS", "PROPERTIES", "UNITS")),
+                # A legacy mismatched target entity is not a valid parent link.
+                ((PlatformMigrationItem.resource == "TENANTS") & (PlatformMigrationItem.target_entity == "TENANT_USER"))
+                | ((PlatformMigrationItem.resource == "PROPERTIES") & (PlatformMigrationItem.target_entity == "PROPERTY"))
+                | ((PlatformMigrationItem.resource == "UNITS") & (PlatformMigrationItem.target_entity == "UNIT")),
                 PlatformMigrationItem.source_id.in_(ordered_keys[start:start + 300]),
             ).all()
             lease_parent_pairs.update((mapped_resource, mapped_source) for mapped_resource, mapped_source in found)
