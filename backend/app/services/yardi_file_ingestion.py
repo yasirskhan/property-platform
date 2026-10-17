@@ -187,6 +187,7 @@ def stage_yardi_file(
     blocked_parent_relationships = 0
     rows_with_blocked_parents = 0
     blocked_by_resource = {"TENANTS": 0, "PROPERTIES": 0, "UNITS": 0}
+    dispositions = {"INVALID": 0, "REVIEW": 0, "ALREADY_MAPPED": 0, "POSSIBLE_MATCH": 0}
     for row_number, source in parsed.rows:
         data: dict[str, Any] = {
             field: _mapped_value(source, mapping, field)
@@ -262,6 +263,7 @@ def stage_yardi_file(
                 else:
                     disposition = "REVIEW"
                     warnings.append("Yardi property source contract requires review before import.")
+        dispositions[disposition] += 1
         blocked_parent_relationships += blocked_on_row
         if blocked_on_row:
             rows_with_blocked_parents += 1
@@ -280,6 +282,7 @@ def stage_yardi_file(
         "blocked_parent_relationships": blocked_parent_relationships,
         "rows_with_blocked_parents": rows_with_blocked_parents,
         "blocked_parent_by_resource": blocked_by_resource,
+        "disposition_counts": dispositions,
         "target_mutation": False, "requires_explicit_review": True,
         "unit_relationships_auto_created": False,
         "ownership_relationships_auto_created": False,
