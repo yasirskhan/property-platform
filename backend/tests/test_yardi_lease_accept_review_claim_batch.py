@@ -1089,7 +1089,7 @@ def test_contested_lease_historic_identity_stays_blocked_after_tenant_profile_up
     db, engine = _session()
     try:
         actor, org, run, prop, alternate, unit, tenant, lease = _seed(
-            db, slug=f"yardi-lease-contested-profile-{profile_field}-{historical_source or 'null'}",
+            db, slug=f"yardi-lease-contested-profile-{profile_field}-{(historical_source or 'null').lower()}",
         )
         before_leases = db.query(Lease).count()
         assert accept_yardi_staged_lease_relationship(
