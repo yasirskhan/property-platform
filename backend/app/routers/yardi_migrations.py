@@ -2050,11 +2050,21 @@ def get_yardi_reconciliation(
         # the same Lease stays blocked; an exact dry-run fingerprint must
         # invalidate in that case as well. No additional database queries.
         target_review_claim_details = []
-        for resource, field, target_id in (
-            ("PROPERTIES", "source_property_id", property_id),
-            ("UNITS", "source_unit_id", unit_id),
-            ("TENANTS", "source_tenant_id", tenant_id),
+        # Preserve exact historical staff-source contradictions even when a
+        # customer target is already inactive/deleted/wrong-role. Using only
+        # validated live IDs here hides changes in WHICH retained source
+        # contests an unavailable target, allowing stale dry-run replay.
+        # These exact same-run durable links are already organization and
+        # provider scoped; reviewed_claim_sources is batched/scoped above.
+        for resource, field, link, expected_entity in (
+            ("PROPERTIES", "source_property_id", property_link, "PROPERTY"),
+            ("UNITS", "source_unit_id", unit_link, "UNIT"),
+            ("TENANTS", "source_tenant_id", tenant_link, "TENANT_USER"),
         ):
+            target_id = (
+                link.target_id if link is not None
+                and link.target_entity == expected_entity else None
+            )
             if target_id is None:
                 continue
             source_id = str(data.get(field) or "").strip()

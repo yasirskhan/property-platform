@@ -2276,3 +2276,19 @@ still match, before non-force expected-HEAD fast-forward directly to
 the final combined descendant. The final exact published SHA must pass
 its own six-job hosted CI before VERIFIED; no customer-business mutation
 or unsupported Yardi features are authorized.
+
+
+### Unavailable Lease customer still preserves exact staff source dispute (2026-10-16)
+
+A read-only reconciliation fix retains an unavailable linked Property, Unit,
+or Tenant mapping's original durable target ID for batched, organization- and
+provider-scoped historical staff-claim evidence. Previously a disabled or
+missing customer target could hide a changed competing historical provider
+source ID; stale aggregate Lease readiness stayed identical and could reuse
+an outdated saved review fingerprint. The newly added PostgreSQL regression
+disables the already-linked Tenant, swaps historical retained same-org Yardi
+review source IDs including NULL, asserts distinct exact dry-run fingerprints
+and unchanged blocked readiness, then restores the original source and
+customer status. No additional SQL fetch or actual Lease/occupancy/customer
+mutation is introduced. Detached/provisional until exact preceding and own
+hosted all-six-job CI, no invented source API or §§133-135 scope.

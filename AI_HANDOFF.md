@@ -1,3 +1,23 @@
+# 2026-10-16 | PREPARED unavailable Lease target exact historical source protection
+
+One additional fast PostgreSQL regression plus a narrowly scoped read-only
+Yardi reconciliation correction: preserve historical reviewed Property,
+Unit and Tenant provider-source disputes for exact SAME-RUN durable targets
+even when the linked customer target is inactive, deleted or role-invalid.
+Do not rely only on live-valid IDs when deciding what historical source
+claims belong in Lease private review fingerprints. A disabled Tenant
+fixture must distinguish competing T-OLD-1, T-OLD-2 and NULL retained staff
+review source evidence with identical blocked aggregate counts, and must
+recover the original saved fingerprint on exact restoration.
+NO added source queries, no user/Lease/occupancy/customer financial mutations,
+unauthorized source API or new source contract. Previous tests retained.
+DETACHED on parent `ecadaa6834e816fd2ab2f58f4944dae2e993964f`,
+itself provisional. Publish only after verified sole-branch exact ancestor
+CI, non-force expected-HEAD advance, then own six-job CI. No main/new branch
+or invented original numbered §§133-135.
+
+---
+
 # 2026-10-16 | EIGHT-CASE CONSOLIDATED REVIEW FOLLOW-UP PUBLICATION
 
 **PREPARED DETACHED and NOT VERIFIED:** The related unpublished descendants

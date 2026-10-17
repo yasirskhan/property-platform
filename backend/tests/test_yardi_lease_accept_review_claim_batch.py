@@ -468,3 +468,113 @@ def test_changed_competing_lease_review_source_invalidates_exact_fingerprint():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_inactive_lease_tenant_keeps_exact_historical_review_source_evidence():
+    """Already-stale target must still track WHICH retained source disputes it."""
+    db, engine = _session()
+    try:
+        actor, org, run, prop, alternate, unit, tenant, lease = _seed(
+            db, slug="yardi-inactive-tenant-historic-source-swap",
+        )
+        before_leases = db.query(Lease).count()
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease.id, db, actor,
+        )["replayed"] is False
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["lease_relationship_readiness"]["source_review_ready"] == 1
+
+        # Disable only the fixture customer login. The Yardi router must not
+        # write customer User/Lease data or silently accept a stale snapshot.
+        tenant.is_active = False
+        db.commit()
+        unavailable = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert unavailable["lease_relationship_readiness"]["missing_tenant"] == 1
+        assert unavailable["lease_relationship_readiness"]["accepted_relationship_stale"] == 1
+        assert unavailable["lease_relationship_readiness"]["identity_target_review_collisions"] == 0
+
+        other_run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="historical-unavailable-tenant", status="DRAFT",
+        )
+        db.add(other_run)
+        db.flush()
+        upload = stage_yardi_file(
+            db, run=other_run, filename="historical-unavailable-tenant.csv",
+            content=b"Resident Ref,Full Name\nT-OLD-1,Historical Resident\n",
+            resource_override="TENANTS", sheet_name=None,
+            explicit_mapping={"source_id": "Resident Ref", "name": "Full Name"},
+            platform_user_id=actor.id,
+        )
+        db.commit()
+        historical = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).one()
+        historical.resolution_action = "MATCH_EXISTING"
+        historical.resolution_target_tenant_user_id = tenant.id
+        db.commit()
+
+        fingerprints = []
+        saved_fp = None
+        for source_id in ("T-OLD-1", "T-OLD-2", None):
+            historical.source_id = source_id
+            db.commit()
+            stale = get_yardi_reconciliation(run.id, Response(), db, actor)
+            lease_status = stale["lease_relationship_readiness"]
+            assert lease_status["missing_tenant"] == 1
+            assert lease_status["identity_target_review_collisions"] == 1
+            assert lease_status["accepted_relationship_stale"] == 1
+            assert lease_status["complete_identity_links"] == 0
+            assert lease_status["source_review_ready"] == 0
+            fingerprints.append(stale["review_fingerprint"])
+            if saved_fp is None:
+                saved = dry_run_yardi_review(run.id, db, actor)
+                saved_fp = saved["review_fingerprint"]
+                assert saved_fp == stale["review_fingerprint"]
+                assert get_yardi_review_dry_run_status(
+                    run.id, Response(), db, actor,
+                )["is_current"] is True
+            else:
+                check = get_yardi_review_dry_run_status(
+                    run.id, Response(), db, actor,
+                )
+                assert check["saved_review_fingerprint"] == saved_fp
+                assert check["is_current"] is False
+
+        assert len(set(fingerprints)) == 3
+        historical.source_id = "T-OLD-1"
+        db.commit()
+        assert get_yardi_reconciliation(
+            run.id, Response(), db, actor,
+        )["review_fingerprint"] == saved_fp
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is True
+
+        historical.source_id = "T1"
+        db.commit()
+        recovered_inactive = get_yardi_reconciliation(
+            run.id, Response(), db, actor,
+        )
+        assert recovered_inactive["review_fingerprint"] == unavailable["review_fingerprint"]
+        assert recovered_inactive["lease_relationship_readiness"]["identity_target_review_collisions"] == 0
+
+        tenant.is_active = True
+        db.commit()
+        recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert recovered["review_fingerprint"] == baseline["review_fingerprint"]
+        assert recovered["lease_relationship_readiness"]["source_review_ready"] == 1
+        assert recovered["customer_business_mutation"] is False
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease.id, db, actor,
+        )["replayed"] is True
+        db.refresh(tenant)
+        db.refresh(prop)
+        db.refresh(unit)
+        assert tenant.is_active is True
+        assert tenant.hashed_password == "unchanged-password-hash"
+        assert prop.name == "Original" and unit.property_id == prop.id
+        assert db.query(Lease).count() == before_leases
+    finally:
+        db.close()
+        engine.dispose()
