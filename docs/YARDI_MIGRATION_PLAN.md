@@ -2428,3 +2428,22 @@ Existing inactive-identity blockers must remain, and full valid customer
 restoration must recover an empty-blocker preview and original exact
 saved source evidence. Three existing test variants strengthened,
 none removed; read-only Yardi correction unchanged.
+
+
+### Consolidated unavailable Lease source-review and preview parity gate (2026-10-16)
+
+The three related unpublished descendants after published 0a0c3b
+constitute ONE integration milestone, containing an unrelated same-org
+Tenant historical review-source isolation test, a read-only Lease
+preview correction for original inactive Property/Unit/Tenant linked
+identity collisions, and additional preview assertions in six existing
+positive/negative variants. Prior tests remain intact. Historical claim
+projection uses existing batched provider/organization filters, original
+same-run durable mapping and no added SQL query. Intermediate detached
+Git commits are not independently verified releases; this supersedes
+lower provisional notes. Require all SIX 38990736808 jobs successful
+at exact published parent 0a0c3b, plus fresh same branch-head check,
+before non-force expected-HEAD fast-forward of final consolidated SHA.
+Final exact SHA must pass its own complete six-job hosted CI. No Yardi
+customer business writes, undocumented API, missing §133–135 scope,
+Lease/occupancy, owner allocation or financial posting.

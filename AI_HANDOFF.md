@@ -1,3 +1,41 @@
+# 2026-10-16 | SINGLE CONSOLIDATED YARDI LEASE REVIEW PARITY FOLLOW-UP
+
+**DETACHED, NOT PUBLISHED, NOT VERIFIED.** The three unpublished
+successors of published `0a0c3b39697bd0d9a5ae6b5fdbea14f3e078228f`
+are ONE bounded integration candidate containing:
+- one fast PostgreSQL test proving a different same-organization Tenant
+  target's unrelated retained NULL-source review does NOT invalidate an
+  already unavailable Lease Tenant's exact Yardi saved review;
+- a read-only paginated Lease preview correction that keeps historical
+  staff target-review collision blockers visible for original correctly
+  mapped customer Property, Unit and Tenant targets even if those targets
+  become inactive/soft-deleted;
+- three previously added resource variants strengthened to verify the
+  preview positive collision and exact restoration while unavailable;
+- three cross-provider, foreign-organization and unrelated-customer
+  negative paths strengthened to verify NO false preview source blocker,
+  while preserving the genuine inactive-identity blocker and restoration.
+No extra historical query; existing batched org/provider isolation
+preserved. All prior assertions retained; no customer record mutation,
+Lease/occupancy creation, ownership allocation, financial posting,
+external API transport or invented §§133–135.
+
+**MANDATORY PUBLISH GATE:** All SIX jobs in GitHub Actions
+`38990736808` at exact published source
+`0a0c3b39697bd0d9a5ae6b5fdbea14f3e078228f` must be SUCCESS,
+and sole branch HEAD must still equal that source. Fast-forward ONLY
+the FINAL consolidated descendant with `force=false` and
+`expected_sha`, then verify all six GitHub CI jobs at its OWN
+exact SHA before VERIFIED. Intermediate detached Git objects are
+ancestry, NOT separate published/verified release milestones; this
+explicitly supersedes old detached text below requiring separate
+CI for each unpublished intermediate. On real CI failures, repair
+without dropping tests and verify exact fixed SHA, update handoff and
+continue related bounded Phase 4.15 work.
+Only chatgpt/checkpoint-005-safety, never main/new branch/force push.
+
+---
+
 # 2026-10-16 | DETACHED negative Lease preview collision-scope regressions
 
 The existing two cross-provider/organization and one same-organization
