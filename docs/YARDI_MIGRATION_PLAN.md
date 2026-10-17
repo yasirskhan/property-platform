@@ -2216,3 +2216,18 @@ restored. All earlier test cases and assertions are retained; no production
 credential mutation, API, Lease/occupancy, owner allocation or financial
 posting. The successor is detached and PROVISIONAL until exact parent six-job
 CI and then its own six-job hosted verification after safe publication.
+
+
+### Unit parent reassignment swap with equal Yardi readiness totals (2026-10-16)
+
+Two fast-gated PostgreSQL cases cover independently reviewed and durable
+Unit source identities whose customer Units have been reassigned to the wrong
+active Property. Reassigning which one of two originally mapped Units is
+in the wrong parent leaves aggregate mapped/stale counts unchanged but MUST
+change the exact saved dry-run fingerprint, then restore it when the original
+bad parent is restored. Both customer Units, original parents, source rows,
+review decisions and mappings are preserved. Only rolled-back test fixtures
+modify Unit.property_id. No customer business operation, unsupported Yardi
+API, Lease/occupancy, owner allocation or financial posting is enabled.
+This follow-up is detached/unverified until exact-SHA parent and own hosted
+six-job CI pass.

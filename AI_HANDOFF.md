@@ -1,3 +1,20 @@
+# 2026-10-16 | DETACHED Unit Property reassignment swap snapshot regression
+
+Two additional PostgreSQL cases verify both staff-reviewed and durable
+Unit source identity fingerprints when the wrong original Property parent
+swaps across two Unit targets with unchanged aggregate readiness. It
+must invalidate the saved dry run on the exact changed Unit, recover the
+original stale fingerprint on reverse swap, then fully recover baseline.
+Fixture-only customer property_id changes are restored; no new Yardi
+product writes, Lease/occupancy/owner allocation or finance posting.
+DETACHED successor of `42748f085342be0d7e2eabf6fac7765f349bb7d2`,
+pending publication and six-job CI of its exact predecessor. Do not publish
+without all-six successful predecessor hosted CI, live sole-branch HEAD
+check and non-force expected-SHA fast-forward, then all-six exact own CI.
+Never touch main, create another branch or invent §§133-135.
+
+---
+
 # 2026-10-16 | DETACHED credential-hash rotation source-exact identity safeguard
 
 Four new PostgreSQL cases protect valid referenced Owner and Tenant
