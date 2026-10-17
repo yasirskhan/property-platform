@@ -134,6 +134,53 @@ def test_yardi_lease_parent_source_mapping_diagnostics_use_one_scoped_batch():
         engine.dispose()
 
 
+def test_yardi_lease_staging_rejects_wrong_target_entity_for_each_parent():
+    """Each parent source requires its own exact expected target type."""
+    from app.models.platform_migration import PlatformMigrationItem
+
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "yardi-lease-parent-type-isolation")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="lease-parent-type", status="DRAFT",
+        )
+        db.add(run)
+        db.flush()
+        for resource, source_id, target_entity in (
+            ("TENANTS", "T1", "PROPERTY"),
+            ("PROPERTIES", "P1", "UNIT"),
+            ("UNITS", "U1", "TENANT_USER"),
+        ):
+            db.add(PlatformMigrationItem(
+                run_id=run.id, organization_id=org.id, provider="YARDI",
+                resource=resource, source_id=source_id,
+                target_entity=target_entity, target_id=1,
+                source_fingerprint="wrong-type-" + source_id,
+            ))
+        db.commit()
+        before = db.query(Lease).count()
+        upload = stage_yardi_file(
+            db, run=run, filename="wrong-type-leases.csv",
+            content=b"Lease,Tenant,Property,Unit\nL1,T1,P1,U1\n",
+            resource_override="LEASE_OCCUPANCY", sheet_name=None,
+            explicit_mapping={
+                "source_id": "Lease", "source_tenant_id": "Tenant",
+                "source_property_id": "Property", "source_unit_id": "Unit",
+            }, platform_user_id=actor.id,
+        )
+        row = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).one()
+        assert row.disposition == "REVIEW"
+        assert sum("commit blocked" in warning for warning in row.warnings) == 3
+        assert db.query(Lease).count() == before
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_yardi_lease_parent_batch_is_bounded_across_300_source_keys():
     """An export beyond one SQL-IN batch stays scoped and staging-only."""
     from sqlalchemy import event
