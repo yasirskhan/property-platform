@@ -101,6 +101,19 @@ def test_postgresql_null_source_historical_tenant_review_blocks_lease_reaccept()
             accept_yardi_staged_lease_relationship(run.id, lease.id, db, actor)
         assert conflict.value.status_code == 409
 
+        # PostgreSQL should preserve WHICH historical source contested
+        # this mapped Tenant even with identical stale aggregate counts.
+        historical.source_id = "T-OLDER-2"
+        db.commit()
+        changed_claim = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert changed_claim["lease_relationship_readiness"] == blocked["lease_relationship_readiness"]
+        assert changed_claim["review_fingerprint"] != blocked["review_fingerprint"]
+        historical.source_id = None
+        db.commit()
+        restored_blocked = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert restored_blocked["review_fingerprint"] == blocked["review_fingerprint"]
+        assert restored_blocked["lease_relationship_readiness"] == blocked["lease_relationship_readiness"]
+
         historical.source_id = "T1"
         db.commit()
         recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
