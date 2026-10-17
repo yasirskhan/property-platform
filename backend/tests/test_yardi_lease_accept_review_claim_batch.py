@@ -934,7 +934,6 @@ def test_unavailable_lease_unit_ignores_unrelated_property_or_unit_history(resou
                 "city": "City", "state": "State", "zip_code": "Zip",
             }
             target_field = "resolution_target_id"
-            same_source_id = "P1"
         else:
             unrelated = Unit(property_id=alternate.id, unit_number="999")
             filename = "unreferenced-unit.csv"
@@ -942,7 +941,6 @@ def test_unavailable_lease_unit_ignores_unrelated_property_or_unit_history(resou
             mapping = {"source_id": "Unit", "source_property_id": "Parent",
                        "unit_name": "Label"}
             target_field = "resolution_target_unit_id"
-            same_source_id = "U1"
         db.add(unrelated)
         db.commit()
         upload = stage_yardi_file(
@@ -958,7 +956,7 @@ def test_unavailable_lease_unit_ignores_unrelated_property_or_unit_history(resou
         setattr(historic, target_field, unrelated.id)
         db.commit()
 
-        for source in (None, "HIST-OLD-1", "HIST-OLD-2", same_source_id):
+        for source in (None, "HIST-OLD-1", "HIST-OLD-2", "HIST-OLD-3"):
             historic.source_id = source
             db.commit()
             still_blocked = get_yardi_reconciliation(run.id, Response(), db, actor)

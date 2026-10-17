@@ -1,3 +1,17 @@
+# 2026-10-16 | PREPARED safe source-ID scope correction
+
+The two new unrelated Property/Unit historical negative cases now vary
+NULL plus three distinct historic IDs. They deliberately do NOT claim
+that equal YARDI provider source IDs can bind different customer targets
+across runs; that belongs to separate source collision safety rules.
+This test-only correction supersedes the earlier candidate note
+describing same-text Property/Unit IDs. No existing tests removed.
+Detached on `b9620864689bf3becc174d2e34edfeb529011184`,
+pending predecessor f2efb06e all-six CI and sole expected-HEAD
+non-force publish; require own final six-job CI.
+
+---
+
 # 2026-10-16 | SINGLE CONSOLIDATED unavailable Lease review source-isolation release
 
 **PREPARED DETACHED, NOT YET PUBLISHED/VERIFIED.** The four direct

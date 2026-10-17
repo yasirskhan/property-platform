@@ -2558,3 +2558,16 @@ expected-HEAD fast-forward and require six-job exact hosted CI on the
 new final SHA before VERIFIED. Intermediate unpublished Git commits
 are ancestry, not independently verified source. All prior regressions
 are preserved; original §§133–135 remain unsupported.
+
+
+### Scope clarification for unrelated historical source-negative tests (2026-10-16)
+
+The new same-organization unreferenced Property/Unit historical source
+negative test varies only NULL and three genuinely different historical
+IDs. It does NOT claim same YARDI source ID may safely map to different
+targets in different runs: that is independently collision-sensitive and
+must not be weakened or implicitly permitted by unrelated-target
+isolation tests. Older notes suggesting equal source text for this
+specific new Property/Unit pair are superseded by this explicit
+collision-safety distinction. Existing foreign provider/organization
+scope coverage remains. This is test-only; no product mutation.
