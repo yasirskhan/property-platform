@@ -100,6 +100,7 @@ def test_yardi_unit_staging_batches_parent_source_checks():
         assert result.upload.status == "REVIEW_REQUIRED"
         assert result.upload.validation_summary["blocked_parent_relationships"] == 301
         assert result.upload.validation_summary["rows_with_blocked_parents"] == 301
+        assert result.upload.validation_summary["blocked_parent_by_resource"] == {"TENANTS": 0, "PROPERTIES": 301, "UNITS": 0}
         assert db.query(PlatformMigrationStagedRow).filter(
             PlatformMigrationStagedRow.upload_id == result.upload.id,
         ).count() == 301
