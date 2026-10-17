@@ -1,3 +1,22 @@
+# 2026-10-16 | DETACHED exact conflict swaps during Tenant profile edits
+
+Extends the prior 2-case contested Tenant name/password fixture to 3
+parameterized cases (first name, last name, password hash), additionally
+proving a change in WHICH cross-run historical YARDI source contests an
+already-stale Lease identity MUST expire the saved dry-run, without
+change to aggregate counters. Reinstating exact source restores snapshot,
+then authentic original source recovery restores acceptance. No router,
+schema or customer business writes, and no prior assertions dropped.
+This detached candidate follows `ac76e308d61698bdd63a9b18f84c1d26d3aec87a`, still pending hosted CI
+`38996279387` on original published predecessor
+`27db379b2abe046c447b33cd6faa118f84efef9c`. Consolidate these
+related unpublished descendants for a single exact-SHA hosted six-job
+release after parent green and sole branch expected-HEAD check. Never
+force-push/touch main/new branch/invent §§133–135 or enable unofficial
+Yardi transport, Lease/occupancy, owner allocation or accounting.
+
+---
+
 # 2026-10-16 | DETACHED contested Lease target profile safety
 
 Two new parameterized PostgreSQL cases prove that an already-contested

@@ -2600,3 +2600,20 @@ without creating customer Leases or changing business records through
 Yardi endpoints. No previous assertion or security gate is relaxed.
 Prepared detached follow-up; needs exact predecessor six-job hosted CI
 and its own all-six job verification after non-force expected-HEAD publish.
+
+
+### Benign Tenant edits cannot mask true historical Yardi source swaps (2026-10-16)
+
+Three related fast PostgreSQL cases complement the valid-profile Lease
+regression. A previously accepted Lease already blocked by an exact
+competing same-org Yardi Tenant staff-reviewed source must remain
+blocked when the customer's first name, last name or password hash
+changes. During the profile edit, changing WHICH old Yardi source ID
+contests the same Tenant must invalidate the saved exact dry-run even
+though all aggregate stale counters are unchanged, and restoring that
+same contested source must restore the stored fingerprint. Only
+restoring the original noncompeting provider source ID recovers the
+Lease relationship. Test fixture customer values are restored and no
+migration API, new Lease, ownership or financial posting is enabled.
+This 3-case successor is detached until its parent exact hosted CI is
+green and then requires its own complete six-job CI after publication.

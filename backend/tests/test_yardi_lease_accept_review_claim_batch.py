@@ -1078,6 +1078,7 @@ def test_accepted_lease_review_survives_eligible_tenant_profile_only_update(
 
 @pytest.mark.parametrize("profile_field,replacement", [
     ("first_name", "Renamed Tenant While Contested"),
+    ("last_name", "Updated Contested Last Name"),
     ("hashed_password", "rotated-contested-fixture-hash"),
 ])
 def test_contested_lease_historic_identity_stays_blocked_after_tenant_profile_update(
@@ -1149,6 +1150,34 @@ def test_contested_lease_historic_identity_stays_blocked_after_tenant_profile_up
             accept_yardi_staged_lease_relationship(run.id, lease.id, db, actor)
         assert still_blocked.value.status_code == 409
         assert current["customer_business_mutation"] is False
+
+        # A genuine change to WHICH historical source contests the Tenant
+        # must expire this same saved review, even during a benign profile edit.
+        historical.source_id = "T-OTHER-2"
+        db.commit()
+        changed_claim = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert changed_claim["lease_relationship_readiness"] == contested["lease_relationship_readiness"]
+        assert changed_claim["review_fingerprint"] != saved["review_fingerprint"]
+        expired = get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )
+        assert expired["is_current"] is False
+        assert expired["saved_review_fingerprint"] == saved["review_fingerprint"]
+        assert "TENANT_TARGET_REVIEW_COLLISION" in list_yardi_lease_relationships(
+            run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
+        )["items"][0]["blockers"]
+        with pytest.raises(HTTPException) as changed_source_still_blocked:
+            accept_yardi_staged_lease_relationship(run.id, lease.id, db, actor)
+        assert changed_source_still_blocked.value.status_code == 409
+
+        historical.source_id = "T-OTHER"
+        db.commit()
+        assert get_yardi_reconciliation(
+            run.id, Response(), db, actor,
+        )["review_fingerprint"] == saved["review_fingerprint"]
+        assert get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )["is_current"] is True
 
         setattr(tenant, profile_field, previous_value)
         historical.source_id = "T1"
