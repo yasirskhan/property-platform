@@ -2113,3 +2113,81 @@ def test_unreviewed_durable_inventory_ignores_unrelated_target_eligibility(
     finally:
         db.close()
         engine.dispose()
+
+
+@pytest.mark.parametrize("resource,seed,match,request_cls,target_field,entity,profile_field", [
+    ("OWNERS", seed_owner, match_yardi_staged_owner, YardiOwnerMatchIn,
+     "target_owner_user_id", "OWNER_USER", "first_name"),
+    ("TENANTS", seed_tenant, match_yardi_staged_tenant, YardiTenantMatchIn,
+     "target_tenant_user_id", "TENANT_USER", "first_name"),
+    ("VENDORS", seed_vendor, match_yardi_staged_vendor, YardiVendorMatchIn,
+     "target_vendor_id", "VENDOR", "company_name"),
+])
+@pytest.mark.parametrize("binding_kind", ["REVIEWED", "DURABLE"])
+def test_current_identity_profile_edit_does_not_expire_source_exact_dry_run(
+    resource, seed, match, request_cls, target_field, entity, profile_field,
+    binding_kind,
+):
+    """Unchanged source identity stays current after a valid customer's name edit."""
+    from app.models.platform_migration import PlatformMigrationItem
+    from app.routers.yardi_migrations import get_yardi_review_dry_run_status
+
+    db, engine = _session()
+    try:
+        actor, org, target, run, row = seed(
+            db, slug=f"yardi-profile-change-{resource.lower()}-{binding_kind.lower()}",
+        )
+        if binding_kind == "REVIEWED":
+            assert match(
+                run.id, row.id, request_cls(**{target_field: target.id}), db, actor,
+            )["replayed"] is False
+        else:
+            db.add(PlatformMigrationItem(
+                run_id=run.id, organization_id=org.id, provider="YARDI",
+                resource=resource, source_id=row.source_id, target_entity=entity,
+                target_id=target.id, source_fingerprint=row.row_fingerprint,
+            ))
+            db.commit()
+            assert row.resolution_action is None
+        kind = "matched_existing" if binding_kind == "REVIEWED" else "mapped"
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["resource_coverage"][resource][kind] == 1
+        saved = dry_run_yardi_review(run.id, db, actor)
+        assert saved["review_fingerprint"] == baseline["review_fingerprint"]
+
+        original_value = getattr(target, profile_field)
+        setattr(target, profile_field, "Updated Customer Display Name")
+        db.commit()
+        unchanged = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert unchanged["resource_coverage"] == baseline["resource_coverage"]
+        assert unchanged["review_fingerprint"] == baseline["review_fingerprint"]
+        current = get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )
+        assert current["is_current"] is True
+        assert current["saved_review_fingerprint"] == saved["review_fingerprint"]
+        replayed = dry_run_yardi_review(run.id, db, actor)
+        assert replayed["replayed"] is True
+        assert replayed["review_fingerprint"] == saved["review_fingerprint"]
+        assert unchanged["customer_business_mutation"] is False
+
+        setattr(target, profile_field, original_value)
+        db.commit()
+        db.refresh(target)
+        assert getattr(target, profile_field) == original_value
+        restored = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert restored["review_fingerprint"] == baseline["review_fingerprint"]
+        assert row.resolution_action == (
+            "MATCH_EXISTING" if binding_kind == "REVIEWED" else None
+        )
+        bindings = db.query(PlatformMigrationItem).filter(
+            PlatformMigrationItem.run_id == run.id,
+            PlatformMigrationItem.resource == resource,
+        ).all()
+        assert len(bindings) == (0 if binding_kind == "REVIEWED" else 1)
+        if bindings:
+            assert bindings[0].target_id == target.id
+            assert bindings[0].source_fingerprint == row.row_fingerprint
+    finally:
+        db.close()
+        engine.dispose()

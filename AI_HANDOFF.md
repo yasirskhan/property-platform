@@ -1,3 +1,19 @@
+# 2026-10-16 | PREPARED referenced profile-only identity edit isolation
+
+Six additional parameterized PostgreSQL cases for reviewed/durable
+Owner/Tenant/Vendor source identities prove that first-name/company-name
+profile changes on an already-valid REFERENCED customer do not cause a
+spurious saved review expiration or audit replay. Preserves all prior
+assertions and restores test fixture fields. NO Yardi business mutation.
+This is a DETACHED provisional descendant of
+`85d4fb137a6d558e0166e5e7d9784df429603fc1`; require predecessor
+publication plus exact hosted full six-job CI before publishing this
+successor. Recheck live sole branch and use non-force expected SHA.
+Never touch main/new branch or invent §§133-135, unsupported APIs,
+Lease/occupancy/owner allocation/financial posting.
+
+---
+
 # 2026-10-16 | PREPARED out-of-scope role and soft-delete identity isolation
 
 Eight additional PostgreSQL parameterized cases extend the existing

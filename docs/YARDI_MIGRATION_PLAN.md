@@ -2171,3 +2171,15 @@ only; no Yardi router or customer-business mutation, source API, ownership,
 Lease/occupancy or financial posting. This follow-up is PROVISIONAL until
 its own exact-SHA hosted all-six-job CI passes; Sections 133-135 remain
 unavailable and must not be invented.
+
+
+### Customer-profile-only edits preserve exact Yardi reviewed/durable identity evidence (2026-10-16)
+
+Six additional fast PostgreSQL scenarios verify that updating an already
+eligible referenced Owner/Tenant first name or Vendor display name does not
+expire a saved source-exact staff-reviewed or unreviewed durable identity
+mapping. Identity, role/activity, source row fingerprint, target linkage and
+resource readiness remain unchanged; the dry run replays without a new
+review. The test restores original fixture names and checks no migration
+business mutations. Provisional detached successor pending predecessor
+six-job exact CI; no API, Lease/occupancy, ownership or accounting enablement.
