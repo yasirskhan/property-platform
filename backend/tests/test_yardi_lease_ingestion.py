@@ -37,6 +37,10 @@ def test_lease_source_relationships_remain_review_only():
         assert row.provider == "YARDI"
         assert row.disposition == "REVIEW"
         assert sum("commit blocked" in warning for warning in row.warnings) == 3
+        assert staged.upload.validation_summary["missing_required_by_field"] == {
+            "source_id": 0, "source_tenant_id": 0,
+            "source_property_id": 0, "source_unit_id": 0,
+        }
         assert db.query(Lease).count() == before
         replay = stage_yardi_file(
             db, run=run, filename="leases.csv", content=content,
