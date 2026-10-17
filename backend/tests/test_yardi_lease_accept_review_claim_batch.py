@@ -1081,14 +1081,15 @@ def test_accepted_lease_review_survives_eligible_tenant_profile_only_update(
     ("last_name", "Updated Contested Last Name"),
     ("hashed_password", "rotated-contested-fixture-hash"),
 ])
+@pytest.mark.parametrize("historical_source", ["T-OTHER", None])
 def test_contested_lease_historic_identity_stays_blocked_after_tenant_profile_update(
-    profile_field, replacement,
+    profile_field, replacement, historical_source,
 ):
     """Cosmetic or credential edits cannot resolve another Yardi run's target claim."""
     db, engine = _session()
     try:
         actor, org, run, prop, alternate, unit, tenant, lease = _seed(
-            db, slug=f"yardi-lease-contested-profile-{profile_field}",
+            db, slug=f"yardi-lease-contested-profile-{profile_field}-{historical_source or 'null'}",
         )
         before_leases = db.query(Lease).count()
         assert accept_yardi_staged_lease_relationship(
@@ -1116,6 +1117,7 @@ def test_contested_lease_historic_identity_stays_blocked_after_tenant_profile_up
         ).one()
         historical.resolution_action = "MATCH_EXISTING"
         historical.resolution_target_tenant_user_id = tenant.id
+        historical.source_id = historical_source
         db.commit()
 
         contested = get_yardi_reconciliation(run.id, Response(), db, actor)
@@ -1170,7 +1172,7 @@ def test_contested_lease_historic_identity_stays_blocked_after_tenant_profile_up
             accept_yardi_staged_lease_relationship(run.id, lease.id, db, actor)
         assert changed_source_still_blocked.value.status_code == 409
 
-        historical.source_id = "T-OTHER"
+        historical.source_id = historical_source
         db.commit()
         assert get_yardi_reconciliation(
             run.id, Response(), db, actor,

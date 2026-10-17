@@ -1,3 +1,25 @@
+# 2026-10-16 | DETACHED NULL-safe contested Lease profile/source matrix
+
+Final prepared descendant after published
+`27db379b2abe046c447b33cd6faa118f84efef9c`: six PostgreSQL
+parameter combinations compare first/last name and password-hash
+changes on a valid customer Tenant whose accepted Lease is contested
+by either a known differing historical YARDI source or a retained
+NULL source. The genuine target claim remains blocked and changing
+WHICH historic source contends MUST expire the saved dry-run at unchanged
+aggregate totals; exact restoration recovers stale/current snapshots.
+Intermediate detached Git object commits are ancestry only; this
+top note supersedes older per-intermediate CI publication wording.
+The published predecessor CI `38996279387` must finish with SIX
+successful jobs at the exact parent SHA, then current sole branch
+HEAD must still match. Only non-force expected-SHA fast-forward to the
+final descendant; require full six-job CI at exact published source.
+No existing tests removed/weakened, no customer business migration
+mutation, unsupported Yardi API, Lease/occupancy creation, owner
+allocations, financial posting, alternate branches or §§133–135 invented.
+
+---
+
 # 2026-10-16 | DETACHED exact conflict swaps during Tenant profile edits
 
 Extends the prior 2-case contested Tenant name/password fixture to 3

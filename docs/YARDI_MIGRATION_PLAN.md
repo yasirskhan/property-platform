@@ -2617,3 +2617,18 @@ Lease relationship. Test fixture customer values are restored and no
 migration API, new Lease, ownership or financial posting is enabled.
 This 3-case successor is detached until its parent exact hosted CI is
 green and then requires its own complete six-job CI after publication.
+
+
+### NULL-safe historic Lease Tenant source review under profile changes (2026-10-16)
+
+The three benign-profile/real-source-swap cases above now execute with
+both a known different historical Yardi Tenant source ID and a retained
+NULL source ID. Six PostgreSQL combinations require a genuine same-org
+staff-review collision to remain visible through changes to an eligible
+Tenant's first/last name or password hash, and a different historical
+source to expire the exact saved dry-run even when stale totals are equal.
+Restoring the original NULL or known competing source restores the blocked
+snapshot, and restoring the true same-source identity recovers legitimate
+Lease readiness. This is a detached, test-only follow-up: no migration
+customer writes, new Lease, provider API or accounting/owner allocation.
+Prior cases are retained and expanded, pending exact six-job verification.
