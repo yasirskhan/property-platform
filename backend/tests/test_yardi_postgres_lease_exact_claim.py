@@ -35,11 +35,12 @@ def test_postgresql_null_source_historical_tenant_review_blocks_lease_reaccept()
     if "test" not in database_name:
         pytest.fail("Refuse PostgreSQL fixture writes outside a named test database")
     engine = create_engine(url)
-    # CREATE IF MISSING only in the explicitly configured disposable TEST DB.
-    # Do not rely on an SQLite dialect to validate NULL-safe PostgreSQL SQL.
-    Base.metadata.create_all(bind=engine)
     connection = engine.connect()
     outer = connection.begin()
+    # PostgreSQL DDL is transactional; keep schema bootstrapping inside
+    # the same outer rollback as every fixture mutation. Never leave
+    # newly created test tables behind for later CI test modules.
+    Base.metadata.create_all(bind=connection)
     db = sessionmaker(
         bind=connection, expire_on_commit=False,
         join_transaction_mode="create_savepoint",
