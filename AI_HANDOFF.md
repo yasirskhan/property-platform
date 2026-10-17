@@ -1,3 +1,20 @@
+# 2026-10-16 | PostgreSQL exact competing Tenant source fingerprint permutations
+
+Prepared source extension of the native PostgreSQL read-only Yardi Lease
+historical claim fixture at parent `741b4f140d5dc637529af6c98ecfc2941c234756`, which passed all SIX hosted
+CI jobs in GitHub Actions `38997367853`. For both eligible and
+inactive Tenant original targets, test four distinct retained historical
+source IDs (including NULL), with equal stale Lease aggregate counts,
+distinct source-exact review fingerprints, stale saved dry-run status and
+exact restoration. Existing tests retained, fixture data transactionally
+rolled back, no production router or customer business changes. This
+follow-up requires its OWN exact SHA six-job CI before VERIFIED.
+Sole branch `chatgpt/checkpoint-005-safety`; never main/new branch/force, unsupported
+Yardi API, Lease/occupancy creation, owner allocation, financial posting
+or invented numbered §§133–135.
+
+---
+
 # 2026-10-16 | FINAL CONSOLIDATED YARDI LEASE REVIEW FOLLOW-UP
 
 **Published, awaiting its own full CI:** `27db379b2abe046c447b33cd6faa118f84efef9c`,
