@@ -120,6 +120,25 @@ def stage_yardi_file(
             ).all()
             lease_parent_pairs.update((mapped_resource, mapped_source) for mapped_resource, mapped_source in found)
 
+    # Unit parent diagnostics use the same bounded metadata-only lookup pattern
+    # as Lease staging, avoiding an unbounded query per source Unit row.
+    unit_parent_sources: set[str] = set()
+    if resource == "UNITS":
+        source_keys = sorted({
+            str(_mapped_value(source, mapping, "source_property_id") or "").strip()
+            for _, source in parsed.rows
+        } - {""})
+        for start in range(0, len(source_keys), 300):
+            found = db.query(PlatformMigrationItem.source_id).filter(
+                PlatformMigrationItem.run_id == run.id,
+                PlatformMigrationItem.organization_id == run.organization_id,
+                PlatformMigrationItem.provider == "YARDI",
+                PlatformMigrationItem.resource == "PROPERTIES",
+                PlatformMigrationItem.target_entity == "PROPERTY",
+                PlatformMigrationItem.source_id.in_(source_keys[start:start + 300]),
+            ).all()
+            unit_parent_sources.update(source_id for (source_id,) in found)
+
     upload = PlatformMigrationUpload(
         run_id=run.id, organization_id=run.organization_id,
         provider="YARDI", filename=filename,
@@ -192,16 +211,8 @@ def stage_yardi_file(
                 warnings.append("Owner identity is staged for review only; no ownership, login or Property relationship inferred.")
             elif resource == "UNITS":
                 source_property_id = str(data.get("source_property_id") or "").strip()
-                parent = db.query(PlatformMigrationItem).filter(
-                    PlatformMigrationItem.run_id == run.id,
-                    PlatformMigrationItem.organization_id == run.organization_id,
-                    PlatformMigrationItem.provider == "YARDI",
-                    PlatformMigrationItem.resource == "PROPERTIES",
-                    PlatformMigrationItem.source_id == source_property_id,
-                    PlatformMigrationItem.target_entity == "PROPERTY",
-                ).first()
                 disposition = "REVIEW"
-                if parent is None:
+                if source_property_id not in unit_parent_sources:
                     warnings.append("Source Property ID has no verified same-run Property mapping; relationship blocked.")
                 else:
                     warnings.append("Parent Property mapping exists; Unit identity and relationship require explicit review.")
