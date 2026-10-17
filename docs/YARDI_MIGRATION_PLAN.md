@@ -2183,3 +2183,22 @@ resource readiness remain unchanged; the dry run replays without a new
 review. The test restores original fixture names and checks no migration
 business mutations. Provisional detached successor pending predecessor
 six-job exact CI; no API, Lease/occupancy, ownership or accounting enablement.
+
+
+### Consolidated exact-SHA publication gate for 14 Yardi identity review regressions (2026-10-16)
+
+The two directly-descended detached, test-only milestones described above
+comprise ONE consolidated release candidate rather than two individually
+published/verified release milestones. They add eight unrelated Owner/Tenant
+role and soft-delete status isolation scenarios and six source-exact,
+referenced eligible customer profile/name edit stability scenarios. Before
+publication the 916cbdf parent must pass all six jobs of CI 38988402219,
+and the live sole branch must match its parent SHA. Advance only by
+non-force expected-HEAD fast-forward to the final combined SHA. Require
+one full hosted six-job exact final SHA CI before marking VERIFIED;
+intermediate detached Git objects are not independently verified.
+The earlier detached-notes' separate-parent-CI instructions are
+superseded ONLY for these two unpublished related descendants.
+All previous tests and customer nonmutation guarantees remain. Missing
+numbered §§133–135 and unauthorized APIs/financial/Lease/occupancy
+business posting are not enabled.

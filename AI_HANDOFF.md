@@ -1,3 +1,32 @@
+# 2026-10-16 | SINGLE CONSOLIDATED Yardi negative-review publication gate
+
+**PREPARED and NOT PUBLISHED / NOT VERIFIED:** The two related test-only
+successors `85d4fb137a6d558e0166e5e7d9784df429603fc1` and
+`3172ab03f4840924884336121f9886ed17753628` form ONE consolidated
+Yardi identity-review regression milestone containing 14 additional
+parameterized PostgreSQL cases. This final descendant supersedes the
+intermediate detached notes below that request their separate hosted
+CI/publication. Those intermediate objects are ancestry, not separate
+verified release checkpoints. Eight cases cover unrelated same-org
+Owner/Tenant role and soft-delete isolation for reviewed/durable identities.
+Six cases protect referenced, still eligible Owner/Tenant/Vendor
+name-only edits from spurious stale dry-runs, preserving exact source,
+target bindings and replay. All original tests retained. No Yardi product
+router changes, unsupported API, customer Lease/occupancy creation,
+owner allocation, payments or accounting writes.
+
+**MANDATORY GATE:** The published parent HEAD must still be
+`916cbdf491f723cdd5e7c264b46da51d9c632ed4`; its CI `38988402219`
+must conclude with SIX successful jobs. Only then publish the FINAL
+consolidated descendant by sole-branch non-force `expected_sha` fast-
+forward, with no divergence. The FINAL published exact SHA must pass
+its own all-six-job hosted CI before marking it VERIFIED. If either
+condition is untrue, do not publish or overwrite concurrent work.
+The original numbered §§133–135 requirements are unavailable:
+do not invent them. Continue independently supportable safety batches.
+
+---
+
 # 2026-10-16 | PREPARED referenced profile-only identity edit isolation
 
 Six additional parameterized PostgreSQL cases for reviewed/durable
