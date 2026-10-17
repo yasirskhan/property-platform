@@ -1,3 +1,19 @@
+# 2026-10-16 | DETACHED per-source Lease preview negative-scope parity
+
+Extend the two existing unavailable-Tenant negative regressions to assert
+page-level blocker parity for EACH historical source revision from another
+provider, foreign organization or unrelated same-org customer identity.
+The exact current saved dry-run fingerprint remains unchanged with only the
+genuine inactive Tenant blocker. No customer Yardi business mutation,
+unsupported API or financial/Lease/occupancy posting. Provisional, detached
+behind `4ec352a5da04ba1f020a558ac42c3e9cb8aa28cc`.
+Do not publish without green six-job parent source at f2efb06e and live
+expected HEAD; consolidate into one final descendant, run exact own CI.
+Only chatgpt/checkpoint-005-safety, no main/new branch/force push,
+no invented original §§133–135.
+
+---
+
 # 2026-10-16 | CONSOLIDATED EXACT-SHA unavailable Lease source-isolation milestone
 
 **ONE PREPARED DETACHED RELEASE CANDIDATE; NOT PUBLISHED OR VERIFIED.**

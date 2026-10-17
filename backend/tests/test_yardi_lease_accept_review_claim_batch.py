@@ -720,6 +720,17 @@ def test_unavailable_lease_tenant_ignores_foreign_historical_target_claim(
             assert get_yardi_review_dry_run_status(
                 run.id, Response(), db, actor,
             )["is_current"] is True
+            # Page-level review parity must remain current in source scope:
+            # the genuine inactive customer blocker remains, but an unrelated
+            # foreign-provider/organization/source claim must not leak in.
+            page = list_yardi_lease_relationships(
+                run.id, Response(), offset=0, limit=10, db=db,
+                current_user=actor,
+            )["items"][0]
+            assert "TENANT_TARGET_REVIEW_COLLISION" not in page["blockers"]
+            assert "TENANT_IDENTITY_UNMAPPED_OR_INACTIVE" in page["blockers"]
+            assert page["relationship_review_current"] is False
+            assert page["occupancy_or_lease_authorized"] is False
 
         inactive_preview = list_yardi_lease_relationships(
             run.id, Response(), offset=0, limit=10, db=db, current_user=actor,
@@ -821,6 +832,17 @@ def test_unavailable_lease_tenant_ignores_other_customer_historical_source_claim
             assert get_yardi_review_dry_run_status(
                 run.id, Response(), db, actor,
             )["is_current"] is True
+            # Page-level review parity must remain current in source scope:
+            # the genuine inactive customer blocker remains, but an unrelated
+            # foreign-provider/organization/source claim must not leak in.
+            page = list_yardi_lease_relationships(
+                run.id, Response(), offset=0, limit=10, db=db,
+                current_user=actor,
+            )["items"][0]
+            assert "TENANT_TARGET_REVIEW_COLLISION" not in page["blockers"]
+            assert "TENANT_IDENTITY_UNMAPPED_OR_INACTIVE" in page["blockers"]
+            assert page["relationship_review_current"] is False
+            assert page["occupancy_or_lease_authorized"] is False
 
         inactive_preview = list_yardi_lease_relationships(
             run.id, Response(), offset=0, limit=10, db=db, current_user=actor,

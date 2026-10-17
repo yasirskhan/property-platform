@@ -2525,3 +2525,15 @@ and sole branch HEAD must still match before the FINAL consolidated
 commit is non-force expected-SHA published. Its exact new SHA must
 pass its own six-job GitHub Actions before VERIFIED. All existing tests
 remain. Do not invent unavailable §§133–135 scope.
+
+
+### Page-level cross-scope parity on each historical source variant (2026-10-16)
+
+The same-organizational-unreferenced Tenant and provider/foreign-organization
+Tenant historical source-swap regressions now verify the paginated Lease
+preview on EACH NULL, foreign, and equal-text retained source variant, not
+merely at the final variant. The real inactive Tenant blocker remains,
+and no TARGET_REVIEW_COLLISION leaks from those out-of-scope claims.
+Read-only fixture tests only. No business writes, new source API,
+Lease/occupancy, ownership or financial posting. Detached and
+provisional until parent exact six-job CI and own hosted verification.
