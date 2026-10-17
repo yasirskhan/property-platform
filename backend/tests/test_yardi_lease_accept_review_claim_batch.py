@@ -481,7 +481,7 @@ def test_inactive_lease_tenant_keeps_exact_historical_review_source_evidence(res
         options = {
             "PROPERTIES": {
                 "target": prop, "missing": "missing_property",
-                "content": b"ID,Name,Street,City,State,Zip\\nP-OLD-1,Historical,1 Main,Cleveland,OH,44113\\n",
+                "content": b"ID,Name,Street,City,State,Zip\nP-OLD-1,Historical,1 Main,Cleveland,OH,44113\n",
                 "mapping": {
                     "source_id": "ID", "name": "Name", "address_line1": "Street",
                     "city": "City", "state": "State", "zip_code": "Zip",
@@ -490,7 +490,7 @@ def test_inactive_lease_tenant_keeps_exact_historical_review_source_evidence(res
             },
             "UNITS": {
                 "target": unit, "missing": "missing_unit",
-                "content": b"ID,Parent,Label\\nU-OLD-1,P1,101\\n",
+                "content": b"ID,Parent,Label\nU-OLD-1,P1,101\n",
                 "mapping": {
                     "source_id": "ID", "source_property_id": "Parent",
                     "unit_name": "Label",
@@ -499,7 +499,7 @@ def test_inactive_lease_tenant_keeps_exact_historical_review_source_evidence(res
             },
             "TENANTS": {
                 "target": tenant, "missing": "missing_tenant",
-                "content": b"Resident Ref,Full Name\\nT-OLD-1,Historical Resident\\n",
+                "content": b"Resident Ref,Full Name\nT-OLD-1,Historical Resident\n",
                 "mapping": {"source_id": "Resident Ref", "name": "Full Name"},
                 "field": "resolution_target_tenant_user_id", "old": "T-OLD-1",
                 "current": "T1",
