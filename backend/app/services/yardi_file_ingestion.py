@@ -184,6 +184,8 @@ def stage_yardi_file(
 
     seen: set[str] = set()
     invalid = duplicates = matches = valid = 0
+    blocked_parent_relationships = 0
+    rows_with_blocked_parents = 0
     for row_number, source in parsed.rows:
         data: dict[str, Any] = {
             field: _mapped_value(source, mapping, field)
@@ -202,6 +204,7 @@ def stage_yardi_file(
                 seen.add(source_id)
         disposition = "INVALID" if errors else "REVIEW"
         warnings: list[str] = []
+        blocked_on_row = 0
         if errors:
             invalid += 1
         else:
@@ -221,6 +224,7 @@ def stage_yardi_file(
                         str(data.get(field) or "").strip(),
                     ) not in lease_parent_pairs:
                         warnings.append(f"{parent_resource} stable source relationship remains unmapped; commit blocked.")
+                        blocked_on_row += 1
                 warnings.append("Lease identity staged only; no occupancy, liability, payment, rent or deposit receipt inferred.")
             elif resource == "TENANTS":
                 disposition = "REVIEW"
@@ -236,6 +240,7 @@ def stage_yardi_file(
                 disposition = "REVIEW"
                 if source_property_id not in unit_parent_sources:
                     warnings.append("Source Property ID has no verified same-run Property mapping; relationship blocked.")
+                    blocked_on_row += 1
                 else:
                     warnings.append("Parent Property mapping exists; Unit identity and relationship require explicit review.")
             else:
@@ -254,6 +259,9 @@ def stage_yardi_file(
                 else:
                     disposition = "REVIEW"
                     warnings.append("Yardi property source contract requires review before import.")
+        blocked_parent_relationships += blocked_on_row
+        if blocked_on_row:
+            rows_with_blocked_parents += 1
         db.add(PlatformMigrationStagedRow(
             upload_id=upload.id, run_id=run.id,
             organization_id=run.organization_id, provider="YARDI",
@@ -266,6 +274,8 @@ def stage_yardi_file(
         "total": len(parsed.rows), "valid": valid, "invalid": invalid,
         "duplicates": duplicates, "possible_existing_matches": matches,
         "missing_required_columns": missing,
+        "blocked_parent_relationships": blocked_parent_relationships,
+        "rows_with_blocked_parents": rows_with_blocked_parents,
         "target_mutation": False, "requires_explicit_review": True,
         "unit_relationships_auto_created": False,
         "ownership_relationships_auto_created": False,
