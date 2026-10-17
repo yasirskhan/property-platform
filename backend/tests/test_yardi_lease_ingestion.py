@@ -126,6 +126,10 @@ def test_yardi_lease_parent_source_mapping_diagnostics_use_one_scoped_batch():
         ).order_by(PlatformMigrationStagedRow.row_number).all()
         assert len(rows) == 3
         assert [sum("commit blocked" in warning for warning in row.warnings) for row in rows] == [0, 3, 1]
+        assert staged.upload.validation_summary["blocked_parent_by_resource"] == {"TENANTS": 1, "PROPERTIES": 1, "UNITS": 2}
+        assert staged.upload.validation_summary["blocked_parent_relationships"] == 4
+        assert staged.upload.validation_summary["rows_with_blocked_parents"] == 2
+        assert sum("commit blocked" in w for w in rows[0].warnings) == 0
         assert all(row.disposition == "REVIEW" for row in rows)
         assert db.query(Lease).count() == before
         assert staged.upload.validation_summary["lease_occupancy_auto_created"] is False
