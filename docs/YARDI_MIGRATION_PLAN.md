@@ -2343,3 +2343,15 @@ at exact 74bb1a22, a fresh sole-branch SHA check and non-force
 expected-HEAD fast-forward; final exact SHA must then pass full six-job
 hosted CI before VERIFIED. No customer Lease/occupancy/financial
 mutation, source API expansion or invented Yardi §§133-135.
+
+
+### Unavailable linked Tenant provider/organization isolation (2026-10-16)
+
+Two additional PostgreSQL variants guard the corrected historical Lease
+identity evidence against same-customer cross-provider AppFolio reviews and
+foreign-organization Yardi reviews even when the linked Tenant is inactive.
+Both retained historical NULL source-ID reviews deliberately reference the
+same target ID and must remain invisible to scoped Yardi reconciliation,
+preserve the exact saved dry-run, and permit replay when the real customer
+identity recovers. Source is no mutation of customer business records, with
+all fixtures restored. No unsupported APIs, Lease/occupancy or finance writes.

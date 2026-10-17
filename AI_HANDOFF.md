@@ -1,3 +1,19 @@
+# 2026-10-16 | DETACHED unavailable linked Lease tenant source scope isolation
+
+Two additional PostgreSQL negative paths verify the updated read-only
+historical source-claim projection does NOT import a foreign-organization
+YARDI or same-organization APPFOLIO retained NULL-source Tenant review
+when the referenced customer Tenant is inactive. Exact reconciliation,
+saved dry-run replay and current-run source identity remain unchanged,
+then customer fixture target eligibility is restored. No Yardi product
+customer writes. DETACHED descendant of
+`874dba63d70ce1a2311b33efb1c9b6186832fc36`, provisional and
+requires parent exact-green six-job CI, non-force expected-HEAD
+publication and own final exact six-job verification. Never main,
+new branches, undocumented APIs or invented §§133–135.
+
+---
+
 # 2026-10-16 | ELEVEN CASE CONSOLIDATED YARDI REVIEW PUBLICATION GATE
 
 **PREPARED DETACHED, NOT VERIFIED OR PUBLISHED.**
