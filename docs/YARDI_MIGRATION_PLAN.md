@@ -2202,3 +2202,17 @@ superseded ONLY for these two unpublished related descendants.
 All previous tests and customer nonmutation guarantees remain. Missing
 numbered §§133–135 and unauthorized APIs/financial/Lease/occupancy
 business posting are not enabled.
+
+
+### Owner/Tenant credential-hash rotation must not expire source identity dry run (2026-10-16)
+
+Four additional fast-gated PostgreSQL cases extend the referenced-identity
+profile edit tests to owner/tenant hashed-password rotation for both
+staff-reviewed and durable Yardi target bindings. User credential material is
+not source identity, must not enter a Yardi review fingerprint, and must not
+invalidate a saved dry run or trigger a new migration audit review when
+source/target identity and eligibility remain unchanged. Fixture hashes are
+restored. All earlier test cases and assertions are retained; no production
+credential mutation, API, Lease/occupancy, owner allocation or financial
+posting. The successor is detached and PROVISIONAL until exact parent six-job
+CI and then its own six-job hosted verification after safe publication.

@@ -2118,8 +2118,12 @@ def test_unreviewed_durable_inventory_ignores_unrelated_target_eligibility(
 @pytest.mark.parametrize("resource,seed,match,request_cls,target_field,entity,profile_field", [
     ("OWNERS", seed_owner, match_yardi_staged_owner, YardiOwnerMatchIn,
      "target_owner_user_id", "OWNER_USER", "first_name"),
+    ("OWNERS", seed_owner, match_yardi_staged_owner, YardiOwnerMatchIn,
+     "target_owner_user_id", "OWNER_USER", "hashed_password"),
     ("TENANTS", seed_tenant, match_yardi_staged_tenant, YardiTenantMatchIn,
      "target_tenant_user_id", "TENANT_USER", "first_name"),
+    ("TENANTS", seed_tenant, match_yardi_staged_tenant, YardiTenantMatchIn,
+     "target_tenant_user_id", "TENANT_USER", "hashed_password"),
     ("VENDORS", seed_vendor, match_yardi_staged_vendor, YardiVendorMatchIn,
      "target_vendor_id", "VENDOR", "company_name"),
 ])
@@ -2128,7 +2132,7 @@ def test_current_identity_profile_edit_does_not_expire_source_exact_dry_run(
     resource, seed, match, request_cls, target_field, entity, profile_field,
     binding_kind,
 ):
-    """Unchanged source identity stays current after a valid customer's name edit."""
+    """Profile edits or password rotation must not expire an unchanged identity."""
     from app.models.platform_migration import PlatformMigrationItem
     from app.routers.yardi_migrations import get_yardi_review_dry_run_status
 
@@ -2156,9 +2160,14 @@ def test_current_identity_profile_edit_does_not_expire_source_exact_dry_run(
         assert saved["review_fingerprint"] == baseline["review_fingerprint"]
 
         original_value = getattr(target, profile_field)
-        setattr(target, profile_field, "Updated Customer Display Name")
+        replacement = (
+            "rotated-in-fixture-password-hash" if profile_field == "hashed_password"
+            else "Updated Customer Display Name"
+        )
+        setattr(target, profile_field, replacement)
         db.commit()
         unchanged = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert getattr(target, profile_field) == replacement
         assert unchanged["resource_coverage"] == baseline["resource_coverage"]
         assert unchanged["review_fingerprint"] == baseline["review_fingerprint"]
         current = get_yardi_review_dry_run_status(

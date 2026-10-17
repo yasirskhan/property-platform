@@ -1,3 +1,19 @@
+# 2026-10-16 | DETACHED credential-hash rotation source-exact identity safeguard
+
+Four new PostgreSQL cases protect valid referenced Owner and Tenant
+identities from spurious reviewed/durable Yardi dry-run expiry when the
+customer password hash changes. Source identity, target authorization,
+review fingerprint and replay remain current; test fixture hashes restored.
+This DETACHED descendant is not published or verified. Parent source
+`74bb1a22e1febac8e4a9e62b2f17d319c1eabd13` has hosted CI
+`38989472466` pending. Require exact six green parent jobs, current
+sole branch HEAD, non-force expected-SHA publication and six green
+hosted jobs on new SHA. No Yardi product/customer password writes,
+unsupported API, owner allocation, Lease/occupancy, payments or accounting.
+Do not invent unavailable Yardi §§133-135 or touch main/new branches.
+
+---
+
 # 2026-10-16 | SINGLE CONSOLIDATED Yardi negative-review publication gate
 
 **PREPARED and NOT PUBLISHED / NOT VERIFIED:** The two related test-only
