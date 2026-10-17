@@ -1,3 +1,26 @@
+# 2026-10-16 | VERIFIED consolidated Yardi eligibility regression gate
+
+**Exact verified source:** `3ceff9ba2f07042489db39ce09843084c91337e6`.
+**Hosted GitHub Actions CI:** `38965614215` SUCCESS: backend, frontend,
+security, platform-admin, authenticated e2e, and staging-config all passed.
+Its ancestor `9666ef2d866dadd1fb679ae557c4daf1f1bd96d0` also passed
+all six jobs in `38963664421`; prior source `8daea5ce91755c36e4606ff900bcc5e87df8acfe`
+passed all six in `38961595055`.
+
+This verification supersedes the earlier provisional/consolidation metadata
+below. The published descendant includes 35 additional PostgreSQL regression
+cases verifying reviewed/durable identity and inventory eligibility changes,
+original Unit Property parent changes, unrelated target isolation, exact
+fingerprint changes and restoration of saved dry-run currency. No production
+customer mutation, unsupported Yardi APIs, Lease/occupancy creation,
+owner allocation or financial posting is authorized.
+
+Only `chatgpt/checkpoint-005-safety`. Continue an independently supportable
+bounded Yardi source-review safety batch. Recheck live branch and CI before
+any further publication; do not invent original Sections 133-135.
+
+---
+
 # 2026-10-16 | CONSOLIDATED FOLLOW-UP PUBLICATION CONTRACT
 
 **Sole repository / branch:** yasirskhan/property-platform /
