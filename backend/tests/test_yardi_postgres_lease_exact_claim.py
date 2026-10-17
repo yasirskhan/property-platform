@@ -24,8 +24,11 @@ from app.services.yardi_file_ingestion import stage_yardi_file
 from test_yardi_lease_identity_acceptance import _seed
 
 
-def test_postgresql_null_source_historical_tenant_review_blocks_lease_reaccept():
-    """Real PostgreSQL IS DISTINCT FROM must include NULL historical sources."""
+@pytest.mark.parametrize("tenant_unavailable", [False, True])
+def test_postgresql_null_source_historical_tenant_review_blocks_lease_reaccept(
+    tenant_unavailable,
+):
+    """Real PostgreSQL must preserve NULL historical sources even for stale targets."""
     url = os.environ.get("TEST_DATABASE_URL") or os.environ.get("DATABASE_URL", "")
     if not url.startswith(("postgresql://", "postgresql+")):
         pytest.skip("PostgreSQL test database URL not configured")
@@ -47,7 +50,7 @@ def test_postgresql_null_source_historical_tenant_review_blocks_lease_reaccept()
     )()
     try:
         actor, org, run, prop, alternate, unit, tenant, lease = _seed(
-            db, slug="yardi-pg-null-historic-tenant-claim",
+            db, slug=f"yardi-pg-null-historic-tenant-claim-{tenant_unavailable}",
         )
         before_leases = db.query(Lease).count()
         assert accept_yardi_staged_lease_relationship(
@@ -57,6 +60,13 @@ def test_postgresql_null_source_historical_tenant_review_blocks_lease_reaccept()
         assert baseline["lease_relationship_readiness"]["source_review_ready"] == 1
         saved = dry_run_yardi_review(run.id, db, actor)
         assert saved["review_fingerprint"] == baseline["review_fingerprint"]
+        if tenant_unavailable:
+            tenant.is_active = False
+            db.commit()
+            unavailable = get_yardi_reconciliation(run.id, Response(), db, actor)
+            assert unavailable["lease_relationship_readiness"]["missing_tenant"] == 1
+            assert unavailable["lease_relationship_readiness"]["accepted_relationship_stale"] == 1
+            assert unavailable["lease_relationship_readiness"]["identity_target_review_collisions"] == 0
 
         other_run = PlatformMigrationRun(
             organization_id=org.id, provider="YARDI",
@@ -115,6 +125,8 @@ def test_postgresql_null_source_historical_tenant_review_blocks_lease_reaccept()
         assert restored_blocked["lease_relationship_readiness"] == blocked["lease_relationship_readiness"]
 
         historical.source_id = "T1"
+        if tenant_unavailable:
+            tenant.is_active = True
         db.commit()
         recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
         assert recovered["review_fingerprint"] == baseline["review_fingerprint"]
