@@ -111,3 +111,26 @@ def test_yardi_saved_review_status_rejects_sales_role():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_yardi_saved_review_status_rejects_billing_role():
+    """Billing staff cannot read a Yardi review fingerprint or alter its run."""
+    db, engine = _session()
+    try:
+        actor = _platform_user(db, PlatformUserRole.PLATFORM_BILLING)
+        org = _org(db, "yardi-review-billing-denied")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="billing-denied", status="DRAFT",
+            last_dry_run_fingerprint="c" * 64,
+        )
+        db.add(run)
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            get_yardi_review_dry_run_status(run.id, Response(), db, actor)
+        assert exc.value.status_code == 403
+        db.expire(run)
+        assert run.last_dry_run_fingerprint == "c" * 64
+    finally:
+        db.close()
+        engine.dispose()
