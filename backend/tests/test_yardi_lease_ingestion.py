@@ -131,6 +131,7 @@ def test_yardi_lease_parent_source_mapping_diagnostics_use_one_scoped_batch():
         assert staged.upload.validation_summary["lease_occupancy_auto_created"] is False
         assert staged.upload.validation_summary["blocked_parent_relationships"] == 4
         assert staged.upload.validation_summary["rows_with_blocked_parents"] == 2
+        assert staged.upload.validation_summary["blocked_parent_by_resource"] == {"TENANTS": 1, "PROPERTIES": 1, "UNITS": 2}
     finally:
         db.close()
         engine.dispose()
