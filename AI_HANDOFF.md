@@ -1,3 +1,21 @@
+# 2026-10-16 | DETACHED unrelated same-org Lease Tenant history isolation
+
+One additional PostgreSQL regression guards scoped review fingerprints
+when an unrelated same-organization YARDI Tenant retained historical
+review with NULL source points to a DIFFERENT customer target. Even while
+the actual Lease Tenant is inactive, the saved exact dry-run must remain
+current and replay, with no false history collision or unauthorized
+customer mutations. Fixture-only active state restored. This is a
+DETACHED direct successor of published source
+`0a0c3b39697bd0d9a5ae6b5fdbea14f3e078228f`, whose own GitHub
+Actions CI `38990736808` must pass all six jobs before any publication.
+Recheck branch and use non-force expected-HEAD fast-forward. Then require
+all six CI jobs SUCCESS on this exact new SHA. Do not touch main/new
+branch or invent Yardi §§133–135, Lease/occupancy creation,
+owner allocations, accounting posting or unsupported Yardi APIs.
+
+---
+
 # 2026-10-16 | FINAL THIRTEEN-CASE PREPARED YARDI REVIEW SOURCE GATE
 
 **DETACHED, NOT PUBLISHED / NOT VERIFIED.** This SINGLE coherent

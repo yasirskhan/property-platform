@@ -2375,3 +2375,15 @@ that exact SHA. Publish FINAL descendant only with non-force
 expected-HEAD update, then verify exact final SHA by six hosted jobs.
 Previous assertions, source transport boundaries, customer data and
 unknown §§133-135 restrictions remain preserved.
+
+
+### Same-organization unreferenced historical Tenant claim stays outside unavailable Lease snapshot (2026-10-16)
+
+A new fast-gated PostgreSQL case creates a retained NULL-source Yardi Tenant
+staff review in a different run in the SAME organization, but linked to an
+unreferenced customer user. Its existence must not affect an already-inactive
+current Lease Tenant's scoped historical claim projection, stale blocker
+counts, exact saved dry-run or replay. Both customers retain original
+password hashes and the accepted Lease source decision remains unchanged.
+The test restores the linked Tenant's active state and verifies full
+fingerprint recovery. No Yardi customer business writes or new source/API.

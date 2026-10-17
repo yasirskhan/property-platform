@@ -695,3 +695,89 @@ def test_unavailable_lease_tenant_ignores_foreign_historical_target_claim(
     finally:
         db.close()
         engine.dispose()
+
+
+def test_unavailable_lease_tenant_ignores_other_customer_historical_source_claim():
+    """Retained same-org review claims on unrelated targets cannot expire a Lease."""
+    from app.models.user import User, UserRole
+
+    db, engine = _session()
+    try:
+        actor, org, run, prop, alternate, unit, tenant, lease = _seed(
+            db, slug="yardi-unavailable-tenant-unreferenced-history",
+        )
+        original_leases = db.query(Lease).count()
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease.id, db, actor,
+        )["replayed"] is False
+        original = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert original["lease_relationship_readiness"]["source_review_ready"] == 1
+        tenant.is_active = False
+        db.commit()
+        baseline = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert baseline["lease_relationship_readiness"]["missing_tenant"] == 1
+        assert baseline["lease_relationship_readiness"]["accepted_relationship_stale"] == 1
+        assert baseline["lease_relationship_readiness"]["identity_target_review_collisions"] == 0
+        saved = dry_run_yardi_review(run.id, db, actor)
+        assert saved["review_fingerprint"] == baseline["review_fingerprint"]
+
+        unrelated = User(
+            organization_id=org.id, role=UserRole.TENANT,
+            email="yardi-unavailable-unrelated-review@example.test",
+            hashed_password="unchanged-unrelated-hash",
+            first_name="Unreferenced", last_name="Tenant", is_active=True,
+        )
+        other_run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="same-org-unrelated-target", status="DRAFT",
+        )
+        db.add_all([unrelated, other_run])
+        db.flush()
+        upload = stage_yardi_file(
+            db, run=other_run, filename="other-tenant-claim.csv",
+            content=b"Resident Ref,Full Name\nT-OTHER,Unrelated Resident\n",
+            resource_override="TENANTS", sheet_name=None,
+            explicit_mapping={"source_id": "Resident Ref", "name": "Full Name"},
+            platform_user_id=actor.id,
+        )
+        db.commit()
+        historical = db.query(PlatformMigrationStagedRow).filter(
+            PlatformMigrationStagedRow.upload_id == upload.upload.id,
+        ).one()
+        historical.resolution_action = "MATCH_EXISTING"
+        historical.resolution_target_tenant_user_id = unrelated.id
+        historical.source_id = None
+        db.commit()
+
+        unchanged = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert unchanged["lease_relationship_readiness"] == baseline["lease_relationship_readiness"]
+        assert unchanged["review_fingerprint"] == baseline["review_fingerprint"]
+        saved_status = get_yardi_review_dry_run_status(
+            run.id, Response(), db, actor,
+        )
+        assert saved_status["is_current"] is True
+        assert saved_status["saved_review_fingerprint"] == saved["review_fingerprint"]
+        replayed = dry_run_yardi_review(run.id, db, actor)
+        assert replayed["replayed"] is True
+
+        tenant.is_active = True
+        db.commit()
+        recovered = get_yardi_reconciliation(run.id, Response(), db, actor)
+        assert recovered["review_fingerprint"] == original["review_fingerprint"]
+        assert recovered["lease_relationship_readiness"]["source_review_ready"] == 1
+        assert recovered["customer_business_mutation"] is False
+        assert accept_yardi_staged_lease_relationship(
+            run.id, lease.id, db, actor,
+        )["replayed"] is True
+        db.refresh(tenant)
+        db.refresh(unrelated)
+        db.refresh(prop)
+        db.refresh(unit)
+        assert tenant.is_active is True
+        assert tenant.hashed_password == "unchanged-password-hash"
+        assert unrelated.hashed_password == "unchanged-unrelated-hash"
+        assert prop.name == "Original" and unit.property_id == prop.id
+        assert db.query(Lease).count() == original_leases
+    finally:
+        db.close()
+        engine.dispose()
