@@ -77,8 +77,8 @@ def test_yardi_unit_staging_batches_parent_source_checks():
                     and "platform_migration_items.source_id in (" in sql
                     and "platform_migration_items.resource = " in sql):
                 selects.append(statement)
-        content = ("Unit,Parent,Label\\n" + "".join(
-            f"U{i},P{i},Unit {i}\\n" for i in range(301)
+        content = ("Unit,Parent,Label\n" + "".join(
+            f"U{i},P{i},Unit {i}\n" for i in range(301)
         )).encode()
         event.listen(engine, "before_cursor_execute", observe)
         try:
