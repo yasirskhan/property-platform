@@ -171,16 +171,16 @@ def stage_yardi_file(
         for _, row in parsed.rows
     } - {""})
     for start in range(0, len(source_ids), 300):
-        found = db.query(PlatformMigrationItem.source_id).filter(
+        query = db.query(PlatformMigrationItem.source_id).filter(
             PlatformMigrationItem.run_id == run.id,
             PlatformMigrationItem.organization_id == run.organization_id,
             PlatformMigrationItem.provider == "YARDI",
             PlatformMigrationItem.resource == resource,
             PlatformMigrationItem.source_id.in_(source_ids[start:start + 300]),
-            *( [PlatformMigrationItem.target_entity == expected_target]
-               if expected_target else [] ),
-        ).all()
-        mapped_source_ids.update(source_id for (source_id,) in found)
+        )
+        if expected_target is not None:
+            query = query.filter(PlatformMigrationItem.target_entity == expected_target)
+        mapped_source_ids.update(source_id for (source_id,) in query.all())
 
     seen: set[str] = set()
     invalid = duplicates = matches = valid = 0
