@@ -158,6 +158,10 @@ def test_yardi_unit_batch_distinguishes_same_run_and_unrelated_mappings():
         assert [row.disposition for row in rows] == [
             "ALREADY_MAPPED", "REVIEW", "REVIEW", "REVIEW",
         ]
+        assert upload.upload.validation_summary["disposition_counts"] == {
+            "INVALID": 0, "REVIEW": 3, "ALREADY_MAPPED": 1,
+            "POSSIBLE_MATCH": 0,
+        }
         assert all(row.errors == [] for row in rows)
         assert all(row.provider == "YARDI" for row in rows)
         assert db.query(Unit).count() == units_before
