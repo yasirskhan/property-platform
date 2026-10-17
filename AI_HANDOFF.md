@@ -1,3 +1,40 @@
+# 2026-10-16 | CONSOLIDATED EXACT-SHA unavailable Lease source-isolation milestone
+
+**ONE PREPARED DETACHED RELEASE CANDIDATE; NOT PUBLISHED OR VERIFIED.**
+The three related Git-object descendants after published source
+`f2efb06e438e8fa15af57ef055a39bc00a346d12` are one focused
+test-only milestone. It expands the existing Yardi unavailable Lease
+regressions to four historical source-ID versions from a FOREIGN
+organization's Yardi account or the SAME organization's AppFolio
+provider and adds two parameterized same-organization YARDI historical
+claim cases on UNREFERENCED Property/Unit targets. Both retain their
+current Lease's exact saved reviewed-dry-run fingerprint while the
+linked customer Unit/Tenant is unavailable, preserving the true
+inactive blocker and recovering upon exact target restoration.
+All test fixture mutations restore original values, no customer
+business record changes are performed by migration endpoints.
+No production route/schema changes, Lease/occupancy creation,
+owner allocation, financial posting, or unofficial Yardi API.
+
+**GOVERNANCE:** The intermediate unpublished commits
+`b0865862d3fd6103e12645010df1a22d695a349d`,
+`6b010159d4db1a489658b058e01dadf71064b129`, and
+`ae863a0d4e7a5d2d6c68a68895399d7aaa0ea7b5`
+are ancestry, not independent verified releases. This consolidated
+contract supersedes intermediate instructions requiring separate
+CI on those unpublished commits. Publish ONLY when all SIX hosted jobs
+of GitHub Actions `38993664402` pass at exact parent
+`f2efb06e438e8fa15af57ef055a39bc00a346d12`, AND live
+`chatgpt/checkpoint-005-safety` HEAD still matches that parent.
+Advance directly to the FINAL consolidated SHA with non-force,
+expected-HEAD fast-forward; then require its own exact six-job hosted
+CI before VERIFIED. On reds fix actual regressions; retain existing
+tests. Do not touch main or create new branches. Original numbered
+Sections 133–135 have no authoritative recovered specification;
+do not invent them. Continue source-review safety work independently.
+
+---
+
 # 2026-10-16 | PREPARED unrelated Property/Unit source claim isolation
 
 Two additional PostgreSQL parameters prove that changing a

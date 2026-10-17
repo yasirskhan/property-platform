@@ -2508,3 +2508,20 @@ restore customer values. No production Yardi route, customer mutation,
 unofficial API, Lease creation, accounting or owner allocations.
 Detached and provisional pending published parent CI, then own
 full six-job hosted exact-SHA CI after non-force expected-HEAD advance.
+
+
+### Consolidated unavailable Lease claim isolation gate (2026-10-16)
+
+One final prepared test-only integration milestone covers historical source
+swaps from foreign-org YARDI and same-org APPFOLIO source reviews,
+and two new parametric same-org YARDI unreferenced Property/Unit targets.
+Different NULL/text source IDs must not change the exact saved dry-run
+of an already blocked Lease, nor remove its true inactive blocker;
+restoring the linked customer status must restore source review readiness.
+No product routing, schema, customer Lease, financial or ownership writes.
+Intermediate detached commits are ancestry only. Exact parent source
+f2efb06e must succeed in ALL SIX hosted jobs of CI 38993664402
+and sole branch HEAD must still match before the FINAL consolidated
+commit is non-force expected-SHA published. Its exact new SHA must
+pass its own six-job GitHub Actions before VERIFIED. All existing tests
+remain. Do not invent unavailable §§133–135 scope.
