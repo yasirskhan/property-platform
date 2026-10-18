@@ -217,7 +217,9 @@ def test_rentmanager_source_inspection_is_bounded_read_only_and_provider_scoped(
         db.add_all([valid, yardi])
         db.commit()
         file = UploadFile(filename="units.csv", file=BytesIO(b"Unit,Property\n1,Alpha\n2,Beta\n"))
-        result = asyncio.run(inspect_rentmanager_source_headers(valid.id, file, None, db, admin))
+        response = Response()
+        result = asyncio.run(inspect_rentmanager_source_headers(valid.id, response, file, None, db, admin))
+        assert response.headers["cache-control"] == "no-store"
         assert result["provider"] == "RENTMANAGER"
         assert result["row_count"] == 2
         assert result["headers"] == ["Unit", "Property"]
@@ -228,12 +230,12 @@ def test_rentmanager_source_inspection_is_bounded_read_only_and_provider_scoped(
         assert db.query(PlatformMigrationUpload).count() == 0
         with pytest.raises(HTTPException) as wrong_provider:
             asyncio.run(inspect_rentmanager_source_headers(
-                yardi.id, UploadFile(filename="data.csv", file=BytesIO(b"A\nx\n")), None, db, admin,
+                yardi.id, Response(), UploadFile(filename="data.csv", file=BytesIO(b"A\nx\n")), None, db, admin,
             ))
         assert wrong_provider.value.status_code == 404
         with pytest.raises(HTTPException) as read_only:
             asyncio.run(inspect_rentmanager_source_headers(
-                valid.id, UploadFile(filename="data.csv", file=BytesIO(b"A\nx\n")), None, db, support,
+                valid.id, Response(), UploadFile(filename="data.csv", file=BytesIO(b"A\nx\n")), None, db, support,
             ))
         assert read_only.value.status_code == 403
     finally:
@@ -257,7 +259,7 @@ def test_rentmanager_source_inspection_rejects_unsupported_formats():
         db.commit()
         with pytest.raises(HTTPException) as err:
             asyncio.run(inspect_rentmanager_source_headers(
-                run.id, UploadFile(filename="unsafe.xlsm", file=BytesIO(b"invalid")),
+                run.id, Response(), UploadFile(filename="unsafe.xlsm", file=BytesIO(b"invalid")),
                 None, db, admin,
             ))
         assert err.value.status_code == 422
