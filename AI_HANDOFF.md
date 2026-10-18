@@ -1,3 +1,13 @@
+# 2026-10-18 | PHASE 4.16 INSPECTED FILE FINGERPRINT BINDING
+
+**Last exact-SHA verified:** `1787bbe3f2796afdbee8570a9fc29e289f13d9df`, GitHub Actions `39128208620`, SUCCESS all six jobs.
+
+**New provisional implementation:** `25cc3a1540a7945927d5ed051addf144ea624b0d` adds optional `expected_source_sha256` to RentManager `preview-source-quality`, rejecting a changed or malformed file fingerprint (409) before evaluating staff mappings. `9b3df52194ce51a1d36a7046e29a55ae8398a2a4` updates existing direct tests for the new signature and tests exact-match success / changed-file rejection. Require exact latest SHA six-job hosted CI SUCCESS before claiming verified. Repair failures.
+
+**Business boundary:** This protects repeatable *read-only* source inspection and quality preview, does not persist source bytes/mappings or authorize customer data writes. Full RentManager provider import remains source-contract and customer-authorized-access gated. Sole branch `chatgpt/checkpoint-005-safety`; no main, force, new branches or other repos. Next substantive product work is verified source schema intake, identity reconciliation and staging only as contracts support.
+
+---
+
 # 2026-10-18 | RENTMANAGER MAPPING PREVIEW REQUIRES EXPLICIT SOURCE FIELDS
 
 **Last VERIFIED exact SHA:** `9ef6344453fd6ee49fcfc1c06ed43ed26e50b89e`, GitHub Actions `39125343603` SUCCESS.
