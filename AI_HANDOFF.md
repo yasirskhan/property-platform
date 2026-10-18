@@ -1,3 +1,13 @@
+# 2026-10-17 | PHASE 4.16 SOURCE COLUMN INVENTORY
+
+**Last fully verified:** `c341c2921ff4f90bbd73795d3b019ae474e14567`, GitHub Actions `39086288786`, SUCCESS, including bounded CSV/XLSX read-only source inspection and no-store response.
+
+**Latest provisional implementation through `4c5c5fb27dc99544569f393ef89b597d5e106e4d`:** the source inspector now exposes a stable indexed `column_inventory` for staff mapping review. Every column explicitly remains UNMAPPED, `suggested_target_fields` is empty and no RentManager schema is invented. Run/global readiness advertises `source_inspection_enabled: true` while file ingestion, official API, controlled commit, and customer mutation remain disabled. Corresponding tests assert these boundaries. Require a new exact-SHA six-job hosted SUCCESS before verified; inspect/fix any failure.
+
+**Next:** Continue Phase 4.16 with verified source-contract-gated workflows; do not infer customer accounting or identity maps from headers. Sole branch `chatgpt/checkpoint-005-safety`, no main/new branch/force, no unrelated repos. Phase 4.15 Yardi support scope remains frozen and blocked resources documented.
+
+---
+
 # 2026-10-17 | PHASE 4.16 READ-ONLY SOURCE INSPECTION
 
 **Last exact SHA verified:** `3a012747b2e04a9fd694baff568530d195e53e94`, GitHub Actions `39084898176`, SUCCESS six-job CI.
