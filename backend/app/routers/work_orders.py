@@ -28,7 +28,7 @@ from decimal import Decimal
 from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -290,6 +290,25 @@ def list_work_orders(
     if limit is not None:
         q = q.limit(limit)
     return q.all()
+
+
+@router.get("/summary")
+def work_order_queue_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Organization- and role-scoped read-only queue metrics."""
+    visible = _visible_work_orders(db, current_user)
+    active = WorkOrder.status.notin_((WorkOrderStatus.CLOSED, WorkOrderStatus.CANCELLED))
+    def count(q) -> int:
+        return int(q.with_entities(func.count(func.distinct(WorkOrder.id))).scalar() or 0)
+    return {
+        "open": count(visible.filter(active)),
+        "emergency_open": count(visible.filter(active, WorkOrder.priority == WorkOrderPriority.EMERGENCY)),
+        "awaiting_assignment": count(visible.filter(WorkOrder.status == WorkOrderStatus.ACKNOWLEDGED, WorkOrder.assigned_to_id.is_(None))),
+        "in_progress": count(visible.filter(WorkOrder.status == WorkOrderStatus.IN_PROGRESS)),
+        "ready_to_close": count(visible.filter(WorkOrder.status == WorkOrderStatus.COMPLETED)),
+    }
 
 
 def _vendor_work_order_access(db: Session, user: User) -> int:
