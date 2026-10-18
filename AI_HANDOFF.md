@@ -1,3 +1,9 @@
+# 2026-10-18 | EMERGENCY INTAKE WARNING (DETACHED)
+
+The prepared maintenance-intake follow-up also displays a visible warning when Emergency is selected: the request form itself does not dispatch responders or guarantee an immediate response. A signed-in browser regression asserts this warning appears, then submits successfully. This is only a user guidance improvement and must not be described as live on-call routing, emergency notifications or completed Smart Maintenance. The changes remain unverified in detached Git history; promote only after the live parent CI is fully green at its exact SHA and only with a safe expected-SHA fast-forward. Verify the successor in six hosted jobs, fix failures and update the handoff. Only the authorized property-platform branch is allowed.
+
+---
+
 # 2026-10-18 | MAINTENANCE INTAKE ROLE REGRESSION (DETACHED)
 
 Added database coverage for an ACTIVE tenant lease and an actively assigned manager both successfully creating authorized work orders, with CREW denied from using the same intake endpoint. The earlier cross-org rogue lease tests remain in place. This is a detached continuation of the similar-request and quick-entry batch. No new commercial entitlements or customer data migration changes. Wait for previous published Actions 39173312018 to fully succeed at exact SHA 4813686772d5c289f69a6cfc73b4d558eaac9f27 before fast-forwarding this candidate on chatgpt/checkpoint-005-safety, with expected SHA and no force. Then run full hosted CI and repair any failures. Never touch main or other projects.
