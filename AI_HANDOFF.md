@@ -1,3 +1,9 @@
+# 2026-10-18 | PHASE 5 MAINTENANCE CROSS-ORG ASSIGNMENT FAIL CLOSED (DETACHED)
+
+Additional independent security regression on the prepared work-order queue: existing Manager work-order list/get authorization now requires the assigned property's organization to match the manager's own organization, even if a stale/incorrect cross-organization `PropertyAssignment` row exists. Integration fixture intentionally seeds such a rogue association and verifies foreign work orders remain invisible both in list and detail-access checks. This is provisional code on a detached successor to Phase 5 work-order queue candidate; run full exact-SHA hosted CI after conditional publication. Do not claim Phase 5 complete or change main/another repo. DoorLoop import stays vendor-contract blocked.
+
+---
+
 # 2026-10-18 | PHASE 5 WORK ORDER QUEUE USER INTERFACE (DETACHED, PROVISIONAL)
 
 Prepared staff/customer work-order queue at `frontend/src/app/dashboard/work-orders/page.tsx` after scoped/filterable `/work-orders` backend candidate. Staff can apply title/description, status, priority, category and property filters, page through deterministic 50-row results, and see only server-authorized work orders. Managers have a direct queue link and their dashboard Open Work Orders count now excludes closed/cancelled statuses; customer/crew existing access policies are unchanged. Authenticated smoke includes the new route. Changes are not published/verified; this detached commit must follow exact-SHA green CI for the DoorLoop Playwright batch `39164737599` and require its own six-job run with E2E coverage. No new database migration, automated dispatch, outgoing notifications or other Phase 5 claims. No other branch or repository modified.

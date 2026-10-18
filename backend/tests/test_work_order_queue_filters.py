@@ -11,7 +11,7 @@ from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
 from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority
-from app.routers.work_orders import list_work_orders
+from app.routers.work_orders import list_work_orders, _user_can_access_work_order
 
 
 def _seed_queue():
@@ -57,6 +57,11 @@ def _seed_queue():
     p3, u3 = location(external_org, "External Property")
     db.add(PropertyAssignment(
         property_id=p1.id, user_id=manager.id, role=UserRole.MANAGER, is_active=True,
+    ))
+    # Deliberately malformed cross-organization assignment: a manager may not
+    # acquire another organization's work order even with a rogue assignment.
+    db.add(PropertyAssignment(
+        property_id=p3.id, user_id=manager.id, role=UserRole.MANAGER, is_active=True,
     ))
     db.flush()
 
@@ -123,6 +128,8 @@ def test_queue_never_crosses_manager_tenant_crew_or_organization_scope():
         a, b, c, d = orders
         assert [item.id for item in _queue(db, manager)] == [b.id, a.id]
         assert _queue(db, manager, search="Outside") == []
+        assert _user_can_access_work_order(db, manager, a) is True
+        assert _user_can_access_work_order(db, manager, d) is False
         assert [item.id for item in _queue(db, tenant)] == [b.id, a.id]
         assert [item.id for item in _queue(db, other_tenant)] == [c.id]
         assert [item.id for item in _queue(db, crew)] == [a.id]

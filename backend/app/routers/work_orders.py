@@ -118,7 +118,10 @@ def _user_can_access_work_order(db: Session, user: User, wo: WorkOrder) -> bool:
         if user.role in (UserRole.ADMIN, UserRole.OWNER):
             return prop.organization_id == user.organization_id
 
-        # Manager: must be assigned to the property
+        # Manager: an active property assignment is insufficient by itself.
+        # A stale/cross-organization assignment must never confer access.
+        if prop.organization_id != user.organization_id:
+            return False
         assigned = (
             db.query(PropertyAssignment)
             .filter(
@@ -158,7 +161,9 @@ def _visible_work_orders(db: Session, user: User):
     if user.role == UserRole.MANAGER:
         return (
             q.join(PropertyAssignment, PropertyAssignment.property_id == WorkOrder.property_id)
+            .join(Property, Property.id == WorkOrder.property_id)
             .filter(
+                Property.organization_id == user.organization_id,
                 PropertyAssignment.user_id == user.id,
                 PropertyAssignment.is_active == True,  # noqa: E712
             )
