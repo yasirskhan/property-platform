@@ -438,3 +438,29 @@ def test_rentmanager_source_quality_preview_enforces_provider_and_write_role():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_rentmanager_quality_preview_rejects_empty_mapping():
+    import asyncio
+    from io import BytesIO
+    from fastapi import UploadFile
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "rentmanager-empty-preview-mapping")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="RENTMANAGER",
+            source_account_ref="export", status="DRAFT",
+        )
+        db.add(run)
+        db.commit()
+        with pytest.raises(HTTPException) as error:
+            asyncio.run(preview_rentmanager_source_quality(
+                run.id, Response(),
+                UploadFile(filename="source.csv", file=BytesIO(b"ID,Name\n1,One\n")),
+                None, "{}", None, db, admin,
+            ))
+        assert error.value.status_code == 422
+    finally:
+        db.close()
+        engine.dispose()
