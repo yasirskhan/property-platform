@@ -9,6 +9,8 @@ const STATUSES = ["submitted", "acknowledged", "assigned", "in_progress", "compl
 const PRIORITIES = ["low", "medium", "high", "emergency"];
 const CATEGORIES = ["plumbing", "electrical", "hvac", "appliance", "general", "pest", "cleaning", "landscaping", "other"];
 
+type QueueSummary = { open: number; emergency_open: number; awaiting_assignment: number; in_progress: number; ready_to_close: number };
+
 type WorkOrder = {
   id: number;
   property_id: number;
@@ -29,6 +31,7 @@ export default function WorkOrderQueuePage() {
   const [offset, setOffset] = useState(0);
   const [reload, setReload] = useState(0);
   const [rows, setRows] = useState<WorkOrder[]>([]);
+  const [summary, setSummary] = useState<QueueSummary | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
 
@@ -60,6 +63,15 @@ export default function WorkOrderQueuePage() {
     void load();
     return () => { active = false; };
   }, [applied, offset, reload]);
+
+  useEffect(() => {
+    let active = true;
+    setSummary(null);
+    apiGet("/work-orders/summary")
+      .then((result: QueueSummary) => { if (active) setSummary(result); })
+      .catch(() => { if (active) setSummary(null); });
+    return () => { active = false; };
+  }, [reload]);
 
   function apply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -97,6 +109,25 @@ export default function WorkOrderQueuePage() {
         </div>
         <Link href="/dashboard" className="rounded-lg border bg-white px-4 py-2 text-sm">Dashboard</Link>
       </header>
+      <section aria-label="Accessible work-order summary" className="space-y-2">
+        <h2 className="text-sm font-semibold text-slate-800">Across all work orders you can access</h2>
+        {summary ? (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {[
+              ["Open", summary.open],
+              ["Emergency open", summary.emergency_open],
+              ["Awaiting assignment", summary.awaiting_assignment],
+              ["In progress", summary.in_progress],
+              ["Ready to close", summary.ready_to_close],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-xl border bg-white p-4">
+                <p className="text-xs text-slate-600">{label}</p>
+                <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
+              </div>
+            ))}
+          </div>
+        ) : <p className="rounded-xl border bg-white p-4 text-sm text-slate-500">Summary unavailable</p>}
+      </section>
       <form onSubmit={apply} className="rounded-xl border bg-white p-5">
         <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
           <label className="text-sm">Search title or description
