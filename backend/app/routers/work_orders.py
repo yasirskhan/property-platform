@@ -27,7 +27,8 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -41,6 +42,8 @@ from app.models.work_order import (
     WorkOrder,
     WorkOrderUpdate,
     WorkOrderStatus,
+    WorkOrderPriority,
+    WorkOrderCategory,
 )
 from app.routers.auth import get_current_user
 from app.routers.properties import check_property_access
@@ -238,13 +241,44 @@ def submit_work_order(
 @router.get("", response_model=List[WorkOrderOut])
 def list_work_orders(
     status: WorkOrderStatus | None = None,
+    priority: WorkOrderPriority | None = None,
+    category: WorkOrderCategory | None = None,
+    property_id: int | None = Query(default=None, ge=1),
+    search: str | None = Query(default=None, min_length=2, max_length=80),
+    limit: int | None = Query(default=None, ge=1, le=200),
+    offset: int = Query(default=0, ge=0, le=100_000),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """Accessible maintenance queue with optional bounded, literal search.
+
+    Existing unfiltered callers continue to receive the complete list.
+    When limit is supplied, the sort includes a stable ID tie-breaker so
+    adjacent pages do not randomly repeat same-timestamp work orders.
+    All filters are applied *after* tenant/crew/org/property visibility.
+    """
     q = _visible_work_orders(db, current_user)
     if status is not None:
         q = q.filter(WorkOrder.status == status)
-    return q.order_by(WorkOrder.created_at.desc()).all()
+    if priority is not None:
+        q = q.filter(WorkOrder.priority == priority)
+    if category is not None:
+        q = q.filter(WorkOrder.category == category)
+    if property_id is not None:
+        q = q.filter(WorkOrder.property_id == property_id)
+    if search is not None:
+        phrase = search.strip()
+        if phrase:
+            q = q.filter(or_(
+                WorkOrder.title.icontains(phrase, autoescape=True),
+                WorkOrder.description.icontains(phrase, autoescape=True),
+            ))
+    q = q.order_by(WorkOrder.created_at.desc(), WorkOrder.id.desc())
+    if offset:
+        q = q.offset(offset)
+    if limit is not None:
+        q = q.limit(limit)
+    return q.all()
 
 
 def _vendor_work_order_access(db: Session, user: User) -> int:

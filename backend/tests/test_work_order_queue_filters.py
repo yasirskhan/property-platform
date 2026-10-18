@@ -1,0 +1,134 @@
+"""Phase 5 bounded work-order queue filters never expand a user's visibility."""
+from __future__ import annotations
+
+from datetime import datetime
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+import init_db  # noqa: F401 - import complete model registry
+from app.core.database import Base
+from app.models.property import Property, PropertyAssignment, Unit
+from app.models.user import Organization, User, UserRole
+from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority
+from app.routers.work_orders import list_work_orders
+
+
+def _seed_queue():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine, expire_on_commit=False)()
+    own_org = Organization(name="Queue One", slug="queue-one")
+    external_org = Organization(name="Queue Two", slug="queue-two")
+    db.add_all([own_org, external_org])
+    db.flush()
+
+    def actor(org, role, name):
+        row = User(
+            organization_id=org.id, role=role, first_name=name, last_name="Tester",
+            email=f"{name.lower()}@queue.example", hashed_password="test", is_active=True,
+        )
+        db.add(row)
+        db.flush()
+        return row
+
+    admin = actor(own_org, UserRole.ADMIN, "QueueAdmin")
+    manager = actor(own_org, UserRole.MANAGER, "QueueManager")
+    tenant = actor(own_org, UserRole.TENANT, "QueueTenant")
+    other_tenant = actor(own_org, UserRole.TENANT, "OtherTenant")
+    crew = actor(own_org, UserRole.CREW, "QueueCrew")
+    external_admin = actor(external_org, UserRole.ADMIN, "OutsideAdmin")
+    external_tenant = actor(external_org, UserRole.TENANT, "OutsideTenant")
+
+    def location(org, name):
+        prop = Property(
+            organization_id=org.id, name=name, address_line1="100 Test Street",
+            city="Cleveland", state="OH", zip_code="44113", is_active=True,
+        )
+        db.add(prop)
+        db.flush()
+        unit = Unit(property_id=prop.id, unit_number="A1", bedrooms=1, bathrooms=1, monthly_rent=800)
+        db.add(unit)
+        db.flush()
+        return prop, unit
+
+    p1, u1 = location(own_org, "Assigned Property")
+    p2, u2 = location(own_org, "Other Property")
+    p3, u3 = location(external_org, "External Property")
+    db.add(PropertyAssignment(
+        property_id=p1.id, user_id=manager.id, role=UserRole.MANAGER, is_active=True,
+    ))
+    db.flush()
+
+    def order(prop, unit, resident, title, priority, category,
+              status=WorkOrderStatus.SUBMITTED, assigned=None):
+        row = WorkOrder(
+            property_id=prop.id, unit_id=unit.id, tenant_id=resident.id,
+            title=title, description="Work order issue details", priority=priority,
+            category=category, status=status, assigned_to_id=assigned,
+            created_at=datetime(2026, 10, 18, 12, 0),
+        )
+        db.add(row)
+        db.flush()
+        return row
+
+    a = order(p1, u1, tenant, "100% water pressure", WorkOrderPriority.HIGH, WorkOrderCategory.PLUMBING, assigned=crew.id)
+    b = order(p1, u1, tenant, "100X water pressure", WorkOrderPriority.LOW, WorkOrderCategory.GENERAL)
+    c = order(p2, u2, other_tenant, "Outside assigned properties", WorkOrderPriority.EMERGENCY, WorkOrderCategory.ELECTRICAL)
+    d = order(p3, u3, external_tenant, "Outside organization", WorkOrderPriority.EMERGENCY, WorkOrderCategory.HVAC)
+    db.commit()
+    return db, engine, (admin, manager, tenant, other_tenant, crew, external_admin), (p1, p2, p3), (a, b, c, d)
+
+
+def _queue(db, user, **filters):
+    return list_work_orders(
+        status=filters.get("status"),
+        priority=filters.get("priority"),
+        category=filters.get("category"),
+        property_id=filters.get("property_id"),
+        search=filters.get("search"),
+        limit=filters.get("limit"),
+        offset=filters.get("offset", 0),
+        db=db,
+        current_user=user,
+    )
+
+
+def test_queue_filters_and_deterministic_paging():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin = actors[0]
+        p1 = properties[0]
+        a, b, c, d = orders
+        assert [item.id for item in _queue(db, admin)] == [c.id, b.id, a.id]
+        assert [item.id for item in _queue(db, admin, priority=WorkOrderPriority.HIGH)] == [a.id]
+        assert [item.id for item in _queue(db, admin, category=WorkOrderCategory.GENERAL)] == [b.id]
+        assert [item.id for item in _queue(db, admin, property_id=p1.id)] == [b.id, a.id]
+        assert [item.id for item in _queue(db, admin, search="100%")] == [a.id]
+        assert [item.id for item in _queue(db, admin, search="100_")] == []
+        assert [item.id for item in _queue(db, admin, search="water")] == [b.id, a.id]
+        assert [item.id for item in _queue(db, admin, limit=1, offset=1)] == [b.id]
+        assert [item.id for item in _queue(db, admin, limit=1, offset=2)] == [a.id]
+        assert not _queue(db, admin, status=WorkOrderStatus.CLOSED)
+        assert d.id not in [item.id for item in _queue(db, admin)]
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_queue_never_crosses_manager_tenant_crew_or_organization_scope():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other_tenant, crew, external_admin = actors
+        a, b, c, d = orders
+        assert [item.id for item in _queue(db, manager)] == [b.id, a.id]
+        assert _queue(db, manager, search="Outside") == []
+        assert [item.id for item in _queue(db, tenant)] == [b.id, a.id]
+        assert [item.id for item in _queue(db, other_tenant)] == [c.id]
+        assert [item.id for item in _queue(db, crew)] == [a.id]
+        assert [item.id for item in _queue(db, external_admin)] == [d.id]
+        assert _queue(db, external_admin, property_id=properties[0].id) == []
+        assert _queue(db, tenant, property_id=properties[1].id) == []
+    finally:
+        db.close()
+        engine.dispose()
