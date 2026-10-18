@@ -319,7 +319,7 @@ export default function DoorLoopMigrationConsole() {
                 </p>
               )}
               {canWrite && (
-                <form onSubmit={(event) => void createRun(event) className="mt-5 grid items-end gap-3 border-t pt-5 md:grid-cols-[140px_1fr_auto]">
+                <form onSubmit={(event) => void createRun(event)} className="mt-5 grid items-end gap-3 border-t pt-5 md:grid-cols-[140px_1fr_auto]">
                   <label className="text-sm">Organization ID
                     <input className="input mt-1" required type="number" min="1" step="1"
                       value={organizationId} onChange={(event) => setOrganizationId(event.target.value)} />
