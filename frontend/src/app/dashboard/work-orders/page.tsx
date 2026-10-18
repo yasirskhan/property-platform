@@ -1,0 +1,179 @@
+"use client";
+
+import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
+import { apiGet } from "@/lib/api";
+
+const PAGE_SIZE = 50;
+const STATUSES = ["submitted", "acknowledged", "assigned", "in_progress", "completed", "closed", "cancelled"];
+const PRIORITIES = ["low", "medium", "high", "emergency"];
+const CATEGORIES = ["plumbing", "electrical", "hvac", "appliance", "general", "pest", "cleaning", "landscaping", "other"];
+
+type WorkOrder = {
+  id: number;
+  property_id: number;
+  unit_id: number;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  category: string;
+  created_at: string;
+};
+type Filters = { status: string; priority: string; category: string; property: string; search: string };
+const EMPTY: Filters = { status: "", priority: "", category: "", property: "", search: "" };
+
+export default function WorkOrderQueuePage() {
+  const [draft, setDraft] = useState<Filters>(EMPTY);
+  const [applied, setApplied] = useState<Filters>(EMPTY);
+  const [offset, setOffset] = useState(0);
+  const [reload, setReload] = useState(0);
+  const [rows, setRows] = useState<WorkOrder[]>([]);
+  const [busy, setBusy] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    const query = new URLSearchParams({
+      limit: String(PAGE_SIZE),
+      offset: String(offset),
+    });
+    if (applied.status) query.set("status", applied.status);
+    if (applied.priority) query.set("priority", applied.priority);
+    if (applied.category) query.set("category", applied.category);
+    if (applied.property) query.set("property_id", applied.property);
+    if (applied.search) query.set("search", applied.search);
+    async function load() {
+      setBusy(true);
+      setError("");
+      setRows([]);
+      try {
+        const result = await apiGet("/work-orders?" + query.toString()) as WorkOrder[];
+        if (!Array.isArray(result)) throw new Error("Unexpected work order list response.");
+        if (active) setRows(result);
+      } catch (err) {
+        if (active) setError(err instanceof Error ? err.message : "Unable to load work orders.");
+      } finally {
+        if (active) setBusy(false);
+      }
+    }
+    void load();
+    return () => { active = false; };
+  }, [applied, offset, reload]);
+
+  function apply(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const search = draft.search.trim();
+    if (search && (search.length < 2 || search.length > 80)) {
+      setError("Search must contain 2 to 80 characters.");
+      return;
+    }
+    const propertyId = Number(draft.property);
+    if (draft.property && (!Number.isSafeInteger(propertyId) || propertyId <= 0)) {
+      setError("Enter a valid positive property ID.");
+      return;
+    }
+    setApplied({ ...draft, search });
+    setOffset(0);
+    setReload((value) => value + 1);
+  }
+
+  function clear() {
+    setDraft(EMPTY);
+    setApplied(EMPTY);
+    setOffset(0);
+    setReload((value) => value + 1);
+  }
+
+  return (
+    <div className="space-y-6">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Work Orders</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Search work orders you are authorized to see. Crew see their assignments,
+            tenants see their own requests, and managers see assigned properties.
+          </p>
+        </div>
+        <Link href="/dashboard" className="rounded-lg border bg-white px-4 py-2 text-sm">Dashboard</Link>
+      </header>
+      <form onSubmit={apply} className="rounded-xl border bg-white p-5">
+        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
+          <label className="text-sm">Search title or description
+            <input className="input mt-1" aria-label="Search work orders" maxLength={80}
+              placeholder="At least 2 characters" value={draft.search}
+              onChange={(event) => setDraft({ ...draft, search: event.target.value })} />
+          </label>
+          <label className="text-sm">Status
+            <select aria-label="Work order status" className="input mt-1" value={draft.status}
+              onChange={(event) => setDraft({ ...draft, status: event.target.value })}>
+              <option value="">All statuses</option>
+              {STATUSES.map((value) => <option key={value} value={value}>{value.replaceAll("_", " ")}</option>)}
+            </select>
+          </label>
+          <label className="text-sm">Priority
+            <select aria-label="Work order priority" className="input mt-1" value={draft.priority}
+              onChange={(event) => setDraft({ ...draft, priority: event.target.value })}>
+              <option value="">All priorities</option>
+              {PRIORITIES.map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="text-sm">Category
+            <select aria-label="Work order category" className="input mt-1" value={draft.category}
+              onChange={(event) => setDraft({ ...draft, category: event.target.value })}>
+              <option value="">All categories</option>
+              {CATEGORIES.map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="text-sm">Property ID
+            <input type="number" min="1" step="1" className="input mt-1" aria-label="Work order property ID"
+              placeholder="All accessible" value={draft.property}
+              onChange={(event) => setDraft({ ...draft, property: event.target.value })} />
+          </label>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button type="submit" className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white">Apply filters</button>
+          <button type="button" onClick={clear} className="rounded-lg border px-4 py-2 text-sm">Clear</button>
+        </div>
+      </form>
+      {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+      <section className="rounded-xl border bg-white">
+        <div className="border-b px-5 py-4">
+          <h2 className="font-semibold">Visible work orders</h2>
+          <p className="text-xs text-slate-500">
+            Page {Math.floor(offset / PAGE_SIZE) + 1}, up to {PAGE_SIZE} per page.
+            Access scope is enforced by the server.
+          </p>
+        </div>
+        {busy ? <p className="p-5 text-sm text-slate-500">Loading work orders…</p> :
+          rows.length === 0 ? <p className="p-5 text-sm text-slate-500">No work orders match these filters.</p> :
+          <div className="divide-y">
+            {rows.map((row) => (
+              <article key={row.id} className="px-5 py-4">
+                <div className="flex flex-wrap justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold">#{row.id} · {row.title}</h3>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Property #{row.property_id} · Unit #{row.unit_id} · {row.category.replaceAll("_", " ")}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-start gap-2 text-xs">
+                    <span className="rounded-full bg-slate-100 px-3 py-1">{row.status.replaceAll("_", " ")}</span>
+                    <span className="rounded-full bg-slate-100 px-3 py-1">{row.priority} priority</span>
+                  </div>
+                </div>
+                <p className="mt-2 line-clamp-2 text-sm text-slate-700">{row.description}</p>
+                <p className="mt-2 text-xs text-slate-500">Created {new Date(row.created_at).toLocaleDateString()}</p>
+              </article>
+            ))}
+          </div>}
+        <div className="flex justify-between border-t p-4">
+          <button disabled={busy || offset === 0} onClick={() => setOffset((n) => Math.max(0, n - PAGE_SIZE))}
+            className="rounded-lg border px-4 py-2 text-sm disabled:opacity-40">Previous</button>
+          <button disabled={busy || rows.length < PAGE_SIZE} onClick={() => setOffset((n) => n + PAGE_SIZE)}
+            className="rounded-lg border px-4 py-2 text-sm disabled:opacity-40">Next</button>
+        </div>
+      </section>
+    </div>
+  );
+}

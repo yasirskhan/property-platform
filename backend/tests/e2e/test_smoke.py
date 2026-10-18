@@ -59,6 +59,7 @@ def test_login_and_core_authenticated_pages() -> None:
 
             for path, heading in [
                 ("/dashboard/properties", "Properties"),
+                ("/dashboard/work-orders", "Work Orders"),
                 ("/dashboard/accounting/receipts", "Receipts"),
                 ("/dashboard/accounting/bills", "Bills"),
                 ("/dashboard/accounting/deposits", "Bank Deposits"),
