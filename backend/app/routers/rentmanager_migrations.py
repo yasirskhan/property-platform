@@ -105,3 +105,22 @@ def create_rentmanager_run(
     db.commit()
     db.refresh(row)
     return row
+
+
+@router.get("/resource-readiness")
+def get_rentmanager_resource_readiness(
+    response: Response,
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Explicitly block unverified RentManager export/API contracts."""
+    _role(current_user, write=False)
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "provider": "RENTMANAGER",
+        "run_foundation_available": True,
+        "file_upload_enabled": False,
+        "official_api_enabled": False,
+        "controlled_commit_enabled": False,
+        "customer_business_mutation": False,
+        "reason": "Authoritative RentManager source file and API contracts are not verified.",
+    }
