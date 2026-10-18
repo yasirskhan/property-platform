@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  PlatformUser, clearPlatformToken, getPlatformToken,
+  PlatformUser, getPlatformToken,
   platformGet, platformPost, platformPostForm,
 } from "@/lib/platformApi";
 
@@ -342,7 +342,7 @@ export default function DoorLoopMigrationConsole() {
                 <h2 className="font-semibold">1. Inspect an authorized export</h2>
                 <details className="mt-3 rounded-lg bg-slate-50 p-3 text-sm">
                   <summary className="cursor-pointer font-medium">How to obtain an approved DoorLoop export</summary>
-                  <p className="mt-2">Ask the customer's DoorLoop administrator to authorize the migration and export
+                  <p className="mt-2">Ask the customer’s DoorLoop administrator to authorize the migration and export
                     the relevant report using Reports → select the report → Export → CSV or Excel.
                     Save the exact report settings and any chosen filters or date range.
                     The exported column set can vary, so inspect it rather than relying on guessed field names.</p>
