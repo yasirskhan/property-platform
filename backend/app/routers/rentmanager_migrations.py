@@ -186,6 +186,14 @@ def review_rentmanager_mapping(
         for field, source in payload.column_mapping.items()
     ):
         raise HTTPException(status_code=422, detail="Proposed mapping fields must be bounded and nonempty.")
+    normalized_headers = [value.strip().casefold() for value in headers]
+    if len(set(normalized_headers)) != len(normalized_headers):
+        raise HTTPException(status_code=422, detail="Normalized source headers must be unique.")
+    if any(
+        any(key in field.casefold() for key in ("password", "secret", "token", "cookie", "apikey", "api_key"))
+        for field in payload.column_mapping
+    ):
+        raise HTTPException(status_code=422, detail="Credential fields are not accepted in migration mapping.")
     if any(value not in headers for value in payload.column_mapping.values()):
         raise HTTPException(status_code=422, detail="Mapped column is missing from source headers.")
     if len(set(payload.column_mapping.values())) != len(payload.column_mapping):
