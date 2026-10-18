@@ -80,6 +80,27 @@ def get_rentmanager_run(
     return row
 
 
+@router.get("/runs/{run_id}/source-readiness")
+def rentmanager_run_source_readiness(
+    run_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Read-only run-specific source gate; never authorize an import by inference."""
+    run = get_rentmanager_run(run_id, response, db, current_user)
+    return {
+        "run_id": run.id,
+        "provider": "RENTMANAGER",
+        "source_account_bound": bool(run.source_account_ref),
+        "file_upload_enabled": False,
+        "official_api_enabled": False,
+        "controlled_commit_enabled": False,
+        "customer_business_mutation": False,
+        "blocker": "No independently verified RentManager export or API source contract.",
+    }
+
+
 @router.post("/runs", response_model=RentManagerRunOut, status_code=status.HTTP_201_CREATED)
 def create_rentmanager_run(
     payload: RentManagerRunCreateIn,
