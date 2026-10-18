@@ -1,6 +1,6 @@
 """Phase 4.17: DoorLoop provider migration discovery; no import writes."""
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from app.schemas.rentmanager_migration import RentManagerRunCreateIn
+from app.schemas.doorloop_migration import DoorLoopRunCreateIn
 from app.services.audit import append_audit_log
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -69,7 +69,7 @@ def list_doorloop_runs(
 
 @router.post("/runs", status_code=status.HTTP_201_CREATED)
 def create_doorloop_run(
-    payload: RentManagerRunCreateIn,
+    payload: DoorLoopRunCreateIn,
     db: Session = Depends(get_db),
     user: PlatformUser = Depends(get_current_platform_user),
 ):
