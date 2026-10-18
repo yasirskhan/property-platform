@@ -281,3 +281,31 @@ def test_work_order_creation_and_acknowledgement_have_one_durable_activity_each(
     finally:
         db.close()
         engine.dispose()
+
+
+def test_valid_property_assigned_crew_can_start_and_complete_with_audit():
+    db, engine, actors, _props, orders = _seed_queue()
+    try:
+        crew = actors[4]
+        order = orders[0]
+        assert order.assigned_to_id == crew.id
+        order.status = WorkOrderStatus.ASSIGNED
+        db.commit()
+        started = start_work_order(order.id, db=db, current_user=crew)
+        assert started.status == WorkOrderStatus.IN_PROGRESS
+        completed = complete_work_order(
+            order.id, WorkOrderComplete(resolution_notes="Repaired and inspected"),
+            db=db, current_user=crew,
+        )
+        assert completed.status == WorkOrderStatus.COMPLETED
+        assert completed.resolution_notes == "Repaired and inspected"
+        events = db.query(WorkOrderUpdate).filter(
+            WorkOrderUpdate.work_order_id == order.id
+        ).order_by(WorkOrderUpdate.id.asc()).all()
+        assert [(event.from_status, event.to_status) for event in events[-2:]] == [
+            (WorkOrderStatus.ASSIGNED, WorkOrderStatus.IN_PROGRESS),
+            (WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.COMPLETED),
+        ]
+    finally:
+        db.close()
+        engine.dispose()
