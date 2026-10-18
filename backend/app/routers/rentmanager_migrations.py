@@ -101,7 +101,7 @@ def rentmanager_run_source_readiness(
         "official_api_enabled": False,
         "controlled_commit_enabled": False,
         "customer_business_mutation": False,
-        "blocker": "No independently verified RentManager export or API source contract.",
+        "blocker": "Official Rent Manager API documentation exists; customer authorization, edition, endpoint schemas and source-to-target import contract remain unverified.",
     }
 
 
@@ -199,5 +199,5 @@ def get_rentmanager_resource_readiness(
         "official_api_enabled": False,
         "controlled_commit_enabled": False,
         "customer_business_mutation": False,
-        "reason": "Authoritative RentManager source file and API contracts are not verified.",
+        "reason": "Official Rent Manager API documentation exists; customer access and resource-level migration contracts are not verified.",
     }
