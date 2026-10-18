@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { apiGet } from "@/lib/api";
+import Link from "next/link";
 import { formatMoney } from "@/lib/money";
 
 type Lease = { id: number; status: string; monthly_rent: string };
@@ -38,6 +39,7 @@ export default function TenantDashboard() {
 
         <div className="bg-white rounded-xl border border-slate-200 p-6">
           <h2 className="font-semibold text-slate-900 mb-3">My Work Orders</h2>
+          <Link href="/dashboard/maintenance/work-orders/new" className="mb-3 inline-block rounded-lg border px-3 py-2 text-sm">Request maintenance</Link>
           {orders.length === 0 ? (
             <p className="text-slate-500 text-sm">No work orders submitted.</p>
           ) : (
