@@ -46,6 +46,9 @@ def test_authenticated_work_order_detail_and_comment_history() -> None:
                 page.get_by_role("heading", name="Work order #" + str(work_order_id) + ": E2E maintenance activity")
             ).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_role("heading", name="Recorded activity")).to_be_visible()
+            pw.expect(page.get_by_role("button", name="Acknowledge", exact=True)).to_be_visible()
+            page.get_by_role("button", name="Acknowledge", exact=True).click()
+            pw.expect(page.get_by_text("Work order acknowledged.", exact=True)).to_be_visible(timeout=15_000)
             page.get_by_label("Work order activity note").fill("E2E follow-up activity note")
             page.get_by_role("button", name="Save activity note").click()
             pw.expect(

@@ -1,3 +1,9 @@
+# 2026-10-18 | PHASE 5 WORK ORDER LIFECYCLE CONTROLS (DETACHED)
+
+Prepared minimal role/state-specific action buttons on the new work-order detail page, reusing existing backend `acknowledge`, `start`, `complete` and `close` APIs with full server-side checks and timeline logging. Admin/owner/manager get acknowledge and approve-close where legal; only the actually assigned crew sees start/complete. Extended disposable Playwright test to acknowledge an order, then post an activity comment and verify both. No direct status patch, automatic dispatch or charge posting. Await previous exact-SHA CI green before promoting this detached batch, then test all six hosted jobs.
+
+---
+
 # 2026-10-18 | PHASE 5 WORK ORDER ROW-REFERENCE HARDENING (DETACHED)
 
 Hardened work-order listing and single-order access to derive organization from the actual Unit -> Property record and require the work order's separate property_id to match. Tenant and crew ownership IDs alone can no longer authorize incorrectly cross-linked other-organization work orders, including deliberately corrupted legacy source mappings; manager active assignments are similarly org-filtered. Added a synthetic foreign-property tenant/crew pointer regression without changing the workflow's normal behavior. This security change was authored as a detached successor to the staff work-order detail UI and requires complete exact-SHA hosted CI. Publish only after previous CI at live branch HEAD is all-green and branch lease matches. Preserve all other role, entitlement, billing, and provider migration constraints.

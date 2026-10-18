@@ -63,3 +63,15 @@ notifications or automated status transitions are introduced. A disposable
 Playwright smoke test authenticates, submits one work order, views its detail,
 records a note and verifies it appears in history. This follow-up remains
 PROVISIONAL until the full six-job CI succeeds for its final exact SHA.
+
+## Role-aware lifecycle controls (follow-up, provisional)
+
+The detail view surfaces only the next existing backend-validated transition:
+admin/owner/manager may acknowledge SUBMITTED or approve-close COMPLETED;
+an assigned CREW member may start ASSIGNED or mark IN_PROGRESS completed
+with optional resolution notes. A note-only flow remains available to all
+authorized work-order participants. Button visibility is merely usability;
+backend role, assignment, organization and state checks remain authoritative.
+The authenticated browser regression additionally verifies that an admin can
+acknowledge the newly submitted work order and see the recorded result. This
+change requires hosted E2E and backend verification at its eventual exact SHA.

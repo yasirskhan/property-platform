@@ -24,6 +24,7 @@ type WorkOrder = {
   status: string;
   permission_to_enter: boolean;
   entry_notes: string | null;
+  assigned_to_id: number | null;
   resolution_notes: string | null;
   created_at: string;
   updated_at: string;
@@ -34,6 +35,8 @@ export default function WorkOrderDetailPage() {
   const params = useParams<{ id: string }>();
   const orderId = Number(params.id);
   const [order, setOrder] = useState<WorkOrder | null>(null);
+  const [viewer, setViewer] = useState<{ id: number; role: string } | null>(null);
+  const [completionNotes, setCompletionNotes] = useState("");
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -63,6 +66,35 @@ export default function WorkOrderDetailPage() {
   }, [orderId]);
 
   useEffect(() => { void reload(); }, [reload]);
+
+  useEffect(() => {
+    let active = true;
+    apiGet("/auth/me").then((value: { id: number; role: string }) => {
+      if (active) setViewer(value);
+    }).catch(() => { if (active) setViewer(null); });
+    return () => { active = false; };
+  }, []);
+
+  async function advanceStatus(action: "acknowledge" | "start" | "complete" | "close") {
+    if (!order || saving) return;
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const data = action === "complete"
+        ? { resolution_notes: completionNotes.trim() || null }
+        : undefined;
+      await apiPost("/work-orders/" + order.id + "/" + action, data);
+      if (action === "complete") setCompletionNotes("");
+      await reload();
+      setNotice("Work order " + (action === "acknowledge" ? "acknowledged" :
+        action === "start" ? "started" : action === "complete" ? "completed" : "closed") + ".");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to update the work order.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function submitComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -115,6 +147,47 @@ export default function WorkOrderDetailPage() {
               </div>
             )}
           </header>
+          <section className="rounded-xl border bg-white p-5">
+            <h2 className="font-semibold">Available next step</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Actions are role-specific. Every transition is validated again by the backend and recorded in work-order history.
+            </p>
+            <div className="mt-3 flex flex-wrap items-end gap-3">
+              {["ADMIN", "OWNER", "MANAGER"].includes(String(viewer?.role || "").toUpperCase())
+                && order.status === "submitted" && (
+                  <button disabled={saving} onClick={() => void advanceStatus("acknowledge")}
+                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50">Acknowledge</button>
+                )}
+              {viewer?.role?.toUpperCase() === "CREW" && order.assigned_to_id === viewer.id
+                && order.status === "assigned" && (
+                  <button disabled={saving} onClick={() => void advanceStatus("start")}
+                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50">Start work</button>
+                )}
+              {viewer?.role?.toUpperCase() === "CREW" && order.assigned_to_id === viewer.id
+                && order.status === "in_progress" && (
+                  <>
+                    <label className="text-sm">Resolution notes (optional)
+                      <textarea rows={2} maxLength={2000} value={completionNotes}
+                        disabled={saving} onChange={(event) => setCompletionNotes(event.target.value)}
+                        className="mt-1 w-full rounded-lg border p-2" />
+                    </label>
+                    <button disabled={saving} onClick={() => void advanceStatus("complete")}
+                      className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50">Mark completed</button>
+                  </>
+                )}
+              {["ADMIN", "OWNER", "MANAGER"].includes(String(viewer?.role || "").toUpperCase())
+                && order.status === "completed" && (
+                  <button disabled={saving} onClick={() => void advanceStatus("close")}
+                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50">Approve and close</button>
+                )}
+              {!(["ADMIN", "OWNER", "MANAGER"].includes(String(viewer?.role || "").toUpperCase())
+                && (order.status === "submitted" || order.status === "completed"))
+                && !(viewer?.role?.toUpperCase() === "CREW" && order.assigned_to_id === viewer.id
+                  && ["assigned", "in_progress"].includes(order.status)) && (
+                  <p className="text-sm text-slate-600">No status transition is available for this role.</p>
+                )}
+            </div>
+          </section>
           <section className="rounded-xl border bg-white p-5">
             <h2 className="font-semibold">Recorded activity</h2>
             <p className="mt-1 text-xs text-slate-500">Only activity for this authorized work order is shown.</p>
