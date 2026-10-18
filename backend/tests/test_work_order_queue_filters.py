@@ -11,7 +11,10 @@ from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
 from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority
-from app.routers.work_orders import list_work_orders, _user_can_access_work_order
+from app.routers.work_orders import (list_work_orders, _user_can_access_work_order, start_work_order, complete_work_order)
+from app.schemas.work_order import WorkOrderComplete
+from fastapi import HTTPException
+import pytest
 
 
 def _seed_queue():
@@ -142,6 +145,34 @@ def test_queue_never_crosses_manager_tenant_crew_or_organization_scope():
         assert [item.id for item in _queue(db, external_admin)] == [d.id]
         assert _queue(db, external_admin, property_id=properties[0].id) == []
         assert _queue(db, tenant, property_id=properties[1].id) == []
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_rogue_cross_organization_crew_id_cannot_start_or_complete():
+    db, engine, actors, _props, orders = _seed_queue()
+    try:
+        crew = actors[4]
+        foreign_work_order = orders[3]
+        assert foreign_work_order.assigned_to_id == crew.id
+        foreign_work_order.status = WorkOrderStatus.ASSIGNED
+        db.commit()
+        with pytest.raises(HTTPException) as blocked_start:
+            start_work_order(foreign_work_order.id, db=db, current_user=crew)
+        assert blocked_start.value.status_code == 403
+        assert db.get(WorkOrder, foreign_work_order.id).status == WorkOrderStatus.ASSIGNED
+
+        foreign_work_order.status = WorkOrderStatus.IN_PROGRESS
+        db.commit()
+        with pytest.raises(HTTPException) as blocked_completion:
+            complete_work_order(
+                foreign_work_order.id, WorkOrderComplete(resolution_notes="Must not write"),
+                db=db, current_user=crew,
+            )
+        assert blocked_completion.value.status_code == 403
+        assert db.get(WorkOrder, foreign_work_order.id).status == WorkOrderStatus.IN_PROGRESS
+        assert db.get(WorkOrder, foreign_work_order.id).resolution_notes is None
     finally:
         db.close()
         engine.dispose()

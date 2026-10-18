@@ -1,3 +1,9 @@
+# 2026-10-18 | PHASE 5 CREW START/COMPLETE CROSS-ORG GUARD (DETACHED)
+
+Found pre-existing `/work-orders/{id}/start` and `/complete` handlers authorized assigned CREW by user ID alone, without verifying actual Unit->Property organization. The prepared Phase 5 detail status UI makes those routes relevant. Updated both existing routes to call the same tenant/crew/property/organization `_check_access` guard before altering workflow state, while preserving existing role/assignment and state validation. Added a real disposable DB regression with a deliberately malformed foreign-organization crew assignment, proving start and completion fail 403 without status/notes mutation. Detached candidate is not published or CI verified; previous navigation-unhide `fc4232b7` must first have exact six-job SUCCESS, then this candidate will need its own six-job proof. Other repo/main untouched.
+
+---
+
 # 2026-10-18 | PHASE 5 WORK ORDER LIFECYCLE CONTROLS (DETACHED)
 
 Prepared minimal role/state-specific action buttons on the new work-order detail page, reusing existing backend `acknowledge`, `start`, `complete` and `close` APIs with full server-side checks and timeline logging. Admin/owner/manager get acknowledge and approve-close where legal; only the actually assigned crew sees start/complete. Extended disposable Playwright test to acknowledge an order, then post an activity comment and verify both. No direct status patch, automatic dispatch or charge posting. Await previous exact-SHA CI green before promoting this detached batch, then test all six hosted jobs.

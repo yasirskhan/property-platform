@@ -526,6 +526,8 @@ def start_work_order(
     # Only the assigned crew member can start
     if current_user.role != UserRole.CREW or wo.assigned_to_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the assigned crew member can start work")
+    # Assignment ID alone is not authority for a different organization.
+    _check_access(db, current_user, wo)
 
     if wo.status != WorkOrderStatus.ASSIGNED:
         raise HTTPException(status_code=400, detail=f"Cannot start from status '{wo.status.value}'")
@@ -555,6 +557,7 @@ def complete_work_order(
 
     if current_user.role != UserRole.CREW or wo.assigned_to_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the assigned crew member can complete work")
+    _check_access(db, current_user, wo)
 
     if wo.status != WorkOrderStatus.IN_PROGRESS:
         raise HTTPException(status_code=400, detail=f"Cannot complete from status '{wo.status.value}'")
