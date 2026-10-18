@@ -105,23 +105,21 @@ def _get_property_for_work_order(db: Session, wo: WorkOrder) -> Property:
 
 
 def _user_can_access_work_order(db: Session, user: User, wo: WorkOrder) -> bool:
-    """Returns True if the user is allowed to view this work order."""
+    """Authorize against the actual Unit->Property, not an untrusted row label."""
+    prop = _get_property_for_work_order(db, wo)
+    if prop.organization_id != user.organization_id or wo.property_id != prop.id:
+        return False
+
     if user.role == UserRole.TENANT:
         return wo.tenant_id == user.id
 
     if user.role == UserRole.CREW:
         return wo.assigned_to_id == user.id
 
-    if user.role in (UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER):
-        prop = _get_property_for_work_order(db, wo)
+    if user.role in (UserRole.ADMIN, UserRole.OWNER):
+        return True
 
-        if user.role in (UserRole.ADMIN, UserRole.OWNER):
-            return prop.organization_id == user.organization_id
-
-        # Manager: an active property assignment is insufficient by itself.
-        # A stale/cross-organization assignment must never confer access.
-        if prop.organization_id != user.organization_id:
-            return False
+    if user.role == UserRole.MANAGER:
         assigned = (
             db.query(PropertyAssignment)
             .filter(
@@ -143,8 +141,16 @@ def _check_access(db: Session, user: User, wo: WorkOrder) -> WorkOrder:
 
 
 def _visible_work_orders(db: Session, user: User):
-    """Return a query pre-filtered to what this user can see."""
-    q = db.query(WorkOrder)
+    """Fail closed on organization and actual Unit->Property for every role."""
+    q = (
+        db.query(WorkOrder)
+        .join(Unit, Unit.id == WorkOrder.unit_id)
+        .join(Property, Property.id == Unit.property_id)
+        .filter(
+            Property.organization_id == user.organization_id,
+            WorkOrder.property_id == Property.id,
+        )
+    )
 
     if user.role == UserRole.TENANT:
         return q.filter(WorkOrder.tenant_id == user.id)
@@ -153,17 +159,12 @@ def _visible_work_orders(db: Session, user: User):
         return q.filter(WorkOrder.assigned_to_id == user.id)
 
     if user.role in (UserRole.ADMIN, UserRole.OWNER):
-        return (
-            q.join(Property, Property.id == WorkOrder.property_id)
-            .filter(Property.organization_id == user.organization_id)
-        )
+        return q
 
     if user.role == UserRole.MANAGER:
         return (
-            q.join(PropertyAssignment, PropertyAssignment.property_id == WorkOrder.property_id)
-            .join(Property, Property.id == WorkOrder.property_id)
+            q.join(PropertyAssignment, PropertyAssignment.property_id == Property.id)
             .filter(
-                Property.organization_id == user.organization_id,
                 PropertyAssignment.user_id == user.id,
                 PropertyAssignment.is_active == True,  # noqa: E712
             )

@@ -81,6 +81,10 @@ def _seed_queue():
     b = order(p1, u1, tenant, "100X water pressure", WorkOrderPriority.LOW, WorkOrderCategory.GENERAL)
     c = order(p2, u2, other_tenant, "Outside assigned properties", WorkOrderPriority.EMERGENCY, WorkOrderCategory.ELECTRICAL)
     d = order(p3, u3, external_tenant, "Outside organization", WorkOrderPriority.EMERGENCY, WorkOrderCategory.HVAC)
+    # Deliberately bogus foreign-property tenant/crew references. The unit's
+    # actual organization always wins over these mismatched user IDs.
+    d.tenant_id = tenant.id
+    d.assigned_to_id = crew.id
     db.commit()
     return db, engine, (admin, manager, tenant, other_tenant, crew, external_admin), (p1, p2, p3), (a, b, c, d)
 
@@ -133,6 +137,8 @@ def test_queue_never_crosses_manager_tenant_crew_or_organization_scope():
         assert [item.id for item in _queue(db, tenant)] == [b.id, a.id]
         assert [item.id for item in _queue(db, other_tenant)] == [c.id]
         assert [item.id for item in _queue(db, crew)] == [a.id]
+        assert _user_can_access_work_order(db, tenant, d) is False
+        assert _user_can_access_work_order(db, crew, d) is False
         assert [item.id for item in _queue(db, external_admin)] == [d.id]
         assert _queue(db, external_admin, property_id=properties[0].id) == []
         assert _queue(db, tenant, property_id=properties[1].id) == []

@@ -1,3 +1,9 @@
+# 2026-10-18 | PHASE 5 WORK ORDER ROW-REFERENCE HARDENING (DETACHED)
+
+Hardened work-order listing and single-order access to derive organization from the actual Unit -> Property record and require the work order's separate property_id to match. Tenant and crew ownership IDs alone can no longer authorize incorrectly cross-linked other-organization work orders, including deliberately corrupted legacy source mappings; manager active assignments are similarly org-filtered. Added a synthetic foreign-property tenant/crew pointer regression without changing the workflow's normal behavior. This security change was authored as a detached successor to the staff work-order detail UI and requires complete exact-SHA hosted CI. Publish only after previous CI at live branch HEAD is all-green and branch lease matches. Preserve all other role, entitlement, billing, and provider migration constraints.
+
+---
+
 # 2026-10-18 | PHASE 5 WORK ORDER DETAIL + COMMENT HISTORY (DETACHED, UNVERIFIED)
 
 Prior live HEAD `fc4232b7e77d5cb746637ecd3feb669d200edc99` added navigation-gate reconciliation after CI `39166486178` reported a single static navigation failure. Hosted CI for that repair was active at preparation. On a detached successor, added a role-scoped work-order detail page and queue link, read-only timeline and customer/staff activity notes through existing authorized APIs, plus an authenticated disposable Playwright regression creating and reviewing one work order. Product details documented in `docs/PHASE5_MAINTENANCE_QUEUE.md`. No workflow-transition APIs changed; no automatic dispatch or customer accounting writes. Publish ONLY after exact-SHA all-six CI green for `fc4232b7`, with lease-check on live sole branch. If an older CI fails, repair and rebase. New own six-job CI required; no direct code changes to main/Zargul.
