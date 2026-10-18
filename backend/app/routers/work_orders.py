@@ -92,6 +92,13 @@ def _log_update(
         message=message,
     )
     db.add(entry)
+    if from_status is not None or to_status is not None:
+        append_audit_log(
+            db, user_id=user.id, organization_id=user.organization_id,
+            entity_type="work_order", entity_id=wo.id, action="status_transition",
+            old_value={"status": from_status.value if from_status is not None else None},
+            new_value={"status": to_status.value if to_status is not None else None},
+        )
 
 
 def _get_property_for_work_order(db: Session, wo: WorkOrder) -> Property:
@@ -508,6 +515,7 @@ def assign_work_order(
         return wo
 
     old = wo.status
+    previous_crew_id = wo.assigned_to_id
     wo.assigned_to_id = crew.id
     wo.assigned_at = datetime.utcnow()
     wo.assigned_by_id = current_user.id
@@ -517,6 +525,12 @@ def assign_work_order(
         db, wo, current_user,
         from_status=old, to_status=wo.status,
         message=f"Assigned to {crew.first_name} {crew.last_name}",
+    )
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=current_user.organization_id,
+        entity_type="work_order", entity_id=wo.id, action="crew_assignment",
+        old_value={"assigned_to_id": previous_crew_id},
+        new_value={"assigned_to_id": crew.id},
     )
     db.commit()
     db.refresh(wo)
@@ -677,6 +691,12 @@ def add_comment(
         message=payload.message,
     )
     db.add(entry)
+    db.flush()
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=current_user.organization_id,
+        entity_type="work_order", entity_id=wo.id, action="comment_added",
+        new_value={"activity_id": entry.id},
+    )
     db.commit()
     db.refresh(entry)
     return entry

@@ -139,4 +139,4 @@ class WorkOrderDetail(WorkOrderOut):
 # WORK ORDER — ADD COMMENT
 # ============================================================
 class WorkOrderComment(BaseModel):
-    message: str = Field(..., min_length=1)
+    message: str = Field(..., min_length=1, max_length=2000)
