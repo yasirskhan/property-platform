@@ -37,6 +37,8 @@ export default function WorkOrderDetailPage() {
   const [order, setOrder] = useState<WorkOrder | null>(null);
   const [viewer, setViewer] = useState<{ id: number; role: string } | null>(null);
   const [completionNotes, setCompletionNotes] = useState("");
+  const [crew, setCrew] = useState<{ id: number; first_name: string; last_name: string; is_active: boolean }[]>([]);
+  const [crewId, setCrewId] = useState("");
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -74,6 +76,41 @@ export default function WorkOrderDetailPage() {
     }).catch(() => { if (active) setViewer(null); });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    const role = String(viewer?.role || "").toUpperCase();
+    if (!["ADMIN", "OWNER", "MANAGER"].includes(role)) {
+      setCrew([]);
+      return;
+    }
+    let active = true;
+    apiGet("/users?role=crew")
+      .then((rows: { id: number; first_name: string; last_name: string; is_active: boolean }[]) => {
+        if (active) setCrew(Array.isArray(rows) ? rows.filter((row) => row.is_active) : []);
+      }).catch(() => { if (active) setCrew([]); });
+    return () => { active = false; };
+  }, [viewer?.role]);
+
+  async function assignCrew() {
+    if (!order || saving) return;
+    const selected = Number(crewId);
+    if (!Number.isSafeInteger(selected) || selected < 1 || !crew.some((row) => row.id === selected)) {
+      setError("Choose an available crew member.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await apiPost("/work-orders/" + order.id + "/assign", { crew_user_id: selected });
+      await reload();
+      setNotice("Crew assignment recorded. Property assignment is verified by the backend.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Crew assignment failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function advanceStatus(action: "acknowledge" | "start" | "complete" | "close") {
     if (!order || saving) return;
@@ -157,6 +194,25 @@ export default function WorkOrderDetailPage() {
                 && order.status === "submitted" && (
                   <button disabled={saving} onClick={() => void advanceStatus("acknowledge")}
                     className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50">Acknowledge</button>
+                )}
+              {["ADMIN", "OWNER", "MANAGER"].includes(String(viewer?.role || "").toUpperCase())
+                && ["acknowledged", "assigned"].includes(order.status) && (
+                  <>
+                    <label className="text-sm">Choose crew assigned to this property
+                      <select aria-label="Assigned crew member" disabled={saving}
+                        className="mt-1 block rounded-lg border p-2" value={crewId}
+                        onChange={(event) => setCrewId(event.target.value)}>
+                        <option value="">Select crew</option>
+                        {crew.map((person) => <option key={person.id} value={person.id}>
+                          {person.first_name} {person.last_name} (#{person.id})
+                        </option>)}
+                      </select>
+                    </label>
+                    <button disabled={saving || !crewId} onClick={() => void assignCrew()}
+                      className="rounded-lg border bg-white px-4 py-2 text-sm disabled:opacity-50">
+                      Assign crew
+                    </button>
+                  </>
                 )}
               {viewer?.role?.toUpperCase() === "CREW" && order.assigned_to_id === viewer.id
                 && order.status === "assigned" && (

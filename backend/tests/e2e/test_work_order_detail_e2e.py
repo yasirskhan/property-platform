@@ -49,6 +49,7 @@ def test_authenticated_work_order_detail_and_comment_history() -> None:
             pw.expect(page.get_by_role("button", name="Acknowledge", exact=True)).to_be_visible()
             page.get_by_role("button", name="Acknowledge", exact=True).click()
             pw.expect(page.get_by_text("Work order acknowledged.", exact=True)).to_be_visible(timeout=15_000)
+            pw.expect(page.get_by_role("button", name="Assign crew", exact=True)).to_be_visible()
             page.get_by_label("Work order activity note").fill("E2E follow-up activity note")
             page.get_by_role("button", name="Save activity note").click()
             pw.expect(

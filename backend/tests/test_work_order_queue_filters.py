@@ -11,9 +11,9 @@ from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
 from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority
-from app.routers.work_orders import (list_work_orders, _user_can_access_work_order, start_work_order, complete_work_order, update_work_order)
+from app.routers.work_orders import (list_work_orders, _user_can_access_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order)
 from app.models.audit_log import AuditLog
-from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields
+from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign
 from fastapi import HTTPException
 import pytest
 
@@ -61,6 +61,9 @@ def _seed_queue():
     p3, u3 = location(external_org, "External Property")
     db.add(PropertyAssignment(
         property_id=p1.id, user_id=manager.id, role=UserRole.MANAGER, is_active=True,
+    ))
+    db.add(PropertyAssignment(
+        property_id=p1.id, user_id=crew.id, role=UserRole.CREW, is_active=True,
     ))
     # Deliberately malformed cross-organization assignment: a manager may not
     # acquire another organization's work order even with a rogue assignment.
@@ -209,6 +212,41 @@ def test_work_order_edit_logs_atomic_before_after_and_rejects_status_bypass():
             AuditLog.entity_type == "work_order", AuditLog.entity_id == order.id,
             AuditLog.action == "updated",
         ).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_assign_work_order_requires_acknowledged_status_and_authorized_active_crew():
+    db, engine, actors, _props, orders = _seed_queue()
+    try:
+        admin, _manager, _tenant, _other_tenant, crew, _foreign = actors
+        order = orders[0]
+        with pytest.raises(HTTPException) as premature:
+            assign_work_order(order.id, WorkOrderAssign(crew_user_id=crew.id),
+                              db=db, current_user=admin)
+        assert premature.value.status_code == 409
+        assert order.assigned_to_id == crew.id  # originally assigned by seed
+        order.status = WorkOrderStatus.ACKNOWLEDGED
+        order.assigned_to_id = None
+        db.commit()
+        assigned = assign_work_order(
+            order.id, WorkOrderAssign(crew_user_id=crew.id),
+            db=db, current_user=admin,
+        )
+        assert assigned.status == WorkOrderStatus.ASSIGNED
+        assert assigned.assigned_to_id == crew.id
+        repeated = assign_work_order(
+            order.id, WorkOrderAssign(crew_user_id=crew.id),
+            db=db, current_user=admin,
+        )
+        assert repeated.id == assigned.id
+        order.status = WorkOrderStatus.CLOSED
+        db.commit()
+        with pytest.raises(HTTPException) as finished:
+            assign_work_order(order.id, WorkOrderAssign(crew_user_id=crew.id),
+                              db=db, current_user=admin)
+        assert finished.value.status_code == 409
     finally:
         db.close()
         engine.dispose()

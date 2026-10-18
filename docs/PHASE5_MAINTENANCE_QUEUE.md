@@ -88,3 +88,16 @@ regression verifies before/after audit content and the status-bypass denial.
 This changes the generic-PATCH status behavior intentionally for integrity;
 client workflows should call dedicated lifecycle endpoints. This follow-up is
 provisional until the exact hosted commit CI passes all six jobs.
+
+## Manual crew assignment (follow-up, provisional)
+
+After staff acknowledgement, authorized admin/owner/manager can choose an
+active organization crew member from the existing role-scoped users endpoint.
+The backend accepts assignment only from ACKNOWLEDGED or ASSIGNED, verifies
+both parties' organization and the crew's active property assignment, rejects
+unavailable/inactive users and terminal or in-progress orders, and returns a
+no-op for replaying the exact same assignment. It records genuine assignment
+changes in the existing work-order activity history. No automated dispatch,
+notification, on-call routing or vendor contract is implied. Database-backed
+and authenticated browser regressions accompany this candidate; verify it at
+exact hosted SHA before treating it as delivered.

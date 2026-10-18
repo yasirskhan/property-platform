@@ -483,11 +483,16 @@ def assign_work_order(
     if not wo:
         raise HTTPException(status_code=404, detail="Work order not found")
     _check_access(db, current_user, wo)
+    if wo.status not in (WorkOrderStatus.ACKNOWLEDGED, WorkOrderStatus.ASSIGNED):
+        raise HTTPException(
+            status_code=409,
+            detail="Acknowledge the work order before assigning; active or finished work cannot be reassigned.",
+        )
 
-    # Verify the crew member exists, is crew, and is assigned to this property
+    # Verify the crew member exists, is crew, active, and assigned to this property
     crew = db.query(User).filter(User.id == payload.crew_user_id).first()
-    if not crew or crew.role != UserRole.CREW:
-        raise HTTPException(status_code=400, detail="Invalid crew member")
+    if not crew or crew.role != UserRole.CREW or not crew.is_active:
+        raise HTTPException(status_code=400, detail="Invalid or inactive crew member")
     prop = _get_property_for_work_order(db, wo)
     if crew.organization_id != prop.organization_id:
         raise HTTPException(status_code=403, detail="Crew member is not in this organization")
@@ -503,6 +508,8 @@ def assign_work_order(
     )
     if not assigned:
         raise HTTPException(status_code=400, detail="Crew member is not assigned to this property")
+    if wo.status == WorkOrderStatus.ASSIGNED and wo.assigned_to_id == crew.id:
+        return wo
 
     old = wo.status
     wo.assigned_to_id = crew.id

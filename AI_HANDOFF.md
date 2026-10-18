@@ -1,3 +1,9 @@
+# 2026-10-18 | PHASE 5 STAFF CREW-ASSIGNMENT SAFEGUARDS (DETACHED)
+
+Prepared a user-facing work-order crew selector and Assign action for acknowledged/assigned work orders; it uses the existing role-scoped `GET /users?role=crew` and `POST /work-orders/{id}/assign`, both with server-side authorization. Hardened the existing assignment endpoint to reject assignment before acknowledgement and after the work begins or finishes, require an active crew member with a verified property assignment, and make identical replay a no-op. Added DB regression and browser presence check. Does not implement automatic dispatch or vendor handling; not published and not CI verified. Publish on the sole authorized branch only after earlier exact-head CI passes and then require another all-six-job run. No main or unrelated repo edits.
+
+---
+
 # 2026-10-18 | PHASE 5 GENERIC PATCH AUDIT/STATUS SAFETY (DETACHED)
 
 Prepared another bounded work-order lifecycle security change atop the previously staged role/organization hardening: generic `PATCH /work-orders/{id}` no longer accepts direct `status` changes (409); dedicated audited lifecycle endpoints retain control. Accepted edit fields, their immutable before/after audit event and the status/history entry now commit atomically, rather than writing status before a separate history commit. Added database-backed regression checking audit content, one-event replay and rejection of status bypass. This follow-up is NOT yet published or verified; verify the sole authorized live branch's earlier six-job CI, then fast-forward only with expected SHA and verify its own all-six-job CI. Do not touch main, create branches or change Zargul. Full Phase 5 not complete.
