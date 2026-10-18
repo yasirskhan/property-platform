@@ -123,3 +123,16 @@ work-order activity trail rather than being copied into the global audit
 ledger. The API enforces the UI's 2,000-character comment limit. Changes are
 transactional and regression-tested; full hosted six-job CI is required
 before declaring the batch VERIFIED.
+
+## Role-scoped operational queue counters (prepared, CI pending)
+
+A read-only `GET /work-orders/summary` provides five counts of work orders
+that the current actor is permitted to see: open (anything not closed or
+cancelled), emergency open, acknowledged but not yet crew-assigned, in progress,
+and completed awaiting close. The query uses the same organization/property,
+manager-assignment, tenant and crew isolation as the ordinary list, with
+DISTINCT work-order IDs so duplicate assignments cannot inflate totals.
+Summary counters appear above filters; they reflect all authorized orders,
+not just current list filters. On failed summary reads, the interface shows
+"Summary unavailable" rather than reporting a misleading zero. Tests prove
+foreign organizations and unauthorized properties remain excluded.

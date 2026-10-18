@@ -1,3 +1,13 @@
+# 2026-10-18 | NEXT PHASE 5 QUEUE SUMMARY BATCH — DETACHED, NOT VERIFIED
+
+Current authorized branch `chatgpt/checkpoint-005-safety` at preparation: `bf39810e6291938c4c4e1fc20d5a514f22d1bc0a`. Its work-order audit CI `39170534109` had Platform Admin, Security and Frontend green, while the full backend/PostgreSQL job was still running. The last fully six-job-green commit is `d33ce8371920a2cd9dfef9377fdd394fcb39a20a` (run `39168393313`).
+
+This detached candidate adds `GET /work-orders/summary`, reusing exactly the authorization/scoped WorkOrder list query to compute database-side DISTINCT counts of open, emergency-open, acknowledged/unassigned, in-progress and completed/awaiting-close work orders. It adds the corresponding five dashboard counter cards and database regressions for admin, manager, tenant, crew and foreign organization isolation, including a rogue cross-organization manager assignment. No customer mutation or new product gate is introduced.
+
+**NEXT EXECUTION:** Verify all six jobs of `39170534109` at its exact SHA. If green, and LIVE authorized branch HEAD is still exactly `bf39810...`, promote this descendant using `expected_sha` fast-forward with `force=false`; then verify its exact-SHA six-job CI, repair any failures and update this handoff with verified proof. If red, repair the current branch first and reconcile/recreate detached changes onto the repair before promotion. Do not touch main, another branch or the Zargul repository. Full DoorLoop customer import remains blocked on an approved vendor source contract; neither Phase 4.17 nor Phase 5 is complete.
+
+---
+
 # 2026-10-18 | PHASE 5 WORK-ORDER IMMUTABLE AUDIT COVERAGE — CI REQUIRED
 
 Last exact verified branch checkpoint is `d33ce8371920a2cd9dfef9377fdd394fcb39a20a` (hosted Actions `39168393313` SUCCESS in all six jobs). This successor changes `backend/app/routers/work_orders.py` to write a scoped append-only audit entry in the same transaction as each existing work-order lifecycle status event, preserving before and after enum values. Crew assignments additionally record previous/new crew IDs; replay of an unchanged assignment returns without new events. Work-order comments record only activity IDs in the ledger, not the body; the backend now caps comments at 2,000 characters, matching the UI. Regression tests cover organization/actor attribution, states and no duplicate records. Changes do not enable automatic dispatch, customer account posting, or vendor access.
