@@ -3,6 +3,7 @@
 No outbound API calls, customer record creation, accounting or source ingestion.
 """
 import hashlib
+from pydantic import BaseModel, ConfigDict, Field
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
@@ -153,6 +154,41 @@ async def inspect_rentmanager_source_headers(
         "source_rows_returned": False,
         "raw_source_stored": False,
         "staging_mutation": False,
+        "customer_business_mutation": False,
+    }
+
+
+class RentManagerMappingProposal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source_headers: list[str] = Field(min_length=1, max_length=200)
+    column_mapping: dict[str, str] = Field(default_factory=dict)
+
+
+@router.post("/runs/{run_id}/review-mapping")
+def review_rentmanager_mapping(
+    run_id: int,
+    payload: RentManagerMappingProposal,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Review column mapping shape without storing or authorizing imports."""
+    get_rentmanager_run(run_id, response, db, current_user)
+    _role(current_user, write=True)
+    headers = payload.source_headers
+    if any(not value.strip() for value in headers) or len(set(headers)) != len(headers):
+        raise HTTPException(status_code=422, detail="Source headers must be distinct and nonempty.")
+    if any(value not in headers for value in payload.column_mapping.values()):
+        raise HTTPException(status_code=422, detail="Mapped column is missing from source headers.")
+    if len(set(payload.column_mapping.values())) != len(payload.column_mapping):
+        raise HTTPException(status_code=422, detail="Source columns may only map once.")
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "run_id": run_id, "provider": "RENTMANAGER",
+        "proposed_mapping": payload.column_mapping,
+        "unmapped_headers": [h for h in headers if h not in payload.column_mapping.values()],
+        "mapping_stored": False, "mapping_authorized": False,
+        "can_stage_import": False, "can_commit_import": False,
         "customer_business_mutation": False,
     }
 
