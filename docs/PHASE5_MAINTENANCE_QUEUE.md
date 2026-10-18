@@ -21,7 +21,7 @@ accessible work-order queue with role-safe filters and pagination:
   **in their own organization**, preventing a stale cross-organization
   assignment from leaking orders. Tenants see their own requests, and
   crew see assigned work orders.
-- UI: `/dashboard/work-orders` supports the above filters, clear,
+- UI: `/dashboard/maintenance/work-orders` supports the above filters, clear,
   page navigation, role-scoped results and empty/error states. Manager
   dashboard links to this page and counts only nonclosed, noncancelled
   work orders.

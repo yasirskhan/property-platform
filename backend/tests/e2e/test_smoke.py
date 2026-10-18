@@ -90,7 +90,7 @@ def test_login_and_core_authenticated_pages() -> None:
                 expect(page).not_to_have_url(re.compile(r"/login"))
 
             page.goto(
-                f"{BASE_URL}/dashboard/work-orders",
+                f"{BASE_URL}/dashboard/maintenance/work-orders",
                 wait_until="domcontentloaded",
             )
             expect(
