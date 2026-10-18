@@ -3,6 +3,7 @@
 No outbound API calls, customer record creation, accounting or source ingestion.
 """
 import hashlib
+import json
 from pydantic import BaseModel, ConfigDict, Field
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
@@ -16,6 +17,7 @@ from app.models.user import Organization
 from app.routers.platform_auth import get_current_platform_user
 from app.schemas.rentmanager_migration import RentManagerRunCreateIn, RentManagerRunOut
 from app.services.audit import append_audit_log
+from app.services.rentmanager_source_preview import assess_source_rows
 
 
 router = APIRouter(prefix="/api/platform/migrations/rentmanager", tags=["Platform RentManager Migration"])
@@ -210,6 +212,51 @@ def review_rentmanager_mapping(
         "can_stage_import": False, "can_commit_import": False,
         "customer_business_mutation": False,
     }
+
+
+@router.post("/runs/{run_id}/preview-source-quality")
+async def preview_rentmanager_source_quality(
+    run_id: int,
+    response: Response,
+    file: UploadFile = File(...),
+    sheet_name: str | None = Form(default=None),
+    column_mapping_json: str = Form(...),
+    identity_field: str | None = Form(default=None),
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Aggregate quality diagnostics only: no source rows retained or returned."""
+    _role(current_user, write=True)
+    run = db.query(PlatformMigrationRun).filter(
+        PlatformMigrationRun.id == run_id,
+        PlatformMigrationRun.provider == "RENTMANAGER",
+    ).first()
+    if run is None:
+        raise HTTPException(status_code=404, detail="RentManager migration run not found.")
+    _organization(db, run.organization_id)
+    try:
+        mapping = json.loads(column_mapping_json)
+        if not isinstance(mapping, dict):
+            raise ValueError("Column mapping must be an object.")
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=422, detail="Invalid column mapping JSON.")
+    try:
+        filename = _safe_filename(file.filename or "")
+        content = await file.read(MAX_FILE_BYTES + 1)
+        parsed = _parse_file(filename, content, sheet_name)
+    except AppFolioFileIngestionError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    try:
+        proposal = RentManagerMappingProposal(source_headers=parsed.headers, column_mapping=mapping)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail="Invalid column mapping proposal.") from exc
+    review_rentmanager_mapping(run.id, proposal, Response(), db, current_user)
+    if identity_field is not None and (len(identity_field) > 100 or identity_field not in mapping):
+        raise HTTPException(status_code=422, detail="Identity field must be a proposed mapping key.")
+    result = assess_source_rows(parsed.rows, mapping, identity_field)
+    response.headers["Cache-Control"] = "no-store"
+    return {"run_id": run.id, "provider": "RENTMANAGER",
+            "source_file_sha256": hashlib.sha256(content).hexdigest(), **result}
 
 
 @router.post("/runs", response_model=RentManagerRunOut, status_code=status.HTTP_201_CREATED)
