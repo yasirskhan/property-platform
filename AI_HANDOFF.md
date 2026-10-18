@@ -1,3 +1,15 @@
+# 2026-10-17 | PHASE 4.16 FOUNDATION CLOSEOUT GATE
+
+**Last six-job VERIFIED:** `d04ebf72424e72582d21a9bf36a06edd40f5a639`; GitHub Actions `39088370010` SUCCESS.
+
+**Provisional foundation completion batch:** `d3c57f2a66c10999f9afd7ad6e38bc3f3392140a` adds nonpersistent source-inspection SHA-256; `a9a57c9659fe991716a28efccbc3722e9c7b642d` checks exact bytes-to-hash identity; `e7bc0431b6db1b8606442edf02c36f156e0b2a5c` updates `docs/RENTMANAGER_MIGRATION_PLAN.md` with an explicit source-independent foundation completion definition and a truthful vendor-contract blocked workstream. These changes require exact-final-SHA full hosted CI success before VERIFIED.
+
+**Distinguish:** Phase 4.16 **foundation** (runs, platform roles, provider/org isolation, audit, deny-by-default readiness, bounded source file header/column inventory/fingerprint inspection) from **full customer-data migration** (blocked on authoritative vendor schema and API contract). Do not claim Phase 4.16 full import is complete, nor reopen endless incremental validation without a sourced next feature. Move to the next independently deliverable roadmap item only after the foundation's exact-SHA CI is green; keep source-contract integration backlog explicit.
+
+**Safety:** sole `chatgpt/checkpoint-005-safety` branch; never touch main/new branches/force/other repos.
+
+---
+
 # 2026-10-17 | PHASE 4.16 SOURCE COLUMN INVENTORY
 
 **Last fully verified:** `c341c2921ff4f90bbd73795d3b019ae474e14567`, GitHub Actions `39086288786`, SUCCESS, including bounded CSV/XLSX read-only source inspection and no-store response.
