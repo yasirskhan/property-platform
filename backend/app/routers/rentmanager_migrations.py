@@ -2,8 +2,9 @@
 
 No outbound API calls, customer record creation, accounting or source ingestion.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
+from app.services.appfolio_file_ingestion import MAX_FILE_BYTES, AppFolioFileIngestionError, _parse_file, _safe_filename
 
 from app.core.database import get_db
 from app.models.platform_migration import PlatformMigrationRun
@@ -98,6 +99,44 @@ def rentmanager_run_source_readiness(
         "controlled_commit_enabled": False,
         "customer_business_mutation": False,
         "blocker": "No independently verified RentManager export or API source contract.",
+    }
+
+
+@router.post("/runs/{run_id}/inspect-source")
+async def inspect_rentmanager_source_headers(
+    run_id: int,
+    file: UploadFile = File(...),
+    sheet_name: str | None = Form(default=None),
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+):
+    """Bounded, nonpersistent CSV/XLSX header discovery; NOT an import contract."""
+    _role(current_user, write=True)
+    run = db.query(PlatformMigrationRun).filter(
+        PlatformMigrationRun.id == run_id,
+        PlatformMigrationRun.provider == "RENTMANAGER",
+    ).first()
+    if run is None:
+        raise HTTPException(status_code=404, detail="RentManager migration run not found.")
+    _organization(db, run.organization_id)
+    try:
+        filename = _safe_filename(file.filename or "")
+        contents = await file.read(MAX_FILE_BYTES + 1)
+        parsed = _parse_file(filename, contents, sheet_name)
+    except AppFolioFileIngestionError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {
+        "run_id": run.id,
+        "provider": "RENTMANAGER",
+        "file_format": parsed.file_format,
+        "sheet_name": parsed.sheet_name,
+        "headers": parsed.headers,
+        "row_count": len(parsed.rows),
+        "source_contract_verified": False,
+        "source_rows_returned": False,
+        "raw_source_stored": False,
+        "staging_mutation": False,
+        "customer_business_mutation": False,
     }
 
 
