@@ -8,7 +8,7 @@ from app.models.platform_user import PlatformUserRole
 from app.routers.rentmanager_migrations import (
     create_rentmanager_run, get_rentmanager_run, list_rentmanager_runs,
     get_rentmanager_resource_readiness, rentmanager_run_source_readiness,
-    inspect_rentmanager_source_headers,
+    inspect_rentmanager_source_headers, review_rentmanager_mapping, RentManagerMappingProposal,
 )
 from app.schemas.rentmanager_migration import RentManagerRunCreateIn
 from test_yardi_migrations import _session, _org, _platform_user
@@ -305,6 +305,47 @@ def test_rentmanager_source_inspection_rejects_unsupported_formats():
                 None, db, admin,
             ))
         assert err.value.status_code == 422
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_rentmanager_mapping_review_does_not_stage_or_authorize_records():
+    from app.models.platform_migration import PlatformMigrationUpload
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "rentmanager-review-proposals")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="RENTMANAGER",
+            source_account_ref="export", status="DRAFT",
+        )
+        db.add(run)
+        db.commit()
+        result = review_rentmanager_mapping(
+            run.id,
+            RentManagerMappingProposal(
+                source_headers=["Property ID", "Unit ID"],
+                column_mapping={"source_id": "Property ID"},
+            ),
+            Response(), db, admin,
+        )
+        assert result["unmapped_headers"] == ["Unit ID"]
+        assert result["mapping_stored"] is False
+        assert result["mapping_authorized"] is False
+        assert result["can_stage_import"] is False
+        assert result["can_commit_import"] is False
+        assert db.query(PlatformMigrationUpload).count() == 0
+        with pytest.raises(HTTPException) as error:
+            review_rentmanager_mapping(
+                run.id,
+                RentManagerMappingProposal(
+                    source_headers=["Property ID"],
+                    column_mapping={"source_id": "Unknown"},
+                ),
+                Response(), db, admin,
+            )
+        assert error.value.status_code == 422
     finally:
         db.close()
         engine.dispose()
