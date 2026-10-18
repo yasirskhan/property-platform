@@ -1,3 +1,15 @@
+# 2026-10-17 | PHASE 4.16 RENTMANAGER ACTIVE
+
+**Fully VERIFIED exact-SHA:** `5feb32672c116f91d80d97ba0069a1da08e34719`; hosted CI `39082768540` SUCCESS, covering the Phase 4.16 contract-gated provider-labelled run foundation, role/provider isolation, audit and no-mutating readiness.
+
+**Latest provisional code:** `2cd66d01015a2451f36be6fce6d95422689d0a3a` adds inactive-organization and support read-only/billing deny regressions; `f0f39864445a1154b658176ee26dec7902162edf` excludes inactive organizations from unfiltered RentManager run results; `5ee182aebea2003e2adf2cabd80b774cb1dbbac3` verifies that unfiltered listing behavior. New SHA requires its own hosted six-job SUCCESS; fix red jobs before advancing verified marker.
+
+**Phase transition:** Phase 4.15 supported Yardi file staging, explicit review, safe metadata source-to-existing-target bindings and read-only reconciliation are frozen. This is not an assertion of full Yardi financial, lease, owner-allocation or API integration: those remain source-contract blocked. Next development is Phase 4.16 RentManager; do not reopen the Yardi counter-test loop. No undocumented provider API, customer business mutation or accounting posting.
+
+**Safety:** only `chatgpt/checkpoint-005-safety`, no main, new branch, force, or unrelated repo. Continue implementation and exact-SHA CI verification on supported Phase 4.16 tasks.
+
+---
+
 # 2026-10-17 | PHASE 4.15 SCOPE FREEZE → PHASE 4.16 RENTMANAGER STARTED
 
 **Decision:** Stop cycling on minor Yardi staging counters. Yardi Phase 4.15 source-supported export/ETL foundation is implemented, with the last fully verified product checkpoint `f4abf6f18bdf69402f74af16fbb924dd5c9194da` (Actions `39080243914`, SUCCESS). The subsequent Yardi blocked-review-parent summary batch `27c332522cdc9d4aaa2a7b31945de86beba032fa` had active hosted CI at this transition and was NOT separately certified green. Preserve this gate; do not rewrite history.
