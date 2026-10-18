@@ -48,7 +48,12 @@ def list_rentmanager_runs(
     current_user: PlatformUser = Depends(get_current_platform_user),
 ):
     _role(current_user, write=False)
-    query = db.query(PlatformMigrationRun).filter(PlatformMigrationRun.provider == "RENTMANAGER")
+    query = db.query(PlatformMigrationRun).join(
+        Organization, Organization.id == PlatformMigrationRun.organization_id,
+    ).filter(
+        PlatformMigrationRun.provider == "RENTMANAGER",
+        Organization.is_active.is_(True),
+    )
     if organization_id is not None:
         _organization(db, organization_id)
         query = query.filter(PlatformMigrationRun.organization_id == organization_id)
