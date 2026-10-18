@@ -25,10 +25,10 @@ def test_doorloop_rejects_sales_role():
 
 def test_doorloop_create_rejects_support_before_database_mutation():
     from app.routers.doorloop_migrations import create_doorloop_run
-    from app.schemas.rentmanager_migration import RentManagerRunCreateIn
+    from app.schemas.doorloop_migration import DoorLoopRunCreateIn
     user = PlatformUser(role=PlatformUserRole.PLATFORM_SUPPORT)
     with pytest.raises(HTTPException) as error:
-        create_doorloop_run(RentManagerRunCreateIn(
+        create_doorloop_run(DoorLoopRunCreateIn(
             organization_id=1, source_account_ref="customer-export",
         ), db=None, user=user)
     assert error.value.status_code == 403
