@@ -1,3 +1,11 @@
+# 2026-10-18 | RENTMANAGER VERIFIED BASELINE AND SOURCE CONTRACT GATE
+
+Verified exact SHA `204135957b0debc518e8a52beea6dda940de40b2` — GitHub Actions `39133733722` SUCCESS. The full source-independent RentManager run/inspection/field-mapping review/quality-preview/export-fingerprint foundation is green. Provisional documentation commit `f627ae711372e4f3715aae6e71f330142b989f72` updates `docs/RENTMANAGER_MIGRATION_PLAN.md` to accurately reflect that verified baseline and the evidence required before real staged imports. Verify subsequent exact-SHA CI.
+
+**DO NOT CONTINUE WITH LOW-IMPACT INSPECTION METRICS.** Full Phase 4.16 customer import is gated on an authorized real Rent Manager source sample and source contract (edition/resource record grain, IDs, relationships, accounting semantics). Without that, customer migration would fabricate assumptions. Either obtain source evidence or move to other independently deliverable roadmap work after live state review. Sole branch `chatgpt/checkpoint-005-safety`; never main/new branch/force-push/other repo.
+
+---
+
 # 2026-10-18 | PHASE 4.16 INSPECTED FILE FINGERPRINT BINDING
 
 **Last exact-SHA verified:** `1787bbe3f2796afdbee8570a9fc29e289f13d9df`, GitHub Actions `39128208620`, SUCCESS all six jobs.
