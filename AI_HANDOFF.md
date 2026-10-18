@@ -1,3 +1,13 @@
+# 2026-10-18 | RENTMANAGER SOURCE FILE REVIEW METADATA
+
+**Last exact-SHA VERIFIED:** `c4d6166c8346867f7d4ed659f3487cd063363132`, Actions `39094866545` SUCCESS (Phase 4.16 inspection and no-import authorization boundary).
+
+**New provisional batch:** `8eb123c8519a0fbc46608430e7be4d8c0e507504` adds bounded `source_file_bytes` to read-only RentManager file inspection, alongside source SHA256, headers and row count. `903258a967f9bb5c1a99165a4f56a03441c7371b` asserts byte-accurate review metadata. Must verify final SHA six-job hosted CI before marking verified.
+
+**Phase status:** Source-independent RentManager foundation and inspection path verified; full importer is source-contract/customer-authorization blocked. Prioritize substantive import contract integration only with actual verified provider fields; avoid micro-counter-only development indefinitely. Keep only `chatgpt/checkpoint-005-safety`; no main/new branch/force-push.
+
+---
+
 # 2026-10-17 | RENTMANAGER INSPECTION AUTHORIZATION BOUNDARY
 
 **Last exact SHA VERIFIED:** `91a6c15081261fd49d6dafb1b31530295957d0f4`, GitHub Actions `39093417770` SUCCESS all required jobs.
