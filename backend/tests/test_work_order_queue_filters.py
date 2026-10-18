@@ -11,7 +11,7 @@ from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
 from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
-from app.routers.work_orders import (list_work_orders, work_order_queue_summary, _user_can_access_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order, add_comment, requestable_work_order_units)
+from app.routers.work_orders import (list_work_orders, work_order_queue_summary, _user_can_access_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
 from app.models.audit_log import AuditLog
 from app.models.lease import Lease, LeaseStatus
 from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderCreate, WorkOrderComment
@@ -444,6 +444,38 @@ def test_maintenance_intake_units_enforce_lease_and_actual_organization():
                 db=db, current_user=admin,
             )
         assert staff_crossed.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_possible_duplicate_intake_never_exposes_unrelated_work_orders():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other_tenant, crew, outside = actors
+        a, b, c, d = orders
+
+        def search(user, unit, term):
+            return possible_duplicate_work_orders(
+                unit_id=unit, title=term, db=db, current_user=user
+            )
+
+        assert [item["id"] for item in search(admin, a.unit_id, "100")] == [b.id, a.id]
+        assert [item["id"] for item in search(manager, a.unit_id, "100")] == [b.id, a.id]
+        assert [item["id"] for item in search(tenant, a.unit_id, "100")] == [b.id, a.id]
+        assert [item["id"] for item in search(crew, a.unit_id, "100")] == [a.id]
+        assert search(other_tenant, a.unit_id, "100") == []
+        assert search(outside, a.unit_id, "100") == []
+        assert search(tenant, d.unit_id, "Outside") == []
+        assert [item["id"] for item in search(admin, a.unit_id, "100%")] == [a.id]
+
+        a.status = WorkOrderStatus.CLOSED
+        b.status = WorkOrderStatus.CANCELLED
+        db.commit()
+        assert search(admin, a.unit_id, "100") == []
+        with pytest.raises(HTTPException) as invalid:
+            search(admin, a.unit_id, "   ")
+        assert invalid.value.status_code == 422
     finally:
         db.close()
         engine.dispose()
