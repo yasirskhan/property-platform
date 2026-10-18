@@ -282,6 +282,14 @@ Each gets its own sub-phase with its own section in the master doc.
 - Direct/API-assisted Yardi migration — **Phase 4.15**
 - Direct/API-assisted RentManager migration — **Phase 4.16**
 - Direct/API-assisted DoorLoop migration — **Phase 4.17**
+  - **2026-10-18 provisional source-independent milestone:** secured DoorLoop
+    DRAFT run creation/list/get and audit, nonpersistent bounded CSV/XLSX export
+    inventory, exact-file-fingerprint read-only source-quality diagnostics,
+    staff roles and provider/active-organization isolation. See
+    `docs/DOORLOOP_MIGRATION_PLAN.md`. Verify the final SHA's six-job hosted
+    CI before marking this foundation verified. Actual customer imports stay
+    blocked by authorized, versioned source exports and verified resource,
+    relationship and accounting contracts.
 
 Detailed Phase 4.13 contract:
 `docs/APPFOLIO_MIGRATION_IMPORT_PLAN.md`.

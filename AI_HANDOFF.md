@@ -1,3 +1,13 @@
+# 2026-10-18 | PHASE 4.17 DOORLOOP GROUPED IMPLEMENTATION (PROVISIONAL)
+
+**Parent:** `5d3a9d68026f1311ef8832e9d2f0848808453f34`, hosted CI `39143509329` was still running at grouped milestone preparation. Last earlier fully verified checkpoint `1e22e3775e8fdede72abb534ddf00861f07060e4`, run `39139767746` SUCCESS. Verify parent six-job run, exact live branch HEAD and only fast-forward the authorized branch with expected SHA.
+
+**Substantive grouped code:** DoorLoop run-specific source readiness, bounded nonpersistent CSV/XLSX export inspection (file SHA-256, column inventory and row count, no echoed source rows), explicit run API response-field allowlist, and fingerprint-bound read-only quality preview for staff-proposed fields/identity (missing values, duplicate nonempty identities). Adds durable run/audit/provider/inactive-org/role regressions, a real PostgreSQL persistence test with independent session, export security/permission tests, and source-quality/fingerprint rejection tests. Only ADMIN/TECH/DEV can inspect/review; SUPPORT is read only. No customer records, source staging, provider credentials, finance, leases, official API or commit path added. Updated `docs/DOORLOOP_MIGRATION_PLAN.md` and `docs/PLAN_GAPS.md`.
+
+**Verification:** All changes in this group are PROVISIONAL pending the new grouped exact-SHA full six-job GitHub Actions success. Do not claim Phase 4.17 complete; DoorLoop provider-specific imports still require authentic approved source export/API, stable identifiers/relationships, finance semantics, and authorization. Next exact task is final SHA CI review and repair, then either verified source-contract-backed staging or another independent roadmap feature. No main, new branch, force-push or other repository.
+
+---
+
 # 2026-10-18 | PHASE 4.17 DOORLOOP PROVIDER INPUT FOLLOW-UP
 
 Provisional additions after prior handoff: `fc1ee18061c58c560799c3d5194cf57d9066e7b9` adds dedicated `backend/app/schemas/doorloop_migration.py`, inheriting bounded nonsecret source-ref validation; `39ad779726f58854ebc69092100e12070ceeaf5f` binds create handler to it; `028fc741aa1b9b54967a0a28915d666f36aeb3e8` updates regression. Exact SHA `028fc741...` CI `39143477837` pending at last check; after this handoff commit, verify FINAL live SHA six-job CI before VERIFIED. Provider-specific customer data import NOT enabled; next check database provider normalization, role/tenant scoping and creation audit under PostgreSQL, then continue staged source discovery only with real source contract. Sole authorized branch `chatgpt/checkpoint-005-safety`; no main, extra branch, force push, or other repo.
