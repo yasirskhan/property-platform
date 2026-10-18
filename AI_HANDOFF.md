@@ -1,3 +1,9 @@
+# 2026-10-18 | PHASE 4.17 DOORLOOP PROVIDER INPUT FOLLOW-UP
+
+Provisional additions after prior handoff: `fc1ee18061c58c560799c3d5194cf57d9066e7b9` adds dedicated `backend/app/schemas/doorloop_migration.py`, inheriting bounded nonsecret source-ref validation; `39ad779726f58854ebc69092100e12070ceeaf5f` binds create handler to it; `028fc741aa1b9b54967a0a28915d666f36aeb3e8` updates regression. Exact SHA `028fc741...` CI `39143477837` pending at last check; after this handoff commit, verify FINAL live SHA six-job CI before VERIFIED. Provider-specific customer data import NOT enabled; next check database provider normalization, role/tenant scoping and creation audit under PostgreSQL, then continue staged source discovery only with real source contract. Sole authorized branch `chatgpt/checkpoint-005-safety`; no main, extra branch, force push, or other repo.
+
+---
+
 # 2026-10-18 | PHASE 4.17 DOORLOOP RUN MANAGEMENT
 
 Last exact SHA VERIFIED: `1e22e3775e8fdede72abb534ddf00861f07060e4`, hosted CI `39139767746` SUCCESS.
