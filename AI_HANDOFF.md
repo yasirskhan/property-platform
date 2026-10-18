@@ -1,3 +1,9 @@
+# 2026-10-18 | MAINTENANCE SIMILARITY FOLLOW-UP BROWSER TEST (DETACHED)
+
+A further prepared test `backend/tests/e2e/test_work_order_detail_e2e.py` submits a new maintenance request via the actual signed-in form, verifies that it redirects to a work-order detail, and supplements a separate check of the similar-request review against an existing authorized order. These tests are not CI-verified. This detached commit is a successor to `4813686772d5c289f69a6cfc73b4d558eaac9f27`; before publication, verify its six-job Actions `39173312018` and the live branch SHA. Publish only fast-forward, never force-push or touch other branches/repos; verify a new six-job run for the resulting SHA.
+
+---
+
 # 2026-10-18 | SIMILAR WORK-ORDER REVIEW, PREPARED
 
 Previous published HEAD: 4813686772d5c289f69a6cfc73b4d558eaac9f27. Workflow 39173312018 requires all six job successes before next promotion. This detached descendant adds read-only title-match suggestions for already visible, nonterminal work orders in the chosen unit, a review control on the maintenance intake form, and database and browser regressions. It does not auto-block intake or expand organization/role permissions. Before publication, verify the previous CI and exact branch head. Publish only non-force with expected SHA, then verify the new hosted CI at its exact SHA. No main, other branches or unrelated repositories. Phase 5 remains incomplete.
