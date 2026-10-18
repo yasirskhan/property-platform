@@ -90,6 +90,20 @@ def test_login_and_core_authenticated_pages() -> None:
                 expect(page).not_to_have_url(re.compile(r"/login"))
 
             page.goto(
+                f"{BASE_URL}/dashboard/work-orders",
+                wait_until="domcontentloaded",
+            )
+            expect(
+                page.get_by_role("heading", name="Work Orders", exact=True)
+            ).to_be_visible()
+            expect(page.get_by_role("button", name="Apply filters", exact=True)).to_be_visible()
+            page.get_by_label("Search work orders").fill("no such work order")
+            page.get_by_role("button", name="Apply filters", exact=True).click()
+            expect(
+                page.get_by_text("No work orders match these filters.", exact=True)
+            ).to_be_visible(timeout=15_000)
+
+            page.goto(
                 f"{BASE_URL}/dashboard/accounting/receipts",
                 wait_until="domcontentloaded",
             )

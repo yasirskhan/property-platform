@@ -1,3 +1,9 @@
+# 2026-10-18 | PHASE 5 MAINTENANCE QUEUE BROWSER & PLAN (DETACHED)
+
+Added authenticated browser search/empty-state regression to existing `backend/tests/e2e/test_smoke.py` for `/dashboard/work-orders`, plus `docs/PHASE5_MAINTENANCE_QUEUE.md` defining exact scope, compatibility, security and remaining Phase 5 work. This candidate and its parents remain detached until the published DoorLoop CI `39164737599` at exact SHA `90acf0013c1b0534fd0260b862e78c0ccc944c12` succeeds in all six jobs. After publication, the next exact-SHA hosted run must verify **all** jobs; no local or detached results may be labeled VERIFIED. Sole branch `chatgpt/checkpoint-005-safety`; no main, other repository, or force.
+
+---
+
 # 2026-10-18 | PHASE 5 MAINTENANCE CROSS-ORG ASSIGNMENT FAIL CLOSED (DETACHED)
 
 Additional independent security regression on the prepared work-order queue: existing Manager work-order list/get authorization now requires the assigned property's organization to match the manager's own organization, even if a stale/incorrect cross-organization `PropertyAssignment` row exists. Integration fixture intentionally seeds such a rogue association and verifies foreign work orders remain invisible both in list and detail-access checks. This is provisional code on a detached successor to Phase 5 work-order queue candidate; run full exact-SHA hosted CI after conditional publication. Do not claim Phase 5 complete or change main/another repo. DoorLoop import stays vendor-contract blocked.
