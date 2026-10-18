@@ -194,6 +194,9 @@ def review_rentmanager_mapping(
         for field in payload.column_mapping
     ):
         raise HTTPException(status_code=422, detail="Credential fields are not accepted in migration mapping.")
+    forbidden_headers = ("password", "secret", "token", "cookie", "authorization", "bearer", "apikey", "api_key")
+    if any(any(key in header.casefold() for key in forbidden_headers) for header in headers):
+        raise HTTPException(status_code=422, detail="Credential or session source columns are not accepted.")
     if any(value not in headers for value in payload.column_mapping.values()):
         raise HTTPException(status_code=422, detail="Mapped column is missing from source headers.")
     if len(set(payload.column_mapping.values())) != len(payload.column_mapping):
