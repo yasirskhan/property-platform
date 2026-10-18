@@ -94,3 +94,63 @@ def test_rentmanager_resource_readiness_blocks_unverified_transports():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_rentmanager_inactive_organization_is_rejected_on_create_and_read():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "rentmanager-inactive-org")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="RENTMANAGER",
+            source_account_ref="existing", status="DRAFT",
+        )
+        db.add(run)
+        db.commit()
+        org.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException) as create_denied:
+            create_rentmanager_run(
+                RentManagerRunCreateIn(organization_id=org.id, source_account_ref="new"),
+                db, admin,
+            )
+        assert create_denied.value.status_code == 404
+        with pytest.raises(HTTPException) as read_denied:
+            get_rentmanager_run(run.id, Response(), db, admin)
+        assert read_denied.value.status_code == 404
+        with pytest.raises(HTTPException) as list_denied:
+            list_rentmanager_runs(Response(), org.id, 100, db, admin)
+        assert list_denied.value.status_code == 404
+        assert db.query(PlatformMigrationRun).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_rentmanager_support_read_only_and_billing_denied():
+    db, engine = _session()
+    try:
+        support = _platform_user(db, PlatformUserRole.PLATFORM_SUPPORT)
+        billing = _platform_user(db, PlatformUserRole.PLATFORM_BILLING)
+        org = _org(db, "rentmanager-support-readonly")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="RENTMANAGER",
+            source_account_ref="existing", status="DRAFT",
+        )
+        db.add(run)
+        db.commit()
+        assert get_rentmanager_run(run.id, Response(), db, support).id == run.id
+        assert len(list_rentmanager_runs(Response(), org.id, 100, db, support)) == 1
+        with pytest.raises(HTTPException) as write_denied:
+            create_rentmanager_run(
+                RentManagerRunCreateIn(organization_id=org.id, source_account_ref="new"),
+                db, support,
+            )
+        assert write_denied.value.status_code == 403
+        with pytest.raises(HTTPException) as billing_denied:
+            get_rentmanager_run(run.id, Response(), db, billing)
+        assert billing_denied.value.status_code == 403
+        assert db.query(PlatformMigrationRun).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
