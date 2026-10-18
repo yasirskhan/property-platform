@@ -1,3 +1,9 @@
+# 2026-10-18 | RESIDENT WORK-ORDER STATUS LINKS (DETACHED)
+
+In the same Phase 5 intake review successor, the Tenant dashboard now links authorized resident work-order cards to their existing history/detail view, renders the status as a readable badge and moves completed/closed or cancelled cards to the end while retaining relative order. There is no new API access or row visibility. Exact previous CI 39173312018 must be fully green before any safe promotion, and successor six-job CI must verify the final live SHA. Do not touch any other branch or repository.
+
+---
+
 # 2026-10-18 | EMERGENCY INTAKE WARNING (DETACHED)
 
 The prepared maintenance-intake follow-up also displays a visible warning when Emergency is selected: the request form itself does not dispatch responders or guarantee an immediate response. A signed-in browser regression asserts this warning appears, then submits successfully. This is only a user guidance improvement and must not be described as live on-call routing, emergency notifications or completed Smart Maintenance. The changes remain unverified in detached Git history; promote only after the live parent CI is fully green at its exact SHA and only with a safe expected-SHA fast-forward. Verify the successor in six hosted jobs, fix failures and update the handoff. Only the authorized property-platform branch is allowed.
