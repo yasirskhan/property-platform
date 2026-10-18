@@ -1,3 +1,13 @@
+# 2026-10-18 | PHASE 4.16 RENTMANAGER READ-ONLY SOURCE QUALITY PREVIEW
+
+**Last exact-SHA verified:** `3e5e92391bf5a147f23f30dbbdbfea15407cfd80`, GitHub Actions `39123664860`, SUCCESS.
+
+**Latest PROVISIONAL product batch:** `7a660dc1b13e1d0b3ea2d7eae75b5e69f3a7a23a` adds pure `assess_source_rows` quality assessment; `3ef9c6d9d63f973c688fdac8cfc5761805dd6e4a` exposes authenticated `POST /api/platform/migrations/rentmanager/runs/{run_id}/preview-source-quality` using bounded shared CSV/XLSX parser and existing stateless mapping reviewer; `d1f810cc49514848a1dfaacd2d1df1dc1d6c983e` tests missing mapped values, duplicate stable source IDs and no source retention; `4309d29ef48a8a2a94f47eeb8a70cced2d295547` cleans up unused import; `7dbe63e1720a8e28cff0ebbfb3403c06a6ee0357` tests provider/role and identity field safeguards. This is a substantive source quality diagnostic workflow without staging, row exposure, source mapping authorization, customer mutation or financial posting. Verify exact current SHA hosted six-job CI before VERIFIED; fix failures.
+
+**Remaining Phase 4.16:** Actual vendor data migration is still customer-authorization and Rent Manager resource/relationship/accounting-source-contract gated. Do not represent this read-only quality tool as full customer import. Continue with verified contract-backed staging and reconciliation when source evidence is available, not endless tiny fields/counts. Only authorized branch `chatgpt/checkpoint-005-safety`; never main, other branches, force-push or another repository.
+
+---
+
 # 2026-10-18 | PHASE 4.16 RENTMANAGER MAPPING SECURITY
 
 **Last verified exact SHA:** `99eee03b260d10503fbd9bd5825f224803b18f0f`, Actions `39122253734`, SUCCESS six jobs.
