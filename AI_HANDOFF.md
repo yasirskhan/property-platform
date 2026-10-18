@@ -1,3 +1,11 @@
+# 2026-10-18 | PHASE 4.17 DOORLOOP GROUPED CI REPAIR (PROVISIONAL)
+
+Hosted CI `39143509329` SUCCEEDED all six jobs for exact SHA `5d3a9d68026f1311ef8832e9d2f0848808453f34`. The subsequent substantive DoorLoop run/source-inspection/quality-preview batch at `3d1b3c0943c3611b0248ad821068be98c4db3971` FAILED hosted run `39144964373`: backend had 1482 passed, 3 failed, 21 deselected; frontend, security, platform-admin passed, E2E/staging skipped. All three failures in `test_doorloop_inspection_rejects_unsafe_source_files` came from a test setup label `source_account_ref="nonsecret"` that is intentionally blocked by the existing credential-substring validator, before the unsafe export inspection ran. There was no observed production importer failure.
+
+Fix committed at `9fd29b09cb3f11a98516bec4c1674e150585a08e`: change only that regression fixture to an accepted noncredential label `source-export-label`; leave credential validation and negative cases intact. This repair is PROVISIONAL until a hosted six-job SUCCESS at its own exact SHA. Check the newest Actions run and repair any genuine failures, then verify the final live SHA. No DoorLoop customer import, staging, API or accounting is enabled without authenticated approved vendor source contracts. Next substantive milestone: verified authorized DoorLoop export contracts or an independent roadmap feature, not tiny metadata counters. Only `chatgpt/checkpoint-005-safety`; no main/new branch/force/other repo.
+
+---
+
 # 2026-10-18 | PHASE 4.17 DOORLOOP GROUPED IMPLEMENTATION (PROVISIONAL)
 
 **Parent:** `5d3a9d68026f1311ef8832e9d2f0848808453f34`, hosted CI `39143509329` was still running at grouped milestone preparation. Last earlier fully verified checkpoint `1e22e3775e8fdede72abb534ddf00861f07060e4`, run `39139767746` SUCCESS. Verify parent six-job run, exact live branch HEAD and only fast-forward the authorized branch with expected SHA.
