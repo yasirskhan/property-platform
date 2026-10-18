@@ -9,6 +9,7 @@ from app.routers.rentmanager_migrations import (
     create_rentmanager_run, get_rentmanager_run, list_rentmanager_runs,
     get_rentmanager_resource_readiness, rentmanager_run_source_readiness,
     inspect_rentmanager_source_headers, review_rentmanager_mapping, RentManagerMappingProposal,
+    preview_rentmanager_source_quality,
 )
 from app.schemas.rentmanager_migration import RentManagerRunCreateIn
 from test_yardi_migrations import _session, _org, _platform_user
@@ -358,6 +359,44 @@ def test_rentmanager_mapping_review_does_not_stage_or_authorize_records():
             with pytest.raises(HTTPException) as invalid:
                 review_rentmanager_mapping(run.id, payload, Response(), db, admin)
             assert invalid.value.status_code == 422
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_rentmanager_source_quality_preview_reports_aggregates_without_staging():
+    import asyncio
+    import json
+    from io import BytesIO
+    from fastapi import UploadFile
+    from app.models.platform_migration import PlatformMigrationUpload
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "rentmanager-quality-preview")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="RENTMANAGER",
+            source_account_ref="file-export", status="DRAFT",
+        )
+        db.add(run)
+        db.commit()
+        content = b"ID,Name\nX1,Alpha\nX1,\n,Other\nX3,Third\n"
+        response = Response()
+        result = asyncio.run(preview_rentmanager_source_quality(
+            run.id, response,
+            UploadFile(filename="properties.csv", file=BytesIO(content)),
+            None, json.dumps({"source_id": "ID", "name": "Name"}),
+            "source_id", db, admin,
+        ))
+        assert response.headers["cache-control"] == "no-store"
+        assert result["total_rows"] == 4
+        assert result["missing_values_by_proposed_field"] == {"source_id": 1, "name": 1}
+        assert result["duplicate_nonempty_identity_rows"] == 1
+        assert result["rows_returned"] is False
+        assert result["can_stage_import"] is False
+        assert result["can_commit_import"] is False
+        assert result["customer_business_mutation"] is False
+        assert db.query(PlatformMigrationUpload).count() == 0
     finally:
         db.close()
         engine.dispose()
