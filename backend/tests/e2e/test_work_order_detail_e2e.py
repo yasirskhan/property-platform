@@ -70,3 +70,30 @@ def test_authenticated_work_order_detail_and_comment_history() -> None:
             assert page.get_by_role("button", name="Save activity note").count() == 1
         finally:
             browser.close()
+
+
+def test_customer_maintenance_request_form_saves_a_new_order() -> None:
+    with pw.sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page()
+        try:
+            page.goto(BASE_URL + "/login", wait_until="domcontentloaded")
+            page.locator('input[type="email"]').fill(EMAIL)
+            page.locator('input[type="password"]').fill(PASSWORD)
+            page.get_by_role("button", name="Log In", exact=True).click()
+            page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+            page.goto(BASE_URL + "/dashboard/maintenance/work-orders/new", wait_until="domcontentloaded")
+            pw.expect(page.get_by_role("heading", name="New maintenance request")).to_be_visible()
+            page.get_by_label("Maintenance request unit").select_option("900001")
+            page.get_by_label("Maintenance problem title").fill("E2E request form check")
+            page.get_by_label("Maintenance problem description").fill(
+                "A disposable work order submitted from the actual intake form."
+            )
+            page.get_by_label("Maintenance urgency").select_option("high")
+            page.get_by_role("button", name="Submit maintenance request").click()
+            page.wait_for_url(re.compile(r"/maintenance/work-orders/[0-9]+$"), timeout=15_000)
+            pw.expect(
+                page.get_by_role("heading", name=re.compile("E2E request form check"))
+            ).to_be_visible(timeout=15_000)
+        finally:
+            browser.close()
