@@ -154,3 +154,13 @@ Database regressions include cross-organization forged leases and staff
 attempts; authenticated E2E checks the disposable org's authorized unit.
 This is NOT all of the planned smart maintenance intake and is not VERIFIED
 until the final exact-SHA hosted CI passes all jobs.
+
+## Similar requests during intake (new, not CI verified)
+
+The request form now has an optional check for existing open orders for the
+selected unit. It searches the first 80 characters of the entered title and
+shows up to five matches; closed and cancelled work orders are excluded.
+Results use the existing server-side organization and role restrictions.
+The feature does not block intake or decide whether an order is a duplicate.
+Automated tests include different roles, cross-organization restrictions,
+literal wildcard handling and an authenticated browser lookup.
