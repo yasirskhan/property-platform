@@ -223,6 +223,11 @@ def test_rentmanager_source_inspection_is_bounded_read_only_and_provider_scoped(
         assert result["provider"] == "RENTMANAGER"
         assert result["row_count"] == 2
         assert result["headers"] == ["Unit", "Property"]
+        assert result["column_inventory"] == [
+            {"index": 0, "source_header": "Unit", "mapping_status": "UNMAPPED"},
+            {"index": 1, "source_header": "Property", "mapping_status": "UNMAPPED"},
+        ]
+        assert result["suggested_target_fields"] == []
         assert result["source_contract_verified"] is False
         assert result["raw_source_stored"] is False
         assert result["staging_mutation"] is False
