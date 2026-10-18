@@ -348,6 +348,7 @@ def test_rentmanager_mapping_review_does_not_stage_or_authorize_records():
         assert error.value.status_code == 422
         for payload in (
             RentManagerMappingProposal(source_headers=["Unit", "UNIT"], column_mapping={}),
+            RentManagerMappingProposal(source_headers=["Unit", "auth_token"], column_mapping={}),
             RentManagerMappingProposal(source_headers=["Unit"], column_mapping={"api_token": "Unit"}),
             RentManagerMappingProposal(source_headers=["Unit"], column_mapping={"": "Unit"}),
             RentManagerMappingProposal(source_headers=["Unit"], column_mapping={"x" * 101: "Unit"}),
