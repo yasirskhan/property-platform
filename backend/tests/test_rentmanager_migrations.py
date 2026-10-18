@@ -400,3 +400,41 @@ def test_rentmanager_source_quality_preview_reports_aggregates_without_staging()
     finally:
         db.close()
         engine.dispose()
+
+
+def test_rentmanager_source_quality_preview_enforces_provider_and_write_role():
+    import asyncio
+    import json
+    from io import BytesIO
+    from fastapi import UploadFile
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        support = _platform_user(db, PlatformUserRole.PLATFORM_SUPPORT)
+        org = _org(db, "rentmanager-quality-scoping")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI", source_account_ref="other", status="DRAFT",
+        )
+        proper = PlatformMigrationRun(
+            organization_id=org.id, provider="RENTMANAGER", source_account_ref="current", status="DRAFT",
+        )
+        db.add_all([run, proper])
+        db.commit()
+        def preview(run_id, actor, identity="source_id"):
+            return asyncio.run(preview_rentmanager_source_quality(
+                run_id, Response(),
+                UploadFile(filename="source.csv", file=BytesIO(b"ID,Name\n1,One\n")),
+                None, json.dumps({"source_id": "ID"}), identity, db, actor,
+            ))
+        with pytest.raises(HTTPException) as wrong:
+            preview(run.id, admin)
+        assert wrong.value.status_code == 404
+        with pytest.raises(HTTPException) as forbidden:
+            preview(proper.id, support)
+        assert forbidden.value.status_code == 403
+        with pytest.raises(HTTPException) as identity_error:
+            preview(proper.id, admin, identity="unknown")
+        assert identity_error.value.status_code == 422
+    finally:
+        db.close()
+        engine.dispose()
