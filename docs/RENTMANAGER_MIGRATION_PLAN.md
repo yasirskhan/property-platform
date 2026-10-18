@@ -1,6 +1,6 @@
 # PHASE 4.16 — RENTMANAGER MIGRATION FOUNDATION
 
-Status: **FOUNDATION IMPLEMENTED — EXACT-SHA CI VERIFICATION PENDING** (October 17, 2026)
+Status: **SOURCE-INDEPENDENT FOUNDATION VERIFIED; FULL MIGRATION SOURCE-CONTRACT BLOCKED** (October 18, 2026)
 
 ## Decision and release boundary
 
@@ -36,3 +36,9 @@ The repository now implements the source-independent Phase 4.16 foundation: plat
 Rent Manager (London Computer Systems) publicly describes a read/write Rent Manager Online Web API and a separate read-only Open Access database capability: https://www.rentmanager.com/software-customization/ . Rent Manager 12's published Web API technical reference is available at https://info.rentmanager.com/hubfs/PDFs/Technical%20Documentation.pdf . This supersedes any blanket statement that *no official Rent Manager API documentation exists*.
 
 **Contract gate retained:** Public documentation is not authorization to call a customer's account, and by itself does not prove the actual customer's enabled API edition, tenant hostname, authentication setup, resource fields, permissions or financial sign conventions. A separate vetted customer-specific binding and read-only resource adapter must be proven before enabling migration. The application intentionally has no credentials stored in migration run source_account_ref, and API transport remains disabled. Never confuse **Rent Manager property management** with **Rentman event equipment software**, whose unrelated API uses api.rentman.net.
+
+## Verified operational checkpoint — October 18, 2026
+
+At exact SHA `204135957b0debc518e8a52beea6dda940de40b2`, GitHub Actions run `39133733722` finished SUCCESS. Source-independent implementation now includes safe organization/provider-scoped runs, read-only CSV/XLSX inspection and raw-byte SHA-256 identity, staff-proposed field mapping validation, nonpersistent aggregate source-quality preview (missing mapped values and duplicate provided identity), and optional exact inspected-export SHA-256 match for that preview. Staff roles are enforced, source rows are not returned/stored, and no staging, accounting or customer-business mutation is authorized.
+
+**Release gate for full integration:** Obtain customer-authorized Rent Manager export(s) and a documented source contract identifying provider product/edition, resource and row grain, stable record IDs, parent/child relationship keys, null/duplicate behavior, effective dates, financial sign and posting semantics where applicable, and reconciliation totals. Review and approve the contract separately for each resource type. Then build source-contract-specific staging, row-level review, exact fingerprint and idempotent controlled commit with regression tests. Until these inputs exist, provider-specific imports remain BLOCKED. Do not infer source identity rules from arbitrary CSV column labels or pretend an inspection is an approved import.
