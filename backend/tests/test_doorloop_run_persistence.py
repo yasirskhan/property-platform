@@ -212,7 +212,7 @@ def test_doorloop_inspection_rejects_unsafe_source_files(name, data):
         admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
         org = _org(db, "doorloop-invalid-source")
         run = create_doorloop_run(DoorLoopRunCreateIn(
-            organization_id=org.id, source_account_ref="nonsecret",
+            organization_id=org.id, source_account_ref="source-export-label",
         ), db, admin)
         with pytest.raises(HTTPException) as invalid:
             asyncio.run(inspect_doorloop_source_headers(
