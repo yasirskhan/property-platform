@@ -178,6 +178,14 @@ def review_rentmanager_mapping(
     headers = payload.source_headers
     if any(not value.strip() for value in headers) or len(set(headers)) != len(headers):
         raise HTTPException(status_code=422, detail="Source headers must be distinct and nonempty.")
+    if any(len(value) > 255 for value in headers):
+        raise HTTPException(status_code=422, detail="Source header exceeds allowed length.")
+    if len(payload.column_mapping) > 200 or any(
+        not field.strip() or len(field) > 100 or
+        not source.strip() or len(source) > 255
+        for field, source in payload.column_mapping.items()
+    ):
+        raise HTTPException(status_code=422, detail="Proposed mapping fields must be bounded and nonempty.")
     if any(value not in headers for value in payload.column_mapping.values()):
         raise HTTPException(status_code=422, detail="Mapped column is missing from source headers.")
     if len(set(payload.column_mapping.values())) != len(payload.column_mapping):
