@@ -207,6 +207,13 @@ export default function NewMaintenanceRequest() {
             </select>
           </label>
         </div>
+        {priority === "emergency" && (
+          <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+            This form does not dispatch emergency services or guarantee an immediate response.
+            If anyone is in immediate danger, contact local emergency services now.
+            You may also submit this request to document the problem for property staff.
+          </p>
+        )}
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" checked={permission} onChange={(event) => setPermission(event.target.checked)} />
           I authorize property staff to enter for this request, subject to applicable notice requirements.
