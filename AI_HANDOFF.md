@@ -1,3 +1,9 @@
+# 2026-10-18 | OPEN SECURITY REVIEW: MULTI-OWNER PROPERTY SCOPING
+
+Repository source inspection found existing `backend/app/routers/properties.py` treats OWNER as organization-wide in `check_property_access` and `visible_properties_query`; the current work-order visibility and intake paths also treat OWNER as organization-wide. Yet `Property.owner_id` and `PropertyOwner` explicitly model separately owned properties. The master specification calls for one owner's records to stay isolated from another's in multi-owner mode. This is an OPEN cross-module authorization review, not a Phase 5 closure claim. Do not silently modify just one endpoint or treat the organization-level OWNER path as verified multi-owner isolation. The next dedicated batch must reconcile buyer/top-level account admins versus property-specific owner access across Property, Maintenance, reporting, financial, and portal APIs with negative cross-owner tests; preserve simple-owner compatibility. No such access expansion or policy change is included in this detached commit.
+
+---
+
 # 2026-10-18 | RESIDENT WORK-ORDER STATUS LINKS (DETACHED)
 
 In the same Phase 5 intake review successor, the Tenant dashboard now links authorized resident work-order cards to their existing history/detail view, renders the status as a readable badge and moves completed/closed or cancelled cards to the end while retaining relative order. There is no new API access or row visibility. Exact previous CI 39173312018 must be fully green before any safe promotion, and successor six-job CI must verify the final live SHA. Do not touch any other branch or repository.
