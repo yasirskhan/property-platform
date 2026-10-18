@@ -1,3 +1,9 @@
+# 2026-10-18 | PHASE 5 WORK ORDERS NAVIGATION-INTEGRITY REPAIR (PROVISIONAL)
+
+Live `bd0499e2be34a9ce317e67f91a9e441c034c25c8` CI `39166486178`: hosted Backend failed at `python check_navigation.py` with one precise error: `MAINTENANCE.WORK_ORDERS` had a real canonical page but was still in `MENU_ROUTE_BLOCKED_UNTIL`. Published this repair by removing ONLY the parent `MAINTENANCE` and leaf `MAINTENANCE.WORK_ORDERS` from that readiness map; all other unfinished Phase 5 children stay blocked and existing commercial entitlements, role/user rules and personal hide preferences stay authoritative. Reconciled `backend/tests/test_navigation_integrity.py` expectations for the newly visible route and preserved hidden other children, and documented the boundary in `docs/PHASE5_MAINTENANCE_QUEUE.md`. Latest exact-SHA full CI is REQUIRED before calling Phase 5 queue VERIFIED. If CI raises a functional failure, fix and verify before further publication. Do not touch main, other branch or Zargul. DoorLoop customer importing remains authorized-contract blocked.
+
+---
+
 # 2026-10-18 | READY-TO-PUBLISH MAINTENANCE MILESTONE (DETACHED)
 
 **Last exact verified SHA:** `5e28d92a9a2fbae214f3cebfb3bf4c4e14ce58de`, Actions `39158376106` all six SUCCESS. **Current live authorized branch SHA at this preparation:** `90acf0013c1b0534fd0260b862e78c0ccc944c12`; Actions `39164737599` has Security, Frontend and Platform Admin PASS; Backend/PostgreSQL was still running. Do not mark this DoorLoop CSV browser regression verified before all six jobs pass (including authenticated E2E and staging).

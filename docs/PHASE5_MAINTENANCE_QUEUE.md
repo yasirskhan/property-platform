@@ -40,3 +40,14 @@ No recurrence scheduling, auto-dispatch, vendor escalation, messaging,
 purchase orders, work-order-to-bill conversion, field inspections or
 customer accounting mutation. These are separate Phase 5 requirements
 and must not be advertised as complete.
+
+## Route readiness for the first implemented maintenance page
+
+The canonical `MAINTENANCE.WORK_ORDERS` route and its parent `MAINTENANCE`
+are no longer blocked by navigation readiness. This exposes the real
+`/dashboard/maintenance/work-orders` page only through existing entitlement,
+role/user and personal-visibility filters. All remaining Phase 5 maintenance
+routes remain fail-closed until implemented, tested and independently unblocked.
+`backend/tests/test_navigation_integrity.py` verifies the visible parent and
+Work Orders leaf and that all other unfinished maintenance leaves remain hidden.
+This change does **not** open a whole Phase 5 module or grant missing permissions.

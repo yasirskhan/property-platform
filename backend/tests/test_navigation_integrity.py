@@ -53,9 +53,18 @@ def test_unready_routes_never_reach_admin_resolved_menu() -> None:
         for key in MENU_ROUTE_BLOCKED_UNTIL:
             assert key not in keys
 
-        # Entire future containers disappear rather than falling through as
-        # broken leaf links after all of their children are hidden.
-        assert "MAINTENANCE" not in keys
+        # Phase 5 Work Orders is the only route-ready Maintenance leaf.
+        # The parent becomes a visible container only when a child is ready.
+        assert "MAINTENANCE" in keys
+        assert "MAINTENANCE.WORK_ORDERS" in keys
+        for blocked in (
+            "MAINTENANCE.RECURRING", "MAINTENANCE.INSPECTIONS",
+            "MAINTENANCE.UNIT_TURNS", "MAINTENANCE.PROJECTS",
+            "MAINTENANCE.PURCHASE_ORDERS", "MAINTENANCE.INVENTORY",
+            "MAINTENANCE.FIXED_ASSETS", "MAINTENANCE.SMART",
+        ):
+            assert blocked not in keys
+        # Other future containers stay hidden while their leaves are unready.
         assert "COMMUNICATION" not in keys
     finally:
         db.close()

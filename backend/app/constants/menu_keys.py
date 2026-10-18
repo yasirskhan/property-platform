@@ -114,9 +114,7 @@ MENU_ROUTE_BLOCKED_UNTIL = {
     "ACCOUNTING.BANK_TRANSFERS": "TBD (canonical item; customer route not yet scheduled)",
     "ACCOUNTING.ONLINE_PAYMENTS": "Phase 8",
 
-    # Maintenance module remains hidden until its customer routes ship.
-    "MAINTENANCE": "Phase 5",
-    "MAINTENANCE.WORK_ORDERS": "Phase 5",
+    # Phase 5 Work Orders is routed; remaining unfinished maintenance leaves stay blocked.
     "MAINTENANCE.RECURRING": "Phase 5",
     "MAINTENANCE.INSPECTIONS": "Phase 5",
     "MAINTENANCE.UNIT_TURNS": "Phase 5",
