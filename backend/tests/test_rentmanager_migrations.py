@@ -235,6 +235,9 @@ def test_rentmanager_source_inspection_is_bounded_read_only_and_provider_scoped(
         ]
         assert result["suggested_target_fields"] == []
         assert result["source_contract_verified"] is False
+        assert result["explicit_mapping_required"] is True
+        assert result["can_stage_import"] is False
+        assert result["can_commit_import"] is False
         assert result["raw_source_stored"] is False
         assert result["staging_mutation"] is False
         assert result["customer_business_mutation"] is False
