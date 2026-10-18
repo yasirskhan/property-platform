@@ -1,3 +1,9 @@
+# 2026-10-18 | DOORLOOP NEXT GROUPED BATCH PUBLICATION GATE
+
+This document is carried with a prepared successor to verified `8807f76717cd00d77f4d9a4dc87c4448e07c1149`. If it is visible at LIVE `chatgpt/checkpoint-005-safety` HEAD, the DoorLoop official source guide, protected in-flight review controls, report evidence notes and authenticated Platform Admin DoorLoop browser regression are **PUBLISHED BUT PROVISIONAL**. Verify all six hosted CI jobs at that exact live SHA before calling this group VERIFIED. If this file is in a detached unreferenced commit, do not call the group published and do not move the branch until exact-SHA CI `39156680779` for `8807f767` is SUCCESS. No DoorLoop source-specific customer import or accounting/lease mutation is enabled. Use one fast-forward with expected live SHA and no force.
+
+---
+
 # 2026-10-18 | DOORLOOP AUTHENTICATED BROWSER REGRESSION (DETACHED)
 
 Prepared an authenticated Playwright E2E test in `backend/tests/e2e/test_platform_admin_e2e.py`: verifies platform admin login, DoorLoop dashboard navigation, protected resource-readiness fetch, visible DRAFT run creation affordance, and no staged/committed import controls. This is a new test added to the existing one without removal or weakening; the test must run against the exact published SHA. The test commit remains detached above prepared DoorLoop source-guidance batch `03d9d9f5` until existing six-job CI `39156680779` for live `8807f767` has fully passed. No customer mutation, vendor API or unverified migration schema enabled.
