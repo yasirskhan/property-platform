@@ -137,6 +137,7 @@ async def inspect_rentmanager_source_headers(
         "headers_require_review": False,
         "file_format": parsed.file_format,
         "source_file_sha256": hashlib.sha256(contents).hexdigest(),
+        "source_file_bytes": len(contents),
         "sheet_name": parsed.sheet_name,
         "headers": parsed.headers,
         "column_inventory": [
