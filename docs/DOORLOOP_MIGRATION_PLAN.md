@@ -52,10 +52,11 @@ or persist source bytes, rows or mappings.
 
 ## Next milestone
 
-Finish exact-SHA hosted CI for the source-inspection and durable-run regression
-batch. If all six jobs pass, document the new verified baseline. Then pursue
-contract-backed source discovery using actual authorized exports, or move to
-another independent roadmap feature instead of inventing DoorLoop mappings.
+The independent DoorLoop backend foundation passed all six hosted checks at
+commit `8323b120` (run `39152511094`). Verify hosted CI for the operator UI
+repair at `3e06394e` and for subsequent operator run lookup/readiness work.
+Once verified, full vendor migration still requires authorized export evidence,
+stable vendor IDs, relationships and accounting semantics; do not invent these.
 
 ## Platform staff workflow (new, provisional pending exact-SHA CI)
 
@@ -69,3 +70,8 @@ preview. Changing the selected run, file or sheet clears stale review state.
 Support has metadata-only access and no file controls; unauthorized roles
 cannot access the protected backend endpoints. No vendor-specific mappings,
 source persistence, staging, customer mutation, or controlled commit were added.
+
+The prepared follow-up operator page supports opening a specific authenticated,
+provider-scoped run ID when it falls outside the latest 100 in the dropdown,
+and shows per-run contract blockers without retaining source content. This
+follow-up remains provisional until committed and checked at its exact SHA.

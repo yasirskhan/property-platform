@@ -282,12 +282,12 @@ Each gets its own sub-phase with its own section in the master doc.
 - Direct/API-assisted Yardi migration — **Phase 4.15**
 - Direct/API-assisted RentManager migration — **Phase 4.16**
 - Direct/API-assisted DoorLoop migration — **Phase 4.17**
-  - **2026-10-18 provisional source-independent milestone:** secured DoorLoop
+  - **2026-10-18 VERIFIED source-independent foundation** (SHA `8323b120`, CI `39152511094`): secured DoorLoop
     DRAFT run creation/list/get and audit, nonpersistent bounded CSV/XLSX export
     inventory, exact-file-fingerprint read-only source-quality diagnostics,
     staff roles and provider/active-organization isolation. See
-    `docs/DOORLOOP_MIGRATION_PLAN.md`. Verify the final SHA's six-job hosted
-    CI before marking this foundation verified. Actual customer imports stay
+    `docs/DOORLOOP_MIGRATION_PLAN.md`. The new role-gated Platform Admin DoorLoop export-review
+    UI is separately provisional pending exact-SHA CI. Actual customer imports stay
     blocked by authorized, versioned source exports and verified resource,
     relationship and accounting contracts.
 

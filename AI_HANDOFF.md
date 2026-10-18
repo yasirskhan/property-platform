@@ -1,3 +1,11 @@
+# 2026-10-18 | PHASE 4.17 DOORLOOP STAFF UI CI REPAIR + NEXT OPERATOR WORKFLOW (PROVISIONAL)
+
+Last exact fully verified checkpoint: `8323b120670ab409f6e5e78542d003097b929843`, GitHub Actions `39152511094`, SUCCESS on all six jobs. Backend DoorLoop foundation and original fixture repair are VERIFIED. The new staff console at `a63f4be86d6b5f1048afe7571cde46d8e6609723` failed platform-admin lint in run `39154462461` due to a TypeScript `as SourceInspection` assertion starting on the next line after an `await` expression (line 174). This was repaired without dropping any UI functionality in `3e06394e199bbc929f879ac06f26592af31c5470`, which also remounts the selected file input on run changes; run `39154601767` must pass all six checks before the staff console becomes VERIFIED. Its platform-admin, security, frontend jobs were passing at last inspection; backend still running, E2E/staging not yet concluded. Do not treat this as a completed run without re-verifying exact SHA and jobs.
+
+Prepared but not yet published on the authorized branch: detached commit `536f099f95e15a789ca886b5e53e7435d92febaa`, parent `3e06394e199bbc929f879ac06f26592af31c5470`, adds exact run-ID lookup beyond the first 100 entries and run-specific source readiness in the DoorLoop operator UI. This documentation closeout is also detached and must be promoted ONLY after live expected-head verification and all-six-job SUCCESS for the current published code. No new branch, force-push, main, unrelated repository, customer writes, provider API, staging or controlled imports. The next authentic provider-specific importer remains blocked on explicit customer authorization and verified vendor export/API identity/relationships/accounting contracts.
+
+---
+
 # 2026-10-18 | PHASE 4.17 DOORLOOP ADMIN CONSOLE (PROVISIONAL)
 
 Last exact-SHA VERIFIED: `8323b120670ab409f6e5e78542d003097b929843`, hosted Actions `39152511094` SUCCESS, all six jobs (backend/PostgreSQL, frontend, platform-admin, security, E2E and staging-config). This verifies the source-independent DoorLoop run, audit, provider/org/role isolation, source-inspection and fingerprint-bound quality-preview backend foundation including the preceding fixture repair.
