@@ -113,5 +113,57 @@ def test_doorloop_admin_console_read_only_source_discovery() -> None:
                 page.get_by_role("button", name="Create DRAFT run", exact=True)
             ).to_be_visible()
             assert page.get_by_role("button", name=re.compile(r"stage import|commit import", re.I)).count() == 0
+
+            # Disposable E2E source export. Find the organization by authorized
+            # platform API access instead of assuming a database-generated ID.
+            platform_token = page.evaluate(
+                "() => localStorage.getItem('platform_access_token')"
+            )
+            assert isinstance(platform_token, str) and platform_token
+            api_url = os.environ.get("E2E_API_BASE_URL", "http://127.0.0.1:8000")
+            org_response = page.request.get(
+                f"{api_url}/api/platform/admin/organizations",
+                headers={"Authorization": f"Bearer {platform_token}"},
+            )
+            assert org_response.ok
+            organizations = org_response.json()
+            org = next(
+                (item for item in organizations
+                 if item.get("name") == "E2E Test Organization"
+                 and item.get("is_active")),
+                None,
+            )
+            assert org is not None, "Seeded active E2E organization was not listed"
+            page.get_by_label("Organization ID").fill(str(org["id"]))
+            page.get_by_label("Nonsecret source label").fill("e2e-doorloop-export")
+            page.get_by_role("button", name="Create DRAFT run", exact=True).click()
+            expect(
+                page.get_by_text(re.compile("DRAFT run created and audited"))
+            ).to_be_visible(timeout=15_000)
+
+            # Verify the whole in-memory export workflow through the real API.
+            # A duplicate source identity is reported only as a count.
+            page.locator('input[type="file"]').set_input_files({
+                "name": "doorloop-e2e.csv",
+                "mimeType": "text/csv",
+                "buffer": b"External ID,Label\\nID-1,Alpha\\nID-1,Beta\\n",
+            })
+            page.get_by_role("button", name="Inspect source", exact=True).click()
+            expect(
+                page.get_by_text(re.compile("Export inspected without storing source rows"))
+            ).to_be_visible(timeout=15_000)
+            expect(
+                page.get_by_text(re.compile(r"2 data rows"))
+            ).to_be_visible()
+            page.get_by_role("button", name="Add field", exact=True).click()
+            page.get_by_label("Proposed field name").fill("external_id")
+            page.get_by_label("Source column").select_option(label="External ID")
+            page.get_by_label("Identity field for duplicate check (optional)").select_option("external_id")
+            page.get_by_role("button", name="Preview quality (read only)").click()
+            expect(page.get_by_text("Rows assessed: 2", exact=True)).to_be_visible(timeout=15_000)
+            expect(page.get_by_text("Duplicate nonempty identities: 1", exact=True)).to_be_visible()
+            expect(
+                page.get_by_text(re.compile("No mapping authorization, data staging, customer mutation"))
+            ).to_be_visible()
         finally:
             browser.close()

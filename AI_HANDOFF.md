@@ -1,3 +1,9 @@
+# 2026-10-18 | DOORLOOP END-TO-END SOURCE INSPECTION REGRESSION (DETACHED)
+
+Prepared a substantive extension of `backend/tests/e2e/test_platform_admin_e2e.py`: a logged-in platform administrator selects an actual disposable seeded organization, creates a DoorLoop DRAFT run, uploads an in-memory two-row CSV, inspects its headers and fingerprint, proposes one generic source mapping, selects a stable identity and verifies duplicate diagnostics in the UI. This uses only read-only inspection and migration-run metadata, never stages rows or mutates customer business records. Actual CI verification of this new Playwright workflow is REQUIRED at its eventual published exact SHA; no local test pass is claimed. The batch is detached on parent `5e28d92a` while that published lint-repair CI is pending. Preserve sole branch, avoid force-push, main and unrelated repos.
+
+---
+
 # 2026-10-18 | DOORLOOP NEXT GROUPED BATCH PUBLICATION GATE
 
 This document is carried with a prepared successor to verified `8807f76717cd00d77f4d9a4dc87c4448e07c1149`. If it is visible at LIVE `chatgpt/checkpoint-005-safety` HEAD, the DoorLoop official source guide, protected in-flight review controls, report evidence notes and authenticated Platform Admin DoorLoop browser regression are **PUBLISHED BUT PROVISIONAL**. Verify all six hosted CI jobs at that exact live SHA before calling this group VERIFIED. If this file is in a detached unreferenced commit, do not call the group published and do not move the branch until exact-SHA CI `39156680779` for `8807f767` is SUCCESS. No DoorLoop source-specific customer import or accounting/lease mutation is enabled. Use one fast-forward with expected live SHA and no force.
