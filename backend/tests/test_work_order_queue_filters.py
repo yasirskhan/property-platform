@@ -11,7 +11,7 @@ from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
 from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
-from app.routers.work_orders import (list_work_orders, _user_can_access_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order, add_comment)
+from app.routers.work_orders import (list_work_orders, work_order_queue_summary, _user_can_access_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order, add_comment)
 from app.models.audit_log import AuditLog
 from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderCreate, WorkOrderComment
 from fastapi import HTTPException
@@ -368,6 +368,37 @@ def test_assignment_audit_records_previous_and_next_crew_once():
         assert db.query(AuditLog).filter(
             AuditLog.entity_type == "work_order", AuditLog.entity_id == wo.id
         ).count() == 2
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_queue_summary_enforces_roles_and_actual_property_organization():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other_tenant, crew, outside = actors
+        a, b, c, d = orders
+        a.status = WorkOrderStatus.ACKNOWLEDGED
+        a.assigned_to_id = None
+        b.status = WorkOrderStatus.IN_PROGRESS
+        db.commit()
+        assert work_order_queue_summary(db=db, current_user=admin) == {
+            "open": 3, "emergency_open": 1, "awaiting_assignment": 1,
+            "in_progress": 1, "ready_to_close": 0,
+        }
+        manager_counts = work_order_queue_summary(db=db, current_user=manager)
+        assert manager_counts == {
+            "open": 2, "emergency_open": 0, "awaiting_assignment": 1,
+            "in_progress": 1, "ready_to_close": 0,
+        }
+        assert work_order_queue_summary(db=db, current_user=tenant) == manager_counts
+        assert work_order_queue_summary(db=db, current_user=crew)["open"] == 0
+        assert work_order_queue_summary(db=db, current_user=other_tenant)["open"] == 1
+        assert work_order_queue_summary(db=db, current_user=outside)["emergency_open"] == 1
+        c.status = WorkOrderStatus.COMPLETED
+        db.commit()
+        assert work_order_queue_summary(db=db, current_user=admin)["ready_to_close"] == 1
+        assert work_order_queue_summary(db=db, current_user=manager)["ready_to_close"] == 0
     finally:
         db.close()
         engine.dispose()
