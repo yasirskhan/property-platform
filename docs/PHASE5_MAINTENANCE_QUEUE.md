@@ -75,3 +75,16 @@ backend role, assignment, organization and state checks remain authoritative.
 The authenticated browser regression additionally verifies that an admin can
 acknowledge the newly submitted work order and see the recorded result. This
 change requires hosted E2E and backend verification at its eventual exact SHA.
+
+## Audited generic edits (follow-up, provisional)
+
+The legacy generic `PATCH /work-orders/{id}` workflow now rejects attempts
+to change `status` directly with HTTP 409; status changes must use the
+existing explicit acknowledgement, assignment, crew work, close/cancel routes.
+Permitted edits write the work-order fields, activity entry and immutable
+audit event containing before/after values in one database transaction,
+rather than committing the fields and event separately. The database-backed
+regression verifies before/after audit content and the status-bypass denial.
+This changes the generic-PATCH status behavior intentionally for integrity;
+client workflows should call dedicated lifecycle endpoints. This follow-up is
+provisional until the exact hosted commit CI passes all six jobs.

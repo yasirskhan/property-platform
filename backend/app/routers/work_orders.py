@@ -414,17 +414,27 @@ def update_work_order(
     _check_access(db, current_user, wo)
 
     changes = payload.model_dump(exclude_unset=True)
+    if "status" in changes:
+        raise HTTPException(
+            status_code=409,
+            detail="Use the explicit work-order lifecycle actions to change status.",
+        )
+    if not changes:
+        return wo
+
+    # Retain before/after evidence and the activity entry atomically with
+    # the business update; generic PATCH is not an alternate status flow.
+    before = {field: getattr(wo, field) for field in changes}
     for field, value in changes.items():
         setattr(wo, field, value)
-
+    _log_update(db, wo, current_user, message=f"Updated fields: {', '.join(changes.keys())}")
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=current_user.organization_id,
+        entity_type="work_order", entity_id=wo.id, action="updated",
+        old_value=before, new_value=changes,
+    )
     db.commit()
     db.refresh(wo)
-
-    if changes:
-        _log_update(db, wo, current_user, message=f"Updated fields: {', '.join(changes.keys())}")
-        db.commit()
-        db.refresh(wo)
-
     return wo
 
 

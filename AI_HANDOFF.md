@@ -1,3 +1,9 @@
+# 2026-10-18 | PHASE 5 GENERIC PATCH AUDIT/STATUS SAFETY (DETACHED)
+
+Prepared another bounded work-order lifecycle security change atop the previously staged role/organization hardening: generic `PATCH /work-orders/{id}` no longer accepts direct `status` changes (409); dedicated audited lifecycle endpoints retain control. Accepted edit fields, their immutable before/after audit event and the status/history entry now commit atomically, rather than writing status before a separate history commit. Added database-backed regression checking audit content, one-event replay and rejection of status bypass. This follow-up is NOT yet published or verified; verify the sole authorized live branch's earlier six-job CI, then fast-forward only with expected SHA and verify its own all-six-job CI. Do not touch main, create branches or change Zargul. Full Phase 5 not complete.
+
+---
+
 # 2026-10-18 | PHASE 5 CREW START/COMPLETE CROSS-ORG GUARD (DETACHED)
 
 Found pre-existing `/work-orders/{id}/start` and `/complete` handlers authorized assigned CREW by user ID alone, without verifying actual Unit->Property organization. The prepared Phase 5 detail status UI makes those routes relevant. Updated both existing routes to call the same tenant/crew/property/organization `_check_access` guard before altering workflow state, while preserving existing role/assignment and state validation. Added a real disposable DB regression with a deliberately malformed foreign-organization crew assignment, proving start and completion fail 403 without status/notes mutation. Detached candidate is not published or CI verified; previous navigation-unhide `fc4232b7` must first have exact six-job SUCCESS, then this candidate will need its own six-job proof. Other repo/main untouched.

@@ -11,8 +11,9 @@ from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
 from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority
-from app.routers.work_orders import (list_work_orders, _user_can_access_work_order, start_work_order, complete_work_order)
-from app.schemas.work_order import WorkOrderComplete
+from app.routers.work_orders import (list_work_orders, _user_can_access_work_order, start_work_order, complete_work_order, update_work_order)
+from app.models.audit_log import AuditLog
+from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields
 from fastapi import HTTPException
 import pytest
 
@@ -173,6 +174,41 @@ def test_rogue_cross_organization_crew_id_cannot_start_or_complete():
         assert blocked_completion.value.status_code == 403
         assert db.get(WorkOrder, foreign_work_order.id).status == WorkOrderStatus.IN_PROGRESS
         assert db.get(WorkOrder, foreign_work_order.id).resolution_notes is None
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_work_order_edit_logs_atomic_before_after_and_rejects_status_bypass():
+    db, engine, actors, _props, orders = _seed_queue()
+    try:
+        admin = actors[0]
+        order = orders[0]
+        previous_title = order.title
+        result = update_work_order(
+            order.id, WorkOrderUpdateFields(title="Verified edited description"),
+            db=db, current_user=admin,
+        )
+        assert result.title == "Verified edited description"
+        event = db.query(AuditLog).filter(
+            AuditLog.entity_type == "work_order",
+            AuditLog.entity_id == order.id,
+            AuditLog.action == "updated",
+        ).one()
+        assert previous_title in event.old_value
+        assert "Verified edited description" in event.new_value
+
+        with pytest.raises(HTTPException) as forbidden:
+            update_work_order(
+                order.id, WorkOrderUpdateFields(status=WorkOrderStatus.CLOSED),
+                db=db, current_user=admin,
+            )
+        assert forbidden.value.status_code == 409
+        assert db.get(WorkOrder, order.id).status == WorkOrderStatus.SUBMITTED
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "work_order", AuditLog.entity_id == order.id,
+            AuditLog.action == "updated",
+        ).count() == 1
     finally:
         db.close()
         engine.dispose()
