@@ -1,3 +1,13 @@
+# 2026-10-18 | RENTMANAGER MAPPING PREVIEW REQUIRES EXPLICIT SOURCE FIELDS
+
+**Last VERIFIED exact SHA:** `9ef6344453fd6ee49fcfc1c06ed43ed26e50b89e`, GitHub Actions `39125343603` SUCCESS.
+
+**New provisional changes:** `6868524e0434a6151041db72b42f3fc9def3be56` now fails closed on empty proposed column mapping at the read-only RentManager quality preview; `19b75e0061304e726ed460cf08ffa7bc31c06da4` adds a regression. Require six-job exact-SHA hosted CI before marking VERIFIED and repair any failure.
+
+**Phase scope:** Source-quality preview, read-only inspection, staff mapping review and provider-labelled run management only. Full RentManager staged customer migration remains blocked by approved source schema and customer-specific authorization; do not infer vendor identifiers, accounting signs, leases or ownership data. Continue substantial approved implementation on sole `chatgpt/checkpoint-005-safety` branch; no main/new branches/force.
+
+---
+
 # 2026-10-18 | PHASE 4.16 RENTMANAGER READ-ONLY SOURCE QUALITY PREVIEW
 
 **Last exact-SHA verified:** `3e5e92391bf5a147f23f30dbbdbfea15407cfd80`, GitHub Actions `39123664860`, SUCCESS.
