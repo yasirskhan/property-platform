@@ -1,3 +1,9 @@
+# 2026-10-18 | SIMILAR WORK-ORDER REVIEW, PREPARED
+
+Previous published HEAD: 4813686772d5c289f69a6cfc73b4d558eaac9f27. Workflow 39173312018 requires all six job successes before next promotion. This detached descendant adds read-only title-match suggestions for already visible, nonterminal work orders in the chosen unit, a review control on the maintenance intake form, and database and browser regressions. It does not auto-block intake or expand organization/role permissions. Before publication, verify the previous CI and exact branch head. Publish only non-force with expected SHA, then verify the new hosted CI at its exact SHA. No main, other branches or unrelated repositories. Phase 5 remains incomplete.
+
+---
+
 # 2026-10-18 | NEXT PHASE 5 MAINTENANCE INTAKE (DETACHED — CI REQUIRED)
 
 Current live authorized branch as of preparation: `bf39810e6291938c4c4e1fc20d5a514f22d1bc0a`. Its audit-ledger GitHub Actions `39170534109` passed Frontend, Security and Platform Admin; Backend/PostgreSQL was still running. Last fully six-job-green SHA is `d33ce8371920a2cd9dfef9377fdd394fcb39a20a` (run `39168393313`). DO NOT mislabel the live audit commit or this detached candidate VERIFIED until their respective exact-SHA hosted CI finishes green.
