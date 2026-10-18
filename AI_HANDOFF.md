@@ -1,3 +1,17 @@
+# 2026-10-17 | PHASE 4.16 FOUNDATION DELIVERY AND API EVIDENCE
+
+**Last exact-SHA green:** `d04ebf72424e72582d21a9bf36a06edd40f5a639`, GitHub Actions `39088370010` SUCCESS, all six jobs.
+
+**Current provisional work:** `d3c57f2a66c10999f9afd7ad6e38bc3f3392140a` adds read-only inspection file SHA-256; `a9a57c9659fe991716a28efccbc3722e9c7b642d` tests it; `e7bc0431b6db1b8606442edf02c36f156e0b2a5c` documents foundation completion criteria; `4d80b414c956ad52d30f1be1eb0870c6d9131132` records official Rent Manager Web API documentation; `6fb0661333b26febae5ad4e544a795bec7edf751` clarifies readiness blockers as customer authorization/source-to-target contracts rather than nonexistent vendor docs. Final current HEAD requires exact-SHA 6-job hosted CI before VERIFIED. Fix CI failures, do not bypass.
+
+**Important vendor distinction:** Rent Manager from London Computer Systems, not Rentman from the unrelated events vendor. Official Rent Manager Web API docs are public (https://info.rentmanager.com/hubfs/PDFs/Technical%20Documentation.pdf); the app does NOT have customer-authorized credentials/hostname, verified tenant edition, specific resource fields or accounting contract, and may not access customer source without them.
+
+**Scope truth:** RentManager source-independent foundation is implemented (provider-labelled secure runs, audit, role/org/provider gates, disabled unsafe writes, bounded read-only CSV/XLSX header and inventory inspection with digest). Full Phase 4.16 migration is NOT complete; needs approved source fields and official credentialed read-only API or customer export, identity reconciliation, idempotent controlled commit. Stop spinning on tiny foundation tests; once green, move to evidence-backed integration work or the next independent roadmap milestone, preserving explicit vendor dependency.
+
+**Branch:** only `chatgpt/checkpoint-005-safety`; no main/new branch/force/unrelated repo.
+
+---
+
 # 2026-10-17 | PHASE 4.16 FOUNDATION CLOSEOUT GATE
 
 **Last six-job VERIFIED:** `d04ebf72424e72582d21a9bf36a06edd40f5a639`; GitHub Actions `39088370010` SUCCESS.
