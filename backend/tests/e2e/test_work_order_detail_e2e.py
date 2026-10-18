@@ -26,6 +26,9 @@ def test_authenticated_work_order_detail_and_comment_history() -> None:
             page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
             token = page.evaluate("() => localStorage.getItem('token')")
             assert isinstance(token, str) and token
+            page.goto(BASE_URL + "/dashboard/maintenance/work-orders/new", wait_until="domcontentloaded")
+            pw.expect(page.get_by_role("heading", name="New maintenance request")).to_be_visible()
+            pw.expect(page.get_by_role("option", name="E2E Test Property · Unit E2E-1")).to_be_attached(timeout=15_000)
 
             create = page.request.post(
                 API_URL + "/work-orders",
