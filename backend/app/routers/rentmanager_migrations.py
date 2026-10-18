@@ -262,8 +262,7 @@ async def preview_rentmanager_source_quality(
         raise HTTPException(status_code=422, detail="Identity field must be a proposed mapping key.")
     if not mapping:
         raise HTTPException(status_code=422, detail="At least one explicit field mapping is required.")
-    if "source_id" not in mapping:
-        raise HTTPException(status_code=422, detail="Source identity mapping is required for meaningful duplicate checks.")
+    # Identity checks are optional until a verified provider resource contract supplies an identity key.
     result = assess_source_rows(parsed.rows, mapping, identity_field)
     response.headers["Cache-Control"] = "no-store"
     return {"run_id": run.id, "provider": "RENTMANAGER",
