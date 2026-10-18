@@ -118,6 +118,7 @@ def test_rentmanager_inactive_organization_is_rejected_on_create_and_read():
         with pytest.raises(HTTPException) as read_denied:
             get_rentmanager_run(run.id, Response(), db, admin)
         assert read_denied.value.status_code == 404
+        assert list_rentmanager_runs(Response(), None, 100, db, admin) == []
         with pytest.raises(HTTPException) as list_denied:
             list_rentmanager_runs(Response(), org.id, 100, db, admin)
         assert list_denied.value.status_code == 404
