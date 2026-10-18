@@ -146,7 +146,7 @@ def test_doorloop_admin_console_read_only_source_discovery() -> None:
             page.locator('input[type="file"]').set_input_files({
                 "name": "doorloop-e2e.csv",
                 "mimeType": "text/csv",
-                "buffer": b"External ID,Label\\nID-1,Alpha\\nID-1,Beta\\n",
+                "buffer": b"External ID,Label\nID-1,Alpha\nID-1,Beta\n",
             })
             page.get_by_role("button", name="Inspect source", exact=True).click()
             expect(
