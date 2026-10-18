@@ -2,6 +2,8 @@
 
 No outbound API calls, customer record creation, accounting or source ingestion.
 """
+import hashlib
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
 from app.services.appfolio_file_ingestion import MAX_FILE_BYTES, AppFolioFileIngestionError, _parse_file, _safe_filename
@@ -132,6 +134,7 @@ async def inspect_rentmanager_source_headers(
         "run_id": run.id,
         "provider": "RENTMANAGER",
         "file_format": parsed.file_format,
+        "source_file_sha256": hashlib.sha256(contents).hexdigest(),
         "sheet_name": parsed.sheet_name,
         "headers": parsed.headers,
         "column_inventory": [
