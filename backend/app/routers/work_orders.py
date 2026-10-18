@@ -201,6 +201,8 @@ def submit_work_order(
     prop = db.query(Property).filter(Property.id == unit.property_id).first()
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
+    if prop.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=403, detail="Unit is outside your organization")
 
     # Determine the tenant_id
     if current_user.role == UserRole.TENANT:
@@ -309,6 +311,43 @@ def work_order_queue_summary(
         "in_progress": count(visible.filter(WorkOrder.status == WorkOrderStatus.IN_PROGRESS)),
         "ready_to_close": count(visible.filter(WorkOrder.status == WorkOrderStatus.COMPLETED)),
     }
+
+
+@router.get("/request-units")
+def requestable_work_order_units(
+    search: Annotated[str | None, Query(min_length=1, max_length=80)] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0, le=100_000)] = 0,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Minimal unit choices, scoped to a user's actual maintenance intake rights."""
+    from app.models.lease import Lease, LeaseStatus
+
+    query = (
+        db.query(Unit.id, Unit.unit_number, Property.id, Property.name)
+        .join(Property, Property.id == Unit.property_id)
+        .filter(Property.organization_id == current_user.organization_id,
+                Property.is_active.is_(True))
+    )
+    if current_user.role == UserRole.TENANT:
+        query = query.join(Lease, Lease.unit_id == Unit.id).filter(
+            Lease.tenant_id == current_user.id, Lease.status == LeaseStatus.ACTIVE)
+    elif current_user.role == UserRole.MANAGER:
+        query = query.join(PropertyAssignment, PropertyAssignment.property_id == Property.id).filter(
+            PropertyAssignment.user_id == current_user.id,
+            PropertyAssignment.is_active.is_(True))
+    elif current_user.role not in (UserRole.ADMIN, UserRole.OWNER):
+        return []
+    if search:
+        term = search.strip()
+        if term:
+            query = query.filter(or_(
+                Property.name.icontains(term, autoescape=True),
+                Unit.unit_number.icontains(term, autoescape=True)))
+    rows = query.distinct().order_by(Property.name, Unit.unit_number, Unit.id).offset(offset).limit(limit).all()
+    return [{"id":item[0], "unit_number":item[1], "property_id":item[2],
+             "property_name":item[3]} for item in rows]
 
 
 def _vendor_work_order_access(db: Session, user: User) -> int:
