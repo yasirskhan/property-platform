@@ -1,3 +1,15 @@
+# 2026-10-18 | PHASE 5 MAINTENANCE DETAIL/LIFECYCLE PUBLICATION GATE
+
+Authorized repository `yasirskhan/property-platform`, sole branch `chatgpt/checkpoint-005-safety`. Never modify main, create another branch, force-push, or modify Zargul. Phase 4.17 DoorLoop safe inspection UI foundation is VERIFIED at `90acf0013c1b0534fd0260b862e78c0ccc944c12` (six jobs, run `39164737599`). Full DoorLoop source-specific import remains BLOCKED by absent customer-authorized vendor export/API stable identities, relationships and accounting semantics; no invented mappings or customer writes.
+
+Phase 5 Work Orders queue branch checkpoint `fc4232b7e77d5cb746637ecd3feb669d200edc99` repaired navigation readiness for Work Orders only; `39166719935` passed Backend, Frontend, Platform Admin and Security at last inspection, with authenticated E2E and staging still running. It is NOT fully VERIFIED until all six jobs succeed at exactly `fc4232b7`.
+
+This handoff accompanies the *prepared descendant* of `fc4232b7`, developer-selected milestone `8244930739127e3eb5066a31ad46434e38854d50`, followed by this documentation commit. It groups a canonical click-through work-order detail page, recorded activity/comment history, role-aware acknowledge/assign/start/complete/close controls, deeper Unit/Property/organization isolation for reads and crew transitions, a fail-closed status-PATCH bypass block, atomic before/after update auditing, active property-assigned crew requirements, atomic create/acknowledge history, and additional SQLite plus authenticated Playwright regressions. Changes DO NOT constitute the rest of Phase 5 smart dispatch, approvals, recurring work orders, inspections, accounting or vendor integration. `docs/PHASE5_MAINTENANCE_QUEUE.md` describes the boundary.
+
+**Publication gate:** If this commit remains detached, do not claim it published. After confirming `39166719935` six-job SUCCESS and the live branch HEAD still exactly `fc4232b7`, publish this descendant in a non-force fast-forward with `expected_sha`. If the branch has advanced, reconcile rather than overwrite. Once published, run and verify all six hosted jobs at the new **exact live SHA**; fix any regressions before marking this group VERIFIED, update this handoff with that proof, and continue the next milestone.
+
+---
+
 # 2026-10-18 | PHASE 5 WORK ORDER CREATION/ACKNOWLEDGEMENT AUDIT ATOMICITY (DETACHED)
 
 Follow-up to prepared work-order detail, role-safe lifecycle, audit, and crew assignment: changed the existing work-order submission and acknowledgement routes so row state and corresponding status activity entry are persisted in one atomic database transaction, avoiding the earlier two separate commits. Added a DB regression asserting one SUBMITTED and one ACKNOWLEDGED history entry on an authorized work order. No schema migration, billing, dispatch or new user privilege. This is a detached unverified candidate: only publish after the preceding live maintenance navigation repair has all six hosted CI jobs green, and verify the new exact SHA. Sole authorized branch; no main or Zargul modifications.
