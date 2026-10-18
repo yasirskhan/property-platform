@@ -25,7 +25,7 @@
 
 from datetime import datetime
 from decimal import Decimal
-from typing import List
+from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
@@ -243,10 +243,10 @@ def list_work_orders(
     status: WorkOrderStatus | None = None,
     priority: WorkOrderPriority | None = None,
     category: WorkOrderCategory | None = None,
-    property_id: int | None = Query(default=None, ge=1),
-    search: str | None = Query(default=None, min_length=2, max_length=80),
-    limit: int | None = Query(default=None, ge=1, le=200),
-    offset: int = Query(default=0, ge=0, le=100_000),
+    property_id: Annotated[int | None, Query(ge=1)] = None,
+    search: Annotated[str | None, Query(min_length=2, max_length=80)] = None,
+    limit: Annotated[int | None, Query(ge=1, le=200)] = None,
+    offset: Annotated[int, Query(ge=0, le=100_000)] = 0,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
