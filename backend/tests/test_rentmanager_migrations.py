@@ -225,6 +225,8 @@ def test_rentmanager_source_inspection_is_bounded_read_only_and_provider_scoped(
         assert result["provider"] == "RENTMANAGER"
         assert result["row_count"] == 2
         assert result["headers"] == ["Unit", "Property"]
+        import hashlib
+        assert result["source_file_sha256"] == hashlib.sha256(b"Unit,Property\n1,Alpha\n2,Beta\n").hexdigest()
         assert result["column_inventory"] == [
             {"index": 0, "source_header": "Unit", "mapping_status": "UNMAPPED"},
             {"index": 1, "source_header": "Property", "mapping_status": "UNMAPPED"},
