@@ -44,10 +44,18 @@ export default function TenantDashboard() {
             <p className="text-slate-500 text-sm">No work orders submitted.</p>
           ) : (
             <ul className="space-y-2">
-              {orders.map((o) => (
-                <li key={o.id} className="text-sm flex justify-between">
-                  <span>{o.title}</span>
-                  <span className="text-slate-500">{o.status}</span>
+              {[...orders].sort((a, b) =>
+                Number(["closed", "cancelled"].includes(a.status)) -
+                Number(["closed", "cancelled"].includes(b.status))
+              ).map((order) => (
+                <li key={order.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm">
+                  <Link className="font-medium text-blue-800 hover:underline"
+                    href={`/dashboard/maintenance/work-orders/${order.id}`}>
+                    #{order.id} · {order.title}
+                  </Link>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">
+                    {order.status.replaceAll("_", " ")}
+                  </span>
                 </li>
               ))}
             </ul>
