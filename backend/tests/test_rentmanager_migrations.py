@@ -7,7 +7,7 @@ from app.models.platform_migration import PlatformMigrationRun
 from app.models.platform_user import PlatformUserRole
 from app.routers.rentmanager_migrations import (
     create_rentmanager_run, get_rentmanager_run, list_rentmanager_runs,
-    get_rentmanager_resource_readiness,
+    get_rentmanager_resource_readiness, rentmanager_run_source_readiness,
 )
 from app.schemas.rentmanager_migration import RentManagerRunCreateIn
 from test_yardi_migrations import _session, _org, _platform_user
@@ -153,6 +153,43 @@ def test_rentmanager_support_read_only_and_billing_denied():
             get_rentmanager_run(run.id, Response(), db, billing)
         assert billing_denied.value.status_code == 403
         assert db.query(PlatformMigrationRun).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_rentmanager_per_run_source_gate_enforces_provider_and_view_role():
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        support = _platform_user(db, PlatformUserRole.PLATFORM_SUPPORT)
+        billing = _platform_user(db, PlatformUserRole.PLATFORM_BILLING)
+        org = _org(db, "rentmanager-source-readiness")
+        own = PlatformMigrationRun(
+            organization_id=org.id, provider="RENTMANAGER",
+            source_account_ref="nonsecret-label", status="DRAFT",
+        )
+        other = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="other", status="DRAFT",
+        )
+        db.add_all([own, other])
+        db.commit()
+        response = Response()
+        readiness = rentmanager_run_source_readiness(own.id, response, db, support)
+        assert response.headers["cache-control"] == "no-store"
+        assert readiness["run_id"] == own.id
+        assert readiness["source_account_bound"] is True
+        assert readiness["file_upload_enabled"] is False
+        assert readiness["official_api_enabled"] is False
+        assert readiness["controlled_commit_enabled"] is False
+        assert readiness["customer_business_mutation"] is False
+        with pytest.raises(HTTPException) as wrong_provider:
+            rentmanager_run_source_readiness(other.id, Response(), db, admin)
+        assert wrong_provider.value.status_code == 404
+        with pytest.raises(HTTPException) as denied:
+            rentmanager_run_source_readiness(own.id, Response(), db, billing)
+        assert denied.value.status_code == 403
     finally:
         db.close()
         engine.dispose()
