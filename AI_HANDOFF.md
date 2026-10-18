@@ -1,3 +1,13 @@
+# 2026-10-17 | PHASE 4.16 READ-ONLY SOURCE INSPECTION
+
+**Last exact SHA verified:** `3a012747b2e04a9fd694baff568530d195e53e94`, GitHub Actions `39084898176`, SUCCESS six-job CI.
+
+**Current provisional product batch:** `b4e7561f494a693816c768e603cefd33043b60ad` adds RentManager `POST /api/platform/migrations/rentmanager/runs/{run_id}/inspect-source`: bounded CSV/XLSX parsing using the existing safe parser, returns only headers/row count/sheet/format, does NOT store raw source, stage, create customer records or establish an official source contract. Requires writable platform role and provider-specific, active-organization run. `fa9b59530cf32bad402b7ca8a4eed6929f05c75b` adds tests for read-only behavior, role/provider scope, no uploads and macro-enabled format rejection. Exact-SHA full hosted CI must pass before VERIFIED; repair failures first.
+
+**Next milestone:** Continue Phase 4.16 RentManager with independently supportable export file discovery and mapping proposal UX without inventing vendor schemas or silently enabling commits. Yardi Phase 4.15 safe supported scope is frozen and unresolved source-contract customer business mutations remain blocked. Sole branch `chatgpt/checkpoint-005-safety`; never main/new branch/force or unrelated repo.
+
+---
+
 # 2026-10-17 | PHASE 4.16 RENTMANAGER ORGANIZATION AND SOURCE GATES
 
 **Last exact-SHA VERIFIED:** `5feb32672c116f91d80d97ba0069a1da08e34719`, hosted GitHub Actions `39082768540` SUCCESS. Phase 4.16 provider run foundation is live and verified.
