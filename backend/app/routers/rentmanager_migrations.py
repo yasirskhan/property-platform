@@ -133,6 +133,11 @@ async def inspect_rentmanager_source_headers(
         "file_format": parsed.file_format,
         "sheet_name": parsed.sheet_name,
         "headers": parsed.headers,
+        "column_inventory": [
+            {"index": index, "source_header": header, "mapping_status": "UNMAPPED"}
+            for index, header in enumerate(parsed.headers)
+        ],
+        "suggested_target_fields": [],
         "row_count": len(parsed.rows),
         "source_contract_verified": False,
         "source_rows_returned": False,
