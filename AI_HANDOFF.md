@@ -1,3 +1,13 @@
+# 2026-10-17 | RENTMANAGER INSPECTION AUTHORIZATION BOUNDARY
+
+**Last exact SHA VERIFIED:** `91a6c15081261fd49d6dafb1b31530295957d0f4`, GitHub Actions `39093417770` SUCCESS all required jobs.
+
+**Latest provisional changes:** `eeaba8baf51cd1d8ef9b0d7e442300dc727c35bb` makes source-inspection responses explicitly report `explicit_mapping_required: true`, `can_stage_import: false`, `can_commit_import: false`; `acc06d16223558fc9597691fda2914b5602ff2d0` tests that an inspected export never authorizes staging or customer mutations. Require latest exact SHA six-job green before VERIFIED; fix failures.
+
+**Scope:** Phase 4.16 RentManager read-only source discovery is implemented. Official vendor API docs exist, but customer-specific authorization and verified resource/accounting semantics do not. Never imply a header match is safe for customer record creation, ownership, rents or GL. Continue independently supportable work on sole `chatgpt/checkpoint-005-safety`; do not touch main/new branches/force or other repos.
+
+---
+
 # 2026-10-17 | RENTMANAGER STRICT SOURCE HEADER VALIDATION
 
 **Last verified exact SHA:** `e4d51d343417cf4d96c7cb1e21e811c5ab2351b3`, hosted CI `39089935811`, SUCCESS.
