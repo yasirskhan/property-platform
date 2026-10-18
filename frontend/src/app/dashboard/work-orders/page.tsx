@@ -31,6 +31,7 @@ export default function WorkOrderQueuePage() {
   const [offset, setOffset] = useState(0);
   const [reload, setReload] = useState(0);
   const [rows, setRows] = useState<WorkOrder[]>([]);
+  const [canCreate, setCanCreate] = useState(false);
   const [summary, setSummary] = useState<QueueSummary | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
@@ -72,6 +73,16 @@ export default function WorkOrderQueuePage() {
       .catch(() => { if (active) setSummary(null); });
     return () => { active = false; };
   }, [reload]);
+
+  useEffect(() => {
+    let active = true;
+    apiGet("/auth/me").then((viewer: { role: string }) => {
+      if (active) setCanCreate(
+        ["ADMIN", "OWNER", "MANAGER", "TENANT"].includes(String(viewer.role).toUpperCase())
+      );
+    }).catch(() => { if (active) setCanCreate(false); });
+    return () => { active = false; };
+  }, []);
 
   function apply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
