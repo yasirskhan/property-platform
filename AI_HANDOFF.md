@@ -1,3 +1,13 @@
+# 2026-10-18 | NEXT PHASE 5 MAINTENANCE INTAKE (DETACHED — CI REQUIRED)
+
+Current live authorized branch as of preparation: `bf39810e6291938c4c4e1fc20d5a514f22d1bc0a`. Its audit-ledger GitHub Actions `39170534109` passed Frontend, Security and Platform Admin; Backend/PostgreSQL was still running. Last fully six-job-green SHA is `d33ce8371920a2cd9dfef9377fdd394fcb39a20a` (run `39168393313`). DO NOT mislabel the live audit commit or this detached candidate VERIFIED until their respective exact-SHA hosted CI finishes green.
+
+This prepared detached chain builds on the unverified role-scoped queue summary `4b38d705cc75be2a9e73e1667d497c7920ad79b7`. It adds `GET /work-orders/request-units` as a paginated, search-limited list: only actual same-organization active properties; staff admin/owner as scoped by their organization, managers through active same-organization property assignments, tenants through active leases; crew/others get no intake units. Also blocks `POST /work-orders` if a rogue cross-organization lease points at a foreign unit, with database tests. The customer-facing form `/dashboard/maintenance/work-orders/new` selects eligible units, title/description/category/priority and permission to enter, then invokes existing audited work-order submission. Tenant and manager dashboards link to it; an authenticated browser check asserts visibility of a seeded authorized unit. Prepared group does not implement the full Phase 5 smart intake, triage, dispatch or billing. Do not enable unknown vendor integrations.
+
+**Publication order:** verify run `39170534109` all-six success for live SHA `bf39810...`; if it fails repair first. Then fast-forward the detached descendant of that SHA on ONLY `chatgpt/checkpoint-005-safety` with exact `expected_sha`, `force=false`, no other branch. New full six-job hosted CI must verify the queue-summary/intake combined batch; fix regressions, update this handoff, continue with the next incomplete Phase 5 feature. No main changes, no Zargul changes. DoorLoop complete import remains separately blocked by unverified customer-authorized provider source identities and financial semantics.
+
+---
+
 # 2026-10-18 | NEXT PHASE 5 QUEUE SUMMARY BATCH — DETACHED, NOT VERIFIED
 
 Current authorized branch `chatgpt/checkpoint-005-safety` at preparation: `bf39810e6291938c4c4e1fc20d5a514f22d1bc0a`. Its work-order audit CI `39170534109` had Platform Admin, Security and Frontend green, while the full backend/PostgreSQL job was still running. The last fully six-job-green commit is `d33ce8371920a2cd9dfef9377fdd394fcb39a20a` (run `39168393313`).

@@ -136,3 +136,21 @@ Summary counters appear above filters; they reflect all authorized orders,
 not just current list filters. On failed summary reads, the interface shows
 "Summary unavailable" rather than reporting a misleading zero. Tests prove
 foreign organizations and unauthorized properties remain excluded.
+
+## Authorized new-request unit picker and intake form (prepared)
+
+`GET /work-orders/request-units` lists only minimal same-organization active
+property and unit labels. Tenants see units from their active leases; managers
+see only actively assigned properties; admins/owners remain organization
+scoped; crew and unrelated roles receive no unit choices. Case-insensitive
+literal property/unit search and bounded limit/offset pagination avoid
+unbounded disclosure. `POST /work-orders` now explicitly rejects any
+cross-organization unit even when a malformed active lease would appear to
+authorize it. The new customer route
+`/dashboard/maintenance/work-orders/new` collects a unit, issue title,
+description, category, urgency and optional entry permission, and submits
+through the existing work-order API. Tenant and manager dashboards link to it.
+Database regressions include cross-organization forged leases and staff
+attempts; authenticated E2E checks the disposable org's authorized unit.
+This is NOT all of the planned smart maintenance intake and is not VERIFIED
+until the final exact-SHA hosted CI passes all jobs.
