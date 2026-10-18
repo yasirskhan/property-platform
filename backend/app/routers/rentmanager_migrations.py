@@ -94,6 +94,7 @@ def rentmanager_run_source_readiness(
         "run_id": run.id,
         "provider": "RENTMANAGER",
         "source_account_bound": bool(run.source_account_ref),
+        "source_inspection_enabled": True,
         "file_upload_enabled": False,
         "official_api_enabled": False,
         "controlled_commit_enabled": False,
@@ -190,6 +191,7 @@ def get_rentmanager_resource_readiness(
     return {
         "provider": "RENTMANAGER",
         "run_foundation_available": True,
+        "source_inspection_enabled": True,
         "file_upload_enabled": False,
         "official_api_enabled": False,
         "controlled_commit_enabled": False,
