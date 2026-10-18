@@ -62,6 +62,8 @@ export default function DoorLoopMigrationConsole() {
   const [me, setMe] = useState<PlatformUser | null>(null);
   const [runs, setRuns] = useState<MigrationRun[]>([]);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
+  const [runReadiness, setRunReadiness] = useState<Readiness | null>(null);
+  const [runLookup, setRunLookup] = useState("");
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const [organizationId, setOrganizationId] = useState("");
   const [sourceAccountRef, setSourceAccountRef] = useState("");
@@ -107,6 +109,19 @@ export default function DoorLoopMigrationConsole() {
 
   useEffect(() => { void load(); }, [load]);
 
+  useEffect(() => {
+    if (selectedRunId === null || !READ_ROLES.includes(role)) {
+      setRunReadiness(null);
+      return;
+    }
+    let active = true;
+    setRunReadiness(null);
+    platformGet(ROOT + "/runs/" + selectedRunId + "/source-readiness")
+      .then((status: Readiness) => { if (active) setRunReadiness(status); })
+      .catch((err: unknown) => { if (active) setError(describeError(err)); });
+    return () => { active = false; };
+  }, [selectedRunId, role]);
+
   function clearExport() {
     setFile(null);
     setSheetName("");
@@ -141,6 +156,25 @@ export default function DoorLoopMigrationConsole() {
     try { await operation(); }
     catch (err) { setError(describeError(err)); }
     finally { setBusy(false); }
+  }
+
+  async function openRun() {
+    const id = Number(runLookup);
+    if (!Number.isSafeInteger(id) || id < 1) {
+      setError("Enter a positive migration run ID.");
+      return;
+    }
+    await perform(async () => {
+      const found = await platformGet(ROOT + "/runs/" + id) as MigrationRun;
+      if (found.id !== id || found.provider !== "DOORLOOP")
+        throw new Error("Requested DoorLoop run was not found.");
+      setRuns((current) => current.some((run) => run.id === found.id)
+        ? current.map((run) => run.id === found.id ? found : run)
+        : [found, ...current].slice(0, 100));
+      selectRun(String(found.id));
+      setRunLookup("");
+      setNotice("DoorLoop run #" + id + " opened for review.");
+    });
   }
 
   async function createRun(event: FormEvent<HTMLFormElement>) {
@@ -269,8 +303,23 @@ export default function DoorLoopMigrationConsole() {
                     : "No DoorLoop runs found."}
                 </div>
               </div>
+              <div className="mt-4 flex flex-wrap items-end gap-3">
+                <label className="w-44 text-sm">Open older run by ID
+                  <input className="input mt-1" type="number" step="1" min="1" value={runLookup}
+                    onChange={(event) => setRunLookup(event.target.value)} />
+                </label>
+                <button type="button" disabled={busy || !runLookup.trim()} onClick={() => void openRun()}
+                  className="rounded-lg border px-4 py-2 text-sm disabled:opacity-50">Open run</button>
+              </div>
+              {selectedRun && (
+                <p className="mt-3 text-sm text-amber-800">
+                  Run-specific source status: {runReadiness
+                    ? runReadiness.blocker
+                    : "Checking approved source contract…"}
+                </p>
+              )}
               {canWrite && (
-                <form onSubmit={(event) => void createRun(event)} className="mt-5 grid items-end gap-3 border-t pt-5 md:grid-cols-[140px_1fr_auto]">
+                <form onSubmit={(event) => void createRun(event) className="mt-5 grid items-end gap-3 border-t pt-5 md:grid-cols-[140px_1fr_auto]">
                   <label className="text-sm">Organization ID
                     <input className="input mt-1" required type="number" min="1" step="1"
                       value={organizationId} onChange={(event) => setOrganizationId(event.target.value)} />
