@@ -313,6 +313,39 @@ def work_order_queue_summary(
     }
 
 
+@router.get("/possible-duplicates")
+def possible_duplicate_work_orders(
+    unit_id: Annotated[int, Query(ge=1)],
+    title: Annotated[str, Query(min_length=3, max_length=80)],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Suggest similar open work orders already authorized to the actor.
+
+    An unrelated tenant's issue must never be exposed even if it targets the
+    same unit. This is an advisory lookup and cannot silently reject intake.
+    """
+    term = title.strip()
+    if len(term) < 3:
+        raise HTTPException(status_code=422, detail="Use at least three non-space characters.")
+    rows = (
+        _visible_work_orders(db, current_user)
+        .filter(
+            WorkOrder.unit_id == unit_id,
+            WorkOrder.status.notin_((WorkOrderStatus.CLOSED, WorkOrderStatus.CANCELLED)),
+            WorkOrder.title.icontains(term, autoescape=True),
+        )
+        .order_by(WorkOrder.created_at.desc(), WorkOrder.id.desc())
+        .limit(5)
+        .all()
+    )
+    return [
+        {"id":row.id, "title":row.title, "status":row.status,
+         "priority":row.priority}
+        for row in rows
+    ]
+
+
 @router.get("/request-units")
 def requestable_work_order_units(
     search: Annotated[str | None, Query(min_length=1, max_length=80)] = None,
