@@ -29,6 +29,7 @@ export default function ManagerDashboard() {
         <StatCard label="My Crew" value={stats.crew} />
       </div>
       <Link href="/dashboard/maintenance/work-orders" className="mt-5 inline-block rounded-lg bg-slate-900 px-4 py-2 text-sm text-white">View work order queue</Link>
+      <Link href="/dashboard/maintenance/work-orders/new" className="ml-3 inline-block rounded-lg border px-4 py-2 text-sm">Create maintenance request</Link>
     </div>
   );
 }
