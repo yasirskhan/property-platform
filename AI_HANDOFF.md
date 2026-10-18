@@ -1,3 +1,13 @@
+# 2026-10-18 | PHASE 4.17 DOORLOOP STARTED
+
+**Last verified exact SHA:** `c584f87c25fe6bd17038b9274e4914c49323e735`, CI `39136151349` SUCCESS. Phase 4.16 RentManager read-only/source-independent tooling verified; vendor-specific customer data imports contract-gated.
+
+**New provisional Phase 4.17 work:** `0b69ac304a5e327f7d355d47cbb4b066e660a46a` adds authenticated fail-closed DoorLoop provider resource readiness and read-only run listing scoped to active organizations; `7298605d7f3f1e8a3282c2ffa447b9d422169faf` registers router in backend app; `6ad623953accba88c5943eb4a2486faa05e70291` tests disabled customer mutation, no-store and unauthorized staff roles. Verify latest exact-SHA hosted six-job CI and fix reds before marking VERIFIED.
+
+**Scope boundary:** DoorLoop has no approved customer source contract yet. No API calls, file staging, customer mutations or controlled imports are enabled. Build provider-labelled run management next, using existing model/provider normalization only after checking current DB constraints. Never touch main or other branches or repos. Sole branch `chatgpt/checkpoint-005-safety`.
+
+---
+
 # 2026-10-18 | RENTMANAGER VERIFIED BASELINE AND SOURCE CONTRACT GATE
 
 Verified exact SHA `204135957b0debc518e8a52beea6dda940de40b2` — GitHub Actions `39133733722` SUCCESS. The full source-independent RentManager run/inspection/field-mapping review/quality-preview/export-fingerprint foundation is green. Provisional documentation commit `f627ae711372e4f3715aae6e71f330142b989f72` updates `docs/RENTMANAGER_MIGRATION_PLAN.md` to accurately reflect that verified baseline and the evidence required before real staged imports. Verify subsequent exact-SHA CI.
