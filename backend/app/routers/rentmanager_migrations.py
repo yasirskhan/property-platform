@@ -222,6 +222,7 @@ async def preview_rentmanager_source_quality(
     sheet_name: str | None = Form(default=None),
     column_mapping_json: str = Form(...),
     identity_field: str | None = Form(default=None),
+    expected_source_sha256: str | None = Form(default=None),
     db: Session = Depends(get_db),
     current_user: PlatformUser = Depends(get_current_platform_user),
 ):
@@ -246,6 +247,12 @@ async def preview_rentmanager_source_quality(
         parsed = _parse_file(filename, content, sheet_name)
     except AppFolioFileIngestionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    actual_digest = hashlib.sha256(content).hexdigest()
+    if expected_source_sha256 is not None:
+        if (len(expected_source_sha256) != 64
+                or any(ch not in "0123456789abcdef" for ch in expected_source_sha256)
+                or expected_source_sha256 != actual_digest):
+            raise HTTPException(status_code=409, detail="Source file no longer matches the inspected export.")
     try:
         proposal = RentManagerMappingProposal(source_headers=parsed.headers, column_mapping=mapping)
     except Exception as exc:
