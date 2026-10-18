@@ -42,6 +42,14 @@ def test_authenticated_work_order_detail_and_comment_history() -> None:
             )
             assert create.status == 201, create.text()
             work_order_id = create.json()["id"]
+            page.goto(BASE_URL + "/dashboard/maintenance/work-orders/new", wait_until="domcontentloaded")
+            pw.expect(page.get_by_role("heading", name="New maintenance request")).to_be_visible()
+            page.get_by_label("Maintenance request unit").select_option("900001")
+            page.get_by_label("Maintenance problem title").fill("E2E maintenance activity")
+            page.get_by_role("button", name="Check similar requests").click()
+            pw.expect(page.get_by_role("link", name=re.compile(
+                str(work_order_id) + r".*E2E maintenance activity"
+            ))).to_be_visible(timeout=15_000)
 
             page.goto(BASE_URL + "/dashboard/maintenance/work-orders/" + str(work_order_id),
                       wait_until="domcontentloaded")
