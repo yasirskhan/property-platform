@@ -118,7 +118,15 @@ export default function WorkOrderQueuePage() {
             tenants see their own requests, and managers see assigned properties.
           </p>
         </div>
-        <Link href="/dashboard" className="rounded-lg border bg-white px-4 py-2 text-sm">Dashboard</Link>
+        <div className="flex flex-wrap gap-2">
+          {canCreate && (
+            <Link href="/dashboard/maintenance/work-orders/new"
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white">
+              New maintenance request
+            </Link>
+          )}
+          <Link href="/dashboard" className="rounded-lg border bg-white px-4 py-2 text-sm">Dashboard</Link>
+        </div>
       </header>
       <section aria-label="Accessible work-order summary" className="space-y-2">
         <h2 className="text-sm font-semibold text-slate-800">Across all work orders you can access</h2>
