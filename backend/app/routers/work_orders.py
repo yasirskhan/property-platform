@@ -230,14 +230,12 @@ def submit_work_order(
         photo_urls=payload.photo_urls,
         status=WorkOrderStatus.SUBMITTED,
     )
+    # The created row and its first activity event must survive or fail as one.
     db.add(wo)
-    db.commit()
-    db.refresh(wo)
-
+    db.flush()
     _log_update(db, wo, current_user, to_status=WorkOrderStatus.SUBMITTED, message="Work order submitted")
     db.commit()
     db.refresh(wo)
-
     return wo
 
 
@@ -459,8 +457,6 @@ def acknowledge_work_order(
 
     old = wo.status
     wo.status = WorkOrderStatus.ACKNOWLEDGED
-    db.commit()
-
     _log_update(db, wo, current_user, from_status=old, to_status=wo.status, message="Acknowledged")
     db.commit()
     db.refresh(wo)

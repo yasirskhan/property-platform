@@ -1,3 +1,9 @@
+# 2026-10-18 | PHASE 5 WORK ORDER CREATION/ACKNOWLEDGEMENT AUDIT ATOMICITY (DETACHED)
+
+Follow-up to prepared work-order detail, role-safe lifecycle, audit, and crew assignment: changed the existing work-order submission and acknowledgement routes so row state and corresponding status activity entry are persisted in one atomic database transaction, avoiding the earlier two separate commits. Added a DB regression asserting one SUBMITTED and one ACKNOWLEDGED history entry on an authorized work order. No schema migration, billing, dispatch or new user privilege. This is a detached unverified candidate: only publish after the preceding live maintenance navigation repair has all six hosted CI jobs green, and verify the new exact SHA. Sole authorized branch; no main or Zargul modifications.
+
+---
+
 # 2026-10-18 | PHASE 5 STAFF CREW-ASSIGNMENT SAFEGUARDS (DETACHED)
 
 Prepared a user-facing work-order crew selector and Assign action for acknowledged/assigned work orders; it uses the existing role-scoped `GET /users?role=crew` and `POST /work-orders/{id}/assign`, both with server-side authorization. Hardened the existing assignment endpoint to reject assignment before acknowledgement and after the work begins or finishes, require an active crew member with a verified property assignment, and make identical replay a no-op. Added DB regression and browser presence check. Does not implement automatic dispatch or vendor handling; not published and not CI verified. Publish on the sole authorized branch only after earlier exact-head CI passes and then require another all-six-job run. No main or unrelated repo edits.

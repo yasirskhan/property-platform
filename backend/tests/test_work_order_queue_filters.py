@@ -10,10 +10,10 @@ import init_db  # noqa: F401 - import complete model registry
 from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
-from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority
-from app.routers.work_orders import (list_work_orders, _user_can_access_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order)
+from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
+from app.routers.work_orders import (list_work_orders, _user_can_access_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order)
 from app.models.audit_log import AuditLog
-from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign
+from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderCreate
 from fastapi import HTTPException
 import pytest
 
@@ -247,6 +247,37 @@ def test_assign_work_order_requires_acknowledged_status_and_authorized_active_cr
             assign_work_order(order.id, WorkOrderAssign(crew_user_id=crew.id),
                               db=db, current_user=admin)
         assert finished.value.status_code == 409
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_work_order_creation_and_acknowledgement_have_one_durable_activity_each():
+    db, engine, actors, _props, orders = _seed_queue()
+    try:
+        admin = actors[0]
+        created = submit_work_order(
+            WorkOrderCreate(
+                unit_id=orders[0].unit_id,
+                title="Review tenant concern",
+                description="Unit requires prompt staff review.",
+            ),
+            db=db, current_user=admin,
+        )
+        history = db.query(WorkOrderUpdate).filter(
+            WorkOrderUpdate.work_order_id == created.id
+        ).all()
+        assert len(history) == 1
+        assert history[0].to_status == WorkOrderStatus.SUBMITTED
+
+        reviewed = acknowledge_work_order(created.id, db=db, current_user=admin)
+        assert reviewed.status == WorkOrderStatus.ACKNOWLEDGED
+        events = db.query(WorkOrderUpdate).filter(
+            WorkOrderUpdate.work_order_id == created.id
+        ).order_by(WorkOrderUpdate.id.asc()).all()
+        assert len(events) == 2
+        assert events[1].from_status == WorkOrderStatus.SUBMITTED
+        assert events[1].to_status == WorkOrderStatus.ACKNOWLEDGED
     finally:
         db.close()
         engine.dispose()

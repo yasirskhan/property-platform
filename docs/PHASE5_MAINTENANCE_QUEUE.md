@@ -101,3 +101,13 @@ changes in the existing work-order activity history. No automated dispatch,
 notification, on-call routing or vendor contract is implied. Database-backed
 and authenticated browser regressions accompany this candidate; verify it at
 exact hosted SHA before treating it as delivered.
+
+## Transaction-atomic work-order creation and acknowledgement (follow-up)
+
+New work-order submission now inserts the work-order and the initial status
+history in the **same transaction**, rather than committing the order before
+its activity event. Staff acknowledgement similarly commits its changed status
+and history in one transaction. Database tests assert one creation event and
+one acknowledgement event on the same authorized order. Neither workflow
+creates charges or financial postings. Hosted full-suite CI remains required
+before this follow-up is considered VERIFIED.
