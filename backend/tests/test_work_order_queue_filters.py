@@ -1,7 +1,7 @@
 """Phase 5 bounded work-order queue filters never expand a user's visibility."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -11,8 +11,9 @@ from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
 from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
-from app.routers.work_orders import (list_work_orders, work_order_queue_summary, _user_can_access_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order, add_comment)
+from app.routers.work_orders import (list_work_orders, work_order_queue_summary, _user_can_access_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order, add_comment, requestable_work_order_units)
 from app.models.audit_log import AuditLog
+from app.models.lease import Lease, LeaseStatus
 from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderCreate, WorkOrderComment
 from fastapi import HTTPException
 import pytest
@@ -399,6 +400,50 @@ def test_queue_summary_enforces_roles_and_actual_property_organization():
         db.commit()
         assert work_order_queue_summary(db=db, current_user=admin)["ready_to_close"] == 1
         assert work_order_queue_summary(db=db, current_user=manager)["ready_to_close"] == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_maintenance_intake_units_enforce_lease_and_actual_organization():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other, crew, foreign = actors
+        p1, p2, p3 = properties
+        u1, u2, u3 = [orders[i].unit_id for i in (0, 2, 3)]
+        for uid in (u1, u3):
+            db.add(Lease(
+                unit_id=uid, tenant_id=tenant.id, status=LeaseStatus.ACTIVE,
+                start_date=date(2026, 1, 1), end_date=date(2027, 1, 1),
+                monthly_rent=900, security_deposit=900,
+            ))
+        db.commit()
+        def allowed(user, **kw):
+            return requestable_work_order_units(
+                search=kw.get("search"), limit=kw.get("limit", 50),
+                offset=kw.get("offset", 0), db=db, current_user=user,
+            )
+        assert [item["id"] for item in allowed(tenant)] == [u1]
+        assert {item["id"] for item in allowed(manager)} == {u1}
+        assert {item["id"] for item in allowed(admin)} == {u1, u2}
+        assert [item["id"] for item in allowed(foreign)] == [u3]
+        assert allowed(crew) == []
+        assert allowed(tenant, search="no-match") == []
+        assert allowed(admin, limit=1, offset=0) != allowed(admin, limit=1, offset=1)
+        with pytest.raises(HTTPException) as crossed:
+            submit_work_order(
+                WorkOrderCreate(unit_id=u3, title="Out of scope",
+                                description="Wrong organization unit."),
+                db=db, current_user=tenant,
+            )
+        assert crossed.value.status_code == 403
+        with pytest.raises(HTTPException) as staff_crossed:
+            submit_work_order(
+                WorkOrderCreate(unit_id=u3, title="Other scope",
+                                description="Wrong organization property."),
+                db=db, current_user=admin,
+            )
+        assert staff_crossed.value.status_code == 403
     finally:
         db.close()
         engine.dispose()
