@@ -1,3 +1,9 @@
+# 2026-10-18 | PHASE 5 ACCESSIBLE INTAKE ENTRYPOINT (DETACHED)
+
+The prepared successor to `4813686772d5c289f69a6cfc73b4d558eaac9f27` also makes the queue's New Maintenance Request link visible only for intake-capable ADMIN/OWNER/MANAGER/TENANT roles. It links to the existing authorized intake form. Authenticated Playwright covers navigation from the queue and successful form submission. All changes remain detached and unverified until the previous exact-SHA CI `39173312018` passes all six jobs, the live branch HEAD matches that parent, and a non-force expected-SHA fast-forward is performed. Then verify the final exact SHA through full hosted CI and update this handoff. No main or Zargul modifications.
+
+---
+
 # 2026-10-18 | MAINTENANCE SIMILARITY FOLLOW-UP BROWSER TEST (DETACHED)
 
 A further prepared test `backend/tests/e2e/test_work_order_detail_e2e.py` submits a new maintenance request via the actual signed-in form, verifies that it redirects to a work-order detail, and supplements a separate check of the similar-request review against an existing authorized order. These tests are not CI-verified. This detached commit is a successor to `4813686772d5c289f69a6cfc73b4d558eaac9f27`; before publication, verify its six-job Actions `39173312018` and the live branch SHA. Publish only fast-forward, never force-push or touch other branches/repos; verify a new six-job run for the resulting SHA.
