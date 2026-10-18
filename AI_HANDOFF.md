@@ -1,3 +1,13 @@
+# 2026-10-17 | PHASE 4.16 RENTMANAGER ORGANIZATION AND SOURCE GATES
+
+**Last exact-SHA VERIFIED:** `5feb32672c116f91d80d97ba0069a1da08e34719`, hosted GitHub Actions `39082768540` SUCCESS. Phase 4.16 provider run foundation is live and verified.
+
+**Latest provisional batch:** `2cd66d01015a2451f36be6fce6d95422689d0a3a` tests inactive organizations, support and billing; `f0f39864445a1154b658176ee26dec7902162edf` filters inactive organizations from global run listing; `5ee182aebea2003e2adf2cabd80b774cb1dbbac3` tests exclusion; `c6090f34042764ee3b9e7563894a317df941d698` tests Yardi run exclusion; `275719b1324afdf045269cff96dd947daa4f4162` adds scoped read-only per-run source readiness; `b4503e771092cbe48e68524399a48893ba95451a` tests provider/role gating and disabled write transport. All require exact final SHA six-job green before VERIFIED.
+
+**Remain contract-gated:** No verified RentManager export/API source contract or migration write semantics; no customer business mutation or accounting posts. Continue Phase 4.16; do not re-enter Yardi micro-regression loop or claim completed unsupported vendor resource imports. Sole branch `chatgpt/checkpoint-005-safety`; do not touch main, new branches or property-external repos.
+
+---
+
 # 2026-10-17 | PHASE 4.16 RENTMANAGER ACTIVE
 
 **Fully VERIFIED exact-SHA:** `5feb32672c116f91d80d97ba0069a1da08e34719`; hosted CI `39082768540` SUCCESS, covering the Phase 4.16 contract-gated provider-labelled run foundation, role/provider isolation, audit and no-mutating readiness.
