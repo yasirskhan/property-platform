@@ -1,6 +1,6 @@
 # Phase 4.17 | DoorLoop migration contract and delivery plan
 
-## Current implementation (provisional, exact-SHA CI required)
+## Source-independent backend foundation (VERIFIED at 8323b120, CI 39152511094)
 
 Platform staff can create organization-scoped DoorLoop DRAFT migration runs,
 retrieve a run, list active-organization runs, and check provider and per-run
@@ -15,7 +15,11 @@ field mappings, stage a file or mutate customer data. Credential-like source
 headers, ambiguous duplicate headers and macro-enabled/legacy spreadsheets
 are rejected. Responses are not cacheable.
 
-DoorLoop run list, get and create routes use a bounded output schema that permits\nonly the same explicit nonsecret metadata fields as other platform migrations.\n\nThe hosted backend test includes a PostgreSQL-specific integration test,\nusing an independent database session to verify DRAFT run persistence and its\natomic redacted audit event. It skips when no PostgreSQL test database is\nconfigured.\n\nThe run model's `provider` is `VARCHAR(32)` without an enum or CHECK
+DoorLoop run list, get and create routes use a bounded output schema that permits
+only the same explicit nonsecret metadata fields as other platform migrations.\n\nThe hosted backend test includes a PostgreSQL-specific integration test,\nusing an independent database session to verify DRAFT run persistence and its\natomic redacted audit event. It skips when no PostgreSQL test database is
+configured.
+
+The run model's `provider` is `VARCHAR(32)` without an enum or CHECK
 constraint in `d46f8a0c2e91`; `DOORLOOP` therefore requires no new DB
 migration. Provider and active-organization filters are mandatory at reads.
 
@@ -52,3 +56,16 @@ Finish exact-SHA hosted CI for the source-inspection and durable-run regression
 batch. If all six jobs pass, document the new verified baseline. Then pursue
 contract-backed source discovery using actual authorized exports, or move to
 another independent roadmap feature instead of inventing DoorLoop mappings.
+
+## Platform staff workflow (new, provisional pending exact-SHA CI)
+
+The Platform Admin dashboard now links a dedicated DoorLoop migration console
+for Admin, Tech, Support and Dev. It presents the provider readiness contract,
+active-organization run discovery and run metadata, with DRAFT creation for
+Admin/Tech/Dev only. Authorized writers can inspect a local CSV/XLSX export,
+review its exact SHA-256, choose explicit generic quality labels/columns and
+an optional identity, and request a fingerprint-bound nonpersistent quality
+preview. Changing the selected run, file or sheet clears stale review state.
+Support has metadata-only access and no file controls; unauthorized roles
+cannot access the protected backend endpoints. No vendor-specific mappings,
+source persistence, staging, customer mutation, or controlled commit were added.

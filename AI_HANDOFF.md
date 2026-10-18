@@ -1,3 +1,11 @@
+# 2026-10-18 | PHASE 4.17 DOORLOOP ADMIN CONSOLE (PROVISIONAL)
+
+Last exact-SHA VERIFIED: `8323b120670ab409f6e5e78542d003097b929843`, hosted Actions `39152511094` SUCCESS, all six jobs (backend/PostgreSQL, frontend, platform-admin, security, E2E and staging-config). This verifies the source-independent DoorLoop run, audit, provider/org/role isolation, source-inspection and fingerprint-bound quality-preview backend foundation including the preceding fixture repair.
+
+New cohesive product batch: `platform-admin/src/app/migrations/doorloop/page.tsx` adds a staff DoorLoop operator workflow: run discovery/creation, current readiness, bounded local CSV/XLSX inspection and hash display, explicit generic staff mapping proposals, optional duplicate-identity evaluation and read-only fingerprint-bound quality results. `platform-admin/src/app/dashboard/page.tsx` adds a role-gated navigation entry. `docs/DOORLOOP_MIGRATION_PLAN.md` documents scope. Required verification: run all six hosted CI jobs at the final exact commit SHA, fix failure before VERIFIED; no local test claims. Customer staging, API imports, Lease/GL/accounting or source-specific relationships remain contract-gated. Preserve approved provider/role isolation. Next action after green: verify UI interactions against live backend and move to authorized source-contract-backed mapping when samples exist, otherwise select substantive independent roadmap work. No main, new branch, force push, other repository or unattended polling.
+
+---
+
 # 2026-10-18 | PHASE 4.17 DOORLOOP GROUPED CI REPAIR (PROVISIONAL)
 
 Hosted CI `39143509329` SUCCEEDED all six jobs for exact SHA `5d3a9d68026f1311ef8832e9d2f0848808453f34`. The subsequent substantive DoorLoop run/source-inspection/quality-preview batch at `3d1b3c0943c3611b0248ad821068be98c4db3971` FAILED hosted run `39144964373`: backend had 1482 passed, 3 failed, 21 deselected; frontend, security, platform-admin passed, E2E/staging skipped. All three failures in `test_doorloop_inspection_rejects_unsafe_source_files` came from a test setup label `source_account_ref="nonsecret"` that is intentionally blocked by the existing credential-substring validator, before the unsafe export inspection ran. There was no observed production importer failure.

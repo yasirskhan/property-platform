@@ -187,6 +187,14 @@ export default function PlatformDashboard() {
           ))}
           {["PLATFORM_ADMIN", "PLATFORM_TECH", "PLATFORM_SUPPORT", "PLATFORM_DEV"].includes(role) && (
             <button
+              onClick={() => router.push("/migrations/doorloop")}
+              className="rounded-lg bg-teal-900 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800"
+            >
+              DoorLoop Migration
+            </button>
+          )}
+          {["PLATFORM_ADMIN", "PLATFORM_TECH", "PLATFORM_SUPPORT", "PLATFORM_DEV"].includes(role) && (
+            <button
               onClick={() => router.push("/migrations/yardi")}
               className="rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
             >
