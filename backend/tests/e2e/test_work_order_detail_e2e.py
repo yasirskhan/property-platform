@@ -82,6 +82,8 @@ def test_customer_maintenance_request_form_saves_a_new_order() -> None:
             page.locator('input[type="password"]').fill(PASSWORD)
             page.get_by_role("button", name="Log In", exact=True).click()
             page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+            page.goto(BASE_URL + "/dashboard/maintenance/work-orders", wait_until="domcontentloaded")
+            pw.expect(page.get_by_role("link", name="New maintenance request")).to_be_visible(timeout=15_000)
             page.goto(BASE_URL + "/dashboard/maintenance/work-orders/new", wait_until="domcontentloaded")
             pw.expect(page.get_by_role("heading", name="New maintenance request")).to_be_visible()
             page.get_by_label("Maintenance request unit").select_option("900001")
