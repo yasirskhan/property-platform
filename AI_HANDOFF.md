@@ -1,3 +1,13 @@
+# 2026-10-18 | READY-TO-PUBLISH MAINTENANCE MILESTONE (DETACHED)
+
+**Last exact verified SHA:** `5e28d92a9a2fbae214f3cebfb3bf4c4e14ce58de`, Actions `39158376106` all six SUCCESS. **Current live authorized branch SHA at this preparation:** `90acf0013c1b0534fd0260b862e78c0ccc944c12`; Actions `39164737599` has Security, Frontend and Platform Admin PASS; Backend/PostgreSQL was still running. Do not mark this DoorLoop CSV browser regression verified before all six jobs pass (including authenticated E2E and staging).
+
+**Detached Phase 5 work-order queue milestone head (parent chain built on `90acf001`):** `ada1e03b722a0b5e5ded9341d4d80af5f91063a8`. It implements scoped work-order API searches and optional paging (with a stable tie-break), a role-safe queue UI, manager navigation and open-work counts, malformed cross-organization manager-assignment protection, SQLite regressions, authenticated browser route/search coverage, canonical menu route `/dashboard/maintenance/work-orders`, maintenance parent landing, and clear error-vs-empty display. Detailed boundaries are in `docs/PHASE5_MAINTENANCE_QUEUE.md`. This candidate is **not yet published or tested in hosted CI**. If and only if `39164737599` succeeds all six jobs and LIVE HEAD is still exactly `90acf001`, fast-forward authorized `chatgpt/checkpoint-005-safety` with `expected_sha=` that exact SHA and `force=false`; then verify the new run's exact head, fix any failures, and update this handoff with its proven state. If HEAD changed, reconcile instead of overwriting.
+
+Do not modify `main`, create another branch, or modify Zargul. Phase 4.17 customer imports remain explicitly blocked by missing customer-authorized and verified DoorLoop export/API, stable IDs/relationships, and accounting source semantics; do not invent mappings or enable writes. Phase 5 work-order queue does not represent completion of Phase 5.
+
+---
+
 # 2026-10-18 | PHASE 5 MAINTENANCE QUEUE BROWSER & PLAN (DETACHED)
 
 Added authenticated browser search/empty-state regression to existing `backend/tests/e2e/test_smoke.py` for `/dashboard/work-orders`, plus `docs/PHASE5_MAINTENANCE_QUEUE.md` defining exact scope, compatibility, security and remaining Phase 5 work. This candidate and its parents remain detached until the published DoorLoop CI `39164737599` at exact SHA `90acf0013c1b0534fd0260b862e78c0ccc944c12` succeeds in all six jobs. After publication, the next exact-SHA hosted run must verify **all** jobs; no local or detached results may be labeled VERIFIED. Sole branch `chatgpt/checkpoint-005-safety`; no main, other repository, or force.
