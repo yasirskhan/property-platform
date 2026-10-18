@@ -1,6 +1,6 @@
 # PHASE 4.16 — RENTMANAGER MIGRATION FOUNDATION
 
-Status: **NEXT PHASE — CONTRACT-GATED IMPLEMENTATION** (October 17, 2026)
+Status: **FOUNDATION IMPLEMENTED — EXACT-SHA CI VERIFICATION PENDING** (October 17, 2026)
 
 ## Decision and release boundary
 
@@ -22,3 +22,11 @@ Phase 4.16 next covers **RentManager**. Its goal is the same safe provider-label
 Foundation completion: verified staff run UX, safe backend scope and upload contract boundaries, provider isolation, auditable explicit review, no customer mutations, and source blockers documented. Full migration completion requires separately documented authorized fields, record grain, identity relationships, financial signs and periods for each resource. No unsupported accounting posts or invented transport.
 
 Sole publication branch: `chatgpt/checkpoint-005-safety`. Never modify `main`, create another branch, force-push, or touch `Zargul-Silver-Marquee`.
+
+## Foundation closeout: implementation and product limitations (2026-10-17)
+
+The repository now implements the source-independent Phase 4.16 foundation: platform-role-scoped provider-labelled RentManager runs; active-org and provider isolation; safe nonsecret references and creation audit; list/get/run-specific and global readiness; explicit disabled ingestion/API/controlled-commit capabilities; and a bounded CSV/XLSX, data-only file inspector returning headers, indexed unmapped columns, row counts, file format/sheet, and a SHA-256 file identity. The inspector never persists raw file bytes, staged rows, or customer business records. It does not invent a RentManager target schema. Unsupported and macro-enabled formats are rejected. The endpoint is no-store.
+
+**This closes the source-independent foundation ONLY after exact-SHA six-job CI passes.** Provider-specific mapped source staging, identity reconciliation and any actual customer-data migration are **BLOCKED BY VERIFIED SOURCE CONTRACT** until an authorized RentManager export documents fields, per-row record grain, stable identifiers, relationship semantics and for finance the periods, signs and settlement state. The real vendor API requires an official customer/partner contract and verified authentication, endpoints and pagination. Never treat inspected headers as that contract.
+
+**Follow-up phase work:** source-contract intake, field-by-field review/authorization, controlled metadata staging with exact fingerprints, and separately proven customer mutation gates. The full Phase 4.16 migration integration remains PARTIAL and must not be described as complete until that evidence exists.
