@@ -146,6 +146,7 @@ export default function WorkOrderQueuePage() {
           </p>
         </div>
         {busy ? <p className="p-5 text-sm text-slate-500">Loading work orders…</p> :
+          error ? <p className="p-5 text-sm text-slate-500">Work orders could not be loaded.</p> :
           rows.length === 0 ? <p className="p-5 text-sm text-slate-500">No work orders match these filters.</p> :
           <div className="divide-y">
             {rows.map((row) => (
