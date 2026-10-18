@@ -86,6 +86,7 @@ def test_rentmanager_resource_readiness_blocks_unverified_transports():
         assert response.headers["cache-control"] == "no-store"
         assert readiness["provider"] == "RENTMANAGER"
         assert readiness["run_foundation_available"] is True
+        assert readiness["source_inspection_enabled"] is True
         assert readiness["file_upload_enabled"] is False
         assert readiness["official_api_enabled"] is False
         assert readiness["controlled_commit_enabled"] is False
@@ -181,6 +182,7 @@ def test_rentmanager_per_run_source_gate_enforces_provider_and_view_role():
         assert response.headers["cache-control"] == "no-store"
         assert readiness["run_id"] == own.id
         assert readiness["source_account_bound"] is True
+        assert readiness["source_inspection_enabled"] is True
         assert readiness["file_upload_enabled"] is False
         assert readiness["official_api_enabled"] is False
         assert readiness["controlled_commit_enabled"] is False
