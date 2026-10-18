@@ -346,6 +346,15 @@ def test_rentmanager_mapping_review_does_not_stage_or_authorize_records():
                 Response(), db, admin,
             )
         assert error.value.status_code == 422
+        for payload in (
+            RentManagerMappingProposal(source_headers=["Unit"], column_mapping={"": "Unit"}),
+            RentManagerMappingProposal(source_headers=["Unit"], column_mapping={"x" * 101: "Unit"}),
+            RentManagerMappingProposal(source_headers=["Unit"], column_mapping={"source_id": " "}),
+            RentManagerMappingProposal(source_headers=["x" * 256], column_mapping={}),
+        ):
+            with pytest.raises(HTTPException) as invalid:
+                review_rentmanager_mapping(run.id, payload, Response(), db, admin)
+            assert invalid.value.status_code == 422
     finally:
         db.close()
         engine.dispose()
