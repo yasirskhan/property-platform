@@ -1,3 +1,13 @@
+# 2026-10-18 | PHASE 4.16 RENTMANAGER MAPPING REVIEW VALIDATION
+
+**Last VERIFIED exact SHA:** `29e0284c3dfc520942f9598a360fdc79b755da44`, GitHub Actions `39119150495`, SUCCESS six required jobs.
+
+**New provisional code:** `ae9348e9fd3d523e32628688b5f87bfffd1fa3a6` strengthens the stateless RentManager mapping review endpoint's column/header length and blank-field checks; `5b4186c07ceea0213670de08b472e9f9f3896e35` adds regressions for those checks. Need current live exact SHA six-job hosted CI green, fix failures before marking VERIFIED. The endpoint still stores no mappings and does not enable imports or customer writes.
+
+**Phase boundary:** Full RentManager data import remains source-contract/tenant-authorization gated. The source-independent authenticated run and source-inspection foundation is implemented and verified; actual resource identity/accounting imports are not. Favor substantive evidence-backed next features over tiny incremental counters. Sole branch `chatgpt/checkpoint-005-safety`; never main, force, new branch or unrelated repository.
+
+---
+
 # 2026-10-18 | PHASE 4.16 RENTMANAGER MAPPING REVIEW
 
 **Last fully verified exact-SHA:** `da3377f66235bcd8b8dcabbe1c352cc2f6d2d0b5`, GitHub Actions `39096671292`, SUCCESS.
