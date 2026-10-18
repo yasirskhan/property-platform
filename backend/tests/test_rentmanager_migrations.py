@@ -225,8 +225,7 @@ def test_rentmanager_source_inspection_is_bounded_read_only_and_provider_scoped(
         assert result["provider"] == "RENTMANAGER"
         assert result["row_count"] == 2
         assert result["headers"] == ["Unit", "Property"]
-        assert result["duplicate_header_names"] == []
-        assert result["blank_header_indices"] == []
+        assert result["headers_validated_unique"] is True
         assert result["headers_require_review"] is False
         import hashlib
         assert result["source_file_sha256"] == hashlib.sha256(b"Unit,Property\n1,Alpha\n2,Beta\n").hexdigest()
@@ -250,6 +249,33 @@ def test_rentmanager_source_inspection_is_bounded_read_only_and_provider_scoped(
                 valid.id, Response(), UploadFile(filename="data.csv", file=BytesIO(b"A\nx\n")), None, db, support,
             ))
         assert read_only.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_rentmanager_source_inspection_rejects_ambiguous_headers():
+    import asyncio
+    from io import BytesIO
+    from fastapi import UploadFile
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "rentmanager-ambiguous-headers")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="RENTMANAGER",
+            source_account_ref="export", status="DRAFT",
+        )
+        db.add(run)
+        db.commit()
+        for csv_bytes in (b"Unit,UNIT\n1,2\n", b"Unit,,Property\n1,2,3\n"):
+            with pytest.raises(HTTPException) as error:
+                asyncio.run(inspect_rentmanager_source_headers(
+                    run.id, Response(),
+                    UploadFile(filename="ambiguous.csv", file=BytesIO(csv_bytes)),
+                    None, db, admin,
+                ))
+            assert error.value.status_code == 422
     finally:
         db.close()
         engine.dispose()
