@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { apiGet, apiPost } from "@/lib/api";
 
 type UnitChoice = { id: number; unit_number: string; property_id: number; property_name: string };
+type SimilarRequest = { id: number; title: string; status: string; priority: string };
 const CATEGORIES = ["plumbing", "electrical", "hvac", "appliance", "general", "pest", "cleaning", "landscaping", "other"];
 const PRIORITIES = ["low", "medium", "high", "emergency"];
 
@@ -24,6 +25,10 @@ export default function NewMaintenanceRequest() {
   const [category, setCategory] = useState("other");
   const [priority, setPriority] = useState("medium");
   const [permission, setPermission] = useState(false);
+  const [similar, setSimilar] = useState<SimilarRequest[] | null>(null);
+  const [similarKey, setSimilarKey] = useState("");
+  const [checkingSimilar, setCheckingSimilar] = useState(false);
+  const [similarError, setSimilarError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -53,6 +58,31 @@ export default function NewMaintenanceRequest() {
     event.preventDefault();
     setAppliedSearch(search.trim());
     setOffset(0);
+  }
+
+  async function checkSimilar() {
+    const unitId = Number(selectedId);
+    const titleTerm = title.trim().slice(0, 80);
+    if (!units.some((unit) => unit.id === unitId) || titleTerm.length < 3) {
+      setSimilarError("Choose a unit and enter a title of at least 3 characters.");
+      return;
+    }
+    const key = String(unitId) + "|" + title.trim();
+    setCheckingSimilar(true);
+    setSimilarError("");
+    setSimilar(null);
+    setSimilarKey("");
+    try {
+      const params = new URLSearchParams({unit_id: String(unitId), title: titleTerm});
+      const rows = await apiGet("/work-orders/possible-duplicates?" + params.toString()) as SimilarRequest[];
+      if (!Array.isArray(rows)) throw new Error("Unexpected similar request response.");
+      setSimilar(rows);
+      setSimilarKey(key);
+    } catch (cause) {
+      setSimilarError(cause instanceof Error ? cause.message : "Could not check existing requests.");
+    } finally {
+      setCheckingSimilar(false);
+    }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -126,6 +156,37 @@ export default function NewMaintenanceRequest() {
             className="mt-1 w-full rounded-lg border p-2" value={title}
             onChange={(event) => setTitle(event.target.value)} />
         </label>
+        <div className="rounded-lg border bg-slate-50 p-4">
+          <h2 className="text-sm font-semibold">Check for a similar open request</h2>
+          <p className="mt-1 text-xs text-slate-600">
+            Search the first 80 title characters against open requests you can access for this unit.
+            A match does not prevent a new report; closed requests are not shown.
+          </p>
+          <button type="button" disabled={checkingSimilar || saving || !selectedId}
+            className="mt-3 rounded-lg border bg-white px-3 py-2 text-sm disabled:opacity-50"
+            onClick={() => void checkSimilar()}>
+            {checkingSimilar ? "Checking…" : "Check similar requests"}
+          </button>
+          {similarError && <p role="alert" className="mt-2 text-sm text-red-700">{similarError}</p>}
+          {similar && similarKey === selectedId + "|" + title.trim() && (
+            <div className="mt-3 text-sm">
+              {similar.length === 0
+                ? <p>No matching open requests found in the accessible titles.</p>
+                : <>
+                    <p className="font-semibold">Possible existing requests — review before submitting:</p>
+                    <ul className="mt-2 space-y-1">
+                      {similar.map((item) => (
+                        <li key={item.id}>
+                          <Link className="text-blue-700 underline" href={`/dashboard/maintenance/work-orders/${item.id}`}>
+                            #{item.id} · {item.title} ({item.status.replaceAll("_", " ")})
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </>}
+            </div>
+          )}
+        </div>
         <label className="block text-sm">Describe the problem
           <textarea required minLength={10} maxLength={950} rows={5}
             aria-label="Maintenance problem description" value={description}
