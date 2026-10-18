@@ -343,3 +343,31 @@ def test_status_and_comment_audit_is_scoped_and_idempotent():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_assignment_audit_records_previous_and_next_crew_once():
+    db, engine, actors, props, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other, crew, foreign = actors
+        wo = orders[0]
+        wo.status = WorkOrderStatus.ACKNOWLEDGED
+        wo.assigned_to_id = None
+        db.commit()
+        assign_work_order(wo.id, WorkOrderAssign(crew_user_id=crew.id),
+                          db=db, current_user=admin)
+        rows = db.query(AuditLog).filter(
+            AuditLog.entity_type == "work_order", AuditLog.entity_id == wo.id
+        ).order_by(AuditLog.id).all()
+        assert [row.action for row in rows] == [
+            "status_transition", "crew_assignment"
+        ]
+        assert '"assigned_to_id":null' in rows[1].old_value
+        assert f'"assigned_to_id":{crew.id}' in rows[1].new_value
+        assign_work_order(wo.id, WorkOrderAssign(crew_user_id=crew.id),
+                          db=db, current_user=admin)
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "work_order", AuditLog.entity_id == wo.id
+        ).count() == 2
+    finally:
+        db.close()
+        engine.dispose()
