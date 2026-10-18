@@ -7,6 +7,7 @@ from app.models.platform_migration import PlatformMigrationRun
 from app.models.platform_user import PlatformUserRole
 from app.routers.rentmanager_migrations import (
     create_rentmanager_run, get_rentmanager_run, list_rentmanager_runs,
+    get_rentmanager_resource_readiness,
 )
 from app.schemas.rentmanager_migration import RentManagerRunCreateIn
 from test_yardi_migrations import _session, _org, _platform_user
@@ -68,6 +69,28 @@ def test_rentmanager_denies_sales_and_secret_source_reference():
             RentManagerRunCreateIn(organization_id=org.id, source_account_ref='{"raw":"value"}')
         with pytest.raises(ValidationError):
             RentManagerRunCreateIn(organization_id=org.id, source_account_ref="ok", password="forbidden")
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_rentmanager_resource_readiness_blocks_unverified_transports():
+    db, engine = _session()
+    try:
+        support = _platform_user(db, PlatformUserRole.PLATFORM_SUPPORT)
+        sales = _platform_user(db, PlatformUserRole.PLATFORM_SALES)
+        response = Response()
+        readiness = get_rentmanager_resource_readiness(response, support)
+        assert response.headers["cache-control"] == "no-store"
+        assert readiness["provider"] == "RENTMANAGER"
+        assert readiness["run_foundation_available"] is True
+        assert readiness["file_upload_enabled"] is False
+        assert readiness["official_api_enabled"] is False
+        assert readiness["controlled_commit_enabled"] is False
+        assert readiness["customer_business_mutation"] is False
+        with pytest.raises(HTTPException) as denied:
+            get_rentmanager_resource_readiness(Response(), sales)
+        assert denied.value.status_code == 403
     finally:
         db.close()
         engine.dispose()
