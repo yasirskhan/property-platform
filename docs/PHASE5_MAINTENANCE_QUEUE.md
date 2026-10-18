@@ -111,3 +111,15 @@ and history in one transaction. Database tests assert one creation event and
 one acknowledgement event on the same authorized order. Neither workflow
 creates charges or financial postings. Hosted full-suite CI remains required
 before this follow-up is considered VERIFIED.
+
+## Status, assignment and comment audit coverage
+
+A work-order status transition now produces both the existing activity-history
+entry and an append-only organization-scoped audit event with actor and
+before/after status. Crew assignment produces an additional before/after crew
+ID record, while replaying an unchanged assignment is a no-op. Comments use
+an audit event pointing at the activity row; comment text remains in the
+work-order activity trail rather than being copied into the global audit
+ledger. The API enforces the UI's 2,000-character comment limit. Changes are
+transactional and regression-tested; full hosted six-job CI is required
+before declaring the batch VERIFIED.

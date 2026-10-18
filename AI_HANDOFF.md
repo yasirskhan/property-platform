@@ -1,3 +1,11 @@
+# 2026-10-18 | PHASE 5 WORK-ORDER IMMUTABLE AUDIT COVERAGE — CI REQUIRED
+
+Last exact verified branch checkpoint is `d33ce8371920a2cd9dfef9377fdd394fcb39a20a` (hosted Actions `39168393313` SUCCESS in all six jobs). This successor changes `backend/app/routers/work_orders.py` to write a scoped append-only audit entry in the same transaction as each existing work-order lifecycle status event, preserving before and after enum values. Crew assignments additionally record previous/new crew IDs; replay of an unchanged assignment returns without new events. Work-order comments record only activity IDs in the ledger, not the body; the backend now caps comments at 2,000 characters, matching the UI. Regression tests cover organization/actor attribution, states and no duplicate records. Changes do not enable automatic dispatch, customer account posting, or vendor access.
+
+**Verification required:** run all six hosted CI jobs at the latest exact live SHA. If any job fails, repair on the ONLY authorized branch `chatgpt/checkpoint-005-safety` and repeat. Then update this handoff with the verified SHA and continue the next bounded Phase 5 task. Never modify `main`, create a branch, force-push or touch `yasirskhan/Zargul-Silver-Marquee`. DoorLoop's complete customer import is still blocked on a verified customer-authorized provider source contract; no invented fields, no staging and no customer mutations. Both Phase 4.17 and Phase 5 remain unfinished overall.
+
+---
+
 # 2026-10-18 | PHASE 5 MAINTENANCE DETAIL/LIFECYCLE PUBLICATION GATE
 
 Authorized repository `yasirskhan/property-platform`, sole branch `chatgpt/checkpoint-005-safety`. Never modify main, create another branch, force-push, or modify Zargul. Phase 4.17 DoorLoop safe inspection UI foundation is VERIFIED at `90acf0013c1b0534fd0260b862e78c0ccc944c12` (six jobs, run `39164737599`). Full DoorLoop source-specific import remains BLOCKED by absent customer-authorized vendor export/API stable identities, relationships and accounting semantics; no invented mappings or customer writes.
