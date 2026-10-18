@@ -1,3 +1,13 @@
+# 2026-10-18 | PHASE 4.16 RENTMANAGER MAPPING REVIEW
+
+**Last fully verified exact-SHA:** `da3377f66235bcd8b8dcabbe1c352cc2f6d2d0b5`, GitHub Actions `39096671292`, SUCCESS.
+
+**Latest provisional product implementation:** `48f04029bc875915a3f7e737f8e020020939ffb0` adds `POST /api/platform/migrations/rentmanager/runs/{run_id}/review-mapping`, validating source headers and staff-proposed header mapping under an authenticated provider-specific run without persisting mappings, uploading/staging data, creating customer business records, or enabling controlled commits. `ab74196039c64a01d5ac191513d7ad1d511b18f8` tests valid and unknown-column proposals plus absence of upload records. Hosted CI `39119123575` was pending when inspected; verify the FINAL HEAD's exact SHA through all six CI jobs; fix failures, do not claim green early.
+
+**Still blocked:** Full RentManager export/file staging and customer imports require verified resource/relationship schema and financial semantics, customer-authorized API access, and explicit review/commit safeguards. Public Rent Manager API docs are noted in `docs/RENTMANAGER_MIGRATION_PLAN.md`. Do not invent target mappings or open customer mutation paths. Continue independently deliverable Phase 4.16 work without cycling through counters; sole branch `chatgpt/checkpoint-005-safety`, no main/new branches/force/other repos.
+
+---
+
 # 2026-10-18 | RENTMANAGER SOURCE FILE REVIEW METADATA
 
 **Last exact-SHA VERIFIED:** `c4d6166c8346867f7d4ed659f3487cd063363132`, Actions `39094866545` SUCCESS (Phase 4.16 inspection and no-import authorization boundary).
