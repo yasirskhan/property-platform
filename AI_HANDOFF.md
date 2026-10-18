@@ -1,3 +1,13 @@
+# 2026-10-17 | RENTMANAGER STRICT SOURCE HEADER VALIDATION
+
+**Last verified exact SHA:** `e4d51d343417cf4d96c7cb1e21e811c5ab2351b3`, hosted CI `39089935811`, SUCCESS.
+
+**New provisional code:** `8b682fef7b1705d4a2d3e7a66239cd221d2329cf` and `dfed3fb9f410c43a13a45d11a6b03005ef5d21c9` initially exposed header inspection review metadata. On inspecting the shared CSV/XLSX parser, it was confirmed that duplicate/normalized-colliding and blank headers already fail closed with 422; `ef71d24f2754fcbb90fdb4eb5f4845701850bd34` corrects output to `headers_validated_unique: true` for successfully parsed files. `4b8f1fe61990c3b972eb880951fc751d7fb18602` tests rejection of collisions and blanks. Require exact-SHA hosted CI six-job success before VERIFIED.
+
+**Current scope:** RentManager authenticated runs, org/provider/role isolation, audit, no-store bounded CSV/XLSX source inspection with file digest and indexed columns; no customer data mutation or provider API. Vendor-specific resource mapping and authorized data import require real source contracts and tenant authorization. Next work should be substantive source evidence/adapter readiness rather than repeating micro-tests. Sole branch `chatgpt/checkpoint-005-safety`, no main/new branch/force.
+
+---
+
 # 2026-10-17 | PHASE 4.16 FOUNDATION DELIVERY AND API EVIDENCE
 
 **Last exact-SHA green:** `d04ebf72424e72582d21a9bf36a06edd40f5a639`, GitHub Actions `39088370010` SUCCESS, all six jobs.
