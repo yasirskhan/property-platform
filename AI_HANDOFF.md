@@ -1,3 +1,15 @@
+# 2026-10-17 | PHASE 4.15 SCOPE FREEZE → PHASE 4.16 RENTMANAGER STARTED
+
+**Decision:** Stop cycling on minor Yardi staging counters. Yardi Phase 4.15 source-supported export/ETL foundation is implemented, with the last fully verified product checkpoint `f4abf6f18bdf69402f74af16fbb924dd5c9194da` (Actions `39080243914`, SUCCESS). The subsequent Yardi blocked-review-parent summary batch `27c332522cdc9d4aaa2a7b31945de86beba032fa` had active hosted CI at this transition and was NOT separately certified green. Preserve this gate; do not rewrite history.
+
+**Yardi release boundary:** Close only the **supported staging, explicit review, reconciliation, and existing-target metadata-binding workstream**; this does NOT imply end-to-end customer migrations completed. Yardi account/property/unit/owner/vendor/resident source staging and safe identity binding are available. Customer Property/Unit/Lease creation, ownership allocations, accounting/AR/AP/GL, bank/check, historical ledger and nonpublic API adapter are **BLOCKED BY AUTHORITATIVE SOURCE CONTRACT**, not silently accepted, deleted, or faked. Reopen a blocked resource only when real source evidence arrives.
+
+**Next phase actually started:** `docs/RENTMANAGER_MIGRATION_PLAN.md` plus `backend/app/schemas/rentmanager_migration.py`, `backend/app/routers/rentmanager_migrations.py`, registration in `backend/app/main.py`, and `backend/tests/test_rentmanager_migrations.py`. Latest Phase 4.16 implementation commit `29fa10b3cee5e7d3f279c3c1b6e8fe8118c58898` is PROVISIONAL pending exact-SHA six-job CI; do not mark verified without success. Initial provider-specific run only, no API transport or customer business mutations.
+
+**Next action:** Inspect hosted CI for latest live branch SHA and fix failing tests. After a six-job exact-SHA green, update handoff and continue Phase 4.16 contract-gated import foundation. Keep sole `chatgpt/checkpoint-005-safety` branch, no force, no main, no unrelated repos.
+
+---
+
 # 2026-10-17 | YARDI REVIEWABLE BLOCKED PARENT ROWS
 
 **Latest VERIFIED:** `f4abf6f18bdf69402f74af16fbb924dd5c9194da`, hosted CI `39080243914`, SUCCESS.
