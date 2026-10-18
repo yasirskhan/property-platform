@@ -75,3 +75,26 @@ The prepared follow-up operator page supports opening a specific authenticated,
 provider-scoped run ID when it falls outside the latest 100 in the dropdown,
 and shows per-run contract blockers without retaining source content. This
 follow-up remains provisional until committed and checked at its exact SHA.
+
+## Official source acquisition and access evidence (2026-10-18)
+
+DoorLoop's own [Reports and Report Filters guide](https://support.doorloop.com/en/articles/8272427-introduction-to-doorloop-reports-and-report-filters)
+states that reports can be exported as PDF, CSV or Excel. Only customer-approved
+CSV/XLSX exports are accepted by our current bounded in-memory inspector; PDF
+is not an import source. Reports may be filtered and column-customized. Record
+report identity, export timestamp, selected columns, filters and cutoff before
+mapping, but do not infer stable IDs from display names, lease relationships
+from shared labels, or debit/credit meaning from generic financial columns.
+
+DoorLoop's [official API help article](https://support.doorloop.com/en/articles/7902913-api-documentation-and-where-to-find-help)
+links to https://api.doorloop.com/. The provider [integration program](https://www.doorloop.com/partner)
+notes that API access requires DoorLoop approval. Published existence of an API
+is **not** evidence that this installation has credentials, authorized tenant
+access, or a verified specific resource payload/accounting contract. Do not
+implement undocumented endpoints or scrape internal web network calls.
+
+The operator console now includes an explicit export-acquisition guide and
+prevents file, sheet and run switching during in-flight inspection/review.
+Both are independently deliverable staff usability/safety work, not a claim
+that customer-data migration is implemented. The guide and the UI controls
+require an exact-SHA hosted CI pass before marking this batch VERIFIED.

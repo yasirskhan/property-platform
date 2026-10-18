@@ -291,7 +291,7 @@ export default function DoorLoopMigrationConsole() {
               <h2 className="font-semibold">Migration runs</h2>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <label className="text-sm">Choose an active-organization run
-                  <select className="input mt-1" value={selectedRunId ?? ""} onChange={(event) => selectRun(event.target.value)}>
+                  <select className="input mt-1" disabled={busy} value={selectedRunId ?? ""} onChange={(event) => selectRun(event.target.value)}>
                     <option value="">Select a run</option>
                     {runs.map((run) => <option key={run.id} value={run.id}>
                       #{run.id} · Organization {run.organization_id} · {run.source_account_ref} · {run.status}
@@ -335,13 +335,31 @@ export default function DoorLoopMigrationConsole() {
             {canWrite && selectedRun && (
               <section className="rounded-xl border bg-white p-5">
                 <h2 className="font-semibold">1. Inspect an authorized export</h2>
+                <details className="mt-3 rounded-lg bg-slate-50 p-3 text-sm">
+                  <summary className="cursor-pointer font-medium">How to obtain an approved DoorLoop export</summary>
+                  <p className="mt-2">Ask the customer's DoorLoop administrator to authorize the migration and export
+                    the relevant report using Reports → select the report → Export → CSV or Excel.
+                    Save the exact report settings and any chosen filters or date range.
+                    The exported column set can vary, so inspect it rather than relying on guessed field names.</p>
+                  <p className="mt-2">Official references:{" "}
+                    <a className="text-blue-700 underline" href="https://support.doorloop.com/en/articles/8272427-introduction-to-doorloop-reports-and-report-filters"
+                      target="_blank" rel="noopener noreferrer">Report export instructions</a>{" "}
+                    and{" "}
+                    <a className="text-blue-700 underline" href="https://support.doorloop.com/en/articles/7902913-api-documentation-and-where-to-find-help"
+                      target="_blank" rel="noopener noreferrer">API documentation location</a>.
+                    Vendor API access is separate and requires approval. Never paste API keys, passwords or
+                    session data into source labels or CSV columns.</p>
+                  <p className="mt-2 font-medium">Not ready for import: stable source IDs, related resource keys,
+                    lease semantics and signed financial balances still require approved source-contract review.
+                    Inspection and quality preview cannot authorize customer writes.</p>
+                </details>
                 <p className="mt-1 text-sm text-slate-600">CSV or XLSX only, up to 10 MB. No source rows are displayed or saved.</p>
                 <div className="mt-4 grid items-end gap-3 md:grid-cols-[1fr_200px_auto]">
                   <label className="text-sm">Export file
-                    <input key={selectedRunId} className="input mt-1" type="file" accept=".csv,.xlsx" onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
+                    <input key={selectedRunId} className="input mt-1" disabled={busy} type="file" accept=".csv,.xlsx" onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
                   </label>
                   <label className="text-sm">XLSX sheet (optional)
-                    <input className="input mt-1" maxLength={255} value={sheetName} onChange={(event) => {
+                    <input className="input mt-1" disabled={busy} maxLength={255} value={sheetName} onChange={(event) => {
                       setSheetName(event.target.value); setInspection(null); setProposals([]); setQuality(null);
                     }} />
                   </label>
