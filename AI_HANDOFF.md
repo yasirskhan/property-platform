@@ -1,3 +1,11 @@
+# 2026-10-18 | PHASE 4.17 DOORLOOP RUN MANAGEMENT
+
+Last exact SHA VERIFIED: `1e22e3775e8fdede72abb534ddf00861f07060e4`, hosted CI `39139767746` SUCCESS.
+
+Provisional new commits: `844dfda41fa4836f3e5f0d03cf5f072315da55aa` adds audited DoorLoop DRAFT migration-run creation and provider/active-org-scoped run retrieval; input reuses validated nonsecret source account label (currently named RentManagerRunCreateIn), write roles ADMIN/TECH/DEV only, no customer entity mutation. `3ca3e709863b0643bac22036945ca9d786018c69` adds forbidden SUPPORT create regression. Run exact latest SHA six-job CI; fix any regressions. Next: replace reused schema with provider-neutral dedicated DoorLoop schema, test durable creation and read isolation before broader work. No source API/CSV staging/commit until contracts verified. Only branch `chatgpt/checkpoint-005-safety`; no main/new branch/force/other repository.
+
+---
+
 # 2026-10-18 | PHASE 4.17 DOORLOOP STARTED
 
 **Last verified exact SHA:** `c584f87c25fe6bd17038b9274e4914c49323e735`, CI `39136151349` SUCCESS. Phase 4.16 RentManager read-only/source-independent tooling verified; vendor-specific customer data imports contract-gated.
