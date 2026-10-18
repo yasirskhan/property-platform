@@ -79,3 +79,39 @@ def test_platform_admin_login_uses_separate_identity_and_session() -> None:
             assert customer_token is None
         finally:
             browser.close()
+
+
+def test_doorloop_admin_console_read_only_source_discovery() -> None:
+    """Exercise the real signed-in DoorLoop staff page, not just its TypeScript build."""
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page()
+        try:
+            page.goto(f"{PLATFORM_BASE_URL}/login", wait_until="domcontentloaded")
+            page.locator('input[type="email"]').fill(PLATFORM_EMAIL)
+            page.locator('input[type="password"]').fill(PLATFORM_PASSWORD)
+            page.get_by_role("button", name="Sign in", exact=True).click()
+            page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+
+            page.get_by_role("button", name="DoorLoop Migration", exact=True).click()
+            page.wait_for_url(re.compile(r"/migrations/doorloop/?$"), timeout=15_000)
+            expect(
+                page.get_by_role("heading", name="DoorLoop export review", exact=True)
+            ).to_be_visible()
+            expect(
+                page.get_by_role("heading", name="Import capability and safety", exact=True)
+            ).to_be_visible()
+            expect(
+                page.get_by_text(re.compile("source-discovery mode"))
+            ).to_be_visible()
+            # This message is sourced from the authenticated backend readiness
+            # route. A successful page build without working API access fails.
+            expect(
+                page.get_by_text(re.compile("DoorLoop resource contracts"))
+            ).to_be_visible(timeout=15_000)
+            expect(
+                page.get_by_role("button", name="Create DRAFT run", exact=True)
+            ).to_be_visible()
+            assert page.get_by_role("button", name=re.compile(r"stage import|commit import", re.I)).count() == 0
+        finally:
+            browser.close()

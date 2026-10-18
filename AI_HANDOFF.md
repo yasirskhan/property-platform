@@ -1,3 +1,9 @@
+# 2026-10-18 | DOORLOOP AUTHENTICATED BROWSER REGRESSION (DETACHED)
+
+Prepared an authenticated Playwright E2E test in `backend/tests/e2e/test_platform_admin_e2e.py`: verifies platform admin login, DoorLoop dashboard navigation, protected resource-readiness fetch, visible DRAFT run creation affordance, and no staged/committed import controls. This is a new test added to the existing one without removal or weakening; the test must run against the exact published SHA. The test commit remains detached above prepared DoorLoop source-guidance batch `03d9d9f5` until existing six-job CI `39156680779` for live `8807f767` has fully passed. No customer mutation, vendor API or unverified migration schema enabled.
+
+---
+
 # 2026-10-18 | DOORLOOP SOURCE EVIDENCE REFINEMENT (DETACHED)
 
 Expanded the prepared staff source-acquisition guide to identify the official Tenant Directory, Rent Roll and Lease Account Statement report families as possible authorized evidence sources. These are **not** approved migration field/identity contracts and do not permit staging or customer mutations. Refer to the three DoorLoop help pages cited in `docs/DOORLOOP_MIGRATION_PLAN.md`. This change remains detached above the unpublished 30370e5d milestone and needs exact-SHA hosted CI if published. Do not advance the live branch while its preceding backend CI remains in progress.
