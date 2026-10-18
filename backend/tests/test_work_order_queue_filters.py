@@ -11,9 +11,9 @@ from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
 from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
-from app.routers.work_orders import (list_work_orders, _user_can_access_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order)
+from app.routers.work_orders import (list_work_orders, _user_can_access_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order, add_comment)
 from app.models.audit_log import AuditLog
-from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderCreate
+from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderCreate, WorkOrderComment
 from fastapi import HTTPException
 import pytest
 
@@ -306,6 +306,40 @@ def test_valid_property_assigned_crew_can_start_and_complete_with_audit():
             (WorkOrderStatus.ASSIGNED, WorkOrderStatus.IN_PROGRESS),
             (WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.COMPLETED),
         ]
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_status_and_comment_audit_is_scoped_and_idempotent():
+    db, engine, actors, props, orders = _seed_queue()
+    try:
+        admin = actors[0]
+        created = submit_work_order(
+            WorkOrderCreate(unit_id=orders[0].unit_id, title="Repair review",
+                            description="Please check the reported water pressure."),
+            db=db, current_user=admin,
+        )
+        acknowledge_work_order(created.id, db=db, current_user=admin)
+        comment = add_comment(created.id, WorkOrderComment(message="Repair followup"),
+                              db=db, current_user=admin)
+        audit = db.query(AuditLog).filter(
+            AuditLog.entity_type == "work_order", AuditLog.entity_id == created.id,
+        ).order_by(AuditLog.id).all()
+        assert [e.action for e in audit] == [
+            "status_transition", "status_transition", "comment_added"
+        ]
+        assert all(e.organization_id == admin.organization_id for e in audit)
+        assert all(e.user_id == admin.id for e in audit)
+        assert '"status":null' in audit[0].old_value
+        assert '"status":"acknowledged"' in audit[1].new_value
+        assert f'"activity_id":{comment.id}' in audit[2].new_value
+        assert "Repair followup" not in audit[2].new_value
+        with pytest.raises(HTTPException):
+            acknowledge_work_order(created.id, db=db, current_user=admin)
+        assert db.query(AuditLog).filter(
+            AuditLog.entity_type == "work_order", AuditLog.entity_id == created.id
+        ).count() == 3
     finally:
         db.close()
         engine.dispose()
