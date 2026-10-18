@@ -8,6 +8,7 @@ from app.models.platform_user import PlatformUserRole
 from app.routers.rentmanager_migrations import (
     create_rentmanager_run, get_rentmanager_run, list_rentmanager_runs,
     get_rentmanager_resource_readiness, rentmanager_run_source_readiness,
+    inspect_rentmanager_source_headers,
 )
 from app.schemas.rentmanager_migration import RentManagerRunCreateIn
 from test_yardi_migrations import _session, _org, _platform_user
@@ -190,6 +191,76 @@ def test_rentmanager_per_run_source_gate_enforces_provider_and_view_role():
         with pytest.raises(HTTPException) as denied:
             rentmanager_run_source_readiness(own.id, Response(), db, billing)
         assert denied.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_rentmanager_source_inspection_is_bounded_read_only_and_provider_scoped():
+    import asyncio
+    from io import BytesIO
+    from fastapi import UploadFile
+    from app.models.platform_migration import PlatformMigrationUpload
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        support = _platform_user(db, PlatformUserRole.PLATFORM_SUPPORT)
+        org = _org(db, "rentmanager-inspect-scope")
+        valid = PlatformMigrationRun(
+            organization_id=org.id, provider="RENTMANAGER",
+            source_account_ref="export", status="DRAFT",
+        )
+        yardi = PlatformMigrationRun(
+            organization_id=org.id, provider="YARDI",
+            source_account_ref="export", status="DRAFT",
+        )
+        db.add_all([valid, yardi])
+        db.commit()
+        file = UploadFile(filename="units.csv", file=BytesIO(b"Unit,Property\n1,Alpha\n2,Beta\n"))
+        result = asyncio.run(inspect_rentmanager_source_headers(valid.id, file, None, db, admin))
+        assert result["provider"] == "RENTMANAGER"
+        assert result["row_count"] == 2
+        assert result["headers"] == ["Unit", "Property"]
+        assert result["source_contract_verified"] is False
+        assert result["raw_source_stored"] is False
+        assert result["staging_mutation"] is False
+        assert result["customer_business_mutation"] is False
+        assert db.query(PlatformMigrationUpload).count() == 0
+        with pytest.raises(HTTPException) as wrong_provider:
+            asyncio.run(inspect_rentmanager_source_headers(
+                yardi.id, UploadFile(filename="data.csv", file=BytesIO(b"A\nx\n")), None, db, admin,
+            ))
+        assert wrong_provider.value.status_code == 404
+        with pytest.raises(HTTPException) as read_only:
+            asyncio.run(inspect_rentmanager_source_headers(
+                valid.id, UploadFile(filename="data.csv", file=BytesIO(b"A\nx\n")), None, db, support,
+            ))
+        assert read_only.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_rentmanager_source_inspection_rejects_unsupported_formats():
+    import asyncio
+    from io import BytesIO
+    from fastapi import UploadFile
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "rentmanager-inspect-invalid-format")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="RENTMANAGER",
+            source_account_ref="export", status="DRAFT",
+        )
+        db.add(run)
+        db.commit()
+        with pytest.raises(HTTPException) as err:
+            asyncio.run(inspect_rentmanager_source_headers(
+                run.id, UploadFile(filename="unsafe.xlsm", file=BytesIO(b"invalid")),
+                None, db, admin,
+            ))
+        assert err.value.status_code == 422
     finally:
         db.close()
         engine.dispose()
