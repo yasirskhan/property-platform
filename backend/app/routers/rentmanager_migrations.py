@@ -130,9 +130,20 @@ async def inspect_rentmanager_source_headers(
     except AppFolioFileIngestionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     response.headers["Cache-Control"] = "no-store"
+    normalized_headers = [header.strip().casefold() for header in parsed.headers]
+    duplicate_header_names = sorted({
+        header for header in normalized_headers
+        if header and normalized_headers.count(header) > 1
+    })
+    blank_header_indices = [
+        index for index, header in enumerate(normalized_headers) if not header
+    ]
     return {
         "run_id": run.id,
         "provider": "RENTMANAGER",
+        "duplicate_header_names": duplicate_header_names,
+        "blank_header_indices": blank_header_indices,
+        "headers_require_review": bool(duplicate_header_names or blank_header_indices),
         "file_format": parsed.file_format,
         "source_file_sha256": hashlib.sha256(contents).hexdigest(),
         "sheet_name": parsed.sheet_name,
