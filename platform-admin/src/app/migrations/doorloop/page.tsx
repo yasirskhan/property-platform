@@ -170,8 +170,7 @@ export default function DoorLoopMigrationConsole() {
       const form = new FormData();
       form.append("file", file);
       if (sheetName.trim()) form.append("sheet_name", sheetName.trim());
-      const info = await platformPostForm(ROOT + "/runs/" + selectedRun.id + "/inspect-source", form)
-        as SourceInspection;
+      const info = await platformPostForm(ROOT + "/runs/" + selectedRun.id + "/inspect-source", form) as SourceInspection;
       if (info.run_id !== selectedRun.id || info.source_contract_verified || info.can_stage_import
           || info.can_commit_import) throw new Error("Unexpected migration inspection response.");
       setInspection(info);
@@ -290,7 +289,7 @@ export default function DoorLoopMigrationConsole() {
                 <p className="mt-1 text-sm text-slate-600">CSV or XLSX only, up to 10 MB. No source rows are displayed or saved.</p>
                 <div className="mt-4 grid items-end gap-3 md:grid-cols-[1fr_200px_auto]">
                   <label className="text-sm">Export file
-                    <input className="input mt-1" type="file" accept=".csv,.xlsx" onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
+                    <input key={selectedRunId} className="input mt-1" type="file" accept=".csv,.xlsx" onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
                   </label>
                   <label className="text-sm">XLSX sheet (optional)
                     <input className="input mt-1" maxLength={255} value={sheetName} onChange={(event) => {
