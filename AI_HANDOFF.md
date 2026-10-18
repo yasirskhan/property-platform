@@ -1,3 +1,13 @@
+# 2026-10-17 | YARDI REVIEWABLE BLOCKED PARENT ROWS
+
+**Latest VERIFIED:** `f4abf6f18bdf69402f74af16fbb924dd5c9194da`, hosted CI `39080243914`, SUCCESS.
+
+**New provisional batch:** `d9324c04e73390c5642655e0ff1e0189a5f8fb1f` adds `reviewable_blocked_parent_rows` to Yardi staging summaries, differentiating unresolved but reviewable relationships from invalid source rows. `b72e700f8ce6932d09d9c50ce83421888bfd17c7` and `90b601638e668d6eec8d88b5941d816958bf9e8d` add Lease and Unit regression assertions. Require exact final SHA six-job green; repair failures.
+
+**Still blocked by source contracts:** customer Lease creation/occupancy, ownership allocations, financial posting and nonpublic Yardi APIs. Stage/review/durable existing-target metadata mapping only. Never modify `main`, create branches, force-push or touch another project.
+
+---
+
 # 2026-10-17 | YARDI REVIEW QUEUE COUNT
 
 **Last exact-SHA VERIFIED:** `4f97b4fb56c92aa38276c81719aefdaf03448f3b`, Actions `39078727943`, SUCCESS all required jobs.
