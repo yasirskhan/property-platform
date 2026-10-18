@@ -224,6 +224,7 @@ def test_rentmanager_source_inspection_is_bounded_read_only_and_provider_scoped(
         assert response.headers["cache-control"] == "no-store"
         assert result["provider"] == "RENTMANAGER"
         assert result["row_count"] == 2
+        assert result["source_file_bytes"] == len(b"Unit,Property\n1,Alpha\n2,Beta\n")
         assert result["headers"] == ["Unit", "Property"]
         assert result["headers_validated_unique"] is True
         assert result["headers_require_review"] is False
