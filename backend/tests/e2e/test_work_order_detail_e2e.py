@@ -82,6 +82,14 @@ def test_customer_maintenance_request_form_saves_a_new_order() -> None:
             page.locator('input[type="password"]').fill(PASSWORD)
             page.get_by_role("button", name="Log In", exact=True).click()
             page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+            # Wait until the authenticated dashboard shell has finished its
+            # async /auth/me and billing checks before a second navigation.
+            # A location change while the shell is still initializing can be
+            # redirected back to /login by the outstanding auth effect.
+            pw.expect(page.get_by_text("Signed in as", exact=True)).to_be_visible(
+                timeout=15_000
+            )
+            assert page.evaluate("() => !!localStorage.getItem('token')")
             page.goto(BASE_URL + "/dashboard/maintenance/work-orders", wait_until="domcontentloaded")
             pw.expect(page.get_by_role("link", name="New maintenance request")).to_be_visible(timeout=15_000)
             page.goto(BASE_URL + "/dashboard/maintenance/work-orders/new", wait_until="domcontentloaded")
