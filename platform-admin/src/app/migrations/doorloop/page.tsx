@@ -216,12 +216,17 @@ export default function DoorLoopMigrationConsole() {
   }
 
   function addField() {
+    if (busy) return;
     setProposals((current) => current.length >= 100 ? current
       : [...current, { id: Math.max(0, ...current.map((row) => row.id)) + 1, field: "", header: "" }]);
     setQuality(null);
   }
 
   function updateField(id: number, name: "field" | "header", value: string) {
+    if (busy) return;
+    const prior = proposals.find((row) => row.id === id);
+    if (name === "field" && prior && prior.field.trim() === identityField && value.trim() !== identityField)
+      setIdentityField("");
     setProposals((current) => current.map((row) => row.id === id ? { ...row, [name]: value } : row));
     setQuality(null);
   }
@@ -305,7 +310,7 @@ export default function DoorLoopMigrationConsole() {
               </div>
               <div className="mt-4 flex flex-wrap items-end gap-3">
                 <label className="w-44 text-sm">Open older run by ID
-                  <input className="input mt-1" type="number" step="1" min="1" value={runLookup}
+                  <input className="input mt-1" disabled={busy} type="number" step="1" min="1" value={runLookup}
                     onChange={(event) => setRunLookup(event.target.value)} />
                 </label>
                 <button type="button" disabled={busy || !runLookup.trim()} onClick={() => void openRun()}
@@ -321,11 +326,11 @@ export default function DoorLoopMigrationConsole() {
               {canWrite && (
                 <form onSubmit={(event) => void createRun(event)} className="mt-5 grid items-end gap-3 border-t pt-5 md:grid-cols-[140px_1fr_auto]">
                   <label className="text-sm">Organization ID
-                    <input className="input mt-1" required type="number" min="1" step="1"
+                    <input className="input mt-1" required disabled={busy} type="number" min="1" step="1"
                       value={organizationId} onChange={(event) => setOrganizationId(event.target.value)} />
                   </label>
                   <label className="text-sm">Nonsecret source label
-                    <input className="input mt-1" required maxLength={255} value={sourceAccountRef}
+                    <input className="input mt-1" required disabled={busy} maxLength={255} value={sourceAccountRef}
                       placeholder="Authorized-export-reference" onChange={(event) => setSourceAccountRef(event.target.value)} />
                   </label>
                   <button disabled={busy} className="rounded-lg bg-slate-950 px-4 py-2 text-sm text-white disabled:opacity-50">Create DRAFT run</button>
@@ -384,14 +389,14 @@ export default function DoorLoopMigrationConsole() {
                     <div className="mt-3 space-y-2">
                       {proposals.map((row) => (
                         <div key={row.id} className="grid items-center gap-2 md:grid-cols-[1fr_1fr_auto]">
-                          <input className="input" aria-label="Proposed field name" placeholder="Review label (e.g. reference)"
+                          <input className="input" disabled={busy} aria-label="Proposed field name" placeholder="Review label (e.g. reference)"
                             maxLength={100} value={row.field} onChange={(event) => updateField(row.id, "field", event.target.value)} />
-                          <select className="input" aria-label="Source column" value={row.header}
+                          <select className="input" disabled={busy} aria-label="Source column" value={row.header}
                             onChange={(event) => updateField(row.id, "header", event.target.value)}>
                             <option value="">Select source column</option>
                             {inspection.headers.map((header) => <option key={header} value={header}>{header}</option>)}
                           </select>
-                          <button className="rounded-lg border px-3 py-2 text-sm" onClick={() => {
+                          <button disabled={busy} className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50" onClick={() => {
                             setProposals((current) => current.filter((entry) => entry.id !== row.id));
                             if (identityField === row.field) setIdentityField("");
                             setQuality(null);
@@ -401,7 +406,7 @@ export default function DoorLoopMigrationConsole() {
                     </div>
                     <div className="mt-4 flex flex-wrap items-end gap-3">
                       <label className="w-64 text-sm">Identity field for duplicate check (optional)
-                        <select className="input mt-1" value={identityField} onChange={(event) => {
+                        <select className="input mt-1" disabled={busy} value={identityField} onChange={(event) => {
                           setIdentityField(event.target.value); setQuality(null);
                         }}>
                           <option value="">None</option>

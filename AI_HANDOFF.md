@@ -1,3 +1,9 @@
+# 2026-10-18 | DOORLOOP STAFF CONSOLE DRAFT REFINEMENT (DETACHED, NOT VERIFIED)
+
+Refines the unpublished `38bb15a9` source-acquisition and in-flight run/file-selection safety batch: disable editing proposed field mappings/identity while a read-only server inspection or quality request is in progress, and clear an invalidated identity choice when staff rename its mapped field. Disables run-ID and draft-creation input edits during those requests. Also fixes literal escaped linebreak artifacts in `docs/DOORLOOP_MIGRATION_PLAN.md`. These refinements were authored on a detached commit atop `38bb15a9` and must not be published until the six-job hosted run for current branch SHA `8807f767` is SUCCESS and its live HEAD is unchanged. New final SHA requires its own CI. No supported customer mutation or DoorLoop authenticated API was enabled.
+
+---
+
 # 2026-10-18 | DOORLOOP OPERATOR SOURCE ACQUISITION AND IN-FLIGHT SELECTION SAFETY (PREPARED)
 
 Confirmed earlier `3e06394e199bbc929f879ac06f26592af31c5470` all-six-job CI `39154601767` SUCCESS. Published next milestone `bd3dd76ab09a9ee8b041fbbbdf2e91a90d0bfebf` added run-by-ID lookup and per-run provider-readiness view. Hosted Actions `39156588406` failed platform-admin parsing at line 322 because a JSX onSubmit callback was missing its closing brace; corrected at published `8807f76717cd00d77f4d9a4dc87c4448e07c1149`. Verify the latest six-job run at its exact SHA; the corrected run remained pending/running at preparation. Do not claim the lookup batch VERIFIED until green.

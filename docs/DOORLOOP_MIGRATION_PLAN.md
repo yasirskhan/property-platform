@@ -16,7 +16,11 @@ headers, ambiguous duplicate headers and macro-enabled/legacy spreadsheets
 are rejected. Responses are not cacheable.
 
 DoorLoop run list, get and create routes use a bounded output schema that permits
-only the same explicit nonsecret metadata fields as other platform migrations.\n\nThe hosted backend test includes a PostgreSQL-specific integration test,\nusing an independent database session to verify DRAFT run persistence and its\natomic redacted audit event. It skips when no PostgreSQL test database is
+only the same explicit nonsecret metadata fields as other platform migrations.
+
+The hosted backend test includes a PostgreSQL-specific integration test,
+using an independent database session to verify DRAFT run persistence and its
+atomic redacted audit event. It skips when no PostgreSQL test database is
 configured.
 
 The run model's `provider` is `VARCHAR(32)` without an enum or CHECK
