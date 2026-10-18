@@ -51,3 +51,15 @@ routes remain fail-closed until implemented, tested and independently unblocked.
 `backend/tests/test_navigation_integrity.py` verifies the visible parent and
 Work Orders leaf and that all other unfinished maintenance leaves remain hidden.
 This change does **not** open a whole Phase 5 module or grant missing permissions.
+
+## Work-order detail and activity (follow-up, provisional)
+
+A dedicated role-scoped detail page at
+`/dashboard/maintenance/work-orders/[id]` loads the existing backend work-order
+detail, status history and comments. The queue title links to this page. An
+authorized user can add an activity note; the existing backend checks work-order
+access before persisting it. No new fields, payments, dispatch decisions,
+notifications or automated status transitions are introduced. A disposable
+Playwright smoke test authenticates, submits one work order, views its detail,
+records a note and verifies it appears in history. This follow-up remains
+PROVISIONAL until the full six-job CI succeeds for its final exact SHA.

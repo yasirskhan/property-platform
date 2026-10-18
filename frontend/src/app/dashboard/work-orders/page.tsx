@@ -153,7 +153,7 @@ export default function WorkOrderQueuePage() {
               <article key={row.id} className="px-5 py-4">
                 <div className="flex flex-wrap justify-between gap-3">
                   <div>
-                    <h3 className="font-semibold">#{row.id} · {row.title}</h3>
+                    <h3 className="font-semibold"><Link className="text-blue-800 hover:underline" href={`/dashboard/maintenance/work-orders/${row.id}`}>#{row.id} · {row.title}</Link></h3>
                     <p className="mt-1 text-sm text-slate-600">
                       Property #{row.property_id} · Unit #{row.unit_id} · {row.category.replaceAll("_", " ")}
                     </p>
