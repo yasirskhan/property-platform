@@ -354,6 +354,10 @@ export default function DoorLoopMigrationConsole() {
                       target="_blank" rel="noopener noreferrer">API documentation location</a>.
                     Vendor API access is separate and requires approval. Never paste API keys, passwords or
                     session data into source labels or CSV columns.</p>
+                  <p className="mt-2">Useful starting reports are the Tenant Directory, Rent Roll and Lease Account
+                    Statement reports, when the customer authorizes them. They can help identify data categories
+                    and reconciliation needs, but their displayed names, balances and dates do not establish stable
+                    source IDs or financial posting rules. Review the exact exported columns separately.</p>
                   <p className="mt-2 font-medium">Not ready for import: stable source IDs, related resource keys,
                     lease semantics and signed financial balances still require approved source-contract review.
                     Inspection and quality preview cannot authorize customer writes.</p>

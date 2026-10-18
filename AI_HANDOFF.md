@@ -1,3 +1,9 @@
+# 2026-10-18 | DOORLOOP SOURCE EVIDENCE REFINEMENT (DETACHED)
+
+Expanded the prepared staff source-acquisition guide to identify the official Tenant Directory, Rent Roll and Lease Account Statement report families as possible authorized evidence sources. These are **not** approved migration field/identity contracts and do not permit staging or customer mutations. Refer to the three DoorLoop help pages cited in `docs/DOORLOOP_MIGRATION_PLAN.md`. This change remains detached above the unpublished 30370e5d milestone and needs exact-SHA hosted CI if published. Do not advance the live branch while its preceding backend CI remains in progress.
+
+---
+
 # 2026-10-18 | DOORLOOP STAFF CONSOLE DRAFT REFINEMENT (DETACHED, NOT VERIFIED)
 
 Refines the unpublished `38bb15a9` source-acquisition and in-flight run/file-selection safety batch: disable editing proposed field mappings/identity while a read-only server inspection or quality request is in progress, and clear an invalidated identity choice when staff rename its mapped field. Disables run-ID and draft-creation input edits during those requests. Also fixes literal escaped linebreak artifacts in `docs/DOORLOOP_MIGRATION_PLAN.md`. These refinements were authored on a detached commit atop `38bb15a9` and must not be published until the six-job hosted run for current branch SHA `8807f767` is SUCCESS and its live HEAD is unchanged. New final SHA requires its own CI. No supported customer mutation or DoorLoop authenticated API was enabled.

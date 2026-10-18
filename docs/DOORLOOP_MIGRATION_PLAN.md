@@ -102,3 +102,17 @@ prevents file, sheet and run switching during in-flight inspection/review.
 Both are independently deliverable staff usability/safety work, not a claim
 that customer-data migration is implemented. The guide and the UI controls
 require an exact-SHA hosted CI pass before marking this batch VERIFIED.
+
+### Published report families for authorized evidence collection
+
+DoorLoop documents [Tenant Reports](https://support.doorloop.com/en/articles/10609206-tenant-reports),
+including a Tenant Directory report containing display-level tenant, property,
+unit and lease-status context; [Rent Roll](https://support.doorloop.com/en/articles/8396331-rent-roll-report)
+with occupancy, rent, outstanding balances and deposits; and
+[Lease Account Statements](https://support.doorloop.com/en/articles/8117618-lease-account-statement-report)
+for lease-specific account statements. These are possible **source evidence**
+inputs after explicit customer authorization, not verified migration schemas.
+Their documented display fields do not prove source-stable tenant/property/
+lease keys, unit relationships, accounting debit/credit signs or transaction
+identities. Never derive target entity IDs from names, email, address or
+balances. Inspected CSV/XLSX metadata and fingerprint diagnostics stay read-only.
