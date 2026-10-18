@@ -3,7 +3,6 @@
 No source rows, PII, provider credentials or customer mutations are persisted or returned.
 The proposed mapping has no authority to enable staging, matching or commit.
 """
-from collections import Counter
 from typing import Any
 
 
