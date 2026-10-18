@@ -91,7 +91,8 @@ def test_customer_maintenance_request_form_saves_a_new_order() -> None:
             page.get_by_label("Maintenance problem description").fill(
                 "A disposable work order submitted from the actual intake form."
             )
-            page.get_by_label("Maintenance urgency").select_option("high")
+            page.get_by_label("Maintenance urgency").select_option("emergency")
+            pw.expect(page.get_by_role("alert")).to_be_visible()
             page.get_by_role("button", name="Submit maintenance request").click()
             page.wait_for_url(re.compile(r"/maintenance/work-orders/[0-9]+$"), timeout=15_000)
             pw.expect(
