@@ -479,3 +479,47 @@ def test_possible_duplicate_intake_never_exposes_unrelated_work_orders():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_authorized_tenant_and_manager_intake_succeeds_but_crew_cannot_submit():
+    db, engine, actors, props, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other_tenant, crew, outside = actors
+        from app.models.lease import Lease, LeaseStatus
+        from datetime import date
+        db.add(Lease(
+            unit_id=orders[0].unit_id, tenant_id=tenant.id,
+            status=LeaseStatus.ACTIVE,
+            start_date=date(2026, 1, 1), end_date=date(2027, 1, 1),
+            monthly_rent=850, security_deposit=850,
+        ))
+        db.commit()
+        resident_request = submit_work_order(
+            WorkOrderCreate(
+                unit_id=orders[0].unit_id, title="Tenant plumbing request",
+                description="Kitchen faucet water pressure dropped.",
+            ),
+            db=db, current_user=tenant,
+        )
+        assert resident_request.tenant_id == tenant.id
+        staff_request = submit_work_order(
+            WorkOrderCreate(
+                unit_id=orders[0].unit_id, title="Manager inspection request",
+                description="Inspect the kitchen sink for leakage.",
+            ),
+            db=db, current_user=manager,
+        )
+        assert staff_request.property_id == props[0].id
+        assert [row.id for row in _queue(db, tenant) if row.id == resident_request.id] == [resident_request.id]
+        with pytest.raises(HTTPException) as forbidden:
+            submit_work_order(
+                WorkOrderCreate(
+                    unit_id=orders[0].unit_id, title="Crew not allowed",
+                    description="Crew cannot submit on behalf of tenant.",
+                ),
+                db=db, current_user=crew,
+            )
+        assert forbidden.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()
