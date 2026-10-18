@@ -189,6 +189,7 @@ def stage_yardi_file(
     blocked_by_resource = {"TENANTS": 0, "PROPERTIES": 0, "UNITS": 0}
     dispositions = {"INVALID": 0, "REVIEW": 0, "ALREADY_MAPPED": 0, "POSSIBLE_MATCH": 0}
     requires_human_review_rows = 0
+    reviewable_blocked_parent_rows = 0
     invalid_required_rows = 0
     missing_required_by_field = {field: 0 for field in required}
     duplicate_source_rows = 0
@@ -277,6 +278,8 @@ def stage_yardi_file(
         blocked_parent_relationships += blocked_on_row
         if blocked_on_row:
             rows_with_blocked_parents += 1
+            if disposition != "INVALID":
+                reviewable_blocked_parent_rows += 1
         db.add(PlatformMigrationStagedRow(
             upload_id=upload.id, run_id=run.id,
             organization_id=run.organization_id, provider="YARDI",
@@ -294,6 +297,7 @@ def stage_yardi_file(
         "blocked_parent_by_resource": blocked_by_resource,
         "disposition_counts": dispositions,
         "requires_human_review_rows": requires_human_review_rows,
+        "reviewable_blocked_parent_rows": reviewable_blocked_parent_rows,
         "invalid_required_rows": invalid_required_rows,
         "missing_required_by_field": missing_required_by_field,
         "duplicate_source_rows": duplicate_source_rows,
