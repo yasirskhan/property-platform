@@ -1,3 +1,13 @@
+# 2026-10-18 | PHASE 4.16 RENTMANAGER MAPPING SECURITY
+
+**Last verified exact SHA:** `99eee03b260d10503fbd9bd5825f224803b18f0f`, Actions `39122253734`, SUCCESS six jobs.
+
+**Provisional batch:** `55327ea2f774c27a520c4dff831e36a10a151d3d` rejects normalized-colliding headers and proposed credential mapping keys; `7f0372cd5f9861a405835edaa82ac490feef61d4` adds regressions; `96888cdca83eb223c1422594f94cafd1526f3f39` rejects credential-bearing source headers even when unmapped; `8a658f9a04d7627f335aa5d74a7b4b50f3f39467` tests those headers. Final exact SHA needs all six hosted CI jobs green; fix red before declaring VERIFIED.
+
+**Boundary:** The source-independent RentManager run, read-only inspector and stateless mapping validation are in scope. Full customer migration remains blocked on authorized source contracts and verified identity/accounting mapping. Do not claim this small defensive batch completes Phase 4.16. Avoid endless low-impact counter work; focus on substantive vendor-source integration or another independently deliverable roadmap milestone. Sole branch `chatgpt/checkpoint-005-safety`; never main, other branches/force or other repos.
+
+---
+
 # 2026-10-18 | PHASE 4.16 RENTMANAGER MAPPING REVIEW VALIDATION
 
 **Last VERIFIED exact SHA:** `29e0284c3dfc520942f9598a360fdc79b755da44`, GitHub Actions `39119150495`, SUCCESS six required jobs.
