@@ -1,3 +1,9 @@
+# 2026-10-18 | MAINTENANCE INTAKE ROLE REGRESSION (DETACHED)
+
+Added database coverage for an ACTIVE tenant lease and an actively assigned manager both successfully creating authorized work orders, with CREW denied from using the same intake endpoint. The earlier cross-org rogue lease tests remain in place. This is a detached continuation of the similar-request and quick-entry batch. No new commercial entitlements or customer data migration changes. Wait for previous published Actions 39173312018 to fully succeed at exact SHA 4813686772d5c289f69a6cfc73b4d558eaac9f27 before fast-forwarding this candidate on chatgpt/checkpoint-005-safety, with expected SHA and no force. Then run full hosted CI and repair any failures. Never touch main or other projects.
+
+---
+
 # 2026-10-18 | PHASE 5 ACCESSIBLE INTAKE ENTRYPOINT (DETACHED)
 
 The prepared successor to `4813686772d5c289f69a6cfc73b4d558eaac9f27` also makes the queue's New Maintenance Request link visible only for intake-capable ADMIN/OWNER/MANAGER/TENANT roles. It links to the existing authorized intake form. Authenticated Playwright covers navigation from the queue and successful form submission. All changes remain detached and unverified until the previous exact-SHA CI `39173312018` passes all six jobs, the live branch HEAD matches that parent, and a non-force expected-SHA fast-forward is performed. Then verify the final exact SHA through full hosted CI and update this handoff. No main or Zargul modifications.
