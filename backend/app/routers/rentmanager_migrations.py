@@ -105,6 +105,7 @@ def rentmanager_run_source_readiness(
 @router.post("/runs/{run_id}/inspect-source")
 async def inspect_rentmanager_source_headers(
     run_id: int,
+    response: Response,
     file: UploadFile = File(...),
     sheet_name: str | None = Form(default=None),
     db: Session = Depends(get_db),
@@ -125,6 +126,7 @@ async def inspect_rentmanager_source_headers(
         parsed = _parse_file(filename, contents, sheet_name)
     except AppFolioFileIngestionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    response.headers["Cache-Control"] = "no-store"
     return {
         "run_id": run.id,
         "provider": "RENTMANAGER",
