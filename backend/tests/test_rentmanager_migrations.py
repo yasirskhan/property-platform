@@ -386,7 +386,7 @@ def test_rentmanager_source_quality_preview_reports_aggregates_without_staging()
             run.id, response,
             UploadFile(filename="properties.csv", file=BytesIO(content)),
             None, json.dumps({"source_id": "ID", "name": "Name"}),
-            "source_id", db, admin,
+            "source_id", None, db, admin,
         ))
         assert response.headers["cache-control"] == "no-store"
         assert result["total_rows"] == 4
@@ -424,7 +424,7 @@ def test_rentmanager_source_quality_preview_enforces_provider_and_write_role():
             return asyncio.run(preview_rentmanager_source_quality(
                 run_id, Response(),
                 UploadFile(filename="source.csv", file=BytesIO(b"ID,Name\n1,One\n")),
-                None, json.dumps({"source_id": "ID"}), identity, db, actor,
+                None, json.dumps({"source_id": "ID"}), identity, None, db, actor,
             ))
         with pytest.raises(HTTPException) as wrong:
             preview(run.id, admin)
@@ -458,9 +458,44 @@ def test_rentmanager_quality_preview_rejects_empty_mapping():
             asyncio.run(preview_rentmanager_source_quality(
                 run.id, Response(),
                 UploadFile(filename="source.csv", file=BytesIO(b"ID,Name\n1,One\n")),
-                None, "{}", None, db, admin,
+                None, "{}", None, None, db, admin,
             ))
         assert error.value.status_code == 422
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_rentmanager_quality_preview_rejects_changed_inspected_export():
+    import asyncio
+    import hashlib
+    import json
+    from io import BytesIO
+    from fastapi import UploadFile
+    db, engine = _session()
+    try:
+        admin = _platform_user(db, PlatformUserRole.PLATFORM_ADMIN)
+        org = _org(db, "rentmanager-file-binding")
+        run = PlatformMigrationRun(
+            organization_id=org.id, provider="RENTMANAGER",
+            source_account_ref="file-binding", status="DRAFT",
+        )
+        db.add(run)
+        db.commit()
+        inspected = b"ID,Name\n1,One\n"
+        changed = b"ID,Name\n2,Two\n"
+        def preview(content, expected):
+            return asyncio.run(preview_rentmanager_source_quality(
+                run.id, Response(),
+                UploadFile(filename="source.csv", file=BytesIO(content)),
+                None, json.dumps({"source_id": "ID"}), "source_id",
+                expected, db, admin,
+            ))
+        fingerprint = hashlib.sha256(inspected).hexdigest()
+        assert preview(inspected, fingerprint)["total_rows"] == 1
+        with pytest.raises(HTTPException) as stale:
+            preview(changed, fingerprint)
+        assert stale.value.status_code == 409
     finally:
         db.close()
         engine.dispose()
