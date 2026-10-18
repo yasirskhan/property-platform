@@ -253,6 +253,8 @@ async def preview_rentmanager_source_quality(
     review_rentmanager_mapping(run.id, proposal, Response(), db, current_user)
     if identity_field is not None and (len(identity_field) > 100 or identity_field not in mapping):
         raise HTTPException(status_code=422, detail="Identity field must be a proposed mapping key.")
+    if not mapping:
+        raise HTTPException(status_code=422, detail="At least one explicit field mapping is required.")
     result = assess_source_rows(parsed.rows, mapping, identity_field)
     response.headers["Cache-Control"] = "no-store"
     return {"run_id": run.id, "provider": "RENTMANAGER",
