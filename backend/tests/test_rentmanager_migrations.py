@@ -41,6 +41,7 @@ def test_rentmanager_run_is_provider_scoped_and_audited_without_customer_mutatio
             source_account_ref="yardi-01", status="DRAFT",
         ))
         db.commit()
+        assert [item.id for item in list_rentmanager_runs(Response(), None, 100, db, admin)] == [result.id]
         with pytest.raises(HTTPException) as missing:
             get_rentmanager_run(db.query(PlatformMigrationRun).filter(
                 PlatformMigrationRun.provider == "YARDI",
