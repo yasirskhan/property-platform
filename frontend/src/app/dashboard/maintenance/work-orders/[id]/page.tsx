@@ -21,6 +21,7 @@ type WorkOrder = {
   property_name?: string | null;
   request_origin?: "staff" | "tenant" | "unknown_legacy";
   requested_by_user_id?: number | null;
+  source_inspection_id?: number | null;
   unit_number?: string | null;
   title: string;
   description: string;
@@ -263,6 +264,14 @@ export default function WorkOrderDetailPage() {
                 ? ` · Recorded requester #${order.requested_by_user_id}`
                 : ""}
             </p>
+            {order.source_inspection_id != null
+              && ["ADMIN", "MANAGER"].includes(String(viewer?.role || "").toUpperCase())
+              && <p className="mt-2 text-sm">
+                Based on <Link className="text-blue-800 underline"
+                  href={`/dashboard/maintenance/staff-inspection-records/${order.source_inspection_id}`}>
+                  staff inspection #{order.source_inspection_id}
+                </Link>
+              </p>}
             {order.resolution_notes && (
               <div className="mt-4 rounded-lg bg-slate-50 p-3 text-sm">
                 <strong>Resolution notes</strong>
