@@ -1,3 +1,13 @@
+# 2026-10-18 | STAFF INSPECTION RECORDS VERIFIED; SAVE CONFIRMATION FOLLOW-UP PROVISIONAL
+
+**VERIFIED:** inspection-route readiness repair at exact branch SHA `201943692fadfe36f8a61c1ab58a9c8750b63f61` passed ALL SIX hosted CI jobs in Actions `39183499338` (backend/PostgreSQL, frontend, platform-admin, security, authenticated E2E, staging). The inactive/deleted-unit guards were already VERIFIED at `ac8f312847b1e59c5b2d24af2989b6f1a4bf7abd`, Actions `39181939149`. Canonical `MAINTENANCE.INSPECTIONS` remains blocked and its canonical route has no page source; limited staff evidence is at `/dashboard/maintenance/staff-inspection-records`.
+
+**NEW PROVISIONAL FOLLOW-UP:** `d3fbec8f96533735b013a22b19b6f1cf2a6e4ada` changes the inspection form to retain the authoritative successful POST response directly in the visible inspection list instead of issuing a second GET before confirming success. A transient follow-up read failure should not falsely indicate that a saved inspection failed and invite duplicate submissions. No inspection API, permissions, schema, or navigation gates changed. Require all six jobs to pass at the latest exact branch SHA (including this handoff update) before declaring this follow-up VERIFIED.
+
+**OPEN:** full Smart Maintenance (including checklists/photos/offline workflows), multi-owner OWNER role isolation cross-module security review, and source-contract-dependent DoorLoop importing. Continue bounded Phase 5 implementation after current exact-SHA CI, preserving branch lease, no force, no main/new branch/Zargul changes.
+
+---
+
 # 2026-10-18 | STAFF INSPECTION NAVIGATION CONTRACT REPAIR (PROVISIONAL)
 
 Published staff inspection UI commit `faeae31ddee57bc69184c5f1b9275ed0b0bdbeae` FAILED hosted CI `39183232210`
