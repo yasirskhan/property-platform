@@ -29,7 +29,7 @@ from decimal import Decimal
 from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import or_, func
+from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -127,7 +127,11 @@ def _user_can_access_work_order(db: Session, user: User, wo: WorkOrder) -> bool:
         return False
 
     if user.role == UserRole.TENANT:
-        return wo.tenant_id == user.id and wo.request_origin in (None, "tenant")
+        return (wo.tenant_id == user.id and (
+            wo.request_origin is None or (
+                wo.request_origin == "tenant" and wo.requested_by_user_id == user.id
+            )
+        ))
 
     if user.role == UserRole.CREW:
         if wo.assigned_to_id != user.id:
@@ -177,7 +181,13 @@ def _visible_work_orders(db: Session, user: User):
     )
 
     if user.role == UserRole.TENANT:
-        return q.filter(WorkOrder.tenant_id == user.id, or_(WorkOrder.request_origin.is_(None), WorkOrder.request_origin == "tenant"))
+        return q.filter(
+            WorkOrder.tenant_id == user.id,
+            or_(
+                WorkOrder.request_origin.is_(None),
+                and_(WorkOrder.request_origin == "tenant", WorkOrder.requested_by_user_id == user.id),
+            ),
+        )
 
     if user.role == UserRole.CREW:
         return q.join(

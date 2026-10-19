@@ -282,6 +282,10 @@ def test_staff_origin_never_grants_tenant_visibility_even_with_tenant_id():
         assert denied.value.status_code == 403
         assert _user_can_access_work_order(db, admin, row)
         row.request_origin = "tenant"
+        row.requested_by_user_id = admin.id
+        db.commit()
+        assert not _user_can_access_work_order(db, tenant, row)
+        assert all(item.id != row.id for item in _queue(db, tenant))
         row.requested_by_user_id = tenant.id
         db.commit()
         assert _user_can_access_work_order(db, tenant, row)
