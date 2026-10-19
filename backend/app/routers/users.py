@@ -286,6 +286,8 @@ def update_user(
     updates = payload.model_dump(exclude_unset=True)
     if "is_active" in updates and updates["is_active"] is None:
         raise HTTPException(status_code=400, detail="is_active must be true or false")
+    if updates.get("is_active") is True and target.deleted_at is not None:
+        raise HTTPException(status_code=409, detail="A deleted user cannot be reactivated through profile editing")
     prior_active = target.is_active
     for field, value in updates.items():
         setattr(target, field, value)

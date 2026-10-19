@@ -1,3 +1,9 @@
+# 2026-10-18 | PREPARED SOFT-DELETED ACCOUNT RESTORE GUARD (DETACHED)
+
+A final small integrity guard in the prepared customer-auth cutoff bundle: existing staff profile PATCH cannot set is_active=True for a user who retains deleted_at; this is an inconsistent pseudo-revival because login/JWT still reject deleted users. Return HTTP 409 with no active mutation/audit, with disposable regression. The new credential revocation controls still fail closed. This candidate is **NOT PUBLISHED OR VERIFIED**, descendant of `2952e50e38db05817072f92f6b6d7ded6fad084b`. Require all-six exact-SHA parent CI `39197174338` at live `128567315621c165759cd1127f2d397f04d0b65e` then safe nonforce expected-head fast-forward and successor six-job CI before closeout. No main/new branch/Zargul touched.
+
+---
+
 # 2026-10-18 | PREPARED MALFORMED CUSTOMER TOKEN SUBJECT DENIAL (DETACHED)
 
 The detached credential-revocation security candidate now also catches noninteger `sub` claims in correctly signed customer JWTs and two-factor challenge tokens. Both authentication paths return HTTP 401 instead of uncaught ValueError/HTTP 500, with tests for each audience-valid malformed-subject case. **NOT PUBLISHED OR VERIFIED**. Chain is based on `76b7e72987fd5367405a9a8e85fe550efd806bfa`; exact six-job CI of published ancestor `128567315621c165759cd1127f2d397f04d0b65e` at run `39197174338` is required before nonforce expected-SHA promotion and successor six-job verification. No main/new branch/Zargul modification.

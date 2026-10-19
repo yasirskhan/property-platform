@@ -819,6 +819,18 @@ def test_staff_offboarding_user_active_state_is_audited_and_idempotent():
         assert db.query(AuditLog).filter_by(
             entity_type="user", entity_id=crew.id,
         ).count() == 2
+
+        # A soft-deleted account needs its own controlled restoration flow.
+        crew.is_active = False
+        crew.deleted_at = datetime(2026, 10, 18, 12)
+        db.commit()
+        with pytest.raises(HTTPException) as deleted_restore:
+            update_user(crew.id, UserUpdate(is_active=True), db=db, current_user=admin)
+        assert deleted_restore.value.status_code == 409
+        assert crew.is_active is False
+        assert db.query(AuditLog).filter_by(
+            entity_type="user", entity_id=crew.id,
+        ).count() == 2
     finally:
         db.close()
         engine.dispose()

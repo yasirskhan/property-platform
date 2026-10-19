@@ -364,3 +364,11 @@ casting the subject to a user ID. New regression generates audience-valid JWT
 and 2FA challenge tokens with malformed subjects and checks the deny response.
 This complements revoked-user checks without changing key material, audiences,
 2FA policy or authorization entitlements.
+
+## Soft-deleted user restoration is not profile editing (prepared; CI required)
+
+A staff user marked deleted_at cannot be restored simply by PATCHing
+is_active=True, which would create an inconsistent visible state while the
+login and JWT access cutoff correctly continue to reject the account. The
+profile edit returns HTTP 409 and leaves active state/audit untouched; actual
+undelete, if ever supported, needs its own owner-approved audited workflow.
