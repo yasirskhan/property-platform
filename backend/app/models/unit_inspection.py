@@ -18,6 +18,7 @@ class UnitInspectionRecord(Base):
     inspection_date = Column(Date, nullable=False, index=True)
     recorded_condition = Column(String(24), nullable=False)
     findings = Column(Text, nullable=False, default="")
+    checklist_json = Column(Text, nullable=True)
     recorded_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     recorded_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 

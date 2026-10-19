@@ -5,6 +5,7 @@ inspections. No inspection is fabricated from WorkOrder or Unit flags.
 """
 from __future__ import annotations
 
+import json
 from typing import Mapping
 
 from sqlalchemy.orm import Session
@@ -20,6 +21,7 @@ from app.services.report_delivery import ReportDeliveryError, ReportPayload, _da
 HEADERS = (
     "Property", "Unit", "Inspection Date (staff-recorded)",
     "Condition (staff-recorded)", "Findings (staff-recorded)",
+    "Checklist (staff-recorded)",
     "Recorded By User ID", "Recorded At", "Inspection Record ID",
     "Property ID", "Unit ID",
 )
@@ -104,6 +106,7 @@ def record_inspection(
         inspection_date=payload.inspection_date,
         recorded_condition=payload.recorded_condition,
         findings=payload.findings,
+        checklist_json=json.dumps([item.model_dump() for item in payload.checklist_items]) if payload.checklist_items else None,
         recorded_by_id=actor.id,
     )
     db.add(row)
@@ -116,6 +119,7 @@ def record_inspection(
             "property_id": row.property_id, "unit_id": row.unit_id,
             "inspection_date": row.inspection_date.isoformat(),
             "recorded_condition": row.recorded_condition,
+            "checklist_items": [item.model_dump() for item in payload.checklist_items],
         },
     )
     db.commit()
@@ -123,6 +127,7 @@ def record_inspection(
     return UnitInspectionOut.model_validate(row).model_copy(update={
         "property_name": properties[unit.property_id].name,
         "unit_number": unit.unit_number,
+        "checklist_items": payload.checklist_items,
     })
 
 
@@ -157,6 +162,7 @@ def list_inspections(
         UnitInspectionOut.model_validate(row).model_copy(update={
             "property_name": properties[units[row.unit_id].property_id].name,
             "unit_number": units[row.unit_id].unit_number,
+            "checklist_items": json.loads(row.checklist_json or "[]"),
         })
         for row in query.all()
     ]
@@ -202,6 +208,7 @@ def build_inspection_report(
         record.inspection_date,
         record.recorded_condition,
         record.findings,
+        record.checklist_json or "",
         record.recorded_by_id if record.recorded_by_id is not None else "",
         record.recorded_at,
         record.id, record.property_id, record.unit_id,

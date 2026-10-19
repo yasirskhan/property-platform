@@ -4,11 +4,13 @@ import Link from "next/link";
 import { apiGet, apiPost } from "@/lib/api";
 
 type UnitChoice = { id: number; property_name: string; unit_number: string };
+type ChecklistItem = { area: string; condition: string; notes: string };
+const CHECKLIST_AREAS = ["PLUMBING", "ELECTRICAL", "HVAC", "APPLIANCES", "SAFETY"] as const;
 type Inspection = {
   id: number; property_id: number; unit_id: number;
   property_name?: string | null; unit_number?: string | null;
   inspection_date: string; recorded_condition: string;
-  findings: string; recorded_by_id: number | null;
+  findings: string; checklist_items?: ChecklistItem[]; recorded_by_id: number | null;
 };
 
 export default function InspectionRecordsPage() {
@@ -21,6 +23,7 @@ export default function InspectionRecordsPage() {
   const [inspectionDate, setInspectionDate] = useState("");
   const [condition, setCondition] = useState("NOT_ASSESSED");
   const [findings, setFindings] = useState("");
+  const [checklist, setChecklist] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
@@ -104,6 +107,7 @@ export default function InspectionRecordsPage() {
       const created = await apiPost("/api/unit-inspections", {
         unit_id: Number(unitId), inspection_date: inspectionDate,
         recorded_condition: condition, findings: findings.trim(),
+        checklist_items: CHECKLIST_AREAS.map((area) => ({area, condition: checklist[area] || "NOT_ASSESSED", notes: ""})),
       }) as Inspection;
       if (!created || typeof created.id !== "number") {
         throw new Error("Unexpected inspection save response.");
@@ -112,6 +116,7 @@ export default function InspectionRecordsPage() {
       // report a successfully persisted inspection as a failed submission.
       setRecords((previous) => [created, ...previous.filter((row) => row.id !== created.id)]);
       setFindings("");
+      setChecklist({});
       setNotice("Inspection evidence recorded and audited.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Inspection could not be recorded.");
@@ -181,6 +186,18 @@ export default function InspectionRecordsPage() {
               <option value="ATTENTION_NEEDED">Attention needed</option>
             </select>
           </label>
+          <fieldset className="space-y-2 rounded-lg border p-3">
+            <legend className="px-1 text-sm font-semibold">Inspection checklist</legend>
+            {CHECKLIST_AREAS.map((area) => <label className="block text-sm" key={area}>{area.replaceAll("_", " ")}
+              <select aria-label={`${area} condition`} value={checklist[area] || "NOT_ASSESSED"}
+                onChange={(event) => setChecklist((prev) => ({ ...prev, [area]: event.target.value }))}
+                className="mt-1 w-full rounded-lg border p-2">
+                <option value="NOT_ASSESSED">Not assessed</option>
+                <option value="SATISFACTORY">Satisfactory</option>
+                <option value="ATTENTION_NEEDED">Attention needed</option>
+              </select>
+            </label>)}
+          </fieldset>
           <label className="block text-sm">Findings
             <textarea aria-label="Inspection findings" maxLength={2000} rows={3}
               value={findings} onChange={(event) => setFindings(event.target.value)}
@@ -203,6 +220,12 @@ export default function InspectionRecordsPage() {
                       · Unit {row.unit_number || `#${row.unit_id}`}
                       · {row.inspection_date} · {row.recorded_condition.replaceAll("_", " ")}</p>
                     <p className="mt-1 whitespace-pre-wrap">{row.findings || "No findings noted."}</p>
+                    {!!row.checklist_items?.length && <ul className="mt-2 space-y-1">
+                      {row.checklist_items.map((item) => <li key={item.area}>
+                        {item.area.replaceAll("_", " ")}: {item.condition.replaceAll("_", " ")}
+                        {item.notes ? ` · ${item.notes}` : ""}
+                      </li>)}
+                    </ul>}
                     <p className="mt-1 text-xs text-slate-500">Recorded by user #{row.recorded_by_id ?? "unknown"}</p>
                   </li>
                 ))}

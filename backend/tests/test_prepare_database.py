@@ -9,7 +9,7 @@ from pathlib import Path
 from sqlalchemy import create_engine, inspect, text
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_HEAD = "2c4e6a8b0d91"
+EXPECTED_HEAD = "3e6a8b0d91f2"
 EXPECTED_MODEL_TABLES = 202
 
 

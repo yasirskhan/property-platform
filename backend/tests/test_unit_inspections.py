@@ -336,3 +336,52 @@ def test_inspection_history_pages_are_scoped_ordered_and_do_not_truncate_reports
     finally:
         db.close()
         engine.dispose()
+
+
+def test_inspection_checklist_persists_scoped_evidence_and_prevents_duplicates(monkeypatch):
+    db, engine = _session()
+    try:
+        admin, manager, tenant, outside, prop, _, _, unit, _, _ = _seed(db)
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **k: True)
+        submitted = UnitInspectionCreateIn(
+            unit_id=unit.id, inspection_date=date.today(),
+            recorded_condition="ATTENTION_NEEDED", findings="Alarm needs replacement.",
+            checklist_items=[
+                {"area": "SAFETY", "condition": "ATTENTION_NEEDED", "notes": "Replace alarm"},
+                {"area": "PLUMBING", "condition": "SATISFACTORY", "notes": ""},
+            ],
+        )
+        recorded = inspection_router.create_inspection(
+            submitted, Response(), db=db, current_user=admin,
+        )
+        assert [item.area for item in recorded.checklist_items] == ["SAFETY", "PLUMBING"]
+        stored = db.query(UnitInspectionRecord).filter_by(id=recorded.id).one()
+        assert '"SAFETY"' in stored.checklist_json
+        rows = inspection_router.get_inspections(
+            Response(), property_id=prop.id, unit_id=unit.id,
+            db=db, current_user=manager,
+        )
+        assert rows[0].checklist_items[0].notes == "Replace alarm"
+        assert '"SAFETY"' in str(_payload(db, admin, unit_id=unit.id).rows[0])
+        audit = db.query(AuditLog).filter_by(
+            entity_type="unit_inspection_record", entity_id=recorded.id,
+        ).one()
+        assert '"SAFETY"' in audit.new_value
+        with pytest.raises(ValueError, match="duplicated"):
+            UnitInspectionCreateIn(
+                unit_id=unit.id, inspection_date=date.today(),
+                recorded_condition="NOT_ASSESSED",
+                checklist_items=[
+                    {"area": "SAFETY", "condition": "SATISFACTORY"},
+                    {"area": "SAFETY", "condition": "ATTENTION_NEEDED"},
+                ],
+            )
+        with pytest.raises(HTTPException) as denied:
+            inspection_router.create_inspection(
+                submitted, Response(), db=db, current_user=tenant,
+            )
+        assert denied.value.status_code == 403
+        assert db.query(UnitInspectionRecord).count() == 1
+    finally:
+        db.close()
+        engine.dispose()

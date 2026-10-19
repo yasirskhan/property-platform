@@ -7,6 +7,19 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 Condition = Literal["SATISFACTORY", "ATTENTION_NEEDED", "NOT_ASSESSED"]
+ChecklistArea = Literal["PLUMBING", "ELECTRICAL", "HVAC", "APPLIANCES", "SAFETY"]
+
+
+class InspectionChecklistItem(BaseModel):
+    area: ChecklistArea
+    condition: Condition
+    notes: str = Field(default="", max_length=500)
+
+    @field_validator("notes")
+    @classmethod
+    def trim_notes(cls, value: str) -> str:
+        return value.strip()
+
 
 
 class UnitInspectionCreateIn(BaseModel):
@@ -14,6 +27,14 @@ class UnitInspectionCreateIn(BaseModel):
     inspection_date: date
     recorded_condition: Condition
     findings: str = Field(default="", max_length=2000)
+    checklist_items: list[InspectionChecklistItem] = Field(default_factory=list, max_length=5)
+
+    @field_validator("checklist_items")
+    @classmethod
+    def distinct_areas(cls, items: list[InspectionChecklistItem]) -> list[InspectionChecklistItem]:
+        if len({item.area for item in items}) != len(items):
+            raise ValueError("Checklist areas cannot be duplicated")
+        return items
 
     @field_validator("inspection_date")
     @classmethod
@@ -37,6 +58,7 @@ class UnitInspectionOut(BaseModel):
     inspection_date: date
     recorded_condition: Condition
     findings: str
+    checklist_items: list[InspectionChecklistItem] = Field(default_factory=list)
     recorded_by_id: int | None
     recorded_at: datetime
     # Current scoped inventory labels for display, not frozen audit snapshots.
