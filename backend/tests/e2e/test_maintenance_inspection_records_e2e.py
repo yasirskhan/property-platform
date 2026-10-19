@@ -42,6 +42,7 @@ def test_staff_records_inspection_without_invented_mobile_workflow():
             page.get_by_label("Inspection date").fill(date.today().isoformat())
             page.get_by_label("Inspection condition").select_option("ATTENTION_NEEDED")
             page.get_by_label("SAFETY condition").select_option("ATTENTION_NEEDED")
+            page.get_by_label("SAFETY notes").fill("Replace hall smoke alarm")
             page.get_by_label("PLUMBING condition").select_option("SATISFACTORY")
             page.get_by_label("Inspection findings").fill("Inspected window latch by staff")
             page.get_by_role("button", name="Save inspection record").click()
@@ -51,6 +52,7 @@ def test_staff_records_inspection_without_invented_mobile_workflow():
             pw.expect(page.get_by_text("Inspected window latch by staff")).to_be_visible()
             card = page.locator("section li").filter(has_text="Inspected window latch by staff").first
             pw.expect(card).to_contain_text("SAFETY: ATTENTION NEEDED")
+            pw.expect(card).to_contain_text("Replace hall smoke alarm")
             pw.expect(card).to_contain_text("PLUMBING: SATISFACTORY")
             pw.expect(page.locator("section li").filter(
                 has_text="E2E Test Property"
