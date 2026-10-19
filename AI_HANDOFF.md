@@ -1,3 +1,9 @@
+# 2026-10-19 | EMERGENCY TRIAGE FOLLOW-THROUGH FILTER (DETACHED)
+
+In the queued emergency triage milestone, added a working `Show all emergencies in work-order queue` control that sets the existing priority=emergency filter, resets paging, and keeps backend authorization intact. Authenticated browser smoke tests priority selection then clearing. The triage top-20 limit is not incorrectly presented as all emergencies. This is a detached successor of `d9a4ca29d3f359ccbd839de19037ab2817b3462e`, **not published or verified**. Verify predecessor published `4ea6a65a5d45faa1797a08e288365633ac6ed259` CI `39241105952` all six green, exact branch state, then safe force=false expected-SHA fast-forward and successor six-job CI. Keep `main`, new branches and Zargul untouched.
+
+---
+
 # 2026-10-19 | EMERGENCY TRIAGE CANDIDATE CHECKPOINT (DETACHED, HOSTED CI REQUIRED)
 
 **Authorized repo/branch:** `yasirskhan/property-platform`, ONLY `chatgpt/checkpoint-005-safety`. Latest source verified six green: `941d3ada4f89b70b997df27ff685530611043893`, CI `39200721153` all backend/PostgreSQL, frontend, security, platform-admin, E2E, staging PASS. Next published live provisional HEAD (last checked): `4ea6a65a5d45faa1797a08e288365633ac6ed259`, GitHub Actions run `39241105952` in progress (frontend/security/platform-admin passed, backend running), **not yet VERIFIED**. Recheck live state; do not assume this remains current.

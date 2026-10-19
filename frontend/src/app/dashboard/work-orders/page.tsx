@@ -128,6 +128,14 @@ export default function WorkOrderQueuePage() {
     setReload((value) => value + 1);
   }
 
+  function showAllEmergencies() {
+    const filters: Filters = { ...EMPTY, priority: "emergency" };
+    setDraft(filters);
+    setApplied(filters);
+    setOffset(0);
+    setReload((value) => value + 1);
+  }
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -179,6 +187,10 @@ export default function WorkOrderQueuePage() {
           Up to 20 open emergency requests you are authorized to view. Unacknowledged requests appear first,
           then oldest first. This view does not automatically dispatch staff or replace emergency services.
         </p>
+        <button type="button" onClick={showAllEmergencies}
+          className="mt-2 rounded-lg border bg-white px-3 py-2 text-sm hover:bg-slate-50">
+          Show all emergencies in work-order queue
+        </button>
         {triageLoading ? (
           <p className="mt-3 text-sm text-slate-500">Loading visible emergency requests…</p>
         ) : triage === null ? (

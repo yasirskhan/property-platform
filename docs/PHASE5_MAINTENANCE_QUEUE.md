@@ -458,3 +458,11 @@ unavailable/empty states, and warns that triage is not automatic dispatch or
 emergency response. Tests cover order, status, bounds and all scoped roles,
 plus authenticated browser heading visibility. This is not full SLA monitoring,
 on-call dispatch, notifications or automated escalation.
+
+## Emergency triage follow-through to full queue (detached; CI required)
+
+The limited top-20 triage panel includes a working action that applies the
+existing emergency-priority queue filter and resets pagination, so staff can
+review all accessible emergency work without mistaking the bounded quick list
+for the entire set. The filter is still server-scoped; no new data access.
+Signed-in browser test verifies apply and clear of that filter.
