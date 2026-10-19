@@ -281,6 +281,15 @@ def test_legacy_staff_submissions_do_not_grant_tenant_read_access():
         history = db.query(WorkOrderUpdate).filter_by(work_order_id=created.id).all()
         assert len(history) == 1
         assert history[0].user_id == admin.id
+        created_audit = db.query(AuditLog).filter_by(
+            entity_type="work_order", entity_id=created.id, action="status_transition",
+        ).one()
+        assert created_audit.user_id == admin.id
+        assert json.loads(created_audit.new_value) == {
+            "status": WorkOrderStatus.SUBMITTED.value,
+            "request_origin": "staff",
+            "requested_by_user_id": admin.id,
+        }
         assert _user_can_access_work_order(db, admin, created)
         assert not _user_can_access_work_order(db, tenant, created)
         assert not _user_can_access_work_order(db, other_tenant, created)
