@@ -285,6 +285,9 @@ def test_legacy_staff_submissions_do_not_grant_tenant_read_access():
             entity_type="work_order", entity_id=created.id, action="status_transition",
         ).one()
         assert created_audit.user_id == admin.id
+        detail = get_work_order(created.id, db=db, current_user=admin)
+        assert detail.request_origin == "staff"
+        assert detail.requested_by_user_id == admin.id
         assert json.loads(created_audit.new_value) == {
             "status": WorkOrderStatus.SUBMITTED.value,
             "request_origin": "staff",
@@ -297,6 +300,21 @@ def test_legacy_staff_submissions_do_not_grant_tenant_read_access():
         assert all(row.id != created.id for row in _queue(db, tenant))
         assert all(row.id != created.id for row in _queue(db, other_tenant))
         assert any(row.id == created.id for row in _queue(db, admin))
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_work_order_detail_legacy_provenance_fails_closed():
+    db, engine, actors, _props, orders = _seed_queue()
+    try:
+        admin, _manager, _tenant, _other, _crew, outside_admin = actors
+        detail = get_work_order(orders[0].id, db=db, current_user=admin)
+        assert detail.request_origin == "unknown_legacy"
+        assert detail.requested_by_user_id is None
+        with pytest.raises(HTTPException) as denied:
+            get_work_order(orders[0].id, db=db, current_user=outside_admin)
+        assert denied.value.status_code == 403
     finally:
         db.close()
         engine.dispose()

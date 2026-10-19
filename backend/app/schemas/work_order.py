@@ -142,6 +142,8 @@ class WorkOrderUpdateOut(BaseModel):
 # WORK ORDER — WITH UPDATES (nested output)
 # ============================================================
 class WorkOrderDetail(WorkOrderOut):
+    request_origin: str = "unknown_legacy"
+    requested_by_user_id: Optional[int] = None
     # Current inventory labels, not immutable historical snapshots.
     property_name: Optional[str] = None
     unit_number: Optional[str] = None

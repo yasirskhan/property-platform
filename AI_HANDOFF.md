@@ -1,3 +1,9 @@
+# 2026-10-19 | AUDITED WORK-ORDER REQUEST PROVENANCE — PROVISIONAL
+
+Added authorized API detail provenance from immutable same-organization creation audit with explicit legacy-unknown fallback and role-denial regressions. This is not recurring maintenance or the requester/tenant database migration. Verify all six hosted jobs at the eventual exact SHA and continue next dependency-safe Phase 5 batch. Baseline `bb6b2fadee1684d416c4f67f8cc6eeebc4465201` run `39294961119` SUCCESS.
+
+---
+
 # 2026-10-19 | EMERGENCY TRIAGE E2E REPAIR — COMPLETE / VERIFIED
 
 **Exact published SHA:** `c03af694b973afbef93a6e2abc2dbdb85eab4a49`. **GitHub Actions:** `39257636226`, SUCCESS: backend/PostgreSQL, frontend, platform-admin, security, authenticated E2E and staging-config all PASS. This exact source includes the unique-link anchored containing-card locator repair committed at `27eca3b19f040ae967011fcd68f01c01577c2af2` and the subsequent handoff update. Prior repair-only CI `39257553856` was CANCELLED by newer handoff CI; six-job SUCCESS belongs specifically to `c03af694b973afbef93a6e2abc2dbdb85eab4a49`. Test still verifies the correct link, its card's exact property/unit label, navigation and detail heading. The previously failed E2E regression is closed. This does NOT close Phase 5 or grant readiness to recurrence, dispatch, inspections, inventory or finance.

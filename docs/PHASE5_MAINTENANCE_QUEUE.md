@@ -495,3 +495,7 @@ property assignments while leaving stale is_active=True flags. Neither role
 can continue listing emergency orders, and the organization's admin still
 sees correctly authorized orders. This is an additional negative test, not a
 change to staff role entitlements.
+
+## Audited work-order request provenance (provisional)
+
+Authorized work-order detail now exposes requester origin and identity from authenticated, same-organization append-only creation audit. Legacy ambiguous records return unknown_legacy / null, without assuming a staff ID is a tenant. Regression covers genuine staff submitter, historical unknown, and cross-organization denial. No schema or recurrence engine is enabled; six-job CI required.

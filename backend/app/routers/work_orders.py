@@ -23,6 +23,7 @@
 #   - Tenant: their own work orders
 # ============================================================
 
+import json
 from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, List
@@ -35,6 +36,7 @@ from app.core.database import get_db
 from app.models.property import Property, Unit, PropertyAssignment
 from app.models.user import User, UserRole
 from app.models.vendor import Vendor
+from app.models.audit_log import AuditLog
 from app.routers.vendors import _access as _vendor_menu_access
 from app.services.menu_resolver import permission_allows_user
 from app.services.audit import append_audit_log
@@ -593,6 +595,26 @@ def get_work_order(
     prop = _get_property_for_work_order(db, wo)
     unit = db.query(Unit).filter(Unit.id == wo.unit_id).first()
     detail = WorkOrderDetail.model_validate(wo)
+    creation_audits = db.query(AuditLog).filter(
+        AuditLog.organization_id == prop.organization_id,
+        AuditLog.entity_type == "work_order",
+        AuditLog.entity_id == wo.id,
+        AuditLog.action == "status_transition",
+    ).order_by(AuditLog.id.asc()).all()
+    request_origin = "unknown_legacy"
+    requested_by_user_id = None
+    for record in creation_audits:
+        try:
+            evidence = json.loads(record.new_value or "null")
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(evidence, dict) or evidence.get("status") != "submitted":
+            continue
+        origin, actor_id = evidence.get("request_origin"), evidence.get("requested_by_user_id")
+        if origin not in ("tenant", "staff") or type(actor_id) is not int or record.user_id != actor_id:
+            continue
+        requested_by_user_id, request_origin = actor_id, origin
+        break
     actor_ids = {row.user_id for row in detail.updates}
     actors = (
         db.query(User).filter(
@@ -604,6 +626,8 @@ def get_work_order(
     return detail.model_copy(update={
         "property_name": prop.name,
         "unit_number": unit.unit_number if unit is not None else None,
+        "request_origin": request_origin,
+        "requested_by_user_id": requested_by_user_id,
         "updates": [
             row.model_copy(update={"actor_name": actor_names.get(row.user_id)})
             for row in detail.updates
