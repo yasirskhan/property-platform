@@ -340,6 +340,9 @@ def test_inspection_linked_work_order_validates_real_scoped_source(monkeypatch):
                 ), db=db, current_user=actor,
             )
         created = request(evidence.id)
+        manager_created = request(evidence.id, manager)
+        assert manager_created.source_inspection_id == evidence.id
+        assert manager_created.requested_by_user_id == manager.id
         assert created.source_inspection_id == evidence.id
         audit = db.query(AuditLog).filter_by(
             entity_type="work_order", entity_id=created.id, action="status_transition",
@@ -353,7 +356,7 @@ def test_inspection_linked_work_order_validates_real_scoped_source(monkeypatch):
         with pytest.raises(HTTPException) as denied:
             request(evidence.id, tenant)
         assert denied.value.status_code == 403
-        assert db.query(WorkOrder).filter_by(source_inspection_id=evidence.id).count() == 1
+        assert db.query(WorkOrder).filter_by(source_inspection_id=evidence.id).count() == 2
     finally:
         db.close()
         engine.dispose()
