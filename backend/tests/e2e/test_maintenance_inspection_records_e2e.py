@@ -54,6 +54,12 @@ def test_staff_records_inspection_without_invented_mobile_workflow():
             pw.expect(card).to_contain_text("SAFETY: ATTENTION NEEDED")
             pw.expect(card).to_contain_text("Replace hall smoke alarm")
             pw.expect(card).to_contain_text("PLUMBING: SATISFACTORY")
+            # Reload from the API to prove the checklist was persisted, not
+            # merely reflected from the successful POST response.
+            page.reload(wait_until="domcontentloaded")
+            persisted = page.locator("section li").filter(has_text="Inspected window latch by staff").first
+            pw.expect(persisted).to_contain_text("SAFETY: ATTENTION NEEDED", timeout=15_000)
+            pw.expect(persisted).to_contain_text("Replace hall smoke alarm")
             pw.expect(page.locator("section li").filter(
                 has_text="E2E Test Property"
             )).to_contain_text("Unit E2E-1")
