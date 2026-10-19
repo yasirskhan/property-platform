@@ -1,3 +1,9 @@
+# 2026-10-18 | PREPARED RELIABLE CREW ASSIGNMENT ACKNOWLEDGEMENT (DETACHED)
+
+The latest detached Phase 5 candidate extends the successful POST/optional GET principle to `POST /work-orders/{id}/assign`: validates the response's actual server-assigned crew/status, immediately updates detail state, clears old selection, shows success, and keeps it if optional activity refresh GET fails. Existing backend authorization, staff roster filtering and audits remain authoritative. No new auto-dispatch or extra E2E fixture claim; it must be validated by the successor's hosted frontend/backend/E2E workflow. **Not published/verified**; first ensure parent live `128567315621c165759cd1127f2d397f04d0b65e` CI run `39197174338` all six green, then only exact-head nonforce expected-SHA publication, then successor CI. Other prepared changes: transactional property-assignment audit, work-order status post-confirmation. No main/new branch/Zargul edits.
+
+---
+
 # 2026-10-18 | PREPARED DURABLE WORK ORDER STATUS CONFIRMATION (DETACHED)
 
 Next Phase 5 successor improves role-aware work-order lifecycle UI reliability: after the server acknowledges a status transition POST, update visible saved status from its response before optionally refreshing activity; if that GET fails, retain the persisted state and success notice rather than misleading the user into retrials. Existing Playwright workflow now simulates detail GET HTTP 503 before acknowledge and verifies state/notice and subsequent comment persistence. This is a **DETACHED candidate**, not published or CI verified. Chain parent includes transactional property staff assignment audit candidate `0dfe74829523db6b55ab3075a835f8bff1998483`. Require published `128567315621c165759cd1127f2d397f04d0b65e` all six green in CI `39197174338`, exact branch compare and nonforce expected-SHA fast-forward before verifying successor's own 6 CI jobs. Do not touch main/new branch/Zargul.

@@ -324,3 +324,12 @@ actual backend state machine and append-only audit remain authoritative. The
 authenticated browser test simulates HTTP 503 on detail GET after acknowledge,
 verifies the saved status and notice remain visible, and still submits a
 comment during that same outage. No new lifecycle action is exposed.
+
+## Durable crew assignment acknowledgement (prepared; CI required)
+
+After a successful backend-validated work-order assignment POST, the detail
+screen keeps the server-returned assigned crew and ASSIGNED state even when a
+later detail GET fails. It clears stale crew selection and treats follow-up
+activity refresh as best-effort only, reducing accidental assignment retries.
+Backend staff/property validation and append-only assignment audit remain the
+security boundary. This is a UI reliability improvement, not dispatch automation.

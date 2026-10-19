@@ -123,9 +123,23 @@ export default function WorkOrderDetailPage() {
     setError("");
     setNotice("");
     try {
-      await apiPost("/work-orders/" + order.id + "/assign", { crew_user_id: selected });
-      await reload();
+      const persisted = await apiPost("/work-orders/" + order.id + "/assign", { crew_user_id: selected }) as WorkOrder;
+      if (!persisted || persisted.id !== order.id || persisted.assigned_to_id !== selected
+          || persisted.status !== "assigned") {
+        throw new Error("Unexpected crew assignment response.");
+      }
+      setOrder((previous) => previous ? {
+        ...previous, status: persisted.status, assigned_to_id: persisted.assigned_to_id,
+        updated_at: persisted.updated_at,
+      } : previous);
+      setCrewId("");
       setNotice("Crew assignment recorded. Property assignment is verified by the backend.");
+      try {
+        const fresh = await apiGet("/work-orders/" + order.id) as WorkOrder;
+        if (fresh.id === order.id && Array.isArray(fresh.updates)) setOrder(fresh);
+      } catch {
+        // The assignment POST was already committed; never claim it failed.
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Crew assignment failed.");
     } finally {
