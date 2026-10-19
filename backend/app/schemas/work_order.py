@@ -27,6 +27,7 @@ class WorkOrderCreate(BaseModel):
     description: str = Field(..., min_length=10)
     category: WorkOrderCategory = WorkOrderCategory.OTHER
     priority: WorkOrderPriority = WorkOrderPriority.MEDIUM
+    source_inspection_id: Optional[int] = Field(default=None, ge=1)
     permission_to_enter: bool = False
     entry_notes: Optional[str] = None
     photo_urls: Optional[str] = None  # comma-separated for now
@@ -92,6 +93,7 @@ class WorkOrderOut(BaseModel):
     tenant_id: int
     # Optional for old imported/historical rows; never silently substitute tenant_id.
     requested_by_user_id: Optional[int] = None
+    source_inspection_id: Optional[int] = None
     property_id: int
     property_name: Optional[str] = None
     unit_number: Optional[str] = None

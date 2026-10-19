@@ -78,6 +78,7 @@ class WorkOrder(Base):
     # for old API consumers until a separately verified compatibility migration.
     request_origin = Column(String(32), nullable=True)
     requested_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    source_inspection_id = Column(Integer, ForeignKey("unit_inspection_records.id", ondelete="RESTRICT"), nullable=True, index=True)
     property_id = Column(Integer, ForeignKey("properties.id"), nullable=False, index=True)
 
     # Assigned crew (may be null until assigned)

@@ -40,6 +40,8 @@ from app.models.audit_log import AuditLog
 from app.routers.vendors import _access as _vendor_menu_access
 from app.services.menu_resolver import permission_allows_user
 from app.services.audit import append_audit_log
+from app.services.unit_inspections import get_inspection as get_authorized_inspection
+from app.services.report_delivery import ReportDeliveryError
 from app.models.work_order import (
     WorkOrder,
     WorkOrderUpdate,
@@ -266,12 +268,26 @@ def submit_work_order(
         # Staff-originated work order: preserve existing submitter behavior.
         tenant_id = current_user.id
 
+    # A follow-up must reference an authorized, actual inspection of this
+    # same unit and property. Never trust a client-supplied inspection ID.
+    if payload.source_inspection_id is not None:
+        _require_role(current_user, UserRole.ADMIN, UserRole.MANAGER)
+        try:
+            inspection = get_authorized_inspection(
+                db, actor=current_user, inspection_id=payload.source_inspection_id,
+            )
+        except ReportDeliveryError as exc:
+            raise HTTPException(status_code=404, detail="Inspection not available") from exc
+        if inspection.unit_id != unit.id or inspection.property_id != prop.id:
+            raise HTTPException(status_code=404, detail="Inspection not available")
+
     wo = WorkOrder(
         unit_id=unit.id,
         property_id=prop.id,
         tenant_id=tenant_id,
         request_origin="tenant" if current_user.role == UserRole.TENANT else "staff",
         requested_by_user_id=current_user.id,
+        source_inspection_id=payload.source_inspection_id,
         title=payload.title,
         description=payload.description,
         category=payload.category,
@@ -290,6 +306,7 @@ def submit_work_order(
         audit_metadata={
             "request_origin": "tenant" if current_user.role == UserRole.TENANT else "staff",
             "requested_by_user_id": current_user.id,
+            **({"source_inspection_id": payload.source_inspection_id} if payload.source_inspection_id is not None else {}),
         },
     )
     db.commit()
