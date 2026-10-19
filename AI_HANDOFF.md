@@ -1,3 +1,13 @@
+# 2026-10-19 | EMERGENCY TRIAGE E2E STRICT-MODE REPAIR — HOSTED CI REQUIRED
+
+**Verified prior checkpoint:** `4ea6a65a5d45faa1797a08e288365633ac6ed259`, GitHub Actions `39241105952`, SUCCESS all six (backend/PostgreSQL, frontend, platform-admin, security, E2E, staging). Next seven commits were already published by another active session, bringing live head to `f17d90f373e981e39dc9ce83d5214ed2c68d8465` with Actions `39243860429` FAILURE **E2E only** (25 passed, one failed); other five jobs PASS.
+
+**Exact failure:** `backend/tests/e2e/test_work_order_detail_e2e.py::test_emergency_triage_links_to_a_real_authorized_order` asserted `triage.get_by_text("E2E Test Property · Unit E2E-1", exact=True)`, which matched TWO emergency cards with identical property/unit. The authentic newly created work-order ID link was visible. This is a Playwright locator ambiguity, not reason to alter the triage scope or weaken the requirement. **Published test fix** `de80e4bfb63fdbdfdb2e9ed0114f51da46173074` filters `triage.locator("li")` by the exact created-work-order link and checks the location only within that card. The title/link and navigation assertions remain intact.
+
+**CURRENT STATUS:** The test fix is published on ONLY `chatgpt/checkpoint-005-safety`; it is PROVISIONAL until its own hosted six-job CI reports exact-SHA SUCCESS. Recheck live HEAD and workflow runs before making any changes. Do not repeat verified work, touch `main`, create new branches, force push, use Work mode or modify Zargul. If successor CI fails, inspect logs and repair promptly; if green, record exact verified SHA/run and immediately continue next bounded Phase 5 milestone. Emergency triage is read-only; recurring maintenance still has an attribution design gate because WorkOrder.tenant_id is NOT NULL. Smart dispatch, recurrence, vendor escalation, full inspections, inventory, purchasing, finance and unit turns remain unfinished.
+
+---
+
 # 2026-10-19 | EMERGENCY TRIAGE REVOKED ASSIGNMENT NEGATIVE TEST (DETACHED)
 
 Adds an explicit regression to the prepared emergency triage endpoint: manager and crew PropertyAssignment rows with stale is_active=True but non-null deleted_at cannot reveal work orders; organization ADMIN continues to see its own results. This is detached on `2fe9a5a24b7b0fa2f087fdd9a2ce70386017bba0`, NOT PUBLISHED OR VERIFIED. Require published ancestor `4ea6a65a5d45faa1797a08e288365633ac6ed259` full six-job CI run `39241105952` green at exact branch SHA, then nonforce expected-SHA advancement and successor full CI. Do not touch main/new branch/Zargul; Phase 5 is still open.
