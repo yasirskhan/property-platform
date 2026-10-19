@@ -1,3 +1,31 @@
+# 2026-10-19 | EXACT CI CHECKPOINT AND SAFE NEXT PHASE 5 BATCH
+
+## Last fully verified customer branch checkpoint
+
+At preparation, GitHub Actions CI `39198752993` completed **SUCCESS on all six jobs** at `24897accd1242bbd85200335bfd6878be24998d0`: backend/PostgreSQL, frontend, platform-admin, security, authenticated E2E, staging-config. This included customer inactive/deleted login/JWT/MFA cutoff, malformed-token validation, staff account+assignment auditing, and work-order crew/result-reliability fixes. This is not a claim that all Phase 5 work is finished.
+
+## Published provisional head and next controlled gate
+
+The authorized branch `chatgpt/checkpoint-005-safety` was advanced non-force using exact expected-SHA to `941d3ada4f89b70b997df27ff685530611043893`. Hosted CI `39200721153` was **IN PROGRESS** at last check (frontend, security, platform-admin success; backend running, E2E/staging pending). This batch has authorized readable work-order location labels and two-step cancellation, with backend and browser regressions. **DO NOT mark it verified until all six jobs complete green at this SHA.** Confirm LIVE HEAD and run now; they can change.
+
+## Detached, NOT published successor
+
+Candidate implementation chain from `941d3ada4f89b70b997df27ff685530611043893`:
+- `1e29de286585e594fdc495c3322f3d22900a14ca`: cancellation reason input, stored in append-only audit and activity; no-body legacy API compatible.
+- `1f79fc85d31ce1b9ec224a01ca27dfc2c44ce099`: organization-scoped actor labels for activity plus saved comment response, foreign actor names hidden.
+- `5075ee3fd623585898c4189517b9e255c5718115`: scoped batched property/unit labels on queue.
+- `8d156b0002cd9dfb80fa273d36b902b2e5de824f`: align queue test labels with stable ID ordering (second property first).
+- `41f9ba677840612385e079e02927d4e8831a180e`: reject whitespace-only work order activity messages at API boundary.
+- `eacc6a4c5f6ea5347e959fb69b36a43973f7f840`: search authorized work orders by property or unit text as well as title/description, retaining wildcard escaping.
+
+Latest candidate after this handoff documentation is a strict **descendant** of the provisional head and remains detached. To publish: (1) verify exact CI `39200721153` all six SUCCESS, (2) verify branch live HEAD is exactly `941d3ada4f89b70b997df27ff685530611043893`, (3) non-force update_ref with expected_sha and new detached candidate, (4) verify successor's own full six-job CI, diagnose/fix reds, (5) update this handoff on verified SHA, (6) continue next bounded Phase 5 milestone. Do not overwrite concurrent changes.
+
+## Policy and remaining work
+
+Never touch `main`, create another branch, force-push or modify `yasirskhan/Zargul-Silver-Marquee`. Use no Work mode. Preserve authorized branch `chatgpt/checkpoint-005-safety`; keep the full smart-maintenance roadmap (recurrence, dispatch, on-call/escalation, inventory, purchase orders, full inspection/mobile/offline, finance and unit-turn automation) OPEN until genuinely implemented and verified. Do not unhide canonical inspections feature prematurely. OWNER's organization-wide access vs multiple property owners requires separate policy review; do not silently expand/contract. Keep DoorLoop migration source-contract gate closed. All customer actions need safe tenant/org/role scope, reversible finance, and searchable audit. Continue autonomously within active session, without treating a green CI or handoff as a stopping point.
+
+---
+
 # 2026-10-18 | PREPARED SCOPED PROPERTY/UNIT WORK-ORDER SEARCH (DETACHED)
 
 Next bounded Phase 5 improvement: existing GET /work-orders search searches title/description plus property name/unit number via preexisting authorized join; no scope broadening and SQL wildcards remain literal. Queue UI label updated; DB tests cover org, assigned manager, tenant and crew visibility, and wildcard escaping. This follows visible location labels and actor identity audit improvements. **Not published or verified.** Published parent `941d3ada4f89b70b997df27ff685530611043893` currently under six-job CI `39200721153`; after all-six success and live exact HEAD check, guarded force=false publication followed by six-job successor CI. Never main/new branch/Zargul; Phase 5 still unfinished.
