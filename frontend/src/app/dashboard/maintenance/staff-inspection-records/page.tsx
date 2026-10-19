@@ -105,7 +105,7 @@ export default function InspectionRecordsPage() {
   async function applyHistoryFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (dateFrom && dateTo && dateFrom > dateTo) {
-      setError("Start date cannot be after end date.");
+      setMoreError("Start date cannot be after end date.");
       return;
     }
     const params = new URLSearchParams();
@@ -113,7 +113,7 @@ export default function InspectionRecordsPage() {
     if (dateFrom) params.set("date_from", dateFrom);
     if (dateTo) params.set("date_to", dateTo);
     const filters = params.toString() ? `&${params.toString()}` : "";
-    setLoading(true); setError(""); setMoreError("");
+    setLoading(true); setMoreError("");
     try {
       const rows = await apiGet(`/api/unit-inspections?limit=100${filters}`) as Inspection[];
       if (!Array.isArray(rows)) throw new Error("Unexpected inspection response.");
@@ -122,7 +122,7 @@ export default function InspectionRecordsPage() {
       setHasMore(rows.length === 100);
       setActiveFilters(filters);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Inspection filtering failed.");
+      setMoreError(cause instanceof Error ? cause.message : "Inspection filtering failed.");
     } finally {
       setLoading(false);
     }
@@ -146,9 +146,13 @@ export default function InspectionRecordsPage() {
       }
       // The 201 response is authoritative. A second GET failing must not
       // report a successfully persisted inspection as a failed submission.
-      const matchesCondition = !conditionFilter || created.recorded_condition === conditionFilter;
-      const matchesDates = (!dateFrom || created.inspection_date >= dateFrom)
-        && (!dateTo || created.inspection_date <= dateTo);
+      const filters = new URLSearchParams(activeFilters.replace(/^&/, ""));
+      const appliedCondition = filters.get("recorded_condition");
+      const appliedFrom = filters.get("date_from");
+      const appliedTo = filters.get("date_to");
+      const matchesCondition = !appliedCondition || created.recorded_condition === appliedCondition;
+      const matchesDates = (!appliedFrom || created.inspection_date >= appliedFrom)
+        && (!appliedTo || created.inspection_date <= appliedTo);
       setRecords((previous) => matchesCondition && matchesDates
         ? [created, ...previous.filter((row) => row.id !== created.id)] : previous);
       setFindings("");
