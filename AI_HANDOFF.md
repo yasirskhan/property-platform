@@ -1,3 +1,11 @@
+# 2026-10-19 | INSPECTION BROWSER STRICT-LOCATOR CI REPAIR — PUBLISHED / PENDING
+
+Live source commit `13e17ef435d0e3a699b818a69927906350e872c1` changes only the authenticated inspection entry condition selector to exact matching. Earlier run `39324638827` failed E2E because adding an authorized history filter introduced a second label containing "Inspection condition"; its backend, frontend, platform-admin, security and staging jobs all passed. The repaired selector retains the same condition selection/assertions. CI `39329507328` must pass all six at the exact source SHA before closing the E2E failure.
+
+Prepared safe successor `232b0eaa0e65a1ff9c4ab62aa8278e714a8a605f` adds history unit selection and authenticated browsing plus regression test denying manager access to unassigned units, tenant access and cross-org unit access. This is detached, not verified. Before promoting: recheck latest branch HEAD and predecessor six-job CI; use nonforce exact expected-SHA CAS. Do not claim recurrence or full Inspections complete.
+
+---
+
 # 2026-10-19 | ORGANIZATION-SCOPED INSPECTION ACTOR LABELS — DETACHED
 
 Prepared at `764e3d6c163d4e11f46224cf4f6715b82c15b7a3` after scoped history/filter foundation. Authorized inspection creation, detail and paginated history display recorder names only when the recorded user belongs to the same organization. Malformed cross-organization recorded_by_id retains stable ID but no foreign actor name. Backend regression and responsive list/detail UI included. No new rights or financial writes. Await safe CAS publish only after predecessor exact-SHA CI green; then verify all six hosted jobs, update records and continue. Full inspections/automation remain gated.

@@ -842,3 +842,5 @@ access boundary.
 | Phase 5 staff inspection history filters | capability | /dashboard/maintenance/staff-inspection-records | core | yes | PROPERTIES.UNITS | no | 🔧 detached, CI gated | Condition and inclusive date filters on role-scoped inspection history with pagination and authenticated browser regression; full Inspections remains hidden |
 
 | Phase 5 scoped inspection recorder labels | capability | /dashboard/maintenance/staff-inspection-records | core | yes | PROPERTIES.UNITS | no | 🔧 detached, CI gated | Same-org user display labels in authorized creation/history/detail; foreign/malformed recorder actor IDs never disclose another organization identity; full Inspections remains gated |
+
+| Phase 5 inspection filtered history by authorized unit | capability | /dashboard/maintenance/staff-inspection-records | core | yes | PROPERTIES.UNITS | no | 🔧 detached successor; CI gated | Select authorized unit and combine with condition/date history filtering; server enforces per-unit property/org scoping and tenant denial; E2E and regression coverage |

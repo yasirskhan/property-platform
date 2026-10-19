@@ -495,3 +495,7 @@ Staff-recorded inspection history can be filtered by recorded condition and incl
 ## Phase 5 inspection actor identity visibility (2026-10-19; detached)
 
 Authorized staff inspection records show same-organization recorder names in list/detail after access check. Missing/deleted/foreign recorder profiles receive stable-ID fallback, never foreign name disclosure. Bulk list label resolution avoids per-row lookup. Backend negative test covers deliberately corrupt cross-org recorder reference. Requires exact hosted CI; no expanded module authorization.
+
+## Phase 5 inspection history filter and E2E strict locator (2026-10-19)
+
+The entry and filter fields have overlapping accessible labels: browser test must select the entry condition by its exact accessible name, retaining assertions. Prepared authorized-unit history filtering extends condition/date filters with server-scoped unit ID; backend negative tests cover unassigned manager unit, foreign organization and tenant denial. Still pending six-job hosted verification at the exact branch head. Full inspections and recurring scheduling stay gated.

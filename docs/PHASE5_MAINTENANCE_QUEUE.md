@@ -523,3 +523,7 @@ The existing authorized GET /api/unit-inspections accepts optional recorded_cond
 ## Scoped inspection recorder labels (detached; CI required)
 
 The staff inspection list/detail resolves recorded_by_name only from users in the requester's organization after inspecting actual property scope. Batch label resolution avoids N+1 lookups. A foreign recorder ID remains retained for historical traceability but never reveals its foreign organization's name. Staff pages display the authorized name with ID fallback. Regression tests cover foreign attribution attempts, original immutable evidence and legitimate same-org names. This is not a full audit editing or approval feature.
+
+## Authenticated inspection history unit filtering (detached successor)
+
+The staff history view supports narrowing to an authorized active unit selected from the existing permission-scoped unit picker. This combines the existing backend unit_id scope with recorded-condition/date filters and stable pagination. Browser E2E verifies a saved inspection survives navigation and filtering. Direct backend regressions assert tenant role, foreign organization, and manager unassigned-unit denials. Detached until precursor green CI and expected-head protected publication; verify successor six jobs.
