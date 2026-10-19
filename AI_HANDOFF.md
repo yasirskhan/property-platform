@@ -1,3 +1,11 @@
+# 2026-10-19 | EMERGENCY TRIAGE LINKED-CARD E2E LOCATOR REPAIR — PROVISIONAL
+
+**Live published repair:** `27eca3b19f040ae967011fcd68f01c01577c2af2` on the ONLY permitted branch `chatgpt/checkpoint-005-safety`. Exact hosted CI `39257553856` is IN_PROGRESS as checked; do NOT call it verified unless all six jobs pass. This corrects only `backend/tests/e2e/test_work_order_detail_e2e.py` after earlier run `39249433804` failed E2E while backend, frontend, security, platform-admin and staging passed. The visible unique work-order link is resolved to its `li → div → a` containing card with `link.locator("xpath=../..")`, then the exact property/unit text is asserted within that card; link visibility and destination work-order identity assertions remain. No business rule, auth, test scope, or feature gate was weakened. No local Playwright execution was claimed.
+
+**Next:** inspect run `39257553856` at exact SHA and fix any failures; if six jobs green record COMPLETE/VERIFIED. Then continue next dependency-safe Phase 5 milestone, including attribution design gate for recurring maintenance; do not fabricate tenant identities. Recheck live HEAD before every write and preserve concurrent changes. Do not touch main, create another branch, force push, modify Zargul, or use Work mode.
+
+---
+
 # 2026-10-19 | EMERGENCY TRIAGE E2E STRICT-MODE REPAIR — HOSTED CI REQUIRED
 
 **Verified prior checkpoint:** `4ea6a65a5d45faa1797a08e288365633ac6ed259`, GitHub Actions `39241105952`, SUCCESS all six (backend/PostgreSQL, frontend, platform-admin, security, E2E, staging). Next seven commits were already published by another active session, bringing live head to `f17d90f373e981e39dc9ce83d5214ed2c68d8465` with Actions `39243860429` FAILURE **E2E only** (25 passed, one failed); other five jobs PASS.
