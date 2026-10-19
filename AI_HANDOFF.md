@@ -1,3 +1,9 @@
+# 2026-10-18 | EXACT PLAYWRIGHT STRICT ALERT SELECTOR FIX
+
+The preceding auth-readiness E2E repair SHA `0dd331306e2ae6420179fe930b27d67208c0d2af` passed Backend/PostgreSQL, Frontend, Platform Admin, Security and Staging; Actions `39177301788` failed one E2E test only. The login readiness step now worked; the new failure at `test_customer_maintenance_request_form_saves_a_new_order` was Playwright strict-mode ambiguity for `get_by_role("alert")`: Next.js renders its route announcer with alert role in addition to the actual emergency request warning. This fix targets the actual warning text and preserves the emergency flow test; no product permission or UI behavior is weakened. Require all six hosted CI jobs at this new exact published SHA before promoting the next detached Phase 5 batch. Do not touch main, other branches or Zargul.
+
+---
+
 # 2026-10-18 | E2E AUTHENTICATED DASHBOARD READINESS REPAIR (UNVERIFIED)
 
 Previous published SHA `383b3ef293d8c09c930de9542337fedc2a34b1f9` failed ONLY authenticated E2E in run `39174929061`: 23 passed, 1 failed, because `test_customer_maintenance_request_form_saves_a_new_order` navigated immediately after /dashboard URL transition while the client-side authenticated shell was not yet ready, was redirected to /login, and could not see the queue's New Maintenance Request link. Backend/PostgreSQL, Frontend, Platform Admin, Security and Staging all PASS. This repair retains the actual link assertion and login workflow, and waits for a rendered signed-in shell + session token before navigating to the queue. New exact-SHA hosted CI must PASS all six to call this VERIFIED. Do not publish the already prepared inactive-unit or inspection descendant until this repair is green; rebase/recreate its commits onto the verified SHA rather than overwriting this fix. Only authorized `chatgpt/checkpoint-005-safety`, no main, other branch, force or Zargul edits.
