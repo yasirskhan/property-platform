@@ -7,6 +7,7 @@ import { apiGet, apiPost } from "@/lib/api";
 
 type UnitChoice = { id: number; unit_number: string; property_id: number; property_name: string };
 type SimilarRequest = { id: number; title: string; status: string; priority: string };
+type SourceInspection = { id: number; unit_id: number; unit_number?: string | null; inspection_date: string; findings: string; recorded_condition: string };
 const CATEGORIES = ["plumbing", "electrical", "hvac", "appliance", "general", "pest", "cleaning", "landscaping", "other"];
 const PRIORITIES = ["low", "medium", "high", "emergency"];
 
@@ -29,6 +30,36 @@ export default function NewMaintenanceRequest() {
   const [similarKey, setSimilarKey] = useState("");
   const [checkingSimilar, setCheckingSimilar] = useState(false);
   const [similarError, setSimilarError] = useState("");
+  const [sourceInspection, setSourceInspection] = useState<SourceInspection | null>(null);
+  const [sourceError, setSourceError] = useState("");
+  const [sourceLoading, setSourceLoading] = useState(false);
+
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("source_inspection_id");
+    if (!id) return;
+    if (!/^[1-9][0-9]*$/.test(id)) {
+      setSourceError("Invalid inspection reference.");
+      return;
+    }
+    let active = true;
+    setSourceLoading(true);
+    apiGet(`/api/unit-inspections/${id}`)
+      .then((record: SourceInspection) => {
+        if (!active) return;
+        if (record.id !== Number(id) || !record.unit_number) throw new Error("Inspection unavailable.");
+        setSourceInspection(record);
+        setTitle(`Inspection follow-up #${record.id}`);
+        setDescription(
+          `Staff inspection #${record.id} (${record.inspection_date}): ${record.findings || "Review recorded inspection evidence."}`.slice(0, 950),
+        );
+        setSearch(record.unit_number);
+        setAppliedSearch(record.unit_number);
+        setOffset(0);
+      })
+      .catch((cause) => { if (active) setSourceError(cause instanceof Error ? cause.message : "Inspection unavailable."); })
+      .finally(() => { if (active) setSourceLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -41,7 +72,9 @@ export default function NewMaintenanceRequest() {
         if (!active) return;
         if (!Array.isArray(value)) throw new Error("Unexpected unit list.");
         setUnits(value);
-        setSelectedId((prev) => value.some((u) => String(u.id) === prev) ? prev : "");
+        setSelectedId((prev) => sourceInspection
+          ? (value.some((u) => u.id === sourceInspection.unit_id) ? String(sourceInspection.unit_id) : "")
+          : (value.some((u) => String(u.id) === prev) ? prev : ""));
       })
       .catch((cause) => {
         if (active) {
@@ -52,7 +85,7 @@ export default function NewMaintenanceRequest() {
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [offset, appliedSearch]);
+  }, [offset, appliedSearch, sourceInspection]);
 
   function findUnits(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -92,6 +125,10 @@ export default function NewMaintenanceRequest() {
       setError("Select a unit you are authorized to access.");
       return;
     }
+    if (sourceInspection && sourceInspection.unit_id !== unitId) {
+      setError("The inspection reference belongs to a different unit.");
+      return;
+    }
     if (title.trim().length < 3 || description.trim().length < 10) {
       setError("Enter a title of at least 3 characters and a description of at least 10.");
       return;
@@ -102,6 +139,7 @@ export default function NewMaintenanceRequest() {
       const result = await apiPost("/work-orders", {
         unit_id: unitId, title: title.trim(), description: description.trim(),
         category, priority, permission_to_enter: permission,
+        ...(sourceInspection ? { source_inspection_id: sourceInspection.id } : {}),
       }) as { id: number };
       if (!Number.isSafeInteger(result.id) || result.id < 1) throw new Error("Invalid saved request.");
       router.push("/dashboard/maintenance/work-orders/" + result.id);
@@ -123,6 +161,12 @@ export default function NewMaintenanceRequest() {
           Select a unit in your authorized properties or active lease. Your request will be recorded for staff review.
         </p>
       </header>
+      {sourceLoading && <p role="status">Loading authorized inspection evidence…</p>}
+      {sourceError && <p role="alert" className="rounded-lg border p-3 text-red-700">{sourceError}</p>}
+      {sourceInspection && <p className="rounded-lg border p-3 text-sm">
+        Follow-up to staff inspection #{sourceInspection.id} on {sourceInspection.inspection_date}.
+        The linked unit and inspection reference are validated again when saving.
+      </p>}
       {error && <p role="alert" className="rounded-lg border border-red-200 p-3 text-sm text-red-800">{error}</p>}
       <form onSubmit={findUnits} className="rounded-xl border bg-white p-4">
         <label className="text-sm">Find property or unit
@@ -218,7 +262,7 @@ export default function NewMaintenanceRequest() {
           <input type="checkbox" checked={permission} onChange={(event) => setPermission(event.target.checked)} />
           I authorize property staff to enter for this request, subject to applicable notice requirements.
         </label>
-        <button disabled={saving || loading || !selectedId} type="submit"
+        <button disabled={saving || loading || sourceLoading || Boolean(sourceError) || !selectedId} type="submit"
           className="rounded-lg bg-slate-900 px-5 py-2 text-sm text-white disabled:opacity-50">
           {saving ? "Submitting…" : "Submit maintenance request"}
         </button>

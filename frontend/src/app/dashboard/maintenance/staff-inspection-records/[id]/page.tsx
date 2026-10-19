@@ -48,6 +48,10 @@ export default function StaffInspectionDetailPage() {
       <p>Inspection date: {record.inspection_date}</p>
       <p>Condition: {record.recorded_condition.replaceAll("_", " ")}</p>
       <p className="whitespace-pre-wrap">Findings: {record.findings || "No findings noted."}</p>
+      <Link href={`/dashboard/maintenance/work-orders/new?source_inspection_id=${record.id}`}
+        className="inline-block rounded-lg border px-4 py-2 text-sm text-blue-800 hover:underline">
+        Create follow-up work order
+      </Link>
       <h3 className="font-semibold">Recorded checklist</h3>
       {record.checklist_items?.length ? <ul className="space-y-2">
         {record.checklist_items.map((item) => <li className="rounded-lg border p-3" key={item.area}>
