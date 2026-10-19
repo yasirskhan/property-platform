@@ -1,3 +1,9 @@
+# 2026-10-19 | EMERGENCY TRIAGE REVOKED ASSIGNMENT NEGATIVE TEST (DETACHED)
+
+Adds an explicit regression to the prepared emergency triage endpoint: manager and crew PropertyAssignment rows with stale is_active=True but non-null deleted_at cannot reveal work orders; organization ADMIN continues to see its own results. This is detached on `2fe9a5a24b7b0fa2f087fdd9a2ce70386017bba0`, NOT PUBLISHED OR VERIFIED. Require published ancestor `4ea6a65a5d45faa1797a08e288365633ac6ed259` full six-job CI run `39241105952` green at exact branch SHA, then nonforce expected-SHA advancement and successor full CI. Do not touch main/new branch/Zargul; Phase 5 is still open.
+
+---
+
 # 2026-10-19 | RECURRING MAINTENANCE ATTRIBUTION DESIGN GATE (OPEN)
 
 Code review found `WorkOrder.tenant_id` remains NOT NULL while staff-submitted orders currently use the staff submitter ID as tenant_id. Do not generate scheduled/preventive orders by inventing a tenant or reusing a staff ID as a tenant identity. Recurrence needs a controlled schema/API compatibility design to separate requester, tenant association and automation actor, then schedule/occurrence idempotency and migration/finance checks. This is an explicit upcoming Phase 5 backlog blocker, not a claim of an implemented recurrence engine. This documentation candidate is detached on `cd9fca0329b128bf4853a2cf1a5c85fa87868245`; first verify six-job CI `39241105952` at live `4ea6a65a5d45faa1797a08e288365633ac6ed259`, then force=false exact expected-head promotion and fresh CI for the emergency-triage candidate. No main, new branch, Zargul modifications.

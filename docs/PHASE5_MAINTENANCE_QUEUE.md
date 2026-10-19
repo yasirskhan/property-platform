@@ -487,3 +487,11 @@ assignment, finance/reporting and migration compatibility), then persistent
 schedule IDs, idempotent occurrence keys, customer-approved execution policy,
 and lifecycle/audit transactions. Do not invent a fake tenant or silently
 reinterpret tenant_id, and do not claim Phase 5 recurrence is implemented.
+
+## Revoked staff exclusions in emergency triage (detached; CI required)
+
+The emergency-triage regression explicitly soft-deletes the manager and crew
+property assignments while leaving stale is_active=True flags. Neither role
+can continue listing emergency orders, and the organization's admin still
+sees correctly authorized orders. This is an additional negative test, not a
+change to staff role entitlements.

@@ -1098,6 +1098,19 @@ def test_emergency_triage_is_bounded_oldest_first_and_role_scoped():
             ("Other Property", "A1"), ("Assigned Property", "A1"),
         ]
 
+        # Historical active flags must never override a revoked property
+        # assignment when selecting emergencies for staff.
+        for staff in (manager, crew):
+            assignment = db.query(PropertyAssignment).filter_by(
+                property_id=a.property_id, user_id=staff.id,
+            ).one()
+            assignment.is_active = True
+            assignment.deleted_at = datetime(2026, 10, 18, 13)
+        db.commit()
+        assert triage(manager) == []
+        assert triage(crew) == []
+        assert [row.id for row in triage(admin)] == [c.id, a.id]
+
         c.status = WorkOrderStatus.CANCELLED
         d.status = WorkOrderStatus.CLOSED
         db.commit()
