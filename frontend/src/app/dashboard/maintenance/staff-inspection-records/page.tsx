@@ -34,6 +34,7 @@ export default function InspectionRecordsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [moreError, setMoreError] = useState("");
   const [conditionFilter, setConditionFilter] = useState("");
+  const [historyUnitId, setHistoryUnitId] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [activeFilters, setActiveFilters] = useState("");
@@ -110,6 +111,7 @@ export default function InspectionRecordsPage() {
     }
     const params = new URLSearchParams();
     if (conditionFilter) params.set("recorded_condition", conditionFilter);
+    if (historyUnitId) params.set("unit_id", historyUnitId);
     if (dateFrom) params.set("date_from", dateFrom);
     if (dateTo) params.set("date_to", dateTo);
     const filters = params.toString() ? `&${params.toString()}` : "";
@@ -150,11 +152,15 @@ export default function InspectionRecordsPage() {
       const appliedCondition = filters.get("recorded_condition");
       const appliedFrom = filters.get("date_from");
       const appliedTo = filters.get("date_to");
+      const appliedUnit = filters.get("unit_id");
+      const matchesUnit = !appliedUnit || created.unit_id === Number(appliedUnit);
       const matchesCondition = !appliedCondition || created.recorded_condition === appliedCondition;
       const matchesDates = (!appliedFrom || created.inspection_date >= appliedFrom)
         && (!appliedTo || created.inspection_date <= appliedTo);
-      setRecords((previous) => matchesCondition && matchesDates
-        ? [created, ...previous.filter((row) => row.id !== created.id)] : previous);
+      setRecords((previous) => matchesUnit && matchesCondition && matchesDates
+        ? [created, ...previous.filter((row) => row.id !== created.id)]
+            .sort((a, b) => b.inspection_date.localeCompare(a.inspection_date) || b.id - a.id)
+        : previous);
       setFindings("");
       setChecklist({});
       setChecklistNotes({});
@@ -257,7 +263,14 @@ export default function InspectionRecordsPage() {
       {!loading && !error && (
         <section className="rounded-xl border bg-white p-5">
           <h2 className="font-semibold">Recorded inspections</h2>
-          <form onSubmit={(event) => void applyHistoryFilters(event)} className="mt-3 grid gap-3 md:grid-cols-4">
+          <form onSubmit={(event) => void applyHistoryFilters(event)} className="mt-3 grid gap-3 md:grid-cols-5">
+            <label className="text-sm">Unit
+              <select aria-label="Filter inspection unit" value={historyUnitId}
+                onChange={(event) => setHistoryUnitId(event.target.value)} className="mt-1 w-full rounded-lg border p-2">
+                <option value="">All authorized units</option>
+                {units.map((u) => <option value={u.id} key={u.id}>{u.property_name} · {u.unit_number}</option>)}
+              </select>
+            </label>
             <label className="text-sm">Condition
               <select aria-label="Filter inspection condition" value={conditionFilter}
                 onChange={(event) => setConditionFilter(event.target.value)} className="mt-1 w-full rounded-lg border p-2">

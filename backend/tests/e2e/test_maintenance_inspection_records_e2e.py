@@ -67,6 +67,7 @@ def test_staff_records_inspection_without_invented_mobile_workflow():
             pw.expect(page.get_by_text("Replace hall smoke alarm")).to_be_visible()
             page.get_by_role("link", name="Back to inspection records").click()
             page.wait_for_url(re.compile(r"/maintenance/staff-inspection-records/?$"), timeout=15_000)
+            page.get_by_label("Filter inspection unit").select_option("900001")
             page.get_by_label("Filter inspection condition").select_option("ATTENTION_NEEDED")
             page.get_by_label("Inspection history start date").fill(date.today().isoformat())
             page.get_by_role("button", name="Filter history").click()
