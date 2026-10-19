@@ -222,7 +222,7 @@ export default function InspectionRecordsPage() {
             : <ul className="mt-3 space-y-3">
                 {records.map((row) => (
                   <li key={row.id} className="rounded-lg border p-3 text-sm">
-                    <p className="font-medium">#{row.id} · {row.property_name || `Property #${row.property_id}`}
+                    <p className="font-medium"><Link href={`/dashboard/maintenance/staff-inspection-records/${row.id}`} className="text-blue-800 hover:underline">Inspection #{row.id}</Link> · {row.property_name || `Property #${row.property_id}`}
                       · Unit {row.unit_number || `#${row.unit_id}`}
                       · {row.inspection_date} · {row.recorded_condition.replaceAll("_", " ")}</p>
                     <p className="mt-1 whitespace-pre-wrap">{row.findings || "No findings noted."}</p>
