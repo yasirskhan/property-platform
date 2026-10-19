@@ -1,3 +1,13 @@
+# 2026-10-18 | ARCHIVED INSPECTION HISTORY SAFETY (PUBLISHED, CI PENDING)
+
+**Verified parent:** `ca126c3ba4325d5055aa203ab953ea38579dbc2f` passed ALL SIX hosted GitHub Actions jobs in run `39185487547` (backend/PostgreSQL, frontend, platform-admin, security, authenticated E2E and staging-config). This verified the staff-inspection save-confirmation fix as well as earlier guards.
+
+**New bounded Phase 5 change (NOT YET VERIFIED):** `backend/app/services/unit_inspections.py` now permits previously recorded inspection evidence to remain readable in the inspection API and official report when a unit or property is deactivated or soft-deleted. It does **not** allow new inspection recording for inactive/deleted inventory. The same actor role, organization, menu permissions and active manager assignment remain authoritative. `backend/tests/test_unit_inspections.py` adds regression for both archived states, forbidden new writes, organization/tenant denial, assignment revocation, and preserved audit row counts. `docs/PHASE5_MAINTENANCE_QUEUE.md` records the boundary. This new branch HEAD must pass all six hosted jobs before calling the change VERIFIED; inspect failures and fix them, then move to the next Phase 5 milestone. Do not unhide the canonical full inspection menu.
+
+**Still open:** full inspection workflows, multi-owner OWNER access review across modules, and source-contract-dependent DoorLoop customer importing. Authorized branch ONLY `chatgpt/checkpoint-005-safety`; no `main`/new branch/force/Zargul changes.
+
+---
+
 # 2026-10-18 | STAFF INSPECTION RECORDS VERIFIED; SAVE CONFIRMATION FOLLOW-UP PROVISIONAL
 
 **VERIFIED:** inspection-route readiness repair at exact branch SHA `201943692fadfe36f8a61c1ab58a9c8750b63f61` passed ALL SIX hosted CI jobs in Actions `39183499338` (backend/PostgreSQL, frontend, platform-admin, security, authenticated E2E, staging). The inactive/deleted-unit guards were already VERIFIED at `ac8f312847b1e59c5b2d24af2989b6f1a4bf7abd`, Actions `39181939149`. Canonical `MAINTENANCE.INSPECTIONS` remains blocked and its canonical route has no page source; limited staff evidence is at `/dashboard/maintenance/staff-inspection-records`.
