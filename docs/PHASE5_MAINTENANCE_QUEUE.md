@@ -275,3 +275,15 @@ active. Explicitly reassigning a previously soft-deleted manager/crew clears
 deleted_at and realigns role; inactive/deleted users cannot be reassigned.
 Database regressions check foreign-org roster access, revocation, deliberate
 reactivation and inactive-user rejection. No broader role or OWNER entitlement.
+
+## Property-scoped crew choice on work-order detail (prepared; CI required)
+
+The work-order detail screen will use the existing authenticated per-property
+assignment roster, not organization-wide crew accounts, when showing eligible
+crew. The backend roster denies cross-org and deleted/inactive staff and returns
+only current assignments. Client-side options filter role CREW; the assignment
+POST continues enforcing actual property and status. Load failures are shown,
+and old selections are cleared on property change. Authenticated E2E compares
+visible select options against returned authorized crew IDs. This replaces the
+intermediate uppercase `/users?role=CREW` workaround and prevents offering
+staff who cannot actually be assigned. Needs its own exact-SHA six-job CI.

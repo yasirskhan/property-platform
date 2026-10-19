@@ -51,15 +51,18 @@ def test_authenticated_work_order_detail_and_comment_history() -> None:
                 str(work_order_id) + r".*E2E maintenance activity"
             ))).to_be_visible(timeout=15_000)
 
-            # The crew selector must call the enum-valid uppercase CREW filter,
-            # not the lowercase value rejected by backend validation (HTTP 422).
+            # The selector must use the authorized property-specific roster,
+            # not the organization-wide user list (which offers unassigned crew).
             with page.expect_response(
-                lambda response: "/users?role=CREW" in response.url,
+                lambda response: "/properties/900001/assignments" in response.url
+                    and response.request.method == "GET",
                 timeout=15_000,
-            ) as crew_response:
+            ) as roster_response:
                 page.goto(BASE_URL + "/dashboard/maintenance/work-orders/" + str(work_order_id),
                           wait_until="domcontentloaded")
-            assert crew_response.value.status == 200, crew_response.value.text()
+            assert roster_response.value.status == 200, roster_response.value.text()
+            eligible = [row["user_id"] for row in roster_response.value.json()
+                        if row["role"] == "CREW"]
             pw.expect(
                 page.get_by_role("heading", name="Work order #" + str(work_order_id) + ": E2E maintenance activity")
             ).to_be_visible(timeout=15_000)
@@ -68,6 +71,11 @@ def test_authenticated_work_order_detail_and_comment_history() -> None:
             page.get_by_role("button", name="Acknowledge", exact=True).click()
             pw.expect(page.get_by_text("Work order acknowledged.", exact=True)).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_role("button", name="Assign crew", exact=True)).to_be_visible()
+            crew_options = page.get_by_label("Assigned crew member", exact=True).locator("option")
+            pw.expect(crew_options).to_have_count(1 + len(eligible), timeout=15_000)
+            assert {int(value) for value in crew_options.evaluate_all(
+                "(nodes) => nodes.map(node => node.value).filter(Boolean)"
+            )} == set(eligible)
             page.get_by_label("Work order activity note").fill("E2E follow-up activity note")
             page.get_by_role("button", name="Save activity note").click()
             pw.expect(

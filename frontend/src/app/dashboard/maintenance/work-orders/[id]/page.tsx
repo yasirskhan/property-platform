@@ -37,8 +37,10 @@ export default function WorkOrderDetailPage() {
   const [order, setOrder] = useState<WorkOrder | null>(null);
   const [viewer, setViewer] = useState<{ id: number; role: string } | null>(null);
   const [completionNotes, setCompletionNotes] = useState("");
-  const [crew, setCrew] = useState<{ id: number; first_name: string; last_name: string; is_active: boolean }[]>([]);
+  const [crew, setCrew] = useState<{ id: number; name: string }[]>([]);
   const [crewId, setCrewId] = useState("");
+  const [crewLoading, setCrewLoading] = useState(false);
+  const [crewError, setCrewError] = useState("");
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -79,17 +81,36 @@ export default function WorkOrderDetailPage() {
 
   useEffect(() => {
     const role = String(viewer?.role || "").toUpperCase();
-    if (!["ADMIN", "OWNER", "MANAGER"].includes(role)) {
+    const propertyId = order?.property_id;
+    if (!["ADMIN", "OWNER", "MANAGER"].includes(role) || !propertyId) {
       setCrew([]);
+      setCrewId("");
+      setCrewError("");
       return;
     }
+    // The property roster is the existing server-authorized source of crew
+    // assigned to THIS property. Organization-wide /users included invalid choices.
     let active = true;
-    apiGet("/users?role=CREW")
-      .then((rows: { id: number; first_name: string; last_name: string; is_active: boolean }[]) => {
-        if (active) setCrew(Array.isArray(rows) ? rows.filter((row) => row.is_active) : []);
-      }).catch(() => { if (active) setCrew([]); });
+    setCrew([]);
+    setCrewId("");
+    setCrewLoading(true);
+    setCrewError("");
+    apiGet(`/properties/${propertyId}/assignments`)
+      .then((rows: { user_id: number; name: string; role: string }[]) => {
+        if (!Array.isArray(rows)) throw new Error("Unexpected property staff response.");
+        if (active) setCrew(rows
+          .filter((row) => row.role === "CREW" && Number.isSafeInteger(row.user_id) && row.user_id > 0)
+          .map((row) => ({ id: row.user_id, name: row.name })));
+      })
+      .catch((cause) => {
+        if (active) {
+          setCrew([]);
+          setCrewError(cause instanceof Error ? cause.message : "Property crew unavailable.");
+        }
+      })
+      .finally(() => { if (active) setCrewLoading(false); });
     return () => { active = false; };
-  }, [viewer?.role]);
+  }, [viewer?.role, order?.property_id]);
 
   async function assignCrew() {
     if (!order || saving) return;
@@ -199,16 +220,19 @@ export default function WorkOrderDetailPage() {
                 && ["acknowledged", "assigned"].includes(order.status) && (
                   <>
                     <label className="text-sm">Choose crew assigned to this property
-                      <select aria-label="Assigned crew member" disabled={saving}
+                      <select aria-label="Assigned crew member" disabled={saving || crewLoading || Boolean(crewError)}
                         className="mt-1 block rounded-lg border p-2" value={crewId}
                         onChange={(event) => setCrewId(event.target.value)}>
                         <option value="">Select crew</option>
                         {crew.map((person) => <option key={person.id} value={person.id}>
-                          {person.first_name} {person.last_name} (#{person.id})
+                          {person.name} (#{person.id})
                         </option>)}
                       </select>
                     </label>
-                    <button disabled={saving || !crewId} onClick={() => void assignCrew()}
+                    {crewError && <p role="alert" className="text-sm text-red-700">Crew roster unavailable: {crewError}</p>}
+                    {!crewLoading && !crewError && crew.length === 0 &&
+                      <p className="text-sm text-slate-600">No active crew are assigned to this property.</p>}
+                    <button disabled={saving || crewLoading || Boolean(crewError) || !crewId} onClick={() => void assignCrew()}
                       className="rounded-lg border bg-white px-4 py-2 text-sm disabled:opacity-50">
                       Assign crew
                     </button>

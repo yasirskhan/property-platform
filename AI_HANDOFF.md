@@ -1,3 +1,9 @@
+# 2026-10-18 | PREPARED PROPERTY-SCOPED CREW PICKER (DETACHED, CI REQUIRED)
+
+The next Phase 5 candidate after `0bc7ff9aa016d2673e9958701f3665cb550736e7` replaces organization-wide work-order crew choices with existing `GET /properties/{property_id}/assignments` roster scoped by actual property, organization, active/deleted assignment, user and role. Crew option is role CREW only, errors shown instead of inventing no staff, selections cleared on property change. E2E compares real selectable IDs to the authorized roster. Backend POST remains authoritative. This supersedes the intermediate valid-uppercase `GET /users?role=CREW` picker fix, which proved a contract mismatch but remained too broad for the selector. **NOT PUBLISHED OR VERIFIED**. Only publish after exact SHA `0bc7ff9...` passes all six hosted CI jobs, verify branch unchanged, force=false expected-SHA fast-forward and run successor CI. Retain all outstanding Phase 5, OWNER scope and DoorLoop integration gates. No main, new branch, or Zargul changes.
+
+---
+
 # 2026-10-18 | PREPARED STAFF ROSTER & REASSIGNMENT INTEGRITY (DETACHED)
 
 Additional prepared successor hardens the existing property staff assignment routes: roster filters reject deleted assignments and inactive/deleted/foreign users; an explicit reassignment clears stale assignment deleted_at and aligns role; an inactive/deleted user cannot be assigned. Regression cases use the existing disposable queue database. This is **NOT PUBLISHED OR VERIFIED**. Earlier repair `12d54b52c4820f5ff500b53749adcab7fc94a14b`, hosted Actions `39192080577`, must first be all-six SUCCESS. Check exact live branch unchanged; publish this descendant with non-force expected-SHA fast-forward; verify its own six jobs and repair any failures. Keep main and Zargul untouched.
