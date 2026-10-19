@@ -1,3 +1,9 @@
+# 2026-10-18 | PREPARED MALFORMED CUSTOMER TOKEN SUBJECT DENIAL (DETACHED)
+
+The detached credential-revocation security candidate now also catches noninteger `sub` claims in correctly signed customer JWTs and two-factor challenge tokens. Both authentication paths return HTTP 401 instead of uncaught ValueError/HTTP 500, with tests for each audience-valid malformed-subject case. **NOT PUBLISHED OR VERIFIED**. Chain is based on `76b7e72987fd5367405a9a8e85fe550efd806bfa`; exact six-job CI of published ancestor `128567315621c165759cd1127f2d397f04d0b65e` at run `39197174338` is required before nonforce expected-SHA promotion and successor six-job verification. No main/new branch/Zargul modification.
+
+---
+
 # 2026-10-18 | PREPARED INACTIVE CUSTOMER AUTH CUTOFF (SECURITY, DETACHED)
 
 Security issue found after staff offboarding audit review: customer `get_current_user` accepted existing JWTs for user records whose `is_active=False` or `deleted_at` was set; password `authenticate_user` also did not reject them, and two-factor challenge completion could mint a new access token. The prepared fix rejects all three paths with the same no-account/unauthorized responses, preserving audience separation. New database-backed regression verifies current JWT and outstanding 2FA challenge are unusable after deactivation/deletion, while an active user still works. **HIGH PRIORITY BUT NOT YET PUBLISHED OR VERIFIED**. It is detached after `fe18b2713f2cb79f4ef8dd8b5dd138813098461e` and preceding small Phase 5 audit/crew reliability commits. Verify parent published `128567315621c165759cd1127f2d397f04d0b65e` at exact six-job CI `39197174338`, then guarded nonforce fast-forward and 6-job successor CI. No main/new branch/Zargul modifications.

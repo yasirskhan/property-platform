@@ -65,7 +65,11 @@ def get_current_user(
     if user_id is None:
         raise credentials_error
 
-    user = auth_logic.get_user_by_id(db, int(user_id))
+    try:
+        user_key = int(user_id)
+    except (TypeError, ValueError):
+        raise credentials_error
+    user = auth_logic.get_user_by_id(db, user_key)
     if user is None or not user.is_active or user.deleted_at is not None:
         raise credentials_error
 
@@ -124,7 +128,11 @@ def verify_two_factor_login(
     if not challenge or challenge.get("sub") is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired two-step challenge.")
 
-    user = auth_logic.get_user_by_id(db, int(challenge["sub"]))
+    try:
+        user_key = int(challenge["sub"])
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired two-step challenge.")
+    user = auth_logic.get_user_by_id(db, user_key)
     if user is None or not user.is_active or user.deleted_at is not None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired two-step challenge.")
     row = get_two_factor_settings(db, user.id)

@@ -355,3 +355,12 @@ Database-backed regression checks active controls, deactivated and soft-deleted
 logins, reused JWTs and pre-issued MFA challenges. No new token audience,
 permission or user role is introduced; the platform-admin identity domain
 remains separately governed. This security change must pass hosted CI.
+
+## Invalid signed customer token subjects (prepared; CI required)
+
+Both customer JWT and two-factor challenge boundaries now return HTTP 401 for a
+signed but nonnumeric subject, rather than raising a ValueError/HTTP 500 while
+casting the subject to a user ID. New regression generates audience-valid JWT
+and 2FA challenge tokens with malformed subjects and checks the deny response.
+This complements revoked-user checks without changing key material, audiences,
+2FA policy or authorization entitlements.

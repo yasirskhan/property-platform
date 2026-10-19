@@ -865,3 +865,23 @@ def test_deactivated_or_deleted_customer_cannot_authenticate_reuse_jwt_or_finish
     finally:
         db.close()
         engine.dispose()
+
+
+def test_malformed_customer_jwt_or_two_factor_subject_is_unauthorized_not_server_error():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        malformed = create_access_token(subject="not-a-user-number")
+        with pytest.raises(HTTPException) as jwt_invalid:
+            get_current_user(token=malformed, db=db)
+        assert jwt_invalid.value.status_code == 401
+
+        challenge = create_two_factor_challenge_token(subject="not-a-user-number")
+        with pytest.raises(HTTPException) as mfa_invalid:
+            verify_two_factor_login(
+                TwoFactorLoginVerifyRequest(challenge_token=challenge, code="123456"),
+                request=None, db=db,
+            )
+        assert mfa_invalid.value.status_code == 401
+    finally:
+        db.close()
+        engine.dispose()
