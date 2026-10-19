@@ -14,6 +14,8 @@ from app.models.user import Organization, User, UserRole
 from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
 from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
 from app.models.audit_log import AuditLog
+from app.models.unit_inspection import UnitInspectionRecord
+from app.services import unit_inspections
 from app.routers.properties import check_property_access, visible_properties_query
 from app.routers.users import assign_user_to_property, list_assignments, remove_assignment, update_user, deactivate_user
 from app.models.lease import Lease, LeaseStatus
@@ -297,6 +299,54 @@ def test_staff_origin_never_grants_tenant_visibility_even_with_tenant_id():
         assert _user_can_access_work_order(db, tenant, row)
         assert any(item.id == row.id for item in _queue(db, tenant))
         assert not _user_can_access_work_order(db, foreign_admin, row)
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_inspection_linked_work_order_validates_real_scoped_source(monkeypatch):
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other_tenant, crew, foreign_admin = actors
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **k: True)
+        own, hidden, foreign_prop = properties
+        evidence = UnitInspectionRecord(
+            organization_id=admin.organization_id,
+            property_id=orders[0].property_id, unit_id=orders[0].unit_id,
+            inspection_date=date.today(), recorded_condition="ATTENTION_NEEDED",
+            findings="Electrical panel needs investigation", recorded_by_id=admin.id,
+        )
+        foreign_evidence = UnitInspectionRecord(
+            organization_id=foreign_admin.organization_id,
+            property_id=orders[3].property_id, unit_id=orders[3].unit_id,
+            inspection_date=date.today(), recorded_condition="ATTENTION_NEEDED",
+            findings="Foreign inspection", recorded_by_id=foreign_admin.id,
+        )
+        db.add_all([evidence, foreign_evidence])
+        db.flush()
+        def request(source_id, actor=admin):
+            return submit_work_order(
+                WorkOrderCreate(
+                    unit_id=orders[0].unit_id, title="Inspection follow-up",
+                    description="Follow up on recorded inspection evidence.",
+                    source_inspection_id=source_id,
+                ), db=db, current_user=actor,
+            )
+        created = request(evidence.id)
+        assert created.source_inspection_id == evidence.id
+        audit = db.query(AuditLog).filter_by(
+            entity_type="work_order", entity_id=created.id, action="status_transition",
+        ).one()
+        assert json.loads(audit.new_value)["source_inspection_id"] == evidence.id
+        assert get_work_order(created.id, db=db, current_user=admin).source_inspection_id == evidence.id
+        for source_id in (foreign_evidence.id, evidence.id + 99999):
+            with pytest.raises(HTTPException) as exc:
+                request(source_id)
+            assert exc.value.status_code == 404
+        with pytest.raises(HTTPException) as denied:
+            request(evidence.id, tenant)
+        assert denied.value.status_code == 403
+        assert db.query(WorkOrder).filter_by(source_inspection_id=evidence.id).count() == 1
     finally:
         db.close()
         engine.dispose()
