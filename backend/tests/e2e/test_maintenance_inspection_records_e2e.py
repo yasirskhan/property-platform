@@ -29,7 +29,7 @@ def test_staff_records_inspection_without_invented_mobile_workflow():
 
             page.goto(BASE_URL + "/dashboard/maintenance/work-orders", wait_until="domcontentloaded")
             page.get_by_role("link", name="Staff inspection records").click()
-            page.wait_for_url(re.compile(r"/maintenance/inspections/?$"), timeout=15_000)
+            page.wait_for_url(re.compile(r"/maintenance/staff-inspection-records/?$"), timeout=15_000)
             pw.expect(page.get_by_role("heading", name="Inspection records")).to_be_visible()
             pw.expect(page.get_by_role("option", name="E2E Test Property · Unit E2E-1")).to_be_attached(timeout=15_000)
             page.get_by_label("Inspection unit").select_option("900001")

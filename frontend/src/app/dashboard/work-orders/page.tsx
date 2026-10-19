@@ -128,7 +128,7 @@ export default function WorkOrderQueuePage() {
             </Link>
           )}
           {canInspect && (
-            <Link href="/dashboard/maintenance/inspections"
+            <Link href="/dashboard/maintenance/staff-inspection-records"
               className="rounded-lg border bg-white px-4 py-2 text-sm">
               Staff inspection records
             </Link>

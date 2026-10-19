@@ -1,3 +1,23 @@
+# 2026-10-18 | STAFF INSPECTION NAVIGATION CONTRACT REPAIR (PROVISIONAL)
+
+Published staff inspection UI commit `faeae31ddee57bc69184c5f1b9275ed0b0bdbeae` FAILED hosted CI `39183232210`
+in backend navigation integrity ONLY. The checker correctly found a page
+source under blocked canonical `/dashboard/maintenance/inspections` while
+`MAINTENANCE.INSPECTIONS` remains unready. Frontend, platform-admin and
+security passed; backend stopped before PostgreSQL suite, E2E/staging skipped.
+
+Repair: relocate the limited staff evidence screen to `/dashboard/maintenance/staff-inspection-records`,
+update the Work Orders ADMIN/MANAGER entry link and Playwright navigation,
+and DELETE the canonical source page. Leave `MAINTENANCE.INSPECTIONS`
+blocked until the complete inspection module is actually ready; never bypass
+or relax the static navigation checker. The audited API and field recording
+are unchanged. Require all six hosted CI jobs at exact replacement SHA; only
+then publish later prepared Phase 5 batches. Last VERIFIED parent remains
+`ac8f312847b1e59c5b2d24af2989b6f1a4bf7abd`, Actions `39181939149`.
+No main/new branch/force/Zargul modification.
+
+---
+
 # 2026-10-18 | INACTIVE MAINTENANCE INTAKE VERIFIED; STAFF INSPECTIONS CI PENDING
 
 **VERIFIED:** GitHub Actions `39181939149` passed ALL SIX hosted jobs on exact
@@ -9,7 +29,7 @@ Both earlier Playwright shell-readiness and alert-selector repairs remain intact
 
 **Current newly published successor (requires its own six-job CI):** a limited
 staff-recorded inspection interface at
-`/dashboard/maintenance/inspections` for authorized ADMIN/MANAGER users,
+`/dashboard/maintenance/staff-inspection-records` for authorized ADMIN/MANAGER users,
 using the existing audited and property-scoped `/api/unit-inspections` API.
 Includes an authenticated browser creation test with login-shell readiness.
 The full `MAINTENANCE.INSPECTIONS` sidebar gate remains BLOCKED; photo,

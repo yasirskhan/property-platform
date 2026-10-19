@@ -182,3 +182,12 @@ staff-only recording. Authenticated browser coverage waits for the signed-in
 shell and verifies creation and visible findings. Back navigation goes to the
 implemented Work Orders queue. Do not unhide the canonical full Inspections
 menu or claim mobile/offline/photos/checklists are complete.
+
+## Staff inspection route-readiness repair (provisional)
+
+The limited staff evidence page uses `/dashboard/maintenance/staff-inspection-records`, an explicitly
+noncanonical route linked by the Work Orders queue to ADMIN/MANAGER only.
+The canonical `/dashboard/maintenance/inspections` is deliberately ABSENT from
+page source, keeping the `MAINTENANCE.INSPECTIONS` sidebar readiness block
+intact until the full module is ready. This avoids weakening the independent
+navigation-integrity gate; exact-SHA hosted CI remains required.
