@@ -36,3 +36,7 @@
 6. Verify six-job hosted CI and authenticated E2E before exposing feature gates.
 
 **No recurrence engine, migration or scheduled background worker is implemented by this document.**
+
+## Phase 5 additive requester provenance migration (published; CI required)
+
+Added nullable work_orders.request_origin and requested_by_user_id (indexed FK users.id) without rewriting old rows or changing tenant_id nullability. New tenant/staff submissions atomically persist truthful origin/requester and the existing append-only creation audit. Legacy rows remain NULL until explicit migration evidence exists. Existing required tenant_id output remains backward compatible; a later schema/consumer migration is required before tenantless recurrence. Tests check stored staff provenance, old-row NULL values, audit and isolation. This does not authorize auto-scheduling or manufacture tenant identities.

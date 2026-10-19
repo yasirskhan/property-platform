@@ -74,6 +74,10 @@ class WorkOrder(Base):
     # Who/where
     unit_id = Column(Integer, ForeignKey("units.id"), nullable=False, index=True)
     tenant_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    # Additive, truthful attribution fields. Legacy tenant_id remains intact
+    # for old API consumers until a separately verified compatibility migration.
+    request_origin = Column(String(32), nullable=True)
+    requested_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     property_id = Column(Integer, ForeignKey("properties.id"), nullable=False, index=True)
 
     # Assigned crew (may be null until assigned)

@@ -90,6 +90,8 @@ class WorkOrderOut(BaseModel):
     id: int
     unit_id: int
     tenant_id: int
+    # Optional for old imported/historical rows; never silently substitute tenant_id.
+    requested_by_user_id: Optional[int] = None
     property_id: int
     property_name: Optional[str] = None
     unit_number: Optional[str] = None

@@ -260,6 +260,8 @@ def submit_work_order(
         unit_id=unit.id,
         property_id=prop.id,
         tenant_id=tenant_id,
+        request_origin="tenant" if current_user.role == UserRole.TENANT else "staff",
+        requested_by_user_id=current_user.id,
         title=payload.title,
         description=payload.description,
         category=payload.category,

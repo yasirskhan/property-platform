@@ -278,6 +278,11 @@ def test_legacy_staff_submissions_do_not_grant_tenant_read_access():
         # submitting staff ID in the tenant_id column. This is NOT evidence
         # that the staff member is a tenant of the unit.
         assert created.tenant_id == admin.id
+        assert created.request_origin == "staff"
+        assert created.requested_by_user_id == admin.id
+        persisted = db.query(WorkOrder).filter_by(id=created.id).one()
+        assert persisted.request_origin == "staff"
+        assert persisted.requested_by_user_id == admin.id
         history = db.query(WorkOrderUpdate).filter_by(work_order_id=created.id).all()
         assert len(history) == 1
         assert history[0].user_id == admin.id
@@ -310,6 +315,8 @@ def test_work_order_detail_legacy_provenance_fails_closed():
     try:
         admin, _manager, _tenant, _other, _crew, outside_admin = actors
         detail = get_work_order(orders[0].id, db=db, current_user=admin)
+        assert orders[0].request_origin is None
+        assert orders[0].requested_by_user_id is None
         assert detail.request_origin == "unknown_legacy"
         assert detail.requested_by_user_id is None
         with pytest.raises(HTTPException) as denied:

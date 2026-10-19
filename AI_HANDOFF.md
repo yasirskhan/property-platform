@@ -1,3 +1,9 @@
+# 2026-10-19 | ADDITIVE WORK-ORDER REQUESTER FIELDS — PROVISIONAL
+
+New nullable work_orders.request_origin and requested_by_user_id with indexed FK and additive Alembic revision 2c4e6a8b0d91 (parent 1b8d3f6a9c20); current manual submit persists real actor/type with legacy tenant_id preserved for compatibility. Existing authorized read/API/UI provenance remains. Regression checks persisted provenance and historical null. Full six-job CI at exact SHA required before VERIFIED; inspect Alembic head and fix any migration parity errors, never disable checks. The recurring engine and tenant_id nullability remain gated. Continue Phase 5 after verification.
+
+---
+
 # 2026-10-19 | WORK-ORDER REQUESTER ORIGIN DISPLAY — PROVISIONAL
 
 Complete read/display integration for authorized audit-derived request origin: API detail, frontend display, backend and authenticated-browser regressions. Legacy unknown stays unknown, no fabricated tenant. This is not recurrence or database migration. Require exact-SHA six-job CI; continue next Phase 5 batch.
