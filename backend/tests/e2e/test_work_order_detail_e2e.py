@@ -186,7 +186,7 @@ def test_emergency_triage_links_to_a_real_authorized_order() -> None:
             triage = page.get_by_role("region", name="Emergency maintenance triage")
             link = triage.get_by_role("link", name="#" + str(work_order_id) + " · " + title)
             pw.expect(link).to_be_visible(timeout=15_000)
-            pw.expect(triage.get_by_text("E2E Test Property · Unit E2E-1", exact=True)).to_be_visible()
+            pw.expect(triage.locator("li").filter(has=link).get_by_text("E2E Test Property · Unit E2E-1", exact=True)).to_be_visible()
             link.click()
             page.wait_for_url(re.compile(r"/maintenance/work-orders/" + str(work_order_id) + r"$"), timeout=15_000)
             pw.expect(page.get_by_role("heading", name="Work order #" + str(work_order_id) + ": " + title)).to_be_visible()
