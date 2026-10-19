@@ -1,3 +1,9 @@
+# 2026-10-18 | PREPARED STAFF ROSTER & REASSIGNMENT INTEGRITY (DETACHED)
+
+Additional prepared successor hardens the existing property staff assignment routes: roster filters reject deleted assignments and inactive/deleted/foreign users; an explicit reassignment clears stale assignment deleted_at and aligns role; an inactive/deleted user cannot be assigned. Regression cases use the existing disposable queue database. This is **NOT PUBLISHED OR VERIFIED**. Earlier repair `12d54b52c4820f5ff500b53749adcab7fc94a14b`, hosted Actions `39192080577`, must first be all-six SUCCESS. Check exact live branch unchanged; publish this descendant with non-force expected-SHA fast-forward; verify its own six jobs and repair any failures. Keep main and Zargul untouched.
+
+---
+
 # 2026-10-18 | WORK ORDER CREW PICKER 422 CONTRACT REPAIR (DETACHED)
 
 CI server logs for `39188922266` additionally showed `GET /users?role=crew` returning HTTP 422 from the work-order detail page. The backend expects uppercase enum `CREW`, so prepared successor changes the frontend query to `/users?role=CREW` and adds authenticated Playwright coverage asserting the request returns 200. This is a genuine functional repair distinct from the already published inspection test strict-mode fix.

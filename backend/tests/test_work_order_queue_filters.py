@@ -14,6 +14,7 @@ from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory,
 from app.routers.work_orders import (list_work_orders, work_order_queue_summary, _user_can_access_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
 from app.models.audit_log import AuditLog
 from app.routers.properties import check_property_access, visible_properties_query
+from app.routers.users import assign_user_to_property, list_assignments
 from app.models.lease import Lease, LeaseStatus
 from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderCreate, WorkOrderComment
 from fastapi import HTTPException
@@ -639,6 +640,49 @@ def test_cross_org_and_soft_deleted_staff_assignment_cannot_authorize_property_o
             assign_work_order(own_order.id, WorkOrderAssign(crew_user_id=crew.id),
                               db=db, current_user=admin)
         assert blocked_assignment.value.status_code == 400
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_property_assignment_reactivation_and_roster_fail_closed():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other_tenant, crew, foreign_admin = actors
+        own_property, _, foreign_property = properties
+        assignment = db.query(PropertyAssignment).filter_by(
+            property_id=own_property.id, user_id=crew.id,
+        ).one()
+        assignment.is_active = True
+        assignment.deleted_at = datetime(2026, 10, 18, 12)
+        db.commit()
+
+        assert crew.id not in {row["user_id"] for row in list_assignments(
+            own_property.id, db=db, current_user=admin,
+        )}
+        assert manager.id not in {row["user_id"] for row in list_assignments(
+            foreign_property.id, db=db, current_user=foreign_admin,
+        )}
+
+        revived = assign_user_to_property(
+            own_property.id, crew.id, db=db, current_user=admin,
+        )
+        assert revived["status"] == "already_assigned"
+        assert assignment.is_active is True and assignment.deleted_at is None
+        assert crew.id in {row["user_id"] for row in list_assignments(
+            own_property.id, db=db, current_user=admin,
+        )}
+
+        crew.is_active = False
+        db.commit()
+        assert crew.id not in {row["user_id"] for row in list_assignments(
+            own_property.id, db=db, current_user=admin,
+        )}
+        with pytest.raises(HTTPException) as inactive:
+            assign_user_to_property(
+                own_property.id, crew.id, db=db, current_user=admin,
+            )
+        assert inactive.value.status_code == 400
     finally:
         db.close()
         engine.dispose()

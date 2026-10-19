@@ -347,6 +347,8 @@ def assign_user_to_property(
         raise HTTPException(status_code=400, detail="Can only assign managers and crew to properties")
     if target.organization_id != prop.organization_id:
         raise HTTPException(status_code=403, detail="User is not in this organization")
+    if not target.is_active or target.deleted_at is not None:
+        raise HTTPException(status_code=400, detail="Cannot assign an inactive or deleted user")
 
     # Already assigned?
     existing = (
@@ -358,7 +360,10 @@ def assign_user_to_property(
         .first()
     )
     if existing:
+        # Explicit reactivation must clear the stale deletion marker.
         existing.is_active = True
+        existing.deleted_at = None
+        existing.role = target.role
         db.commit()
         return {"status": "already_assigned", "assignment_id": existing.id}
 
@@ -383,13 +388,14 @@ def list_assignments(
     """List all people assigned to a property."""
     _require_role(current_user, UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER)
 
-    check_property_access(db, current_user, property_id)
+    prop = check_property_access(db, current_user, property_id)
 
     assignments = (
         db.query(PropertyAssignment)
         .filter(
             PropertyAssignment.property_id == property_id,
             PropertyAssignment.is_active == True,  # noqa: E712
+            PropertyAssignment.deleted_at.is_(None),
         )
         .all()
     )
@@ -397,7 +403,11 @@ def list_assignments(
     result = []
     for a in assignments:
         u = auth_logic.get_user_by_id(db, a.user_id)
-        if u:
+        # Do not disclose a foreign or revoked staff record through
+        # an inconsistent historic assignment relationship.
+        if (u and u.organization_id == prop.organization_id
+                and u.is_active and u.deleted_at is None
+                and u.role in (UserRole.MANAGER, UserRole.CREW)):
             result.append({
                 "assignment_id": a.id,
                 "user_id": u.id,

@@ -266,3 +266,12 @@ backend's uppercase UserRole enum. The former lowercase query returned HTTP
 asserts that the page requests the uppercase crew filter and receives HTTP
 200, without bypassing backend property assignment validation. This is a
 UI/API compatibility repair, not automatic dispatch or a permission expansion.
+
+## Property staff roster and assignment reactivation (prepared, CI required)
+
+The property assignment roster excludes deleted assignment rows and inactive,
+deleted or foreign-organization users even if historical records remain marked
+active. Explicitly reassigning a previously soft-deleted manager/crew clears
+deleted_at and realigns role; inactive/deleted users cannot be reassigned.
+Database regressions check foreign-org roster access, revocation, deliberate
+reactivation and inactive-user rejection. No broader role or OWNER entitlement.
