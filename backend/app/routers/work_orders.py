@@ -84,6 +84,7 @@ def _log_update(
     to_status=None,
     message=None,
     audit_reason=None,
+    audit_metadata=None,
 ):
     """Append an entry to the work order's activity log."""
     entry = WorkOrderUpdate(
@@ -102,6 +103,7 @@ def _log_update(
             new_value={
                 "status": to_status.value if to_status is not None else None,
                 **({"reason": audit_reason} if audit_reason else {}),
+                **(audit_metadata or {}),
             },
         )
 
@@ -268,7 +270,14 @@ def submit_work_order(
     # The created row and its first activity event must survive or fail as one.
     db.add(wo)
     db.flush()
-    _log_update(db, wo, current_user, to_status=WorkOrderStatus.SUBMITTED, message="Work order submitted")
+    _log_update(
+        db, wo, current_user, to_status=WorkOrderStatus.SUBMITTED,
+        message="Work order submitted",
+        audit_metadata={
+            "request_origin": "tenant" if current_user.role == UserRole.TENANT else "staff",
+            "requested_by_user_id": current_user.id,
+        },
+    )
     db.commit()
     db.refresh(wo)
     return wo
