@@ -1,6 +1,8 @@
 """Explicit staff-entered dated inspection entries, append-only workflow."""
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
@@ -28,6 +30,8 @@ def get_inspections(
     response: Response,
     property_id: int | None = Query(default=None, ge=1),
     unit_id: int | None = Query(default=None, ge=1),
+    limit: Annotated[int | None, Query(ge=1, le=100)] = None,
+    offset: Annotated[int, Query(ge=0, le=100000)] = 0,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -35,6 +39,7 @@ def get_inspections(
     try:
         return list_inspections(
             db, actor=current_user, property_id=property_id, unit_id=unit_id,
+            limit=limit, offset=offset,
         )
     except ReportDeliveryError as exc:
         raise _error(exc) from exc

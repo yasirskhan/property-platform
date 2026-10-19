@@ -24,6 +24,10 @@ export default function InspectionRecordsPage() {
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [nextOffset, setNextOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [moreError, setMoreError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -36,10 +40,14 @@ export default function InspectionRecordsPage() {
         if (active) setUnitError(cause instanceof Error ? cause.message : "Units unavailable.");
       })
       .finally(() => { if (active) setUnitsLoading(false); });
-    apiGet("/api/unit-inspections")
+    apiGet("/api/unit-inspections?limit=100")
       .then((rows: Inspection[]) => {
         if (!Array.isArray(rows)) throw new Error("Unexpected inspection response.");
-        if (active) setRecords(rows);
+        if (active) {
+          setRecords(rows);
+          setNextOffset(rows.length);
+          setHasMore(rows.length === 100);
+        }
       })
       .catch((cause) => {
         if (active) setError(cause instanceof Error ? cause.message : "Inspections unavailable.");
@@ -62,6 +70,25 @@ export default function InspectionRecordsPage() {
       setUnitError(cause instanceof Error ? cause.message : "Unit search failed.");
     } finally {
       setUnitsLoading(false);
+    }
+  }
+
+  async function loadMore() {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true); setMoreError("");
+    try {
+      const rows = await apiGet(`/api/unit-inspections?limit=100&offset=${nextOffset}`) as Inspection[];
+      if (!Array.isArray(rows)) throw new Error("Unexpected inspection response.");
+      setRecords((previous) => {
+        const seen = new Set(previous.map((entry) => entry.id));
+        return [...previous, ...rows.filter((entry) => !seen.has(entry.id))];
+      });
+      setNextOffset((previous) => previous + rows.length);
+      setHasMore(rows.length === 100);
+    } catch (cause) {
+      setMoreError(cause instanceof Error ? cause.message : "More inspections unavailable.");
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -169,7 +196,7 @@ export default function InspectionRecordsPage() {
           <h2 className="font-semibold">Recorded inspections</h2>
           {records.length === 0 ? <p className="mt-3 text-sm">No staff-recorded inspections yet.</p>
             : <ul className="mt-3 space-y-3">
-                {records.slice(0, 100).map((row) => (
+                {records.map((row) => (
                   <li key={row.id} className="rounded-lg border p-3 text-sm">
                     <p className="font-medium">#{row.id} · Unit #{row.unit_id}
                       · {row.inspection_date} · {row.recorded_condition.replaceAll("_", " ")}</p>
@@ -178,7 +205,12 @@ export default function InspectionRecordsPage() {
                   </li>
                 ))}
               </ul>}
-          {records.length > 100 && <p className="mt-3 text-xs">Showing the 100 most recent entries.</p>}
+          {hasMore && <button type="button" disabled={loadingMore}
+            onClick={() => void loadMore()}
+            className="mt-3 rounded-lg border px-4 py-2 text-sm disabled:opacity-50">
+            {loadingMore ? "Loading more…" : "Load older inspections"}
+          </button>}
+          {moreError && <p role="alert" className="mt-2 text-sm text-red-700">{moreError}</p>}
         </section>
       )}
     </div>

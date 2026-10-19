@@ -125,7 +125,7 @@ def record_inspection(
 
 def list_inspections(
     db: Session, *, actor: User, property_id: int | None = None,
-    unit_id: int | None = None,
+    unit_id: int | None = None, limit: int | None = None, offset: int = 0,
 ) -> list[UnitInspectionOut]:
     org_id = actor.organization_id
     if org_id is None:
@@ -137,14 +137,18 @@ def list_inspections(
     )
     if not units:
         return []
-    rows = db.query(UnitInspectionRecord).filter(
+    query = db.query(UnitInspectionRecord).filter(
         UnitInspectionRecord.organization_id == org_id,
         UnitInspectionRecord.unit_id.in_(list(units)),
     ).order_by(
         UnitInspectionRecord.inspection_date.desc(),
         UnitInspectionRecord.id.desc(),
-    ).all()
-    return [UnitInspectionOut.model_validate(row) for row in rows]
+    )
+    if offset:
+        query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
+    return [UnitInspectionOut.model_validate(row) for row in query.all()]
 
 
 def build_inspection_report(

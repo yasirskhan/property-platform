@@ -288,3 +288,47 @@ def test_archived_inventory_retains_audited_inspection_history_without_new_write
     finally:
         db.close()
         engine.dispose()
+
+
+def test_inspection_history_pages_are_scoped_ordered_and_do_not_truncate_reports(monkeypatch):
+    db, engine = _session()
+    try:
+        admin, manager, tenant, other, first, hidden, foreign, unit, _, _ = _seed(db)
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **k: True)
+        saved = []
+        for index in range(3):
+            item = UnitInspectionCreateIn(
+                unit_id=unit.id,
+                inspection_date=date.today() - timedelta(days=index),
+                recorded_condition="SATISFACTORY",
+                findings=f"Snapshot {index}",
+            )
+            saved.append(inspection_router.create_inspection(
+                item, Response(), db=db, current_user=admin,
+            ).id)
+
+        def page(actor, limit, offset):
+            return inspection_router.get_inspections(
+                Response(), property_id=first.id, unit_id=unit.id,
+                limit=limit, offset=offset, db=db, current_user=actor,
+            )
+
+        assert [row.id for row in page(admin, 2, 0)] == saved[:2]
+        assert [row.id for row in page(admin, 2, 2)] == saved[2:]
+        assert page(admin, 2, 3) == []
+        assert [row.id for row in page(manager, 1, 1)] == [saved[1]]
+        # Unpaged report and direct historical API preserve all three facts.
+        assert len(_payload(db, admin, property_id=first.id).rows) == 3
+        assert len(inspection_router.get_inspections(
+            Response(), property_id=first.id, unit_id=unit.id,
+            db=db, current_user=admin,
+        )) == 3
+        with pytest.raises(HTTPException) as denied:
+            page(other, 1, 0)
+        assert denied.value.status_code == 404
+        with pytest.raises(HTTPException) as denied:
+            page(tenant, 1, 0)
+        assert denied.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()

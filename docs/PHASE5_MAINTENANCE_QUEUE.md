@@ -224,3 +224,15 @@ must require an active, **non-soft-deleted** manager PropertyAssignment.
 Regression covers a stale active flag with deleted_at set: the manager can no
 longer enumerate the unit, while organization ADMIN access is unchanged.
 This is a scoped access repair, not a change to inspection history authority.
+
+## Staff inspection history paging (prepared, not yet published)
+
+The staff inspection API supports optional bounded limit/offset parameters,
+with the existing unpaged behavior retained for existing callers and the
+separate authorized reporting/export route. The staff screen reads at most
+100 entries per request, exposes a Load older inspections control when more
+might exist, and handles a page failure without implying that prior saves or
+already loaded history failed. Results retain inspection-date/ID ordering and
+server-enforced organization/assignment/menu restrictions; automated tests
+cover deterministic pages, authorized manager access and denials to foreign
+organizations and tenants. No inspection records are overwritten.
