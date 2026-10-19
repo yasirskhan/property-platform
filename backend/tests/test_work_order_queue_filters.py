@@ -1048,3 +1048,22 @@ def test_work_order_activity_note_rejects_whitespace_without_audit_or_mutation()
     finally:
         db.close()
         engine.dispose()
+
+
+def test_work_order_queue_search_matches_scoped_property_and_unit_text():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other_tenant, crew, outside_admin = actors
+        a, b, c, d = orders
+        assert [row.id for row in _queue(db, admin, search="Assigned Property")] == [b.id, a.id]
+        assert [row.id for row in _queue(db, manager, search="Assigned Property")] == [b.id, a.id]
+        assert _queue(db, manager, search="Other Property") == []
+        assert [row.id for row in _queue(db, other_tenant, search="Other Property")] == [c.id]
+        assert _queue(db, outside_admin, search="Assigned Property") == []
+        assert [row.id for row in _queue(db, outside_admin, search="External Property")] == [d.id]
+        assert [row.id for row in _queue(db, crew, search="A1")] == [a.id]
+        assert [row.id for row in _queue(db, admin, search="A1")] == [c.id, b.id, a.id]
+        assert _queue(db, admin, search="A_") == []
+    finally:
+        db.close()
+        engine.dispose()

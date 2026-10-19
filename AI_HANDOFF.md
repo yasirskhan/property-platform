@@ -1,3 +1,9 @@
+# 2026-10-18 | PREPARED SCOPED PROPERTY/UNIT WORK-ORDER SEARCH (DETACHED)
+
+Next bounded Phase 5 improvement: existing GET /work-orders search searches title/description plus property name/unit number via preexisting authorized join; no scope broadening and SQL wildcards remain literal. Queue UI label updated; DB tests cover org, assigned manager, tenant and crew visibility, and wildcard escaping. This follows visible location labels and actor identity audit improvements. **Not published or verified.** Published parent `941d3ada4f89b70b997df27ff685530611043893` currently under six-job CI `39200721153`; after all-six success and live exact HEAD check, guarded force=false publication followed by six-job successor CI. Never main/new branch/Zargul; Phase 5 still unfinished.
+
+---
+
 # 2026-10-18 | PREPARED WORK-ORDER ACTIVITY NONBLANK API INTEGRITY (DETACHED)
 
 The existing activity note input validates min length in the schema but a forged all-space message was accepted. Prepared router now trims server-side and rejects whitespace-only notes with HTTP 422 before any activity or audit mutation; a disposable regression verifies rejection and trimmed accepted comments with actor identity. This candidate is descendant of queue location labels, actor identity labels and cancel-reason work, **NOT PUBLISHED/CI VERIFIED**. Parent published `941d3ada4f89b70b997df27ff685530611043893`, CI `39200721153`, must pass six jobs at exact SHA and live branch before nonforce expected-head promotion and successor six-job CI. Phase 5 and wider SaaS still unfinished, no main/new branch/Zargul edits.

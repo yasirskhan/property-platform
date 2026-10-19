@@ -292,6 +292,8 @@ def list_work_orders(
     """Accessible maintenance queue with optional bounded, literal search.
 
     Existing unfiltered callers continue to receive the complete list.
+    Search also matches property names and unit numbers only on already
+    authorized Unit-to-Property joins.
     When limit is supplied, the sort includes a stable ID tie-breaker so
     adjacent pages do not randomly repeat same-timestamp work orders.
     All filters are applied *after* tenant/crew/org/property visibility.
@@ -311,6 +313,8 @@ def list_work_orders(
             q = q.filter(or_(
                 WorkOrder.title.icontains(phrase, autoescape=True),
                 WorkOrder.description.icontains(phrase, autoescape=True),
+                Property.name.icontains(phrase, autoescape=True),
+                Unit.unit_number.icontains(phrase, autoescape=True),
             ))
     q = q.order_by(WorkOrder.created_at.desc(), WorkOrder.id.desc())
     if offset:

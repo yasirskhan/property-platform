@@ -159,7 +159,7 @@ export default function WorkOrderQueuePage() {
       </section>
       <form onSubmit={apply} className="rounded-xl border bg-white p-5">
         <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
-          <label className="text-sm">Search title or description
+          <label className="text-sm">Search title, description, property or unit
             <input className="input mt-1" aria-label="Search work orders" maxLength={80}
               placeholder="At least 2 characters" value={draft.search}
               onChange={(event) => setDraft({ ...draft, search: event.target.value })} />

@@ -435,3 +435,13 @@ payloads with 422, even if a client bypasses its existing trimmed UI guard.
 Rejected notes create no activity/audit event; accepted notes return the
 saved canonical text and actor label. Regression verifies no mutation on deny,
 one append-only audit on accept, and unchanged organization/role checks.
+
+## Scoped property and unit text search in work-order queue (prepared; CI required)
+
+The existing literal case-insensitive work-order search expands from title and
+description to the property name and unit number through the SAME authorized
+Unit/Property joins used for role scope. All search fields are evaluated only
+after organization/assignment/tenant/crew visibility. No extra result rows,
+permissions or business mutations. DB tests verify property and unit matches,
+cross-org and manager scoping, and literal wildcard escaping. Queue UI label
+now makes the additional supported search fields discoverable.
