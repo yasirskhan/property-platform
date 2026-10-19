@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.unit_inspection import UnitInspectionRecord
 from app.models.user import User
-from app.schemas.unit_inspection import UnitInspectionCreateIn, UnitInspectionOut
+from app.schemas.unit_inspection import InspectionChecklistItem, UnitInspectionCreateIn, UnitInspectionOut
 from app.services.audit import append_audit_log
 from app.services.menu_resolver import permission_allows_user
 from app.services.report_delivery import ReportDeliveryError, ReportPayload, _date_param, _int_param
@@ -162,7 +162,10 @@ def list_inspections(
         UnitInspectionOut.model_validate(row).model_copy(update={
             "property_name": properties[units[row.unit_id].property_id].name,
             "unit_number": units[row.unit_id].unit_number,
-            "checklist_items": json.loads(row.checklist_json or "[]"),
+            "checklist_items": [
+                InspectionChecklistItem.model_validate(item)
+                for item in json.loads(row.checklist_json or "[]")
+            ],
         })
         for row in query.all()
     ]
