@@ -519,3 +519,7 @@ Inspection list/report reads require an inspection's stored property_id to match
 ## Scoped inspection condition/date search (detached; CI required)
 
 The existing authorized GET /api/unit-inspections accepts optional recorded_condition, date_from, date_to filters, applied before stable descending chronology and pagination. Reversed date windows reject 422. Staff page adds corresponding controls and updates paging; no disallowed property or organization can become visible. Regression tests cover chronology, filters, invalid windows, revoked roles and a real browser query. Prepared only, not VERIFIED until exact-SHA six-job CI passes.
+
+## Scoped inspection recorder labels (detached; CI required)
+
+The staff inspection list/detail resolves recorded_by_name only from users in the requester's organization after inspecting actual property scope. Batch label resolution avoids N+1 lookups. A foreign recorder ID remains retained for historical traceability but never reveals its foreign organization's name. Staff pages display the authorized name with ID fallback. Regression tests cover foreign attribution attempts, original immutable evidence and legitimate same-org names. This is not a full audit editing or approval feature.

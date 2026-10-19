@@ -840,3 +840,5 @@ access boundary.
 | Phase 5 scoped inspection history/detail | capability | /dashboard/maintenance/staff-inspection-records | core | yes | PROPERTIES.UNITS | no | 🔧 hosted CI pending | Immutable inspection detail API and page; current Unit→Property integrity, retired history, revoked assignment/tenant denial, findings audit, E2E link; full Inspections remains hidden |
 
 | Phase 5 staff inspection history filters | capability | /dashboard/maintenance/staff-inspection-records | core | yes | PROPERTIES.UNITS | no | 🔧 detached, CI gated | Condition and inclusive date filters on role-scoped inspection history with pagination and authenticated browser regression; full Inspections remains hidden |
+
+| Phase 5 scoped inspection recorder labels | capability | /dashboard/maintenance/staff-inspection-records | core | yes | PROPERTIES.UNITS | no | 🔧 detached, CI gated | Same-org user display labels in authorized creation/history/detail; foreign/malformed recorder actor IDs never disclose another organization identity; full Inspections remains gated |

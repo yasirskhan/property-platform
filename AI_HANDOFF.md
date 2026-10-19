@@ -1,3 +1,9 @@
+# 2026-10-19 | ORGANIZATION-SCOPED INSPECTION ACTOR LABELS — DETACHED
+
+Prepared at `764e3d6c163d4e11f46224cf4f6715b82c15b7a3` after scoped history/filter foundation. Authorized inspection creation, detail and paginated history display recorder names only when the recorded user belongs to the same organization. Malformed cross-organization recorded_by_id retains stable ID but no foreign actor name. Backend regression and responsive list/detail UI included. No new rights or financial writes. Await safe CAS publish only after predecessor exact-SHA CI green; then verify all six hosted jobs, update records and continue. Full inspections/automation remain gated.
+
+---
+
 # 2026-10-19 | SCOPED INSPECTION HISTORY FILTERS — DETACHED, CI GATED
 
 Prepared backend + responsive UI condition/date history filtering and exact PostgreSQL/SQLite unit-history access regressions with signed-in browser navigation at detached candidate `71ebfdac8b512f7931997b88372ce9606b7ebacd`. Includes status and inclusive date ranges, rejects reversed ranges, retains property/org/assignment scope and paginates filtered results consistently. No automatic inspection, approvals, photo capture, finance or full module readiness implied. Require published parent exact-SHA all-six CI, safe nonforce expected-head promotion and successor exact-SHA CI before VERIFIED.

@@ -491,3 +491,7 @@ Record history/report reads validate stored inspection parent against actual Uni
 ## Phase 5 inspection history filters (2026-10-19; detached)
 
 Staff-recorded inspection history can be filtered by recorded condition and inclusive inspection-date range with server-side authorization, bounded pagination, and explicit invalid-range errors. No tenant access, cross-property visibility, automatic evidence, accounting changes or module-wide release. Exact six-job CI required.
+
+## Phase 5 inspection actor identity visibility (2026-10-19; detached)
+
+Authorized staff inspection records show same-organization recorder names in list/detail after access check. Missing/deleted/foreign recorder profiles receive stable-ID fallback, never foreign name disclosure. Bulk list label resolution avoids per-row lookup. Backend negative test covers deliberately corrupt cross-org recorder reference. Requires exact hosted CI; no expanded module authorization.
