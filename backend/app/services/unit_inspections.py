@@ -119,6 +119,7 @@ def record_inspection(
             "property_id": row.property_id, "unit_id": row.unit_id,
             "inspection_date": row.inspection_date.isoformat(),
             "recorded_condition": row.recorded_condition,
+            "findings": row.findings,
             "checklist_items": [item.model_dump() for item in payload.checklist_items],
         },
     )
@@ -145,9 +146,14 @@ def list_inspections(
     )
     if not units:
         return []
-    query = db.query(UnitInspectionRecord).filter(
+    query = db.query(UnitInspectionRecord).join(
+        Unit, Unit.id == UnitInspectionRecord.unit_id,
+    ).filter(
         UnitInspectionRecord.organization_id == org_id,
         UnitInspectionRecord.unit_id.in_(list(units)),
+        # Malformed historical rows must not reinterpret unit/property scope.
+        # The stored parent must agree with the actual Unit -> Property link.
+        UnitInspectionRecord.property_id == Unit.property_id,
     ).order_by(
         UnitInspectionRecord.inspection_date.desc(),
         UnitInspectionRecord.id.desc(),
@@ -193,9 +199,14 @@ def build_inspection_report(
             title="Staff-recorded unit inspection entries (no inferred inspections)",
             filename="unit-inspections-recorded.csv", headers=HEADERS, rows=(),
         )
-    query = db.query(UnitInspectionRecord).filter(
+    query = db.query(UnitInspectionRecord).join(
+        Unit, Unit.id == UnitInspectionRecord.unit_id,
+    ).filter(
         UnitInspectionRecord.organization_id == organization_id,
         UnitInspectionRecord.unit_id.in_(list(units)),
+        # Malformed historical rows must not reinterpret unit/property scope.
+        # The stored parent must agree with the actual Unit -> Property link.
+        UnitInspectionRecord.property_id == Unit.property_id,
     )
     if from_date is not None:
         query = query.filter(UnitInspectionRecord.inspection_date >= from_date)
