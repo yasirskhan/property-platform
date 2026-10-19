@@ -1,3 +1,13 @@
+# 2026-10-19 | TENANTLESS MANUAL WORK-ORDER REQUESTS — DETACHED / CI GATED
+
+Published inspection-follow-up implementation `66b994a45032054238883a92fc007908bef91bd5` has CI `39332342753` pending exact six-job verification. It provides audited inspection→work-order linkage and read-only linked follow-up history; do not call it verified until all six jobs green and log exact SHA.
+
+Independent prepared successor `f2cae9c4afdd879e4a03f2bd6b8557148064a9c7` makes work_orders.tenant_id nullable with reversible Alembic revision `5a9e3c7d1b2f` after `4f7c9d2e1a0b`. New staff-originated manual work orders use NULL tenant_id and retain true requested_by_user_id + request_origin in durable audit; tenant-created orders still require and retain an active lease/actual tenant ID. Old data remains untouched. Source-schema/API output accepts nullable tenant, tenant isolation remains via both real tenant ID and audited origin/requester; regression tests prove staff requests cannot invent tenants and SQLite/PostgreSQL bootstraps both enforce nullable column. Downgrade refuses loss of existing tenantless records. Existing vendor work-order migration is evidence-only and does not create target WorkOrders. Never backfill tenants by guessing staff IDs.
+
+This successor is DETACHED and NOT VERIFIED. After predecessor's six-job CI passes at exact SHA, use safe nonforce expected-head CAS to publish, verify all six jobs, update feature/issue registers and handoff, and immediately continue idempotent scheduled work-order occurrence design. Full recurring scheduler, dispatch, inspection approvals, inventory, purchasing and finance posting remain gated. Never touch main or Zargul.
+
+---
+
 # 2026-10-19 | INSPECTION-TO-WORK-ORDER FOLLOW-UP — DETACHED / CI GATED
 
 Prepared successor `13e2590c10765a5e25bc1f08536b2bc65144b89b` (descendant of published `13e17ef435d0e3a699b818a69927906350e872c1`) adds end-to-end staff inspection follow-up: nullable indexed FK work_orders.source_inspection_id with additive Alembic `4f7c9d2e1a0b` (parent `3e6a8b0d91f2`), safe no-data-loss downgrade gate, validated source inspection under the current staff member's actual organization/property/unit, append-only source ID audit, authorized inspection detail link to prefilled work order form, server-checked linking on submission, authorized linked evidence navigation from work order detail, backend denial regressions and authenticated E2E. Tenants cannot link inspection records; managers cannot claim another property or organization; owner role remains excluded from inspection-specific link until inspection access is intentionally extended. Existing manual work-order paths remain compatible and no automatic finance or recurrence is triggered.

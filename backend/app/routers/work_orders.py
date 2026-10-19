@@ -265,8 +265,9 @@ def submit_work_order(
     else:
         _require_role(current_user, UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER)
         check_property_access(db, current_user, prop.id)
-        # Staff-originated work order: preserve existing submitter behavior.
-        tenant_id = current_user.id
+        # Staff-originated maintenance has no actual unit tenant. The real
+        # requester is recorded separately and tenant visibility stays denied.
+        tenant_id = None
 
     # A follow-up must reference an authorized, actual inspection of this
     # same unit and property. Never trust a client-supplied inspection ID.

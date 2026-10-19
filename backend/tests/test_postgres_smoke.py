@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import DBAPIError
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_HEAD = "4f7c9d2e1a0b"
+EXPECTED_HEAD = "5a9e3c7d1b2f"
 EXPECTED_MODEL_TABLES = 202
 
 
@@ -45,6 +45,7 @@ def test_postgres_fresh_bootstrap_when_ci_database_is_available() -> None:
         tables = set(inspect(engine).get_table_names())
         assert "alembic_version" in tables
         assert len(tables - {"alembic_version"}) == EXPECTED_MODEL_TABLES
+        assert next(col for col in inspect(engine).get_columns("work_orders") if col["name"] == "tenant_id")["nullable"] is True
         source_fks = inspect(engine).get_foreign_keys("work_orders")
         assert any(
             fk["referred_table"] == "unit_inspection_records"

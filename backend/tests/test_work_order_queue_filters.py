@@ -387,7 +387,7 @@ def test_inspection_linked_work_order_validates_real_scoped_source(monkeypatch):
         engine.dispose()
 
 
-def test_legacy_staff_submissions_do_not_grant_tenant_read_access():
+def test_staff_submissions_do_not_invent_tenant_or_grant_tenant_read_access():
     """Lock down existing behavior before separating requester from tenant."""
     db, engine, actors, _properties, orders = _seed_queue()
     try:
@@ -400,10 +400,9 @@ def test_legacy_staff_submissions_do_not_grant_tenant_read_access():
             ),
             db=db, current_user=admin,
         )
-        # Legacy compatibility: staff requests currently persist the
-        # submitting staff ID in the tenant_id column. This is NOT evidence
-        # that the staff member is a tenant of the unit.
-        assert created.tenant_id == admin.id
+        # A staff request is not assigned a fictional tenant. Historical
+        # records retain their original value without unsafe backfill.
+        assert created.tenant_id is None
         assert created.request_origin == "staff"
         assert created.requested_by_user_id == admin.id
         persisted = db.query(WorkOrder).filter_by(id=created.id).one()

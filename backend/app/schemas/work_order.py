@@ -90,7 +90,7 @@ class WorkOrderCancel(BaseModel):
 class WorkOrderOut(BaseModel):
     id: int
     unit_id: int
-    tenant_id: int
+    tenant_id: Optional[int]
     # Optional for old imported/historical rows; never silently substitute tenant_id.
     requested_by_user_id: Optional[int] = None
     property_id: int

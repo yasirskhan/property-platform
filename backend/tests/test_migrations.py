@@ -10,7 +10,7 @@ import pytest
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = BACKEND_ROOT / "tests" / "fixtures" / "pre_alembic_1d77_schema.sql"
-EXPECTED_HEAD = "4f7c9d2e1a0b"
+EXPECTED_HEAD = "5a9e3c7d1b2f"
 EXPECTED_MODEL_TABLES = 202
 
 
@@ -54,6 +54,7 @@ def test_fresh_database_bootstrap_creates_current_schema_and_stamps_head(
     conn = sqlite3.connect(db_path)
     try:
         columns = {row[1]: row for row in conn.execute("PRAGMA table_info(work_orders)")}
+        assert columns["tenant_id"][3] == 0, "staff requests cannot invent a tenant"
         assert "request_origin" in columns
         assert "requested_by_user_id" in columns
         assert "source_inspection_id" in columns
