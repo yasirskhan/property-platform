@@ -1003,9 +1003,11 @@ def test_work_order_queue_returns_scoped_location_labels_without_expanding_visib
         p1, p2, p3 = properties
         rows = _queue(db, admin, limit=2)
         assert len(rows) == 2
-        assert all(row.property_name == "Assigned Property" for row in rows)
-        assert all(row.unit_number == "A1" for row in rows)
-        assert all(row.property_id == p1.id for row in rows)
+        # Same timestamp queue ordering uses descending ID: second property first.
+        assert [(row.property_name, row.unit_number) for row in rows] == [
+            ("Other Property", "A1"), ("Assigned Property", "A1"),
+        ]
+        assert [row.property_id for row in rows] == [p2.id, p1.id]
         restricted = _queue(db, manager, limit=50)
         assert {row.property_id for row in restricted} == {p1.id}
         assert all(row.property_name == "Assigned Property" for row in restricted)
