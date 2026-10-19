@@ -1,3 +1,9 @@
+# 2026-10-18 | PREPARED SCOPED WORK-ORDER QUEUE LOCATION LABELS (DETACHED)
+
+Next bounded Phase 5 successor gives already-authorized GET /work-orders rows optional current property names and unit numbers through batched post-scope lookups and organization/unit-parent equality checks, without N+1 queries or opening any other work order. The queue page shows these names with stable ID fallback. DB regression covers filtered admin, assigned manager, tenant, foreign org visibility. **NOT PUBLISHED/VERIFIED.** This detached descendant follows actor-names and cancellation reason candidates on current published ancestor `941d3ada4f89b70b997df27ff685530611043893`. Require all-six CI `39200721153` green at exact live HEAD, then safe nonforce expected-SHA update and full six-job successor verification. No main/new branch/Zargul edit; phase unfinished.
+
+---
+
 # 2026-10-18 | PREPARED SCOPED ACTOR LABELS FOR MAINTENANCE AUDIT HISTORY (DETACHED)
 
 New Phase 5 successor on cancellation-reason candidate `1e29de286585e594fdc495c3322f3d22900a14ca`: authorized work-order detail converts existing activity actor IDs to readable names only for users in the same organization as the actual property's organization. Other/missing actors retain numeric IDs; historical immutable audit is untouched. The successful comment POST also returns the current actor's name so immediate UI can render it during optional GET outages. DB regression inserts an inconsistent foreign-org activity actor and proves it cannot expose that actor's name or allow foreign order access. **NOT PUBLISHED / VERIFIED**. Await all six CI green at published ancestor `941d3ada4f89b70b997df27ff685530611043893` run `39200721153`; verify live exact HEAD and safely advance (force=false expected-SHA), then successor six-job CI. main/new branch/Zargul untouched, Phase 5 unfinished.

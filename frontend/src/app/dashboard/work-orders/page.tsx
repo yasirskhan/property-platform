@@ -15,6 +15,8 @@ type WorkOrder = {
   id: number;
   property_id: number;
   unit_id: number;
+  property_name?: string | null;
+  unit_number?: string | null;
   title: string;
   description: string;
   status: string;
@@ -213,7 +215,7 @@ export default function WorkOrderQueuePage() {
                   <div>
                     <h3 className="font-semibold"><Link className="text-blue-800 hover:underline" href={`/dashboard/maintenance/work-orders/${row.id}`}>#{row.id} · {row.title}</Link></h3>
                     <p className="mt-1 text-sm text-slate-600">
-                      Property #{row.property_id} · Unit #{row.unit_id} · {row.category.replaceAll("_", " ")}
+                      {row.property_name || `Property #${row.property_id}`} · {row.unit_number ? `Unit ${row.unit_number}` : `Unit #${row.unit_id}`} · {row.category.replaceAll("_", " ")}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-start gap-2 text-xs">

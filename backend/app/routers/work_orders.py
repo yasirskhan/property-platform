@@ -317,7 +317,32 @@ def list_work_orders(
         q = q.offset(offset)
     if limit is not None:
         q = q.limit(limit)
-    return q.all()
+    rows = q.all()
+    if not rows:
+        return []
+    # Only resolve names for already-authorized work orders; batch lookups
+    # prevent per-row queries and enforce organization/unit-parent boundaries.
+    prop_ids = {row.property_id for row in rows}
+    unit_ids = {row.unit_id for row in rows}
+    properties = db.query(Property).filter(
+        Property.id.in_(prop_ids),
+        Property.organization_id == current_user.organization_id,
+    ).all()
+    names = {prop.id: prop.name for prop in properties}
+    units = db.query(Unit).filter(Unit.id.in_(unit_ids), Unit.property_id.in_(prop_ids)).all()
+    numbers = {unit.id: (unit.property_id, unit.unit_number) for unit in units}
+    return [
+        WorkOrderOut.model_validate(row).model_copy(update={
+            "property_name": names.get(row.property_id),
+            "unit_number": (
+                numbers[row.unit_id][1]
+                if row.unit_id in numbers
+                and numbers[row.unit_id][0] == row.property_id
+                and row.property_id in names else None
+            ),
+        })
+        for row in rows
+    ]
 
 
 @router.get("/summary")

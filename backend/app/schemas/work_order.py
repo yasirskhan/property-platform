@@ -91,6 +91,8 @@ class WorkOrderOut(BaseModel):
     unit_id: int
     tenant_id: int
     property_id: int
+    property_name: Optional[str] = None
+    unit_number: Optional[str] = None
     assigned_to_id: Optional[int] = None
     assigned_at: Optional[datetime] = None
     assigned_by_id: Optional[int] = None

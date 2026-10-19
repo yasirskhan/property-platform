@@ -416,3 +416,14 @@ comment POST returns its saved actor name immediately for the durable no-refresh
 UI path. A disposable regression inserts an intentionally malformed foreign
 actor record and verifies that its name remains hidden. No PII is added to the
 append-only audit table and historical actor IDs remain stable.
+
+## Readable location labels in authorized work-order queue (prepared; CI required)
+
+Existing GET /work-orders returns optional current property-name and
+unit-number fields for the work orders already visible to the requester.
+A small number of batch queries after role/org/assignment filtering avoids
+n+1 lookups, and only names properties in the same organization and units
+whose parent matches the work-order property. The queue UI displays labels
+with stable ID fallback. Paging, filters, legacy output fields and summary
+are unchanged; DB tests verify role scope and no cross-org label disclosure.
+No tenant, owner, crew permissions are widened.

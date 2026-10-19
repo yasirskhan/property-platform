@@ -994,3 +994,24 @@ def test_work_order_activity_actor_names_are_scoped_to_property_organization():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_work_order_queue_returns_scoped_location_labels_without_expanding_visibility():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other_tenant, crew, foreign_admin = actors
+        p1, p2, p3 = properties
+        rows = _queue(db, admin, limit=2)
+        assert len(rows) == 2
+        assert all(row.property_name == "Assigned Property" for row in rows)
+        assert all(row.unit_number == "A1" for row in rows)
+        assert all(row.property_id == p1.id for row in rows)
+        restricted = _queue(db, manager, limit=50)
+        assert {row.property_id for row in restricted} == {p1.id}
+        assert all(row.property_name == "Assigned Property" for row in restricted)
+        assert _queue(db, foreign_admin, property_id=p1.id) == []
+        assert all(row.property_name == "External Property" for row in _queue(db, foreign_admin))
+        assert all(row.property_name == "Other Property" for row in _queue(db, other_tenant))
+    finally:
+        db.close()
+        engine.dispose()
