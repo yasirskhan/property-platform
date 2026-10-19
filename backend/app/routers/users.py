@@ -283,8 +283,20 @@ def update_user(
         if target.organization_id != current_user.organization_id or target.role != UserRole.CREW:
             raise HTTPException(status_code=403, detail="Managers can only update crew in their organization")
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    if "is_active" in updates and updates["is_active"] is None:
+        raise HTTPException(status_code=400, detail="is_active must be true or false")
+    prior_active = target.is_active
+    for field, value in updates.items():
         setattr(target, field, value)
+    if "is_active" in updates and target.is_active != prior_active:
+        append_audit_log(
+            db, user_id=current_user.id, organization_id=current_user.organization_id,
+            entity_type="user", entity_id=target.id,
+            action="activated" if target.is_active else "deactivated",
+            old_value={"is_active": prior_active},
+            new_value={"is_active": target.is_active},
+        )
 
     db.commit()
     db.refresh(target)
@@ -313,7 +325,13 @@ def deactivate_user(
     if target.organization_id != current_user.organization_id:
         raise HTTPException(status_code=403, detail="Not in your organization")
 
-    target.is_active = False
+    if target.is_active:
+        target.is_active = False
+        append_audit_log(
+            db, user_id=current_user.id, organization_id=current_user.organization_id,
+            entity_type="user", entity_id=target.id, action="deactivated",
+            old_value={"is_active": True}, new_value={"is_active": False},
+        )
     db.commit()
     return None
 

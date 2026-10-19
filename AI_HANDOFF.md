@@ -1,3 +1,9 @@
+# 2026-10-18 | PREPARED AUDITED USER ACTIVATION/DEACTIVATION (DETACHED)
+
+Bounded Phase 5 staff offboarding security follow-on: user account `is_active` mutations from staff update and deactivation routes write append-only user active-status audit within the same DB transaction, with actor/org and before/after flags, no duplicate records for no-ops. Explicit `is_active=null` is rejected; self-edit remains restricted to basic profile fields. Test covers deactivate, restore, null and foreign-org denial. This **DETACHED candidate is NOT PUBLISHED OR VERIFIED**, following the other prepared crew and status reliability changes. Live parent `128567315621c165759cd1127f2d397f04d0b65e` CI `39197174338` must first be 6/6 green and HEAD exact; then nonforce expected-SHA fast-forward and successor six-job CI. Do not touch `main`, another branch or Zargul, and do not broaden OWNER visibility without its separate policy review.
+
+---
+
 # 2026-10-18 | PREPARED RELIABLE CREW ASSIGNMENT ACKNOWLEDGEMENT (DETACHED)
 
 The latest detached Phase 5 candidate extends the successful POST/optional GET principle to `POST /work-orders/{id}/assign`: validates the response's actual server-assigned crew/status, immediately updates detail state, clears old selection, shows success, and keeps it if optional activity refresh GET fails. Existing backend authorization, staff roster filtering and audits remain authoritative. No new auto-dispatch or extra E2E fixture claim; it must be validated by the successor's hosted frontend/backend/E2E workflow. **Not published/verified**; first ensure parent live `128567315621c165759cd1127f2d397f04d0b65e` CI run `39197174338` all six green, then only exact-head nonforce expected-SHA publication, then successor CI. Other prepared changes: transactional property-assignment audit, work-order status post-confirmation. No main/new branch/Zargul edits.

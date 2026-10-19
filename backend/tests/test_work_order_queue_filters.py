@@ -15,9 +15,10 @@ from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory,
 from app.routers.work_orders import (list_work_orders, work_order_queue_summary, _user_can_access_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
 from app.models.audit_log import AuditLog
 from app.routers.properties import check_property_access, visible_properties_query
-from app.routers.users import assign_user_to_property, list_assignments, remove_assignment
+from app.routers.users import assign_user_to_property, list_assignments, remove_assignment, update_user, deactivate_user
 from app.models.lease import Lease, LeaseStatus
 from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderCreate, WorkOrderComment
+from app.schemas.user import UserUpdate
 from fastapi import HTTPException
 import pytest
 
@@ -767,6 +768,53 @@ def test_property_staff_assignment_audits_create_revoke_reactivate_and_noops():
         assert db.query(AuditLog).filter_by(
             entity_type="property_assignment", entity_id=assignment_id,
         ).count() == 3
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_staff_offboarding_user_active_state_is_audited_and_idempotent():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other_tenant, crew, foreign_admin = actors
+        assert crew.is_active is True
+        assert deactivate_user(crew.id, db=db, current_user=admin) is None
+        assert crew.is_active is False
+        logs = db.query(AuditLog).filter_by(
+            entity_type="user", entity_id=crew.id,
+        ).order_by(AuditLog.id).all()
+        assert [row.action for row in logs] == ["deactivated"]
+        assert logs[0].user_id == admin.id
+        assert logs[0].organization_id == admin.organization_id
+        assert json.loads(logs[0].old_value) == {"is_active": True}
+        assert json.loads(logs[0].new_value) == {"is_active": False}
+        deactivate_user(crew.id, db=db, current_user=admin)
+        assert db.query(AuditLog).filter_by(
+            entity_type="user", entity_id=crew.id,
+        ).count() == 1
+
+        updated = update_user(
+            crew.id, UserUpdate(is_active=True), db=db, current_user=admin,
+        )
+        assert updated.is_active is True
+        logs = db.query(AuditLog).filter_by(
+            entity_type="user", entity_id=crew.id,
+        ).order_by(AuditLog.id).all()
+        assert [row.action for row in logs] == ["deactivated", "activated"]
+        assert json.loads(logs[-1].old_value) == {"is_active": False}
+        assert json.loads(logs[-1].new_value) == {"is_active": True}
+
+        with pytest.raises(HTTPException) as invalid:
+            update_user(crew.id, UserUpdate(is_active=None), db=db, current_user=admin)
+        assert invalid.value.status_code == 400
+        assert crew.is_active is True
+
+        with pytest.raises(HTTPException) as foreign:
+            deactivate_user(crew.id, db=db, current_user=foreign_admin)
+        assert foreign.value.status_code == 403
+        assert db.query(AuditLog).filter_by(
+            entity_type="user", entity_id=crew.id,
+        ).count() == 2
     finally:
         db.close()
         engine.dispose()

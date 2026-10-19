@@ -333,3 +333,14 @@ later detail GET fails. It clears stale crew selection and treats follow-up
 activity refresh as best-effort only, reducing accidental assignment retries.
 Backend staff/property validation and append-only assignment audit remain the
 security boundary. This is a UI reliability improvement, not dispatch automation.
+
+## Audited staff offboarding and restoration (prepared; CI required)
+
+The existing user account deactivation route now adds an append-only audit
+with actor, organization and before/after is_active status, in the same
+transaction as the access change. Explicit admin/owner/manager user edit
+re-activation/deactivation via is_active also writes the same audit; null
+is_active is rejected, and repeated no-op changes emit no duplicate events.
+Database regression checks deactivation, restoration, idempotence and
+cross-org denial. These are staff access integrity safeguards; no owner
+multi-property entitlement decision or new user roles are introduced.
