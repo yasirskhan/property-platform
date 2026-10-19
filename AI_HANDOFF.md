@@ -1,3 +1,9 @@
+# 2026-10-18 | PREPARED DELETED-CREW ASSIGNMENT GUARD (DETACHED)
+
+Additional safety after the property-roster UI candidate: backend `POST /work-orders/{id}/assign` now rejects soft-deleted crew accounts despite stale `is_active=True`, complementing roster filtering and nondeleted PropertyAssignment checks. Regression leaves work-order status and crew unchanged on denial. This is DETACHED, NOT PUBLISHED OR VERIFIED. Require all-six CI SUCCESS on published parent `0bc7ff9aa016d2673e9958701f3665cb550736e7`, branch exact-SHA check, force=false expected-SHA promotion and successor hosted CI before marking VERIFIED. Preserve main, Zargul, canonical menu feature gates, and OWNER scope audit open issues.
+
+---
+
 # 2026-10-18 | PREPARED PROPERTY-SCOPED CREW PICKER (DETACHED, CI REQUIRED)
 
 The next Phase 5 candidate after `0bc7ff9aa016d2673e9958701f3665cb550736e7` replaces organization-wide work-order crew choices with existing `GET /properties/{property_id}/assignments` roster scoped by actual property, organization, active/deleted assignment, user and role. Crew option is role CREW only, errors shown instead of inventing no staff, selections cleared on property change. E2E compares real selectable IDs to the authorized roster. Backend POST remains authoritative. This supersedes the intermediate valid-uppercase `GET /users?role=CREW` picker fix, which proved a contract mismatch but remained too broad for the selector. **NOT PUBLISHED OR VERIFIED**. Only publish after exact SHA `0bc7ff9...` passes all six hosted CI jobs, verify branch unchanged, force=false expected-SHA fast-forward and run successor CI. Retain all outstanding Phase 5, OWNER scope and DoorLoop integration gates. No main, new branch, or Zargul changes.

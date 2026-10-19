@@ -686,3 +686,27 @@ def test_property_assignment_reactivation_and_roster_fail_closed():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_soft_deleted_crew_user_cannot_be_assigned_even_if_active_flag_remains():
+    db, engine, actors, props, orders = _seed_queue()
+    try:
+        admin, _manager, _tenant, _other, crew, _foreign = actors
+        wo = orders[0]
+        wo.status = WorkOrderStatus.ACKNOWLEDGED
+        wo.assigned_to_id = None
+        # A stale is_active flag must not permit assigning a deleted account.
+        crew.is_active = True
+        crew.deleted_at = datetime(2026, 10, 18, 12)
+        db.commit()
+        with pytest.raises(HTTPException) as denied:
+            assign_work_order(
+                wo.id, WorkOrderAssign(crew_user_id=crew.id),
+                db=db, current_user=admin,
+            )
+        assert denied.value.status_code == 400
+        assert wo.assigned_to_id is None
+        assert wo.status == WorkOrderStatus.ACKNOWLEDGED
+    finally:
+        db.close()
+        engine.dispose()

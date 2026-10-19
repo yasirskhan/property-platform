@@ -612,7 +612,8 @@ def assign_work_order(
 
     # Verify the crew member exists, is crew, active, and assigned to this property
     crew = db.query(User).filter(User.id == payload.crew_user_id).first()
-    if not crew or crew.role != UserRole.CREW or not crew.is_active:
+    if (not crew or crew.role != UserRole.CREW or not crew.is_active
+            or crew.deleted_at is not None):
         raise HTTPException(status_code=400, detail="Invalid or inactive crew member")
     prop = _get_property_for_work_order(db, wo)
     if crew.organization_id != prop.organization_id:

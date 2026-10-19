@@ -287,3 +287,11 @@ and old selections are cleared on property change. Authenticated E2E compares
 visible select options against returned authorized crew IDs. This replaces the
 intermediate uppercase `/users?role=CREW` workaround and prevents offering
 staff who cannot actually be assigned. Needs its own exact-SHA six-job CI.
+
+## Deleted crew guard on work-order assignment (prepared, CI required)
+
+Assignment POST rejects a crew account whose deleted_at is set, even with a
+stale is_active=True and live property assignment. The property-scoped UI
+roster already filters deleted accounts; this guard prevents a forged request
+from bypassing that safeguard. Regression verifies status remains acknowledged
+and crew unset. No automatic dispatch, financial write or new permission.
