@@ -177,6 +177,46 @@ def list_inspections(
     ]
 
 
+
+def get_inspection(
+    db: Session, *, actor: User, inspection_id: int,
+) -> UnitInspectionOut:
+    """Return one immutable inspection only through its actual scoped unit."""
+    org_id = actor.organization_id
+    if org_id is None:
+        raise ReportDeliveryError("Unit inspection permission required")
+    # Role and menu authorization must be applied even when the ID is unknown.
+    visible = _visible_properties(
+        db, organization_id=org_id, actor=actor, include_inactive=True,
+    )
+    row = db.query(UnitInspectionRecord).join(
+        Unit, Unit.id == UnitInspectionRecord.unit_id,
+    ).filter(
+        UnitInspectionRecord.id == inspection_id,
+        UnitInspectionRecord.organization_id == org_id,
+        UnitInspectionRecord.property_id == Unit.property_id,
+        Unit.property_id.in_(visible.with_entities(Property.id)),
+    ).first()
+    if row is None:
+        raise ReportDeliveryError("Unit inspection not found")
+    # Inventory labels are resolved only after the above scope check.
+    unit = db.query(Unit).filter(
+        Unit.id == row.unit_id, Unit.property_id == row.property_id,
+    ).one()
+    prop = db.query(Property).filter(
+        Property.id == row.property_id,
+        Property.organization_id == org_id,
+    ).one()
+    return UnitInspectionOut.model_validate(row).model_copy(update={
+        "property_name": prop.name,
+        "unit_number": unit.unit_number,
+        "checklist_items": [
+            InspectionChecklistItem.model_validate(item)
+            for item in json.loads(row.checklist_json or "[]")
+        ],
+    })
+
+
 def build_inspection_report(
     db: Session, *, organization_id: int, current_user: User,
     parameters: Mapping[str, object],
