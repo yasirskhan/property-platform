@@ -60,6 +60,7 @@ class UnitInspectionOut(BaseModel):
     findings: str
     checklist_items: list[InspectionChecklistItem] = Field(default_factory=list)
     recorded_by_id: int | None
+    recorded_by_name: str | None = None
     recorded_at: datetime
     # Current scoped inventory labels for display, not frozen audit snapshots.
     property_name: str | None = None

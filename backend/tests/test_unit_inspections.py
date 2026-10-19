@@ -97,6 +97,7 @@ def test_inspection_only_explicit_rows_audited_no_gl_writes(monkeypatch):
         assert saved.recorded_condition == "ATTENTION_NEEDED"
         assert saved.inspection_date == date.today()
         assert saved.recorded_by_id == admin.id
+        assert saved.recorded_by_name == "Admin Inspection"
         assert saved.property_name == "=Visible"
         assert saved.unit_number == "=A"
         assert db.query(UnitInspectionRecord).count() == 1
@@ -231,6 +232,34 @@ def test_inspection_history_filters_preserve_scope_and_chronology(monkeypatch):
         with pytest.raises(HTTPException) as forbidden:
             history(tenant)
         assert forbidden.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_inspection_recorder_name_never_leaks_foreign_organization(monkeypatch):
+    db, engine = _session()
+    try:
+        admin, manager, tenant, outside, prop, hidden, foreign, unit, hidden_unit, foreign_unit = _seed(db)
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **k: True)
+        saved = inspection_router.create_inspection(_input(unit), Response(), db=db, current_user=admin)
+        assert saved.recorded_by_name == "Admin Inspection"
+        assert inspection_router.get_inspection_detail(
+            saved.id, Response(), db=db, current_user=manager,
+        ).recorded_by_name == "Admin Inspection"
+        row = db.query(UnitInspectionRecord).filter_by(id=saved.id).one()
+        row.recorded_by_id = outside.id
+        db.commit()
+        detail = inspection_router.get_inspection_detail(
+            saved.id, Response(), db=db, current_user=admin,
+        )
+        assert detail.recorded_by_id == outside.id
+        assert detail.recorded_by_name is None
+        history = inspection_router.get_inspections(
+            Response(), property_id=None, unit_id=None, db=db, current_user=admin,
+        )
+        assert history[0].recorded_by_name is None
+        assert all("Foreign Inspection" != (item.recorded_by_name or "") for item in history)
     finally:
         db.close()
         engine.dispose()

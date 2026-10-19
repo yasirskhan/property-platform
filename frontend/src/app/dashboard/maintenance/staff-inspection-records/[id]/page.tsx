@@ -10,7 +10,7 @@ type Inspection = {
   property_name?: string | null; unit_number?: string | null;
   inspection_date: string; recorded_condition: string;
   findings: string; checklist_items: ChecklistItem[];
-  recorded_by_id: number | null; recorded_at: string;
+  recorded_by_id: number | null; recorded_by_name?: string | null; recorded_at: string;
 };
 
 export default function StaffInspectionDetailPage() {
@@ -55,7 +55,7 @@ export default function StaffInspectionDetailPage() {
           {item.notes && <p className="whitespace-pre-wrap">{item.notes}</p>}
         </li>)}
       </ul> : <p>No checklist was recorded.</p>}
-      <p className="text-sm text-slate-600">Recorded by user #{record.recorded_by_id ?? "unknown"} · {record.recorded_at}</p>
+      <p className="text-sm text-slate-600">Recorded by {record.recorded_by_name || `user #${record.recorded_by_id ?? "unknown"}`} · {record.recorded_at}</p>
       <p className="text-xs text-slate-600">This is immutable staff-recorded evidence, not an approval or an automated inspection.</p>
     </article>}
   </main>;

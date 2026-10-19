@@ -90,6 +90,20 @@ def _scope(
     return by_property, {unit.id: unit for unit in units.all()}
 
 
+
+def _same_org_recorder_labels(db: Session, organization_id: int, ids: set[int]) -> dict[int, str]:
+    """Resolve only visible organization's actors, in one bounded query."""
+    if not ids:
+        return {}
+    rows = db.query(User).filter(
+        User.organization_id == organization_id, User.id.in_(ids),
+    ).all()
+    return {
+        row.id: " ".join(part for part in (row.first_name, row.last_name) if part).strip()
+        for row in rows
+    }
+
+
 def record_inspection(
     db: Session, *, actor: User, payload: UnitInspectionCreateIn,
 ) -> UnitInspectionOut:
@@ -129,6 +143,7 @@ def record_inspection(
     return UnitInspectionOut.model_validate(row).model_copy(update={
         "property_name": properties[unit.property_id].name,
         "unit_number": unit.unit_number,
+        "recorded_by_name": " ".join(part for part in (actor.first_name, actor.last_name) if part).strip() or None,
         "checklist_items": payload.checklist_items,
     })
 
@@ -173,8 +188,13 @@ def list_inspections(
         query = query.limit(limit)
     # Resolve labels solely from already authorized unit/property objects,
     # including retired inventory, without a second unscoped lookup.
+    rows = query.all()
+    labels = _same_org_recorder_labels(db, org_id, {
+        row.recorded_by_id for row in rows if row.recorded_by_id is not None
+    })
     return [
         UnitInspectionOut.model_validate(row).model_copy(update={
+            "recorded_by_name": labels.get(row.recorded_by_id),
             "property_name": properties[units[row.unit_id].property_id].name,
             "unit_number": units[row.unit_id].unit_number,
             "checklist_items": [
@@ -182,7 +202,7 @@ def list_inspections(
                 for item in json.loads(row.checklist_json or "[]")
             ],
         })
-        for row in query.all()
+        for row in rows
     ]
 
 
@@ -219,6 +239,9 @@ def get_inspection(
     return UnitInspectionOut.model_validate(row).model_copy(update={
         "property_name": prop.name,
         "unit_number": unit.unit_number,
+        "recorded_by_name": _same_org_recorder_labels(
+            db, org_id, {row.recorded_by_id} if row.recorded_by_id is not None else set(),
+        ).get(row.recorded_by_id),
         "checklist_items": [
             InspectionChecklistItem.model_validate(item)
             for item in json.loads(row.checklist_json or "[]")

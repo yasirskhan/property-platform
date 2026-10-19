@@ -10,7 +10,7 @@ type Inspection = {
   id: number; property_id: number; unit_id: number;
   property_name?: string | null; unit_number?: string | null;
   inspection_date: string; recorded_condition: string;
-  findings: string; checklist_items?: ChecklistItem[]; recorded_by_id: number | null;
+  findings: string; checklist_items?: ChecklistItem[]; recorded_by_id: number | null; recorded_by_name?: string | null;
 };
 
 export default function InspectionRecordsPage() {
@@ -291,7 +291,7 @@ export default function InspectionRecordsPage() {
                         {item.notes ? ` · ${item.notes}` : ""}
                       </li>)}
                     </ul>}
-                    <p className="mt-1 text-xs text-slate-500">Recorded by user #{row.recorded_by_id ?? "unknown"}</p>
+                    <p className="mt-1 text-xs text-slate-500">Recorded by {row.recorded_by_name || `user #${row.recorded_by_id ?? "unknown"}`}</p>
                   </li>
                 ))}
               </ul>}
