@@ -127,7 +127,7 @@ def _user_can_access_work_order(db: Session, user: User, wo: WorkOrder) -> bool:
         return False
 
     if user.role == UserRole.TENANT:
-        return wo.tenant_id == user.id
+        return wo.tenant_id == user.id and wo.request_origin in (None, "tenant")
 
     if user.role == UserRole.CREW:
         if wo.assigned_to_id != user.id:
@@ -177,7 +177,7 @@ def _visible_work_orders(db: Session, user: User):
     )
 
     if user.role == UserRole.TENANT:
-        return q.filter(WorkOrder.tenant_id == user.id)
+        return q.filter(WorkOrder.tenant_id == user.id, or_(WorkOrder.request_origin.is_(None), WorkOrder.request_origin == "tenant"))
 
     if user.role == UserRole.CREW:
         return q.join(
