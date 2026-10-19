@@ -322,7 +322,14 @@ def test_inspection_linked_work_order_validates_real_scoped_source(monkeypatch):
             inspection_date=date.today(), recorded_condition="ATTENTION_NEEDED",
             findings="Foreign inspection", recorded_by_id=foreign_admin.id,
         )
-        db.add_all([evidence, foreign_evidence])
+        wrong_unit = db.query(Unit).filter(Unit.property_id == hidden.id).one()
+        other_evidence = UnitInspectionRecord(
+            organization_id=admin.organization_id,
+            property_id=hidden.id, unit_id=wrong_unit.id,
+            inspection_date=date.today(), recorded_condition="ATTENTION_NEEDED",
+            findings="Different unit inspection", recorded_by_id=admin.id,
+        )
+        db.add_all([evidence, foreign_evidence, other_evidence])
         db.flush()
         def request(source_id, actor=admin):
             return submit_work_order(
@@ -339,7 +346,7 @@ def test_inspection_linked_work_order_validates_real_scoped_source(monkeypatch):
         ).one()
         assert json.loads(audit.new_value)["source_inspection_id"] == evidence.id
         assert get_work_order(created.id, db=db, current_user=admin).source_inspection_id == evidence.id
-        for source_id in (foreign_evidence.id, evidence.id + 99999):
+        for source_id in (other_evidence.id, foreign_evidence.id, evidence.id + 99999):
             with pytest.raises(HTTPException) as exc:
                 request(source_id)
             assert exc.value.status_code == 404
