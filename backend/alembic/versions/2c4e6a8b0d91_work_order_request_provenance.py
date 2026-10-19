@@ -24,5 +24,16 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Provenance contains historical evidence. Do not silently delete it.
-    raise RuntimeError("Work-order request provenance migration is intentionally irreversible")
+    # Recoverability: refuse to discard existing recorded provenance.
+    conn = op.get_bind()
+    has_evidence = conn.execute(sa.text(
+        "SELECT EXISTS (SELECT 1 FROM work_orders "
+        "WHERE request_origin IS NOT NULL OR requested_by_user_id IS NOT NULL)"
+    )).scalar()
+    if has_evidence:
+        raise RuntimeError("Cannot drop populated work-order provenance columns")
+    with op.batch_alter_table("work_orders") as batch:
+        batch.drop_index("ix_work_orders_requested_by_user_id")
+        batch.drop_constraint("fk_work_orders_requested_by_user_id", type_="foreignkey")
+        batch.drop_column("requested_by_user_id")
+        batch.drop_column("request_origin")

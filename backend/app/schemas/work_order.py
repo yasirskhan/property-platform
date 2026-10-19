@@ -144,7 +144,8 @@ class WorkOrderUpdateOut(BaseModel):
 # WORK ORDER — WITH UPDATES (nested output)
 # ============================================================
 class WorkOrderDetail(WorkOrderOut):
-    request_origin: str = "unknown_legacy"
+    # Legacy ORM rows may have NULL until authorized provenance resolution.
+    request_origin: Optional[str] = None
     requested_by_user_id: Optional[int] = None
     # Current inventory labels, not immutable historical snapshots.
     property_name: Optional[str] = None
