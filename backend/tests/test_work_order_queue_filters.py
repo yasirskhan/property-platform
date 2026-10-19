@@ -261,6 +261,38 @@ def test_assign_work_order_requires_acknowledged_status_and_authorized_active_cr
         engine.dispose()
 
 
+def test_legacy_staff_submissions_do_not_grant_tenant_read_access():
+    """Lock down existing behavior before separating requester from tenant."""
+    db, engine, actors, _properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other_tenant, crew, foreign_admin = actors
+        created = submit_work_order(
+            WorkOrderCreate(
+                unit_id=orders[0].unit_id,
+                title="Preventive equipment review",
+                description="Staff records a property maintenance concern.",
+            ),
+            db=db, current_user=admin,
+        )
+        # Legacy compatibility: staff requests currently persist the
+        # submitting staff ID in the tenant_id column. This is NOT evidence
+        # that the staff member is a tenant of the unit.
+        assert created.tenant_id == admin.id
+        history = db.query(WorkOrderUpdate).filter_by(work_order_id=created.id).all()
+        assert len(history) == 1
+        assert history[0].user_id == admin.id
+        assert _user_can_access_work_order(db, admin, created)
+        assert not _user_can_access_work_order(db, tenant, created)
+        assert not _user_can_access_work_order(db, other_tenant, created)
+        assert not _user_can_access_work_order(db, foreign_admin, created)
+        assert all(row.id != created.id for row in _queue(db, tenant))
+        assert all(row.id != created.id for row in _queue(db, other_tenant))
+        assert any(row.id == created.id for row in _queue(db, admin))
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_work_order_creation_and_acknowledgement_have_one_durable_activity_each():
     db, engine, actors, _props, orders = _seed_queue()
     try:
