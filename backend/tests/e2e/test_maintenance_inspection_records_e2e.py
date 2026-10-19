@@ -74,7 +74,7 @@ def test_staff_records_inspection_without_invented_mobile_workflow():
                 has_text="Inspected window latch by staff"
             ).first).to_contain_text("ATTENTION NEEDED", timeout=15_000)
             pw.expect(page.locator("section li").filter(
-                has_text="E2E Test Property"
-            )).to_contain_text("Unit E2E-1")
+                has_text="Inspected window latch by staff"
+            ).first).to_contain_text("Unit E2E-1")
         finally:
             browser.close()
