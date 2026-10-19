@@ -1,3 +1,9 @@
+# 2026-10-19 | WORK-ORDER REQUESTER ORIGIN DISPLAY — PROVISIONAL
+
+Complete read/display integration for authorized audit-derived request origin: API detail, frontend display, backend and authenticated-browser regressions. Legacy unknown stays unknown, no fabricated tenant. This is not recurrence or database migration. Require exact-SHA six-job CI; continue next Phase 5 batch.
+
+---
+
 # 2026-10-19 | AUDITED WORK-ORDER REQUEST PROVENANCE — PROVISIONAL
 
 Added authorized API detail provenance from immutable same-organization creation audit with explicit legacy-unknown fallback and role-denial regressions. This is not recurring maintenance or the requester/tenant database migration. Verify all six hosted jobs at the eventual exact SHA and continue next dependency-safe Phase 5 batch. Baseline `bb6b2fadee1684d416c4f67f8cc6eeebc4465201` run `39294961119` SUCCESS.

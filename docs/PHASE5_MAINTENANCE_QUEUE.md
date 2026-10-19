@@ -499,3 +499,7 @@ change to staff role entitlements.
 ## Audited work-order request provenance (provisional)
 
 Authorized work-order detail now exposes requester origin and identity from authenticated, same-organization append-only creation audit. Legacy ambiguous records return unknown_legacy / null, without assuming a staff ID is a tenant. Regression covers genuine staff submitter, historical unknown, and cross-organization denial. No schema or recurrence engine is enabled; six-job CI required.
+
+## Verified requester origin in authenticated work-order detail (provisional)
+
+Authorized detail now displays recorded staff/tenant origin and requester ID only when the audited creation evidence proves them. Historical unknown cases display an unverified-source label. An authenticated browser test verifies staff creation provenance. No broadened access, tenant impersonation or recurring scheduler. Six hosted jobs must pass.

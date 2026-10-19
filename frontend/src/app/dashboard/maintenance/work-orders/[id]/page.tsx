@@ -19,6 +19,8 @@ type WorkOrder = {
   property_id: number;
   unit_id: number;
   property_name?: string | null;
+  request_origin?: "staff" | "tenant" | "unknown_legacy";
+  requested_by_user_id?: number | null;
   unit_number?: string | null;
   title: string;
   description: string;
@@ -255,6 +257,12 @@ export default function WorkOrderDetailPage() {
             </div>
             <p className="mt-4 whitespace-pre-wrap text-sm text-slate-800">{order.description}</p>
             <p className="mt-4 text-xs text-slate-500">Submitted {new Date(order.created_at).toLocaleString()}</p>
+            <p className="mt-2 text-xs text-slate-600">
+              Request source: {order.request_origin === "staff" ? "Staff request" : order.request_origin === "tenant" ? "Tenant request" : "Historical source not verified"}
+              {order.request_origin !== "unknown_legacy" && order.requested_by_user_id != null
+                ? ` · Recorded requester #${order.requested_by_user_id}`
+                : ""}
+            </p>
             {order.resolution_notes && (
               <div className="mt-4 rounded-lg bg-slate-50 p-3 text-sm">
                 <strong>Resolution notes</strong>

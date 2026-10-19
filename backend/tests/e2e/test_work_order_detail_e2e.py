@@ -67,6 +67,7 @@ def test_authenticated_work_order_detail_and_comment_history() -> None:
                 page.get_by_role("heading", name="Work order #" + str(work_order_id) + ": E2E maintenance activity")
             ).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_role("heading", name="Recorded activity")).to_be_visible()
+            pw.expect(page.get_by_text(re.compile(r"Request source: Staff request"))).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_text("E2E Test Property · Unit E2E-1", exact=True)).to_be_visible()
             # A committed state change must remain successful even when a
             # follow-up detail GET fails (same guarantee as comments).
