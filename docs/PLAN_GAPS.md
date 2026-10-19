@@ -479,3 +479,7 @@ ships by flipping a flag. No more loops.
 ## Open Phase 5 maintenance attribution issue (2026-10-19)
 
 **Priority: blocking recurring generation.** `WorkOrder.tenant_id` is NOT NULL and manual staff creation still writes the staff user ID there for backward compatibility. Additive `request_origin` and `requested_by_user_id` now exist, but a complete reader/API/finance/report consumer audit and safe nullable-tenant migration are not yet implemented. Explicit tenant-origin records must not disclose to a tenant unless requested_by_user_id matches that tenant; historical unknown provenance remains compatibility-scoped. Do not create automated orders with fabricated tenant IDs. Planned: complete model/schema migration, recurring schedule/occurrence unique keys, on-call dispatch policies, inspections/inventory and billing integration behind separate authorization and audit gates.
+
+## Phase 5 inspection checklist gate (prepared 2026-10-19)
+
+A bounded signed-in staff checklist form and storage/read/report workflow is prepared in detached code, not verified. Five checklist areas record per-item condition and optional notes, with immutable evidence and append-only audit. The existing staff-only permission and current property/unit scoping remain. Scope explicitly excludes mobile offline sync, photographs, external approvals and the full Inspections feature gate. Must verify additive migration, PostgreSQL regressions, frontend, browser E2E, security and staging at exact SHA before treating this portion delivered.

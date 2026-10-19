@@ -836,3 +836,4 @@ access boundary.
 | Property Notes tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ built | First customer surface using the universal component |
 
 | Phase 5 work-order provenance enforcement | capability | /dashboard/maintenance/work-orders | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 provisional | Tenant detail, queue, summary, triage and similar-request results deny explicitly staff-originated requests; verified requester ID required by prepared successor; legacy unknown remains unchanged. Full six-job hosted CI required before ✅ |
+| Phase 5 staff inspection structured checklist | capability | /dashboard/maintenance/staff-inspection-records | core | yes | PROPERTIES.UNITS | no | 🔧 detached, not verified | Optional five-area dated staff checklist with condition/notes, audit, scoped read and CSV; requires six-job CI, full Inspections module stays hidden |
