@@ -466,3 +466,12 @@ existing emergency-priority queue filter and resets pagination, so staff can
 review all accessible emergency work without mistaking the bounded quick list
 for the entire set. The filter is still server-scoped; no new data access.
 Signed-in browser test verifies apply and clear of that filter.
+
+## Authenticated emergency triage end-to-end regression (detached; CI required)
+
+A separate real-browser test logs in to the disposable organization, creates
+an emergency work order via authenticated intake, finds its exact ID/title in
+the bounded authorized emergency triage region, confirms the seeded property
+and unit labels, and navigates into the existing scoped work-order detail.
+This complements the database role and terminal-status tests without using
+mock UI data or weakening other smoke coverage.

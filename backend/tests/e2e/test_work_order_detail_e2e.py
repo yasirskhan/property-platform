@@ -150,3 +150,45 @@ def test_customer_maintenance_request_form_saves_a_new_order() -> None:
             ).to_be_visible(timeout=15_000)
         finally:
             browser.close()
+
+
+def test_emergency_triage_links_to_a_real_authorized_order() -> None:
+    with pw.sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page()
+        try:
+            page.goto(BASE_URL + "/login", wait_until="domcontentloaded")
+            page.locator('input[type="email"]').fill(EMAIL)
+            page.locator('input[type="password"]').fill(PASSWORD)
+            page.get_by_role("button", name="Log In", exact=True).click()
+            page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+            pw.expect(page.get_by_text("Signed in as", exact=True)).to_be_visible(timeout=15_000)
+            token = page.evaluate("() => localStorage.getItem('token')")
+            assert token
+            page.goto(BASE_URL + "/dashboard/maintenance/work-orders/new", wait_until="domcontentloaded")
+            pw.expect(page.get_by_role("option", name="E2E Test Property · Unit E2E-1")).to_be_attached(timeout=15_000)
+            title = "E2E Emergency triage evidence"
+            created = page.request.post(
+                API_URL + "/work-orders",
+                headers={"Authorization": "Bearer " + token},
+                data={
+                    "unit_id": 900001,
+                    "title": title,
+                    "description": "Test emergency requires explicit staff review.",
+                    "priority": "emergency",
+                    "permission_to_enter": False,
+                },
+            )
+            assert created.status == 201, created.text()
+            work_order_id = created.json()["id"]
+            page.goto(BASE_URL + "/dashboard/maintenance/work-orders", wait_until="domcontentloaded")
+            pw.expect(page.get_by_role("heading", name="Emergency work requiring attention")).to_be_visible()
+            triage = page.get_by_role("region", name="Emergency maintenance triage")
+            link = triage.get_by_role("link", name="#" + str(work_order_id) + " · " + title)
+            pw.expect(link).to_be_visible(timeout=15_000)
+            pw.expect(triage.get_by_text("E2E Test Property · Unit E2E-1", exact=True)).to_be_visible()
+            link.click()
+            page.wait_for_url(re.compile(r"/maintenance/work-orders/" + str(work_order_id) + r"$"), timeout=15_000)
+            pw.expect(page.get_by_role("heading", name="Work order #" + str(work_order_id) + ": " + title)).to_be_visible()
+        finally:
+            browser.close()

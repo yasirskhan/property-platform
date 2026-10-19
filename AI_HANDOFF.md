@@ -1,3 +1,9 @@
+# 2026-10-19 | DETACHED AUTHENTICATED EMERGENCY TRIAGE LINK REGRESSION
+
+Adds a standalone signed-in Playwright regression to prepared emergency triage: create disposable emergency work order on seeded property via authenticated API, confirm exact visible triage card ID, property/unit location and working detail navigation. No test mocked API data. This candidate is DETACHED, NOT PUBLISHED OR VERIFIED. Its parent is `cda51b28e4025dc3e332b980f4d4a3d26cc78da2`. Only publish after 6/6 CI SUCCESS at current live `4ea6a65a5d45faa1797a08e288365633ac6ed259`, GitHub run `39241105952`, with CAS expected-SHA nonforce fast-forward and then full successor six-job CI. Keep main/Zargul untouched; broader Smart Maintenance remains open.
+
+---
+
 # 2026-10-19 | EMERGENCY TRIAGE FOLLOW-THROUGH FILTER (DETACHED)
 
 In the queued emergency triage milestone, added a working `Show all emergencies in work-order queue` control that sets the existing priority=emergency filter, resets paging, and keeps backend authorization intact. Authenticated browser smoke tests priority selection then clearing. The triage top-20 limit is not incorrectly presented as all emergencies. This is a detached successor of `d9a4ca29d3f359ccbd839de19037ab2817b3462e`, **not published or verified**. Verify predecessor published `4ea6a65a5d45faa1797a08e288365633ac6ed259` CI `39241105952` all six green, exact branch state, then safe force=false expected-SHA fast-forward and successor six-job CI. Keep `main`, new branches and Zargul untouched.
