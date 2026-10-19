@@ -1,3 +1,9 @@
+# 2026-10-18 | PREPARED TRANSACTIONAL PROPERTY-STAFF ASSIGNMENT AUDIT (DETACHED)
+
+Bounded new Phase 5 candidate on current published parent `128567315621c165759cd1127f2d397f04d0b65e`: `backend/app/routers/users.py` now writes append-only `property_assignment` create/revoke/reactivate audit events in the same DB transaction as staff assignment changes, including actor ID, org, before/after and property/crew identifiers. Idempotent duplicates make no additional audit. Backend regression covers audit row lifecycle and rejected cross-org revoke. **Prepared detached, NOT published or CI-verified.** First verify parent's full six-job CI `39197174338`, exact live branch match and only then force=false expected-SHA fast-forward, run successor six jobs and repair any reds. Earlier handoff preparatory labels predate the parent publication; confirm live facts rather than relying on old headings. Keep `main`, any new branch and Zargul untouched.
+
+---
+
 # 2026-10-18 | PREPARED WORK ORDER COMMENT CONFIRMATION RELIABILITY (DETACHED)
 
 The bounded Phase 5 candidate now also uses the authoritative work-order comment POST response to append an activity entry to existing detail state, without a dependent GET. E2E blocks follow-up detail GETs with HTTP 503 after the page is loaded; verifies the persisted comment and success notice remain visible. This complements the previously verified inspection POST/read separation. **Not published or verified.** Wait for predecessor's exact six-job CI on `0bc7ff9aa016d2673e9958701f3665cb550736e7`, then non-force expected-SHA fast-forward the approved candidate and verify its six jobs. No forced ref, no main/new branch, no Zargul edit.

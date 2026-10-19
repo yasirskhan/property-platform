@@ -305,3 +305,12 @@ or incorrectly suggests the comment did not persist, preventing accidental
 repeated submissions. Authenticated E2E deliberately returns 503 for the
 post-save detail GET and verifies both success notice and appended comment.
 Server authorization, audit, append-only history and immutable IDs are unchanged.
+
+## Audited staff property assignments (next prepared; CI required)
+
+Existing create/revoke/reactivate assignment routes now append a property_assignment
+audit row in the SAME transaction as the change, with actor, organization,
+property/user/role, and before/after active state. Idempotent repeated assign or
+revoke does not create a spurious event; cross-organization denial creates no
+audit or mutation. Regression checks this full lifecycle and append-only row
+content on a disposable database. Audit logs are not silently deleted.

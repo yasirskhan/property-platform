@@ -35,6 +35,7 @@ from app.models.user import User, UserRole
 from app.routers.auth import get_current_user
 from app.routers.properties import check_property_access
 from app.schemas.user import UserCreate, UserOut, UserUpdate
+from app.services.audit import append_audit_log
 
 
 router = APIRouter(tags=["User Management"])
@@ -360,10 +361,30 @@ def assign_user_to_property(
         .first()
     )
     if existing:
+        before = {
+            "property_id": property_id,
+            "user_id": target.id,
+            "role": existing.role.value,
+            "is_active": existing.is_active,
+            "deleted_at": existing.deleted_at.isoformat() if existing.deleted_at else None,
+        }
         # Explicit reactivation must clear the stale deletion marker.
         existing.is_active = True
         existing.deleted_at = None
         existing.role = target.role
+        after = {
+            "property_id": property_id,
+            "user_id": target.id,
+            "role": target.role.value,
+            "is_active": True,
+            "deleted_at": None,
+        }
+        if before != after:
+            append_audit_log(
+                db, user_id=current_user.id, organization_id=prop.organization_id,
+                entity_type="property_assignment", entity_id=existing.id,
+                action="reactivated", old_value=before, new_value=after,
+            )
         db.commit()
         return {"status": "already_assigned", "assignment_id": existing.id}
 
@@ -373,6 +394,14 @@ def assign_user_to_property(
         role=target.role,
     )
     db.add(assignment)
+    db.flush()
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=prop.organization_id,
+        entity_type="property_assignment", entity_id=assignment.id,
+        action="created",
+        new_value={"property_id": property_id, "user_id": target.id,
+                   "role": target.role.value, "is_active": True},
+    )
     db.commit()
     db.refresh(assignment)
 
@@ -430,8 +459,18 @@ def remove_assignment(
     assignment = db.query(PropertyAssignment).filter(PropertyAssignment.id == assignment_id).first()
     if not assignment:
         raise HTTPException(status_code=404, detail="Assignment not found")
-    check_property_access(db, current_user, assignment.property_id)
+    prop = check_property_access(db, current_user, assignment.property_id)
 
-    assignment.is_active = False
+    if assignment.is_active:
+        previous = {"property_id": prop.id, "user_id": assignment.user_id,
+                    "role": assignment.role.value, "is_active": True}
+        assignment.is_active = False
+        append_audit_log(
+            db, user_id=current_user.id, organization_id=prop.organization_id,
+            entity_type="property_assignment", entity_id=assignment.id,
+            action="revoked", old_value=previous,
+            new_value={"property_id": prop.id, "user_id": assignment.user_id,
+                       "role": assignment.role.value, "is_active": False},
+        )
     db.commit()
     return None

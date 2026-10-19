@@ -1,6 +1,7 @@
 """Phase 5 bounded work-order queue filters never expand a user's visibility."""
 from __future__ import annotations
 
+import json
 from datetime import date, datetime
 
 from sqlalchemy import create_engine
@@ -14,7 +15,7 @@ from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory,
 from app.routers.work_orders import (list_work_orders, work_order_queue_summary, _user_can_access_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
 from app.models.audit_log import AuditLog
 from app.routers.properties import check_property_access, visible_properties_query
-from app.routers.users import assign_user_to_property, list_assignments
+from app.routers.users import assign_user_to_property, list_assignments, remove_assignment
 from app.models.lease import Lease, LeaseStatus
 from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderCreate, WorkOrderComment
 from fastapi import HTTPException
@@ -707,6 +708,65 @@ def test_soft_deleted_crew_user_cannot_be_assigned_even_if_active_flag_remains()
         assert denied.value.status_code == 400
         assert wo.assigned_to_id is None
         assert wo.status == WorkOrderStatus.ACKNOWLEDGED
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_property_staff_assignment_audits_create_revoke_reactivate_and_noops():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other_tenant, crew, foreign_admin = actors
+        own_property = properties[0]
+        second_property = properties[1]
+
+        created = assign_user_to_property(
+            second_property.id, crew.id, db=db, current_user=admin,
+        )
+        assignment_id = created["assignment_id"]
+        created_logs = db.query(AuditLog).filter_by(
+            entity_type="property_assignment", entity_id=assignment_id,
+        ).all()
+        assert len(created_logs) == 1
+        assert created_logs[0].action == "created"
+        assert created_logs[0].user_id == admin.id
+        assert created_logs[0].organization_id == admin.organization_id
+        assert json.loads(created_logs[0].new_value)["user_id"] == crew.id
+
+        assert remove_assignment(assignment_id, db=db, current_user=admin) is None
+        revoked_logs = db.query(AuditLog).filter_by(
+            entity_type="property_assignment", entity_id=assignment_id,
+        ).order_by(AuditLog.id).all()
+        assert [entry.action for entry in revoked_logs] == ["created", "revoked"]
+        assert json.loads(revoked_logs[1].old_value)["is_active"] is True
+        assert json.loads(revoked_logs[1].new_value)["is_active"] is False
+        assert remove_assignment(assignment_id, db=db, current_user=admin) is None
+        assert db.query(AuditLog).filter_by(
+            entity_type="property_assignment", entity_id=assignment_id,
+        ).count() == 2
+
+        revived = assign_user_to_property(
+            second_property.id, crew.id, db=db, current_user=admin,
+        )
+        assert revived["assignment_id"] == assignment_id
+        logs = db.query(AuditLog).filter_by(
+            entity_type="property_assignment", entity_id=assignment_id,
+        ).order_by(AuditLog.id).all()
+        assert [entry.action for entry in logs] == ["created", "revoked", "reactivated"]
+        assert json.loads(logs[-1].old_value)["is_active"] is False
+        assert json.loads(logs[-1].new_value)["is_active"] is True
+
+        assign_user_to_property(second_property.id, crew.id, db=db, current_user=admin)
+        assert db.query(AuditLog).filter_by(
+            entity_type="property_assignment", entity_id=assignment_id,
+        ).count() == 3
+
+        with pytest.raises(HTTPException) as denied:
+            remove_assignment(assignment_id, db=db, current_user=foreign_admin)
+        assert denied.value.status_code == 403
+        assert db.query(AuditLog).filter_by(
+            entity_type="property_assignment", entity_id=assignment_id,
+        ).count() == 3
     finally:
         db.close()
         engine.dispose()
