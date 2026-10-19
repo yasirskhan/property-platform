@@ -30,7 +30,10 @@ def _role(actor: User) -> str:
     return str(val or "").upper()
 
 
-def _visible_properties(db: Session, *, organization_id: int, actor: User):
+def _visible_properties(
+    db: Session, *, organization_id: int, actor: User,
+    include_inactive: bool = False,
+):
     if (actor.organization_id != organization_id or not actor.is_active
             or actor.deleted_at is not None
             or _role(actor) not in {"ADMIN", "MANAGER"}):
@@ -40,9 +43,14 @@ def _visible_properties(db: Session, *, organization_id: int, actor: User):
             raise ReportDeliveryError("Unit inspection permission required")
     query = db.query(Property).filter(
         Property.organization_id == organization_id,
-        Property.is_active.is_(True),
-        Property.deleted_at.is_(None),
     )
+    # Recording requires active inventory; historical inspection review must
+    # not lose records when a property is later retired or soft-deleted.
+    if not include_inactive:
+        query = query.filter(
+            Property.is_active.is_(True),
+            Property.deleted_at.is_(None),
+        )
     if _role(actor) == "MANAGER":
         assigned = db.query(PropertyAssignment.property_id).filter(
             PropertyAssignment.user_id == actor.id,
@@ -56,17 +64,22 @@ def _visible_properties(db: Session, *, organization_id: int, actor: User):
 def _scope(
     db: Session, *, organization_id: int, actor: User,
     property_id: int | None = None, unit_id: int | None = None,
+    include_inactive: bool = False,
 ):
-    query = _visible_properties(db, organization_id=organization_id, actor=actor)
+    query = _visible_properties(
+        db, organization_id=organization_id, actor=actor,
+        include_inactive=include_inactive,
+    )
     if property_id is not None:
         query = query.filter(Property.id == property_id)
         if query.first() is None:
             raise ReportDeliveryError("Property not found")
     by_property = {prop.id: prop for prop in query.all()}
-    units = db.query(Unit).filter(
-        Unit.property_id.in_(list(by_property)),
-        Unit.is_active.is_(True), Unit.deleted_at.is_(None),
-    )
+    units = db.query(Unit).filter(Unit.property_id.in_(list(by_property)))
+    if not include_inactive:
+        units = units.filter(
+            Unit.is_active.is_(True), Unit.deleted_at.is_(None),
+        )
     if unit_id is not None:
         units = units.filter(Unit.id == unit_id)
         if units.first() is None:
@@ -120,6 +133,7 @@ def list_inspections(
     _, units = _scope(
         db, organization_id=org_id, actor=actor,
         property_id=property_id, unit_id=unit_id,
+        include_inactive=True,
     )
     if not units:
         return []
@@ -148,6 +162,7 @@ def build_inspection_report(
     properties, units = _scope(
         db, organization_id=organization_id, actor=current_user,
         property_id=requested_property, unit_id=requested_unit,
+        include_inactive=True,
     )
     if not units:
         return ReportPayload(
