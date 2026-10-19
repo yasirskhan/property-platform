@@ -12,7 +12,7 @@ from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
 from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
-from app.routers.work_orders import (list_work_orders, work_order_queue_summary, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
+from app.routers.work_orders import (list_work_orders, work_order_queue_summary, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
 from app.models.audit_log import AuditLog
 from app.routers.properties import check_property_access, visible_properties_query
 from app.routers.users import assign_user_to_property, list_assignments, remove_assignment, update_user, deactivate_user
@@ -917,6 +917,40 @@ def test_work_order_detail_location_labels_respect_existing_scope():
         with pytest.raises(HTTPException) as tenant_denied:
             get_work_order(own_order.id, db=db, current_user=other_tenant)
         assert tenant_denied.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_explicit_work_order_cancel_is_audited_and_terminal():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other_tenant, crew, foreign_admin = actors
+        own_order = orders[0]
+        assert own_order.status == WorkOrderStatus.SUBMITTED
+        with pytest.raises(HTTPException) as forbidden:
+            cancel_work_order(own_order.id, db=db, current_user=tenant)
+        assert forbidden.value.status_code == 403
+        assert own_order.status == WorkOrderStatus.SUBMITTED
+
+        cancelled = cancel_work_order(own_order.id, db=db, current_user=admin)
+        assert cancelled.status == WorkOrderStatus.CANCELLED
+        assert db.query(WorkOrderUpdate).filter_by(
+            work_order_id=own_order.id, to_status=WorkOrderStatus.CANCELLED,
+        ).count() == 1
+        audit = db.query(AuditLog).filter_by(
+            entity_type="work_order", entity_id=own_order.id,
+            action="status_transition",
+        ).order_by(AuditLog.id.desc()).first()
+        assert audit is not None and audit.user_id == admin.id
+        assert json.loads(audit.new_value) == {"status": "cancelled"}
+
+        with pytest.raises(HTTPException) as finished:
+            cancel_work_order(own_order.id, db=db, current_user=admin)
+        assert finished.value.status_code == 400
+        assert db.query(WorkOrderUpdate).filter_by(
+            work_order_id=own_order.id, to_status=WorkOrderStatus.CANCELLED,
+        ).count() == 1
     finally:
         db.close()
         engine.dispose()

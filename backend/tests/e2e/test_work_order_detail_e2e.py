@@ -95,6 +95,16 @@ def test_authenticated_work_order_detail_and_comment_history() -> None:
             ).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_text("E2E follow-up activity note")).to_be_visible()
             assert page.get_by_role("button", name="Save activity note").count() == 1
+            # Destructive status changes require a second, explicit decision.
+            page.get_by_role("button", name="Cancel work order").click()
+            pw.expect(page.get_by_role("button", name="Confirm cancellation")).to_be_visible()
+            page.get_by_role("button", name="Keep work order").click()
+            pw.expect(page.get_by_text("acknowledged", exact=True)).to_be_visible()
+            page.get_by_role("button", name="Cancel work order").click()
+            page.get_by_role("button", name="Confirm cancellation").click()
+            pw.expect(page.get_by_text("Work order cancelled.", exact=True)).to_be_visible(timeout=15_000)
+            pw.expect(page.get_by_text("cancelled", exact=True)).to_be_visible(timeout=15_000)
+            pw.expect(page.get_by_role("button", name="Cancel work order")).to_have_count(0)
         finally:
             browser.close()
 

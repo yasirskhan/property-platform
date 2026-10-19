@@ -1,3 +1,9 @@
+# 2026-10-18 | PREPARED TWO-STEP WORK-ORDER CANCELLATION UI (DETACHED)
+
+The next bounded Phase 5 candidate follows scoped location labels. The authorized work-order detail page now exposes preexisting `POST /work-orders/{id}/cancel` with two-step confirmation for ADMIN/OWNER/MANAGER and nonterminal statuses only; the backend remains authoritative on access and terminal-state validation. Declining confirmation is safe, confirming uses the persisted POST result without requiring a successful detail GET. Database test verifies admin cancellation, tenant denial, terminal idempotence and immutable audit; authenticated E2E checks keeping the order, then confirming cancellation amid a simulated GET 503. **DETACHED; NOT PUBLISHED OR VERIFIED**. Live ancestor `24897accd1242bbd85200335bfd6878be24998d0` has CI `39198752993` in progress. Require all six green before exact-branch nonforce expected-head publication and next full CI. Never modify main/new branch/Zargul; remaining Phase 5 features unimplemented.
+
+---
+
 # 2026-10-18 | PREPARED SCOPED WORK-ORDER LOCATION LABELS (DETACHED)
 
 The next bounded Phase 5 candidate on provisional published `24897accd1242bbd85200335bfd6878be24998d0` adds current authorized property-name/unit-number labels to the GET work-order detail response and work-order page; fallback IDs remain. Label lookup occurs only after existing `_check_access`, and DB/E2E regressions cover correct labels and denied tenant/cross-org access. These are CURRENT inventory labels, not original historical snapshots. **DETACHED, NOT PUBLISHED OR VERIFIED.** First require all six hosted CI jobs SUCCESS at live `24897accd1242bbd85200335bfd6878be24998d0` (CI `39198752993`), confirm exact branch HEAD, then guarded force=false expected-SHA publication, successor six-job verification and correction of failures. No main, new branch or Zargul modifications. Phase 5 remains broader and unfinished.

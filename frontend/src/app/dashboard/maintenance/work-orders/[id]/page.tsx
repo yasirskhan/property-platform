@@ -48,6 +48,7 @@ export default function WorkOrderDetailPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [cancelRequested, setCancelRequested] = useState(false);
 
   const reload = useCallback(async () => {
     if (!Number.isSafeInteger(orderId) || orderId <= 0) {
@@ -149,7 +150,7 @@ export default function WorkOrderDetailPage() {
     }
   }
 
-  async function advanceStatus(action: "acknowledge" | "start" | "complete" | "close") {
+  async function advanceStatus(action: "acknowledge" | "start" | "complete" | "close" | "cancel") {
     if (!order || saving) return;
     setSaving(true);
     setError("");
@@ -164,6 +165,7 @@ export default function WorkOrderDetailPage() {
         start: "in_progress",
         complete: "completed",
         close: "closed",
+        cancel: "cancelled",
       }[action];
       if (!persisted || persisted.id !== order.id || persisted.status !== expected)
         throw new Error("Unexpected saved work order response.");
@@ -176,8 +178,10 @@ export default function WorkOrderDetailPage() {
         updated_at: persisted.updated_at,
       } : previous);
       if (action === "complete") setCompletionNotes("");
+      if (action === "cancel") setCancelRequested(false);
       setNotice("Work order " + (action === "acknowledge" ? "acknowledged" :
-        action === "start" ? "started" : action === "complete" ? "completed" : "closed") + ".");
+        action === "start" ? "started" : action === "complete" ? "completed" :
+        action === "cancel" ? "cancelled" : "closed") + ".");
       // Fetch the authoritative activity log opportunistically, never as a
       // prerequisite for reporting that the status change was persisted.
       try {
@@ -307,6 +311,29 @@ export default function WorkOrderDetailPage() {
                 && order.status === "completed" && (
                   <button disabled={saving} onClick={() => void advanceStatus("close")}
                     className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50">Approve and close</button>
+                )}
+              {["ADMIN", "OWNER", "MANAGER"].includes(String(viewer?.role || "").toUpperCase())
+                && !["closed", "cancelled"].includes(order.status) && (
+                  cancelRequested ? (
+                    <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
+                      <p>Cancel this work order? The cancellation will be recorded in its audit history.</p>
+                      <div className="mt-2 flex gap-2">
+                        <button disabled={saving} onClick={() => void advanceStatus("cancel")}
+                          className="rounded-lg bg-slate-900 px-3 py-2 text-white disabled:opacity-50">
+                          Confirm cancellation
+                        </button>
+                        <button disabled={saving} onClick={() => setCancelRequested(false)}
+                          className="rounded-lg border bg-white px-3 py-2 disabled:opacity-50">
+                          Keep work order
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button disabled={saving} onClick={() => setCancelRequested(true)}
+                      className="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm text-red-800 disabled:opacity-50">
+                      Cancel work order
+                    </button>
+                  )
                 )}
               {!(["ADMIN", "OWNER", "MANAGER"].includes(String(viewer?.role || "").toUpperCase())
                 && (order.status === "submitted" || order.status === "completed"))

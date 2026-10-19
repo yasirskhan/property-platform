@@ -383,3 +383,14 @@ responses. Names reflect current inventory, not immutable historical snapshots.
 Database tests check labels and cross-org/tenant denial; the signed-in browser
 regression expects the seeded property/unit names. No schema migration,
 financial mutation or new access role.
+
+## Explicit work-order cancellation review (prepared; CI required)
+
+The manager/admin/owner work-order detail screen now exposes the existing
+backend-validated cancel action only for nonterminal work orders. A two-step
+in-page confirmation prevents accidental cancellation; declining confirmation
+has no side effect. Successful POST updates current state from the server and
+survives a later detail GET outage. Existing backend status/role validation
+and append-only audit record are unchanged. Database tests check authorization,
+terminal state and audit idempotence; the authenticated browser test exercises
+both keep and confirm paths on a disposable work order. No new right is granted.
