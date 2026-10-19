@@ -113,6 +113,48 @@ def test_inspection_only_explicit_rows_audited_no_gl_writes(monkeypatch):
         db.close(); engine.dispose()
 
 
+def test_inspection_parent_binding_and_full_findings_are_audited(monkeypatch):
+    db, engine = _session()
+    try:
+        admin, manager, tenant, foreign_admin, first, hidden, foreign, first_unit, hidden_unit, foreign_unit = _seed(db)
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **k: True)
+        saved = inspection_router.create_inspection(
+            _input(first_unit, findings="Observed actual water damage"),
+            Response(), db=db, current_user=admin,
+        )
+        import json
+        audit = db.query(AuditLog).filter_by(
+            entity_type="unit_inspection_record", entity_id=saved.id, action="created",
+        ).one()
+        assert json.loads(audit.new_value)["findings"] == "Observed actual water damage"
+
+        # Simulate a corrupted parent pointer: the persisted organization is
+        # correct but the claimed property does not match the actual unit.
+        row = db.query(UnitInspectionRecord).filter_by(id=saved.id).one()
+        row.property_id = hidden.id
+        db.commit()
+        assert inspection_router.get_inspections(
+            Response(), property_id=None, unit_id=None,
+            db=db, current_user=admin,
+        ) == []
+        assert _payload(db, admin).rows == ()
+
+        # Reinstating the real unit's property recovers historical evidence.
+        row.property_id = first.id
+        db.commit()
+        assert [item.id for item in inspection_router.get_inspections(
+            Response(), property_id=None, unit_id=None,
+            db=db, current_user=admin,
+        )] == [saved.id]
+        assert len(_payload(db, admin).rows) == 1
+        assert db.query(AuditLog).filter_by(
+            entity_type="unit_inspection_record", entity_id=saved.id,
+        ).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_scope_foreign_unit_assignment_role_revocation(monkeypatch):
     db, engine = _session()
     try:
