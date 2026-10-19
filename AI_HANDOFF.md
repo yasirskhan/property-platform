@@ -1,3 +1,15 @@
+# 2026-10-18 | PHASE 5 E2E INSPECTION UNIT LABEL STRICT-MODE REPAIR (PUBLISHED, CI REQUIRED)
+
+Previous published Phase 5 batch `2bdeebe558583d3abb6650be053e94d417d35e27` FAILED hosted Actions `39188922266` in E2E ONLY (24 passed, 1 failed). Backend/PostgreSQL, frontend, platform-admin, security, staging all passed. Exact failure: `test_staff_records_inspection_without_invented_mobile_workflow` used `get_by_label("Inspection unit")`, which matched BOTH the new `Search inspection units` textbox and the actual `Inspection unit` select after the new search capability landed. This is Playwright strict-mode ambiguity, not a justification to remove the real search or weaken UI assertions.
+
+**Repair published** as `38580b57091ef5b416c1e076a6facf39f330d635`: the test uses `get_by_label("Inspection unit", exact=True)` before selecting seeded unit 900001. The sign-in, unit-search, server-backed selection, submission and saved-inspection assertions remain intact. Require ALL SIX CI jobs at the new live HEAD including this handoff update; do not mark VERIFIED early. If red, repair and repeat.
+
+**Prepared later candidate (DETACHED; NOT safe to direct fast-forward after repair):** `c71cb364a789673617614aa47016798f4ec429a3`, readable property/unit labels in inspection history plus handoff. This was based on failed SHA `2bdeebe...` and diverges after the repair. Reconcile/recreate those exact changes onto the newly verified repair parent with a fresh non-force expected-SHA branch update; do NOT overwrite this E2E fix, do not force or create branches. Require successor six-job CI.
+
+Only `yasirskhan/property-platform` branch `chatgpt/checkpoint-005-safety`. Never touch main, another branch, or the Zargul repository. Full Phase 5 and OWNER cross-module scoping still open; canonical Inspections navigation gate must stay blocked until feature-ready.
+
+---
+
 # 2026-10-18 | NEXT PREPARED STAFF INSPECTION & STAFF ACCESS SECURITY BATCH (CI REQUIRED)
 
 **Last verified:** `ca126c3ba4325d5055aa203ab953ea38579dbc2f`, all six hosted jobs PASS in `39185487547`.
