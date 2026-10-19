@@ -216,3 +216,11 @@ previous unit selection, and displays lookup errors separately from historical
 inspection reads. The inspection POST retains the server-side role/property/
 active-inventory authorization and append-only audit. Authenticated E2E covers
 a successful searched-unit recording. This is not a full inspection module.
+
+## Maintenance intake unit-picker manager revocation (prepared)
+
+The shared unit picker used for both maintenance requests and staff unit search
+must require an active, **non-soft-deleted** manager PropertyAssignment.
+Regression covers a stale active flag with deleted_at set: the manager can no
+longer enumerate the unit, while organization ADMIN access is unchanged.
+This is a scoped access repair, not a change to inspection history authority.

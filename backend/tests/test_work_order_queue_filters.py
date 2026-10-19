@@ -562,3 +562,31 @@ def test_inactive_or_deleted_unit_never_enters_new_request_picker():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_soft_deleted_manager_assignment_cannot_select_request_units():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, manager = actors[:2]
+        property_id = properties[0].id
+        unit_id = orders[0].unit_id
+
+        def picker(user):
+            return requestable_work_order_units(
+                search=None, limit=50, offset=0, db=db, current_user=user,
+            )
+
+        assert unit_id in {row["id"] for row in picker(manager)}
+        assignment = db.query(PropertyAssignment).filter_by(
+            property_id=property_id, user_id=manager.id,
+        ).one()
+        assignment.deleted_at = datetime(2026, 10, 18, 12)
+        db.commit()
+
+        # An assignment whose access has been deleted is not authority
+        # even if a stale is_active flag remains True.
+        assert unit_id not in {row["id"] for row in picker(manager)}
+        assert unit_id in {row["id"] for row in picker(admin)}
+    finally:
+        db.close()
+        engine.dispose()

@@ -379,7 +379,8 @@ def requestable_work_order_units(
     elif current_user.role == UserRole.MANAGER:
         query = query.join(PropertyAssignment, PropertyAssignment.property_id == Property.id).filter(
             PropertyAssignment.user_id == current_user.id,
-            PropertyAssignment.is_active.is_(True))
+            PropertyAssignment.is_active.is_(True),
+            PropertyAssignment.deleted_at.is_(None))
     elif current_user.role not in (UserRole.ADMIN, UserRole.OWNER):
         return []
     if search:
