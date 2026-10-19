@@ -1,3 +1,11 @@
+# 2026-10-19 | EMERGENCY TRIAGE E2E REPAIR — COMPLETE / VERIFIED
+
+**Exact published SHA:** `c03af694b973afbef93a6e2abc2dbdb85eab4a49`. **GitHub Actions:** `39257636226`, SUCCESS: backend/PostgreSQL, frontend, platform-admin, security, authenticated E2E and staging-config all PASS. This exact source includes the unique-link anchored containing-card locator repair committed at `27eca3b19f040ae967011fcd68f01c01577c2af2` and the subsequent handoff update. Prior repair-only CI `39257553856` was CANCELLED by newer handoff CI; six-job SUCCESS belongs specifically to `c03af694b973afbef93a6e2abc2dbdb85eab4a49`. Test still verifies the correct link, its card's exact property/unit label, navigation and detail heading. The previously failed E2E regression is closed. This does NOT close Phase 5 or grant readiness to recurrence, dispatch, inspections, inventory or finance.
+
+**Next implementation gate:** begin Phase 5 recurring/preventive maintenance only after reviewing current model, work-order creation, audit and migration contracts and specifying distinct requester versus tenant and system-generated attribution. Do not treat WorkOrder.tenant_id as a safe automation user identity. Continue bounded development and exact-SHA CI cycles. Never modify main, create branches, force-push or touch Zargul.
+
+---
+
 # 2026-10-19 | EMERGENCY TRIAGE LINKED-CARD E2E LOCATOR REPAIR — PROVISIONAL
 
 **Live published repair:** `27eca3b19f040ae967011fcd68f01c01577c2af2` on the ONLY permitted branch `chatgpt/checkpoint-005-safety`. Exact hosted CI `39257553856` is IN_PROGRESS as checked; do NOT call it verified unless all six jobs pass. This corrects only `backend/tests/e2e/test_work_order_detail_e2e.py` after earlier run `39249433804` failed E2E while backend, frontend, security, platform-admin and staging passed. The visible unique work-order link is resolved to its `li → div → a` containing card with `link.locator("xpath=../..")`, then the exact property/unit text is asserted within that card; link visibility and destination work-order identity assertions remain. No business rule, auth, test scope, or feature gate was weakened. No local Playwright execution was claimed.
