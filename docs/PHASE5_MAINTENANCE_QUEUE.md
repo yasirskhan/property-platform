@@ -372,3 +372,14 @@ is_active=True, which would create an inconsistent visible state while the
 login and JWT access cutoff correctly continue to reject the account. The
 profile edit returns HTTP 409 and leaves active state/audit untouched; actual
 undelete, if ever supported, needs its own owner-approved audited workflow.
+
+## Scoped work-order property and unit display labels (prepared; CI required)
+
+The existing authorized GET work-order detail response now carries optional
+current property name and unit number derived from the work order's actual
+Unit-to-Property relationship only after _check_access succeeds. The detail
+page displays those readable labels, retaining stable-ID fallbacks for old
+responses. Names reflect current inventory, not immutable historical snapshots.
+Database tests check labels and cross-org/tenant denial; the signed-in browser
+regression expects the seeded property/unit names. No schema migration,
+financial mutation or new access role.

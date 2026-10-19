@@ -1,3 +1,9 @@
+# 2026-10-18 | PREPARED SCOPED WORK-ORDER LOCATION LABELS (DETACHED)
+
+The next bounded Phase 5 candidate on provisional published `24897accd1242bbd85200335bfd6878be24998d0` adds current authorized property-name/unit-number labels to the GET work-order detail response and work-order page; fallback IDs remain. Label lookup occurs only after existing `_check_access`, and DB/E2E regressions cover correct labels and denied tenant/cross-org access. These are CURRENT inventory labels, not original historical snapshots. **DETACHED, NOT PUBLISHED OR VERIFIED.** First require all six hosted CI jobs SUCCESS at live `24897accd1242bbd85200335bfd6878be24998d0` (CI `39198752993`), confirm exact branch HEAD, then guarded force=false expected-SHA publication, successor six-job verification and correction of failures. No main, new branch or Zargul modifications. Phase 5 remains broader and unfinished.
+
+---
+
 # 2026-10-18 | PREPARED SOFT-DELETED ACCOUNT RESTORE GUARD (DETACHED)
 
 A final small integrity guard in the prepared customer-auth cutoff bundle: existing staff profile PATCH cannot set is_active=True for a user who retains deleted_at; this is an inconsistent pseudo-revival because login/JWT still reject deleted users. Return HTTP 409 with no active mutation/audit, with disposable regression. The new credential revocation controls still fail closed. This candidate is **NOT PUBLISHED OR VERIFIED**, descendant of `2952e50e38db05817072f92f6b6d7ded6fad084b`. Require all-six exact-SHA parent CI `39197174338` at live `128567315621c165759cd1127f2d397f04d0b65e` then safe nonforce expected-head fast-forward and successor six-job CI before closeout. No main/new branch/Zargul touched.

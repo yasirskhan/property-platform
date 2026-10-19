@@ -12,7 +12,7 @@ from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
 from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
-from app.routers.work_orders import (list_work_orders, work_order_queue_summary, _user_can_access_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
+from app.routers.work_orders import (list_work_orders, work_order_queue_summary, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
 from app.models.audit_log import AuditLog
 from app.routers.properties import check_property_access, visible_properties_query
 from app.routers.users import assign_user_to_property, list_assignments, remove_assignment, update_user, deactivate_user
@@ -894,6 +894,29 @@ def test_malformed_customer_jwt_or_two_factor_subject_is_unauthorized_not_server
                 request=None, db=db,
             )
         assert mfa_invalid.value.status_code == 401
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_work_order_detail_location_labels_respect_existing_scope():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other_tenant, crew, external_admin = actors
+        own_order = orders[0]
+        detail = get_work_order(own_order.id, db=db, current_user=admin)
+        assert detail.id == own_order.id
+        assert detail.property_name == "Assigned Property"
+        assert detail.unit_number == "A1"
+        assert isinstance(detail.updates, list)
+
+        # Labels cannot be requested by a caller denied work-order detail.
+        with pytest.raises(HTTPException) as denied:
+            get_work_order(own_order.id, db=db, current_user=external_admin)
+        assert denied.value.status_code == 403
+        with pytest.raises(HTTPException) as tenant_denied:
+            get_work_order(own_order.id, db=db, current_user=other_tenant)
+        assert tenant_denied.value.status_code == 403
     finally:
         db.close()
         engine.dispose()

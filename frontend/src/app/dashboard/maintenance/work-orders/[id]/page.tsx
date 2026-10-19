@@ -17,6 +17,8 @@ type WorkOrder = {
   id: number;
   property_id: number;
   unit_id: number;
+  property_name?: string | null;
+  unit_number?: string | null;
   title: string;
   description: string;
   category: string;
@@ -238,7 +240,9 @@ export default function WorkOrderDetailPage() {
               <span className="rounded-full bg-slate-100 px-3 py-1">{order.status.replaceAll("_", " ")}</span>
               <span className="rounded-full bg-slate-100 px-3 py-1">{order.priority} priority</span>
               <span className="rounded-full bg-slate-100 px-3 py-1">{order.category}</span>
-              <span className="rounded-full bg-slate-100 px-3 py-1">Property #{order.property_id} · Unit #{order.unit_id}</span>
+              <span className="rounded-full bg-slate-100 px-3 py-1">
+                {order.property_name || `Property #${order.property_id}`} · {order.unit_number ? `Unit ${order.unit_number}` : `Unit #${order.unit_id}`}
+              </span>
             </div>
             <p className="mt-4 whitespace-pre-wrap text-sm text-slate-800">{order.description}</p>
             <p className="mt-4 text-xs text-slate-500">Submitted {new Date(order.created_at).toLocaleString()}</p>

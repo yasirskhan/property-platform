@@ -132,6 +132,9 @@ class WorkOrderUpdateOut(BaseModel):
 # WORK ORDER — WITH UPDATES (nested output)
 # ============================================================
 class WorkOrderDetail(WorkOrderOut):
+    # Current inventory labels, not immutable historical snapshots.
+    property_name: Optional[str] = None
+    unit_number: Optional[str] = None
     updates: List[WorkOrderUpdateOut] = []
 
 

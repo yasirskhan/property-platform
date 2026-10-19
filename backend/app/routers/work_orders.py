@@ -516,7 +516,14 @@ def get_work_order(
     if not wo:
         raise HTTPException(status_code=404, detail="Work order not found")
     _check_access(db, current_user, wo)
-    return wo
+    # Never resolve labels for a work order the caller cannot read.
+    prop = _get_property_for_work_order(db, wo)
+    unit = db.query(Unit).filter(Unit.id == wo.unit_id).first()
+    detail = WorkOrderDetail.model_validate(wo)
+    return detail.model_copy(update={
+        "property_name": prop.name,
+        "unit_number": unit.unit_number if unit is not None else None,
+    })
 
 
 # ------------------------------------------------------------
