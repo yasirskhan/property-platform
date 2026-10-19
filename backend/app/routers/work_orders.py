@@ -624,6 +624,18 @@ def get_work_order(
     prop = _get_property_for_work_order(db, wo)
     unit = db.query(Unit).filter(Unit.id == wo.unit_id).first()
     detail = WorkOrderDetail.model_validate(wo)
+    source_inspection_id = None
+    if wo.source_inspection_id is not None and current_user.role in (
+        UserRole.ADMIN, UserRole.MANAGER,
+    ):
+        try:
+            inspection = get_authorized_inspection(
+                db, actor=current_user, inspection_id=wo.source_inspection_id,
+            )
+            if inspection.property_id == prop.id and inspection.unit_id == wo.unit_id:
+                source_inspection_id = wo.source_inspection_id
+        except ReportDeliveryError:
+            pass  # Do not reveal an inspection that is outside this viewer's scope.
     creation_audits = db.query(AuditLog).filter(
         AuditLog.organization_id == prop.organization_id,
         AuditLog.entity_type == "work_order",
@@ -657,6 +669,7 @@ def get_work_order(
         "unit_number": unit.unit_number if unit is not None else None,
         "request_origin": request_origin,
         "requested_by_user_id": requested_by_user_id,
+        "source_inspection_id": source_inspection_id,
         "updates": [
             row.model_copy(update={"actor_name": actor_names.get(row.user_id)})
             for row in detail.updates

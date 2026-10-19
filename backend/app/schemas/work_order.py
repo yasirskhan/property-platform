@@ -93,7 +93,6 @@ class WorkOrderOut(BaseModel):
     tenant_id: int
     # Optional for old imported/historical rows; never silently substitute tenant_id.
     requested_by_user_id: Optional[int] = None
-    source_inspection_id: Optional[int] = None
     property_id: int
     property_name: Optional[str] = None
     unit_number: Optional[str] = None
@@ -146,6 +145,8 @@ class WorkOrderUpdateOut(BaseModel):
 # WORK ORDER — WITH UPDATES (nested output)
 # ============================================================
 class WorkOrderDetail(WorkOrderOut):
+    # Only resolved for authorized inspection viewers. Suppressed for crew/tenants/owners.
+    source_inspection_id: Optional[int] = None
     # Legacy ORM rows may have NULL until authorized provenance resolution.
     request_origin: Optional[str] = None
     requested_by_user_id: Optional[int] = None
