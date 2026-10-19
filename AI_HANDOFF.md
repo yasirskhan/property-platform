@@ -1,19 +1,22 @@
-# 2026-10-18 | PHASE 5 INACTIVE UNIT/PROPERTY INTAKE (CI PENDING)
+# 2026-10-18 | INACTIVE MAINTENANCE INTAKE VERIFIED; STAFF INSPECTIONS CI PENDING
 
-**Verified predecessor:** `19d065146abc1f149b9043afa6ed8e989015c420`, GitHub Actions
-`39178839179` **SUCCESS all six jobs** (backend, frontend, platform-admin,
-security, authenticated E2E and staging-config). This independently confirms
-both earlier E2E readiness/alert-selector fixes before this publication.
+**VERIFIED:** GitHub Actions `39181939149` passed ALL SIX hosted jobs on exact
+published SHA `ac8f312847b1e59c5b2d24af2989b6f1a4bf7abd`: backend/PostgreSQL, frontend, platform-admin,
+security, authenticated E2E and staging-config. This verifies that inactive or
+soft-deleted Units AND Properties cannot appear in the new maintenance-request
+picker or be accepted by POST; all four combinations have regression tests.
+Both earlier Playwright shell-readiness and alert-selector repairs remain intact.
 
-This successor rebases the prepared inactive/deleted-unit intake protection
-onto the verified predecessor WITHOUT importing divergent detached commit
-ancestry. The actual POST submission rejects inactive/soft-deleted Units and
-Properties. The request-unit picker excludes them. Database regression covers
-all four states for both listing and submission. Existing history is preserved.
-Do not call this successor VERIFIED until all six hosted CI jobs pass for its
-exact new SHA. Inspection-record UI is the next separate bounded batch, and
-the OWNER cross-property authorization review remains open. Sole branch
-`chatgpt/checkpoint-005-safety`; no main/other branch/force/Zargul changes.
+**Current newly published successor (requires its own six-job CI):** a limited
+staff-recorded inspection interface at
+`/dashboard/maintenance/inspections` for authorized ADMIN/MANAGER users,
+using the existing audited and property-scoped `/api/unit-inspections` API.
+Includes an authenticated browser creation test with login-shell readiness.
+The full `MAINTENANCE.INSPECTIONS` sidebar gate remains BLOCKED; photo,
+checklist, mobile/offline and automated inspection workflows are NOT complete.
+Continue the next Phase 5 batch only after this successor exact-SHA CI green;
+fix any failure without bypassing six-job proof. Multi-owner OWNER isolation
+remains an OPEN cross-module security review. No main/new branch/force/Zargul.
 
 ---
 

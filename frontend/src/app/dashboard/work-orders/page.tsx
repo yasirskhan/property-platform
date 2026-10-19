@@ -32,6 +32,7 @@ export default function WorkOrderQueuePage() {
   const [reload, setReload] = useState(0);
   const [rows, setRows] = useState<WorkOrder[]>([]);
   const [canCreate, setCanCreate] = useState(false);
+  const [canInspect, setCanInspect] = useState(false);
   const [summary, setSummary] = useState<QueueSummary | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
@@ -80,6 +81,7 @@ export default function WorkOrderQueuePage() {
       if (active) setCanCreate(
         ["ADMIN", "OWNER", "MANAGER", "TENANT"].includes(String(viewer.role).toUpperCase())
       );
+      if (active) setCanInspect(["ADMIN", "MANAGER"].includes(String(viewer.role).toUpperCase()));
     }).catch(() => { if (active) setCanCreate(false); });
     return () => { active = false; };
   }, []);
@@ -123,6 +125,12 @@ export default function WorkOrderQueuePage() {
             <Link href="/dashboard/maintenance/work-orders/new"
               className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white">
               New maintenance request
+            </Link>
+          )}
+          {canInspect && (
+            <Link href="/dashboard/maintenance/inspections"
+              className="rounded-lg border bg-white px-4 py-2 text-sm">
+              Staff inspection records
             </Link>
           )}
           <Link href="/dashboard" className="rounded-lg border bg-white px-4 py-2 text-sm">Dashboard</Link>

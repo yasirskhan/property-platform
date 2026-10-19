@@ -165,10 +165,20 @@ The feature does not block intake or decide whether an order is a duplicate.
 Automated tests include different roles, cross-organization restrictions,
 literal wildcard handling and an authenticated browser lookup.
 
-## Inactive/deleted unit and property intake safeguards (provisional)
+## Inactive/deleted unit and property intake safeguards (VERIFIED)
 
 New maintenance requests fail closed for units or their parent properties when
 inactive or soft-deleted. The picker also excludes all four unavailable states.
 Existing maintenance and inspection history is unchanged. Regression tests
 exercise the picker and the server-side submit guard for each state.
-This milestone requires a six-job exact-SHA hosted CI success before VERIFIED.
+Verified at `ac8f312847b1e59c5b2d24af2989b6f1a4bf7abd`, hosted run `39181939149` (all six jobs PASS).
+
+## Limited staff inspection records (published; exact CI pending)
+
+ADMIN/MANAGER staff can record dated unit-condition evidence and findings in a
+small dedicated page linked from the Work Orders queue. The existing audited
+inspection API enforces reporting/unit permissions, active property scope and
+staff-only recording. Authenticated browser coverage waits for the signed-in
+shell and verifies creation and visible findings. Back navigation goes to the
+implemented Work Orders queue. Do not unhide the canonical full Inspections
+menu or claim mobile/offline/photos/checklists are complete.
