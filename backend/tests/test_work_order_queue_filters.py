@@ -277,6 +277,12 @@ def test_staff_origin_never_grants_tenant_visibility_even_with_tenant_id():
         # authenticated staff request into a tenant-owned record.
         assert not _user_can_access_work_order(db, tenant, row)
         assert all(item.id != row.id for item in _queue(db, tenant))
+        row.priority = WorkOrderPriority.EMERGENCY
+        db.commit()
+        assert row.id not in [item.id for item in emergency_work_order_triage(db=db, current_user=tenant)]
+        assert row.id not in [item.id for item in possible_duplicate_work_orders(
+            unit_id=row.unit_id, title="100% water", db=db, current_user=tenant,
+        )]
         with pytest.raises(HTTPException) as denied:
             get_work_order(row.id, db=db, current_user=tenant)
         assert denied.value.status_code == 403
