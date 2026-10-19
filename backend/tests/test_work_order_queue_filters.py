@@ -969,3 +969,28 @@ def test_explicit_work_order_cancel_is_audited_and_terminal():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_work_order_activity_actor_names_are_scoped_to_property_organization():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other_tenant, crew, foreign_admin = actors
+        wo = orders[0]
+        add_comment(wo.id, WorkOrderComment(message="Actual local comment"), db=db, current_user=admin)
+        foreign_row = WorkOrderUpdate(
+            work_order_id=wo.id, user_id=foreign_admin.id,
+            message="Historical cross-org actor ID deliberately malformed",
+        )
+        db.add(foreign_row)
+        db.commit()
+        detail = get_work_order(wo.id, db=db, current_user=admin)
+        local = next(x for x in detail.updates if x.message == "Actual local comment")
+        outside = next(x for x in detail.updates if x.id == foreign_row.id)
+        assert local.actor_name == "QueueAdmin Tester"
+        assert outside.actor_name is None
+        with pytest.raises(HTTPException) as denied:
+            get_work_order(wo.id, db=db, current_user=foreign_admin)
+        assert denied.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()

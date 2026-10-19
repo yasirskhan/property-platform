@@ -525,9 +525,21 @@ def get_work_order(
     prop = _get_property_for_work_order(db, wo)
     unit = db.query(Unit).filter(Unit.id == wo.unit_id).first()
     detail = WorkOrderDetail.model_validate(wo)
+    actor_ids = {row.user_id for row in detail.updates}
+    actors = (
+        db.query(User).filter(
+            User.id.in_(actor_ids),
+            User.organization_id == prop.organization_id,
+        ).all() if actor_ids else []
+    )
+    actor_names = {actor.id: f"{actor.first_name} {actor.last_name}".strip() for actor in actors}
     return detail.model_copy(update={
         "property_name": prop.name,
         "unit_number": unit.unit_number if unit is not None else None,
+        "updates": [
+            row.model_copy(update={"actor_name": actor_names.get(row.user_id)})
+            for row in detail.updates
+        ],
     })
 
 
@@ -840,4 +852,6 @@ def add_comment(
     )
     db.commit()
     db.refresh(entry)
-    return entry
+    return WorkOrderUpdateOut.model_validate(entry).model_copy(update={
+        "actor_name": f"{current_user.first_name} {current_user.last_name}".strip(),
+    })

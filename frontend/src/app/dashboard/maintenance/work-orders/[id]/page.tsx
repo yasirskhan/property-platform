@@ -8,6 +8,7 @@ import { apiGet, apiPost } from "@/lib/api";
 type WorkOrderUpdate = {
   id: number;
   user_id: number;
+  actor_name?: string | null;
   from_status: string | null;
   to_status: string | null;
   message: string | null;
@@ -364,7 +365,7 @@ export default function WorkOrderDetailPage() {
                 {order.updates.map((update) => (
                   <li key={update.id} className="rounded-lg border p-3">
                     <div className="flex flex-wrap justify-between gap-2 text-xs text-slate-500">
-                      <span>Staff/resident user #{update.user_id}</span>
+                      <span>{update.actor_name || `Staff/resident user #${update.user_id}`}</span>
                       <time>{new Date(update.created_at).toLocaleString()}</time>
                     </div>
                     {(update.from_status || update.to_status) && (

@@ -126,6 +126,7 @@ class WorkOrderUpdateOut(BaseModel):
     id: int
     work_order_id: int
     user_id: int
+    actor_name: Optional[str] = None
     from_status: Optional[WorkOrderStatus] = None
     to_status: Optional[WorkOrderStatus] = None
     message: Optional[str] = None

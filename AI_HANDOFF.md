@@ -1,3 +1,9 @@
+# 2026-10-18 | PREPARED SCOPED ACTOR LABELS FOR MAINTENANCE AUDIT HISTORY (DETACHED)
+
+New Phase 5 successor on cancellation-reason candidate `1e29de286585e594fdc495c3322f3d22900a14ca`: authorized work-order detail converts existing activity actor IDs to readable names only for users in the same organization as the actual property's organization. Other/missing actors retain numeric IDs; historical immutable audit is untouched. The successful comment POST also returns the current actor's name so immediate UI can render it during optional GET outages. DB regression inserts an inconsistent foreign-org activity actor and proves it cannot expose that actor's name or allow foreign order access. **NOT PUBLISHED / VERIFIED**. Await all six CI green at published ancestor `941d3ada4f89b70b997df27ff685530611043893` run `39200721153`; verify live exact HEAD and safely advance (force=false expected-SHA), then successor six-job CI. main/new branch/Zargul untouched, Phase 5 unfinished.
+
+---
+
 # 2026-10-18 | PREPARED EXPLICIT CANCEL REASON AND AUDIT EVIDENCE (DETACHED)
 
 Adds a reason field to the already prepared two-step work-order cancellation UI. The button requires five nonwhitespace chars; the existing backend route accepts an OPTIONAL WorkOrderCancel body for legacy no-body clients but validates supplied reason and includes it in append-only status transition audit and activity. E2E checks disabled confirm without reason and confirms reason clears on Keep; DB regression checks rejected blank reason, recorded audit reason, terminal rejection. **DETACHED, NOT PUBLISHED OR VERIFIED**. Parent `941d3ada4f89b70b997df27ff685530611043893` was published provisionally; require its exact six-job CI green and correct branch HEAD before force=false expected-SHA publication, then verify successor six CI jobs. No main/new branch/Zargul edits; Phase 5 remains incomplete.

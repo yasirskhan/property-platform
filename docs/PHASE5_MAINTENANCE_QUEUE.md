@@ -405,3 +405,14 @@ new_value and included in activity. Refused blank reasons cause no state or
 audit writes. Regression verifies the reason and legacy terminal behavior;
 authenticated E2E checks disabled action before a reason and cleared reason
 when confirmation is declined. No silent deletion, billing or auto-dispatch.
+
+## Scoped actor names on work-order history (prepared; CI required)
+
+The authorized work-order GET detail response now resolves human-readable actor
+names for status/activity entries from users in the same organization as the
+actual Unit-to-Property relationship only. Foreign-org/missing actor IDs retain
+plain numeric fallback without leaking another organization's profile. Existing
+comment POST returns its saved actor name immediately for the durable no-refresh
+UI path. A disposable regression inserts an intentionally malformed foreign
+actor record and verifies that its name remains hidden. No PII is added to the
+append-only audit table and historical actor IDs remain stable.
