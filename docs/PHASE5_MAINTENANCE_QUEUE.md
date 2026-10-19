@@ -475,3 +475,15 @@ the bounded authorized emergency triage region, confirms the seeded property
 and unit labels, and navigates into the existing scoped work-order detail.
 This complements the database role and terminal-status tests without using
 mock UI data or weakening other smoke coverage.
+
+## Recurring/preventive work-order foundation blocker (explicitly OPEN)
+
+Do not start automatic recurring generation using the legacy tenant_id field:
+WorkOrder.tenant_id is NOT NULL and current staff-originated submissions set it
+to the staff submitter's user ID, which is not necessarily a tenant. Automated
+preventive work has no tenant. Before implementing recurrence, design and test
+separate immutable submitter/tenant attribution (including legacy API, activity,
+assignment, finance/reporting and migration compatibility), then persistent
+schedule IDs, idempotent occurrence keys, customer-approved execution policy,
+and lifecycle/audit transactions. Do not invent a fake tenant or silently
+reinterpret tenant_id, and do not claim Phase 5 recurrence is implemented.

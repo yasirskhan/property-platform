@@ -1,3 +1,9 @@
+# 2026-10-19 | RECURRING MAINTENANCE ATTRIBUTION DESIGN GATE (OPEN)
+
+Code review found `WorkOrder.tenant_id` remains NOT NULL while staff-submitted orders currently use the staff submitter ID as tenant_id. Do not generate scheduled/preventive orders by inventing a tenant or reusing a staff ID as a tenant identity. Recurrence needs a controlled schema/API compatibility design to separate requester, tenant association and automation actor, then schedule/occurrence idempotency and migration/finance checks. This is an explicit upcoming Phase 5 backlog blocker, not a claim of an implemented recurrence engine. This documentation candidate is detached on `cd9fca0329b128bf4853a2cf1a5c85fa87868245`; first verify six-job CI `39241105952` at live `4ea6a65a5d45faa1797a08e288365633ac6ed259`, then force=false exact expected-head promotion and fresh CI for the emergency-triage candidate. No main, new branch, Zargul modifications.
+
+---
+
 # 2026-10-19 | DETACHED AUTHENTICATED EMERGENCY TRIAGE LINK REGRESSION
 
 Adds a standalone signed-in Playwright regression to prepared emergency triage: create disposable emergency work order on seeded property via authenticated API, confirm exact visible triage card ID, property/unit location and working detail navigation. No test mocked API data. This candidate is DETACHED, NOT PUBLISHED OR VERIFIED. Its parent is `cda51b28e4025dc3e332b980f4d4a3d26cc78da2`. Only publish after 6/6 CI SUCCESS at current live `4ea6a65a5d45faa1797a08e288365633ac6ed259`, GitHub run `39241105952`, with CAS expected-SHA nonforce fast-forward and then full successor six-job CI. Keep main/Zargul untouched; broader Smart Maintenance remains open.
