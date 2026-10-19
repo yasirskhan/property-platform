@@ -56,6 +56,13 @@ def test_fresh_database_bootstrap_creates_current_schema_and_stamps_head(
         columns = {row[1]: row for row in conn.execute("PRAGMA table_info(work_orders)")}
         assert "request_origin" in columns
         assert "requested_by_user_id" in columns
+        assert "source_inspection_id" in columns
+        assert columns["source_inspection_id"][3] == 0
+        assert any(
+            row[3] == "source_inspection_id"
+            and row[2] == "unit_inspection_records"
+            for row in conn.execute("PRAGMA foreign_key_list(work_orders)")
+        )
         assert columns["request_origin"][3] == 0
         assert columns["requested_by_user_id"][3] == 0
     finally:
