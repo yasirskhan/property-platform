@@ -45,6 +45,13 @@ def test_postgres_fresh_bootstrap_when_ci_database_is_available() -> None:
         tables = set(inspect(engine).get_table_names())
         assert "alembic_version" in tables
         assert len(tables - {"alembic_version"}) == EXPECTED_MODEL_TABLES
+        source_fks = inspect(engine).get_foreign_keys("work_orders")
+        assert any(
+            fk["referred_table"] == "unit_inspection_records"
+            and fk["constrained_columns"] == ["source_inspection_id"]
+            for fk in source_fks
+        ), "The source inspection link must have an enforced PostgreSQL FK"
+
         with engine.connect() as conn:
             version = conn.execute(
                 text("SELECT version_num FROM alembic_version")
