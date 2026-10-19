@@ -37,6 +37,7 @@ export default function WorkOrderQueuePage() {
   const [canInspect, setCanInspect] = useState(false);
   const [summary, setSummary] = useState<QueueSummary | null>(null);
   const [triage, setTriage] = useState<WorkOrder[] | null>(null);
+  const [triageLoading, setTriageLoading] = useState(true);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
 
@@ -81,12 +82,14 @@ export default function WorkOrderQueuePage() {
   useEffect(() => {
     let active = true;
     setTriage(null);
+    setTriageLoading(true);
     apiGet("/work-orders/triage")
       .then((items: WorkOrder[]) => {
         if (!Array.isArray(items)) throw new Error("Unexpected triage response.");
         if (active) setTriage(items);
       })
-      .catch(() => { if (active) setTriage(null); });
+      .catch(() => { if (active) setTriage(null); })
+      .finally(() => { if (active) setTriageLoading(false); });
     return () => { active = false; };
   }, [reload]);
 
@@ -176,7 +179,9 @@ export default function WorkOrderQueuePage() {
           Up to 20 open emergency requests you are authorized to view. Unacknowledged requests appear first,
           then oldest first. This view does not automatically dispatch staff or replace emergency services.
         </p>
-        {triage === null ? (
+        {triageLoading ? (
+          <p className="mt-3 text-sm text-slate-500">Loading visible emergency requests…</p>
+        ) : triage === null ? (
           <p className="mt-3 text-sm text-slate-500">Emergency triage unavailable.</p>
         ) : triage.length === 0 ? (
           <p className="mt-3 text-sm text-slate-500">No visible open emergency requests.</p>
