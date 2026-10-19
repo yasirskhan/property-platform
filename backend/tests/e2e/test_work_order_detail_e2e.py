@@ -67,23 +67,26 @@ def test_authenticated_work_order_detail_and_comment_history() -> None:
                 page.get_by_role("heading", name="Work order #" + str(work_order_id) + ": E2E maintenance activity")
             ).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_role("heading", name="Recorded activity")).to_be_visible()
-            pw.expect(page.get_by_role("button", name="Acknowledge", exact=True)).to_be_visible()
-            page.get_by_role("button", name="Acknowledge", exact=True).click()
-            pw.expect(page.get_by_text("Work order acknowledged.", exact=True)).to_be_visible(timeout=15_000)
-            pw.expect(page.get_by_role("button", name="Assign crew", exact=True)).to_be_visible()
-            crew_options = page.get_by_label("Assigned crew member", exact=True).locator("option")
-            pw.expect(crew_options).to_have_count(1 + len(eligible), timeout=15_000)
-            assert {int(value) for value in crew_options.evaluate_all(
-                "(nodes) => nodes.map(node => node.value).filter(Boolean)"
-            )} == set(eligible)
-            # A failed detail-refresh must not make an audited, successful
-            # comment POST look like a failed save or remove the open detail.
+            # A committed state change must remain successful even when a
+            # follow-up detail GET fails (same guarantee as comments).
             def block_detail_get(route):
                 if route.request.method == "GET":
                     route.fulfill(status=503, body="Refresh temporarily unavailable")
                 else:
                     route.continue_()
             page.route(re.compile(r"/work-orders/" + str(work_order_id) + r"$"), block_detail_get)
+            pw.expect(page.get_by_role("button", name="Acknowledge", exact=True)).to_be_visible()
+            page.get_by_role("button", name="Acknowledge", exact=True).click()
+            pw.expect(page.get_by_text("Work order acknowledged.", exact=True)).to_be_visible(timeout=15_000)
+            pw.expect(page.get_by_text("acknowledged", exact=True)).to_be_visible(timeout=15_000)
+            pw.expect(page.get_by_role("button", name="Assign crew", exact=True)).to_be_visible()
+            crew_options = page.get_by_label("Assigned crew member", exact=True).locator("option")
+            pw.expect(crew_options).to_have_count(1 + len(eligible), timeout=15_000)
+            assert {int(value) for value in crew_options.evaluate_all(
+                "(nodes) => nodes.map(node => node.value).filter(Boolean)"
+            )} == set(eligible)
+            # The same read outage must not make the subsequent comment POST
+            # look like a failed save or remove the open detail.
             page.get_by_label("Work order activity note").fill("E2E follow-up activity note")
             page.get_by_role("button", name="Save activity note").click()
             pw.expect(

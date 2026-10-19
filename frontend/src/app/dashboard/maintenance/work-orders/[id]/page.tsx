@@ -142,11 +142,34 @@ export default function WorkOrderDetailPage() {
       const data = action === "complete"
         ? { resolution_notes: completionNotes.trim() || null }
         : undefined;
-      await apiPost("/work-orders/" + order.id + "/" + action, data);
+      const persisted = await apiPost("/work-orders/" + order.id + "/" + action, data) as WorkOrder;
+      const expected = {
+        acknowledge: "acknowledged",
+        start: "in_progress",
+        complete: "completed",
+        close: "closed",
+      }[action];
+      if (!persisted || persisted.id !== order.id || persisted.status !== expected)
+        throw new Error("Unexpected saved work order response.");
+      // The successful POST is authoritative. A later GET outage cannot
+      // reverse that status or incorrectly suggest the transition failed.
+      setOrder((previous) => previous ? {
+        ...previous, status: persisted.status,
+        assigned_to_id: persisted.assigned_to_id,
+        resolution_notes: persisted.resolution_notes,
+        updated_at: persisted.updated_at,
+      } : previous);
       if (action === "complete") setCompletionNotes("");
-      await reload();
       setNotice("Work order " + (action === "acknowledge" ? "acknowledged" :
         action === "start" ? "started" : action === "complete" ? "completed" : "closed") + ".");
+      // Fetch the authoritative activity log opportunistically, never as a
+      // prerequisite for reporting that the status change was persisted.
+      try {
+        const fresh = await apiGet("/work-orders/" + order.id) as WorkOrder;
+        if (fresh.id === order.id && Array.isArray(fresh.updates)) setOrder(fresh);
+      } catch {
+        // The latest known status and success notice remain visible.
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to update the work order.");
     } finally {

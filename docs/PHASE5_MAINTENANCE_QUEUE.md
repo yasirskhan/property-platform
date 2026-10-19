@@ -314,3 +314,13 @@ property/user/role, and before/after active state. Idempotent repeated assign or
 revoke does not create a spurious event; cross-organization denial creates no
 audit or mutation. Regression checks this full lifecycle and append-only row
 content on a disposable database. Audit logs are not silently deleted.
+
+## Durable lifecycle status after read outage (prepared; CI required)
+
+The work-order detail page now accepts the persisted status transition POST
+response as authoritative. A follow-up GET refresh is optional; a read outage
+does not clear the work-order detail or display a false failed transition. The
+actual backend state machine and append-only audit remain authoritative. The
+authenticated browser test simulates HTTP 503 on detail GET after acknowledge,
+verifies the saved status and notice remain visible, and still submits a
+comment during that same outage. No new lifecycle action is exposed.

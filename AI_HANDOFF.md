@@ -1,3 +1,9 @@
+# 2026-10-18 | PREPARED DURABLE WORK ORDER STATUS CONFIRMATION (DETACHED)
+
+Next Phase 5 successor improves role-aware work-order lifecycle UI reliability: after the server acknowledges a status transition POST, update visible saved status from its response before optionally refreshing activity; if that GET fails, retain the persisted state and success notice rather than misleading the user into retrials. Existing Playwright workflow now simulates detail GET HTTP 503 before acknowledge and verifies state/notice and subsequent comment persistence. This is a **DETACHED candidate**, not published or CI verified. Chain parent includes transactional property staff assignment audit candidate `0dfe74829523db6b55ab3075a835f8bff1998483`. Require published `128567315621c165759cd1127f2d397f04d0b65e` all six green in CI `39197174338`, exact branch compare and nonforce expected-SHA fast-forward before verifying successor's own 6 CI jobs. Do not touch main/new branch/Zargul.
+
+---
+
 # 2026-10-18 | PREPARED TRANSACTIONAL PROPERTY-STAFF ASSIGNMENT AUDIT (DETACHED)
 
 Bounded new Phase 5 candidate on current published parent `128567315621c165759cd1127f2d397f04d0b65e`: `backend/app/routers/users.py` now writes append-only `property_assignment` create/revoke/reactivate audit events in the same DB transaction as staff assignment changes, including actor ID, org, before/after and property/crew identifiers. Idempotent duplicates make no additional audit. Backend regression covers audit row lifecycle and rejected cross-org revoke. **Prepared detached, NOT published or CI-verified.** First verify parent's full six-job CI `39197174338`, exact live branch match and only then force=false expected-SHA fast-forward, run successor six jobs and repair any reds. Earlier handoff preparatory labels predate the parent publication; confirm live facts rather than relying on old headings. Keep `main`, any new branch and Zargul untouched.
