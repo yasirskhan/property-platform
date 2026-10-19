@@ -40,7 +40,7 @@ def test_staff_records_inspection_without_invented_mobile_workflow():
             pw.expect(page.get_by_role("option", name="E2E Test Property · Unit E2E-1")).to_be_attached()
             page.get_by_label("Inspection unit", exact=True).select_option("900001")
             page.get_by_label("Inspection date").fill(date.today().isoformat())
-            page.get_by_label("Inspection condition").select_option("ATTENTION_NEEDED")
+            page.get_by_label("Inspection condition", exact=True).select_option("ATTENTION_NEEDED")
             page.get_by_label("SAFETY condition").select_option("ATTENTION_NEEDED")
             page.get_by_label("SAFETY notes").fill("Replace hall smoke alarm")
             page.get_by_label("PLUMBING condition").select_option("SATISFACTORY")
