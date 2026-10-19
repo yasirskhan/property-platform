@@ -60,7 +60,7 @@ def test_staff_records_inspection_without_invented_mobile_workflow():
             persisted = page.locator("section li").filter(has_text="Inspected window latch by staff").first
             pw.expect(persisted).to_contain_text("SAFETY: ATTENTION NEEDED", timeout=15_000)
             pw.expect(persisted).to_contain_text("Replace hall smoke alarm")
-            persisted.get_by_role("link", name=re.compile(r"Inspection #\\d+")).click()
+            persisted.get_by_role("link", name=re.compile(r"Inspection #[0-9]+")).click()
             page.wait_for_url(re.compile(r"/maintenance/staff-inspection-records/[0-9]+$"), timeout=15_000)
             pw.expect(page.get_by_role("heading", name=re.compile(r"Inspection #[0-9]+"))).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_text("Inspected window latch by staff")).to_be_visible()
