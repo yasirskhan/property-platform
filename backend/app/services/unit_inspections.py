@@ -120,7 +120,10 @@ def record_inspection(
     )
     db.commit()
     db.refresh(row)
-    return UnitInspectionOut.model_validate(row)
+    return UnitInspectionOut.model_validate(row).model_copy(update={
+        "property_name": properties[unit.property_id].name,
+        "unit_number": unit.unit_number,
+    })
 
 
 def list_inspections(
@@ -130,7 +133,7 @@ def list_inspections(
     org_id = actor.organization_id
     if org_id is None:
         raise ReportDeliveryError("Unit inspection permission required")
-    _, units = _scope(
+    properties, units = _scope(
         db, organization_id=org_id, actor=actor,
         property_id=property_id, unit_id=unit_id,
         include_inactive=True,
@@ -148,7 +151,15 @@ def list_inspections(
         query = query.offset(offset)
     if limit is not None:
         query = query.limit(limit)
-    return [UnitInspectionOut.model_validate(row) for row in query.all()]
+    # Resolve labels solely from already authorized unit/property objects,
+    # including retired inventory, without a second unscoped lookup.
+    return [
+        UnitInspectionOut.model_validate(row).model_copy(update={
+            "property_name": properties[units[row.unit_id].property_id].name,
+            "unit_number": units[row.unit_id].unit_number,
+        })
+        for row in query.all()
+    ]
 
 
 def build_inspection_report(

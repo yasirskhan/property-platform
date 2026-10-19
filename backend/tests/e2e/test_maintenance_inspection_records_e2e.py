@@ -47,5 +47,8 @@ def test_staff_records_inspection_without_invented_mobile_workflow():
                 has_text="Inspection evidence recorded and audited."
             )).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_text("Inspected window latch by staff")).to_be_visible()
+            pw.expect(page.locator("section li").filter(
+                has_text="E2E Test Property"
+            )).to_contain_text("Unit E2E-1")
         finally:
             browser.close()

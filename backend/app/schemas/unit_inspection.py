@@ -39,3 +39,6 @@ class UnitInspectionOut(BaseModel):
     findings: str
     recorded_by_id: int | None
     recorded_at: datetime
+    # Current scoped inventory labels for display, not frozen audit snapshots.
+    property_name: str | None = None
+    unit_number: str | None = None

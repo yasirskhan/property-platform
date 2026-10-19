@@ -1,3 +1,13 @@
+# 2026-10-18 | INSPECTION LABEL CANDIDATE REBASED ON E2E FIX (DETACHED)
+
+Latest published repair parent `12d54b52c4820f5ff500b53749adcab7fc94a14b` fixes the exact Playwright strict-mode conflict in the staff inspection unit dropdown after unit search was introduced. Its hosted CI run `39192080577` must PASS **all six** jobs at this exact SHA before further publication; earlier `2bdeebe558583d3abb6650be053e94d417d35e27` failed E2E only, with backend/frontend/platform-admin/security/staging green. Do not claim this parent verified until the run completes.
+
+Next candidate is prepared DETACHED on the repaired parent, not published. It carries the originally proposed readable property/unit labels in the scoped inspection GET/POST responses, UI and SQL/browser regressions; crucially the E2E test retains **both** the added readable-label assertion and the `get_by_label("Inspection unit", exact=True)` CI repair. Property/unit labels are current authorized inventory names, **not frozen historical snapshots**. No new feature gate, permission, schema migration, financial mutation or full inspection menu unhide.
+
+Before promotion, verify repair parent six-job SUCCESS, verify LIVE authorized branch remains at this exact parent SHA, fast-forward only `chatgpt/checkpoint-005-safety` with `expected_sha`, `force=false`; verify successor's own six hosted CI jobs and fix reds before proceeding. Full Smart Maintenance and OWNER multi-owner isolation remain unfinished. Never touch `main`, create a branch, force-push, or touch Zargul.
+
+---
+
 # 2026-10-18 | PHASE 5 E2E INSPECTION UNIT LABEL STRICT-MODE REPAIR (PUBLISHED, CI REQUIRED)
 
 Previous published Phase 5 batch `2bdeebe558583d3abb6650be053e94d417d35e27` FAILED hosted Actions `39188922266` in E2E ONLY (24 passed, 1 failed). Backend/PostgreSQL, frontend, platform-admin, security, staging all passed. Exact failure: `test_staff_records_inspection_without_invented_mobile_workflow` used `get_by_label("Inspection unit")`, which matched BOTH the new `Search inspection units` textbox and the actual `Inspection unit` select after the new search capability landed. This is Playwright strict-mode ambiguity, not a justification to remove the real search or weaken UI assertions.

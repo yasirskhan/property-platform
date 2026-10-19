@@ -247,3 +247,13 @@ ADMIN/OWNER organization rights but does not resolve the separately open
 multi-owner OWNER policy review. Database regression checks rogue foreign
 assignment and manager/crew revocation. Verify all six hosted CI jobs on the
 published SHA before marking this security batch verified.
+
+## Readable historical inspection location labels (prepared; CI required)
+
+The scoped inspection API includes current property-name and unit-number
+labels alongside existing stable IDs. Both freshly saved evidence and paged
+history resolve labels from already authorized Property and Unit objects,
+including archived inventory. The UI displays the location, retaining a safe
+ID fallback for older responses. Labels are current inventory metadata,
+not claimed to be immutable historical name snapshots. Regression and signed-in
+browser coverage require exact-SHA hosted CI; no new access is granted.

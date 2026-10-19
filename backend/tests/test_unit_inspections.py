@@ -97,6 +97,8 @@ def test_inspection_only_explicit_rows_audited_no_gl_writes(monkeypatch):
         assert saved.recorded_condition == "ATTENTION_NEEDED"
         assert saved.inspection_date == date.today()
         assert saved.recorded_by_id == admin.id
+        assert saved.property_name == "=Visible"
+        assert saved.unit_number == "=A"
         assert db.query(UnitInspectionRecord).count() == 1
         assert db.query(AuditLog).filter_by(entity_type="unit_inspection_record").count() == 1
         assert db.query(GLTransaction).count() == before
@@ -246,6 +248,8 @@ def test_archived_inventory_retains_audited_inspection_history_without_new_write
                     db=db, current_user=actor,
                 )
                 assert [item.id for item in history] == [saved.id]
+                assert history[0].property_name == "=Visible"
+                assert history[0].unit_number == "=A"
                 assert [row[-2:] for row in _payload(
                     db, actor, property_id=first.id, unit_id=unit.id,
                 ).rows] == [(first.id, unit.id)]

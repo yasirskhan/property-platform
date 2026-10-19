@@ -6,6 +6,7 @@ import { apiGet, apiPost } from "@/lib/api";
 type UnitChoice = { id: number; property_name: string; unit_number: string };
 type Inspection = {
   id: number; property_id: number; unit_id: number;
+  property_name?: string | null; unit_number?: string | null;
   inspection_date: string; recorded_condition: string;
   findings: string; recorded_by_id: number | null;
 };
@@ -198,7 +199,8 @@ export default function InspectionRecordsPage() {
             : <ul className="mt-3 space-y-3">
                 {records.map((row) => (
                   <li key={row.id} className="rounded-lg border p-3 text-sm">
-                    <p className="font-medium">#{row.id} · Unit #{row.unit_id}
+                    <p className="font-medium">#{row.id} · {row.property_name || `Property #${row.property_id}`}
+                      · Unit {row.unit_number || `#${row.unit_id}`}
                       · {row.inspection_date} · {row.recorded_condition.replaceAll("_", " ")}</p>
                     <p className="mt-1 whitespace-pre-wrap">{row.findings || "No findings noted."}</p>
                     <p className="mt-1 text-xs text-slate-500">Recorded by user #{row.recorded_by_id ?? "unknown"}</p>
