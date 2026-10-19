@@ -1,3 +1,9 @@
+# 2026-10-19 | TENANTLESS WORK ORDERS — COMPLETE / VERIFIED
+
+**Exact branch HEAD:** `5930d50d55efa47ea875fa7f26a91fc946d5c908`. **Hosted CI:** `39337828482`, SUCCESS: backend/PostgreSQL, frontend, platform-admin, security, authenticated E2E, staging-config. Additive Alembic `5a9e3c7d1b2f` allows truthful NULL tenant_id for new staff-originated work orders while recording staff requester and origin; genuine tenant submissions still require an active unit lease. Old records are not backfilled; downgrade refuses to manufacture a tenant or drop populated NULL evidence. Inspection-linked maintenance work orders and related authorization/audit regressions are included in this fully green checkpoint. Next: durable preventive schedule + idempotent occurrence design and implementation; do not claim recurrence, dispatch, inventory or purchasing complete.
+
+---
+
 # 2026-10-19 | TENANTLESS MANUAL WORK-ORDER REQUESTS — DETACHED / CI GATED
 
 Published inspection-follow-up implementation `66b994a45032054238883a92fc007908bef91bd5` has CI `39332342753` pending exact six-job verification. It provides audited inspection→work-order linkage and read-only linked follow-up history; do not call it verified until all six jobs green and log exact SHA.
