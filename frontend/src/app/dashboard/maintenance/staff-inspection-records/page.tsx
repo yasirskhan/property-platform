@@ -24,6 +24,7 @@ export default function InspectionRecordsPage() {
   const [condition, setCondition] = useState("NOT_ASSESSED");
   const [findings, setFindings] = useState("");
   const [checklist, setChecklist] = useState<Record<string, string>>({});
+  const [checklistNotes, setChecklistNotes] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
@@ -107,7 +108,7 @@ export default function InspectionRecordsPage() {
       const created = await apiPost("/api/unit-inspections", {
         unit_id: Number(unitId), inspection_date: inspectionDate,
         recorded_condition: condition, findings: findings.trim(),
-        checklist_items: CHECKLIST_AREAS.map((area) => ({area, condition: checklist[area] || "NOT_ASSESSED", notes: ""})),
+        checklist_items: CHECKLIST_AREAS.map((area) => ({area, condition: checklist[area] || "NOT_ASSESSED", notes: (checklistNotes[area] || "").trim()})),
       }) as Inspection;
       if (!created || typeof created.id !== "number") {
         throw new Error("Unexpected inspection save response.");
@@ -117,6 +118,7 @@ export default function InspectionRecordsPage() {
       setRecords((previous) => [created, ...previous.filter((row) => row.id !== created.id)]);
       setFindings("");
       setChecklist({});
+      setChecklistNotes({});
       setNotice("Inspection evidence recorded and audited.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Inspection could not be recorded.");
@@ -196,6 +198,10 @@ export default function InspectionRecordsPage() {
                 <option value="SATISFACTORY">Satisfactory</option>
                 <option value="ATTENTION_NEEDED">Attention needed</option>
               </select>
+              <input aria-label={`${area} notes`} maxLength={500}
+                value={checklistNotes[area] || ""}
+                onChange={(event) => setChecklistNotes((prev) => ({ ...prev, [area]: event.target.value }))}
+                placeholder="Optional checklist notes" className="mt-1 w-full rounded-lg border p-2" />
             </label>)}
           </fieldset>
           <label className="block text-sm">Findings
