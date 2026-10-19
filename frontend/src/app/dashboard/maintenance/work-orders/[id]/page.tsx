@@ -166,9 +166,16 @@ export default function WorkOrderDetailPage() {
     setError("");
     setNotice("");
     try {
-      await apiPost("/work-orders/" + order.id + "/comments", { message });
+      const created = await apiPost("/work-orders/" + order.id + "/comments", { message }) as WorkOrderUpdate;
+      if (!created || typeof created.id !== "number" || created.message !== message) {
+        throw new Error("Unexpected saved activity response.");
+      }
+      // The POST response is authoritative; an unavailable detail-refresh GET
+      // must not hide a successfully recorded audit/activity entry.
+      setOrder((previous) => previous
+        ? { ...previous, updates: [...previous.updates, created] }
+        : previous);
       setComment("");
-      await reload();
       setNotice("Comment recorded in the work order activity history.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to save the comment.");

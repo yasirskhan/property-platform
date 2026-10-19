@@ -295,3 +295,13 @@ stale is_active=True and live property assignment. The property-scoped UI
 roster already filters deleted accounts; this guard prevents a forged request
 from bypassing that safeguard. Regression verifies status remains acknowledged
 and crew unset. No automatic dispatch, financial write or new permission.
+
+## Durable work-order comment save without dependent GET (prepared, CI required)
+
+After successful POST of a work-order comment, the detail UI appends the server-
+returned activity entry instead of requiring a second GET before acknowledging
+success. A temporary detail read failure no longer removes the work-order view
+or incorrectly suggests the comment did not persist, preventing accidental
+repeated submissions. Authenticated E2E deliberately returns 503 for the
+post-save detail GET and verifies both success notice and appended comment.
+Server authorization, audit, append-only history and immutable IDs are unchanged.

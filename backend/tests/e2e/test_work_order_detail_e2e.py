@@ -76,6 +76,14 @@ def test_authenticated_work_order_detail_and_comment_history() -> None:
             assert {int(value) for value in crew_options.evaluate_all(
                 "(nodes) => nodes.map(node => node.value).filter(Boolean)"
             )} == set(eligible)
+            # A failed detail-refresh must not make an audited, successful
+            # comment POST look like a failed save or remove the open detail.
+            def block_detail_get(route):
+                if route.request.method == "GET":
+                    route.fulfill(status=503, body="Refresh temporarily unavailable")
+                else:
+                    route.continue_()
+            page.route(re.compile(r"/work-orders/" + str(work_order_id) + r"$"), block_detail_get)
             page.get_by_label("Work order activity note").fill("E2E follow-up activity note")
             page.get_by_role("button", name="Save activity note").click()
             pw.expect(

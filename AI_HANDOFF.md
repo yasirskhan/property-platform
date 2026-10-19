@@ -1,3 +1,9 @@
+# 2026-10-18 | PREPARED WORK ORDER COMMENT CONFIRMATION RELIABILITY (DETACHED)
+
+The bounded Phase 5 candidate now also uses the authoritative work-order comment POST response to append an activity entry to existing detail state, without a dependent GET. E2E blocks follow-up detail GETs with HTTP 503 after the page is loaded; verifies the persisted comment and success notice remain visible. This complements the previously verified inspection POST/read separation. **Not published or verified.** Wait for predecessor's exact six-job CI on `0bc7ff9aa016d2673e9958701f3665cb550736e7`, then non-force expected-SHA fast-forward the approved candidate and verify its six jobs. No forced ref, no main/new branch, no Zargul edit.
+
+---
+
 # 2026-10-18 | PREPARED DELETED-CREW ASSIGNMENT GUARD (DETACHED)
 
 Additional safety after the property-roster UI candidate: backend `POST /work-orders/{id}/assign` now rejects soft-deleted crew accounts despite stale `is_active=True`, complementing roster filtering and nondeleted PropertyAssignment checks. Regression leaves work-order status and crew unchanged on denial. This is DETACHED, NOT PUBLISHED OR VERIFIED. Require all-six CI SUCCESS on published parent `0bc7ff9aa016d2673e9958701f3665cb550736e7`, branch exact-SHA check, force=false expected-SHA promotion and successor hosted CI before marking VERIFIED. Preserve main, Zargul, canonical menu feature gates, and OWNER scope audit open issues.
