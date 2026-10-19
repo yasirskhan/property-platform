@@ -1,3 +1,9 @@
+# 2026-10-19 | SCOPED INSPECTION HISTORY FILTERS — DETACHED, CI GATED
+
+Prepared backend + responsive UI condition/date history filtering and exact PostgreSQL/SQLite unit-history access regressions with signed-in browser navigation at detached candidate `71ebfdac8b512f7931997b88372ce9606b7ebacd`. Includes status and inclusive date ranges, rejects reversed ranges, retains property/org/assignment scope and paginates filtered results consistently. No automatic inspection, approvals, photo capture, finance or full module readiness implied. Require published parent exact-SHA all-six CI, safe nonforce expected-head promotion and successor exact-SHA CI before VERIFIED.
+
+---
+
 # 2026-10-19 | PHASE 5 STAFF INSPECTION DETAIL AND INTEGRITY — HOSTED CI GATE
 
 Published source through `66c63c5a9fe1ef75dcea92027c6dc4a5bff5d11b` adds inspection row parent-binding safety (stored property must match actual Unit→Property), includes findings in append-only creation audit, and adds authorized GET /api/unit-inspections/{id}. Regression covers malformed binding rejection/recovery, cross-org and tenant denial, retired-property historical visibility and revoked manager assignment cutoff. Await exact six-job CI before calling verified.

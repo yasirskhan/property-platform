@@ -515,3 +515,7 @@ The existing append-only staff inspection record accepts an optional validated s
 ## Authorized inspection detail and corruption-safe history (CI gated)
 
 Inspection list/report reads require an inspection's stored property_id to match its actual Unit→Property parent. Findings are now retained in the immutable creation audit snapshot. An authenticated GET /api/unit-inspections/{id} returns a single scoped record and checklist even for retired properties, denying foreign/tenant and revoked-manager access. A dedicated read-only staff page and history link are prepared with persisted E2E navigation. No photo capture, offline sync, approval workflow, tenant billing or full Inspections menu release is enabled. Verify six hosted jobs on the exact final SHA.
+
+## Scoped inspection condition/date search (detached; CI required)
+
+The existing authorized GET /api/unit-inspections accepts optional recorded_condition, date_from, date_to filters, applied before stable descending chronology and pagination. Reversed date windows reject 422. Staff page adds corresponding controls and updates paging; no disallowed property or organization can become visible. Regression tests cover chronology, filters, invalid windows, revoked roles and a real browser query. Prepared only, not VERIFIED until exact-SHA six-job CI passes.

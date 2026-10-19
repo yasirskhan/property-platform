@@ -487,3 +487,7 @@ A bounded signed-in staff checklist form and storage/read/report workflow is pre
 ## Phase 5 staff inspection detail and parent integrity (2026-10-19; CI gated)
 
 Record history/report reads validate stored inspection parent against actual Unit→Property; malformed rows do not leak or masquerade as another property's evidence. Append-only creation audit now contains findings. Read-only scoped GET /api/unit-inspections/{id} and staff detail page keep retired history available to authorized staff while respecting assignment revocations. Tests cover mismatched parent, recovery, forbidden cross-organization/tenant access and persisted browser navigation. This does not enable full inspections, photo/offline or approval features; exact six-job hosted CI required.
+
+## Phase 5 inspection history filters (2026-10-19; detached)
+
+Staff-recorded inspection history can be filtered by recorded condition and inclusive inspection-date range with server-side authorization, bounded pagination, and explicit invalid-range errors. No tenant access, cross-property visibility, automatic evidence, accounting changes or module-wide release. Exact six-job CI required.
