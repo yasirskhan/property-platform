@@ -25,7 +25,8 @@ from app.core import auth as auth_logic
 from app.core.security import create_access_token, create_two_factor_challenge_token
 from app.routers.auth import get_current_user, verify_two_factor_login
 from app.schemas.two_factor import TwoFactorLoginVerifyRequest
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
+from app.routers import unit_inspections as inspection_router
 import pytest
 
 
@@ -344,6 +345,16 @@ def test_inspection_linked_work_order_validates_real_scoped_source(monkeypatch):
         assert manager_created.source_inspection_id == evidence.id
         assert manager_created.requested_by_user_id == manager.id
         assert created.source_inspection_id == evidence.id
+        def followups(actor):
+            return inspection_router.get_inspection_work_orders(
+                evidence.id, Response(), db=db, current_user=actor,
+            )
+        assert [row.id for row in followups(admin)] == [manager_created.id, created.id]
+        assert [row.id for row in followups(manager)] == [manager_created.id, created.id]
+        for unauthorized in (tenant, foreign_admin):
+            with pytest.raises(HTTPException) as forbidden:
+                followups(unauthorized)
+            assert forbidden.value.status_code in {403, 404}
         audit = db.query(AuditLog).filter_by(
             entity_type="work_order", entity_id=created.id, action="status_transition",
         ).one()
@@ -366,6 +377,11 @@ def test_inspection_linked_work_order_validates_real_scoped_source(monkeypatch):
             request(evidence.id, tenant)
         assert denied.value.status_code == 403
         assert db.query(WorkOrder).filter_by(source_inspection_id=evidence.id).count() == 2
+        # Even a corrupted work-order unit cannot be presented as a follow-up.
+        other_unit = db.query(Unit).filter(Unit.property_id == hidden.id).one()
+        manager_created.unit_id = other_unit.id
+        db.commit()
+        assert [row.id for row in followups(admin)] == [created.id]
     finally:
         db.close()
         engine.dispose()
