@@ -84,7 +84,7 @@ export default function WorkOrderDetailPage() {
       return;
     }
     let active = true;
-    apiGet("/users?role=crew")
+    apiGet("/users?role=CREW")
       .then((rows: { id: number; first_name: string; last_name: string; is_active: boolean }[]) => {
         if (active) setCrew(Array.isArray(rows) ? rows.filter((row) => row.is_active) : []);
       }).catch(() => { if (active) setCrew([]); });

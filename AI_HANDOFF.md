@@ -1,3 +1,11 @@
+# 2026-10-18 | WORK ORDER CREW PICKER 422 CONTRACT REPAIR (DETACHED)
+
+CI server logs for `39188922266` additionally showed `GET /users?role=crew` returning HTTP 422 from the work-order detail page. The backend expects uppercase enum `CREW`, so prepared successor changes the frontend query to `/users?role=CREW` and adds authenticated Playwright coverage asserting the request returns 200. This is a genuine functional repair distinct from the already published inspection test strict-mode fix.
+
+**Not published or VERIFIED.** This detached candidate follows the readable-inspection-label candidate rebuilt on `12d54b52c4820f5ff500b53749adcab7fc94a14b`. Before publishing, first require `39192080577` all-six success at its exact parent SHA, confirm live branch unchanged, non-force expected-SHA fast-forward, then verify all six successor jobs and fix failures. Preserve tenant/org/role/assignment restrictions, main untouched and Zargul untouched.
+
+---
+
 # 2026-10-18 | INSPECTION LABEL CANDIDATE REBASED ON E2E FIX (DETACHED)
 
 Latest published repair parent `12d54b52c4820f5ff500b53749adcab7fc94a14b` fixes the exact Playwright strict-mode conflict in the staff inspection unit dropdown after unit search was introduced. Its hosted CI run `39192080577` must PASS **all six** jobs at this exact SHA before further publication; earlier `2bdeebe558583d3abb6650be053e94d417d35e27` failed E2E only, with backend/frontend/platform-admin/security/staging green. Do not claim this parent verified until the run completes.

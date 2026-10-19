@@ -51,8 +51,15 @@ def test_authenticated_work_order_detail_and_comment_history() -> None:
                 str(work_order_id) + r".*E2E maintenance activity"
             ))).to_be_visible(timeout=15_000)
 
-            page.goto(BASE_URL + "/dashboard/maintenance/work-orders/" + str(work_order_id),
-                      wait_until="domcontentloaded")
+            # The crew selector must call the enum-valid uppercase CREW filter,
+            # not the lowercase value rejected by backend validation (HTTP 422).
+            with page.expect_response(
+                lambda response: "/users?role=CREW" in response.url,
+                timeout=15_000,
+            ) as crew_response:
+                page.goto(BASE_URL + "/dashboard/maintenance/work-orders/" + str(work_order_id),
+                          wait_until="domcontentloaded")
+            assert crew_response.value.status == 200, crew_response.value.text()
             pw.expect(
                 page.get_by_role("heading", name="Work order #" + str(work_order_id) + ": E2E maintenance activity")
             ).to_be_visible(timeout=15_000)

@@ -257,3 +257,12 @@ including archived inventory. The UI displays the location, retaining a safe
 ID fallback for older responses. Labels are current inventory metadata,
 not claimed to be immutable historical name snapshots. Regression and signed-in
 browser coverage require exact-SHA hosted CI; no new access is granted.
+
+## Work-order crew selector enum contract (prepared; CI required)
+
+The work-order detail page must query `/users?role=CREW`, matching the
+backend's uppercase UserRole enum. The former lowercase query returned HTTP
+422 and made staff crew selection appear empty. Authenticated browser coverage
+asserts that the page requests the uppercase crew filter and receives HTTP
+200, without bypassing backend property assignment validation. This is a
+UI/API compatibility repair, not automatic dispatch or a permission expansion.
