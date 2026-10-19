@@ -221,6 +221,9 @@ def test_inspection_history_filters_preserve_scope_and_chronology(monkeypatch):
                 db=db, current_user=user, **filters,
             )
         assert [x.id for x in history(admin)] == [recent.id, older.id]
+        assert [x.id for x in history(admin, limit=1)] == [recent.id]
+        assert [x.id for x in history(admin, limit=1, offset=1)] == [older.id]
+        assert [x.id for x in history(admin, recorded_condition="ATTENTION_NEEDED", limit=1)] == [recent.id]
         assert [x.id for x in history(manager, recorded_condition="SATISFACTORY")] == [older.id]
         assert [x.id for x in history(admin, date_from=date.today())] == [recent.id]
         assert [x.id for x in history(admin, date_to=date.today() - timedelta(days=1))] == [older.id]
