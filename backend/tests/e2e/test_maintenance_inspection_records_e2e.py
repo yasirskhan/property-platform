@@ -77,5 +77,23 @@ def test_staff_records_inspection_without_invented_mobile_workflow():
             pw.expect(page.locator("section li").filter(
                 has_text="Inspected window latch by staff"
             ).first).to_contain_text("Unit E2E-1")
+            # Follow up on the recorded inspection in a real, scoped work order.
+            saved_row = page.locator("section li").filter(
+                has_text="Inspected window latch by staff"
+            ).first
+            saved_row.get_by_role("link", name=re.compile(r"Inspection #[0-9]+")).click()
+            page.get_by_role("link", name="Create follow-up work order").click()
+            page.wait_for_url(re.compile(r"/maintenance/work-orders/new[?]source_inspection_id=[0-9]+"), timeout=15_000)
+            pw.expect(page.get_by_label("Maintenance problem title")).to_have_value(
+                re.compile(r"Inspection follow-up #[0-9]+"), timeout=15_000
+            )
+            pw.expect(page.get_by_role("option", name="E2E Test Property · Unit E2E-1")).to_be_attached(timeout=15_000)
+            pw.expect(page.get_by_label("Maintenance request unit")).to_have_value("900001", timeout=15_000)
+            pw.expect(page.get_by_label("Maintenance problem description")).to_have_value(
+                re.compile("Inspected window latch by staff")
+            )
+            page.get_by_role("button", name="Submit maintenance request").click()
+            page.wait_for_url(re.compile(r"/maintenance/work-orders/[0-9]+$"), timeout=15_000)
+            pw.expect(page.get_by_role("link", name=re.compile(r"staff inspection #[0-9]+"))).to_be_visible(timeout=15_000)
         finally:
             browser.close()
