@@ -483,3 +483,7 @@ ships by flipping a flag. No more loops.
 ## Phase 5 inspection checklist gate (prepared 2026-10-19)
 
 A bounded signed-in staff checklist form and storage/read/report workflow is prepared in detached code, not verified. Five checklist areas record per-item condition and optional notes, with immutable evidence and append-only audit. The existing staff-only permission and current property/unit scoping remain. Scope explicitly excludes mobile offline sync, photographs, external approvals and the full Inspections feature gate. Must verify additive migration, PostgreSQL regressions, frontend, browser E2E, security and staging at exact SHA before treating this portion delivered.
+
+## Phase 5 staff inspection detail and parent integrity (2026-10-19; CI gated)
+
+Record history/report reads validate stored inspection parent against actual Unit→Property; malformed rows do not leak or masquerade as another property's evidence. Append-only creation audit now contains findings. Read-only scoped GET /api/unit-inspections/{id} and staff detail page keep retired history available to authorized staff while respecting assignment revocations. Tests cover mismatched parent, recovery, forbidden cross-organization/tenant access and persisted browser navigation. This does not enable full inspections, photo/offline or approval features; exact six-job hosted CI required.

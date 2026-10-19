@@ -1,3 +1,11 @@
+# 2026-10-19 | PHASE 5 STAFF INSPECTION DETAIL AND INTEGRITY — HOSTED CI GATE
+
+Published source through `66c63c5a9fe1ef75dcea92027c6dc4a5bff5d11b` adds inspection row parent-binding safety (stored property must match actual Unit→Property), includes findings in append-only creation audit, and adds authorized GET /api/unit-inspections/{id}. Regression covers malformed binding rejection/recovery, cross-org and tenant denial, retired-property historical visibility and revoked manager assignment cutoff. Await exact six-job CI before calling verified.
+
+Prepared descendant `b78527a0635c58584b178098e21886480d888789` additionally provides a read-only inspection detail page, history-to-detail navigation and authenticated persisted-browser regression. It is DETACHED until parent CI success and CAS nonforce advancement. Full Inspections, photos, offline, approvals, recurrence and finance remain gated. Never touch main, new branches or Zargul.
+
+---
+
 # 2026-10-19 | STAFF UNIT INSPECTION CHECKLISTS — DETACHED, CI GATED
 
 Prepared on descendant `2031836d592e6ed060b75e8e37572168befe0f32` after Phase 5 requester/tenant provenance guards. Adds an **optional structured five-area inspection checklist** (plumbing, electrical, HVAC, appliances, safety), per-area condition and notes, immutable record JSON snapshot, append-only audit evidence, authorized history/report exposure, responsive staff form and authenticated browser regression. Migration `3e6a8b0d91f2` is additive to `2c4e6a8b0d91`; all three migration-head test constants updated. Legacy inspection records remain valid with empty checklists. Downgrade refuses loss of populated checklist evidence. This is NOT photo/offline capture, approval, or a complete full-inspections module. Do NOT unhide the full module. Source is DETACHED / NOT VERIFIED until preceding expected-SHA branch CI succeeds, safe nonforce CAS promotion, and successor six-job hosted CI succeeds. If CI fails fix forward without weakening tests. Do not touch main, other branches or Zargul.
