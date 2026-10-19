@@ -9,6 +9,9 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.user import User
+from app.models.property import Property, Unit
+from app.models.work_order import WorkOrder
+from app.schemas.work_order import WorkOrderOut
 from app.routers.auth import get_current_user
 from app.schemas.unit_inspection import UnitInspectionCreateIn, UnitInspectionOut
 from app.services.report_delivery import ReportDeliveryError
@@ -68,6 +71,40 @@ def get_inspection_detail(
         return get_inspection(db, actor=current_user, inspection_id=inspection_id)
     except ReportDeliveryError as exc:
         raise _error(exc) from exc
+
+
+
+@router.get("/{inspection_id}/work-orders", response_model=list[WorkOrderOut])
+def get_inspection_work_orders(
+    inspection_id: int,
+    response: Response,
+    limit: Annotated[int, Query(ge=1, le=100)] = 100,
+    offset: Annotated[int, Query(ge=0, le=100000)] = 0,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Read linked follow-ups only after authorizing the exact inspection."""
+    response.headers["Cache-Control"] = "no-store"
+    if inspection_id < 1:
+        raise HTTPException(status_code=422, detail="Invalid inspection record ID")
+    try:
+        inspection = get_inspection(
+            db, actor=current_user, inspection_id=inspection_id,
+        )
+    except ReportDeliveryError as exc:
+        raise _error(exc) from exc
+    # Defensive parent reconciliation also covers manually corrupted links.
+    return db.query(WorkOrder).join(
+        Unit, Unit.id == WorkOrder.unit_id,
+    ).join(
+        Property, Property.id == Unit.property_id,
+    ).filter(
+        WorkOrder.source_inspection_id == inspection.id,
+        WorkOrder.unit_id == inspection.unit_id,
+        WorkOrder.property_id == inspection.property_id,
+        Property.id == inspection.property_id,
+        Property.organization_id == current_user.organization_id,
+    ).order_by(WorkOrder.id.desc()).offset(offset).limit(limit).all()
 
 
 @router.post("", response_model=UnitInspectionOut, status_code=201)
