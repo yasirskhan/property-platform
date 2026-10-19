@@ -527,3 +527,7 @@ The staff inspection list/detail resolves recorded_by_name only from users in th
 ## Authenticated inspection history unit filtering (detached successor)
 
 The staff history view supports narrowing to an authorized active unit selected from the existing permission-scoped unit picker. This combines the existing backend unit_id scope with recorded-condition/date filters and stable pagination. Browser E2E verifies a saved inspection survives navigation and filtering. Direct backend regressions assert tenant role, foreign organization, and manager unassigned-unit denials. Detached until precursor green CI and expected-head protected publication; verify successor six jobs.
+
+## Inspection-to-work-order linked manual follow-up (detached; CI required)
+
+The staff inspection detail page links to a prefilled maintenance-request workflow. POST /work-orders accepts optional source_inspection_id only for authorized admin/manager and validates same-org, same-unit, same-property inspection evidence using scoped inspection lookup. The work order and immutable creation audit retain the source inspection ID. Authenticated staff can navigate back to the source inspection; legacy and unrelated work orders remain unchanged. Additive migration 4f7c9d2e1a0b and bootstrap head constants accompany the feature. Tests cover positive linkage, forged source IDs, unauthorized tenant access and browser navigation/submit. All six hosted CI jobs on exact SHA are mandatory. Recurrence and billing remain gated.

@@ -499,3 +499,7 @@ Authorized staff inspection records show same-organization recorder names in lis
 ## Phase 5 inspection history filter and E2E strict locator (2026-10-19)
 
 The entry and filter fields have overlapping accessible labels: browser test must select the entry condition by its exact accessible name, retaining assertions. Prepared authorized-unit history filtering extends condition/date filters with server-scoped unit ID; backend negative tests cover unassigned manager unit, foreign organization and tenant denial. Still pending six-job hosted verification at the exact branch head. Full inspections and recurring scheduling stay gated.
+
+## Phase 5 inspection-to-maintenance follow-up (2026-10-19; detached)
+
+An authorized staff inspection can serve as traceable source evidence for a manually created maintenance work order. New nullable source_inspection_id FK is additive and never backfills invented links. Source inspection ID must be readable by the current staff user and match the selected work-order unit and property, otherwise request is rejected. Tenants and unauthorized organization/property users cannot forge source evidence. The link persists to the existing status-change audit and can be opened from the authorized work-order detail. The UI drafts a request from inspection facts but still requires an explicit user submission; no automatic dispatch, financial posting or tenant charge occurs. Exact hosted CI and permission regressions required before release.

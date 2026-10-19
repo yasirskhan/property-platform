@@ -1,3 +1,11 @@
+# 2026-10-19 | INSPECTION-TO-WORK-ORDER FOLLOW-UP — DETACHED / CI GATED
+
+Prepared successor `13e2590c10765a5e25bc1f08536b2bc65144b89b` (descendant of published `13e17ef435d0e3a699b818a69927906350e872c1`) adds end-to-end staff inspection follow-up: nullable indexed FK work_orders.source_inspection_id with additive Alembic `4f7c9d2e1a0b` (parent `3e6a8b0d91f2`), safe no-data-loss downgrade gate, validated source inspection under the current staff member's actual organization/property/unit, append-only source ID audit, authorized inspection detail link to prefilled work order form, server-checked linking on submission, authorized linked evidence navigation from work order detail, backend denial regressions and authenticated E2E. Tenants cannot link inspection records; managers cannot claim another property or organization; owner role remains excluded from inspection-specific link until inspection access is intentionally extended. Existing manual work-order paths remain compatible and no automatic finance or recurrence is triggered.
+
+This successor also includes authorized unit-filtered inspection history and chronological pagination regressions. This is DETACHED and NOT VERIFIED; do not promote until all six CI jobs pass on the published parent and recheck the exact live HEAD. Promote only with force=false and expected SHA, then verify the successor six hosted jobs and fix any failures. Do not touch main, another branch or Zargul; full Inspections/mobile/offline/approvals, tenantless scheduled work orders, dispatch, inventory, purchasing and accounting remain unfinished.
+
+---
+
 # 2026-10-19 | INSPECTION BROWSER STRICT-LOCATOR CI REPAIR — PUBLISHED / PENDING
 
 Live source commit `13e17ef435d0e3a699b818a69927906350e872c1` changes only the authenticated inspection entry condition selector to exact matching. Earlier run `39324638827` failed E2E because adding an authorized history filter introduced a second label containing "Inspection condition"; its backend, frontend, platform-admin, security and staging jobs all passed. The repaired selector retains the same condition selection/assertions. CI `39329507328` must pass all six at the exact source SHA before closing the E2E failure.
