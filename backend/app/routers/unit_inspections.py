@@ -11,7 +11,7 @@ from app.models.user import User
 from app.routers.auth import get_current_user
 from app.schemas.unit_inspection import UnitInspectionCreateIn, UnitInspectionOut
 from app.services.report_delivery import ReportDeliveryError
-from app.services.unit_inspections import list_inspections, record_inspection
+from app.services.unit_inspections import get_inspection, list_inspections, record_inspection
 
 router = APIRouter(prefix="/api/unit-inspections", tags=["Unit Inspection Records"])
 
@@ -41,6 +41,23 @@ def get_inspections(
             db, actor=current_user, property_id=property_id, unit_id=unit_id,
             limit=limit, offset=offset,
         )
+    except ReportDeliveryError as exc:
+        raise _error(exc) from exc
+
+
+
+@router.get("/{inspection_id}", response_model=UnitInspectionOut)
+def get_inspection_detail(
+    inspection_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    response.headers["Cache-Control"] = "no-store"
+    if inspection_id < 1:
+        raise HTTPException(status_code=422, detail="Invalid inspection record ID")
+    try:
+        return get_inspection(db, actor=current_user, inspection_id=inspection_id)
     except ReportDeliveryError as exc:
         raise _error(exc) from exc
 
