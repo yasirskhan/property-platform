@@ -237,6 +237,36 @@ def test_inspection_history_filters_preserve_scope_and_chronology(monkeypatch):
         engine.dispose()
 
 
+def test_unit_filtered_inspection_history_respects_assignment_and_organization(monkeypatch):
+    db, engine = _session()
+    try:
+        admin, manager, tenant, foreign_admin, first, hidden, foreign, unit, hidden_unit, foreign_unit = _seed(db)
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **k: True)
+        visible = inspection_router.create_inspection(_input(unit), Response(), db=db, current_user=admin)
+        other = inspection_router.create_inspection(_input(hidden_unit), Response(), db=db, current_user=admin)
+        def history(actor, unit_id):
+            return inspection_router.get_inspections(
+                Response(), property_id=None, unit_id=unit_id, limit=100, offset=0,
+                db=db, current_user=actor,
+            )
+        assert [row.id for row in history(admin, unit.id)] == [visible.id]
+        assert [row.id for row in history(admin, hidden_unit.id)] == [other.id]
+        assert [row.id for row in history(manager, unit.id)] == [visible.id]
+        for actor, target in (
+            (manager, hidden_unit.id), (admin, foreign_unit.id),
+            (foreign_admin, unit.id),
+        ):
+            with pytest.raises(HTTPException) as exc:
+                history(actor, target)
+            assert exc.value.status_code == 404
+        with pytest.raises(HTTPException) as forbidden:
+            history(tenant, unit.id)
+        assert forbidden.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_inspection_recorder_name_never_leaks_foreign_organization(monkeypatch):
     db, engine = _session()
     try:
