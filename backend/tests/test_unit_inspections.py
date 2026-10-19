@@ -197,6 +197,45 @@ def test_inspection_detail_honors_scope_and_retired_history(monkeypatch):
         engine.dispose()
 
 
+def test_inspection_history_filters_preserve_scope_and_chronology(monkeypatch):
+    db, engine = _session()
+    try:
+        admin, manager, tenant, foreign_admin, prop, hidden, foreign, unit, hidden_unit, foreign_unit = _seed(db)
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **k: True)
+        older = inspection_router.create_inspection(
+            UnitInspectionCreateIn(
+                unit_id=unit.id, inspection_date=date.today() - timedelta(days=2),
+                recorded_condition="SATISFACTORY", findings="Prior safety check",
+            ), Response(), db=db, current_user=admin,
+        )
+        recent = inspection_router.create_inspection(
+            UnitInspectionCreateIn(
+                unit_id=unit.id, inspection_date=date.today(),
+                recorded_condition="ATTENTION_NEEDED", findings="Urgent followup",
+            ), Response(), db=db, current_user=admin,
+        )
+        def history(user, **filters):
+            return inspection_router.get_inspections(
+                Response(), property_id=None, unit_id=None,
+                db=db, current_user=user, **filters,
+            )
+        assert [x.id for x in history(admin)] == [recent.id, older.id]
+        assert [x.id for x in history(manager, recorded_condition="SATISFACTORY")] == [older.id]
+        assert [x.id for x in history(admin, date_from=date.today())] == [recent.id]
+        assert [x.id for x in history(admin, date_to=date.today() - timedelta(days=1))] == [older.id]
+        with pytest.raises(HTTPException) as invalid:
+            history(admin, date_from=date.today(), date_to=date.today() - timedelta(days=1))
+        assert invalid.value.status_code == 422
+        with pytest.raises(HTTPException):
+            inspection_router.get_inspections(Response(), property_id=prop.id, unit_id=None, db=db, current_user=foreign_admin)
+        with pytest.raises(HTTPException) as forbidden:
+            history(tenant)
+        assert forbidden.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_scope_foreign_unit_assignment_role_revocation(monkeypatch):
     db, engine = _session()
     try:

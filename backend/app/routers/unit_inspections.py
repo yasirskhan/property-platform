@@ -1,7 +1,8 @@
 """Explicit staff-entered dated inspection entries, append-only workflow."""
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
@@ -32,14 +33,21 @@ def get_inspections(
     unit_id: int | None = Query(default=None, ge=1),
     limit: Annotated[int | None, Query(ge=1, le=100)] = None,
     offset: Annotated[int, Query(ge=0, le=100000)] = 0,
+    recorded_condition: Literal["SATISFACTORY", "ATTENTION_NEEDED", "NOT_ASSESSED"] | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     response.headers["Cache-Control"] = "no-store"
+    if date_from is not None and date_to is not None and date_from > date_to:
+        raise HTTPException(status_code=422, detail="date_from cannot be after date_to")
     try:
         return list_inspections(
             db, actor=current_user, property_id=property_id, unit_id=unit_id,
             limit=limit, offset=offset,
+            recorded_condition=recorded_condition,
+            date_from=date_from, date_to=date_to,
         )
     except ReportDeliveryError as exc:
         raise _error(exc) from exc

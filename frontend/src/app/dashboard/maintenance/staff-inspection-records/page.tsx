@@ -33,6 +33,11 @@ export default function InspectionRecordsPage() {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [moreError, setMoreError] = useState("");
+  const [conditionFilter, setConditionFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [activeFilters, setActiveFilters] = useState("");
+
 
   useEffect(() => {
     let active = true;
@@ -82,7 +87,7 @@ export default function InspectionRecordsPage() {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true); setMoreError("");
     try {
-      const rows = await apiGet(`/api/unit-inspections?limit=100&offset=${nextOffset}`) as Inspection[];
+      const rows = await apiGet(`/api/unit-inspections?limit=100&offset=${nextOffset}${activeFilters}`) as Inspection[];
       if (!Array.isArray(rows)) throw new Error("Unexpected inspection response.");
       setRecords((previous) => {
         const seen = new Set(previous.map((entry) => entry.id));
@@ -94,6 +99,32 @@ export default function InspectionRecordsPage() {
       setMoreError(cause instanceof Error ? cause.message : "More inspections unavailable.");
     } finally {
       setLoadingMore(false);
+    }
+  }
+
+  async function applyHistoryFilters(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      setError("Start date cannot be after end date.");
+      return;
+    }
+    const params = new URLSearchParams();
+    if (conditionFilter) params.set("recorded_condition", conditionFilter);
+    if (dateFrom) params.set("date_from", dateFrom);
+    if (dateTo) params.set("date_to", dateTo);
+    const filters = params.toString() ? `&${params.toString()}` : "";
+    setLoading(true); setError(""); setMoreError("");
+    try {
+      const rows = await apiGet(`/api/unit-inspections?limit=100${filters}`) as Inspection[];
+      if (!Array.isArray(rows)) throw new Error("Unexpected inspection response.");
+      setRecords(rows);
+      setNextOffset(rows.length);
+      setHasMore(rows.length === 100);
+      setActiveFilters(filters);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Inspection filtering failed.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -115,7 +146,11 @@ export default function InspectionRecordsPage() {
       }
       // The 201 response is authoritative. A second GET failing must not
       // report a successfully persisted inspection as a failed submission.
-      setRecords((previous) => [created, ...previous.filter((row) => row.id !== created.id)]);
+      const matchesCondition = !conditionFilter || created.recorded_condition === conditionFilter;
+      const matchesDates = (!dateFrom || created.inspection_date >= dateFrom)
+        && (!dateTo || created.inspection_date <= dateTo);
+      setRecords((previous) => matchesCondition && matchesDates
+        ? [created, ...previous.filter((row) => row.id !== created.id)] : previous);
       setFindings("");
       setChecklist({});
       setChecklistNotes({});
@@ -218,6 +253,26 @@ export default function InspectionRecordsPage() {
       {!loading && !error && (
         <section className="rounded-xl border bg-white p-5">
           <h2 className="font-semibold">Recorded inspections</h2>
+          <form onSubmit={(event) => void applyHistoryFilters(event)} className="mt-3 grid gap-3 md:grid-cols-4">
+            <label className="text-sm">Condition
+              <select aria-label="Filter inspection condition" value={conditionFilter}
+                onChange={(event) => setConditionFilter(event.target.value)} className="mt-1 w-full rounded-lg border p-2">
+                <option value="">All conditions</option>
+                <option value="SATISFACTORY">Satisfactory</option>
+                <option value="ATTENTION_NEEDED">Attention needed</option>
+                <option value="NOT_ASSESSED">Not assessed</option>
+              </select>
+            </label>
+            <label className="text-sm">From date
+              <input type="date" aria-label="Inspection history start date" value={dateFrom}
+                onChange={(event) => setDateFrom(event.target.value)} className="mt-1 w-full rounded-lg border p-2" />
+            </label>
+            <label className="text-sm">Through date
+              <input type="date" aria-label="Inspection history end date" value={dateTo}
+                onChange={(event) => setDateTo(event.target.value)} className="mt-1 w-full rounded-lg border p-2" />
+            </label>
+            <button type="submit" disabled={loading} className="self-end rounded-lg border px-4 py-2 text-sm disabled:opacity-50">Filter history</button>
+          </form>
           {records.length === 0 ? <p className="mt-3 text-sm">No staff-recorded inspections yet.</p>
             : <ul className="mt-3 space-y-3">
                 {records.map((row) => (
