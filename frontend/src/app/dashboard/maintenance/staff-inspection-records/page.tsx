@@ -47,13 +47,17 @@ export default function InspectionRecordsPage() {
     }
     setSaving(true); setError(""); setNotice("");
     try {
-      await apiPost("/api/unit-inspections", {
+      const created = await apiPost("/api/unit-inspections", {
         unit_id: Number(unitId), inspection_date: inspectionDate,
         recorded_condition: condition, findings: findings.trim(),
-      });
-      const rows = await apiGet("/api/unit-inspections") as Inspection[];
-      if (!Array.isArray(rows)) throw new Error("Unexpected inspection response.");
-      setRecords(rows); setFindings("");
+      }) as Inspection;
+      if (!created || typeof created.id !== "number") {
+        throw new Error("Unexpected inspection save response.");
+      }
+      // The 201 response is authoritative. A second GET failing must not
+      // report a successfully persisted inspection as a failed submission.
+      setRecords((previous) => [created, ...previous.filter((row) => row.id !== created.id)]);
+      setFindings("");
       setNotice("Inspection evidence recorded and audited.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Inspection could not be recorded.");
