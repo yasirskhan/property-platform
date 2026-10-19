@@ -1,7 +1,7 @@
 """Phase 3.7 inspections: explicit staff facts and strict tenant/org scope."""
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -218,3 +218,73 @@ def test_catalog_preview_csv_email_and_export_revocation(monkeypatch):
         assert exc.value.status_code == 403
     finally:
         db.close(); engine.dispose()
+
+
+def test_archived_inventory_retains_audited_inspection_history_without_new_writes(monkeypatch):
+    """Archived unit/property evidence remains visible only to authorized staff."""
+    db, engine = _session()
+    try:
+        admin, manager, tenant, foreign_admin, first, hidden, foreign, unit, _, _ = _seed(db)
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **k: True)
+        saved = inspection_router.create_inspection(
+            _input(unit), Response(), db=db, current_user=admin,
+        )
+        audit_count = db.query(AuditLog).filter_by(entity_type="unit_inspection_record").count()
+
+        # Deactivation and later soft deletion must not erase historical evidence.
+        unit.is_active = False
+        first.is_active = False
+        db.commit()
+        for status in ("inactive", "soft-deleted"):
+            if status == "soft-deleted":
+                unit.deleted_at = datetime.utcnow()
+                first.deleted_at = datetime.utcnow()
+                db.commit()
+            for actor in (admin, manager):
+                history = inspection_router.get_inspections(
+                    Response(), property_id=first.id, unit_id=unit.id,
+                    db=db, current_user=actor,
+                )
+                assert [item.id for item in history] == [saved.id]
+                assert [row[-2:] for row in _payload(
+                    db, actor, property_id=first.id, unit_id=unit.id,
+                ).rows] == [(first.id, unit.id)]
+                with pytest.raises(HTTPException) as exc:
+                    inspection_router.create_inspection(
+                        _input(unit), Response(), db=db, current_user=actor,
+                    )
+                assert exc.value.status_code == 404
+
+        # Organization separation, tenancy restrictions, and assignment
+        # revocation still apply even to archived evidence.
+        with pytest.raises(HTTPException) as exc:
+            inspection_router.get_inspections(
+                Response(), property_id=first.id, unit_id=unit.id,
+                db=db, current_user=foreign_admin,
+            )
+        assert exc.value.status_code == 404
+        with pytest.raises(HTTPException) as exc:
+            inspection_router.get_inspections(
+                Response(), property_id=None, unit_id=None,
+                db=db, current_user=tenant,
+            )
+        assert exc.value.status_code == 403
+        assignment = db.query(PropertyAssignment).filter_by(
+            property_id=first.id, user_id=manager.id,
+        ).one()
+        assignment.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            inspection_router.get_inspections(
+                Response(), property_id=first.id, unit_id=unit.id,
+                db=db, current_user=manager,
+            )
+        assert exc.value.status_code == 404
+
+        assert db.query(UnitInspectionRecord).count() == 1
+        assert db.query(AuditLog).filter_by(
+            entity_type="unit_inspection_record",
+        ).count() == audit_count
+    finally:
+        db.close()
+        engine.dispose()
