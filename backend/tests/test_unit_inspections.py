@@ -155,6 +155,48 @@ def test_inspection_parent_binding_and_full_findings_are_audited(monkeypatch):
         engine.dispose()
 
 
+def test_inspection_detail_honors_scope_and_retired_history(monkeypatch):
+    db, engine = _session()
+    try:
+        admin, manager, tenant, outside, prop, hidden, foreign, unit, other_unit, foreign_unit = _seed(db)
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **k: True)
+        saved = inspection_router.create_inspection(
+            _input(unit, findings="Checked shutoff valves"),
+            Response(), db=db, current_user=admin,
+        )
+        detail = inspection_router.get_inspection_detail(saved.id, Response(), db=db, current_user=manager)
+        assert detail.id == saved.id
+        assert detail.findings == "Checked shutoff valves"
+        for denied in (tenant, outside):
+            with pytest.raises(HTTPException) as exc:
+                inspection_router.get_inspection_detail(saved.id, Response(), db=db, current_user=denied)
+            assert exc.value.status_code in {403, 404}
+        with pytest.raises(HTTPException) as exc:
+            inspection_router.get_inspection_detail(saved.id + 10000, Response(), db=db, current_user=admin)
+        assert exc.value.status_code == 404
+
+        # Retiring property inventory does not erase authorized history.
+        prop.is_active = False
+        prop.deleted_at = datetime.utcnow()
+        db.commit()
+        assert inspection_router.get_inspection_detail(
+            saved.id, Response(), db=db, current_user=admin,
+        ).id == saved.id
+
+        # A stale/revoked manager assignment cannot retrieve detail.
+        assignment = db.query(PropertyAssignment).filter_by(
+            user_id=manager.id, property_id=prop.id,
+        ).one()
+        assignment.deleted_at = datetime.utcnow()
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            inspection_router.get_inspection_detail(saved.id, Response(), db=db, current_user=manager)
+        assert exc.value.status_code == 404
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_scope_foreign_unit_assignment_role_revocation(monkeypatch):
     db, engine = _session()
     try:
