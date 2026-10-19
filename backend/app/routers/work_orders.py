@@ -277,6 +277,35 @@ def submit_work_order(
 # ------------------------------------------------------------
 # LIST WORK ORDERS
 # ------------------------------------------------------------
+def _scoped_work_order_outputs(db: Session, user: User, rows: list[WorkOrder]) -> list[WorkOrderOut]:
+    """Attach current names only AFTER the work orders have passed role scope."""
+    if not rows:
+        return []
+    prop_ids = {row.property_id for row in rows}
+    unit_ids = {row.unit_id for row in rows}
+    properties = db.query(Property).filter(
+        Property.id.in_(prop_ids),
+        Property.organization_id == user.organization_id,
+    ).all()
+    names = {prop.id: prop.name for prop in properties}
+    units = db.query(Unit).filter(
+        Unit.id.in_(unit_ids), Unit.property_id.in_(prop_ids),
+    ).all()
+    numbers = {unit.id: (unit.property_id, unit.unit_number) for unit in units}
+    return [
+        WorkOrderOut.model_validate(row).model_copy(update={
+            "property_name": names.get(row.property_id),
+            "unit_number": (
+                numbers[row.unit_id][1]
+                if row.unit_id in numbers
+                and numbers[row.unit_id][0] == row.property_id
+                and row.property_id in names else None
+            ),
+        })
+        for row in rows
+    ]
+
+
 @router.get("", response_model=List[WorkOrderOut])
 def list_work_orders(
     status: WorkOrderStatus | None = None,
@@ -321,32 +350,33 @@ def list_work_orders(
         q = q.offset(offset)
     if limit is not None:
         q = q.limit(limit)
-    rows = q.all()
-    if not rows:
-        return []
-    # Only resolve names for already-authorized work orders; batch lookups
-    # prevent per-row queries and enforce organization/unit-parent boundaries.
-    prop_ids = {row.property_id for row in rows}
-    unit_ids = {row.unit_id for row in rows}
-    properties = db.query(Property).filter(
-        Property.id.in_(prop_ids),
-        Property.organization_id == current_user.organization_id,
-    ).all()
-    names = {prop.id: prop.name for prop in properties}
-    units = db.query(Unit).filter(Unit.id.in_(unit_ids), Unit.property_id.in_(prop_ids)).all()
-    numbers = {unit.id: (unit.property_id, unit.unit_number) for unit in units}
-    return [
-        WorkOrderOut.model_validate(row).model_copy(update={
-            "property_name": names.get(row.property_id),
-            "unit_number": (
-                numbers[row.unit_id][1]
-                if row.unit_id in numbers
-                and numbers[row.unit_id][0] == row.property_id
-                and row.property_id in names else None
-            ),
-        })
-        for row in rows
-    ]
+    return _scoped_work_order_outputs(db, current_user, q.all())
+
+
+@router.get("/triage", response_model=List[WorkOrderOut])
+def emergency_work_order_triage(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Up to twenty visible emergency work orders; not an SLA or dispatch engine.
+
+    Submitted/unacknowledged emergencies appear before other open emergency
+    work. Oldest first within each group; exact ID tie-break is deterministic.
+    Tenant, manager, crew and organization access is identical to the queue.
+    """
+    rows = (
+        _visible_work_orders(db, current_user)
+        .filter(
+            WorkOrder.priority == WorkOrderPriority.EMERGENCY,
+            WorkOrder.status.notin_((WorkOrderStatus.CLOSED, WorkOrderStatus.CANCELLED)),
+        )
+        .order_by(
+            (WorkOrder.status != WorkOrderStatus.SUBMITTED).asc(),
+            WorkOrder.created_at.asc(), WorkOrder.id.asc(),
+        )
+        .limit(20).all()
+    )
+    return _scoped_work_order_outputs(db, current_user, rows)
 
 
 @router.get("/summary")

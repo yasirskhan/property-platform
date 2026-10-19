@@ -97,6 +97,7 @@ def test_login_and_core_authenticated_pages() -> None:
                 page.get_by_role("heading", name="Work Orders", exact=True)
             ).to_be_visible()
             expect(page.get_by_role("button", name="Apply filters", exact=True)).to_be_visible()
+            expect(page.get_by_role("heading", name="Emergency work requiring attention")).to_be_visible()
             page.get_by_label("Search work orders").fill("no such work order")
             page.get_by_role("button", name="Apply filters", exact=True).click()
             expect(

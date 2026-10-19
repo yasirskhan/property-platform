@@ -12,7 +12,7 @@ from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
 from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
-from app.routers.work_orders import (list_work_orders, work_order_queue_summary, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
+from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
 from app.models.audit_log import AuditLog
 from app.routers.properties import check_property_access, visible_properties_query
 from app.routers.users import assign_user_to_property, list_assignments, remove_assignment, update_user, deactivate_user
@@ -1064,6 +1064,60 @@ def test_work_order_queue_search_matches_scoped_property_and_unit_text():
         assert [row.id for row in _queue(db, crew, search="A1")] == [a.id]
         assert [row.id for row in _queue(db, admin, search="A1")] == [c.id, b.id, a.id]
         assert _queue(db, admin, search="A_") == []
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_emergency_triage_is_bounded_oldest_first_and_role_scoped():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other_tenant, crew, foreign_admin = actors
+        a, b, c, d = orders
+
+        def triage(user):
+            return emergency_work_order_triage(db=db, current_user=user)
+
+        assert [row.id for row in triage(admin)] == [c.id]
+        assert [row.id for row in triage(other_tenant)] == [c.id]
+        assert [row.id for row in triage(foreign_admin)] == [d.id]
+        assert triage(manager) == []
+        assert triage(crew) == []
+        assert triage(tenant) == []
+
+        a.priority = WorkOrderPriority.EMERGENCY
+        a.status = WorkOrderStatus.ACKNOWLEDGED
+        a.created_at = datetime(2026, 10, 17, 12)
+        db.commit()
+        # Submitted requests are triaged first even if acknowledged older.
+        assert [row.id for row in triage(admin)] == [c.id, a.id]
+        assert [row.id for row in triage(manager)] == [a.id]
+        assert [row.id for row in triage(tenant)] == [a.id]
+        assert [row.id for row in triage(crew)] == [a.id]
+        assert [(row.property_name, row.unit_number) for row in triage(admin)] == [
+            ("Other Property", "A1"), ("Assigned Property", "A1"),
+        ]
+
+        c.status = WorkOrderStatus.CANCELLED
+        d.status = WorkOrderStatus.CLOSED
+        db.commit()
+        assert [row.id for row in triage(admin)] == [a.id]
+        assert triage(other_tenant) == []
+        assert triage(foreign_admin) == []
+
+        for i in range(30):
+            row = WorkOrder(
+                property_id=a.property_id, unit_id=a.unit_id, tenant_id=tenant.id,
+                title=f"Emergency test {i}", description="Authorized seeded issue",
+                priority=WorkOrderPriority.EMERGENCY, category=WorkOrderCategory.GENERAL,
+                status=WorkOrderStatus.SUBMITTED,
+                created_at=datetime(2026, 10, 18, 12, 0),
+            )
+            db.add(row)
+        db.commit()
+        assert len(triage(admin)) == 20
+        assert all(row.priority == WorkOrderPriority.EMERGENCY for row in triage(admin))
+        assert a.id not in [row.id for row in triage(admin)]
     finally:
         db.close()
         engine.dispose()

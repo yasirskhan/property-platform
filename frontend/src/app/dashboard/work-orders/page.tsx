@@ -36,6 +36,7 @@ export default function WorkOrderQueuePage() {
   const [canCreate, setCanCreate] = useState(false);
   const [canInspect, setCanInspect] = useState(false);
   const [summary, setSummary] = useState<QueueSummary | null>(null);
+  const [triage, setTriage] = useState<WorkOrder[] | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
 
@@ -74,6 +75,18 @@ export default function WorkOrderQueuePage() {
     apiGet("/work-orders/summary")
       .then((result: QueueSummary) => { if (active) setSummary(result); })
       .catch(() => { if (active) setSummary(null); });
+    return () => { active = false; };
+  }, [reload]);
+
+  useEffect(() => {
+    let active = true;
+    setTriage(null);
+    apiGet("/work-orders/triage")
+      .then((items: WorkOrder[]) => {
+        if (!Array.isArray(items)) throw new Error("Unexpected triage response.");
+        if (active) setTriage(items);
+      })
+      .catch(() => { if (active) setTriage(null); });
     return () => { active = false; };
   }, [reload]);
 
@@ -156,6 +169,37 @@ export default function WorkOrderQueuePage() {
             ))}
           </div>
         ) : <p className="rounded-xl border bg-white p-4 text-sm text-slate-500">Summary unavailable</p>}
+      </section>
+      <section aria-label="Emergency maintenance triage" className="rounded-xl border bg-white p-5">
+        <h2 className="font-semibold text-slate-900">Emergency work requiring attention</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Up to 20 open emergency requests you are authorized to view. Unacknowledged requests appear first,
+          then oldest first. This view does not automatically dispatch staff or replace emergency services.
+        </p>
+        {triage === null ? (
+          <p className="mt-3 text-sm text-slate-500">Emergency triage unavailable.</p>
+        ) : triage.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-500">No visible open emergency requests.</p>
+        ) : (
+          <ul className="mt-3 divide-y">
+            {triage.map((item) => (
+              <li key={item.id} className="flex flex-wrap items-start justify-between gap-2 py-2 text-sm">
+                <div>
+                  <Link href={`/dashboard/maintenance/work-orders/${item.id}`}
+                    className="font-medium text-blue-800 hover:underline">
+                    #{item.id} · {item.title}
+                  </Link>
+                  <p className="text-xs text-slate-500">
+                    {item.property_name || `Property #${item.property_id}`} · {item.unit_number ? `Unit ${item.unit_number}` : `Unit #${item.unit_id}`}
+                  </p>
+                </div>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs">
+                  {item.status.replaceAll("_", " ")}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
       <form onSubmit={apply} className="rounded-xl border bg-white p-5">
         <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">

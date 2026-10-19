@@ -445,3 +445,16 @@ after organization/assignment/tenant/crew visibility. No extra result rows,
 permissions or business mutations. DB tests verify property and unit matches,
 cross-org and manager scoping, and literal wildcard escaping. Queue UI label
 now makes the additional supported search fields discoverable.
+
+## Emergency maintenance triage (detached; hosted CI required)
+
+New read-only `GET /work-orders/triage` returns up to 20 open EMERGENCY-priority
+orders through the SAME tenant, crew, manager-assignment and org authorization
+query as the work-order queue. Submitted/unacknowledged emergencies are shown
+first, followed by oldest created timestamp and stable ID, with batched current
+property/unit labels and no disclosures across organizations. The Work Orders
+page links each authorized result to existing work-order detail, shows explicit
+unavailable/empty states, and warns that triage is not automatic dispatch or
+emergency response. Tests cover order, status, bounds and all scoped roles,
+plus authenticated browser heading visibility. This is not full SLA monitoring,
+on-call dispatch, notifications or automated escalation.

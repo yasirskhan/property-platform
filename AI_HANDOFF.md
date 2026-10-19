@@ -1,3 +1,9 @@
+# 2026-10-19 | DETACHED EMERGENCY TRIAGE — BOUNDED PHASE 5 MILESTONE
+
+The new prepared descendant of published `4ea6a65a5d45faa1797a08e288365633ac6ed259` adds read-only emergency work-order triage: `GET /work-orders/triage` returns 20 max, role/organization-scope-enforced open EMERGENCY requests, submitted-first and then oldest-first ordering, stable ID, readable property/unit labels, and Work Orders page links. No SLA claims, background dispatch, financial mutation, vendor escalation or feature unhide. Reuses a common scoped location serializer from existing authorized work-order list. Regression covers manager/tenant/crew/foreign-org, terminal filtering, priority ordering, and max-20 bounding; signed-in smoke asserts the triage heading. **DETACHED/UNVERIFIED**, not published. The current live head `4ea6a65a5d45faa1797a08e288365633ac6ed259` CI `39241105952` must PASS all six jobs at exact SHA before a non-force expected-SHA fast-forward; then verify this successor's six hosted jobs and repair reds. Preserve `main`, only branch `chatgpt/checkpoint-005-safety`, no Zargul modifications, and all remaining Phase 5 backlog.
+
+---
+
 # 2026-10-19 | EXACT CI CHECKPOINT AND SAFE NEXT PHASE 5 BATCH
 
 ## Last fully verified customer branch checkpoint
