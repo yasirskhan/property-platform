@@ -203,6 +203,11 @@ def submit_work_order(
         raise HTTPException(status_code=404, detail="Property not found")
     if prop.organization_id != current_user.organization_id:
         raise HTTPException(status_code=403, detail="Unit is outside your organization")
+    if (
+        not unit.is_active or unit.deleted_at is not None
+        or not prop.is_active or prop.deleted_at is not None
+    ):
+        raise HTTPException(status_code=404, detail="Unit is not available for maintenance requests")
 
     # Determine the tenant_id
     if current_user.role == UserRole.TENANT:
@@ -360,8 +365,13 @@ def requestable_work_order_units(
     query = (
         db.query(Unit.id, Unit.unit_number, Property.id, Property.name)
         .join(Property, Property.id == Unit.property_id)
-        .filter(Property.organization_id == current_user.organization_id,
-                Property.is_active.is_(True))
+        .filter(
+            Property.organization_id == current_user.organization_id,
+            Property.is_active.is_(True),
+            Property.deleted_at.is_(None),
+            Unit.is_active.is_(True),
+            Unit.deleted_at.is_(None),
+        )
     )
     if current_user.role == UserRole.TENANT:
         query = query.join(Lease, Lease.unit_id == Unit.id).filter(

@@ -1,3 +1,22 @@
+# 2026-10-18 | PHASE 5 INACTIVE UNIT/PROPERTY INTAKE (CI PENDING)
+
+**Verified predecessor:** `19d065146abc1f149b9043afa6ed8e989015c420`, GitHub Actions
+`39178839179` **SUCCESS all six jobs** (backend, frontend, platform-admin,
+security, authenticated E2E and staging-config). This independently confirms
+both earlier E2E readiness/alert-selector fixes before this publication.
+
+This successor rebases the prepared inactive/deleted-unit intake protection
+onto the verified predecessor WITHOUT importing divergent detached commit
+ancestry. The actual POST submission rejects inactive/soft-deleted Units and
+Properties. The request-unit picker excludes them. Database regression covers
+all four states for both listing and submission. Existing history is preserved.
+Do not call this successor VERIFIED until all six hosted CI jobs pass for its
+exact new SHA. Inspection-record UI is the next separate bounded batch, and
+the OWNER cross-property authorization review remains open. Sole branch
+`chatgpt/checkpoint-005-safety`; no main/other branch/force/Zargul changes.
+
+---
+
 # 2026-10-18 | EXACT PLAYWRIGHT STRICT ALERT SELECTOR FIX
 
 The preceding auth-readiness E2E repair SHA `0dd331306e2ae6420179fe930b27d67208c0d2af` passed Backend/PostgreSQL, Frontend, Platform Admin, Security and Staging; Actions `39177301788` failed one E2E test only. The login readiness step now worked; the new failure at `test_customer_maintenance_request_form_saves_a_new_order` was Playwright strict-mode ambiguity for `get_by_role("alert")`: Next.js renders its route announcer with alert role in addition to the actual emergency request warning. This fix targets the actual warning text and preserves the emergency flow test; no product permission or UI behavior is weakened. Require all six hosted CI jobs at this new exact published SHA before promoting the next detached Phase 5 batch. Do not touch main, other branches or Zargul.

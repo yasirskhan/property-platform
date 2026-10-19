@@ -164,3 +164,11 @@ Results use the existing server-side organization and role restrictions.
 The feature does not block intake or decide whether an order is a duplicate.
 Automated tests include different roles, cross-organization restrictions,
 literal wildcard handling and an authenticated browser lookup.
+
+## Inactive/deleted unit and property intake safeguards (provisional)
+
+New maintenance requests fail closed for units or their parent properties when
+inactive or soft-deleted. The picker also excludes all four unavailable states.
+Existing maintenance and inspection history is unchanged. Regression tests
+exercise the picker and the server-side submit guard for each state.
+This milestone requires a six-job exact-SHA hosted CI success before VERIFIED.

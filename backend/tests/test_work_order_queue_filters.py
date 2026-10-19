@@ -523,3 +523,42 @@ def test_authorized_tenant_and_manager_intake_succeeds_but_crew_cannot_submit():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_inactive_or_deleted_unit_never_enters_new_request_picker():
+    db, engine, actors, props, orders = _seed_queue()
+    try:
+        admin = actors[0]
+        unit = db.get(Unit, orders[0].unit_id)
+        assert unit is not None
+        prop = props[0]
+
+        def assert_unavailable():
+            choices = requestable_work_order_units(
+                search=None, limit=50, offset=0, db=db, current_user=admin,
+            )
+            assert unit.id not in {row["id"] for row in choices}
+            with pytest.raises(HTTPException) as blocked:
+                submit_work_order(
+                    WorkOrderCreate(
+                        unit_id=unit.id, title="Unavailable unit repair",
+                        description="The unit or property is not available.",
+                    ),
+                    db=db, current_user=admin,
+                )
+            assert blocked.value.status_code == 404
+
+        for target, field, blocked_value, restored_value in (
+            (unit, "is_active", False, True),
+            (unit, "deleted_at", datetime(2026, 10, 18), None),
+            (prop, "is_active", False, True),
+            (prop, "deleted_at", datetime(2026, 10, 18), None),
+        ):
+            setattr(target, field, blocked_value)
+            db.commit()
+            assert_unavailable()
+            setattr(target, field, restored_value)
+            db.commit()
+    finally:
+        db.close()
+        engine.dispose()
