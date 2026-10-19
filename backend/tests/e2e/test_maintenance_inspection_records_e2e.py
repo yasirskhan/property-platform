@@ -38,7 +38,7 @@ def test_staff_records_inspection_without_invented_mobile_workflow():
             page.get_by_role("button", name="Find units").click()
             pw.expect(page.get_by_role("button", name="Find units")).to_be_enabled(timeout=15_000)
             pw.expect(page.get_by_role("option", name="E2E Test Property · Unit E2E-1")).to_be_attached()
-            page.get_by_label("Inspection unit").select_option("900001")
+            page.get_by_label("Inspection unit", exact=True).select_option("900001")
             page.get_by_label("Inspection date").fill(date.today().isoformat())
             page.get_by_label("Inspection condition").select_option("ATTENTION_NEEDED")
             page.get_by_label("Inspection findings").fill("Inspected window latch by staff")
