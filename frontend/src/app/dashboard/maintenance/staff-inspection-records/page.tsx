@@ -14,6 +14,9 @@ export default function InspectionRecordsPage() {
   const [records, setRecords] = useState<Inspection[]>([]);
   const [units, setUnits] = useState<UnitChoice[]>([]);
   const [unitId, setUnitId] = useState("");
+  const [unitSearch, setUnitSearch] = useState("");
+  const [unitsLoading, setUnitsLoading] = useState(true);
+  const [unitError, setUnitError] = useState("");
   const [inspectionDate, setInspectionDate] = useState("");
   const [condition, setCondition] = useState("NOT_ASSESSED");
   const [findings, setFindings] = useState("");
@@ -25,8 +28,14 @@ export default function InspectionRecordsPage() {
   useEffect(() => {
     let active = true;
     apiGet("/work-orders/request-units?limit=100")
-      .then((rows: UnitChoice[]) => { if (active && Array.isArray(rows)) setUnits(rows); })
-      .catch(() => { if (active) setUnits([]); });
+      .then((rows: UnitChoice[]) => {
+        if (!Array.isArray(rows)) throw new Error("Unexpected unit response.");
+        if (active) setUnits(rows);
+      })
+      .catch((cause) => {
+        if (active) setUnitError(cause instanceof Error ? cause.message : "Units unavailable.");
+      })
+      .finally(() => { if (active) setUnitsLoading(false); });
     apiGet("/api/unit-inspections")
       .then((rows: Inspection[]) => {
         if (!Array.isArray(rows)) throw new Error("Unexpected inspection response.");
@@ -38,6 +47,23 @@ export default function InspectionRecordsPage() {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
+
+  async function searchUnits(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (unitsLoading) return;
+    setUnitsLoading(true); setUnitError(""); setUnitId(""); setUnits([]);
+    try {
+      const search = unitSearch.trim();
+      const query = search ? `&search=${encodeURIComponent(search)}` : "";
+      const rows = await apiGet(`/work-orders/request-units?limit=100${query}`) as UnitChoice[];
+      if (!Array.isArray(rows)) throw new Error("Unexpected unit response.");
+      setUnits(rows);
+    } catch (cause) {
+      setUnitError(cause instanceof Error ? cause.message : "Unit search failed.");
+    } finally {
+      setUnitsLoading(false);
+    }
+  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -82,10 +108,28 @@ export default function InspectionRecordsPage() {
       {loading && <p className="text-sm text-slate-600">Loading inspection records…</p>}
       {notice && <p role="status" className="rounded-lg border p-3 text-sm">{notice}</p>}
       {!loading && !error && (
+        <form onSubmit={(event) => void searchUnits(event)} className="space-y-2 rounded-xl border bg-white p-5">
+          <label className="block text-sm">Find an active unit by property name or unit number
+            <input aria-label="Search inspection units" maxLength={80} value={unitSearch}
+              onChange={(event) => setUnitSearch(event.target.value)}
+              placeholder="Property or unit number"
+              className="mt-1 w-full rounded-lg border p-2" />
+          </label>
+          <button type="submit" disabled={unitsLoading}
+            className="rounded-lg border px-4 py-2 text-sm disabled:opacity-50">
+            {unitsLoading ? "Searching…" : "Find units"}
+          </button>
+          {unitError && <p role="alert" className="text-sm text-red-700">{unitError}</p>}
+          {!unitsLoading && !unitError && units.length === 0 &&
+            <p className="text-sm text-slate-600">No matching active units found.</p>}
+          <p className="text-xs text-slate-600">Showing up to 100 matching units. Refine the search to find more.</p>
+        </form>
+      )}
+      {!loading && !error && (
         <form onSubmit={(event) => void save(event)} className="space-y-3 rounded-xl border bg-white p-5">
           <h2 className="font-semibold">Record a dated inspection</h2>
           <label className="block text-sm">Unit
-            <select required aria-label="Inspection unit" value={unitId}
+            <select required disabled={unitsLoading} aria-label="Inspection unit" value={unitId}
               onChange={(event) => setUnitId(event.target.value)}
               className="mt-1 w-full rounded-lg border p-2">
               <option value="">Select an active unit</option>
@@ -114,7 +158,7 @@ export default function InspectionRecordsPage() {
               value={findings} onChange={(event) => setFindings(event.target.value)}
               className="mt-1 w-full rounded-lg border p-2" />
           </label>
-          <button disabled={saving || !unitId || !inspectionDate}
+          <button disabled={saving || unitsLoading || !unitId || !inspectionDate}
             type="submit" className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50">
             {saving ? "Saving…" : "Save inspection record"}
           </button>

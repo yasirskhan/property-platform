@@ -205,3 +205,14 @@ Database regression covers both inventory retirement states, write denial,
 foreign organization, tenant denial, and assignment revocation. This is a
 limited historical-evidence repair, not the full Phase 5 inspection module.
 Mark VERIFIED only after all six hosted jobs pass at its exact published SHA.
+
+## Staff inspection unit search (prepared, not yet published)
+
+The limited staff evidence screen will use the already server-scoped active-unit
+picker with an optional property/unit-number search, showing at most 100 matches
+per query rather than trapping a large organization at the first 100 units.
+An explicit search button avoids searching on every keystroke, clears any
+previous unit selection, and displays lookup errors separately from historical
+inspection reads. The inspection POST retains the server-side role/property/
+active-inventory authorization and append-only audit. Authenticated E2E covers
+a successful searched-unit recording. This is not a full inspection module.
