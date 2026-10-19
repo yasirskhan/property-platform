@@ -261,6 +261,37 @@ def test_assign_work_order_requires_acknowledged_status_and_authorized_active_cr
         engine.dispose()
 
 
+def test_staff_origin_never_grants_tenant_visibility_even_with_tenant_id():
+    db, engine, actors, _properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other_tenant, crew, foreign_admin = actors
+        row = orders[0]
+        assert row.tenant_id == tenant.id
+        # Historical unknown origin keeps existing tenant visibility.
+        assert row.request_origin is None
+        assert _user_can_access_work_order(db, tenant, row)
+        row.request_origin = "staff"
+        row.requested_by_user_id = admin.id
+        db.commit()
+        # Even deliberately malformed legacy tenant_id cannot turn an
+        # authenticated staff request into a tenant-owned record.
+        assert not _user_can_access_work_order(db, tenant, row)
+        assert all(item.id != row.id for item in _queue(db, tenant))
+        with pytest.raises(HTTPException) as denied:
+            get_work_order(row.id, db=db, current_user=tenant)
+        assert denied.value.status_code == 403
+        assert _user_can_access_work_order(db, admin, row)
+        row.request_origin = "tenant"
+        row.requested_by_user_id = tenant.id
+        db.commit()
+        assert _user_can_access_work_order(db, tenant, row)
+        assert any(item.id == row.id for item in _queue(db, tenant))
+        assert not _user_can_access_work_order(db, foreign_admin, row)
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_legacy_staff_submissions_do_not_grant_tenant_read_access():
     """Lock down existing behavior before separating requester from tenant."""
     db, engine, actors, _properties, orders = _seed_queue()
