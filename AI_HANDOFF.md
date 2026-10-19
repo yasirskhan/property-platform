@@ -1,3 +1,9 @@
+# 2026-10-19 | PHASE 5 ORIGIN-SCOPED TENANT ACCESS — DETACHED / CI GATED
+
+Current published base `582ee30f82882445d5319b6c6c68bd58e34ac0c4`, CI `39313704165` pending verification. Initial source blocks staff-originated work orders from tenant detail, queue, summary, triage and duplicate searches. A detached successor `a0fc6239641e6d92d4ee1c2539fc3ca932cf015f` also requires the real authenticated requester ID to match tenant ID for explicit tenant origin; malformed provenance must fail closed and the same-organization legacy-unknown path remains compatible. No tenant ID rewrites, new rights, dispatch automation or finance writes. Before publishing detached descendant, verify all six jobs at the exact live parent, check latest branch HEAD, then `update_ref` with expected SHA and force=false. If parent CI fails, fix forward and rebuild. Exact successor hosted six-job CI is mandatory. Recurrence still blocked by non-nullable `tenant_id` and legacy consumers.
+
+---
+
 # 2026-10-19 | ADDITIVE WORK-ORDER REQUESTER FIELDS — PROVISIONAL
 
 New nullable work_orders.request_origin and requested_by_user_id with indexed FK and additive Alembic revision 2c4e6a8b0d91 (parent 1b8d3f6a9c20); current manual submit persists real actor/type with legacy tenant_id preserved for compatibility. Existing authorized read/API/UI provenance remains. Regression checks persisted provenance and historical null. Full six-job CI at exact SHA required before VERIFIED; inspect Alembic head and fix any migration parity errors, never disable checks. The recurring engine and tenant_id nullability remain gated. Continue Phase 5 after verification.

@@ -503,3 +503,7 @@ Authorized work-order detail now exposes requester origin and identity from auth
 ## Verified requester origin in authenticated work-order detail (provisional)
 
 Authorized detail now displays recorded staff/tenant origin and requester ID only when the audited creation evidence proves them. Historical unknown cases display an unverified-source label. An authenticated browser test verifies staff creation provenance. No broadened access, tenant impersonation or recurring scheduler. Six hosted jobs must pass.
+
+## Explicit staff and tenant provenance isolation (provisional, CI required)
+
+The centralized work-order access query and per-record check prevent tenant-origin roles from reading an explicitly staff-originated work order even if a legacy `tenant_id` points to that tenant. This covers queue, summary, emergency triage and similar-request searches through the shared scope. Prepared follow-up also requires matching `requested_by_user_id` for explicit tenant-origin records; malformed mismatches fail closed. Unclassified historical rows retain the existing legacy tenant lookup to avoid destructive backfill. Backend regressions verify forged associations, detail denial, scoped lists, legacy compatibility and organization boundaries. These changes are not the scheduler or nullable-tenant migration; hosted all-six-job CI at exact SHA is required.

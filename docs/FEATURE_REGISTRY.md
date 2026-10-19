@@ -834,3 +834,5 @@ access boundary.
 | POST /api/notes/{entity_type}/{entity_id} | API | — | core | no | target permission | no | ✅ built | Append-only internal note creation plus immutable note_added audit event |
 | EntityNotes shared component | component | — | core | no | backend authoritative | no | ✅ built | Reusable customer detail-surface notes UI |
 | Property Notes tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ built | First customer surface using the universal component |
+
+| Phase 5 work-order provenance enforcement | capability | /dashboard/maintenance/work-orders | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 provisional | Tenant detail, queue, summary, triage and similar-request results deny explicitly staff-originated requests; verified requester ID required by prepared successor; legacy unknown remains unchanged. Full six-job hosted CI required before ✅ |

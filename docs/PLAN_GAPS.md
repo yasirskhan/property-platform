@@ -476,3 +476,6 @@ ships by flipping a flag. No more loops.
 ---
 
 # END OF PLAN_GAPS.md
+## Open Phase 5 maintenance attribution issue (2026-10-19)
+
+**Priority: blocking recurring generation.** `WorkOrder.tenant_id` is NOT NULL and manual staff creation still writes the staff user ID there for backward compatibility. Additive `request_origin` and `requested_by_user_id` now exist, but a complete reader/API/finance/report consumer audit and safe nullable-tenant migration are not yet implemented. Explicit tenant-origin records must not disclose to a tenant unless requested_by_user_id matches that tenant; historical unknown provenance remains compatibility-scoped. Do not create automated orders with fabricated tenant IDs. Planned: complete model/schema migration, recurring schedule/occurrence unique keys, on-call dispatch policies, inspections/inventory and billing integration behind separate authorization and audit gates.
