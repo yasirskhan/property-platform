@@ -349,6 +349,15 @@ def test_inspection_linked_work_order_validates_real_scoped_source(monkeypatch):
         ).one()
         assert json.loads(audit.new_value)["source_inspection_id"] == evidence.id
         assert get_work_order(created.id, db=db, current_user=admin).source_inspection_id == evidence.id
+        assert get_work_order(created.id, db=db, current_user=manager).source_inspection_id == evidence.id
+        created.assigned_to_id = crew.id
+        db.commit()
+        # Assigned crew may inspect the work order but not the private source
+        # inspection record, even though its ID is stored internally.
+        assert get_work_order(created.id, db=db, current_user=crew).source_inspection_id is None
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **k: False)
+        assert get_work_order(created.id, db=db, current_user=manager).source_inspection_id is None
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **k: True)
         for source_id in (other_evidence.id, foreign_evidence.id, evidence.id + 99999):
             with pytest.raises(HTTPException) as exc:
                 request(source_id)
