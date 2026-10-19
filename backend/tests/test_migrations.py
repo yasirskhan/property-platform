@@ -49,6 +49,18 @@ def test_fresh_database_bootstrap_creates_current_schema_and_stamps_head(
     )
     assert _version(db_path) == EXPECTED_HEAD
 
+    # New requester provenance is additive; older work orders and API data
+    # remain intact while nullable columns allow explicit legacy uncertainty.
+    conn = sqlite3.connect(db_path)
+    try:
+        columns = {row[1]: row for row in conn.execute("PRAGMA table_info(work_orders)")}
+        assert "request_origin" in columns
+        assert "requested_by_user_id" in columns
+        assert columns["request_origin"][3] == 0
+        assert columns["requested_by_user_id"][3] == 0
+    finally:
+        conn.close()
+
     conn = sqlite3.connect(db_path)
     try:
         count = conn.execute(
