@@ -95,5 +95,9 @@ def test_staff_records_inspection_without_invented_mobile_workflow():
             page.get_by_role("button", name="Submit maintenance request").click()
             page.wait_for_url(re.compile(r"/maintenance/work-orders/[0-9]+$"), timeout=15_000)
             pw.expect(page.get_by_role("link", name=re.compile(r"staff inspection #[0-9]+"))).to_be_visible(timeout=15_000)
+            page.get_by_role("link", name=re.compile(r"staff inspection #[0-9]+")).click()
+            page.wait_for_url(re.compile(r"/maintenance/staff-inspection-records/[0-9]+$"), timeout=15_000)
+            pw.expect(page.get_by_role("heading", name="Linked maintenance work orders")).to_be_visible()
+            pw.expect(page.get_by_role("link", name=re.compile(r"Work order #[0-9]+: Inspection follow-up #[0-9]+"))).to_be_visible(timeout=15_000)
         finally:
             browser.close()
