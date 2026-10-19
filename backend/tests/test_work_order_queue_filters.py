@@ -13,6 +13,7 @@ from app.models.user import Organization, User, UserRole
 from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
 from app.routers.work_orders import (list_work_orders, work_order_queue_summary, _user_can_access_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, submit_work_order, acknowledge_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
 from app.models.audit_log import AuditLog
+from app.routers.properties import check_property_access, visible_properties_query
 from app.models.lease import Lease, LeaseStatus
 from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderCreate, WorkOrderComment
 from fastapi import HTTPException
@@ -587,6 +588,57 @@ def test_soft_deleted_manager_assignment_cannot_select_request_units():
         # even if a stale is_active flag remains True.
         assert unit_id not in {row["id"] for row in picker(manager)}
         assert unit_id in {row["id"] for row in picker(admin)}
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_cross_org_and_soft_deleted_staff_assignment_cannot_authorize_property_or_work_orders():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other_tenant, crew, external_admin = actors
+        own_property, _, foreign_property = properties
+        own_order = orders[0]
+        with pytest.raises(HTTPException) as crossed:
+            check_property_access(db, manager, foreign_property.id)
+        assert crossed.value.status_code == 403
+        assert {row.id for row in visible_properties_query(db, manager).all()} == {own_property.id}
+
+        for staff in (manager, crew):
+            assignment = db.query(PropertyAssignment).filter_by(
+                property_id=own_property.id, user_id=staff.id,
+            ).one()
+            assignment.deleted_at = datetime(2026, 10, 18, 12)
+        db.commit()
+        for staff in (manager, crew):
+            with pytest.raises(HTTPException) as revoked:
+                check_property_access(db, staff, own_property.id)
+            assert revoked.value.status_code == 403
+            assert visible_properties_query(db, staff).all() == []
+            assert _queue(db, staff) == []
+            assert _user_can_access_work_order(db, staff, own_order) is False
+
+        with pytest.raises(HTTPException) as blocked_submission:
+            submit_work_order(
+                WorkOrderCreate(unit_id=own_order.unit_id, title="No assignment",
+                                description="Revoked manager may not file here."),
+                db=db, current_user=manager,
+            )
+        assert blocked_submission.value.status_code == 403
+
+        own_order.status = WorkOrderStatus.ASSIGNED
+        db.commit()
+        with pytest.raises(HTTPException) as blocked_start:
+            start_work_order(own_order.id, db=db, current_user=crew)
+        assert blocked_start.value.status_code == 403
+
+        own_order.status = WorkOrderStatus.ACKNOWLEDGED
+        own_order.assigned_to_id = None
+        db.commit()
+        with pytest.raises(HTTPException) as blocked_assignment:
+            assign_work_order(own_order.id, WorkOrderAssign(crew_user_id=crew.id),
+                              db=db, current_user=admin)
+        assert blocked_assignment.value.status_code == 400
     finally:
         db.close()
         engine.dispose()

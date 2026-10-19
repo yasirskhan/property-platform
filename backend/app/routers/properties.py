@@ -92,6 +92,8 @@ def check_property_access(db: Session, user: User, property_id: int) -> Property
     prop = db.query(Property).filter(Property.id == property_id).first()
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
+    if prop.organization_id != user.organization_id:
+        raise HTTPException(status_code=403, detail="Not your property")
 
     if user.role in (UserRole.ADMIN, UserRole.OWNER):
         if prop.organization_id != user.organization_id:
@@ -105,6 +107,7 @@ def check_property_access(db: Session, user: User, property_id: int) -> Property
                 PropertyAssignment.property_id == prop.id,
                 PropertyAssignment.user_id == user.id,
                 PropertyAssignment.is_active == True,  # noqa: E712
+                PropertyAssignment.deleted_at.is_(None),
             )
             .first()
         )
@@ -117,7 +120,7 @@ def check_property_access(db: Session, user: User, property_id: int) -> Property
 
 def visible_properties_query(db: Session, user: User):
     """Return a SQLAlchemy query pre-filtered by role."""
-    q = db.query(Property)
+    q = db.query(Property).filter(Property.organization_id == user.organization_id)
 
     if user.role in (UserRole.ADMIN, UserRole.OWNER):
         return q.filter(Property.organization_id == user.organization_id)
@@ -128,6 +131,7 @@ def visible_properties_query(db: Session, user: User):
             .filter(
                 PropertyAssignment.user_id == user.id,
                 PropertyAssignment.is_active == True,  # noqa: E712
+                PropertyAssignment.deleted_at.is_(None),
             )
         )
 

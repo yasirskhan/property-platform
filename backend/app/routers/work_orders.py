@@ -121,7 +121,14 @@ def _user_can_access_work_order(db: Session, user: User, wo: WorkOrder) -> bool:
         return wo.tenant_id == user.id
 
     if user.role == UserRole.CREW:
-        return wo.assigned_to_id == user.id
+        if wo.assigned_to_id != user.id:
+            return False
+        return db.query(PropertyAssignment).filter(
+            PropertyAssignment.property_id == prop.id,
+            PropertyAssignment.user_id == user.id,
+            PropertyAssignment.is_active.is_(True),
+            PropertyAssignment.deleted_at.is_(None),
+        ).first() is not None
 
     if user.role in (UserRole.ADMIN, UserRole.OWNER):
         return True
@@ -133,6 +140,7 @@ def _user_can_access_work_order(db: Session, user: User, wo: WorkOrder) -> bool:
                 PropertyAssignment.property_id == prop.id,
                 PropertyAssignment.user_id == user.id,
                 PropertyAssignment.is_active == True,  # noqa: E712
+                PropertyAssignment.deleted_at.is_(None),
             )
             .first()
         )
@@ -163,7 +171,14 @@ def _visible_work_orders(db: Session, user: User):
         return q.filter(WorkOrder.tenant_id == user.id)
 
     if user.role == UserRole.CREW:
-        return q.filter(WorkOrder.assigned_to_id == user.id)
+        return q.join(
+            PropertyAssignment, PropertyAssignment.property_id == Property.id,
+        ).filter(
+            WorkOrder.assigned_to_id == user.id,
+            PropertyAssignment.user_id == user.id,
+            PropertyAssignment.is_active.is_(True),
+            PropertyAssignment.deleted_at.is_(None),
+        )
 
     if user.role in (UserRole.ADMIN, UserRole.OWNER):
         return q
@@ -174,6 +189,7 @@ def _visible_work_orders(db: Session, user: User):
             .filter(
                 PropertyAssignment.user_id == user.id,
                 PropertyAssignment.is_active == True,  # noqa: E712
+                PropertyAssignment.deleted_at.is_(None),
             )
         )
 
@@ -608,6 +624,7 @@ def assign_work_order(
             PropertyAssignment.property_id == wo.property_id,
             PropertyAssignment.user_id == crew.id,
             PropertyAssignment.is_active == True,  # noqa: E712
+            PropertyAssignment.deleted_at.is_(None),
         )
         .first()
     )

@@ -236,3 +236,14 @@ already loaded history failed. Results retain inspection-date/ID ordering and
 server-enforced organization/assignment/menu restrictions; automated tests
 cover deterministic pages, authorized manager access and denials to foreign
 organizations and tenants. No inspection records are overwritten.
+
+## Property/work-order staff authorization repair (prepared, CI required)
+
+A malformed cross-organization staff assignment must not grant property-detail
+access, and soft-deleted assignments cannot authorize property/maintenance
+visibility, manager submission, crew work, or crew assignment. Requiring
+same-organization Property scope plus nondeleted active assignments preserves
+ADMIN/OWNER organization rights but does not resolve the separately open
+multi-owner OWNER policy review. Database regression checks rogue foreign
+assignment and manager/crew revocation. Verify all six hosted CI jobs on the
+published SHA before marking this security batch verified.
