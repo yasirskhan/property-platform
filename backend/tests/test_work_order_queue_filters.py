@@ -1017,3 +1017,34 @@ def test_work_order_queue_returns_scoped_location_labels_without_expanding_visib
     finally:
         db.close()
         engine.dispose()
+
+
+def test_work_order_activity_note_rejects_whitespace_without_audit_or_mutation():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin = actors[0]
+        order = orders[0]
+        before_updates = db.query(WorkOrderUpdate).filter_by(work_order_id=order.id).count()
+        before_audit = db.query(AuditLog).filter_by(
+            entity_type="work_order", entity_id=order.id, action="comment_added",
+        ).count()
+        with pytest.raises(HTTPException) as rejected:
+            add_comment(order.id, WorkOrderComment(message=" \n \t "), db=db, current_user=admin)
+        assert rejected.value.status_code == 422
+        assert db.query(WorkOrderUpdate).filter_by(work_order_id=order.id).count() == before_updates
+        assert db.query(AuditLog).filter_by(
+            entity_type="work_order", entity_id=order.id, action="comment_added",
+        ).count() == before_audit
+
+        saved = add_comment(
+            order.id, WorkOrderComment(message="  Inspected kitchen sink.  "),
+            db=db, current_user=admin,
+        )
+        assert saved.message == "Inspected kitchen sink."
+        assert saved.actor_name == "QueueAdmin Tester"
+        assert db.query(AuditLog).filter_by(
+            entity_type="work_order", entity_id=order.id, action="comment_added",
+        ).count() == before_audit + 1
+    finally:
+        db.close()
+        engine.dispose()

@@ -1,3 +1,9 @@
+# 2026-10-18 | PREPARED WORK-ORDER ACTIVITY NONBLANK API INTEGRITY (DETACHED)
+
+The existing activity note input validates min length in the schema but a forged all-space message was accepted. Prepared router now trims server-side and rejects whitespace-only notes with HTTP 422 before any activity or audit mutation; a disposable regression verifies rejection and trimmed accepted comments with actor identity. This candidate is descendant of queue location labels, actor identity labels and cancel-reason work, **NOT PUBLISHED/CI VERIFIED**. Parent published `941d3ada4f89b70b997df27ff685530611043893`, CI `39200721153`, must pass six jobs at exact SHA and live branch before nonforce expected-head promotion and successor six-job CI. Phase 5 and wider SaaS still unfinished, no main/new branch/Zargul edits.
+
+---
+
 # 2026-10-18 | PREPARED SCOPED WORK-ORDER QUEUE LOCATION LABELS (DETACHED)
 
 Next bounded Phase 5 successor gives already-authorized GET /work-orders rows optional current property names and unit numbers through batched post-scope lookups and organization/unit-parent equality checks, without N+1 queries or opening any other work order. The queue page shows these names with stable ID fallback. DB regression covers filtered admin, assigned manager, tenant, foreign org visibility. **NOT PUBLISHED/VERIFIED.** This detached descendant follows actor-names and cancellation reason candidates on current published ancestor `941d3ada4f89b70b997df27ff685530611043893`. Require all-six CI `39200721153` green at exact live HEAD, then safe nonforce expected-SHA update and full six-job successor verification. No main/new branch/Zargul edit; phase unfinished.

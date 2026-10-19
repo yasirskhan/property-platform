@@ -863,10 +863,14 @@ def add_comment(
         raise HTTPException(status_code=404, detail="Work order not found")
     _check_access(db, current_user, wo)
 
+    message = payload.message.strip()
+    if not message:
+        raise HTTPException(status_code=422, detail="Activity note cannot be blank")
+
     entry = WorkOrderUpdate(
         work_order_id=wo.id,
         user_id=current_user.id,
-        message=payload.message,
+        message=message,
     )
     db.add(entry)
     db.flush()

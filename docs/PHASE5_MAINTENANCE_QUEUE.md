@@ -427,3 +427,11 @@ whose parent matches the work-order property. The queue UI displays labels
 with stable ID fallback. Paging, filters, legacy output fields and summary
 are unchanged; DB tests verify role scope and no cross-org label disclosure.
 No tenant, owner, crew permissions are widened.
+
+## Server-side activity note validation (prepared; CI required)
+
+Work-order activity POST trims notes server-side and rejects whitespace-only
+payloads with 422, even if a client bypasses its existing trimmed UI guard.
+Rejected notes create no activity/audit event; accepted notes return the
+saved canonical text and actor label. Regression verifies no mutation on deny,
+one append-only audit on accept, and unchanged organization/role checks.
