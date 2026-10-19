@@ -191,3 +191,17 @@ The canonical `/dashboard/maintenance/inspections` is deliberately ABSENT from
 page source, keeping the `MAINTENANCE.INSPECTIONS` sidebar readiness block
 intact until the full module is ready. This avoids weakening the independent
 navigation-integrity gate; exact-SHA hosted CI remains required.
+
+## Archived inspection evidence review (provisional; CI required)
+
+Staff-recorded inspections remain available through the existing scoped API and
+report after their unit or property is deactivated or soft-deleted. New entries
+still require both the unit and its property to be active and not deleted.
+ADMIN and currently assigned MANAGER access continues to require the same
+organization, active user, and reporting/property permissions; a revoked
+manager assignment cannot read archived evidence. The original immutable
+inspection rows and audit records are preserved without new financial writes.
+Database regression covers both inventory retirement states, write denial,
+foreign organization, tenant denial, and assignment revocation. This is a
+limited historical-evidence repair, not the full Phase 5 inspection module.
+Mark VERIFIED only after all six hosted jobs pass at its exact published SHA.
