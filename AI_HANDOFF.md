@@ -1,3 +1,9 @@
+# 2026-10-18 | PREPARED EXPLICIT CANCEL REASON AND AUDIT EVIDENCE (DETACHED)
+
+Adds a reason field to the already prepared two-step work-order cancellation UI. The button requires five nonwhitespace chars; the existing backend route accepts an OPTIONAL WorkOrderCancel body for legacy no-body clients but validates supplied reason and includes it in append-only status transition audit and activity. E2E checks disabled confirm without reason and confirms reason clears on Keep; DB regression checks rejected blank reason, recorded audit reason, terminal rejection. **DETACHED, NOT PUBLISHED OR VERIFIED**. Parent `941d3ada4f89b70b997df27ff685530611043893` was published provisionally; require its exact six-job CI green and correct branch HEAD before force=false expected-SHA publication, then verify successor six CI jobs. No main/new branch/Zargul edits; Phase 5 remains incomplete.
+
+---
+
 # 2026-10-18 | PREPARED TWO-STEP WORK-ORDER CANCELLATION UI (DETACHED)
 
 The next bounded Phase 5 candidate follows scoped location labels. The authorized work-order detail page now exposes preexisting `POST /work-orders/{id}/cancel` with two-step confirmation for ADMIN/OWNER/MANAGER and nonterminal statuses only; the backend remains authoritative on access and terminal-state validation. Declining confirmation is safe, confirming uses the persisted POST result without requiring a successful detail GET. Database test verifies admin cancellation, tenant denial, terminal idempotence and immutable audit; authenticated E2E checks keeping the order, then confirming cancellation amid a simulated GET 503. **DETACHED; NOT PUBLISHED OR VERIFIED**. Live ancestor `24897accd1242bbd85200335bfd6878be24998d0` has CI `39198752993` in progress. Require all six green before exact-branch nonforce expected-head publication and next full CI. Never modify main/new branch/Zargul; remaining Phase 5 features unimplemented.

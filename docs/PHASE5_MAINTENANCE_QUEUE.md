@@ -394,3 +394,14 @@ survives a later detail GET outage. Existing backend status/role validation
 and append-only audit record are unchanged. Database tests check authorization,
 terminal state and audit idempotence; the authenticated browser test exercises
 both keep and confirm paths on a disposable work order. No new right is granted.
+
+## Audited cancellation reason in work-order lifecycle (prepared; CI required)
+
+The manager/admin/owner detail cancellation confirmation now requires an
+explanation (5–1000 trimmed characters) before the destructive POST is enabled.
+The existing cancellation API remains compatible with old no-body clients,
+while an explicit reason is validated, stored in the append-only status audit
+new_value and included in activity. Refused blank reasons cause no state or
+audit writes. Regression verifies the reason and legacy terminal behavior;
+authenticated E2E checks disabled action before a reason and cleared reason
+when confirmation is declined. No silent deletion, billing or auto-dispatch.

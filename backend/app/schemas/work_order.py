@@ -77,6 +77,13 @@ class WorkOrderComplete(BaseModel):
 
 
 # ============================================================
+# WORK ORDER — CANCEL (reason optional for legacy API clients)
+# ============================================================
+class WorkOrderCancel(BaseModel):
+    reason: Optional[str] = Field(default=None, min_length=5, max_length=1000)
+
+
+# ============================================================
 # WORK ORDER — OUTPUT
 # ============================================================
 class WorkOrderOut(BaseModel):

@@ -49,6 +49,7 @@ export default function WorkOrderDetailPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [cancelRequested, setCancelRequested] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
 
   const reload = useCallback(async () => {
     if (!Number.isSafeInteger(orderId) || orderId <= 0) {
@@ -158,7 +159,7 @@ export default function WorkOrderDetailPage() {
     try {
       const data = action === "complete"
         ? { resolution_notes: completionNotes.trim() || null }
-        : undefined;
+        : action === "cancel" ? { reason: cancelReason.trim() } : undefined;
       const persisted = await apiPost("/work-orders/" + order.id + "/" + action, data) as WorkOrder;
       const expected = {
         acknowledge: "acknowledged",
@@ -178,7 +179,10 @@ export default function WorkOrderDetailPage() {
         updated_at: persisted.updated_at,
       } : previous);
       if (action === "complete") setCompletionNotes("");
-      if (action === "cancel") setCancelRequested(false);
+      if (action === "cancel") {
+        setCancelRequested(false);
+        setCancelReason("");
+      }
       setNotice("Work order " + (action === "acknowledge" ? "acknowledged" :
         action === "start" ? "started" : action === "complete" ? "completed" :
         action === "cancel" ? "cancelled" : "closed") + ".");
@@ -316,13 +320,20 @@ export default function WorkOrderDetailPage() {
                 && !["closed", "cancelled"].includes(order.status) && (
                   cancelRequested ? (
                     <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
-                      <p>Cancel this work order? The cancellation will be recorded in its audit history.</p>
+                      <p>Cancel this work order? The cancellation and its reason will be recorded in its audit history.</p>
+                      <label className="mt-2 block">Reason for cancellation (required)
+                        <textarea aria-label="Cancellation reason" maxLength={1000} rows={2}
+                          value={cancelReason} disabled={saving}
+                          onChange={(event) => setCancelReason(event.target.value)}
+                          className="mt-1 block w-full rounded-lg border p-2"
+                          placeholder="Explain why this work order must be cancelled" />
+                      </label>
                       <div className="mt-2 flex gap-2">
-                        <button disabled={saving} onClick={() => void advanceStatus("cancel")}
+                        <button disabled={saving || cancelReason.trim().length < 5} onClick={() => void advanceStatus("cancel")}
                           className="rounded-lg bg-slate-900 px-3 py-2 text-white disabled:opacity-50">
                           Confirm cancellation
                         </button>
-                        <button disabled={saving} onClick={() => setCancelRequested(false)}
+                        <button disabled={saving} onClick={() => { setCancelRequested(false); setCancelReason(""); }}
                           className="rounded-lg border bg-white px-3 py-2 disabled:opacity-50">
                           Keep work order
                         </button>

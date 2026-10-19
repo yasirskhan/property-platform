@@ -17,7 +17,7 @@ from app.models.audit_log import AuditLog
 from app.routers.properties import check_property_access, visible_properties_query
 from app.routers.users import assign_user_to_property, list_assignments, remove_assignment, update_user, deactivate_user
 from app.models.lease import Lease, LeaseStatus
-from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderCreate, WorkOrderComment
+from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderCreate, WorkOrderComment, WorkOrderCancel
 from app.schemas.user import UserUpdate
 from app.core import auth as auth_logic
 from app.core.security import create_access_token, create_two_factor_challenge_token
@@ -933,7 +933,16 @@ def test_explicit_work_order_cancel_is_audited_and_terminal():
         assert forbidden.value.status_code == 403
         assert own_order.status == WorkOrderStatus.SUBMITTED
 
-        cancelled = cancel_work_order(own_order.id, db=db, current_user=admin)
+        with pytest.raises(HTTPException) as blank:
+            cancel_work_order(own_order.id, payload=WorkOrderCancel(reason="     "), db=db, current_user=admin)
+        assert blank.value.status_code == 422
+        assert own_order.status == WorkOrderStatus.SUBMITTED
+
+        cancelled = cancel_work_order(
+            own_order.id,
+            payload=WorkOrderCancel(reason="Duplicate of another maintenance request"),
+            db=db, current_user=admin,
+        )
         assert cancelled.status == WorkOrderStatus.CANCELLED
         assert db.query(WorkOrderUpdate).filter_by(
             work_order_id=own_order.id, to_status=WorkOrderStatus.CANCELLED,
@@ -943,7 +952,13 @@ def test_explicit_work_order_cancel_is_audited_and_terminal():
             action="status_transition",
         ).order_by(AuditLog.id.desc()).first()
         assert audit is not None and audit.user_id == admin.id
-        assert json.loads(audit.new_value) == {"status": "cancelled"}
+        assert json.loads(audit.new_value) == {
+            "status": "cancelled", "reason": "Duplicate of another maintenance request",
+        }
+        assert db.query(WorkOrderUpdate).filter_by(
+            work_order_id=own_order.id,
+            message="Cancelled: Duplicate of another maintenance request",
+        ).count() == 1
 
         with pytest.raises(HTTPException) as finished:
             cancel_work_order(own_order.id, db=db, current_user=admin)

@@ -56,6 +56,7 @@ from app.schemas.work_order import (
     WorkOrderVendorAssign,
     WorkOrderVendorOut,
     WorkOrderComplete,
+    WorkOrderCancel,
     WorkOrderComment,
     WorkOrderUpdateOut,
 )
@@ -82,6 +83,7 @@ def _log_update(
     from_status=None,
     to_status=None,
     message=None,
+    audit_reason=None,
 ):
     """Append an entry to the work order's activity log."""
     entry = WorkOrderUpdate(
@@ -97,7 +99,10 @@ def _log_update(
             db, user_id=user.id, organization_id=user.organization_id,
             entity_type="work_order", entity_id=wo.id, action="status_transition",
             old_value={"status": from_status.value if from_status is not None else None},
-            new_value={"status": to_status.value if to_status is not None else None},
+            new_value={
+                "status": to_status.value if to_status is not None else None,
+                **({"reason": audit_reason} if audit_reason else {}),
+            },
         )
 
 
@@ -775,6 +780,7 @@ def close_work_order(
 @router.post("/{wo_id}/cancel", response_model=WorkOrderOut)
 def cancel_work_order(
     wo_id: int,
+    payload: WorkOrderCancel | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -788,10 +794,18 @@ def cancel_work_order(
     if wo.status in (WorkOrderStatus.CLOSED, WorkOrderStatus.CANCELLED):
         raise HTTPException(status_code=400, detail="Work order is already finished")
 
+    reason = payload.reason.strip() if payload is not None and payload.reason else None
+    if payload is not None and payload.reason is not None and len(reason) < 5:
+        raise HTTPException(status_code=422, detail="Cancellation reason must be at least five non-space characters")
+
     old = wo.status
     wo.status = WorkOrderStatus.CANCELLED
 
-    _log_update(db, wo, current_user, from_status=old, to_status=wo.status, message="Cancelled")
+    _log_update(
+        db, wo, current_user, from_status=old, to_status=wo.status,
+        message="Cancelled" + (": " + reason if reason else ""),
+        audit_reason=reason,
+    )
     db.commit()
     db.refresh(wo)
     return wo
