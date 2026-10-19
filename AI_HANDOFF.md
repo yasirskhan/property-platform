@@ -1,3 +1,23 @@
+# 2026-10-18 | NEXT PREPARED STAFF INSPECTION & STAFF ACCESS SECURITY BATCH (CI REQUIRED)
+
+**Last verified:** `ca126c3ba4325d5055aa203ab953ea38579dbc2f`, all six hosted jobs PASS in `39185487547`.
+
+**Published predecessor (CI verification required before promotion):**
+`090fe189a9995058cec00baa40433a40dbc9f63a`, Actions `39187610917`, archival inspection-history safety. At last review backend/PostgreSQL, frontend, security, platform-admin and staging succeeded; authenticated E2E was still running. Check the FINAL conclusion and exact SHA before publishing any descendants. If red, repair and reconcile descendants, never overwrite a CI fix.
+
+**Prepared next bounded descendants (initially DETACHED, not branch published):**
+- `433841d512f33d7667605997b79c0e6e0a74274f`: searchable active inspection-unit picker with authenticated browser regression.
+- `776633807f39b9cd8b09004687d3ff76ef178f2c`: shared unit picker rejects soft-deleted manager assignment; database regression.
+- `84fb3184850dc2c2314576ca8cacc71a342c36f8`: optional scoped inspection API history pagination, UI Load older records, deterministic access/regression coverage.
+- `635eb249fc6a4d879fd32df7bc8a3d7c532304e3`: property/work-order organization boundary and soft-deleted manager/crew assignment revocation across property detail/list, queue, lifecycle and crew assignment, with negative database regressions.
+This handoff update is an additional descendant. These are **not VERIFIED** by the predecessor's CI. When safely fast-forward-published, they are still PROVISIONAL until their OWN exact-SHA six-job Actions run succeeds.
+
+**Mandatory publication gate:** Verify `39187610917` all-six SUCCESS at exact `090fe189...`; inspect live branch HEAD, then publish only non-force fast-forward on `chatgpt/checkpoint-005-safety` with `expected_sha` set to the actual unchanged predecessor. Run ALL SIX CI jobs at the final new SHA, fix red jobs, update this handoff with proof, then continue the next unfinished Phase 5 functionality without a permission prompt. Preserve the canonical `MAINTENANCE.INSPECTIONS` menu block (the limited staff screen is at a separate route). No new branch, main, force, or Zargul modifications.
+
+**Still OPEN:** Complete Phase 5 Smart Maintenance (mobile/offline photos/checklists, automated dispatch and other roadmap features), cross-module OWNER multi-owner account semantics, and DoorLoop full customer importing blocked on vendor source contracts.
+
+---
+
 # 2026-10-18 | ARCHIVED INSPECTION HISTORY SAFETY (PUBLISHED, CI PENDING)
 
 **Verified parent:** `ca126c3ba4325d5055aa203ab953ea38579dbc2f` passed ALL SIX hosted GitHub Actions jobs in run `39185487547` (backend/PostgreSQL, frontend, platform-admin, security, authenticated E2E and staging-config). This verified the staff-inspection save-confirmation fix as well as earlier guards.
