@@ -184,7 +184,7 @@ def create_user(db: Session, user_data: UserCreate) -> User:
 # ------------------------------------------------------------
 def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
     user = get_user_by_email(db, email)
-    if not user:
+    if not user or not user.is_active or user.deleted_at is not None:
         return None
     if not verify_password(password, user.hashed_password):
         return None

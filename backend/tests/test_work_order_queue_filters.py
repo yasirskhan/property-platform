@@ -19,6 +19,10 @@ from app.routers.users import assign_user_to_property, list_assignments, remove_
 from app.models.lease import Lease, LeaseStatus
 from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderCreate, WorkOrderComment
 from app.schemas.user import UserUpdate
+from app.core import auth as auth_logic
+from app.core.security import create_access_token, create_two_factor_challenge_token
+from app.routers.auth import get_current_user, verify_two_factor_login
+from app.schemas.two_factor import TwoFactorLoginVerifyRequest
 from fastapi import HTTPException
 import pytest
 
@@ -815,6 +819,49 @@ def test_staff_offboarding_user_active_state_is_audited_and_idempotent():
         assert db.query(AuditLog).filter_by(
             entity_type="user", entity_id=crew.id,
         ).count() == 2
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_deactivated_or_deleted_customer_cannot_authenticate_reuse_jwt_or_finish_mfa(monkeypatch):
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other_tenant, crew, foreign_admin = actors
+        # Auth logic is tested independently of a costly bcrypt roundtrip.
+        monkeypatch.setattr(auth_logic, "verify_password", lambda _p, _hash: True)
+        access_token = create_access_token(subject=crew.id)
+        challenge_token = create_two_factor_challenge_token(subject=crew.id)
+        assert auth_logic.authenticate_user(db, crew.email, "supplied-password").id == crew.id
+        assert get_current_user(token=access_token, db=db).id == crew.id
+
+        crew.is_active = False
+        db.commit()
+        assert auth_logic.authenticate_user(db, crew.email, "supplied-password") is None
+        with pytest.raises(HTTPException) as jwt_denied:
+            get_current_user(token=access_token, db=db)
+        assert jwt_denied.value.status_code == 401
+        with pytest.raises(HTTPException) as mfa_denied:
+            verify_two_factor_login(
+                TwoFactorLoginVerifyRequest(challenge_token=challenge_token, code="123456"),
+                request=None, db=db,
+            )
+        assert mfa_denied.value.status_code == 401
+
+        # Even inconsistent historical records marked active remain revoked.
+        crew.is_active = True
+        crew.deleted_at = datetime(2026, 10, 18, 12)
+        db.commit()
+        assert auth_logic.authenticate_user(db, crew.email, "supplied-password") is None
+        with pytest.raises(HTTPException) as deleted_jwt:
+            get_current_user(token=access_token, db=db)
+        assert deleted_jwt.value.status_code == 401
+        with pytest.raises(HTTPException) as deleted_mfa:
+            verify_two_factor_login(
+                TwoFactorLoginVerifyRequest(challenge_token=challenge_token, code="123456"),
+                request=None, db=db,
+            )
+        assert deleted_mfa.value.status_code == 401
     finally:
         db.close()
         engine.dispose()

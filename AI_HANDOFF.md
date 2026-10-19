@@ -1,3 +1,9 @@
+# 2026-10-18 | PREPARED INACTIVE CUSTOMER AUTH CUTOFF (SECURITY, DETACHED)
+
+Security issue found after staff offboarding audit review: customer `get_current_user` accepted existing JWTs for user records whose `is_active=False` or `deleted_at` was set; password `authenticate_user` also did not reject them, and two-factor challenge completion could mint a new access token. The prepared fix rejects all three paths with the same no-account/unauthorized responses, preserving audience separation. New database-backed regression verifies current JWT and outstanding 2FA challenge are unusable after deactivation/deletion, while an active user still works. **HIGH PRIORITY BUT NOT YET PUBLISHED OR VERIFIED**. It is detached after `fe18b2713f2cb79f4ef8dd8b5dd138813098461e` and preceding small Phase 5 audit/crew reliability commits. Verify parent published `128567315621c165759cd1127f2d397f04d0b65e` at exact six-job CI `39197174338`, then guarded nonforce fast-forward and 6-job successor CI. No main/new branch/Zargul modifications.
+
+---
+
 # 2026-10-18 | PREPARED AUDITED USER ACTIVATION/DEACTIVATION (DETACHED)
 
 Bounded Phase 5 staff offboarding security follow-on: user account `is_active` mutations from staff update and deactivation routes write append-only user active-status audit within the same DB transaction, with actor/org and before/after flags, no duplicate records for no-ops. Explicit `is_active=null` is rejected; self-edit remains restricted to basic profile fields. Test covers deactivate, restore, null and foreign-org denial. This **DETACHED candidate is NOT PUBLISHED OR VERIFIED**, following the other prepared crew and status reliability changes. Live parent `128567315621c165759cd1127f2d397f04d0b65e` CI `39197174338` must first be 6/6 green and HEAD exact; then nonforce expected-SHA fast-forward and successor six-job CI. Do not touch `main`, another branch or Zargul, and do not broaden OWNER visibility without its separate policy review.

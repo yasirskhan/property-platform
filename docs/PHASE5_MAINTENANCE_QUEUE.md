@@ -344,3 +344,14 @@ is_active is rejected, and repeated no-op changes emit no duplicate events.
 Database regression checks deactivation, restoration, idempotence and
 cross-org denial. These are staff access integrity safeguards; no owner
 multi-property entitlement decision or new user roles are introduced.
+
+## Inactive/deleted customer credential revocation (prepared, CI required)
+
+The customer authentication boundary now rejects accounts with is_active=False
+or deleted_at set at password verification, on EVERY protected request using an
+existing customer JWT, and at two-factor challenge completion. This prevents
+staff offboarding from being merely cosmetic while a valid token survives.
+Database-backed regression checks active controls, deactivated and soft-deleted
+logins, reused JWTs and pre-issued MFA challenges. No new token audience,
+permission or user role is introduced; the platform-admin identity domain
+remains separately governed. This security change must pass hosted CI.
