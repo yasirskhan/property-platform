@@ -563,3 +563,7 @@ The staff preventive schedules page retrieves past occurrence/work-order links i
 ## Preventive occurrence replay integrity and due-preview (2026-10-20; CI gated)
 
 Published work-order replay path refuses to reveal schedule mismatched or foreign-property/organization data. Prepared regression extensions refuse corrupt occurrence organization and later corrupted occurrences without falling back to older history. Read-only role-scoped `due-preview` evaluates pending dates (max 120), active state and end cutoff, without persistence or dispatch. Responsive staff page exposes a preview before manual generation. Must verify full six-job CI at exact publish SHA.
+
+## Preventive replay evidence integrity (detached; CI required)
+
+Replay finds the latest recorded due occurrence and refuses mismatched organization/property/unit or a WorkOrder without original immutable creation audit proving matching schedule ID and due date. No silent fallback to prior work order. Regressions exercise cross-org, same-org wrong-unit, latest corrupted and unrelated same-unit work-order substitution. Due-preview panel remains read-only and bounded with paused/end-date cutoffs; no financial or dispatch writes. Verify all six hosted jobs after exact-head promotion.

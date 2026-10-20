@@ -535,3 +535,7 @@ Staff can load older recurring work-order occurrences in bounded authorized page
 ## Phase 5 preventive due preview (prepared; CI gate)
 
 Staff may preview bounded due dates of a current active preventive schedule without creating work orders or financial entries. Pending preview never authorizes entry, vendor dispatch or tenant billing. Corrupted occurrence replay must not reveal other organization's work. All-six exact-SHA CI pending; inventory and purchasing still outstanding.
+
+## Phase 5 preventive replay audit bindings (prepared)
+
+Scheduled generation and replay must never return an unrelated work order as an occurrence even if a database association is corrupted within the same property and unit. The prepared change verifies append-only creation evidence ties exact schedule and due date. Bounded read-only due previews are planned for the same staff-scoped screen; no automatic dispatch, entry consent or billing is granted. Requires exact SHA CI success before delivery.

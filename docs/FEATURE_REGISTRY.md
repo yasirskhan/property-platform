@@ -862,3 +862,5 @@ access boundary.
 | Phase 5 preventive occurrence history pagination | capability | /dashboard/maintenance/preventive | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 detached, CI gated | Authorized paginated occurrence history in staff UI; stable due-date ordering, load-older and deduplication, tenant and cross-org denial unchanged |
 
 | Phase 5 preventive due backlog preview | capability | /dashboard/maintenance/preventive | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 prepared, CI gated | Staff-scoped bounded read-only schedule due-date preview, pause/end cutoff, no work order or finance writes, backend/browser regressions |
+
+| Phase 5 preventive replay audit binding | capability | /dashboard/maintenance/preventive | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 detached, CI gated | Replay refuses cross-org, mismatched-unit, stale/latest corrupt occurrence and unrelated manual-order substitution using append-only provenance |
