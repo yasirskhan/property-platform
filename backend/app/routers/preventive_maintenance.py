@@ -60,3 +60,20 @@ def generate(schedule_id: int, as_of: Annotated[date | None, Query()] = None,
              current_user: User = Depends(get_current_user)):
     wo, fresh = service.generate_due(db, current_user, schedule_id, as_of=as_of or date.today())
     return GeneratedOut(work_order_id=wo.id, newly_created=fresh, tenant_id=wo.tenant_id)
+
+
+class OccurrenceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    schedule_id: int
+    due_date: date
+    work_order_id: int
+
+@router.get("/schedules/{schedule_id}/occurrences", response_model=list[OccurrenceOut])
+def history(schedule_id: int,
+            limit: Annotated[int, Query(ge=1, le=100)] = 100,
+            offset: Annotated[int, Query(ge=0, le=100000)] = 0,
+            db: Session = Depends(get_db),
+            current_user: User = Depends(get_current_user)):
+    return service.list_occurrences(db, current_user, schedule_id,
+                                    limit=limit, offset=offset)

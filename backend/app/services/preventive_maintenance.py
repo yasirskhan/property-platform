@@ -127,3 +127,13 @@ def generate_due(db: Session, actor: User, schedule_id: int, *, as_of: date):
     db.commit()
     db.refresh(wo)
     return wo, True
+
+
+def list_occurrences(db: Session, actor: User, schedule_id: int,
+                     *, limit: int = 100, offset: int = 0):
+    """Authorized durable evidence for every generated occurrence."""
+    _schedule(db, actor, schedule_id)
+    return db.query(Occurrence).filter(
+        Occurrence.organization_id == actor.organization_id,
+        Occurrence.schedule_id == schedule_id,
+    ).order_by(Occurrence.due_date.desc(), Occurrence.id.desc()).offset(offset).limit(limit).all()

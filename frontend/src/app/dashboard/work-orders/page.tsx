@@ -159,6 +159,12 @@ export default function WorkOrderQueuePage() {
               Staff inspection records
             </Link>
           )}
+          {canInspect && (
+            <Link href="/dashboard/maintenance/preventive"
+              className="rounded-lg border bg-white px-4 py-2 text-sm">
+              Preventive schedules
+            </Link>
+          )}
           <Link href="/dashboard" className="rounded-lg border bg-white px-4 py-2 text-sm">Dashboard</Link>
         </div>
       </header>
