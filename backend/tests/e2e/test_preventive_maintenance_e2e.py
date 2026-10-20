@@ -1,6 +1,6 @@
 """Authenticated preventive schedule: create, generate due, replay, pause, history."""
 from __future__ import annotations
-from datetime import date
+from datetime import date, timedelta
 import os
 import re
 import pytest
@@ -54,6 +54,9 @@ def test_staff_creates_preventive_schedule_and_one_tenantless_due_work_order():
             card.get_by_label(re.compile(r"Edit preventive title")).fill("E2E revised filter schedule")
             card.get_by_label(re.compile(r"Edit preventive instructions")).fill("Inspect safety filters and ventilation thoroughly")
             card.get_by_label(re.compile(r"Edit preventive interval")).fill("45")
+            card.get_by_label(re.compile(r"Edit preventive end date")).fill(
+                (date.today() + timedelta(days=60)).isoformat()
+            )
             card.get_by_role("button", name="Save schedule changes").click()
             pw.expect(page.get_by_role("status").filter(
                 has_text="settings updated and audited"
@@ -62,11 +65,13 @@ def test_staff_creates_preventive_schedule_and_one_tenantless_due_work_order():
                 has_text="E2E revised filter schedule"
             ).first
             pw.expect(updated_card).to_contain_text("Every 45 days")
+            pw.expect(updated_card).to_contain_text("Ends ")
             pw.expect(updated_card.get_by_role("link", name=re.compile(r"Work order #[0-9]+"))).to_be_visible()
             updated_card.get_by_role("button", name="Resume").click()
             pw.expect(updated_card).to_contain_text("Active", timeout=15_000)
             page.reload(wait_until="domcontentloaded")
             fresh = page.locator("article").filter(has_text="E2E revised filter schedule").first
             pw.expect(fresh).to_contain_text("Every 45 days", timeout=15_000)
+            pw.expect(fresh).to_contain_text("Ends ")
         finally:
             browser.close()

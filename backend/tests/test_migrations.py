@@ -10,7 +10,7 @@ import pytest
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = BACKEND_ROOT / "tests" / "fixtures" / "pre_alembic_1d77_schema.sql"
-EXPECTED_HEAD = "6b0a9c2d4e7f"
+EXPECTED_HEAD = "7c2e6f0a9b31"
 EXPECTED_MODEL_TABLES = 204
 
 
@@ -48,6 +48,12 @@ def test_fresh_database_bootstrap_creates_current_schema_and_stamps_head(
         f"Bootstrap failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
     )
     assert _version(db_path) == EXPECTED_HEAD
+    with sqlite3.connect(db_path) as conn:
+        columns = {row[1]: row for row in conn.execute(
+            "PRAGMA table_info(preventive_maintenance_schedules)"
+        )}
+        assert columns["end_date"][3] == 0
+
 
     # New requester provenance is additive; older work orders and API data
     # remain intact while nullable columns allow explicit legacy uncertainty.

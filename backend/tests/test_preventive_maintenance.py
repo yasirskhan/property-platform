@@ -197,6 +197,70 @@ def test_pause_resumes_from_fresh_row_and_audits_only_actual_change():
         engine.dispose()
 
 
+def test_schedule_end_date_bounds_due_sweep_and_replay():
+    db, engine, actors, props, units = seeded()
+    try:
+        admin, manager, tenant, outsider = actors
+        row = pm.create_schedule(db, admin, unit_id=units[0].id,
+            title="Check fire exits", description="Confirm exit doors and signs are clear",
+            interval_days=1, next_due_date=date.today(),
+            end_date=date.today())
+        row.next_due_date = date.today() - timedelta(days=2)
+        db.commit()
+        summary = pm.sweep_due(db, as_of=date.today(), catchup_limit=12)
+        assert summary == {"created": 3, "skipped": 0, "backlog": 0}
+        assert db.query(PreventiveMaintenanceOccurrence).count() == 3
+        assert all(order.tenant_id is None and order.total_cost is None
+                   for order in db.query(WorkOrder).all())
+        last, fresh = pm.generate_due(db, admin, row.id, as_of=date.today())
+        assert fresh is False
+        assert last.id == pm.list_occurrences(db, admin, row.id)[0].work_order_id
+        assert pm.sweep_due(db, as_of=date.today()) == {
+            "created": 0, "skipped": 0, "backlog": 0,
+        }
+        pm.set_active(db, admin, row.id, False)
+        changed = pm.update_settings(db, manager, row.id, end_date=None)
+        assert changed.end_date is None
+        audit = db.query(AuditLog).filter_by(
+            entity_type="preventive_maintenance_schedule", action="settings_changed",
+        ).one()
+        assert json.loads(audit.old_value)["end_date"] == date.today().isoformat()
+        assert json.loads(audit.new_value)["end_date"] is None
+        pm.set_active(db, manager, row.id, True)
+        more, fresh = pm.generate_due(db, admin, row.id, as_of=date.today())
+        assert fresh is False
+        assert more.id == last.id
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_schedule_end_date_validated_on_create_and_pause_only_edit():
+    db, engine, actors, props, units = seeded()
+    try:
+        admin, manager, tenant, outsider = actors
+        with pytest.raises(HTTPException) as invalid:
+            pm.create_schedule(db, admin, unit_id=units[0].id,
+                title="Bad end date", description="Schedule would end before starting",
+                interval_days=30, next_due_date=date.today() + timedelta(days=3),
+                end_date=date.today() + timedelta(days=2))
+        assert invalid.value.status_code == 422
+        row = pm.create_schedule(db, admin, unit_id=units[0].id,
+            title="Review equipment", description="Check all safety equipment",
+            interval_days=30, next_due_date=date.today())
+        with pytest.raises(HTTPException) as running:
+            pm.update_settings(db, admin, row.id, end_date=date.today())
+        assert running.value.status_code == 409
+        pm.set_active(db, admin, row.id, False)
+        with pytest.raises(HTTPException) as historical:
+            pm.update_settings(db, admin, row.id, end_date=date.today()-timedelta(days=1))
+        assert historical.value.status_code == 422
+        assert pm.update_settings(db, admin, row.id, end_date=date.today()).end_date == date.today()
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_preventive_history_omits_corrupted_cross_org_work_order_binding():
     db, engine, actors, props, units = seeded()
     try:

@@ -13,6 +13,7 @@ class PreventiveMaintenanceSchedule(Base):
     description = Column(String(2000), nullable=False)
     interval_days = Column(Integer, nullable=False)
     next_due_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=True)  # Never generate occurrences after this date
     active = Column(Boolean, nullable=False, default=True)
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)

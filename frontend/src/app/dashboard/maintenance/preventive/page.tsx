@@ -7,7 +7,7 @@ type UnitChoice = { id: number; property_name: string; unit_number: string };
 type Schedule = {
   id: number; organization_id: number; property_id: number; unit_id: number;
   title: string; description: string; interval_days: number;
-  next_due_date: string; active: boolean;
+  next_due_date: string; end_date?: string | null; active: boolean;
 };
 type Occurrence = { id: number; schedule_id: number; due_date: string; work_order_id: number };
 type Generation = { work_order_id: number; newly_created: boolean; tenant_id: number | null };
@@ -28,6 +28,7 @@ export default function PreventiveMaintenancePage() {
   const [description, setDescription] = useState("");
   const [interval, setInterval] = useState("30");
   const [dueDate, setDueDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -39,6 +40,7 @@ export default function PreventiveMaintenancePage() {
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editInterval, setEditInterval] = useState("30");
+  const [editEndDate, setEditEndDate] = useState("");
 
   async function loadMore() {
     if (loadingMore || !hasMore) return;
@@ -116,11 +118,12 @@ export default function PreventiveMaintenancePage() {
       const created = await apiPost("/api/maintenance/preventive/schedules", {
         unit_id: Number(unitId), title: title.trim(), description: description.trim(),
         interval_days: Number(interval), next_due_date: dueDate,
+        ...(endDate ? { end_date: endDate } : {}),
       }) as Schedule;
       if (!Number.isSafeInteger(created?.id)) throw new Error("Invalid saved schedule.");
       setSchedules((previous) => [created, ...previous.filter((row) => row.id !== created.id)]);
       setNextOffset((previous) => previous + 1);
-      setTitle(""); setDescription(""); setDueDate("");
+      setTitle(""); setDescription(""); setDueDate(""); setEndDate("");
       setNotice("Schedule saved. No work order was generated at creation; due dates are checked daily.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Schedule could not be saved.");
@@ -148,6 +151,7 @@ export default function PreventiveMaintenancePage() {
     setEditTitle(row.title);
     setEditDescription(row.description);
     setEditInterval(String(row.interval_days));
+    setEditEndDate(row.end_date || "");
     setError(""); setNotice("");
   }
 
@@ -163,6 +167,7 @@ export default function PreventiveMaintenancePage() {
         `/api/maintenance/preventive/schedules/${row.id}/settings`, {
           title: editTitle.trim(), description: editDescription.trim(),
           interval_days: Number(editInterval),
+          end_date: editEndDate || null,
         },
       ) as Schedule;
       if (updated.id !== row.id || updated.active)
@@ -267,6 +272,12 @@ export default function PreventiveMaintenancePage() {
             onChange={(event) => setDueDate(event.target.value)}
             className="mt-1 w-full rounded-lg border p-2" />
         </label>
+        <label className="block text-sm">End date (optional)
+          <input type="date" value={endDate} min={dueDate || undefined}
+            aria-label="Preventive schedule end date"
+            onChange={(event) => setEndDate(event.target.value)}
+            className="mt-1 w-full rounded-lg border p-2" />
+        </label>
       </div>
       <button type="submit" disabled={saving || unitsLoading}
         className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50">
@@ -281,6 +292,7 @@ export default function PreventiveMaintenancePage() {
         <h3 className="font-medium">{row.title} · Schedule #{row.id}</h3>
         <p className="text-sm text-slate-600">
           Unit #{row.unit_id} · Every {row.interval_days} days · Next due {row.next_due_date}
+          {row.end_date ? ` · Ends ${row.end_date}` : ""}
           {" · "}{row.active ? "Active" : "Paused"}
         </p>
         <p className="whitespace-pre-wrap text-sm">{row.description}</p>
@@ -323,6 +335,12 @@ export default function PreventiveMaintenancePage() {
             <input type="number" min={1} max={3650} required value={editInterval}
               aria-label={`Edit preventive interval ${row.id}`}
               onChange={(event) => setEditInterval(event.target.value)}
+              className="mt-1 w-full rounded-lg border p-2" />
+          </label>
+          <label className="block text-sm">Stop after date (optional)
+            <input type="date" value={editEndDate}
+              aria-label={`Edit preventive end date ${row.id}`}
+              onChange={(event) => setEditEndDate(event.target.value)}
               className="mt-1 w-full rounded-lg border p-2" />
           </label>
           <p className="text-xs text-slate-600">Next due date remains {row.next_due_date}.

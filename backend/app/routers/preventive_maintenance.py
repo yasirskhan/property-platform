@@ -17,6 +17,7 @@ class ScheduleCreate(BaseModel):
     description: str = Field(min_length=10, max_length=2000)
     interval_days: int = Field(ge=1, le=3650)
     next_due_date: date
+    end_date: date | None = None
 
 class ScheduleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -28,6 +29,7 @@ class ScheduleOut(BaseModel):
     description: str
     interval_days: int
     next_due_date: date
+    end_date: date | None = None
     active: bool
 
 class ActiveUpdate(BaseModel):
@@ -38,6 +40,7 @@ class ScheduleSettings(BaseModel):
     title: str | None = Field(default=None, min_length=3, max_length=255)
     description: str | None = Field(default=None, min_length=10, max_length=2000)
     interval_days: int | None = Field(default=None, ge=1, le=3650)
+    end_date: date | None = None
 
 
 class GeneratedOut(BaseModel):
@@ -71,7 +74,7 @@ def edit_settings(schedule_id: int, payload: ScheduleSettings,
                   db: Session = Depends(get_db),
                   current_user: User = Depends(get_current_user)):
     return service.update_settings(
-        db, current_user, schedule_id, **payload.model_dump(exclude_none=True),
+        db, current_user, schedule_id, **payload.model_dump(exclude_unset=True),
     )
 
 

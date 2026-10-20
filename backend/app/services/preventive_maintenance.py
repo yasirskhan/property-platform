@@ -2,6 +2,7 @@
 from datetime import date, datetime, timedelta
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from app.models.preventive_maintenance import PreventiveMaintenanceSchedule as Schedule, PreventiveMaintenanceOccurrence as Occurrence
 from app.models.property import Property, Unit, PropertyAssignment
@@ -9,6 +10,8 @@ from app.models.user import User, UserRole
 from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderUpdate
 from app.routers.properties import check_property_access
 from app.services.audit import append_audit_log
+
+_UNSET = object()
 
 def _scope(db: Session, actor: User, unit_id: int):
     if not actor.is_active or actor.deleted_at is not None or actor.role not in (UserRole.ADMIN, UserRole.MANAGER):
@@ -35,22 +38,25 @@ def _schedule(db: Session, actor: User, schedule_id: int):
     return schedule
 
 def create_schedule(db: Session, actor: User, *, unit_id: int, title: str,
-                    description: str, interval_days: int, next_due_date: date):
+                    description: str, interval_days: int, next_due_date: date, end_date: date | None = None):
     unit = _scope(db, actor, unit_id)
     if interval_days < 1 or interval_days > 3650:
         raise HTTPException(status_code=422, detail="Invalid schedule interval")
     if next_due_date < date.today():
         raise HTTPException(status_code=422, detail="Start date must not be historical")
+    if end_date is not None and end_date < next_due_date:
+        raise HTTPException(status_code=422, detail="End date cannot precede the first due date")
     row = Schedule(organization_id=actor.organization_id, property_id=unit.property_id,
         unit_id=unit.id, title=title, description=description,
         interval_days=interval_days, next_due_date=next_due_date,
-        created_by_id=actor.id, active=True)
+        end_date=end_date, created_by_id=actor.id, active=True)
     db.add(row)
     db.flush()
     append_audit_log(db, entity_type="preventive_maintenance_schedule", entity_id=row.id,
         organization_id=actor.organization_id, user_id=actor.id, action="created",
         new_value={"unit_id":unit.id, "property_id":unit.property_id, "interval_days":interval_days,
-                   "next_due_date":next_due_date.isoformat(), "title":title})
+                   "next_due_date":next_due_date.isoformat(), "title":title,
+                   "end_date":end_date.isoformat() if end_date is not None else None})
     db.commit()
     db.refresh(row)
     return row
@@ -103,7 +109,7 @@ def set_active(db: Session, actor: User, schedule_id: int, active: bool):
 
 def update_settings(db: Session, actor: User, schedule_id: int, *,
                     title: str | None = None, description: str | None = None,
-                    interval_days: int | None = None):
+                    interval_days: int | None = None, end_date: date | None | object = _UNSET):
     """Update a paused schedule without rewriting due dates or old work orders."""
     scoped = _schedule(db, actor, schedule_id)
     row = db.query(Schedule).populate_existing().filter(
@@ -127,6 +133,10 @@ def update_settings(db: Session, actor: User, schedule_id: int, *,
         if not 1 <= interval_days <= 3650:
             raise HTTPException(status_code=422, detail="Invalid interval")
         requested["interval_days"] = interval_days
+    if end_date is not _UNSET:
+        if end_date is not None and end_date < date.today():
+            raise HTTPException(status_code=422, detail="End date cannot be historical")
+        requested["end_date"] = end_date
     if not requested:
         raise HTTPException(status_code=422, detail="Provide a setting to edit")
     changes = {key: (getattr(row, key), value) for key, value in requested.items()
@@ -160,6 +170,16 @@ def generate_due(db: Session, actor: User, schedule_id: int, *, as_of: date):
     if not row.active:
         raise HTTPException(status_code=409, detail="Schedule is paused")
     _scope(db, actor, row.unit_id)  # Revalidate under the lock before any write.
+    if row.end_date is not None and row.next_due_date > row.end_date:
+        previous = db.query(Occurrence).filter(
+            Occurrence.schedule_id == row.id,
+            Occurrence.due_date <= as_of,
+        ).order_by(Occurrence.due_date.desc()).first()
+        if previous:
+            return db.query(WorkOrder).filter(
+                WorkOrder.id == previous.work_order_id,
+            ).one(), False
+        raise HTTPException(status_code=409, detail="Schedule end date reached")
     if row.next_due_date > as_of:
         previous = db.query(Occurrence).filter(Occurrence.schedule_id == row.id,
             Occurrence.due_date <= as_of).order_by(Occurrence.due_date.desc()).first()
@@ -236,6 +256,7 @@ def sweep_due(db: Session, *, as_of: date, catchup_limit: int = 12) -> dict[str,
             Schedule.id > cursor,
             Schedule.active.is_(True),
             Schedule.next_due_date <= as_of,
+            or_(Schedule.end_date.is_(None), Schedule.next_due_date <= Schedule.end_date),
         ).order_by(Schedule.id).limit(100).all()
         if not rows:
             break
@@ -263,6 +284,7 @@ def sweep_due(db: Session, *, as_of: date, catchup_limit: int = 12) -> dict[str,
             if db.query(Schedule.id).filter(
                 Schedule.id == schedule_id, Schedule.active.is_(True),
                 Schedule.next_due_date <= as_of,
+                or_(Schedule.end_date.is_(None), Schedule.next_due_date <= Schedule.end_date),
             ).first() is not None:
                 counts["backlog"] += 1
     return counts
