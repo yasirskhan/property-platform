@@ -184,29 +184,8 @@ def update_settings(db: Session, actor: User, schedule_id: int, *,
     return row
 
 
-def _last_valid_occurrence(db: Session, schedule: Schedule, as_of: date):
-    """Fail closed rather than silently skipping the latest corrupted replay."""
-    candidate = db.query(Occurrence).filter(
-        Occurrence.schedule_id == schedule.id,
-        Occurrence.due_date <= as_of,
-    ).order_by(Occurrence.due_date.desc(), Occurrence.id.desc()).first()
-    if candidate is None:
-        return None
-    if candidate.organization_id != schedule.organization_id:
-        raise HTTPException(status_code=409, detail="Occurrence organization integrity violation")
-    order = db.query(WorkOrder).join(
-        Unit, Unit.id == WorkOrder.unit_id,
-    ).join(
-        Property, Property.id == Unit.property_id,
-    ).filter(
-        WorkOrder.id == candidate.work_order_id,
-        WorkOrder.unit_id == schedule.unit_id,
-        WorkOrder.property_id == schedule.property_id,
-        Property.id == schedule.property_id,
-        Property.organization_id == schedule.organization_id,
-    ).first()
-    if order is None:
-        raise HTTPException(status_code=409, detail="Occurrence work-order integrity violation")
+def _assert_occurrence_audit_binding(db: Session, schedule: Schedule, candidate: Occurrence, order: WorkOrder) -> None:
+    """Require durable creation evidence before exposing any linked work ID."""
     # A corrupt pointer may still reference a different order in the same unit.
     # Require the original immutable creation audit to bind this exact order to
     # the schedule and occurrence date, rather than trusting mutable FKs alone.
@@ -232,6 +211,32 @@ def _last_valid_occurrence(db: Session, schedule: Schedule, as_of: date):
             break
     if not bound:
         raise HTTPException(status_code=409, detail="Occurrence audit binding integrity violation")
+
+
+def _last_valid_occurrence(db: Session, schedule: Schedule, as_of: date):
+    """Fail closed rather than silently skipping the latest corrupted replay."""
+    candidate = db.query(Occurrence).filter(
+        Occurrence.schedule_id == schedule.id,
+        Occurrence.due_date <= as_of,
+    ).order_by(Occurrence.due_date.desc(), Occurrence.id.desc()).first()
+    if candidate is None:
+        return None
+    if candidate.organization_id != schedule.organization_id:
+        raise HTTPException(status_code=409, detail="Occurrence organization integrity violation")
+    order = db.query(WorkOrder).join(
+        Unit, Unit.id == WorkOrder.unit_id,
+    ).join(
+        Property, Property.id == Unit.property_id,
+    ).filter(
+        WorkOrder.id == candidate.work_order_id,
+        WorkOrder.unit_id == schedule.unit_id,
+        WorkOrder.property_id == schedule.property_id,
+        Property.id == schedule.property_id,
+        Property.organization_id == schedule.organization_id,
+    ).first()
+    if order is None:
+        raise HTTPException(status_code=409, detail="Occurrence work-order integrity violation")
+    _assert_occurrence_audit_binding(db, schedule, candidate, order)
     return order
 
 
@@ -327,7 +332,7 @@ def list_occurrences(db: Session, actor: User, schedule_id: int,
     schedule = read_schedule(db, actor, schedule_id)
     # Join through the real work-order unit/property, not untrusted historical
     # label columns: a corrupted occurrence must never expose foreign work IDs.
-    return db.query(Occurrence).join(
+    candidates = db.query(Occurrence).join(
         WorkOrder, WorkOrder.id == Occurrence.work_order_id,
     ).join(
         Unit, Unit.id == WorkOrder.unit_id,
@@ -341,6 +346,12 @@ def list_occurrences(db: Session, actor: User, schedule_id: int,
         Property.id == schedule.property_id,
         Property.organization_id == actor.organization_id,
     ).order_by(Occurrence.due_date.desc(), Occurrence.id.desc()).offset(offset).limit(limit).all()
+    # A same-unit manually created order is not a valid replacement for a
+    # scheduled occurrence: its immutable creation evidence must match.
+    for occurrence in candidates:
+        work_order = db.query(WorkOrder).filter(WorkOrder.id == occurrence.work_order_id).one()
+        _assert_occurrence_audit_binding(db, schedule, occurrence, work_order)
+    return candidates
 
 
 def sweep_due(db: Session, *, as_of: date, catchup_limit: int = 12) -> dict[str, int]:
