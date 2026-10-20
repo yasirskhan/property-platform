@@ -41,6 +41,7 @@ from app.models.audit_log import AuditLog
 from app.routers.vendors import _access as _vendor_menu_access
 from app.services.menu_resolver import permission_allows_user
 from app.services.audit import append_audit_log
+from app.services.maintenance_dispatch_policy import resolve_maintenance_dispatch_policy
 from app.services.unit_inspections import get_inspection as get_authorized_inspection
 from app.services.report_delivery import ReportDeliveryError
 from app.models.work_order import (
@@ -1255,6 +1256,9 @@ def maintenance_dispatch_readiness(
         on_call_shift_id=shift.id if shift is not None else None,
         shift_ends_at=shift.ends_at if shift is not None else None,
         preferred_vendors=vendors,
+        effective_policy=resolve_maintenance_dispatch_policy(
+            db, prop=prop, priority=wo.priority,
+        ) if active else None,
         message=message,
     )
 

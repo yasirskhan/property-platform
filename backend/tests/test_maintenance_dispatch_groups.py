@@ -191,3 +191,75 @@ def test_dispatch_group_requires_valid_timezone_hours_and_active_property():
         assert len(_groups(db,admin)[0].property_ids)==1
     finally:
         db.close();engine.dispose()
+
+
+from datetime import timezone
+from app.models.work_order import WorkOrderPriority
+from app.services.maintenance_dispatch_policy import resolve_maintenance_dispatch_policy
+
+
+def test_effective_dispatch_policy_requires_configuration_and_uses_real_local_hours():
+    db,engine,people,properties=_fixture()
+    try:
+        admin,owner,manager,crew,tenant,outsider=people
+        p1,p2,foreign=properties
+        monday=datetime(2026,10,19,13,15,tzinfo=timezone.utc)
+        uninitialized=resolve_maintenance_dispatch_policy(
+            db,prop=p1,priority=WorkOrderPriority.EMERGENCY,now_utc=monday)
+        assert uninitialized.status=="NO_GROUP_CONFIGURED"
+        assert not uninitialized.configured and uninitialized.group_id is None
+
+        default=_groups(db,admin)[0]
+        preview=resolve_maintenance_dispatch_policy(
+            db,prop=p2,priority=WorkOrderPriority.EMERGENCY,now_utc=monday)
+        assert preview.group_id==default.id
+        assert preview.status=="RULE_NOT_CONFIGURED"
+        assert preview.daypart=="business_hours"
+        assert preview.first_target is None
+
+        group=create_dispatch_group(_input("New York response", [p1.id],tz="America/New_York",start=9,end=17),
+                                    db=db,current_user=admin)
+        policy=MaintenanceRuleInput(first_target="crew",backup_target="manager",
+                                    timeout_minutes=12,escalate=True,
+                                    primary_contact_user_id=admin.id)
+        save_dispatch_rule(group.id,"emergency","business_hours",policy,db=db,current_user=owner)
+        business=resolve_maintenance_dispatch_policy(
+            db,prop=p1,priority=WorkOrderPriority.EMERGENCY,now_utc=monday)
+        assert business.group_name=="New York response"
+        assert business.daypart=="business_hours"
+        assert business.configured and business.first_target=="crew"
+        assert business.backup_target=="manager" and business.timeout_minutes==12
+        # New York 9:15am in daylight saving time, but Saturday is after hours.
+        weekend=datetime(2026,10,24,13,15,tzinfo=timezone.utc)
+        after=resolve_maintenance_dispatch_policy(
+            db,prop=p1,priority=WorkOrderPriority.EMERGENCY,now_utc=weekend)
+        assert after.daypart=="after_hours" and not after.configured
+        assert after.first_target is None
+        assert resolve_maintenance_dispatch_policy(
+            db,prop=p1,priority=WorkOrderPriority.LOW,now_utc=monday).urgency=="low"
+    finally:
+        db.close();engine.dispose()
+
+
+def test_policy_resolver_fails_closed_on_cross_org_or_malformed_binding():
+    db,engine,people,properties=_fixture()
+    try:
+        admin,owner,manager,crew,tenant,outsider=people
+        p1,p2,foreign=properties
+        local=create_dispatch_group(_input("Local", [p1.id]),db=db,current_user=admin)
+        external_default=_groups(db,outsider)[0]
+        bound=db.query(MaintenanceDispatchProperty).filter_by(property_id=p1.id).one()
+        bound.group_id=external_default.id
+        db.commit()
+        with pytest.raises(HTTPException) as invalid:
+            resolve_maintenance_dispatch_policy(db,prop=p1,priority="emergency")
+        assert invalid.value.status_code==409
+        # This legacy/corrupted organization value must never grant visibility.
+        bound.group_id=local.id
+        bound.organization_id=outsider.organization_id
+        db.commit()
+        with pytest.raises(HTTPException) as invalid:
+            resolve_maintenance_dispatch_policy(db,prop=p1,priority="emergency")
+        assert invalid.value.status_code==409
+    finally:
+        db.close();engine.dispose()

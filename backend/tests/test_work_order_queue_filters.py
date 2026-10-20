@@ -2632,3 +2632,47 @@ def test_manual_assignment_requires_live_staff_and_genuine_crew_property_role():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_live_dispatch_readiness_exposes_only_effective_group_policy():
+    from app.models.maintenance_dispatch import MaintenanceDispatchGroup
+    from app.routers.maintenance_dispatch_groups import (
+        create_dispatch_group, save_dispatch_rule,
+    )
+    from app.schemas.maintenance_dispatch import MaintenanceGroupInput, MaintenanceRuleInput
+    from app.routers.work_orders import maintenance_dispatch_readiness
+
+    db, engine, actors, props, orders = _seed_queue()
+    try:
+        admin, manager, tenant, _other, crew, foreign = actors
+        target = orders[1]  # LOW urgency; group policy resolution is advisory.
+        before = maintenance_dispatch_readiness(target.id, db=db, current_user=manager)
+        assert before.effective_policy is not None
+        assert before.effective_policy.group_id is None
+        assert not before.effective_policy.configured
+        assert before.effective_policy.first_target is None
+        group = create_dispatch_group(MaintenanceGroupInput(
+            name="Rapid response", property_ids=[props[0].id],
+            timezone_name="UTC", business_start_hour=9, business_end_hour=17,
+        ), db=db, current_user=admin)
+        for daypart in ("business_hours", "after_hours"):
+            save_dispatch_rule(group.id, "low", daypart, MaintenanceRuleInput(
+                first_target="manager", backup_target="vendor",
+                timeout_minutes=22, escalate=False,
+            ), db=db, current_user=admin)
+        after = maintenance_dispatch_readiness(target.id, db=db, current_user=manager)
+        policy = after.effective_policy
+        assert policy.group_id == group.id
+        assert policy.group_name == "Rapid response"
+        assert policy.urgency == "low"
+        assert policy.configured
+        assert policy.first_target == "manager" and policy.timeout_minutes == 22
+        assert not after.can_offer  # no actual live on-call shift
+        with pytest.raises(HTTPException) as denied:
+            maintenance_dispatch_readiness(target.id, db=db, current_user=tenant)
+        assert denied.value.status_code == 403
+        with pytest.raises(HTTPException):
+            maintenance_dispatch_readiness(target.id, db=db, current_user=foreign)
+    finally:
+        db.close()
+        engine.dispose()

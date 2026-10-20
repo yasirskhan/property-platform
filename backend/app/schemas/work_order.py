@@ -169,6 +169,21 @@ class MaintenanceVendorCandidateOut(BaseModel):
     insurance_status: str = 'MISSING'
 
 
+class MaintenanceEffectiveDispatchPolicy(BaseModel):
+    group_id: Optional[int] = None
+    group_name: Optional[str] = None
+    urgency: str
+    daypart: Optional[str] = None
+    configured: bool
+    status: str
+    first_target: Optional[str] = None
+    backup_target: Optional[str] = None
+    timeout_minutes: Optional[int] = None
+    escalate: bool = False
+    primary_contact_user_id: Optional[int] = None
+    backup_contact_user_id: Optional[int] = None
+
+
 class MaintenanceDispatchReadinessOut(BaseModel):
     """Operator guidance, not evidence of message delivery or dispatch completion."""
     work_order_id: int
@@ -178,6 +193,7 @@ class MaintenanceDispatchReadinessOut(BaseModel):
     on_call_shift_id: Optional[int] = None
     shift_ends_at: Optional[datetime] = None
     preferred_vendors: List[MaintenanceVendorPreferenceOut] = Field(default_factory=list)
+    effective_policy: Optional[MaintenanceEffectiveDispatchPolicy] = None
     message: str
 
 

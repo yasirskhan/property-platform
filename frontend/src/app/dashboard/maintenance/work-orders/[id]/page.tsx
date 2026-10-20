@@ -47,6 +47,16 @@ type OnCallShift = {
   cancelled_at?: string | null;
   cancellation_reason?: string | null;
 };
+type DispatchPolicy = {
+  group_id: number | null;
+  group_name: string | null;
+  urgency: string; daypart: string | null;
+  configured: boolean; status: string;
+  first_target?: string | null;
+  backup_target?: string | null;
+  timeout_minutes?: number | null;
+  escalate: boolean;
+};
 type DispatchReadiness = {
   work_order_id: number;
   can_offer: boolean;
@@ -56,6 +66,7 @@ type DispatchReadiness = {
   shift_ends_at: string | null;
   message: string;
   preferred_vendors: PreferredVendor[];
+  effective_policy?: DispatchPolicy | null;
 };
 type VendorCandidate = { vendor_id: number; company_name: string; trade: string | null; insurance_status: string };
 type PreferredVendor = { vendor_id: number; rank: number; company_name: string; trade: string; insurance_status: string };
@@ -819,6 +830,23 @@ export default function WorkOrderDetailPage() {
                 {dispatchReadiness ? (
                   <>
                     <p className="mt-1 text-sm">{dispatchReadiness.message}</p>
+                    {dispatchReadiness.effective_policy && (
+                      <div className="mt-2 border-t pt-2 text-xs text-slate-600">
+                        <p className="font-medium">Effective group: {dispatchReadiness.effective_policy.group_name || "Not configured"}</p>
+                        <p>Policy: {dispatchReadiness.effective_policy.urgency}
+                          {dispatchReadiness.effective_policy.daypart
+                            ? " · " + dispatchReadiness.effective_policy.daypart.replaceAll("_", " ") : ""}
+                        </p>
+                        {dispatchReadiness.effective_policy.configured
+                          ? <p>Primary target: {dispatchReadiness.effective_policy.first_target},
+                            backup: {dispatchReadiness.effective_policy.backup_target},
+                            timeout: {dispatchReadiness.effective_policy.timeout_minutes} minutes,
+                            escalation setting: {dispatchReadiness.effective_policy.escalate ? "enabled" : "disabled"}.
+                            Advisory only, no automatic contact or timer is active.
+                          </p>
+                          : <p>No active policy configured for this urgency and time window. Manual management action required.</p>}
+                      </div>
+                    )}
                     {dispatchReadiness.crew_name && <p className="mt-1 text-xs text-slate-600">
                       Current on-call: {dispatchReadiness.crew_name}
                       {dispatchReadiness.shift_ends_at ? " (until " + new Date(dispatchReadiness.shift_ends_at + "Z").toLocaleString() + ")" : ""}
