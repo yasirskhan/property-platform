@@ -1,3 +1,9 @@
+## 2026-10-20 | Phase 5 ranked property/trade preferred vendors — DETACHED, CI GATED
+
+Prepared end-to-end configuration for up to three ranked, distinct eligible vendor companies per property and maintenance category. Authorized active Admin/Owner/assigned Manager can list active vendor candidates, read rank 1–3 and update rankings from the work-order detail; save is serialized by the PostgreSQL property row lock, with unique database rank/company constraints, idempotent replay, append-only old/new audit and scoped activity. Strong live organization/property/unit, vendor active/not deleted, trade-match, and role/manager property assignment validation; tenant/crew/foreign users cannot list or edit. Inactive vendors are not recommended. Manual changes do not dispatch staff, notify vendors, approve contractor payments, grant unit access, or charge tenants. New Alembic revision d3f7c0a198be after b5d0c8e7a214, SQLite/PostgreSQL/fresh schema parity update (207 tables), backend denial/idempotency tests and authenticated UI save regression. Parent pending time correction inbox must have six green GitHub CI jobs on exact SHA before expected-head nonforce promotion, followed by successor full six-job verification. Future: on-call schedules, urgent dispatch rules, approvals, procurement, inspection and accounting.
+
+---
+
 ## 2026-10-20 | Crew time independent reviewer identity — REGRESSION ADDED, CI GATED
 
 Correction approval now explicitly denies reviewer ID equal to original correction requester ID, even if the user's role changes from CREW to MANAGER after submitting the request. This hardens the existing independent-review requirement; review still checks live organization/property scope, and the rejection does not mutate the correction or append an approval audit. A role-change regression proves an independent manager can still approve. Include in successor CI before calling approval inbox COMPLETE.
