@@ -301,8 +301,12 @@ def test_crew_accepts_and_rejects_dispatch_with_audited_reassignment() -> None:
                 "Correction requested for independent review. Original evidence remains unchanged.", exact=True
             )).to_be_visible(timeout=15_000)
 
-            admin.goto(BASE_URL + "/dashboard/maintenance/work-orders/" + str(first),
-                       wait_until="domcontentloaded")
+            admin.goto(BASE_URL + "/dashboard/maintenance/work-orders", wait_until="domcontentloaded")
+            inbox = admin.get_by_role("region", name="Pending crew time correction reviews")
+            pw.expect(inbox.get_by_role("heading", name="Crew time corrections awaiting review")).to_be_visible(timeout=15_000)
+            link = inbox.get_by_role("link", name=re.compile(r"#" + str(first) + r".*"))
+            pw.expect(link).to_be_visible(timeout=15_000)
+            link.click()
             pw.expect(admin.get_by_role("heading", name=re.compile(r"Work order #" + str(first)))).to_be_visible(timeout=15_000)
             pw.expect(admin.get_by_role("button", name="Approve correction")).to_be_visible(timeout=15_000)
             admin.get_by_label(re.compile(r"Review reason for correction")).fill(
