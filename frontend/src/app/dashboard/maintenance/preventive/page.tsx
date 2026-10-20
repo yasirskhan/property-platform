@@ -37,6 +37,7 @@ export default function PreventiveMaintenancePage() {
   const [historyId, setHistoryId] = useState<number | null>(null);
   const [preview, setPreview] = useState<DuePreview | null>(null);
   const [previewError, setPreviewError] = useState("");
+  const [previewErrorId, setPreviewErrorId] = useState<number | null>(null);
   const [previewLoadingId, setPreviewLoadingId] = useState<number | null>(null);
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [historyError, setHistoryError] = useState("");
@@ -213,7 +214,7 @@ export default function PreventiveMaintenancePage() {
   }
 
   async function showPreview(id: number) {
-    setPreviewLoadingId(id); setPreviewError(""); setPreview(null);
+    setPreviewLoadingId(id); setPreviewError(""); setPreviewErrorId(null); setPreview(null);
     try {
       const result = await apiGet(
         `/api/maintenance/preventive/schedules/${id}/due-preview?limit=12`,
@@ -223,6 +224,7 @@ export default function PreventiveMaintenancePage() {
       }
       setPreview(result);
     } catch (cause) {
+      setPreviewErrorId(id);
       setPreviewError(cause instanceof Error ? cause.message : "Due preview unavailable.");
     } finally { setPreviewLoadingId(null); }
   }
@@ -416,7 +418,7 @@ export default function PreventiveMaintenancePage() {
           {preview.due_dates.length > 0 && <p>{preview.due_dates.join(", ")}</p>}
           {preview.has_more && <p role="status">More due dates exist beyond this bounded preview.</p>}
         </section>}
-        {previewError && <p role="alert" className="text-sm text-red-700">{previewError}</p>}
+        {previewErrorId === row.id && previewError && <p role="alert" className="text-sm text-red-700">{previewError}</p>}
         {historyId === row.id && <div className="space-y-2 border-t pt-3">
           {historyError && <p role="alert" className="text-sm text-red-700">{historyError}</p>}
           {!historyError && occurrences.length === 0 && <p className="text-sm">No work orders generated yet.</p>}
