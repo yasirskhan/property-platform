@@ -26,10 +26,10 @@
 import json
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated, List
+from typing import Annotated, List, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, or_, func
+from sqlalchemy import and_, or_, func, case
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -57,6 +57,7 @@ from app.schemas.work_order import (
     WorkOrderDetail,
     WorkOrderUpdateFields,
     WorkOrderAssign,
+    WorkOrderReject,
     WorkOrderVendorAssign,
     WorkOrderVendorOut,
     WorkOrderComplete,
@@ -352,6 +353,7 @@ def list_work_orders(
     status: WorkOrderStatus | None = None,
     priority: WorkOrderPriority | None = None,
     category: WorkOrderCategory | None = None,
+    assignment_response: Literal["pending", "accepted", "rejected", "legacy"] | None = None,
     property_id: Annotated[int | None, Query(ge=1)] = None,
     search: Annotated[str | None, Query(min_length=2, max_length=80)] = None,
     limit: Annotated[int | None, Query(ge=1, le=200)] = None,
@@ -377,6 +379,10 @@ def list_work_orders(
         q = q.filter(WorkOrder.category == category)
     if property_id is not None:
         q = q.filter(WorkOrder.property_id == property_id)
+    if assignment_response == "legacy":
+        q = q.filter(WorkOrder.assignment_response.is_(None))
+    elif assignment_response is not None:
+        q = q.filter(WorkOrder.assignment_response == assignment_response)
     if search is not None:
         phrase = search.strip()
         if phrase:
@@ -386,7 +392,15 @@ def list_work_orders(
                 Property.name.icontains(phrase, autoescape=True),
                 Unit.unit_number.icontains(phrase, autoescape=True),
             ))
-    q = q.order_by(WorkOrder.created_at.desc(), WorkOrder.id.desc())
+    if assignment_response in ("pending", "rejected"):
+        urgency = case(
+            (WorkOrder.priority == WorkOrderPriority.EMERGENCY, 0),
+            (WorkOrder.priority == WorkOrderPriority.HIGH, 1),
+            (WorkOrder.priority == WorkOrderPriority.MEDIUM, 2), else_=3,
+        )
+        q = q.order_by(urgency, WorkOrder.created_at.asc(), WorkOrder.id.asc())
+    else:
+        q = q.order_by(WorkOrder.created_at.desc(), WorkOrder.id.desc())
     if offset:
         q = q.offset(offset)
     if limit is not None:
@@ -434,6 +448,8 @@ def work_order_queue_summary(
         "open": count(visible.filter(active)),
         "emergency_open": count(visible.filter(active, WorkOrder.priority == WorkOrderPriority.EMERGENCY)),
         "awaiting_assignment": count(visible.filter(WorkOrder.status == WorkOrderStatus.ACKNOWLEDGED, WorkOrder.assigned_to_id.is_(None))),
+        "pending_crew_response": count(visible.filter(WorkOrder.status == WorkOrderStatus.ASSIGNED, WorkOrder.assignment_response == "pending")),
+        "declined_assignment": count(visible.filter(WorkOrder.status == WorkOrderStatus.ACKNOWLEDGED, WorkOrder.assignment_response == "rejected")),
         "in_progress": count(visible.filter(WorkOrder.status == WorkOrderStatus.IN_PROGRESS)),
         "ready_to_close": count(visible.filter(WorkOrder.status == WorkOrderStatus.COMPLETED)),
     }
@@ -759,7 +775,7 @@ def assign_work_order(
 ):
     _require_role(current_user, UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER)
 
-    wo = db.query(WorkOrder).filter(WorkOrder.id == wo_id).first()
+    wo = db.query(WorkOrder).filter(WorkOrder.id == wo_id).with_for_update().first()
     if not wo:
         raise HTTPException(status_code=404, detail="Work order not found")
     _check_access(db, current_user, wo)
@@ -775,6 +791,13 @@ def assign_work_order(
             or crew.deleted_at is not None):
         raise HTTPException(status_code=400, detail="Invalid or inactive crew member")
     prop = _get_property_for_work_order(db, wo)
+    # Historical orders remain readable, but a new crew offer must never
+    # dispatch work to retired property inventory.
+    if not prop.is_active or prop.deleted_at is not None or db.query(Unit.id).filter(
+        Unit.id == wo.unit_id, Unit.property_id == prop.id,
+        Unit.is_active.is_(True), Unit.deleted_at.is_(None),
+    ).first() is None:
+        raise HTTPException(status_code=409, detail="Cannot dispatch to inactive property or unit")
     if crew.organization_id != prop.organization_id:
         raise HTTPException(status_code=403, detail="Crew member is not in this organization")
 
@@ -798,6 +821,8 @@ def assign_work_order(
     wo.assigned_to_id = crew.id
     wo.assigned_at = datetime.utcnow()
     wo.assigned_by_id = current_user.id
+    wo.assignment_response = "pending"
+    wo.assignment_responded_at = None
     wo.status = WorkOrderStatus.ASSIGNED
 
     _log_update(
@@ -809,7 +834,90 @@ def assign_work_order(
         db, user_id=current_user.id, organization_id=current_user.organization_id,
         entity_type="work_order", entity_id=wo.id, action="crew_assignment",
         old_value={"assigned_to_id": previous_crew_id},
-        new_value={"assigned_to_id": crew.id},
+        new_value={"assigned_to_id": crew.id, "assignment_response": "pending"},
+    )
+    db.commit()
+    db.refresh(wo)
+    return wo
+
+
+
+# ------------------------------------------------------------
+# CREW DISPATCH DECISION (no automatic escalation or tenant consent)
+# ------------------------------------------------------------
+def _crew_assignment_for_decision(db: Session, wo_id: int, current_user: User) -> WorkOrder:
+    if (current_user.role != UserRole.CREW or not current_user.is_active
+            or current_user.deleted_at is not None):
+        raise HTTPException(status_code=403, detail="Active crew membership required")
+    # Lock against staff reassignment and a concurrent accept/reject/start.
+    wo = db.query(WorkOrder).filter(WorkOrder.id == wo_id).with_for_update().first()
+    if wo is None:
+        raise HTTPException(status_code=404, detail="Work order not found")
+    if wo.assigned_to_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the currently assigned crew may respond")
+    _check_access(db, current_user, wo)
+    if wo.status != WorkOrderStatus.ASSIGNED:
+        raise HTTPException(status_code=409, detail="Assignment is no longer awaiting crew action")
+    return wo
+
+
+@router.post("/{wo_id}/accept", response_model=WorkOrderOut)
+def accept_work_order_assignment(
+    wo_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    wo = _crew_assignment_for_decision(db, wo_id, current_user)
+    if wo.assignment_response == "accepted":
+        return wo
+    if wo.assignment_response != "pending":
+        raise HTTPException(status_code=409, detail="This assignment is not awaiting acceptance")
+    wo.assignment_response = "accepted"
+    wo.assignment_responded_at = datetime.utcnow()
+    _log_update(db, wo, current_user, message="Crew accepted assignment")
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=current_user.organization_id,
+        entity_type="work_order", entity_id=wo.id, action="crew_assignment_accepted",
+        old_value={"assigned_to_id": wo.assigned_to_id, "response": "pending"},
+        new_value={"assigned_to_id": current_user.id, "response": "accepted"},
+    )
+    db.commit()
+    db.refresh(wo)
+    return wo
+
+
+@router.post("/{wo_id}/reject", response_model=WorkOrderOut)
+def reject_work_order_assignment(
+    wo_id: int,
+    payload: WorkOrderReject,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    wo = _crew_assignment_for_decision(db, wo_id, current_user)
+    if wo.assignment_response != "pending":
+        raise HTTPException(status_code=409, detail="This assignment is not awaiting rejection")
+    reason = payload.reason.strip()
+    if not 5 <= len(reason) <= 1000:
+        raise HTTPException(status_code=422, detail="Provide a 5-1000 character rejection reason")
+    prior_status = wo.status
+    previous_crew = wo.assigned_to_id
+    wo.assigned_to_id = None
+    wo.assigned_at = None
+    wo.assigned_by_id = None
+    wo.assignment_response = "rejected"
+    wo.assignment_responded_at = datetime.utcnow()
+    wo.status = WorkOrderStatus.ACKNOWLEDGED
+    _log_update(
+        db, wo, current_user,
+        from_status=prior_status, to_status=wo.status,
+        message="Crew declined assignment: " + reason,
+        audit_reason=reason,
+    )
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=current_user.organization_id,
+        entity_type="work_order", entity_id=wo.id, action="crew_assignment_rejected",
+        old_value={"assigned_to_id": previous_crew, "response": "pending"},
+        new_value={"assigned_to_id": None, "response": "rejected", "reason": reason},
     )
     db.commit()
     db.refresh(wo)
@@ -825,7 +933,7 @@ def start_work_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    wo = db.query(WorkOrder).filter(WorkOrder.id == wo_id).first()
+    wo = db.query(WorkOrder).filter(WorkOrder.id == wo_id).with_for_update().first()
     if not wo:
         raise HTTPException(status_code=404, detail="Work order not found")
 
@@ -837,6 +945,11 @@ def start_work_order(
 
     if wo.status != WorkOrderStatus.ASSIGNED:
         raise HTTPException(status_code=400, detail=f"Cannot start from status '{wo.status.value}'")
+
+    if wo.assignment_response == "pending":
+        raise HTTPException(status_code=409, detail="Crew must accept the assignment before starting")
+    if wo.assignment_response not in (None, "accepted"):
+        raise HTTPException(status_code=409, detail="Only accepted or historical assignments can start")
 
     old = wo.status
     wo.status = WorkOrderStatus.IN_PROGRESS

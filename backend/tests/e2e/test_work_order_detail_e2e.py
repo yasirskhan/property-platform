@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import re
+from uuid import uuid4
 
 import pytest
 
@@ -198,4 +199,94 @@ def test_emergency_triage_links_to_a_real_authorized_order() -> None:
             page.wait_for_url(re.compile(r"/maintenance/work-orders/" + str(work_order_id) + r"$"), timeout=15_000)
             pw.expect(page.get_by_role("heading", name="Work order #" + str(work_order_id) + ": " + title)).to_be_visible()
         finally:
+            browser.close()
+
+
+def test_crew_accepts_and_rejects_dispatch_with_audited_reassignment() -> None:
+    """Browser flow from manager assignment to a crew decision, without tenant consent."""
+    with pw.sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        admin = browser.new_page()
+        crew_page = browser.new_page()
+        try:
+            admin.goto(BASE_URL + "/login", wait_until="domcontentloaded")
+            admin.locator('input[type="email"]').fill(EMAIL)
+            admin.locator('input[type="password"]').fill(PASSWORD)
+            admin.get_by_role("button", name="Log In", exact=True).click()
+            admin.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+            pw.expect(admin.get_by_text("Signed in as", exact=True)).to_be_visible(timeout=15_000)
+            token = admin.evaluate("() => localStorage.getItem('token')")
+            assert token
+            auth = {"Authorization": "Bearer " + token}
+            identity = admin.request.get(API_URL + "/auth/me", headers=auth)
+            assert identity.status == 200, identity.text()
+            org_id = identity.json()["organization_id"]
+            email = "maintenance-crew-" + uuid4().hex[:16] + "@example.com"
+            password = "E2eCrewSecret!2026"
+            created = admin.request.post(API_URL + "/users/crew", headers=auth, data={
+                "email": email, "password": password, "first_name": "Maintenance",
+                "last_name": "Crew", "organization_id": org_id, "role": "CREW",
+            })
+            assert created.status == 201, created.text()
+            crew_id = created.json()["id"]
+            assigned_property = admin.request.post(
+                API_URL + "/properties/900001/assignments?user_id=" + str(crew_id),
+                headers=auth,
+            )
+            assert assigned_property.status == 201, assigned_property.text()
+
+            def dispatch(title: str) -> int:
+                submitted = admin.request.post(API_URL + "/work-orders", headers=auth, data={
+                    "unit_id": 900001, "title": title,
+                    "description": "Verify explicit crew offer decisions and management recovery.",
+                    "permission_to_enter": False,
+                })
+                assert submitted.status == 201, submitted.text()
+                order_id = submitted.json()["id"]
+                ack = admin.request.post(API_URL + "/work-orders/" + str(order_id) + "/acknowledge",
+                                         headers=auth)
+                assert ack.status == 200, ack.text()
+                assign = admin.request.post(API_URL + "/work-orders/" + str(order_id) + "/assign",
+                                            headers=auth, data={"crew_user_id": crew_id})
+                assert assign.status == 200, assign.text()
+                assert assign.json()["assignment_response"] == "pending"
+                return order_id
+
+            first = dispatch("E2E crew accepts maintenance dispatch")
+            second = dispatch("E2E crew rejects maintenance dispatch")
+
+            crew_page.goto(BASE_URL + "/login", wait_until="domcontentloaded")
+            crew_page.locator('input[type="email"]').fill(email)
+            crew_page.locator('input[type="password"]').fill(password)
+            crew_page.get_by_role("button", name="Log In", exact=True).click()
+            crew_page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+            pw.expect(crew_page.get_by_text("Signed in as", exact=True)).to_be_visible(timeout=15_000)
+            crew_page.goto(BASE_URL + "/dashboard/maintenance/work-orders/" + str(first),
+                           wait_until="domcontentloaded")
+            pw.expect(crew_page.get_by_role("heading", name=re.compile(r"Work order #" + str(first)))).to_be_visible(timeout=15_000)
+            pw.expect(crew_page.get_by_role("button", name="Start work")).to_have_count(0)
+            crew_page.get_by_role("button", name="Accept assignment").click()
+            pw.expect(crew_page.get_by_text("Work order assignment accepted.", exact=True)).to_be_visible(timeout=15_000)
+            pw.expect(crew_page.get_by_role("button", name="Start work")).to_be_visible(timeout=15_000)
+            crew_page.get_by_role("button", name="Start work").click()
+            pw.expect(crew_page.get_by_text("Work order started.", exact=True)).to_be_visible(timeout=15_000)
+
+            crew_page.goto(BASE_URL + "/dashboard/maintenance/work-orders/" + str(second),
+                           wait_until="domcontentloaded")
+            pw.expect(crew_page.get_by_role("heading", name=re.compile(r"Work order #" + str(second)))).to_be_visible(timeout=15_000)
+            crew_page.get_by_role("button", name="Reject assignment").click()
+            pw.expect(crew_page.get_by_role("button", name="Confirm assignment rejection")).to_be_disabled()
+            crew_page.get_by_label("Crew rejection reason").fill("Unavailable for the overnight maintenance shift")
+            crew_page.get_by_role("button", name="Confirm assignment rejection").click()
+            pw.expect(crew_page.get_by_text(
+                "Work order assignment rejected for reassignment.", exact=True
+            )).to_be_visible(timeout=15_000)
+            after = admin.request.get(API_URL + "/work-orders/" + str(second), headers=auth)
+            assert after.status == 200, after.text()
+            assert after.json()["status"] == "acknowledged"
+            assert after.json()["assigned_to_id"] is None
+            assert after.json()["assignment_response"] == "rejected"
+        finally:
+            crew_page.close()
+            admin.close()
             browser.close()

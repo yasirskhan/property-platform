@@ -62,6 +62,10 @@ class WorkOrderVendorOut(BaseModel):
     vendor_id: Optional[int] = None
 
 
+class WorkOrderReject(BaseModel):
+    reason: str = Field(..., min_length=5, max_length=1000)
+
+
 class WorkOrderAssign(BaseModel):
     """Payload to assign a work order to a crew member."""
     crew_user_id: int
@@ -99,6 +103,8 @@ class WorkOrderOut(BaseModel):
     assigned_to_id: Optional[int] = None
     assigned_at: Optional[datetime] = None
     assigned_by_id: Optional[int] = None
+    assignment_response: Optional[str] = None
+    assignment_responded_at: Optional[datetime] = None
 
     title: str
     description: str

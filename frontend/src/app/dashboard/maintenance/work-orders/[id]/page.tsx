@@ -31,6 +31,7 @@ type WorkOrder = {
   permission_to_enter: boolean;
   entry_notes: string | null;
   assigned_to_id: number | null;
+  assignment_response?: "pending" | "accepted" | "rejected" | null;
   resolution_notes: string | null;
   created_at: string;
   updated_at: string;
@@ -52,6 +53,8 @@ export default function WorkOrderDetailPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [rejectRequested, setRejectRequested] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
   const [cancelRequested, setCancelRequested] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
 
@@ -138,7 +141,7 @@ export default function WorkOrderDetailPage() {
       }
       setOrder((previous) => previous ? {
         ...previous, status: persisted.status, assigned_to_id: persisted.assigned_to_id,
-        updated_at: persisted.updated_at,
+        assignment_response: persisted.assignment_response, updated_at: persisted.updated_at,
       } : previous);
       setCrewId("");
       setNotice("Crew assignment recorded. Property assignment is verified by the backend.");
@@ -155,7 +158,7 @@ export default function WorkOrderDetailPage() {
     }
   }
 
-  async function advanceStatus(action: "acknowledge" | "start" | "complete" | "close" | "cancel") {
+  async function advanceStatus(action: "acknowledge" | "accept" | "reject" | "start" | "complete" | "close" | "cancel") {
     if (!order || saving) return;
     setSaving(true);
     setError("");
@@ -163,10 +166,13 @@ export default function WorkOrderDetailPage() {
     try {
       const data = action === "complete"
         ? { resolution_notes: completionNotes.trim() || null }
-        : action === "cancel" ? { reason: cancelReason.trim() } : undefined;
+        : action === "cancel" ? { reason: cancelReason.trim() }
+        : action === "reject" ? { reason: rejectReason.trim() } : undefined;
       const persisted = await apiPost("/work-orders/" + order.id + "/" + action, data) as WorkOrder;
       const expected = {
         acknowledge: "acknowledged",
+        accept: "assigned",
+        reject: "acknowledged",
         start: "in_progress",
         complete: "completed",
         close: "closed",
@@ -179,15 +185,18 @@ export default function WorkOrderDetailPage() {
       setOrder((previous) => previous ? {
         ...previous, status: persisted.status,
         assigned_to_id: persisted.assigned_to_id,
+        assignment_response: persisted.assignment_response,
         resolution_notes: persisted.resolution_notes,
         updated_at: persisted.updated_at,
       } : previous);
       if (action === "complete") setCompletionNotes("");
+      if (action === "reject") { setRejectRequested(false); setRejectReason(""); }
       if (action === "cancel") {
         setCancelRequested(false);
         setCancelReason("");
       }
       setNotice("Work order " + (action === "acknowledge" ? "acknowledged" :
+        action === "accept" ? "assignment accepted" : action === "reject" ? "assignment rejected for reassignment" :
         action === "start" ? "started" : action === "complete" ? "completed" :
         action === "cancel" ? "cancelled" : "closed") + ".");
       // Fetch the authoritative activity log opportunistically, never as a
@@ -313,7 +322,42 @@ export default function WorkOrderDetailPage() {
                   </>
                 )}
               {viewer?.role?.toUpperCase() === "CREW" && order.assigned_to_id === viewer.id
-                && order.status === "assigned" && (
+                && order.status === "assigned" && order.assignment_response === "pending" && (
+                  <>
+                    <p className="text-sm">Assignment offered. Accept before starting or reject with a reason.</p>
+                    <button disabled={saving} onClick={() => void advanceStatus("accept")}
+                      className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50">
+                      Accept assignment
+                    </button>
+                    {!rejectRequested ? (
+                      <button disabled={saving} onClick={() => setRejectRequested(true)}
+                        className="rounded-lg border px-4 py-2 text-sm disabled:opacity-50">
+                        Reject assignment
+                      </button>
+                    ) : (
+                      <div className="w-full space-y-2 rounded-lg border p-3">
+                        <label className="block text-sm">Reason for rejecting this assignment
+                          <textarea aria-label="Crew rejection reason" required minLength={5} maxLength={1000}
+                            rows={2} value={rejectReason} disabled={saving}
+                            onChange={(event) => setRejectReason(event.target.value)}
+                            className="mt-1 block w-full rounded-lg border p-2" />
+                        </label>
+                        <button disabled={saving || rejectReason.trim().length < 5}
+                          onClick={() => void advanceStatus("reject")}
+                          className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
+                          Confirm assignment rejection
+                        </button>
+                        <button disabled={saving} onClick={() => { setRejectRequested(false); setRejectReason(""); }}
+                          className="ml-2 rounded-lg border px-3 py-2 text-sm">Keep assignment offer</button>
+                      </div>
+                    )}
+                  </>
+                )}
+              {order.status === "assigned" && order.assignment_response === "pending"
+                && ["ADMIN", "OWNER", "MANAGER"].includes(String(viewer?.role || "").toUpperCase())
+                && <p className="text-sm">Awaiting crew acceptance. Reassignment is available before work starts.</p>}
+              {viewer?.role?.toUpperCase() === "CREW" && order.assigned_to_id === viewer.id
+                && order.status === "assigned" && order.assignment_response !== "pending" && (
                   <button disabled={saving} onClick={() => void advanceStatus("start")}
                     className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50">Start work</button>
                 )}

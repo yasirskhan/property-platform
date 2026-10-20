@@ -1,3 +1,9 @@
+## 2026-10-20 | Crew dispatch offer and response — IMPLEMENTED / CI GATED
+
+Verified predecessor `777fd6a647d92acac1b1abfd8d85f27b49294e04` with six successful jobs in run `39380284827`. New dispatch sends a pending assignment to eligible crew; crew may accept or reject with a reason. Rejection atomically unassigns and returns the work order to acknowledged, preserving append-only audit and activity. Assignment and response revalidate current organization, property, active inventory and user authorization under row locks; new work cannot start until accepted, while NULL legacy assignment responses stay compatible. Managers can reassign declined work, and the scoped work-order queue and UI report/filter pending, accepted, declined and legacy responses with emergency-first dispatch ordering. Includes reversible additive migration `e1b9c7d2a540`, backend security/regression tests and authenticated browser scenarios. Do not claim full inspection, purchasing, dispatch automation or financial obligations completion; this change requires six-job hosted CI at its published SHA before VERIFIED.
+
+---
+
 ### Hosted CI failure repair — 2026-10-20 (CI GATED)
 
 Run `39378503522` failed backend only (1546 passed / 3 failed; security, frontend, platform-admin passed; e2e/staging skipped). Root causes: unnamed SQLite batch foreign-key constraint for the new schedule operator column, and stale expected Alembic head in PostgreSQL smoke and prepare-database tests. Updated migration to create and guard-drop a named foreign key, aligned both migration-head assertions, and added PostgreSQL FK/nullable column checks. Next: verify replacement run at exact fix SHA before marking the execution recovery VERIFIED. Crew-dispatch successor remains detached and must be reconciled with this published fix.

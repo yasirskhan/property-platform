@@ -9,7 +9,7 @@ const STATUSES = ["submitted", "acknowledged", "assigned", "in_progress", "compl
 const PRIORITIES = ["low", "medium", "high", "emergency"];
 const CATEGORIES = ["plumbing", "electrical", "hvac", "appliance", "general", "pest", "cleaning", "landscaping", "other"];
 
-type QueueSummary = { open: number; emergency_open: number; awaiting_assignment: number; in_progress: number; ready_to_close: number };
+type QueueSummary = { open: number; emergency_open: number; awaiting_assignment: number; pending_crew_response: number; declined_assignment: number; in_progress: number; ready_to_close: number };
 
 type WorkOrder = {
   id: number;
@@ -20,12 +20,13 @@ type WorkOrder = {
   title: string;
   description: string;
   status: string;
+  assignment_response?: string | null;
   priority: string;
   category: string;
   created_at: string;
 };
-type Filters = { status: string; priority: string; category: string; property: string; search: string };
-const EMPTY: Filters = { status: "", priority: "", category: "", property: "", search: "" };
+type Filters = { status: string; priority: string; category: string; property: string; search: string; assignment_response: string };
+const EMPTY: Filters = { status: "", priority: "", category: "", property: "", search: "", assignment_response: "" };
 
 export default function WorkOrderQueuePage() {
   const [draft, setDraft] = useState<Filters>(EMPTY);
@@ -48,6 +49,7 @@ export default function WorkOrderQueuePage() {
       offset: String(offset),
     });
     if (applied.status) query.set("status", applied.status);
+    if (applied.assignment_response) query.set("assignment_response", applied.assignment_response);
     if (applied.priority) query.set("priority", applied.priority);
     if (applied.category) query.set("category", applied.category);
     if (applied.property) query.set("property_id", applied.property);
@@ -171,11 +173,13 @@ export default function WorkOrderQueuePage() {
       <section aria-label="Accessible work-order summary" className="space-y-2">
         <h2 className="text-sm font-semibold text-slate-800">Across all work orders you can access</h2>
         {summary ? (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {[
               ["Open", summary.open],
               ["Emergency open", summary.emergency_open],
               ["Awaiting assignment", summary.awaiting_assignment],
+              ["Pending crew decision", summary.pending_crew_response],
+              ["Declined assignments", summary.declined_assignment],
               ["In progress", summary.in_progress],
               ["Ready to close", summary.ready_to_close],
             ].map(([label, value]) => (
@@ -225,7 +229,7 @@ export default function WorkOrderQueuePage() {
         )}
       </section>
       <form onSubmit={apply} className="rounded-xl border bg-white p-5">
-        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
           <label className="text-sm">Search title, description, property or unit
             <input className="input mt-1" aria-label="Search work orders" maxLength={80}
               placeholder="At least 2 characters" value={draft.search}
@@ -243,6 +247,17 @@ export default function WorkOrderQueuePage() {
               onChange={(event) => setDraft({ ...draft, priority: event.target.value })}>
               <option value="">All priorities</option>
               {PRIORITIES.map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="text-sm">Crew assignment response
+            <select aria-label="Crew assignment response" className="input mt-1"
+              value={draft.assignment_response}
+              onChange={(event) => setDraft({ ...draft, assignment_response: event.target.value })}>
+              <option value="">All crew responses</option>
+              <option value="pending">Awaiting acceptance</option>
+              <option value="accepted">Accepted</option>
+              <option value="rejected">Rejected</option>
+              <option value="legacy">Historical without response</option>
             </select>
           </label>
           <label className="text-sm">Category
@@ -287,6 +302,8 @@ export default function WorkOrderQueuePage() {
                   </div>
                   <div className="flex flex-wrap items-start gap-2 text-xs">
                     <span className="rounded-full bg-slate-100 px-3 py-1">{row.status.replaceAll("_", " ")}</span>
+                    {row.assignment_response === "pending" && <span>Awaiting crew acceptance</span>}
+                    {row.assignment_response === "rejected" && <span>Rejected, needs reassignment</span>}
                     <span className="rounded-full bg-slate-100 px-3 py-1">{row.priority} priority</span>
                   </div>
                 </div>

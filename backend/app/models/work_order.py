@@ -85,6 +85,9 @@ class WorkOrder(Base):
     assigned_to_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     assigned_at = Column(DateTime, nullable=True)
     assigned_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # NULL preserves legacy accepted-by-start assignments. New offers require a crew decision.
+    assignment_response = Column(String(16), nullable=True)
+    assignment_responded_at = Column(DateTime, nullable=True)
     # Explicit vendor COMPANY association independent of the assigned CREW user.
     vendor_id = Column(Integer, ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True, index=True)
 

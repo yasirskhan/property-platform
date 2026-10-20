@@ -1,3 +1,11 @@
+## Phase 5 operational recovery and crew decisions (2026-10-20)
+
+Preventive execution becomes transferable without rewriting immutable creator attribution. The per-schedule execution operator is scoped to the actual organization/property and validated on each daily sweep; staff have read-only execution health and an audited recovery action. Migration `c4b7e2f9a601` and browser/backend regressions await exact hosted CI verification.
+
+Next dispatch foundation uses distinct pending/accepted/rejected crew assignment responses and row-lock serialization, requires rejection reason, and returns rejected orders to the authorized manager queue with full audit. Existing assigned work orders with NULL response remain startable to avoid forging acceptance. Prepared additive migration `e1b9c7d2a540` must be published and six-job CI verified before release.
+
+**Still missing:** dispatch groups/urgency and business-hour policy, notifications, SLA clocks/escalation, on-call calendar, ranked preferred vendors and recovery; full inspections, materials, purchasing, invoice integration. An assignment response is not proof the full dispatch subsystem is complete.
+
 # PLAN GAPS
 
 > **Engineering order update — 2026-09-23:** Phase 3.4.S Engineering Safety Foundation now sits between registry completion (3.4.2) and implementation phase 3.4.3. Core launch work takes priority over specialized expansion products. Hybrid Capability Gating replaces per-field flagging. See PROJECT_MASTER Sections 70, 79, 80, 82, and 84 plus ENGINEERING_SAFETY.md.
