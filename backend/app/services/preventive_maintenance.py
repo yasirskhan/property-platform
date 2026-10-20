@@ -1,5 +1,6 @@
 """Staff-authorized preventive maintenance with durable, idempotent manual due generation."""
 from datetime import date, datetime, timedelta
+import json
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -8,6 +9,7 @@ from app.models.preventive_maintenance import PreventiveMaintenanceSchedule as S
 from app.models.property import Property, Unit, PropertyAssignment
 from app.models.user import User, UserRole
 from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderUpdate
+from app.models.audit_log import AuditLog
 from app.routers.properties import check_property_access
 from app.services.audit import append_audit_log
 
@@ -205,6 +207,31 @@ def _last_valid_occurrence(db: Session, schedule: Schedule, as_of: date):
     ).first()
     if order is None:
         raise HTTPException(status_code=409, detail="Occurrence work-order integrity violation")
+    # A corrupt pointer may still reference a different order in the same unit.
+    # Require the original immutable creation audit to bind this exact order to
+    # the schedule and occurrence date, rather than trusting mutable FKs alone.
+    creation = db.query(AuditLog).filter(
+        AuditLog.organization_id == schedule.organization_id,
+        AuditLog.entity_type == "work_order",
+        AuditLog.entity_id == order.id,
+        AuditLog.action == "status_transition",
+    ).order_by(AuditLog.id.asc()).all()
+    bound = False
+    for record in creation:
+        try:
+            evidence = json.loads(record.new_value or "null")
+        except (ValueError, TypeError):
+            continue
+        if (
+            isinstance(evidence, dict)
+            and evidence.get("status") == "submitted"
+            and evidence.get("preventive_schedule_id") == schedule.id
+            and evidence.get("occurrence_date") == candidate.due_date.isoformat()
+        ):
+            bound = True
+            break
+    if not bound:
+        raise HTTPException(status_code=409, detail="Occurrence audit binding integrity violation")
     return order
 
 
