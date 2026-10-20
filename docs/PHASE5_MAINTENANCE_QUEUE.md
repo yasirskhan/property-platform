@@ -1,3 +1,9 @@
+## 2026-10-20 | Crew time independent reviewer identity — REGRESSION ADDED, CI GATED
+
+Correction approval now explicitly denies reviewer ID equal to original correction requester ID, even if the user's role changes from CREW to MANAGER after submitting the request. This hardens the existing independent-review requirement; review still checks live organization/property scope, and the rejection does not mutate the correction or append an approval audit. A role-change regression proves an independent manager can still approve. Include in successor CI before calling approval inbox COMPLETE.
+
+---
+
 ## 2026-10-20 | Phase 5 pending crew-time approval inbox — DETACHED / CI GATED
 
 Follow-on to published 4d0315216abde01ca7be74db5724e1deed0fa982 (crew original/reviewed time summary; hosted CI 39455507549). Adds a staff-only pending time correction inbox on the maintenance work orders page and GET /work-orders/time-corrections/pending, sorted oldest-first with bounded paging. The API joins actual Unit to Property and enforces organization and manager's live property assignment; crew/tenant and cross-organization access are denied. Cross-work-order or wrong-crew correction references are excluded. Each request links to the work order's existing independent approve/deny workflow. Backend regression and authenticated browser test cover scoping and discovery. No payroll, tenant billing or accounting posting. Only publish after predecessor all-six green, exact-head nonforce CAS and successor CI.
