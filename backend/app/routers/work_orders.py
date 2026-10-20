@@ -35,7 +35,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.property import Property, Unit, PropertyAssignment
 from app.models.user import User, UserRole
-from app.models.vendor import Vendor
+from app.models.vendor import Vendor, MaintenancePreferredVendor
 from app.models.audit_log import AuditLog
 from app.routers.vendors import _access as _vendor_menu_access
 from app.services.menu_resolver import permission_allows_user
@@ -71,6 +71,9 @@ from app.schemas.work_order import (
     PendingCrewTimeCorrectionOut,
     WorkOrderVendorAssign,
     WorkOrderVendorOut,
+    MaintenanceVendorPreferencesUpdate,
+    MaintenanceVendorPreferenceOut,
+    MaintenanceVendorCandidateOut,
     WorkOrderComplete,
     WorkOrderCancel,
     WorkOrderComment,
@@ -646,6 +649,155 @@ def set_work_order_vendor(
     db.commit()
     db.refresh(row)
     return _vendor_work_order_out(row)
+
+
+# ------------------------------------------------------------
+# PROPERTY + MAINTENANCE TRADE PREFERRED VENDORS (NO AUTO-DISPATCH)
+# ------------------------------------------------------------
+def _maintenance_vendor_scope(db: Session, wo_id: int, actor: User, *, write: bool = False):
+    if (not actor.is_active or actor.deleted_at is not None
+            or actor.role not in (UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER)):
+        raise HTTPException(status_code=403, detail="Maintenance staff permission required")
+    row = (
+        db.query(WorkOrder)
+        .join(Unit, Unit.id == WorkOrder.unit_id)
+        .join(Property, Property.id == Unit.property_id)
+        .filter(WorkOrder.id == wo_id, Property.organization_id == actor.organization_id,
+                WorkOrder.property_id == Property.id)
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Work order not available")
+    _check_access(db, actor, row)
+    prop = db.query(Property).filter(Property.id == row.property_id)
+    prop = prop.with_for_update().first() if write else prop.first()
+    if prop is None:
+        raise HTTPException(status_code=404, detail="Property not found")
+    if write and (not prop.is_active or prop.deleted_at is not None
+                  or db.query(Unit.id).filter(
+                      Unit.id == row.unit_id, Unit.property_id == prop.id,
+                      Unit.is_active.is_(True), Unit.deleted_at.is_(None),
+                  ).first() is None):
+        raise HTTPException(status_code=409, detail="Restore active property and unit before changing vendor preferences")
+    return row, prop
+
+
+def _maintenance_vendor_choices(db: Session, *, organization_id: int, property_id: int,
+                                trade: str) -> list[MaintenanceVendorPreferenceOut]:
+    records = (
+        db.query(MaintenancePreferredVendor, Vendor)
+        .join(Vendor, Vendor.id == MaintenancePreferredVendor.vendor_id)
+        .filter(
+            MaintenancePreferredVendor.organization_id == organization_id,
+            MaintenancePreferredVendor.property_id == property_id,
+            MaintenancePreferredVendor.trade == trade,
+            Vendor.organization_id == organization_id,
+            Vendor.is_active.is_(True), Vendor.deleted_at.is_(None),
+        )
+        .order_by(MaintenancePreferredVendor.rank.asc(), MaintenancePreferredVendor.id.asc())
+        .limit(4).all()
+    )
+    if len(records) > 3:
+        raise HTTPException(status_code=409, detail="Invalid preferred vendor rank configuration")
+    return [MaintenanceVendorPreferenceOut(
+        vendor_id=v.id, rank=p.rank, company_name=v.company_name, trade=trade,
+    ) for p, v in records]
+
+
+@router.get("/{wo_id}/vendor-candidates", response_model=List[MaintenanceVendorCandidateOut])
+def list_maintenance_vendor_candidates(
+    wo_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    wo, _prop = _maintenance_vendor_scope(db, wo_id, current_user)
+    trade = wo.category.value
+    # An unspecified vendor trade can be used across categories. Exact matches
+    # avoid accidentally preferring electricians for plumbing, and expose no
+    # insurance, tax or banking documents.
+    available = db.query(Vendor).filter(
+        Vendor.organization_id == current_user.organization_id,
+        Vendor.is_active.is_(True), Vendor.deleted_at.is_(None),
+        or_(Vendor.trade.is_(None), func.lower(Vendor.trade) == trade),
+    ).order_by(Vendor.company_name.asc(), Vendor.id.asc()).limit(201).all()
+    if len(available) > 200:
+        raise HTTPException(status_code=422, detail="Vendor list exceeds bounded selection capacity")
+    return [MaintenanceVendorCandidateOut(
+        vendor_id=v.id, company_name=v.company_name, trade=v.trade,
+    ) for v in available]
+
+
+@router.get("/{wo_id}/preferred-vendors", response_model=List[MaintenanceVendorPreferenceOut])
+def list_maintenance_preferred_vendors(
+    wo_id: int, db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    wo, prop = _maintenance_vendor_scope(db, wo_id, current_user)
+    return _maintenance_vendor_choices(
+        db, organization_id=prop.organization_id,
+        property_id=prop.id, trade=wo.category.value,
+    )
+
+
+@router.put("/{wo_id}/preferred-vendors", response_model=List[MaintenanceVendorPreferenceOut])
+def replace_maintenance_preferred_vendors(
+    wo_id: int, payload: MaintenanceVendorPreferencesUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    wo, prop = _maintenance_vendor_scope(db, wo_id, current_user, write=True)
+    ids = payload.vendor_ids
+    if len(ids) > 3 or any(type(n) is not int or n < 1 for n in ids) or len(set(ids)) != len(ids):
+        raise HTTPException(status_code=422, detail="Provide at most three distinct positive vendor IDs")
+    trade = wo.category.value
+    if ids:
+        eligible = db.query(Vendor).filter(
+            Vendor.id.in_(ids),
+            Vendor.organization_id == prop.organization_id,
+            Vendor.is_active.is_(True), Vendor.deleted_at.is_(None),
+            or_(Vendor.trade.is_(None), func.lower(Vendor.trade) == trade),
+        ).all()
+        if {v.id for v in eligible} != set(ids):
+            raise HTTPException(status_code=404, detail="One or more vendor companies are not eligible")
+    rows = db.query(MaintenancePreferredVendor).filter(
+        MaintenancePreferredVendor.organization_id == prop.organization_id,
+        MaintenancePreferredVendor.property_id == prop.id,
+        MaintenancePreferredVendor.trade == trade,
+    ).order_by(MaintenancePreferredVendor.rank.asc()).all()
+    existing_ids = [x.vendor_id for x in rows]
+    if existing_ids == ids:
+        return _maintenance_vendor_choices(
+            db, organization_id=prop.organization_id, property_id=prop.id, trade=trade)
+    # The locked property row serializes updates for all work orders sharing
+    # the same trade, and the unique constraints reject inconsistent rankings.
+    db.query(MaintenancePreferredVendor).filter(
+        MaintenancePreferredVendor.organization_id == prop.organization_id,
+        MaintenancePreferredVendor.property_id == prop.id,
+        MaintenancePreferredVendor.trade == trade,
+    ).delete(synchronize_session=False)
+    db.flush()
+    for rank, vendor_id in enumerate(ids, 1):
+        db.add(MaintenancePreferredVendor(
+            organization_id=prop.organization_id, property_id=prop.id,
+            trade=trade, rank=rank, vendor_id=vendor_id, updated_by_user_id=current_user.id,
+        ))
+    db.flush()
+    db.add(WorkOrderUpdate(
+        work_order_id=wo.id, user_id=current_user.id,
+        message=f"Preferred vendor order updated for {trade} at this property",
+    ))
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=prop.organization_id,
+        entity_type="maintenance_vendor_preferences", entity_id=prop.id,
+        action="ranked_vendor_preferences_updated",
+        old_value={"trade": trade, "vendor_ids": existing_ids},
+        new_value={"trade": trade, "vendor_ids": ids, "source_work_order_id": wo.id},
+    )
+    db.commit()
+    return _maintenance_vendor_choices(
+        db, organization_id=prop.organization_id,
+        property_id=prop.id, trade=trade,
+    )
 
 
 # ------------------------------------------------------------
