@@ -16,6 +16,9 @@ class PreventiveMaintenanceSchedule(Base):
     end_date = Column(Date, nullable=True)  # Never generate occurrences after this date
     active = Column(Boolean, nullable=False, default=True)
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    # Mutable operational executor, distinct from the immutable original creator.
+    # NULL on upgraded schedules preserves their historical creator as executor.
+    executor_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 

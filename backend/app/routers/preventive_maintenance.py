@@ -30,6 +30,7 @@ class ScheduleOut(BaseModel):
     interval_days: int
     next_due_date: date
     end_date: date | None = None
+    executor_user_id: int | None = None
     active: bool
 
 class ActiveUpdate(BaseModel):
@@ -41,6 +42,31 @@ class ScheduleSettings(BaseModel):
     description: str | None = Field(default=None, min_length=10, max_length=2000)
     interval_days: int | None = Field(default=None, ge=1, le=3650)
     end_date: date | None = None
+
+
+class AssumeExecution(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: str = Field(min_length=10, max_length=500)
+
+
+class ExecutionStatusOut(BaseModel):
+    schedule_id: int
+    executor_user_id: int
+    status: str
+    due: bool
+
+
+@router.get("/schedules/{schedule_id}/execution-status", response_model=ExecutionStatusOut)
+def get_execution_status(schedule_id: int, db: Session = Depends(get_db),
+                         current_user: User = Depends(get_current_user)):
+    return service.execution_status(db, current_user, schedule_id)
+
+
+@router.post("/schedules/{schedule_id}/assume-execution", response_model=ScheduleOut)
+def assume_execution(schedule_id: int, payload: AssumeExecution,
+                     db: Session = Depends(get_db),
+                     current_user: User = Depends(get_current_user)):
+    return service.assume_execution(db, current_user, schedule_id, reason=payload.reason)
 
 
 class GeneratedOut(BaseModel):

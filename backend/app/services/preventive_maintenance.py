@@ -77,14 +77,15 @@ def create_schedule(db: Session, actor: User, *, unit_id: int, title: str,
     row = Schedule(organization_id=actor.organization_id, property_id=unit.property_id,
         unit_id=unit.id, title=title, description=description,
         interval_days=interval_days, next_due_date=next_due_date,
-        end_date=end_date, created_by_id=actor.id, active=True)
+        end_date=end_date, created_by_id=actor.id, executor_user_id=actor.id, active=True)
     db.add(row)
     db.flush()
     append_audit_log(db, entity_type="preventive_maintenance_schedule", entity_id=row.id,
         organization_id=actor.organization_id, user_id=actor.id, action="created",
         new_value={"unit_id":unit.id, "property_id":unit.property_id, "interval_days":interval_days,
                    "next_due_date":next_due_date.isoformat(), "title":title,
-                   "end_date":end_date.isoformat() if end_date is not None else None})
+                   "end_date":end_date.isoformat() if end_date is not None else None,
+                   "executor_user_id": actor.id})
     db.commit()
     db.refresh(row)
     return row
@@ -178,6 +179,84 @@ def update_settings(db: Session, actor: User, schedule_id: int, *,
         action="settings_changed",
         old_value={key: old for key, (old, _) in changes.items()},
         new_value={key: new for key, (_, new) in changes.items()},
+    )
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+
+def execution_status(db: Session, actor: User, schedule_id: int) -> dict:
+    """Show the reason an authorized schedule is (or is not) executable.
+
+    Read-only historical access is preserved, even for a retired property.
+    """
+    row = read_schedule(db, actor, schedule_id)
+    executor_id = row.executor_user_id or row.created_by_id
+    if not row.active:
+        state = "paused"
+    elif row.end_date is not None and row.next_due_date > row.end_date:
+        state = "finished"
+    else:
+        executor = db.query(User).filter(
+            User.id == executor_id, User.organization_id == row.organization_id,
+        ).first()
+        if executor is None:
+            state = "blocked"
+        else:
+            try:
+                _scope(db, executor, row.unit_id)
+            except HTTPException:
+                state = "blocked"
+            else:
+                state = "ready"
+    return {
+        "schedule_id": row.id,
+        "executor_user_id": executor_id,
+        "status": state,
+        "due": state == "ready" and row.next_due_date <= date.today(),
+    }
+
+
+def assume_execution(db: Session, actor: User, schedule_id: int, *, reason: str) -> Schedule:
+    """Staff can recover a stalled schedule without falsifying original authorship.
+
+    A manager may only take over when the prior executor has lost authority.
+    An administrator may make an audited proactive transfer. The schedule-row
+    lock serializes this change against generation, pause and settings edits.
+    """
+    reason = reason.strip()
+    if not 10 <= len(reason) <= 500:
+        raise HTTPException(status_code=422, detail="Provide a 10-500 character transfer reason")
+    scoped = _schedule(db, actor, schedule_id)
+    row = db.query(Schedule).populate_existing().filter(
+        Schedule.id == scoped.id, Schedule.organization_id == actor.organization_id,
+    ).with_for_update().one()
+    _scope(db, actor, row.unit_id)
+    previous_id = row.executor_user_id or row.created_by_id
+    if previous_id == actor.id:
+        return row
+    if actor.role != UserRole.ADMIN:
+        previous = db.query(User).filter(
+            User.id == previous_id, User.organization_id == row.organization_id,
+        ).first()
+        if previous is not None:
+            try:
+                _scope(db, previous, row.unit_id)
+            except HTTPException:
+                pass
+            else:
+                raise HTTPException(
+                    status_code=409, detail="Current executor is authorized; ask an administrator to transfer",
+                )
+    row.executor_user_id = actor.id
+    row.updated_at = datetime.utcnow()
+    append_audit_log(
+        db, entity_type="preventive_maintenance_schedule", entity_id=row.id,
+        organization_id=actor.organization_id, user_id=actor.id,
+        action="executor_transferred",
+        old_value={"executor_user_id": previous_id},
+        new_value={"executor_user_id": actor.id, "reason": reason},
     )
     db.commit()
     db.refresh(row)
@@ -367,7 +446,7 @@ def sweep_due(db: Session, *, as_of: date, catchup_limit: int = 12) -> dict[str,
     counts = {"created": 0, "skipped": 0, "backlog": 0}
     cursor = 0
     while True:
-        rows = db.query(Schedule.id, Schedule.organization_id, Schedule.created_by_id).filter(
+        rows = db.query(Schedule.id, Schedule.organization_id, Schedule.created_by_id, Schedule.executor_user_id).filter(
             Schedule.id > cursor,
             Schedule.active.is_(True),
             Schedule.next_due_date <= as_of,
@@ -375,10 +454,10 @@ def sweep_due(db: Session, *, as_of: date, catchup_limit: int = 12) -> dict[str,
         ).order_by(Schedule.id).limit(100).all()
         if not rows:
             break
-        for schedule_id, org_id, creator_id in rows:
+        for schedule_id, org_id, creator_id, executor_id in rows:
             cursor = schedule_id
             actor = db.query(User).filter(
-                User.id == creator_id, User.organization_id == org_id,
+                User.id == (executor_id or creator_id), User.organization_id == org_id,
             ).first()
             if actor is None:
                 counts["skipped"] += 1

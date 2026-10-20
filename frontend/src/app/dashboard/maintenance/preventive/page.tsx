@@ -8,9 +8,11 @@ type Schedule = {
   id: number; organization_id: number; property_id: number; unit_id: number;
   title: string; description: string; interval_days: number;
   next_due_date: string; end_date?: string | null; active: boolean;
+  executor_user_id?: number | null;
 };
 type Occurrence = { id: number; schedule_id: number; due_date: string; work_order_id: number };
 type Generation = { work_order_id: number; newly_created: boolean; tenant_id: number | null };
+type ExecutionStatus = { schedule_id: number; executor_user_id: number; status: string; due: boolean };
 type DuePreview = { schedule_id: number; active: boolean; as_of: string; due_dates: string[]; has_more: boolean };
 
 export default function PreventiveMaintenancePage() {
@@ -46,6 +48,11 @@ export default function PreventiveMaintenancePage() {
   const [historyMoreError, setHistoryMoreError] = useState("");
   const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [takeoverId, setTakeoverId] = useState<number | null>(null);
+  const [takeoverReason, setTakeoverReason] = useState("");
+  const [executionStatus, setExecutionStatus] = useState<ExecutionStatus | null>(null);
+  const [executionError, setExecutionError] = useState("");
+  const [executionErrorId, setExecutionErrorId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editInterval, setEditInterval] = useState("30");
@@ -213,6 +220,43 @@ export default function PreventiveMaintenancePage() {
     } finally { setBusyId(null); }
   }
 
+  async function inspectExecution(id: number) {
+    setExecutionError(""); setExecutionErrorId(null);
+    try {
+      const result = await apiGet(
+        `/api/maintenance/preventive/schedules/${id}/execution-status`,
+      ) as ExecutionStatus;
+      if (result.schedule_id !== id) throw new Error("Unexpected execution status.");
+      setExecutionStatus(result);
+    } catch (cause) {
+      setExecutionStatus(null); setExecutionErrorId(id);
+      setExecutionError(cause instanceof Error ? cause.message : "Execution status unavailable.");
+    }
+  }
+
+  async function assumeExecution(event: FormEvent<HTMLFormElement>, row: Schedule) {
+    event.preventDefault();
+    if (takeoverId !== row.id || takeoverReason.trim().length < 10) {
+      setError("Provide a reason with at least 10 characters.");
+      return;
+    }
+    setBusyId(row.id); setError(""); setNotice("");
+    try {
+      const updated = await apiPost(
+        `/api/maintenance/preventive/schedules/${row.id}/assume-execution`,
+        { reason: takeoverReason.trim() },
+      ) as Schedule;
+      if (updated.id !== row.id) throw new Error("Unexpected transfer response.");
+      setSchedules((old) => old.map((item) => item.id === row.id ? updated : item));
+      setTakeoverId(null); setTakeoverReason("");
+      setExecutionStatus(null);
+      setNotice("Schedule execution responsibility recorded. Original creator and past work orders are unchanged.");
+      void inspectExecution(row.id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not assume schedule execution.");
+    } finally { setBusyId(null); }
+  }
+
   async function showPreview(id: number) {
     setPreviewLoadingId(id); setPreviewError(""); setPreviewErrorId(null); setPreview(null);
     try {
@@ -344,6 +388,7 @@ export default function PreventiveMaintenancePage() {
           Unit #{row.unit_id} · Every {row.interval_days} days · Next due {row.next_due_date}
           {row.end_date ? ` · Ends ${row.end_date}` : ""}
           {" · "}{row.active ? "Active" : "Paused"}
+          {row.executor_user_id ? ` · Execution staff #${row.executor_user_id}` : " · Original creator executes"}
         </p>
         <p className="whitespace-pre-wrap text-sm">{row.description}</p>
         <div className="flex flex-wrap gap-2">
@@ -365,11 +410,50 @@ export default function PreventiveMaintenancePage() {
             className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
             {previewLoadingId === row.id ? "Checking due backlog…" : "Preview due backlog"}
           </button>
+          <button type="button" disabled={busyId !== null}
+            onClick={() => void inspectExecution(row.id)}
+            className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
+            Check execution status
+          </button>
+          <button type="button" disabled={busyId !== null}
+            onClick={() => { setTakeoverId(row.id); setTakeoverReason(""); }}
+            className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
+            Take over schedule execution
+          </button>
           <button disabled={busyId !== null} onClick={() => void showHistory(row.id)}
             className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
             Occurrence history
           </button>
         </div>
+        {executionStatus?.schedule_id === row.id && <p className="text-sm" role="status">
+          Execution: {executionStatus.status} · Staff #{executionStatus.executor_user_id}
+          {executionStatus.due ? " · Due now" : ""}
+          {executionStatus.status === "blocked" ? " · Ask authorized staff to assume execution." : ""}
+        </p>}
+        {executionErrorId === row.id && executionError &&
+          <p role="alert" className="text-sm text-red-700">{executionError}</p>}
+        {takeoverId === row.id && <form
+          onSubmit={(event) => void assumeExecution(event, row)}
+          className="space-y-2 rounded-lg border bg-slate-50 p-3">
+          <label className="block text-sm">Reason for execution responsibility transfer
+            <textarea required minLength={10} maxLength={500}
+              aria-label={`Execution transfer reason ${row.id}`}
+              value={takeoverReason} onChange={(event) => setTakeoverReason(event.target.value)}
+              className="mt-1 w-full rounded-lg border p-2" />
+          </label>
+          <p className="text-xs text-slate-600">
+            Managers may recover unavailable execution staff. Administrators can transfer proactively.
+            This does not change tenant entry permission or issue charges.
+          </p>
+          <button type="submit" disabled={busyId !== null}
+            className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white disabled:opacity-50">
+            Confirm execution takeover
+          </button>
+          <button type="button" disabled={busyId !== null}
+            onClick={() => setTakeoverId(null)} className="ml-2 rounded-lg border px-3 py-2 text-sm">
+            Cancel takeover
+          </button>
+        </form>}
         {editingId === row.id && !row.active && <form
           onSubmit={(event) => void saveSettings(event, row)}
           className="space-y-3 rounded-lg border bg-slate-50 p-4">

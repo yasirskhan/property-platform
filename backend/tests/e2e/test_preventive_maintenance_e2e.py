@@ -37,6 +37,16 @@ def test_staff_creates_preventive_schedule_and_one_tenantless_due_work_order():
             )).to_be_visible(timeout=15_000)
             card = page.locator("article").filter(has_text="E2E HVAC scheduled filter check").first
             pw.expect(card).to_contain_text("Active")
+            card.get_by_role("button", name="Check execution status").click()
+            pw.expect(card.get_by_text(re.compile(r"Execution: ready"))).to_be_visible(timeout=15_000)
+            card.get_by_role("button", name="Take over schedule execution").click()
+            card.get_by_label(re.compile(r"Execution transfer reason")).fill(
+                "Confirm current administrator operates this preventive schedule"
+            )
+            card.get_by_role("button", name="Confirm execution takeover").click()
+            pw.expect(page.get_by_role("status").filter(
+                has_text="Schedule execution responsibility recorded"
+            )).to_be_visible(timeout=15_000)
             card.get_by_role("button", name="Preview due backlog").click()
             pw.expect(card.get_by_role("heading", name="Due backlog preview — no work orders created")).to_be_visible(timeout=15_000)
             pw.expect(card).to_contain_text(date.today().isoformat())

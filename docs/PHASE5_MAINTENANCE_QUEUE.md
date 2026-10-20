@@ -1,3 +1,7 @@
+## 2026-10-20 | Preventive execution recovery and operator health — IMPLEMENTED / CI GATED
+
+Added a separate schedule execution operator so the immutable creator is not rewritten. Authorized admins can take over execution with an audit reason; property-assigned managers can recover only from an unauthorized or unavailable operator. Schedule-row lock, live staff/property/organization rechecks, transfer audit with old/new operator, skip-safe worker executor lookup, read-only execution health, UI workflow, backend and authenticated E2E regressions, and additive nullable Alembic migration `c4b7e2f9a601`. No tenant attribution, entry consent, dispatch, money posting or historic occurrence is changed. Verify all six hosted CI jobs against the exact published SHA before marking VERIFIED.
+
 # Phase 5: Work-order queue foundation
 
 ## Scope and current status

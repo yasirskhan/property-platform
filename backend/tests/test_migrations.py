@@ -10,7 +10,7 @@ import pytest
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = BACKEND_ROOT / "tests" / "fixtures" / "pre_alembic_1d77_schema.sql"
-EXPECTED_HEAD = "7c2e6f0a9b31"
+EXPECTED_HEAD = "c4b7e2f9a601"
 EXPECTED_MODEL_TABLES = 204
 
 
@@ -53,6 +53,9 @@ def test_fresh_database_bootstrap_creates_current_schema_and_stamps_head(
             "PRAGMA table_info(preventive_maintenance_schedules)"
         )}
         assert columns["end_date"][3] == 0
+        assert columns["executor_user_id"][3] == 0
+        assert any(row[3] == "executor_user_id" and row[2] == "users"
+                   for row in conn.execute("PRAGMA foreign_key_list(preventive_maintenance_schedules)"))
 
 
     # New requester provenance is additive; older work orders and API data

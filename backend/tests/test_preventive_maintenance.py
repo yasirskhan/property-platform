@@ -1,5 +1,5 @@
 """Phase 5 preventive-maintenance schedules: tenantless due generation and isolation."""
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 import json
 import pytest
 from fastapi import HTTPException
@@ -679,3 +679,130 @@ def test_preventive_daily_job_handler_is_registered():
     assert get_job_handler("maintenance.preventive.generate_due") is (
         handlers.preventive_maintenance_generate_due
     )
+
+
+def test_daily_sweep_execution_transfer_recovers_revoked_creator_without_changing_authorship():
+    db, engine, actors, props, units = seeded()
+    try:
+        admin, manager, tenant, outsider = actors
+        row = pm.create_schedule(
+            db, manager, unit_id=units[0].id,
+            title="Check roof drainage", description="Inspect roof runoff and gutters",
+            interval_days=30, next_due_date=date.today(),
+        )
+        assert row.executor_user_id == manager.id
+        assert pm.execution_status(db, admin, row.id)["status"] == "ready"
+        assignment = db.query(PropertyAssignment).filter_by(
+            property_id=props[0].id, user_id=manager.id,
+        ).one()
+        assignment.is_active = False
+        db.commit()
+        assert pm.execution_status(db, admin, row.id)["status"] == "blocked"
+        assert pm.sweep_due(db, as_of=date.today()) == {
+            "created": 0, "skipped": 1, "backlog": 1,
+        }
+        updated = pm.assume_execution(
+            db, admin, row.id, reason="Original staff property assignment revoked",
+        )
+        assert updated.created_by_id == manager.id
+        assert updated.executor_user_id == admin.id
+        assert pm.execution_status(db, admin, row.id)["status"] == "ready"
+        assert pm.execution_status(db, admin, row.id)["due"]
+        assert pm.sweep_due(db, as_of=date.today()) == {
+            "created": 1, "skipped": 0, "backlog": 0,
+        }
+        order = db.query(WorkOrder).one()
+        assert order.tenant_id is None and order.requested_by_user_id == admin.id
+        assert not order.permission_to_enter and order.total_cost is None
+        assert pm.sweep_due(db, as_of=date.today()) == {
+            "created": 0, "skipped": 0, "backlog": 0,
+        }
+        evidence = db.query(AuditLog).filter_by(
+            entity_type="preventive_maintenance_schedule",
+            entity_id=row.id, action="executor_transferred",
+        ).one()
+        assert evidence.user_id == admin.id
+        assert json.loads(evidence.old_value)["executor_user_id"] == manager.id
+        assert json.loads(evidence.new_value)["reason"].startswith("Original staff")
+        pm.assume_execution(db, admin, row.id, reason="Already assigned to this administrator")
+        assert db.query(AuditLog).filter_by(action="executor_transferred").count() == 1
+        with pytest.raises(HTTPException):
+            pm.execution_status(db, tenant, row.id)
+        with pytest.raises(HTTPException):
+            pm.execution_status(db, outsider, row.id)
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_execution_transfer_protects_healthy_owner_revoked_manager_and_retired_properties():
+    db, engine, actors, props, units = seeded()
+    try:
+        admin, manager, tenant, outsider = actors
+        row = pm.create_schedule(
+            db, admin, unit_id=units[0].id,
+            title="Inspect sprinkler heads", description="Inspect sprinkler heads and valves",
+            interval_days=30, next_due_date=date.today(),
+        )
+        with pytest.raises(HTTPException) as healthy:
+            pm.assume_execution(db, manager, row.id, reason="Manager wants schedule assignment")
+        assert healthy.value.status_code == 409
+        with pytest.raises(HTTPException) as invalid:
+            pm.assume_execution(db, manager, row.id, reason="short")
+        assert invalid.value.status_code == 422
+        for who in (tenant, outsider):
+            with pytest.raises(HTTPException):
+                pm.assume_execution(db, who, row.id, reason="Unauthorized schedule operator change")
+        admin.is_active = False
+        db.commit()
+        assert pm.execution_status(db, manager, row.id)["status"] == "blocked"
+        transferred = pm.assume_execution(db, manager, row.id, reason="Original administrator is inactive")
+        assert transferred.executor_user_id == manager.id
+        assert transferred.created_by_id == admin.id
+        assert pm.execution_status(db, manager, row.id)["status"] == "ready"
+        assignment = db.query(PropertyAssignment).filter_by(
+            user_id=manager.id, property_id=props[0].id,
+        ).one()
+        assignment.deleted_at = datetime.utcnow()
+        db.commit()
+        with pytest.raises(HTTPException):
+            pm.assume_execution(db, manager, row.id, reason="Lost assignment must refuse transfer")
+        props[0].is_active = False
+        db.commit()
+        # A retired property remains readable to an authorized staff member
+        # but cannot be reactivated by claiming execution.
+        admin.is_active = True
+        db.commit()
+        assert pm.execution_status(db, admin, row.id)["status"] == "blocked"
+        with pytest.raises(HTTPException):
+            pm.assume_execution(db, admin, row.id, reason="Retired property cannot be reactivated")
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_execution_status_paused_finished_legacy_and_admin_proactive_transfer():
+    db, engine, actors, props, units = seeded()
+    try:
+        admin, manager, tenant, outsider = actors
+        row = pm.create_schedule(
+            db, manager, unit_id=units[0].id,
+            title="Inspect safety lighting", description="Inspect stairwell safety lighting",
+            interval_days=30, next_due_date=date.today(),
+        )
+        row.executor_user_id = None  # Legacy upgraded row falls back to creator.
+        db.commit()
+        assert pm.execution_status(db, admin, row.id)["executor_user_id"] == manager.id
+        assert pm.execution_status(db, admin, row.id)["status"] == "ready"
+        pm.assume_execution(db, admin, row.id, reason="Administrator changing maintenance operator")
+        assert pm.execution_status(db, admin, row.id)["executor_user_id"] == admin.id
+        pm.set_active(db, admin, row.id, False)
+        assert pm.execution_status(db, admin, row.id)["status"] == "paused"
+        pm.update_settings(db, admin, row.id, end_date=date.today())
+        row.next_due_date = date.today() + timedelta(days=30)
+        db.commit()
+        pm.set_active(db, admin, row.id, True)
+        assert pm.execution_status(db, admin, row.id)["status"] == "finished"
+    finally:
+        db.close()
+        engine.dispose()
