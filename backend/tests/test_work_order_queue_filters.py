@@ -12,14 +12,15 @@ from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
 from app.models.work_order import WorkOrderTimeCorrection, WorkOrderTimeEntry, WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
-from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, accept_work_order_assignment, reject_work_order_assignment, recall_work_order_assignment, update_crew_eta, create_work_order_time_entry, list_work_order_time_entries, get_work_order_time_ledger, pending_crew_time_corrections, request_work_order_time_correction, list_work_order_time_corrections, review_work_order_time_correction, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
+from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, accept_work_order_assignment, reject_work_order_assignment, recall_work_order_assignment, update_crew_eta, create_work_order_time_entry, list_work_order_time_entries, get_work_order_time_ledger, pending_crew_time_corrections, list_maintenance_preferred_vendors, replace_maintenance_preferred_vendors, list_maintenance_vendor_candidates, request_work_order_time_correction, list_work_order_time_corrections, review_work_order_time_correction, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
 from app.models.audit_log import AuditLog
+from app.models.vendor import Vendor, MaintenancePreferredVendor
 from app.models.unit_inspection import UnitInspectionRecord
 from app.services import unit_inspections
 from app.routers.properties import check_property_access, visible_properties_query
 from app.routers.users import assign_user_to_property, list_assignments, remove_assignment, update_user, deactivate_user
 from app.models.lease import Lease, LeaseStatus
-from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderReject, WorkOrderRecall, WorkOrderEta, WorkOrderTimeCreate, WorkOrderTimeCorrectionCreate, WorkOrderTimeCorrectionDecision, WorkOrderCreate, WorkOrderComment, WorkOrderCancel
+from app.schemas.work_order import MaintenanceVendorPreferencesUpdate, WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderReject, WorkOrderRecall, WorkOrderEta, WorkOrderTimeCreate, WorkOrderTimeCorrectionCreate, WorkOrderTimeCorrectionDecision, WorkOrderCreate, WorkOrderComment, WorkOrderCancel
 from app.schemas.user import UserUpdate
 from app.core import auth as auth_logic
 from app.core.security import create_access_token, create_two_factor_challenge_token
@@ -2015,6 +2016,131 @@ def test_crew_time_requester_cannot_approve_after_role_change():
             wo.id, correction.id, WorkOrderTimeCorrectionDecision(
                 approve=True, reason="Independent property manager verified"),
             db=db, current_user=manager).status == "approved"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+def test_ranked_property_trade_vendor_preferences_scoped_and_audited():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, _, crew, foreign = actors
+        prop = properties[0]
+        order = orders[0]
+        org_id = admin.organization_id
+        def vendor(name, trade, org=org_id):
+            row = Vendor(organization_id=org, company_name=name, trade=trade,
+                         is_active=True, created_by_id=admin.id)
+            db.add(row)
+            db.flush()
+            return row
+        plumber_a = vendor("City Plumbing", "plumbing")
+        plumber_b = vendor("Blue Water", "plumbing")
+        electrician = vendor("Electrical Corp", "electrical")
+        general = vendor("All Trades", None)
+        outsider_vendor = vendor("Foreign Supplier", "plumbing", foreign.organization_id)
+        db.commit()
+        assert list_maintenance_preferred_vendors(order.id, db=db, current_user=admin) == []
+        eligible_ids = {v.vendor_id for v in list_maintenance_vendor_candidates(order.id, db=db, current_user=manager)}
+        assert eligible_ids == {plumber_a.id, plumber_b.id, general.id}
+        for actor in (tenant, crew, foreign):
+            with pytest.raises(HTTPException):
+                list_maintenance_preferred_vendors(order.id, db=db, current_user=actor)
+            with pytest.raises(HTTPException):
+                replace_maintenance_preferred_vendors(
+                    order.id, MaintenanceVendorPreferencesUpdate(vendor_ids=[plumber_a.id]),
+                    db=db, current_user=actor)
+        for candidate in ([plumber_a.id, plumber_a.id],
+                          [plumber_a.id, plumber_b.id, general.id, electrician.id]):
+            # Duplicates are rejected by the route; overly long payload by Pydantic.
+            if len(candidate) > 3:
+                with pytest.raises(Exception):
+                    MaintenanceVendorPreferencesUpdate(vendor_ids=candidate)
+            else:
+                with pytest.raises(HTTPException) as invalid:
+                    replace_maintenance_preferred_vendors(order.id,
+                        MaintenanceVendorPreferencesUpdate(vendor_ids=candidate),
+                        db=db, current_user=admin)
+                assert invalid.value.status_code == 422
+        for not_eligible in (electrician.id, outsider_vendor.id):
+            with pytest.raises(HTTPException) as denied:
+                replace_maintenance_preferred_vendors(order.id,
+                    MaintenanceVendorPreferencesUpdate(vendor_ids=[not_eligible]),
+                    db=db, current_user=admin)
+            assert denied.value.status_code == 404
+        expected = [plumber_b.id, plumber_a.id, general.id]
+        saved = replace_maintenance_preferred_vendors(order.id,
+            MaintenanceVendorPreferencesUpdate(vendor_ids=expected),
+            db=db, current_user=manager)
+        assert [v.vendor_id for v in saved] == expected
+        assert [v.rank for v in saved] == [1, 2, 3]
+        assert db.query(AuditLog).filter_by(
+            entity_type="maintenance_vendor_preferences", entity_id=prop.id,
+            action="ranked_vendor_preferences_updated").count() == 1
+        again = replace_maintenance_preferred_vendors(order.id,
+            MaintenanceVendorPreferencesUpdate(vendor_ids=expected),
+            db=db, current_user=manager)
+        assert [v.vendor_id for v in again] == expected
+        assert db.query(AuditLog).filter_by(
+            entity_type="maintenance_vendor_preferences", entity_id=prop.id,
+            action="ranked_vendor_preferences_updated").count() == 1
+        assert list_maintenance_preferred_vendors(orders[2].id, db=db, current_user=admin) == []
+        assert list_maintenance_preferred_vendors(orders[1].id, db=db, current_user=manager) == []
+        plumber_b.is_active = False
+        db.commit()
+        assert [v.vendor_id for v in list_maintenance_preferred_vendors(order.id, db=db, current_user=admin)] == [plumber_a.id, general.id]
+        result = replace_maintenance_preferred_vendors(order.id,
+            MaintenanceVendorPreferencesUpdate(vendor_ids=[]),
+            db=db, current_user=admin)
+        assert result == []
+        assert db.query(MaintenancePreferredVendor).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_preferred_vendor_settings_fail_closed_when_property_retired_or_manager_revoked():
+    db, engine, actors, props, orders = _seed_queue()
+    try:
+        admin, manager, tenant, other, crew, outsider = actors
+        order = orders[0]
+        vendor = Vendor(organization_id=admin.organization_id,
+                        company_name="Local HVAC", trade=None, is_active=True)
+        db.add(vendor)
+        db.commit()
+        unit = db.get(Unit, order.unit_id)
+        for location in ("inactive_property", "inactive_unit", "deleted_property", "deleted_unit"):
+            prop = props[0]
+            prop.is_active, prop.deleted_at = True, None
+            unit.is_active, unit.deleted_at = True, None
+            if location == "inactive_property":
+                prop.is_active = False
+            elif location == "inactive_unit":
+                unit.is_active = False
+            elif location == "deleted_property":
+                prop.deleted_at = datetime.utcnow()
+            else:
+                unit.deleted_at = datetime.utcnow()
+            db.commit()
+            with pytest.raises(HTTPException) as blocked:
+                replace_maintenance_preferred_vendors(order.id,
+                    MaintenanceVendorPreferencesUpdate(vendor_ids=[vendor.id]),
+                    db=db, current_user=admin)
+            assert blocked.value.status_code == 409
+        prop.is_active, prop.deleted_at = True, None
+        unit.is_active, unit.deleted_at = True, None
+        db.commit()
+        assignment = db.query(PropertyAssignment).filter_by(
+            property_id=prop.id, user_id=manager.id).one()
+        assignment.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException) as revoked:
+            replace_maintenance_preferred_vendors(order.id,
+                MaintenanceVendorPreferencesUpdate(vendor_ids=[vendor.id]),
+                db=db, current_user=manager)
+        assert revoked.value.status_code == 403
+        assert db.query(MaintenancePreferredVendor).count() == 0
     finally:
         db.close()
         engine.dispose()
