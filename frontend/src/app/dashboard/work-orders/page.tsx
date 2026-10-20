@@ -25,6 +25,18 @@ type WorkOrder = {
   category: string;
   created_at: string;
 };
+type PendingCrewTimeReview = {
+  id: number;
+  work_order_id: number;
+  work_order_title: string;
+  property_id: number;
+  property_name: string;
+  original_minutes: number;
+  proposed_minutes: number;
+  reason: string;
+  created_at: string;
+};
+
 type Filters = { status: string; priority: string; category: string; property: string; search: string; assignment_response: string };
 const EMPTY: Filters = { status: "", priority: "", category: "", property: "", search: "", assignment_response: "" };
 
@@ -36,6 +48,9 @@ export default function WorkOrderQueuePage() {
   const [rows, setRows] = useState<WorkOrder[]>([]);
   const [canCreate, setCanCreate] = useState(false);
   const [canInspect, setCanInspect] = useState(false);
+  const [canReviewTime, setCanReviewTime] = useState(false);
+  const [pendingTimeReviews, setPendingTimeReviews] = useState<PendingCrewTimeReview[] | null>(null);
+  const [timeReviewOffset, setTimeReviewOffset] = useState(0);
   const [summary, setSummary] = useState<QueueSummary | null>(null);
   const [triage, setTriage] = useState<WorkOrder[] | null>(null);
   const [triageLoading, setTriageLoading] = useState(true);
@@ -102,9 +117,23 @@ export default function WorkOrderQueuePage() {
         ["ADMIN", "OWNER", "MANAGER", "TENANT"].includes(String(viewer.role).toUpperCase())
       );
       if (active) setCanInspect(["ADMIN", "MANAGER"].includes(String(viewer.role).toUpperCase()));
-    }).catch(() => { if (active) setCanCreate(false); });
+      if (active) setCanReviewTime(["ADMIN", "OWNER", "MANAGER"].includes(String(viewer.role).toUpperCase()));
+    }).catch(() => { if (active) { setCanCreate(false); setCanReviewTime(false); } });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!canReviewTime) { setPendingTimeReviews(null); return; }
+    let active = true;
+    setPendingTimeReviews(null);
+    apiGet("/work-orders/time-corrections/pending?limit=10&offset=" + timeReviewOffset)
+      .then((rows: PendingCrewTimeReview[]) => {
+        if (!Array.isArray(rows)) throw new Error("Unexpected pending review list");
+        if (active) setPendingTimeReviews(rows);
+      })
+      .catch(() => { if (active) setPendingTimeReviews(null); });
+    return () => { active = false; };
+  }, [canReviewTime, timeReviewOffset, reload]);
 
   function apply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -229,6 +258,34 @@ export default function WorkOrderQueuePage() {
           </ul>
         )}
       </section>
+      {canReviewTime && (
+        <section aria-label="Pending crew time correction reviews" className="rounded-xl border bg-white p-5">
+          <h2 className="font-semibold text-slate-900">Crew time corrections awaiting review</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Review the original and proposed hours in the linked work order.
+            The original evidence is never overwritten and this is not payroll approval.
+          </p>
+          {pendingTimeReviews === null ? <p className="mt-3 text-sm text-slate-500">Review queue unavailable or loading.</p>
+            : pendingTimeReviews.length === 0 ? <p className="mt-3 text-sm text-slate-500">No corrections pending in this page.</p>
+            : <ul className="mt-3 divide-y">
+              {pendingTimeReviews.map((item) => <li key={item.id} className="py-3 text-sm">
+                <Link href={`/dashboard/maintenance/work-orders/${item.work_order_id}`}
+                  className="font-medium text-blue-800 hover:underline">
+                  #{item.work_order_id} · {item.work_order_title}
+                </Link>
+                <p className="mt-1 text-slate-600">{item.property_name} · Original {item.original_minutes} min → Proposed {item.proposed_minutes} min</p>
+                <p className="mt-1 whitespace-pre-wrap text-slate-700">{item.reason}</p>
+              </li>)}
+            </ul>}
+          <div className="mt-3 flex justify-between gap-3">
+            <button type="button" disabled={timeReviewOffset === 0} onClick={() => setTimeReviewOffset((n) => Math.max(0, n - 10))}
+              className="rounded border px-3 py-2 text-sm disabled:opacity-40">Previous reviews</button>
+            <button type="button" disabled={!pendingTimeReviews || pendingTimeReviews.length < 10}
+              onClick={() => setTimeReviewOffset((n) => n + 10)}
+              className="rounded border px-3 py-2 text-sm disabled:opacity-40">Next reviews</button>
+          </div>
+        </section>
+      )}
       <form onSubmit={apply} className="rounded-xl border bg-white p-5">
         <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
           <label className="text-sm">Search title, description, property or unit
