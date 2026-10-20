@@ -89,6 +89,12 @@ def test_authenticated_work_order_detail_and_comment_history() -> None:
             assert {int(value) for value in crew_options.evaluate_all(
                 "(nodes) => nodes.map(node => node.value).filter(Boolean)"
             )} == set(eligible)
+            vendor_preferences = page.get_by_role("region", name="Property preferred maintenance vendors")
+            pw.expect(vendor_preferences.get_by_role("heading", name="Preferred maintenance vendors")).to_be_visible(timeout=15_000)
+            pw.expect(vendor_preferences.get_by_label("Preferred vendor rank 1")).to_be_visible()
+            vendor_preferences.get_by_role("button", name="Save preferred vendor ranking").click()
+            pw.expect(page.get_by_text("Preferred vendor ranks saved for this property and maintenance trade.",
+                                      exact=True)).to_be_visible(timeout=15_000)
             # The same read outage must not make the subsequent comment POST
             # look like a failed save or remove the open detail.
             page.get_by_label("Work order activity note").fill("E2E follow-up activity note")
