@@ -1981,3 +1981,40 @@ def test_pending_time_review_inbox_scopes_property_org_staff_and_decisions():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_crew_time_requester_cannot_approve_after_role_change():
+    db, engine, actors, _, orders = _seed_queue()
+    try:
+        admin, manager, _, _, crew, _ = actors
+        wo = orders[0]
+        wo.status = WorkOrderStatus.IN_PROGRESS
+        db.commit()
+        start = (datetime.now(timezone.utc) - timedelta(hours=4)).replace(second=0, microsecond=0)
+        evidence = create_work_order_time_entry(wo.id, WorkOrderTimeCreate(
+            started_at=start, ended_at=start + timedelta(minutes=60)),
+            db=db, current_user=crew)
+        correction = request_work_order_time_correction(
+            wo.id, evidence.id, WorkOrderTimeCorrectionCreate(
+                started_at=start, ended_at=start + timedelta(minutes=80),
+                reason="Additional installation activity"), db=db, current_user=crew)
+        crew.role = UserRole.MANAGER
+        db.commit()
+        with pytest.raises(HTTPException) as denied:
+            review_work_order_time_correction(
+                wo.id, correction.id, WorkOrderTimeCorrectionDecision(
+                    approve=True, reason="Attempt to self approve"),
+                db=db, current_user=crew)
+        assert denied.value.status_code == 403
+        assert db.get(WorkOrderTimeCorrection, correction.id).status == "pending"
+        assert db.query(AuditLog).filter_by(
+            entity_type="work_order", entity_id=wo.id,
+            action="crew_time_correction_reviewed",
+        ).count() == 0
+        assert review_work_order_time_correction(
+            wo.id, correction.id, WorkOrderTimeCorrectionDecision(
+                approve=True, reason="Independent property manager verified"),
+            db=db, current_user=manager).status == "approved"
+    finally:
+        db.close()
+        engine.dispose()

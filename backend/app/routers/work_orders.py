@@ -1352,6 +1352,9 @@ def review_work_order_time_correction(
         raise HTTPException(status_code=404, detail="Correction not found")
     if row.status != "pending":
         raise HTTPException(status_code=409, detail="Correction already reviewed")
+    # A role change must never turn the correction's requester into the approver.
+    if row.requested_by_user_id == current_user.id:
+        raise HTTPException(status_code=403, detail="Self-review of crew time is prohibited")
     reason = payload.reason.strip()
     if len(reason) < 5:
         raise HTTPException(status_code=422, detail="Review reason is required")
