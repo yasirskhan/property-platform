@@ -114,6 +114,33 @@ def test_replay_never_discloses_mismatched_occurrence_organization_or_unit():
         engine.dispose()
 
 
+def test_corrupted_latest_occurrence_cannot_fall_back_to_older_clean_order():
+    db, engine, actors, properties, units = seeded()
+    try:
+        admin = actors[0]
+        schedule = pm.create_schedule(
+            db, admin, unit_id=units[0].id,
+            title="Inspect roof drains", description="Review drains and rooftop water paths",
+            interval_days=1, next_due_date=date.today() - timedelta(days=1),
+        )
+        first, fresh = pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        assert fresh
+        recent, fresh = pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        assert fresh and recent.id != first.id
+        latest = db.query(PreventiveMaintenanceOccurrence).filter_by(
+            work_order_id=recent.id,
+        ).one()
+        latest.organization_id = actors[3].organization_id
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        assert exc.value.status_code == 409
+        assert db.query(WorkOrder).count() == 2
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_preventive_schedule_due_work_order_exactly_once_and_no_tenant_financial_or_entry_rights():
     db, engine, actors, _, units = seeded()
     try:
