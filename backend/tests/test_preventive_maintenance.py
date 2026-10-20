@@ -77,6 +77,10 @@ def test_preventive_schedule_due_work_order_exactly_once_and_no_tenant_financial
         occurrence = db.query(PreventiveMaintenanceOccurrence).one()
         assert occurrence.work_order_id == wo.id
         assert occurrence.due_date == date.today()
+        assert [record.work_order_id for record in pm.list_occurrences(
+            db, admin, schedule.id)] == [wo.id]
+        assert [record.work_order_id for record in pm.list_occurrences(
+            db, manager, schedule.id)] == [wo.id]
         assert db.query(AuditLog).filter_by(entity_type="preventive_maintenance_occurrence").count() == 1
         creation = db.query(AuditLog).filter_by(entity_type="work_order", entity_id=wo.id,
                                                 action="status_transition").one()
@@ -93,6 +97,39 @@ def test_preventive_schedule_due_work_order_exactly_once_and_no_tenant_financial
         assert paused.value.status_code == 409
         pm.set_active(db, admin, schedule.id, True)
         assert db.query(AuditLog).filter_by(entity_type="preventive_maintenance_schedule").count() == 3
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_preventive_history_omits_corrupted_cross_org_work_order_binding():
+    db, engine, actors, props, units = seeded()
+    try:
+        admin, manager, tenant, outside = actors
+        schedule = pm.create_schedule(
+            db, admin, unit_id=units[0].id, title="Review fire safety",
+            description="Inspect emergency lighting and signage",
+            interval_days=30, next_due_date=date.today(),
+        )
+        order, created = pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        assert created
+        foreign = WorkOrder(
+            property_id=props[2].id, unit_id=units[2].id,
+            tenant_id=None, request_origin="staff",
+            requested_by_user_id=outside.id,
+            title="Foreign repair", description="Foreign business evidence",
+        )
+        db.add(foreign)
+        db.flush()
+        occurrence = db.query(PreventiveMaintenanceOccurrence).one()
+        occurrence.work_order_id = foreign.id
+        db.commit()
+        assert pm.list_occurrences(db, admin, schedule.id) == []
+        assert pm.list_occurrences(db, manager, schedule.id) == []
+        with pytest.raises(HTTPException):
+            pm.list_occurrences(db, tenant, schedule.id)
+        with pytest.raises(HTTPException):
+            pm.list_occurrences(db, outside, schedule.id)
     finally:
         db.close()
         engine.dispose()
