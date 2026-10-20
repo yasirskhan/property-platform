@@ -698,6 +698,7 @@ export default function WorkOrderDetailPage() {
               <p className="mt-1 text-xs text-slate-500">
                 Ranking is shared across this property for the {order.category} trade. Preferences are planning only:
                 they do not dispatch a vendor, grant access, approve an invoice, or post a resident charge.
+                Confirm insurance, compliance, availability, and contracts before any real assignment.
               </p>
               {vendorCandidates === null || preferredVendors === null
                 ? <p className="mt-3 text-sm text-slate-500">Vendor preferences unavailable.</p>
