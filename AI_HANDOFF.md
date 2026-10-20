@@ -1,3 +1,9 @@
+## 2026-10-20 | Independent crew time correction review identity — DETACHED / CI GATED
+
+The pending-review inbox successor additionally forbids self-approval when the original crew requester later changes into an ADMIN, OWNER or MANAGER role. Authorization uses immutable requester identity, not merely the user's present role; an independent scoped manager may still review. The regression asserts denial is side-effect-free and no review audit is appended. Predecessor published time-ledger CI 39455507549 must finish all six SUCCESS at exact SHA before publishing this successor on the authorized branch.
+
+---
+
 ## 2026-10-20 | Pending correction review inbox — PREPARED / NOT PUBLISHED
 
 Following published 4d0315216abde01ca7be74db5724e1deed0fa982 (time ledger, GitHub Actions 39455507549), prepared a staff-only, paginated pending crew-time review inbox with real organization, Unit/Property and active manager-assignment guards; excludes corrupt cross-work-order time references. Manager UI links directly to the existing independent approval/denial detail. Backend regression tests cover organization, tenant/crew denial, manager property scope, paging and clearing after review; authenticated E2E checks discoverability. The source crew time records remain immutable, never payroll or tenant charges. Wait for predecessor six-job SUCCESS and check the exact live branch SHA before non-force CAS publish, then run all six CI jobs and fix any failures. Continue with Phase 5 inspections, purchasing, stock, and dispatch.
