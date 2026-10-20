@@ -661,6 +661,98 @@ def set_work_order_vendor(
 # ------------------------------------------------------------
 # PROPERTY ON-CALL PRIMARY CREW: SCHEDULE ONLY, NEVER AUTO-DISPATCH
 # ------------------------------------------------------------
+def _on_call_property_scope(
+    db: Session, property_id: int, current_user: User, *, write: bool = False,
+) -> Property:
+    if (current_user.organization_id is None or not current_user.is_active
+            or current_user.deleted_at is not None or current_user.role not in
+            (UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER)):
+        raise HTTPException(status_code=403, detail="On-call schedule management not authorized")
+    q = db.query(Property).filter(
+        Property.id == property_id, Property.organization_id == current_user.organization_id,
+    )
+    prop = q.with_for_update().first() if write else q.first()
+    if prop is None:
+        raise HTTPException(status_code=404, detail="Property not found")
+    if current_user.role == UserRole.MANAGER:
+        assigned = db.query(PropertyAssignment).filter(
+            PropertyAssignment.property_id == prop.id,
+            PropertyAssignment.user_id == current_user.id,
+            PropertyAssignment.role == UserRole.MANAGER,
+            PropertyAssignment.is_active.is_(True),
+            PropertyAssignment.deleted_at.is_(None),
+        ).first()
+        if assigned is None:
+            raise HTTPException(status_code=403, detail="Current property manager assignment required")
+    if write and (not prop.is_active or prop.deleted_at is not None):
+        raise HTTPException(status_code=409, detail="Property must be active to schedule crew")
+    return prop
+
+
+@router.get("/on-call-property-roster", response_model=List[MaintenanceOnCallPropertyChoiceOut])
+def list_on_call_property_roster(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if (current_user.organization_id is None or not current_user.is_active or
+            current_user.deleted_at is not None or current_user.role not in
+            (UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER)):
+        raise HTTPException(status_code=403, detail="On-call roster management not authorized")
+    q = db.query(Property).filter(
+        Property.organization_id == current_user.organization_id,
+        Property.is_active.is_(True),
+        Property.deleted_at.is_(None),
+    )
+    if current_user.role == UserRole.MANAGER:
+        q = q.join(PropertyAssignment, PropertyAssignment.property_id == Property.id).filter(
+            PropertyAssignment.user_id == current_user.id,
+            PropertyAssignment.role == UserRole.MANAGER,
+            PropertyAssignment.is_active.is_(True),
+            PropertyAssignment.deleted_at.is_(None),
+        )
+    properties = q.order_by(Property.name.asc(), Property.id.asc()).limit(201).all()
+    if len(properties) > 200:
+        raise HTTPException(status_code=422, detail="Too many properties; use scoped property scheduling")
+    if not properties:
+        return []
+    ids = [prop.id for prop in properties]
+    personnel = db.query(PropertyAssignment, User).join(
+        User, User.id == PropertyAssignment.user_id
+    ).filter(
+        PropertyAssignment.property_id.in_(ids),
+        PropertyAssignment.role == UserRole.CREW,
+        PropertyAssignment.is_active.is_(True),
+        PropertyAssignment.deleted_at.is_(None),
+        User.organization_id == current_user.organization_id,
+        User.role == UserRole.CREW,
+        User.is_active.is_(True),
+        User.deleted_at.is_(None),
+    ).order_by(PropertyAssignment.property_id.asc(), User.first_name.asc(), User.id.asc()).limit(2001).all()
+    if len(personnel) > 2000:
+        raise HTTPException(status_code=422, detail="Too many assigned crew for bounded roster")
+    by_property: dict[int, list[dict]] = {prop.id: [] for prop in properties}
+    for assignment, crew in personnel:
+        by_property[assignment.property_id].append({
+            "id": crew.id, "name": (crew.first_name + " " + crew.last_name).strip(),
+        })
+    return [
+        MaintenanceOnCallPropertyChoiceOut(
+            property_id=prop.id, property_name=prop.name, crew=by_property[prop.id])
+        for prop in properties
+    ]
+
+
+@router.post("/on-call-property/{property_id}/shifts",
+             response_model=MaintenanceOnCallShiftOut, status_code=201)
+def schedule_on_call_shift_by_property(
+    property_id: int, payload: MaintenanceOnCallShiftCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prop = _on_call_property_scope(db, property_id, current_user, write=True)
+    return _create_property_on_call_shift(prop, payload, db, current_user)
+
+
 @router.get("/on-call-calendar", response_model=List[MaintenanceOnCallCalendarOut])
 def list_maintenance_on_call_calendar(
     start: date | None = None,
