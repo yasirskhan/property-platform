@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/api";
+
+type OnCallRoster = {
+  property_id: number;
+  property_name: string;
+  crew: { id: number; name: string }[];
+};
 
 type Shift = {
   id: number;
@@ -27,7 +33,73 @@ export default function OnCallCalendarPage() {
   const [showCancelled, setShowCancelled] = useState(false);
   const [shifts, setShifts] = useState<Shift[] | null>(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [revision, setRevision] = useState(0);
+  const [roster, setRoster] = useState<OnCallRoster[] | null>(null);
+  const [propertyId, setPropertyId] = useState("");
+  const [crewId, setCrewId] = useState("");
+  const [shiftStart, setShiftStart] = useState("");
+  const [shiftEnd, setShiftEnd] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [cancelId, setCancelId] = useState<number | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
   const dates = Array.from({ length: 7 }, (_, i) => utcDayDelta(start, i));
+  const chosenProperty = roster?.find((item) => String(item.property_id) === propertyId);
+
+  useEffect(() => {
+    let active = true;
+    apiGet("/auth/me").then((viewer: {role: string}) => {
+      if (!active || !["ADMIN", "OWNER", "MANAGER"].includes(String(viewer.role).toUpperCase())) return;
+      apiGet("/work-orders/on-call-property-roster").then((rows: OnCallRoster[]) => {
+        if (!Array.isArray(rows)) throw new Error("Invalid on-call property roster.");
+        if (active) setRoster(rows);
+      }).catch(() => { if (active) setRoster(null); });
+    }).catch(() => { if (active) setRoster(null); });
+    return () => { active = false; };
+  }, []);
+
+  async function scheduleFromCalendar() {
+    if (saving || !chosenProperty) return;
+    const selectedCrew = Number(crewId);
+    const a = new Date(shiftStart), b = new Date(shiftEnd);
+    if (!chosenProperty.crew.some((person) => person.id === selectedCrew) ||
+        !shiftStart || !shiftEnd || Number.isNaN(a.getTime()) || Number.isNaN(b.getTime()) ||
+        a <= new Date() || b <= a) {
+      setError("Choose assigned property crew and a valid future schedule."); return;
+    }
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const saved = await apiPost(
+        "/work-orders/on-call-property/" + chosenProperty.property_id + "/shifts", {
+          crew_user_id: selectedCrew, starts_at: a.toISOString(), ends_at: b.toISOString(),
+        }) as Shift;
+      if (!saved || !Number.isSafeInteger(saved.id) || saved.crew_user_id !== selectedCrew)
+        throw new Error("Unexpected on-call scheduling response.");
+      setCrewId(""); setShiftStart(""); setShiftEnd("");
+      setNotice("On-call shift scheduled for the selected property. No automatic dispatch was performed.");
+      setRevision((value) => value + 1);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not schedule shift."); }
+    finally { setSaving(false); }
+  }
+
+  async function cancelFromCalendar(item: Shift) {
+    if (saving || cancelReason.trim().length < 5) {
+      setError("Cancellation reason must contain at least five characters."); return;
+    }
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const saved = await apiPost(
+        "/work-orders/on-call-property/" + item.property_id + "/shifts/" + item.id + "/cancel",
+        {reason: cancelReason.trim()},
+      ) as Shift;
+      if (!saved || saved.id !== item.id || !saved.cancelled_at)
+        throw new Error("Unexpected on-call cancellation response.");
+      setCancelId(null); setCancelReason("");
+      setNotice("On-call shift cancelled with reason and audit history preserved.");
+      setRevision((value) => value + 1);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not cancel on-call shift."); }
+    finally { setSaving(false); }
+  }
 
   useEffect(() => {
     let active = true;
@@ -42,7 +114,7 @@ export default function OnCallCalendarPage() {
         if (active) setError(cause instanceof Error ? cause.message : "Unable to load on-call coverage.");
       });
     return () => { active = false; };
-  }, [start, showCancelled]);
+  }, [start, showCancelled, revision]);
 
   return (
     <div className="space-y-6">
@@ -56,6 +128,48 @@ export default function OnCallCalendarPage() {
         </div>
         <Link href="/dashboard/maintenance/work-orders" className="rounded-lg border px-4 py-2 text-sm">Work orders</Link>
       </header>
+      {roster && (
+        <section aria-label="Schedule on-call crew from calendar" className="rounded-xl border bg-white p-5">
+          <h2 className="font-semibold">Schedule primary crew coverage</h2>
+          <p className="mt-1 text-xs text-slate-500">Choose your property, its active assigned crew and a future shift of up to 72 hours.</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-4">
+            <label className="text-sm">Property
+              <select aria-label="On-call calendar property" className="mt-1 block w-full rounded border p-2"
+                value={propertyId} disabled={saving} onChange={(event) => {
+                  setPropertyId(event.target.value); setCrewId("");
+                }}>
+                <option value="">Choose property</option>
+                {roster.map((item) => <option key={item.property_id} value={item.property_id}>
+                  {item.property_name}
+                </option>)}
+              </select>
+            </label>
+            <label className="text-sm">Assigned crew
+              <select aria-label="On-call calendar crew" className="mt-1 block w-full rounded border p-2"
+                value={crewId} disabled={saving || !chosenProperty}
+                onChange={(event) => setCrewId(event.target.value)}>
+                <option value="">Choose crew</option>
+                {(chosenProperty?.crew || []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+            </label>
+            <label className="text-sm">Start time
+              <input aria-label="On-call calendar shift start" type="datetime-local" value={shiftStart}
+                onChange={(event) => setShiftStart(event.target.value)} disabled={saving}
+                className="mt-1 block w-full rounded border p-2" />
+            </label>
+            <label className="text-sm">End time
+              <input aria-label="On-call calendar shift end" type="datetime-local" value={shiftEnd}
+                onChange={(event) => setShiftEnd(event.target.value)} disabled={saving}
+                className="mt-1 block w-full rounded border p-2" />
+            </label>
+          </div>
+          <button type="button" onClick={() => void scheduleFromCalendar()}
+            disabled={saving || !propertyId || !crewId || !shiftStart || !shiftEnd}
+            className="mt-3 rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-40">
+            Schedule coverage
+          </button>
+        </section>
+      )}
       <section className="flex flex-wrap items-end gap-3 rounded-xl border bg-white p-4" aria-label="On-call calendar filters">
         <label className="text-sm">Week starting (UTC)
           <input type="date" aria-label="On-call calendar start" value={start}
@@ -72,6 +186,7 @@ export default function OnCallCalendarPage() {
         </label>
       </section>
       {error && <p role="alert" className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+      {notice && <p role="status" className="rounded border bg-white p-3 text-sm text-slate-700">{notice}</p>}
       <section aria-label="Seven-day on-call coverage" className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {dates.map((day) => {
           const first = Date.parse(day + "T00:00:00Z");
@@ -97,6 +212,21 @@ export default function OnCallCalendarPage() {
                         {new Date(item.starts_at + "Z").toLocaleString()} – {new Date(item.ends_at + "Z").toLocaleString()}
                       </p>
                       {item.cancelled_at && <p className="text-xs text-amber-700">Cancelled: {item.cancellation_reason}</p>}
+                      {!item.cancelled_at && roster && (
+                        cancelId === item.id ?
+                          <div className="mt-2 space-y-2">
+                            <textarea aria-label={"On-call calendar cancellation reason " + item.id}
+                              className="w-full rounded border p-2" maxLength={1000} value={cancelReason}
+                              onChange={(event) => setCancelReason(event.target.value)} disabled={saving} />
+                            <button type="button" disabled={saving || cancelReason.trim().length < 5}
+                              onClick={() => void cancelFromCalendar(item)}
+                              className="rounded bg-slate-900 px-2 py-1 text-xs text-white">Confirm cancellation</button>
+                            <button type="button" disabled={saving} onClick={() => { setCancelId(null); setCancelReason(""); }}
+                              className="ml-2 rounded border px-2 py-1 text-xs">Keep coverage</button>
+                          </div> :
+                          <button type="button" disabled={saving} onClick={() => { setCancelId(item.id); setCancelReason(""); }}
+                            className="mt-2 rounded border px-2 py-1 text-xs">Cancel coverage</button>
+                      )}
                     </li>)}
                   </ul>}
           </article>;
@@ -104,7 +234,7 @@ export default function OnCallCalendarPage() {
       </section>
       <p className="text-xs text-slate-500">
         The date filters use UTC boundaries; displayed shift times use your local timezone.
-        Creating or cancelling coverage requires an authorized property work order.
+        Authorized managers can schedule and cancel directly above; crew have a read-only view.
       </p>
     </div>
   );
