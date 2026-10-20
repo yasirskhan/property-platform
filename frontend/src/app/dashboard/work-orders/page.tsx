@@ -193,6 +193,7 @@ export default function WorkOrderQueuePage() {
             </Link>
           )}
           {canViewOnCall && (
+            <Link href="/dashboard/maintenance/dispatch-attention" className="rounded-lg border bg-white px-4 py-2 text-sm">Dispatch attention</Link>
             <Link href="/dashboard/maintenance/on-call"
               className="rounded-lg border bg-white px-4 py-2 text-sm">
               On-call calendar

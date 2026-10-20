@@ -1,3 +1,9 @@
+## 2026-10-20 | Dispatch attention operator inbox — DETACHED / SIX-JOB CI REQUIRED
+
+Prepared a bounded, server-authorized staff dispatch-attention inbox for live submitted/acknowledged work orders, rejected or recalled crew offers, and crew offers awaiting a decision. Per-property configured policy timeouts are compared against persisted assignment time to flag overdue offers without silently recalling, notifying, charging, assigning, or starting escalation. Emergency orders appear first; manager access requires the actual active property MANAGER assignment, while tenants/crew/foreign organizations have no access. New backend API, responsive linked staff page, authorization/timeout/priority regression tests and authenticated browser test are included. This is read-only monitoring and NOT automatic calls/SMS/email, final dispatch, purchase orders, inventory or financial posting. Do not label VERIFIED before full hosted CI on the exact successor SHA. Source parent is current effective-policy branch commit c3e0598f3d0110b5aef5b387d332fcb6e9ce023f; the latter is also pending CI. Do not touch main or Zargul.
+
+---
+
 # AI HANDOFF
 
 **Purpose:** Current-project checkpoint for any future ChatGPT session.  

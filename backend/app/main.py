@@ -24,6 +24,7 @@ from app.routers import rental_applications as rental_applications_router
 from app.routers import payments as payments_router
 from app.routers import work_orders as work_orders_router
 from app.routers import maintenance_dispatch_groups as maintenance_dispatch_groups_router
+from app.routers import maintenance_dispatch_attention as maintenance_dispatch_attention_router
 from app.routers import preventive_maintenance as preventive_maintenance_router
 from app.routers import password_reset as password_reset_router
 from app.routers import org_email as org_email_router
@@ -217,6 +218,7 @@ app.include_router(rental_applications_router.router)
 app.include_router(payments_router.router)
 app.include_router(work_orders_router.router)
 app.include_router(maintenance_dispatch_groups_router.router)
+app.include_router(maintenance_dispatch_attention_router.router)
 app.include_router(preventive_maintenance_router.router)
 app.include_router(password_reset_router.router)
 app.include_router(org_email_router.router)

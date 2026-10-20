@@ -130,6 +130,7 @@ export default function OnCallCalendarPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2"><Link href="/dashboard/maintenance/work-orders" className="rounded-lg border px-4 py-2 text-sm">Work orders</Link>
+          <Link href="/dashboard/maintenance/dispatch-attention" className="rounded-lg border px-4 py-2 text-sm">Dispatch attention</Link>
         {["ADMIN", "OWNER"].includes(viewerRole) && <Link href="/dashboard/maintenance/dispatch-settings" className="rounded-lg border px-4 py-2 text-sm">Dispatch settings</Link>}
       </div>
       </header>
