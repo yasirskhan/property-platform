@@ -168,6 +168,35 @@ def test_schedule_settings_revoked_manager_cannot_edit():
         engine.dispose()
 
 
+def test_pause_resumes_from_fresh_row_and_audits_only_actual_change():
+    db, engine, actors, props, units = seeded()
+    try:
+        admin, manager, tenant, outsider = actors
+        row = pm.create_schedule(db, admin, unit_id=units[0].id,
+            title="Inspect ventilation", description="Inspect all ventilation devices and filters",
+            interval_days=30, next_due_date=date.today())
+        other = sessionmaker(bind=engine, expire_on_commit=False)()
+        try:
+            cached = other.get(PreventiveMaintenanceSchedule, row.id)
+            assert cached.active is True
+            pm.set_active(db, admin, row.id, False)
+            assert cached.active is True
+            # A stale session must read the now-paused row under the lock:
+            # retrying pause cannot create duplicate audit activity.
+            pm.set_active(other, manager, row.id, False)
+            other.refresh(cached)
+            assert cached.active is False
+        finally:
+            other.close()
+        assert db.query(AuditLog).filter_by(
+            entity_type="preventive_maintenance_schedule",
+            action="active_changed",
+        ).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_preventive_history_omits_corrupted_cross_org_work_order_binding():
     db, engine, actors, props, units = seeded()
     try:

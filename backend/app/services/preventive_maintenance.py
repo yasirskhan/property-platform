@@ -82,7 +82,13 @@ def list_schedules(db: Session, actor: User, *, limit: int = 100, offset: int = 
 
 
 def set_active(db: Session, actor: User, schedule_id: int, active: bool):
-    row = _schedule(db, actor, schedule_id)
+    scoped = _schedule(db, actor, schedule_id)
+    # Serialize pause/resume against worker generation and template updates.
+    row = db.query(Schedule).populate_existing().filter(
+        Schedule.id == scoped.id,
+        Schedule.organization_id == actor.organization_id,
+    ).with_for_update().one()
+    _scope(db, actor, row.unit_id)
     old = row.active
     if old != active:
         row.active = active
