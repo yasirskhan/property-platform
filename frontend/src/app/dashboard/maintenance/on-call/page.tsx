@@ -33,6 +33,7 @@ export default function OnCallCalendarPage() {
   const [showCancelled, setShowCancelled] = useState(false);
   const [shifts, setShifts] = useState<Shift[] | null>(null);
   const [error, setError] = useState("");
+  const [viewerRole, setViewerRole] = useState("");
   const [notice, setNotice] = useState("");
   const [revision, setRevision] = useState(0);
   const [roster, setRoster] = useState<OnCallRoster[] | null>(null);
@@ -49,6 +50,8 @@ export default function OnCallCalendarPage() {
   useEffect(() => {
     let active = true;
     apiGet("/auth/me").then((viewer: {role: string}) => {
+      if (!active) return;
+      setViewerRole(String(viewer.role).toUpperCase());
       if (!active || !["ADMIN", "OWNER", "MANAGER"].includes(String(viewer.role).toUpperCase())) return;
       apiGet("/work-orders/on-call-property-roster").then((rows: OnCallRoster[]) => {
         if (!Array.isArray(rows)) throw new Error("Invalid on-call property roster.");
@@ -126,7 +129,9 @@ export default function OnCallCalendarPage() {
             These are schedules only, not automatic dispatch orders.
           </p>
         </div>
-        <Link href="/dashboard/maintenance/work-orders" className="rounded-lg border px-4 py-2 text-sm">Work orders</Link>
+        <div className="flex flex-wrap gap-2"><Link href="/dashboard/maintenance/work-orders" className="rounded-lg border px-4 py-2 text-sm">Work orders</Link>
+        {["ADMIN", "OWNER"].includes(viewerRole) && <Link href="/dashboard/maintenance/dispatch-settings" className="rounded-lg border px-4 py-2 text-sm">Dispatch settings</Link>}
+      </div>
       </header>
       {roster && (
         <section aria-label="Schedule on-call crew from calendar" className="rounded-xl border bg-white p-5">

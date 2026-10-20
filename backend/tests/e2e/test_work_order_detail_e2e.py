@@ -304,9 +304,8 @@ def test_crew_accepts_and_rejects_dispatch_with_audited_reassignment() -> None:
             )).to_be_visible(timeout=15_000)
             admin.goto(BASE_URL + "/dashboard/maintenance/on-call", wait_until="domcontentloaded")
             pw.expect(admin.get_by_role("heading", name="Maintenance on-call calendar")).to_be_visible(timeout=15_000)
-            # A four-hour shift can overlap two UTC calendar-day cards.
-            # Test the scheduled crew's visibility without requiring exactly
-            # one rendered day occurrence for the same underlying shift.
+            # A four-hour shift may appear on multiple UTC dates.
+            # Do not demand a unique text locator across two day cards.
             pw.expect(admin.get_by_role("region", name="Seven-day on-call coverage").get_by_text(
                 "Maintenance Crew", exact=True
             ).first).to_be_visible(timeout=15_000)
@@ -341,9 +340,6 @@ def test_crew_accepts_and_rejects_dispatch_with_audited_reassignment() -> None:
                 "On-call shift scheduled for the selected property. No automatic dispatch was performed.",
                 exact=True,
             )).to_be_visible(timeout=15_000)
-            # One shift can span two UTC calendar-day cards, yielding two
-            # equivalent controls. Operate on the first displayed instance
-            # and verify the resulting single persisted cancellation.
             admin.get_by_role("button", name="Cancel coverage").first.click()
             pw.expect(admin.get_by_role("button", name="Confirm cancellation").first).to_be_disabled()
             admin.get_by_label(re.compile(r"On-call calendar cancellation reason")).first.fill(
@@ -449,4 +445,53 @@ def test_crew_accepts_and_rejects_dispatch_with_audited_reassignment() -> None:
         finally:
             crew_page.close()
             admin.close()
+            browser.close()
+
+
+def test_owner_admin_can_configure_dispatch_groups_and_after_hours_policy() -> None:
+    """Real browser, persisted group membership and policy without notification."""
+    with pw.sync_playwright() as playwright:
+        browser=playwright.chromium.launch()
+        page=browser.new_page()
+        try:
+            page.goto(BASE_URL+"/login",wait_until="domcontentloaded")
+            page.locator('input[type="email"]').fill(EMAIL)
+            page.locator('input[type="password"]').fill(PASSWORD)
+            page.get_by_role("button",name="Log In",exact=True).click()
+            page.wait_for_url(re.compile(r"/dashboard/?$"),timeout=15_000)
+            token=page.evaluate("() => localStorage.getItem('token')")
+            assert token
+            page.goto(BASE_URL+"/dashboard/maintenance/dispatch-settings",wait_until="domcontentloaded")
+            region=page.get_by_role("region",name="Maintenance dispatch groups")
+            pw.expect(region.get_by_role("heading",name="Groups and property coverage")).to_be_visible(timeout=15_000)
+            pw.expect(page.get_by_role("option",name=re.compile(r"DEFAULT \("))).to_be_attached(timeout=15_000)
+            name="E2E Dispatch "+uuid4().hex[:12]
+            region.get_by_label("New maintenance group name").fill(name)
+            region.get_by_role("button",name="Create group").click()
+            pw.expect(page.get_by_text("Maintenance group created. Set a property assignment and dispatch policies next.",
+                                       exact=True)).to_be_visible(timeout=15_000)
+            pw.expect(region.get_by_label("Dispatch group name")).to_have_value(name)
+            region.get_by_label("Dispatch business timezone").fill("America/New_York")
+            region.get_by_label("Dispatch business start hour").fill("8")
+            region.get_by_label("Dispatch business end hour").fill("19")
+            region.get_by_text("E2E Test Property",exact=True).click()
+            region.get_by_role("button",name="Save group settings").click()
+            pw.expect(page.get_by_text("Maintenance group settings and property membership saved.",
+                                       exact=True)).to_be_visible(timeout=15_000)
+            policies=page.get_by_role("region",name="Dispatch urgency and after-hours policies")
+            policies.get_by_label("Dispatch policy urgency").select_option("emergency")
+            policies.get_by_label("Dispatch policy daypart").select_option("after_hours")
+            policies.get_by_label("Dispatch policy timeout").fill("9")
+            policies.get_by_role("button",name="Save dispatch policy").click()
+            pw.expect(page.get_by_text("Dispatch policy saved for planning. No crew/vendor was contacted and no timeout is running.",
+                                       exact=True)).to_be_visible(timeout=15_000)
+            auth={"Authorization":"Bearer "+token}
+            response=page.request.get(API_URL+"/api/maintenance/dispatch-groups",headers=auth)
+            assert response.status==200,response.text()
+            record=next(g for g in response.json() if g["name"]==name)
+            assert record["timezone_name"]=="America/New_York"
+            assert 900001 in record["property_ids"]
+            rule=next(r for r in record["rules"] if r["urgency"]=="emergency" and r["daypart"]=="after_hours")
+            assert rule["configured"] is True and rule["timeout_minutes"]==9
+        finally:
             browser.close()

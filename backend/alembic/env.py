@@ -32,6 +32,7 @@ import app.models.user_permission
 import app.models.property
 import app.models.lease
 import app.models.work_order
+import app.models.maintenance_dispatch
 import app.models.tax
 import app.models.utility
 import app.models.insurance
