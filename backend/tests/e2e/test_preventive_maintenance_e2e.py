@@ -65,5 +65,8 @@ def test_staff_creates_preventive_schedule_and_one_tenantless_due_work_order():
             pw.expect(updated_card.get_by_role("link", name=re.compile(r"Work order #[0-9]+"))).to_be_visible()
             updated_card.get_by_role("button", name="Resume").click()
             pw.expect(updated_card).to_contain_text("Active", timeout=15_000)
+            page.reload(wait_until="domcontentloaded")
+            fresh = page.locator("article").filter(has_text="E2E revised filter schedule").first
+            pw.expect(fresh).to_contain_text("Every 45 days", timeout=15_000)
         finally:
             browser.close()
