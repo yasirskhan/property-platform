@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, apiPut } from "@/lib/api";
 
 type WorkOrderUpdate = {
   id: number;
@@ -38,6 +38,9 @@ type WorkOrder = {
   updated_at: string;
   updates: WorkOrderUpdate[];
 };
+
+type VendorCandidate = { vendor_id: number; company_name: string; trade: string | null };
+type PreferredVendor = { vendor_id: number; rank: number; company_name: string; trade: string };
 
 type CrewTimeEntry = {
   id: number;
@@ -86,6 +89,9 @@ export default function WorkOrderDetailPage() {
   const [correctionReason, setCorrectionReason] = useState("");
   const [reviewReasons, setReviewReasons] = useState<Record<number, string>>({});
   const [crew, setCrew] = useState<{ id: number; name: string }[]>([]);
+  const [vendorCandidates, setVendorCandidates] = useState<VendorCandidate[] | null>(null);
+  const [preferredVendors, setPreferredVendors] = useState<PreferredVendor[] | null>(null);
+  const [preferredVendorDraft, setPreferredVendorDraft] = useState(["", "", ""]);
   const [crewId, setCrewId] = useState("");
   const [crewLoading, setCrewLoading] = useState(false);
   const [crewError, setCrewError] = useState("");
@@ -189,6 +195,49 @@ export default function WorkOrderDetailPage() {
       .catch(() => { if (active) setTimeEntries(null); });
     return () => { active = false; };
   }, [order?.id, viewer?.id, viewer?.role]);
+
+  useEffect(() => {
+    const role = String(viewer?.role || "").toUpperCase();
+    if (!order || !["ADMIN", "OWNER", "MANAGER"].includes(role)) {
+      setVendorCandidates(null);
+      setPreferredVendors(null);
+      return;
+    }
+    let active = true;
+    setVendorCandidates(null); setPreferredVendors(null);
+    Promise.all([
+      apiGet("/work-orders/" + order.id + "/vendor-candidates") as Promise<VendorCandidate[]>,
+      apiGet("/work-orders/" + order.id + "/preferred-vendors") as Promise<PreferredVendor[]>,
+    ]).then(([candidates, ranked]) => {
+      if (!Array.isArray(candidates) || !Array.isArray(ranked))
+        throw new Error("Invalid preferred vendor response.");
+      if (active) {
+        setVendorCandidates(candidates); setPreferredVendors(ranked);
+        setPreferredVendorDraft([0, 1, 2].map((i) => String(ranked[i]?.vendor_id || "")));
+      }
+    }).catch(() => { if (active) { setVendorCandidates(null); setPreferredVendors(null); } });
+    return () => { active = false; };
+  }, [order?.id, order?.category, viewer?.role]);
+
+  async function savePreferredVendors() {
+    if (!order || saving || vendorCandidates === null) return;
+    const ids = preferredVendorDraft.filter(Boolean).map(Number);
+    if (ids.some((id) => !Number.isSafeInteger(id) || !vendorCandidates.some((vendor) => vendor.vendor_id === id))
+        || new Set(ids).size !== ids.length) {
+      setError("Select up to three different eligible vendor companies."); return;
+    }
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const ranked = await apiPut("/work-orders/" + order.id + "/preferred-vendors", { vendor_ids: ids }) as PreferredVendor[];
+      if (!Array.isArray(ranked) || ranked.length !== ids.length)
+        throw new Error("Unexpected saved vendor preferences.");
+      setPreferredVendors(ranked);
+      setPreferredVendorDraft([0, 1, 2].map((i) => String(ranked[i]?.vendor_id || "")));
+      setNotice("Preferred vendor ranks saved for this property and maintenance trade.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to save preferred vendors.");
+    } finally { setSaving(false); }
+  }
 
   async function assignCrew() {
     if (!order || saving) return;
@@ -643,6 +692,41 @@ export default function WorkOrderDetailPage() {
                 )}
             </div>
           </section>
+          {viewer && ["ADMIN", "OWNER", "MANAGER"].includes(String(viewer.role).toUpperCase()) && (
+            <section aria-label="Property preferred maintenance vendors" className="rounded-xl border bg-white p-5">
+              <h2 className="font-semibold">Preferred maintenance vendors</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Ranking is shared across this property for the {order.category} trade. Preferences are planning only:
+                they do not dispatch a vendor, grant access, approve an invoice, or post a resident charge.
+              </p>
+              {vendorCandidates === null || preferredVendors === null
+                ? <p className="mt-3 text-sm text-slate-500">Vendor preferences unavailable.</p>
+                : <>
+                    <p className="mt-3 text-xs text-slate-600">
+                      {preferredVendors.length === 0 ? "No preferred vendors configured." :
+                        preferredVendors.map((v) => `#${v.rank} ${v.company_name}`).join(" · ")}
+                    </p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                      {preferredVendorDraft.map((selected, index) => <label key={index} className="text-sm">
+                        Preference rank {index + 1}
+                        <select aria-label={`Preferred vendor rank ${index + 1}`} className="mt-1 block w-full rounded border p-2"
+                          value={selected} disabled={saving}
+                          onChange={(event) => setPreferredVendorDraft((before) =>
+                            before.map((value, i) => i === index ? event.target.value : value))}>
+                          <option value="">No vendor</option>
+                          {vendorCandidates.map((vendor) => <option key={vendor.vendor_id} value={vendor.vendor_id}>
+                            {vendor.company_name}
+                          </option>)}
+                        </select>
+                      </label>)}
+                    </div>
+                    <button type="button" disabled={saving} onClick={() => void savePreferredVendors()}
+                      className="mt-3 rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50">
+                      Save preferred vendor ranking
+                    </button>
+                  </>}
+            </section>
+          )}
           {viewer && ["ADMIN", "OWNER", "MANAGER", "CREW"].includes(String(viewer.role).toUpperCase()) && (
             <section aria-label="Crew time records" className="rounded-xl border bg-white p-5">
               <h2 className="font-semibold">Crew time tracking</h2>
