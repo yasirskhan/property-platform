@@ -12,7 +12,7 @@ from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
 from app.models.work_order import MaintenanceOnCallShift, WorkOrderTimeCorrection, WorkOrderTimeEntry, WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
-from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, accept_work_order_assignment, reject_work_order_assignment, recall_work_order_assignment, update_crew_eta, create_work_order_time_entry, list_work_order_time_entries, get_work_order_time_ledger, pending_crew_time_corrections, list_maintenance_preferred_vendors, replace_maintenance_preferred_vendors, list_maintenance_vendor_candidates, list_maintenance_on_call_shifts, list_maintenance_on_call_calendar, schedule_maintenance_on_call_shift, cancel_maintenance_on_call_shift, request_work_order_time_correction, list_work_order_time_corrections, review_work_order_time_correction, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
+from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, accept_work_order_assignment, reject_work_order_assignment, recall_work_order_assignment, update_crew_eta, create_work_order_time_entry, list_work_order_time_entries, get_work_order_time_ledger, pending_crew_time_corrections, list_maintenance_preferred_vendors, replace_maintenance_preferred_vendors, list_maintenance_vendor_candidates, list_maintenance_on_call_shifts, list_maintenance_on_call_calendar, list_on_call_property_roster, schedule_on_call_shift_by_property, cancel_on_call_shift_by_property, schedule_maintenance_on_call_shift, cancel_maintenance_on_call_shift, request_work_order_time_correction, list_work_order_time_corrections, review_work_order_time_correction, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
 from app.models.audit_log import AuditLog
 from app.models.vendor import Vendor, MaintenancePreferredVendor
 from app.models.vendor_insurance import VendorInsurance
@@ -2352,6 +2352,78 @@ def test_on_call_calendar_has_bounded_dates_and_live_manager_crew_visibility():
             start=target, days=7, include_cancelled=False, db=db, current_user=admin) == []
         assert [x.id for x in list_maintenance_on_call_calendar(
             start=target, days=7, include_cancelled=True, db=db, current_user=admin)] == [shift.id]
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+def test_direct_on_call_calendar_roster_and_schedule_respects_live_manager_property():
+    db, engine, actors, props, orders = _seed_queue()
+    try:
+        admin, manager, tenant, _other, crew, external = actors
+        first_prop, other_prop, foreign_prop = props
+        admin_roster = list_on_call_property_roster(db=db, current_user=admin)
+        assert {p.property_id for p in admin_roster} == {first_prop.id, other_prop.id}
+        manager_roster = list_on_call_property_roster(db=db, current_user=manager)
+        assert [p.property_id for p in manager_roster] == [first_prop.id]
+        assert [person.id for person in manager_roster[0].crew] == [crew.id]
+        for user in (tenant, crew):
+            with pytest.raises(HTTPException):
+                list_on_call_property_roster(db=db, current_user=user)
+        start = (datetime.now(timezone.utc) + timedelta(days=4)).replace(second=0, microsecond=0)
+        proposed = MaintenanceOnCallShiftCreate(
+            crew_user_id=crew.id, starts_at=start, ends_at=start + timedelta(hours=4))
+        for property_id in (other_prop.id, foreign_prop.id):
+            with pytest.raises(HTTPException):
+                schedule_on_call_shift_by_property(
+                    property_id, proposed, db=db, current_user=manager)
+        shift = schedule_on_call_shift_by_property(
+            first_prop.id, proposed, db=db, current_user=manager)
+        replay = schedule_on_call_shift_by_property(
+            first_prop.id, proposed, db=db, current_user=manager)
+        assert replay.id == shift.id
+        with pytest.raises(HTTPException) as overlap:
+            schedule_on_call_shift_by_property(
+                first_prop.id, MaintenanceOnCallShiftCreate(
+                    crew_user_id=crew.id, starts_at=start + timedelta(minutes=20),
+                    ends_at=start + timedelta(hours=2)), db=db, current_user=admin)
+        assert overlap.value.status_code == 409
+        assert len(list_maintenance_on_call_calendar(
+            start=start.date(), days=7, include_cancelled=False,
+            db=db, current_user=crew)) == 1
+        with pytest.raises(HTTPException):
+            cancel_on_call_shift_by_property(
+                first_prop.id, shift.id, MaintenanceOnCallShiftCancel(
+                    reason="Tenant may not cancel coverage"), db=db, current_user=tenant)
+        cancelled = cancel_on_call_shift_by_property(
+            first_prop.id, shift.id, MaintenanceOnCallShiftCancel(
+                reason="Crew reassigned for planned maintenance"),
+            db=db, current_user=admin)
+        assert cancelled.cancelled_at is not None
+        assert cancel_on_call_shift_by_property(
+            first_prop.id, shift.id, MaintenanceOnCallShiftCancel(
+                reason="Crew reassigned for planned maintenance"),
+            db=db, current_user=admin).id == shift.id
+        assert db.query(AuditLog).filter_by(
+            entity_type="maintenance_on_call_shift", entity_id=shift.id,
+            action="scheduled").count() == 1
+        assert db.query(AuditLog).filter_by(
+            entity_type="maintenance_on_call_shift", entity_id=shift.id,
+            action="cancelled").count() == 1
+        with pytest.raises(HTTPException):
+            cancel_on_call_shift_by_property(
+                foreign_prop.id, shift.id, MaintenanceOnCallShiftCancel(
+                    reason="Cannot cancel foreign schedule"), db=db, current_user=admin)
+        assignment = db.query(PropertyAssignment).filter_by(
+            property_id=first_prop.id, user_id=manager.id).one()
+        assignment.is_active = False
+        db.commit()
+        assert list_on_call_property_roster(db=db, current_user=manager) == []
+        with pytest.raises(HTTPException) as revoked:
+            schedule_on_call_shift_by_property(
+                first_prop.id, proposed, db=db, current_user=manager)
+        assert revoked.value.status_code == 403
     finally:
         db.close()
         engine.dispose()
