@@ -47,6 +47,15 @@ type CrewTimeEntry = {
   notes?: string | null;
 };
 
+type CrewTimeSummary = {
+  recorded_entries: number;
+  recorded_minutes: number;
+  reviewed_minutes: number;
+  approved_entries: number;
+  pending_corrections: number;
+  payroll_approved: boolean;
+};
+
 type CrewTimeCorrection = {
   id: number;
   time_entry_id: number;
@@ -70,6 +79,7 @@ export default function WorkOrderDetailPage() {
   const [timeNotes, setTimeNotes] = useState("");
   const [timeEntries, setTimeEntries] = useState<CrewTimeEntry[] | null>(null);
   const [timeCorrections, setTimeCorrections] = useState<CrewTimeCorrection[]>([]);
+  const [timeSummary, setTimeSummary] = useState<CrewTimeSummary | null>(null);
   const [correctionEntry, setCorrectionEntry] = useState<number | null>(null);
   const [correctionStart, setCorrectionStart] = useState("");
   const [correctionEnd, setCorrectionEnd] = useState("");
@@ -163,6 +173,11 @@ export default function WorkOrderDetailPage() {
     }
     let active = true;
     setTimeCorrections([]);
+    setTimeSummary(null);
+    apiGet("/work-orders/" + order.id + "/time-ledger")
+      .then((result: CrewTimeSummary) => {
+        if (active) setTimeSummary(result);
+      }).catch(() => { if (active) setTimeSummary(null); });
     apiGet("/work-orders/" + order.id + "/time-corrections")
       .then((result: CrewTimeCorrection[]) => {
         if (active) setTimeCorrections(Array.isArray(result) ? result : []);
@@ -329,6 +344,8 @@ export default function WorkOrderDetailPage() {
       setTimeEnd("");
       setTimeNotes("");
       setNotice("Time entry saved.");
+      apiGet("/work-orders/" + order.id + "/time-ledger")
+        .then((result: CrewTimeSummary) => setTimeSummary(result)).catch(() => {});
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to record crew time.");
     } finally {
@@ -357,6 +374,8 @@ export default function WorkOrderDetailPage() {
       setTimeCorrections((items) => items.some((item) => item.id === result.id) ? items : [...items, result]);
       setCorrectionEntry(null); setCorrectionStart(""); setCorrectionEnd(""); setCorrectionReason("");
       setNotice("Correction requested for independent review. Original evidence remains unchanged.");
+      apiGet("/work-orders/" + order.id + "/time-ledger")
+        .then((result: CrewTimeSummary) => setTimeSummary(result)).catch(() => {});
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Time correction failed."); }
     finally { setSaving(false); }
   }
@@ -375,6 +394,8 @@ export default function WorkOrderDetailPage() {
       setTimeCorrections((items) => items.map((item) => item.id === id ? result : item));
       setReviewReasons((items) => { const next = { ...items }; delete next[id]; return next; });
       setNotice("Time correction " + result.status + ". Original time evidence remains intact.");
+      apiGet("/work-orders/" + order.id + "/time-ledger")
+        .then((data: CrewTimeSummary) => setTimeSummary(data)).catch(() => {});
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to review time correction."); }
     finally { setSaving(false); }
   }
@@ -626,6 +647,14 @@ export default function WorkOrderDetailPage() {
             <section aria-label="Crew time records" className="rounded-xl border bg-white p-5">
               <h2 className="font-semibold">Crew time tracking</h2>
               <p className="mt-1 text-xs text-slate-500">Hours are historical evidence only, not approved payroll or tenant charges.</p>
+              {timeSummary && (
+                <div className="mt-3 rounded-lg border p-3 text-sm" aria-label="Crew work time summary">
+                  <p>Original work evidence: {timeSummary.recorded_entries} entries, {timeSummary.recorded_minutes} minutes</p>
+                  <p>Reviewed work evidence: {timeSummary.reviewed_minutes} minutes ({timeSummary.approved_entries} approved corrections)</p>
+                  <p>Corrections awaiting review: {timeSummary.pending_corrections}</p>
+                  <p className="mt-1 text-xs text-slate-500">Informational only — no payable time or tenant charge approved.</p>
+                </div>
+              )}
               {timeEntries === null ? <p className="mt-2 text-sm text-slate-500">Crew hours unavailable.</p>
                 : timeEntries.length === 0 ? <p className="mt-2 text-sm text-slate-500">No time entries recorded.</p>
                 : <ul className="mt-3 space-y-2">
