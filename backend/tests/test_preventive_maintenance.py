@@ -121,8 +121,10 @@ def test_corrupted_latest_occurrence_cannot_fall_back_to_older_clean_order():
         schedule = pm.create_schedule(
             db, admin, unit_id=units[0].id,
             title="Inspect roof drains", description="Review drains and rooftop water paths",
-            interval_days=1, next_due_date=date.today() - timedelta(days=1),
+            interval_days=1, next_due_date=date.today(),
         )
+        schedule.next_due_date = date.today() - timedelta(days=1)
+        db.commit()
         first, fresh = pm.generate_due(db, admin, schedule.id, as_of=date.today())
         assert fresh
         recent, fresh = pm.generate_due(db, admin, schedule.id, as_of=date.today())
