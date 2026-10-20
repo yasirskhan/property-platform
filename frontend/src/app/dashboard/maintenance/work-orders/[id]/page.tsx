@@ -39,8 +39,8 @@ type WorkOrder = {
   updates: WorkOrderUpdate[];
 };
 
-type VendorCandidate = { vendor_id: number; company_name: string; trade: string | null };
-type PreferredVendor = { vendor_id: number; rank: number; company_name: string; trade: string };
+type VendorCandidate = { vendor_id: number; company_name: string; trade: string | null; insurance_status: string };
+type PreferredVendor = { vendor_id: number; rank: number; company_name: string; trade: string; insurance_status: string };
 
 type CrewTimeEntry = {
   id: number;
@@ -705,7 +705,7 @@ export default function WorkOrderDetailPage() {
                 : <>
                     <p className="mt-3 text-xs text-slate-600">
                       {preferredVendors.length === 0 ? "No preferred vendors configured." :
-                        preferredVendors.map((v) => `#${v.rank} ${v.company_name}`).join(" · ")}
+                        preferredVendors.map((v) => `#${v.rank} ${v.company_name} (insurance ${v.insurance_status.replaceAll("_", " ").toLowerCase()})`).join(" · ")}
                     </p>
                     <div className="mt-3 grid gap-3 sm:grid-cols-3">
                       {preferredVendorDraft.map((selected, index) => <label key={index} className="text-sm">
@@ -716,7 +716,7 @@ export default function WorkOrderDetailPage() {
                             before.map((value, i) => i === index ? event.target.value : value))}>
                           <option value="">No vendor</option>
                           {vendorCandidates.map((vendor) => <option key={vendor.vendor_id} value={vendor.vendor_id}>
-                            {vendor.company_name}
+                            {vendor.company_name} · Insurance {vendor.insurance_status.replaceAll("_", " ")}
                           </option>)}
                         </select>
                       </label>)}

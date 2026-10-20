@@ -15,6 +15,7 @@ from app.models.work_order import WorkOrderTimeCorrection, WorkOrderTimeEntry, W
 from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, accept_work_order_assignment, reject_work_order_assignment, recall_work_order_assignment, update_crew_eta, create_work_order_time_entry, list_work_order_time_entries, get_work_order_time_ledger, pending_crew_time_corrections, list_maintenance_preferred_vendors, replace_maintenance_preferred_vendors, list_maintenance_vendor_candidates, request_work_order_time_correction, list_work_order_time_corrections, review_work_order_time_correction, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
 from app.models.audit_log import AuditLog
 from app.models.vendor import Vendor, MaintenancePreferredVendor
+from app.models.vendor_insurance import VendorInsurance
 from app.models.unit_inspection import UnitInspectionRecord
 from app.services import unit_inspections
 from app.routers.properties import check_property_access, visible_properties_query
@@ -2040,10 +2041,23 @@ def test_ranked_property_trade_vendor_preferences_scoped_and_audited():
         electrician = vendor("Electrical Corp", "electrical")
         general = vendor("All Trades", None)
         outsider_vendor = vendor("Foreign Supplier", "plumbing", foreign.organization_id)
+        db.add_all([
+            VendorInsurance(organization_id=org_id, vendor_id=plumber_a.id,
+                            carrier="Test Carrier", coverage_type="general liability",
+                            expiration_date=date.today() + timedelta(days=80), is_active=True),
+            VendorInsurance(organization_id=org_id, vendor_id=plumber_b.id,
+                            carrier="Old Carrier", coverage_type="general liability",
+                            expiration_date=date.today() - timedelta(days=1), is_active=True),
+        ])
         db.commit()
         assert list_maintenance_preferred_vendors(order.id, db=db, current_user=admin) == []
         eligible_ids = {v.vendor_id for v in list_maintenance_vendor_candidates(order.id, db=db, current_user=manager)}
         assert eligible_ids == {plumber_a.id, plumber_b.id, general.id}
+        insurance = {v.vendor_id: v.insurance_status for v in list_maintenance_vendor_candidates(
+            order.id, db=db, current_user=manager)}
+        assert insurance[plumber_a.id] == "CURRENT"
+        assert insurance[plumber_b.id] == "EXPIRED"
+        assert insurance[general.id] == "MISSING"
         plumber_a.trade = " PLUMBING "
         db.commit()
         assert plumber_a.id in {v.vendor_id for v in list_maintenance_vendor_candidates(
