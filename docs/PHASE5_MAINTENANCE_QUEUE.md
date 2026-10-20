@@ -543,3 +543,7 @@ A new authorized /api/maintenance/preventive API creates/reads schedules, pauses
 ## Daily preventive due worker and customer staff interface (detached; CI gated)
 
 Adds a customer staff UI and daily idempotent JobRun/Arq cron sweep (17:40 UTC) for active due schedules. Work orders are created through existing tenantless unique occurrence and append-only audit transactions, with creator role and scoped property rechecked. Multiple missed periods are caught up in bounded batches. Staff can inspect occurrence history and replay due work without creating duplicates. History denies corrupt foreign work-order association. No payment, tenant charge, entry permission, auto-assignment or vendor dispatch is implied; exact six-job CI remains required.
+
+## Phase 5 paused schedule settings workflow (detached; CI gated)
+
+Staff can pause a recurring maintenance schedule, edit task/instructions/interval using PATCH /api/maintenance/preventive/schedules/{id}/settings and resume. The edit requires an authorized current actor and row lock; invalid/empty input rejects, active schedules reject, and changes are recorded in append-only old/new audit. Due date and historical work orders are never rewritten. UI and regressions validate the flow; exact-SHA hosted six-job verification is mandatory before claiming delivery.

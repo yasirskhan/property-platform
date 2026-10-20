@@ -852,3 +852,5 @@ access boundary.
 | Phase 5 preventive schedules and manual occurrence generation | capability | /api/maintenance/preventive/schedules | core | yes | Authorized ADMIN/MANAGER property scope | no | 🔧 CI gated | Persistent daily-interval policy, active pause, tenantless manual due occurrence with database uniqueness and audit; background scheduler and UI not released |
 
 | Phase 5 preventive staff dashboard and daily due worker | capability | /dashboard/maintenance/preventive | core | yes | Scoped ADMIN/MANAGER | no | 🔧 detached; CI gated | Staff schedule creation, pause/resume, due generation, occurrence history, browser test; durable daily cron and catch-up with creator reauthorization; no dispatch or financial posting |
+
+| Phase 5 preventive schedule settings edits | capability | /dashboard/maintenance/preventive | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 detached, six-job CI gated | Admin/manager may edit title/instructions/interval only after pause, with row lock, assignment reauthorization and immutable before/after audit; existing due date and generated orders are preserved; staff UI + E2E |

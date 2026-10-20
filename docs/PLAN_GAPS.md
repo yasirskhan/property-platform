@@ -515,3 +515,7 @@ Initial explicit-due foundation: organization-scoped schedule records with prope
 ## Phase 5 preventive daily sweep and staff UI (2026-10-19; detached)
 
 Prepared signed-in staff schedule page, per-schedule activity history, duplicate-safe due generation, pause/resume and daily Arq due sweep. The durable scheduled JobRun is per UTC date. Worker reuses the audited occurrence transaction; a per-schedule bounded catch-up of 12 periods prevents unlimited burst. Creator identity, role, organization, active property/unit and manager assignment are revalidated. Automatic work orders neither grant entry permission nor post tenant charges. UTC due policy and full operations/release gates need further refinement before marking complete.
+
+## Phase 5 paused preventive schedule edits (2026-10-19; detached)
+
+Schedules can be paused and their task title, description and repeat interval changed. Editing an active schedule returns 409. The due date and previously generated work orders remain unchanged; all effective changes are audited with before/after values and must pass live role/organization/property-assignment authorization. PostgreSQL row lock protects concurrency with generation; there is no silent financial or tenant effect. Hosted six-job CI remains required, and dispatch/inspections/inventory/purchasing are unfinished.
