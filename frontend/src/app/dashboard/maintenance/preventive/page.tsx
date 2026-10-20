@@ -11,6 +11,7 @@ type Schedule = {
 };
 type Occurrence = { id: number; schedule_id: number; due_date: string; work_order_id: number };
 type Generation = { work_order_id: number; newly_created: boolean; tenant_id: number | null };
+type DuePreview = { schedule_id: number; active: boolean; as_of: string; due_dates: string[]; has_more: boolean };
 
 export default function PreventiveMaintenancePage() {
   const [units, setUnits] = useState<UnitChoice[]>([]);
@@ -34,6 +35,9 @@ export default function PreventiveMaintenancePage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [historyId, setHistoryId] = useState<number | null>(null);
+  const [preview, setPreview] = useState<DuePreview | null>(null);
+  const [previewError, setPreviewError] = useState("");
+  const [previewLoadingId, setPreviewLoadingId] = useState<number | null>(null);
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [historyError, setHistoryError] = useState("");
   const [historyOffset, setHistoryOffset] = useState(0);
@@ -205,6 +209,21 @@ export default function PreventiveMaintenancePage() {
     } finally { setBusyId(null); }
   }
 
+  async function showPreview(id: number) {
+    setPreviewLoadingId(id); setPreviewError(""); setPreview(null);
+    try {
+      const result = await apiGet(
+        `/api/maintenance/preventive/schedules/${id}/due-preview?limit=12`,
+      ) as DuePreview;
+      if (result.schedule_id !== id || !Array.isArray(result.due_dates)) {
+        throw new Error("Unexpected due-preview response.");
+      }
+      setPreview(result);
+    } catch (cause) {
+      setPreviewError(cause instanceof Error ? cause.message : "Due preview unavailable.");
+    } finally { setPreviewLoadingId(null); }
+  }
+
   async function showHistory(id: number) {
     setHistoryId(id); setHistoryError(""); setHistoryMoreError("");
     try {
@@ -336,6 +355,11 @@ export default function PreventiveMaintenancePage() {
             className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
             Edit paused schedule
           </button>
+          <button type="button" disabled={busyId !== null || previewLoadingId !== null}
+            onClick={() => void showPreview(row.id)}
+            className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
+            {previewLoadingId === row.id ? "Checking due backlog…" : "Preview due backlog"}
+          </button>
           <button disabled={busyId !== null} onClick={() => void showHistory(row.id)}
             className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
             Occurrence history
@@ -382,6 +406,14 @@ export default function PreventiveMaintenancePage() {
             </button>
           </div>
         </form>}
+        {preview?.schedule_id === row.id && <section className="space-y-2 rounded-lg border p-3 text-sm">
+          <h4 className="font-semibold">Due backlog preview — no work orders created</h4>
+          {!preview.active && <p>Schedule is paused; no due work will be generated.</p>}
+          {preview.active && preview.due_dates.length === 0 && <p>No work is due as of {preview.as_of}.</p>}
+          {preview.due_dates.length > 0 && <p>{preview.due_dates.join(", ")}</p>}
+          {preview.has_more && <p role="status">More due dates exist beyond this bounded preview.</p>}
+        </section>}
+        {previewError && <p role="alert" className="text-sm text-red-700">{previewError}</p>}
         {historyId === row.id && <div className="space-y-2 border-t pt-3">
           {historyError && <p role="alert" className="text-sm text-red-700">{historyError}</p>}
           {!historyError && occurrences.length === 0 && <p className="text-sm">No work orders generated yet.</p>}
