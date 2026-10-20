@@ -36,6 +36,10 @@ export default function PreventiveMaintenancePage() {
   const [historyId, setHistoryId] = useState<number | null>(null);
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [historyError, setHistoryError] = useState("");
+  const [historyOffset, setHistoryOffset] = useState(0);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historyMoreError, setHistoryMoreError] = useState("");
+  const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -202,15 +206,37 @@ export default function PreventiveMaintenancePage() {
   }
 
   async function showHistory(id: number) {
-    setHistoryId(id); setHistoryError("");
+    setHistoryId(id); setHistoryError(""); setHistoryMoreError("");
     try {
       const rows = await apiGet(`/api/maintenance/preventive/schedules/${id}/occurrences?limit=100`) as Occurrence[];
       if (!Array.isArray(rows)) throw new Error("Unexpected occurrence history.");
       setOccurrences(rows);
+      setHistoryOffset(rows.length);
+      setHistoryHasMore(rows.length === 100);
     } catch (cause) {
       setOccurrences([]);
+      setHistoryHasMore(false);
       setHistoryError(cause instanceof Error ? cause.message : "Occurrence history unavailable.");
     }
+  }
+
+  async function loadOlderHistory(id: number) {
+    if (historyLoadingMore || !historyHasMore || historyId !== id) return;
+    setHistoryLoadingMore(true); setHistoryMoreError("");
+    try {
+      const rows = await apiGet(
+        `/api/maintenance/preventive/schedules/${id}/occurrences?limit=100&offset=${historyOffset}`
+      ) as Occurrence[];
+      if (!Array.isArray(rows)) throw new Error("Unexpected occurrence response.");
+      setOccurrences((old) => {
+        const seen = new Set(old.map((row) => row.id));
+        return [...old, ...rows.filter((row) => !seen.has(row.id))];
+      });
+      setHistoryOffset((previous) => previous + rows.length);
+      setHistoryHasMore(rows.length === 100);
+    } catch (cause) {
+      setHistoryMoreError(cause instanceof Error ? cause.message : "Older occurrences unavailable.");
+    } finally { setHistoryLoadingMore(false); }
   }
 
   const unitLabel = (unit: UnitChoice) => `${unit.property_name} · Unit ${unit.unit_number}`;
@@ -363,6 +389,12 @@ export default function PreventiveMaintenancePage() {
             {item.due_date}: <Link href={`/dashboard/maintenance/work-orders/${item.work_order_id}`}
               className="text-blue-800 underline">Work order #{item.work_order_id}</Link>
           </p>)}
+          {historyHasMore && <button type="button" disabled={historyLoadingMore}
+            onClick={() => void loadOlderHistory(row.id)}
+            className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
+            {historyLoadingMore ? "Loading older occurrences…" : "Load older occurrences"}
+          </button>}
+          {historyMoreError && <p role="alert" className="text-sm text-red-700">{historyMoreError}</p>}
         </div>}
       </article>)}
       {hasMore && <button type="button" disabled={loadingMore}

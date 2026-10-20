@@ -350,6 +350,15 @@ def test_daily_preventive_due_sweep_catches_up_bounded_without_duplicate_tenants
             "created": 0, "skipped": 0, "backlog": 0,
         }
         assert db.query(PreventiveMaintenanceOccurrence).count() == 4
+        assert [row.due_date for row in pm.list_occurrences(
+            db, admin, schedule.id, limit=1, offset=1,
+        )] == [date.today() - timedelta(days=1)]
+        assert [row.due_date for row in pm.list_occurrences(
+            db, manager, schedule.id, limit=2, offset=2,
+        )] == [date.today() - timedelta(days=2), date.today() - timedelta(days=3)]
+        with pytest.raises(HTTPException):
+            pm.list_occurrences(db, tenant, schedule.id, limit=1, offset=1)
+
         assert db.query(WorkOrder).count() == 4
         assert all(order.tenant_id is None and not order.permission_to_enter
                    and order.total_cost is None for order in db.query(WorkOrder).all())
