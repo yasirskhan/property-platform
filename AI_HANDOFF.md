@@ -1,3 +1,9 @@
+### Hosted CI failure repair — 2026-10-20 (CI GATED)
+
+Run `39378503522` failed backend only (1546 passed / 3 failed; security, frontend, platform-admin passed; e2e/staging skipped). Root causes: unnamed SQLite batch foreign-key constraint for the new schedule operator column, and stale expected Alembic head in PostgreSQL smoke and prepare-database tests. Updated migration to create and guard-drop a named foreign key, aligned both migration-head assertions, and added PostgreSQL FK/nullable column checks. Next: verify replacement run at exact fix SHA before marking the execution recovery VERIFIED. Crew-dispatch successor remains detached and must be reconciled with this published fix.
+
+---
+
 ## 2026-10-20 | Preventive execution recovery and operator health — IMPLEMENTED / CI GATED
 
 Added a separate schedule execution operator so the immutable creator is not rewritten. Authorized admins can take over execution with an audit reason; property-assigned managers can recover only from an unauthorized or unavailable operator. Schedule-row lock, live staff/property/organization rechecks, transfer audit with old/new operator, skip-safe worker executor lookup, read-only execution health, UI workflow, backend and authenticated E2E regressions, and additive nullable Alembic migration `c4b7e2f9a601`. No tenant attribution, entry consent, dispatch, money posting or historic occurrence is changed. Verify all six hosted CI jobs against the exact published SHA before marking VERIFIED.

@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import DBAPIError
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_HEAD = "7c2e6f0a9b31"
+EXPECTED_HEAD = "c4b7e2f9a601"
 EXPECTED_MODEL_TABLES = 204
 
 
@@ -48,6 +48,14 @@ def test_postgres_fresh_bootstrap_when_ci_database_is_available() -> None:
         assert next(col for col in inspect(engine).get_columns(
             "preventive_maintenance_schedules"
         ) if col["name"] == "end_date")["nullable"] is True
+        assert next(col for col in inspect(engine).get_columns(
+            "preventive_maintenance_schedules"
+        ) if col["name"] == "executor_user_id")["nullable"] is True
+        assert any(
+            fk["referred_table"] == "users"
+            and fk["constrained_columns"] == ["executor_user_id"]
+            for fk in inspect(engine).get_foreign_keys("preventive_maintenance_schedules")
+        ), "Preventive execution operator must use an enforced PostgreSQL FK"
 
         assert next(col for col in inspect(engine).get_columns("work_orders") if col["name"] == "tenant_id")["nullable"] is True
         source_fks = inspect(engine).get_foreign_keys("work_orders")

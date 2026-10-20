@@ -15,9 +15,12 @@ depends_on = None
 def upgrade() -> None:
     with op.batch_alter_table("preventive_maintenance_schedules") as batch:
         batch.add_column(sa.Column(
-            "executor_user_id", sa.Integer(),
-            sa.ForeignKey("users.id"), nullable=True,
+            "executor_user_id", sa.Integer(), nullable=True,
         ))
+        batch.create_foreign_key(
+            "fk_preventive_schedule_executor_user", "users",
+            ["executor_user_id"], ["id"],
+        )
         batch.create_index(
             "ix_preventive_maintenance_schedules_executor_user_id",
             ["executor_user_id"],
@@ -34,4 +37,5 @@ def downgrade() -> None:
         raise RuntimeError("Cannot drop assigned preventive schedule executors")
     with op.batch_alter_table("preventive_maintenance_schedules") as batch:
         batch.drop_index("ix_preventive_maintenance_schedules_executor_user_id")
+        batch.drop_constraint("fk_preventive_schedule_executor_user", type_="foreignkey")
         batch.drop_column("executor_user_id")
