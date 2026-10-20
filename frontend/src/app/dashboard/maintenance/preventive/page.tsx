@@ -20,6 +20,10 @@ export default function PreventiveMaintenancePage() {
   const [unitsLoading, setUnitsLoading] = useState(true);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [nextOffset, setNextOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [moreError, setMoreError] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [interval, setInterval] = useState("30");
@@ -32,18 +36,35 @@ export default function PreventiveMaintenancePage() {
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [historyError, setHistoryError] = useState("");
 
-  async function refreshSchedules() {
-    const rows = await apiGet("/api/maintenance/preventive/schedules") as Schedule[];
-    if (!Array.isArray(rows)) throw new Error("Unexpected schedule response.");
-    setSchedules(rows);
+  async function loadMore() {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true); setMoreError("");
+    try {
+      const rows = await apiGet(
+        `/api/maintenance/preventive/schedules?limit=100&offset=${nextOffset}`
+      ) as Schedule[];
+      if (!Array.isArray(rows)) throw new Error("Unexpected schedule response.");
+      setSchedules((previous) => {
+        const known = new Set(previous.map((row) => row.id));
+        return [...previous, ...rows.filter((row) => !known.has(row.id))];
+      });
+      setNextOffset((old) => old + rows.length);
+      setHasMore(rows.length === 100);
+    } catch (cause) {
+      setMoreError(cause instanceof Error ? cause.message : "Older schedules unavailable.");
+    } finally { setLoadingMore(false); }
   }
 
   useEffect(() => {
     let active = true;
-    apiGet("/api/maintenance/preventive/schedules")
+    apiGet("/api/maintenance/preventive/schedules?limit=100")
       .then((rows: Schedule[]) => {
         if (!Array.isArray(rows)) throw new Error("Unexpected schedule response.");
-        if (active) setSchedules(rows);
+        if (active) {
+          setSchedules(rows);
+          setNextOffset(rows.length);
+          setHasMore(rows.length === 100);
+        }
       })
       .catch((cause) => {
         if (active) setError(cause instanceof Error ? cause.message : "Schedules unavailable.");
@@ -94,6 +115,7 @@ export default function PreventiveMaintenancePage() {
       }) as Schedule;
       if (!Number.isSafeInteger(created?.id)) throw new Error("Invalid saved schedule.");
       setSchedules((previous) => [created, ...previous.filter((row) => row.id !== created.id)]);
+      setNextOffset((previous) => previous + 1);
       setTitle(""); setDescription(""); setDueDate("");
       setNotice("Schedule saved. No work order was generated at creation; due dates are checked daily.");
     } catch (cause) {
@@ -121,7 +143,10 @@ export default function PreventiveMaintenancePage() {
       ) as Generation;
       if (!Number.isSafeInteger(result.work_order_id) || result.tenant_id !== null)
         throw new Error("Unexpected preventive generation response.");
-      await refreshSchedules();
+      const updated = await apiGet(
+        `/api/maintenance/preventive/schedules/${row.id}`
+      ) as Schedule;
+      setSchedules((previous) => previous.map((item) => item.id === row.id ? updated : item));
       setNotice(result.newly_created
         ? `Work order #${result.work_order_id} generated without a tenant or automatic charge.`
         : `Due occurrence already exists as work order #${result.work_order_id}.`);
@@ -242,6 +267,12 @@ export default function PreventiveMaintenancePage() {
           </p>)}
         </div>}
       </article>)}
+      {hasMore && <button type="button" disabled={loadingMore}
+        onClick={() => void loadMore()}
+        className="rounded-lg border px-4 py-2 text-sm disabled:opacity-50">
+        {loadingMore ? "Loading older schedules…" : "Load older schedules"}
+      </button>}
+      {moreError && <p role="alert" className="text-sm text-red-700">{moreError}</p>}
     </section>
   </main>;
 }

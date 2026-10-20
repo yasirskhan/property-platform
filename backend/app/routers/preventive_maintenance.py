@@ -48,6 +48,11 @@ def listing(db: Session = Depends(get_db),
             current_user: User = Depends(get_current_user)):
     return service.list_schedules(db, current_user)
 
+@router.get("/schedules/{schedule_id}", response_model=ScheduleOut)
+def detail(schedule_id: int, db: Session = Depends(get_db),
+           current_user: User = Depends(get_current_user)):
+    return service._schedule(db, current_user, schedule_id)
+
 @router.patch("/schedules/{schedule_id}", response_model=ScheduleOut)
 def change_active(schedule_id: int, payload: ActiveUpdate,
                   db: Session = Depends(get_db),

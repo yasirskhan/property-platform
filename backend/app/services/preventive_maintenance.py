@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from app.models.preventive_maintenance import PreventiveMaintenanceSchedule as Schedule, PreventiveMaintenanceOccurrence as Occurrence
-from app.models.property import Property, Unit
+from app.models.property import Property, Unit, PropertyAssignment
 from app.models.user import User, UserRole
 from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderUpdate
 from app.routers.properties import check_property_access
@@ -55,18 +55,31 @@ def create_schedule(db: Session, actor: User, *, unit_id: int, title: str,
     db.refresh(row)
     return row
 
-def list_schedules(db: Session, actor: User):
+def list_schedules(db: Session, actor: User, *, limit: int = 100, offset: int = 0):
     if not actor.is_active or actor.deleted_at is not None or actor.role not in (UserRole.ADMIN, UserRole.MANAGER):
         raise HTTPException(status_code=403, detail="Preventive maintenance requires authorized staff")
-    items = db.query(Schedule).filter(Schedule.organization_id == actor.organization_id).order_by(Schedule.id.desc()).all()
-    visible = []
-    for item in items:
-        try:
-            _schedule(db, actor, item.id)
-        except HTTPException:
-            continue
-        visible.append(item)
-    return visible
+    if limit < 1 or limit > 100 or offset < 0:
+        raise HTTPException(status_code=422, detail="Invalid schedule pagination")
+    query = db.query(Schedule).join(
+        Unit, Unit.id == Schedule.unit_id,
+    ).join(
+        Property, Property.id == Unit.property_id,
+    ).filter(
+        Schedule.organization_id == actor.organization_id,
+        Property.organization_id == actor.organization_id,
+        Schedule.property_id == Unit.property_id,
+        Unit.is_active.is_(True), Unit.deleted_at.is_(None),
+        Property.is_active.is_(True), Property.deleted_at.is_(None),
+    )
+    if actor.role == UserRole.MANAGER:
+        authorized_properties = db.query(PropertyAssignment.property_id).filter(
+            PropertyAssignment.user_id == actor.id,
+            PropertyAssignment.is_active.is_(True),
+            PropertyAssignment.deleted_at.is_(None),
+        )
+        query = query.filter(Property.id.in_(authorized_properties))
+    return query.order_by(Schedule.id.desc()).offset(offset).limit(limit).all()
+
 
 def set_active(db: Session, actor: User, schedule_id: int, active: bool):
     row = _schedule(db, actor, schedule_id)

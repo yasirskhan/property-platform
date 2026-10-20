@@ -215,6 +215,29 @@ def test_generate_due_refreshes_current_schedule_after_another_session_updates_d
         engine.dispose()
 
 
+def test_schedule_list_is_bounded_and_excludes_unassigned_properties():
+    db, engine, actors, _, units = seeded()
+    try:
+        admin, manager, tenant, outside = actors
+        older = pm.create_schedule(db, admin, unit_id=units[0].id,
+            title="Inspect garage", description="Monthly garage safety inspection",
+            interval_days=30, next_due_date=date.today())
+        newer = pm.create_schedule(db, admin, unit_id=units[1].id,
+            title="Inspect basement", description="Monthly basement safety inspection",
+            interval_days=30, next_due_date=date.today())
+        assert [s.id for s in pm.list_schedules(db, admin, limit=1)] == [newer.id]
+        assert [s.id for s in pm.list_schedules(db, admin, limit=1, offset=1)] == [older.id]
+        assert [s.id for s in pm.list_schedules(db, manager)] == [older.id]
+        assert pm.list_schedules(db, outside) == []
+        with pytest.raises(HTTPException):
+            pm.list_schedules(db, tenant)
+        with pytest.raises(HTTPException):
+            pm.list_schedules(db, admin, limit=101)
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_preventive_schedule_denies_tenants_foreign_org_and_unassigned_manager():
     db, engine, actors, props, units = seeded()
     try:
