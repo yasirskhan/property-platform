@@ -67,6 +67,7 @@ from app.schemas.work_order import (
     WorkOrderTimeCorrectionCreate,
     WorkOrderTimeCorrectionDecision,
     WorkOrderTimeCorrectionOut,
+    WorkOrderTimeLedgerOut,
     WorkOrderVendorAssign,
     WorkOrderVendorOut,
     WorkOrderComplete,
@@ -1162,6 +1163,49 @@ def create_work_order_time_entry(
 # ------------------------------------------------------------
 # AUDITED CREW TIME CORRECTION REQUEST / INDEPENDENT REVIEW
 # ------------------------------------------------------------
+@router.get("/{wo_id}/time-ledger", response_model=WorkOrderTimeLedgerOut)
+def get_work_order_time_ledger(
+    wo_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Scoped read-only summary; approved corrections do not alter source evidence."""
+    wo = db.query(WorkOrder).filter(WorkOrder.id == wo_id).first()
+    if wo is None:
+        raise HTTPException(status_code=404, detail="Work order not found")
+    _require_crew_time_access(db, wo, current_user)
+    entries = db.query(WorkOrderTimeEntry).filter(
+        WorkOrderTimeEntry.work_order_id == wo_id,
+    ).order_by(WorkOrderTimeEntry.id.asc()).limit(2001).all()
+    if len(entries) > 2000:
+        raise HTTPException(status_code=422, detail="Time report exceeds the entry limit")
+    corrections = db.query(WorkOrderTimeCorrection).filter(
+        WorkOrderTimeCorrection.work_order_id == wo_id,
+    ).order_by(WorkOrderTimeCorrection.id.asc()).limit(20001).all()
+    if len(corrections) > 20000:
+        raise HTTPException(status_code=422, detail="Time report exceeds the correction limit")
+    entry_ids = {entry.id for entry in entries}
+    approved = {}
+    pending_count = 0
+    for correction in corrections:
+        if correction.time_entry_id not in entry_ids:
+            raise HTTPException(status_code=409, detail="Invalid correction evidence binding")
+        if correction.status == "approved":
+            approved[correction.time_entry_id] = correction
+        elif correction.status == "pending":
+            pending_count += 1
+    return WorkOrderTimeLedgerOut(
+        recorded_entries=len(entries),
+        recorded_minutes=sum(e.duration_minutes for e in entries),
+        reviewed_minutes=sum(
+            approved[e.id].duration_minutes if e.id in approved else e.duration_minutes
+            for e in entries
+        ),
+        approved_entries=len(approved),
+        pending_corrections=pending_count,
+    )
+
+
 @router.get("/{wo_id}/time-corrections", response_model=List[WorkOrderTimeCorrectionOut])
 def list_work_order_time_corrections(
     wo_id: int,

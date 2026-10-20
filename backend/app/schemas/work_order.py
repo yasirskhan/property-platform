@@ -86,6 +86,15 @@ class WorkOrderTimeOut(BaseModel):
         from_attributes = True
 
 
+class WorkOrderTimeLedgerOut(BaseModel):
+    recorded_entries: int
+    recorded_minutes: int
+    reviewed_minutes: int
+    approved_entries: int
+    pending_corrections: int
+    payroll_approved: bool = False
+
+
 class WorkOrderTimeCorrectionCreate(BaseModel):
     started_at: datetime
     ended_at: datetime
