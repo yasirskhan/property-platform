@@ -187,6 +187,37 @@ def test_preview_due_is_scoped_read_only_bounded_and_end_date_aware():
         engine.dispose()
 
 
+def test_replay_rejects_different_manual_order_from_same_unit_without_schedule_audit():
+    db, engine, actors, properties, units = seeded()
+    try:
+        admin = actors[0]
+        schedule = pm.create_schedule(
+            db, admin, unit_id=units[0].id,
+            title="Check heater elements", description="Inspect the heater and unit safely",
+            interval_days=30, next_due_date=date.today(),
+        )
+        original, fresh = pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        assert fresh
+        other = WorkOrder(
+            property_id=properties[0].id, unit_id=units[0].id,
+            tenant_id=None, request_origin="staff", requested_by_user_id=admin.id,
+            title="Manual repair", description="Completely unrelated manual repair",
+        )
+        db.add(other)
+        db.flush()
+        occurrence = db.query(PreventiveMaintenanceOccurrence).one()
+        occurrence.work_order_id = other.id
+        db.commit()
+        with pytest.raises(HTTPException) as blocked:
+            pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        assert blocked.value.status_code == 409
+        assert db.query(WorkOrder).count() == 2
+        assert original.id != other.id
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_preventive_schedule_due_work_order_exactly_once_and_no_tenant_financial_or_entry_rights():
     db, engine, actors, _, units = seeded()
     try:
