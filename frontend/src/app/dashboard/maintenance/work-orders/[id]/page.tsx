@@ -814,7 +814,7 @@ export default function WorkOrderDetailPage() {
                 A schedule does not dispatch anyone or approve a payment.
               </p>
 
-              <div className="mt-3 rounded-lg border p-3" aria-label="Current on-call dispatch readiness">
+              <div role="region" className="mt-3 rounded-lg border p-3" aria-label="Current on-call dispatch readiness">
                 <h3 className="text-sm font-semibold">Current dispatch readiness</h3>
                 {dispatchReadiness ? (
                   <>

@@ -84,6 +84,28 @@ def test_authenticated_work_order_detail_and_comment_history() -> None:
             pw.expect(page.get_by_text("Work order acknowledged.", exact=True)).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_text("acknowledged", exact=True)).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_role("button", name="Assign crew", exact=True)).to_be_visible()
+            # The browser must not invent an active on-call recipient just
+            # because eligible crew members exist on the property roster.
+            readiness_api = page.request.get(
+                API_URL + "/work-orders/" + str(work_order_id) + "/dispatch-readiness",
+                headers={"Authorization": "Bearer " + token},
+            )
+            assert readiness_api.status == 200, readiness_api.text()
+            assert readiness_api.json()["can_offer"] is False
+            assert readiness_api.json()["crew_user_id"] is None
+            premature_offer = page.request.post(
+                API_URL + "/work-orders/" + str(work_order_id) + "/offer-on-call",
+                headers={"Authorization": "Bearer " + token},
+            )
+            assert premature_offer.status == 409, premature_offer.text()
+            readiness_panel = page.get_by_role("region", name="Current on-call dispatch readiness")
+            pw.expect(readiness_panel.get_by_role("heading", name="Current dispatch readiness")).to_be_visible(timeout=15_000)
+            pw.expect(readiness_panel.get_by_text(
+                "No eligible crew is currently on call. Review the preferred vendors or schedule coverage."
+            )).to_be_visible(timeout=15_000)
+            pw.expect(readiness_panel.get_by_role(
+                "button", name="Offer to current on-call crew (in-app only)"
+            )).to_have_count(0)
             crew_options = page.get_by_label("Assigned crew member", exact=True).locator("option")
             pw.expect(crew_options).to_have_count(1 + len(eligible), timeout=15_000)
             assert {int(value) for value in crew_options.evaluate_all(
@@ -282,9 +304,12 @@ def test_crew_accepts_and_rejects_dispatch_with_audited_reassignment() -> None:
             )).to_be_visible(timeout=15_000)
             admin.goto(BASE_URL + "/dashboard/maintenance/on-call", wait_until="domcontentloaded")
             pw.expect(admin.get_by_role("heading", name="Maintenance on-call calendar")).to_be_visible(timeout=15_000)
+            # A four-hour shift can overlap two UTC calendar-day cards.
+            # Test the scheduled crew's visibility without requiring exactly
+            # one rendered day occurrence for the same underlying shift.
             pw.expect(admin.get_by_role("region", name="Seven-day on-call coverage").get_by_text(
                 "Maintenance Crew", exact=True
-            )).to_be_visible(timeout=15_000)
+            ).first).to_be_visible(timeout=15_000)
             admin.goto(BASE_URL + "/dashboard/maintenance/work-orders/" + str(first),
                        wait_until="domcontentloaded")
             oncall = admin.get_by_role("region", name="Property on-call crew shifts")

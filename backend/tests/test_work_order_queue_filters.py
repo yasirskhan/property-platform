@@ -2590,3 +2590,45 @@ def test_on_call_dispatch_fails_closed_on_conflicting_current_shifts():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_manual_assignment_requires_live_staff_and_genuine_crew_property_role():
+    db, engine, actors, props, orders = _seed_queue()
+    try:
+        admin, manager, tenant, _other, crew, _foreign = actors
+        target = orders[1]
+        target.status = WorkOrderStatus.ACKNOWLEDGED
+        crew_assignment = db.query(PropertyAssignment).filter_by(
+            property_id=props[0].id, user_id=crew.id).one()
+        crew_assignment.role = UserRole.MANAGER
+        db.commit()
+        with pytest.raises(HTTPException) as invalid:
+            assign_work_order(
+                target.id, WorkOrderAssign(crew_user_id=crew.id),
+                db=db, current_user=admin)
+        assert invalid.value.status_code == 400
+        assert target.status == WorkOrderStatus.ACKNOWLEDGED
+        assert target.assigned_to_id is None
+        crew_assignment.role = UserRole.CREW
+        admin.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException) as revoked:
+            assign_work_order(
+                target.id, WorkOrderAssign(crew_user_id=crew.id),
+                db=db, current_user=admin)
+        assert revoked.value.status_code == 403
+        admin.is_active = True
+        manager.deleted_at = datetime.utcnow()
+        db.commit()
+        with pytest.raises(HTTPException) as deleted:
+            assign_work_order(
+                target.id, WorkOrderAssign(crew_user_id=crew.id),
+                db=db, current_user=manager)
+        assert deleted.value.status_code == 403
+        assert target.assigned_to_id is None
+        assert db.query(AuditLog).filter_by(
+            entity_type="work_order", entity_id=target.id,
+            action="crew_assignment").count() == 0
+    finally:
+        db.close()
+        engine.dispose()

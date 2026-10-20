@@ -1454,6 +1454,9 @@ def assign_work_order(
     current_user: User = Depends(get_current_user),
 ):
     _require_role(current_user, UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER)
+    if (not current_user.is_active or current_user.deleted_at is not None
+            or current_user.organization_id is None):
+        raise HTTPException(status_code=403, detail="Active maintenance staff membership required")
 
     wo = db.query(WorkOrder).filter(WorkOrder.id == wo_id).with_for_update().first()
     if not wo:
@@ -1480,6 +1483,7 @@ def assign_work_order(
         .filter(
             PropertyAssignment.property_id == wo.property_id,
             PropertyAssignment.user_id == crew.id,
+            PropertyAssignment.role == UserRole.CREW,
             PropertyAssignment.is_active == True,  # noqa: E712
             PropertyAssignment.deleted_at.is_(None),
         )
