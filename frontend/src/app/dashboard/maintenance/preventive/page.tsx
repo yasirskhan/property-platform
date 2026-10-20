@@ -144,6 +144,7 @@ export default function PreventiveMaintenancePage() {
       const updated = await apiPatch(`/api/maintenance/preventive/schedules/${row.id}`,
         { active: !row.active }) as Schedule;
       setSchedules((previous) => previous.map((item) => item.id === row.id ? updated : item));
+      setPreview((prior) => prior?.schedule_id === row.id ? null : prior);
       setNotice(updated.active ? "Schedule resumed." : "Schedule paused.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Cannot change schedule.");
@@ -181,6 +182,7 @@ export default function PreventiveMaintenancePage() {
       if (updated.id !== row.id || updated.active)
         throw new Error("Unexpected schedule update response.");
       setSchedules((previous) => previous.map((item) => item.id === row.id ? updated : item));
+      setPreview((prior) => prior?.schedule_id === row.id ? null : prior);
       setEditingId(null);
       setNotice("Paused schedule settings updated and audited. Existing occurrences are unchanged.");
     } catch (cause) {
@@ -200,6 +202,7 @@ export default function PreventiveMaintenancePage() {
         `/api/maintenance/preventive/schedules/${row.id}`
       ) as Schedule;
       setSchedules((previous) => previous.map((item) => item.id === row.id ? updated : item));
+      setPreview((prior) => prior?.schedule_id === row.id ? null : prior);
       setNotice(result.newly_created
         ? `Work order #${result.work_order_id} generated without a tenant or automatic charge.`
         : `Due occurrence already exists as work order #${result.work_order_id}.`);
