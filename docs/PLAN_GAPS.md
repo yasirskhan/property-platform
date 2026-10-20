@@ -1,3 +1,9 @@
+## 2026-10-20 | Phase 5: reviewed crew-time summary — CI GATED
+
+Predecessor 2f4418a5d07bdfd4c0e27d0fff59c72d2d621d3c passed six required hosted CI jobs in run 39450921066. Current successor provides a bounded and role-scoped read-only original-versus-reviewed time summary for each work order. Original recorded minutes never change when management approves a time correction; the summary separately counts latest approved corrections and pending reviews. Role and organization checks deny tenant, foreign and revoked property personnel. This is operational evidence, not payroll approval or a tenant charge. The staff UI refreshes counts after entries, correction requests and decisions, with backend and authenticated browser regressions. New successor must pass exact-SHA six-job CI before VERIFIED. Further Phase 5 inventory, purchase approvals, inspections and dispatch automation are unfinished.
+
+---
+
 ## 2026-10-20 | Phase 5 crew-time correction workflow — CI GATED
 
 Crew-original time evidence remains immutable. Assigned original crew may propose amended completed work intervals with a required explanation; an independently authorized organization admin/owner or live property manager must approve/deny with separate reason. Pending request retries are idempotent, overlapping crew time evidence cannot be approved, role/revocation/tenant isolation and actual unit/property/org scope are enforced under work-order row lock, both actions append work-order activity and immutable old/new audit. Correction decisions never edit original time entries and never post payroll or tenant charges. Additive Alembic b5d0c8e7a214 plus SQLite/PostgreSQL/bootstrap parity and regression coverage. Repairs malformed PostgreSQL dollar quoting in prior crew time trigger migration. Six hosted CI jobs required before VERIFIED.
