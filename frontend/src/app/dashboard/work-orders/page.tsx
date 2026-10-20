@@ -48,6 +48,7 @@ export default function WorkOrderQueuePage() {
   const [rows, setRows] = useState<WorkOrder[]>([]);
   const [canCreate, setCanCreate] = useState(false);
   const [canInspect, setCanInspect] = useState(false);
+  const [canViewOnCall, setCanViewOnCall] = useState(false);
   const [canReviewTime, setCanReviewTime] = useState(false);
   const [pendingTimeReviews, setPendingTimeReviews] = useState<PendingCrewTimeReview[] | null>(null);
   const [timeReviewOffset, setTimeReviewOffset] = useState(0);
@@ -117,8 +118,9 @@ export default function WorkOrderQueuePage() {
         ["ADMIN", "OWNER", "MANAGER", "TENANT"].includes(String(viewer.role).toUpperCase())
       );
       if (active) setCanInspect(["ADMIN", "MANAGER"].includes(String(viewer.role).toUpperCase()));
+      if (active) setCanViewOnCall(["ADMIN", "OWNER", "MANAGER", "CREW"].includes(String(viewer.role).toUpperCase()));
       if (active) setCanReviewTime(["ADMIN", "OWNER", "MANAGER"].includes(String(viewer.role).toUpperCase()));
-    }).catch(() => { if (active) { setCanCreate(false); setCanReviewTime(false); } });
+    }).catch(() => { if (active) { setCanCreate(false); setCanReviewTime(false); setCanViewOnCall(false); } });
     return () => { active = false; };
   }, []);
 
@@ -188,6 +190,12 @@ export default function WorkOrderQueuePage() {
             <Link href="/dashboard/maintenance/staff-inspection-records"
               className="rounded-lg border bg-white px-4 py-2 text-sm">
               Staff inspection records
+            </Link>
+          )}
+          {canViewOnCall && (
+            <Link href="/dashboard/maintenance/on-call"
+              className="rounded-lg border bg-white px-4 py-2 text-sm">
+              On-call calendar
             </Link>
           )}
           {canInspect && (
