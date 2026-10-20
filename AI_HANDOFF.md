@@ -1,3 +1,9 @@
+## 2026-10-20 | Ranked preferred vendors by property/trade — DETACHED / CI REQUIRED
+
+Following published pending crew-time correction review inbox at 8a27379a40520b2665e3049c7fccce88610faa20, prepared Phase 5 vendor preference ranking: up to three unique active vendors by property and category, protected by same-organization and live property-manager assignment/active location checks, serialized property-row lock and explicit audit before/after. Current staff work order detail supports read/edit, candidate selection and save; backend regression tests protect duplicate/foreign/inactive/mismatched company, property retirement, role scope, shared same-property categories and idempotent audit, plus authenticated browser panel. New additive migration d3f7c0a198be after b5d0c8e7a214, expected table count 207, all migration expectations advanced. Ranking is advisory only; no vendor alert, automatic dispatch, approval, invoice or tenant charge. This descendant is NOT PUBLISHED and may only be promoted after exact parent six-job CI success, live ref CAS with force=false, then full successor six-job CI. Continue complete dispatch settings, purchase orders, inventory and mobile inspections.
+
+---
+
 ## 2026-10-20 | Independent crew time correction review identity — DETACHED / CI GATED
 
 The pending-review inbox successor additionally forbids self-approval when the original crew requester later changes into an ADMIN, OWNER or MANAGER role. Authorization uses immutable requester identity, not merely the user's present role; an independent scoped manager may still review. The regression asserts denial is side-effect-free and no review audit is appended. Predecessor published time-ledger CI 39455507549 must finish all six SUCCESS at exact SHA before publishing this successor on the authorized branch.
