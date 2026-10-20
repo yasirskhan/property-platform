@@ -56,6 +56,41 @@ def seeded():
     return db, engine, (admin, manager, tenant, outsider), (prop, hidden, foreign_prop), (unit, other_unit, foreign_unit)
 
 
+def test_occurrence_history_refuses_same_unit_manual_substitution():
+    db, engine, actors, properties, units = seeded()
+    try:
+        admin = actors[0]
+        schedule = pm.create_schedule(
+            db, admin, unit_id=units[0].id,
+            title="Check fire extinguishers",
+            description="Inspect building fire safety equipment thoroughly",
+            interval_days=30, next_due_date=date.today(),
+        )
+        created, fresh = pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        assert fresh
+        assert [row.work_order_id for row in pm.list_occurrences(db, admin, schedule.id)] == [created.id]
+        replacement = WorkOrder(
+            property_id=units[0].property_id, unit_id=units[0].id,
+            tenant_id=None, request_origin="staff",
+            requested_by_user_id=admin.id, title="Unrelated staff work order",
+            description="Do not substitute into preventive occurrence history",
+        )
+        db.add(replacement)
+        db.flush()
+        linked = db.query(PreventiveMaintenanceOccurrence).one()
+        linked.work_order_id = replacement.id
+        db.commit()
+        with pytest.raises(HTTPException) as blocked:
+            pm.list_occurrences(db, admin, schedule.id)
+        assert blocked.value.status_code == 409
+        with pytest.raises(HTTPException) as blocked:
+            pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        assert blocked.value.status_code == 409
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_replay_never_returns_corrupted_cross_property_work_order():
     db, engine, actors, properties, units = seeded()
     try:
