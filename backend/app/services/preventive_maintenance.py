@@ -183,26 +183,29 @@ def update_settings(db: Session, actor: User, schedule_id: int, *,
 
 
 def _last_valid_occurrence(db: Session, schedule: Schedule, as_of: date):
-    """Never return a foreign or mismatched work order through a replay path.
-
-    The schedule, occurrence and actual Unit->Property association must
-    agree before a previously generated order is disclosed.
-    """
-    return db.query(WorkOrder).join(
-        Occurrence, Occurrence.work_order_id == WorkOrder.id,
-    ).join(
+    """Fail closed rather than silently skipping the latest corrupted replay."""
+    candidate = db.query(Occurrence).filter(
+        Occurrence.schedule_id == schedule.id,
+        Occurrence.due_date <= as_of,
+    ).order_by(Occurrence.due_date.desc(), Occurrence.id.desc()).first()
+    if candidate is None:
+        return None
+    if candidate.organization_id != schedule.organization_id:
+        raise HTTPException(status_code=409, detail="Occurrence organization integrity violation")
+    order = db.query(WorkOrder).join(
         Unit, Unit.id == WorkOrder.unit_id,
     ).join(
         Property, Property.id == Unit.property_id,
     ).filter(
-        Occurrence.schedule_id == schedule.id,
-        Occurrence.organization_id == schedule.organization_id,
-        Occurrence.due_date <= as_of,
+        WorkOrder.id == candidate.work_order_id,
         WorkOrder.unit_id == schedule.unit_id,
         WorkOrder.property_id == schedule.property_id,
         Property.id == schedule.property_id,
         Property.organization_id == schedule.organization_id,
-    ).order_by(Occurrence.due_date.desc(), Occurrence.id.desc()).first()
+    ).first()
+    if order is None:
+        raise HTTPException(status_code=409, detail="Occurrence work-order integrity violation")
+    return order
 
 
 def generate_due(db: Session, actor: User, schedule_id: int, *, as_of: date):
