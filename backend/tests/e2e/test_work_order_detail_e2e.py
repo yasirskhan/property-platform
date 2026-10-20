@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import re
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -254,6 +255,7 @@ def test_crew_accepts_and_rejects_dispatch_with_audited_reassignment() -> None:
 
             first = dispatch("E2E crew accepts maintenance dispatch")
             second = dispatch("E2E crew rejects maintenance dispatch")
+            third = dispatch("E2E manager recalls maintenance dispatch")
 
             crew_page.goto(BASE_URL + "/login", wait_until="domcontentloaded")
             crew_page.locator('input[type="email"]').fill(email)
@@ -268,6 +270,11 @@ def test_crew_accepts_and_rejects_dispatch_with_audited_reassignment() -> None:
             crew_page.get_by_role("button", name="Accept assignment").click()
             pw.expect(crew_page.get_by_text("Work order assignment accepted.", exact=True)).to_be_visible(timeout=15_000)
             pw.expect(crew_page.get_by_role("button", name="Start work")).to_be_visible(timeout=15_000)
+            crew_page.get_by_label("Crew arrival ETA").fill(
+                (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M")
+            )
+            crew_page.get_by_role("button", name="Save arrival ETA").click()
+            pw.expect(crew_page.get_by_text("Crew arrival ETA saved.", exact=True)).to_be_visible(timeout=15_000)
             crew_page.get_by_role("button", name="Start work").click()
             pw.expect(crew_page.get_by_text("Work order started.", exact=True)).to_be_visible(timeout=15_000)
 
@@ -286,6 +293,20 @@ def test_crew_accepts_and_rejects_dispatch_with_audited_reassignment() -> None:
             assert after.json()["status"] == "acknowledged"
             assert after.json()["assigned_to_id"] is None
             assert after.json()["assignment_response"] == "rejected"
+
+            admin.goto(BASE_URL + "/dashboard/maintenance/work-orders/" + str(third),
+                       wait_until="domcontentloaded")
+            pw.expect(admin.get_by_role("heading", name=re.compile(r"Work order #" + str(third)))).to_be_visible(timeout=15_000)
+            admin.get_by_role("button", name="Recall assignment").click()
+            pw.expect(admin.get_by_role("button", name="Confirm assignment recall")).to_be_disabled()
+            admin.get_by_label("Reason for recalling assignment").fill("Crew unavailable for this repair")
+            admin.get_by_role("button", name="Confirm assignment recall").click()
+            pw.expect(admin.get_by_text("Work order crew assignment recalled for reassignment.", exact=True)).to_be_visible(timeout=15_000)
+            recalled = admin.request.get(API_URL + "/work-orders/" + str(third), headers=auth)
+            assert recalled.status == 200, recalled.text()
+            assert recalled.json()["status"] == "acknowledged"
+            assert recalled.json()["assigned_to_id"] is None
+            assert recalled.json()["assignment_response"] == "recalled"
         finally:
             crew_page.close()
             admin.close()

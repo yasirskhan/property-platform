@@ -88,6 +88,8 @@ class WorkOrder(Base):
     # NULL preserves legacy accepted-by-start assignments. New offers require a crew decision.
     assignment_response = Column(String(16), nullable=True)
     assignment_responded_at = Column(DateTime, nullable=True)
+    # UTC-naive storage; crew-submitted timestamp is validated as timezone aware.
+    crew_eta_at = Column(DateTime, nullable=True)
     # Explicit vendor COMPANY association independent of the assigned CREW user.
     vendor_id = Column(Integer, ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True, index=True)
 

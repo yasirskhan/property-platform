@@ -1,3 +1,27 @@
+## 2026-10-20 | ETA reset audit safety — PREPARED / CI GATED
+
+When staff reassign, recall or crew decline and the live ETA is cleared, the audit captures the old UTC timestamp and new NULL value, instead of silently losing historical arrival commitments. Backend regression verifies recall of a previously ETA-bearing accepted assignment, preserved old/new audit and safe new pending offer. This is a detached continuation of the unverified crew ETA candidate; publication and six-job CI remain mandatory.
+
+---
+
+## 2026-10-20 | Crew arrival ETA after acceptance — DETACHED / CI GATED
+
+Approved crew portal requirement: current property-authorized crew must first accept assignment, then may record/update a timezone-aware, future arrival ETA (bounded to 30 days) on an unstarted active-property/unit job. Timestamp is normalized to UTC on write and visible to authorized work-order viewers, with before/after append-only audit, activity and same-timestamp idempotency. A new/recalled/rejected dispatch clears the active ETA, preserving prior audit. New additive migration a6c8d0e24519 has guarded downgrade and SQLite/PostgreSQL/bootstrap checks; role, invalid ETA, status transition, browser save tests included. This feature does not provide an automatic tenant alert, ETA SLA promise, on-call rotation or GPS tracking. Prepared descendant, NOT published or verified until predecessor and successor six-job CI pass.
+
+---
+
+## 2026-10-20 | Revalidate active inventory at crew acceptance/start — DETACHED
+
+Regression closes the gap when a property or unit becomes inactive or soft-deleted AFTER an offer was made: active crew cannot accept or start new work until location is active again. Existing historic view and rejecting stale offers remain available; no financial posting or tenant consent is altered. Tests cover four retirement flags, accept, start, restoration and immutable audit count. Prepared descendant of the unverified staff recall candidate; hosted all-six CI required.
+
+---
+
+## 2026-10-20 | Staff recall of unstarted dispatch — DETACHED / CI GATED
+
+Authorized admin, owner or current-property manager can recall an unstarted crew offer (pending, accepted or historical NULL) with a required explanation. Row-lock serializes against crew accept/reject/start; recall returns the order to acknowledged, clears assignment and leaves distinct "recalled" response rather than falsely attributing a crew rejection. Activity and append-only old/new audit preserve actor, previous crew/response and reason in one transaction. Recalled work has scoped queue filter/summary, staff UI and browser/backend tests; tenant/crew/foreign/revoked manager cannot recall; started work is immutable to this operation. No funds, consent or recurring schedule are changed. Prepared successor of dispatch commit 4186419abd9213522b027d66af5311036ef3e4f3, not published or verified until predecessor and successor six-job CI pass.
+
+---
+
 ## 2026-10-20 | Crew dispatch CI regression expectation repair — CI GATED
 
 Hosted run 39431143778 at 4186419abd9213522b027d66af5311036ef3e4f3 failed backend only: the existing queue summary test still asserted exact old five-key dictionary after two new scoped pending/declined counters were added. The backend response itself is intended and the focused new filters/dispatch tests passed. Updated both owner/admin and manager expected dictionaries to contain the new counters at zero, retaining exact backwards-sensitive accounting and role scope assertions. Frontend, platform-admin and security passed; E2E/staging were skipped. Verify six jobs at the replacement exact SHA before promoting dependent recall/inventory safety/ETA candidates. No main or other branches modified.

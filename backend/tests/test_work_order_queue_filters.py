@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -12,14 +12,14 @@ from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
 from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
-from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, accept_work_order_assignment, reject_work_order_assignment, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
+from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, accept_work_order_assignment, reject_work_order_assignment, recall_work_order_assignment, update_crew_eta, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
 from app.models.audit_log import AuditLog
 from app.models.unit_inspection import UnitInspectionRecord
 from app.services import unit_inspections
 from app.routers.properties import check_property_access, visible_properties_query
 from app.routers.users import assign_user_to_property, list_assignments, remove_assignment, update_user, deactivate_user
 from app.models.lease import Lease, LeaseStatus
-from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderReject, WorkOrderCreate, WorkOrderComment, WorkOrderCancel
+from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderReject, WorkOrderRecall, WorkOrderEta, WorkOrderCreate, WorkOrderComment, WorkOrderCancel
 from app.schemas.user import UserUpdate
 from app.core import auth as auth_logic
 from app.core.security import create_access_token, create_two_factor_challenge_token
@@ -585,13 +585,13 @@ def test_queue_summary_enforces_roles_and_actual_property_organization():
         db.commit()
         assert work_order_queue_summary(db=db, current_user=admin) == {
             "open": 3, "emergency_open": 1, "awaiting_assignment": 1,
-            "pending_crew_response": 0, "declined_assignment": 0,
+            "pending_crew_response": 0, "declined_assignment": 0, "recalled_assignment": 0,
             "in_progress": 1, "ready_to_close": 0,
         }
         manager_counts = work_order_queue_summary(db=db, current_user=manager)
         assert manager_counts == {
             "open": 2, "emergency_open": 0, "awaiting_assignment": 1,
-            "pending_crew_response": 0, "declined_assignment": 0,
+            "pending_crew_response": 0, "declined_assignment": 0, "recalled_assignment": 0,
             "in_progress": 1, "ready_to_close": 0,
         }
         assert work_order_queue_summary(db=db, current_user=tenant) == manager_counts
@@ -1534,6 +1534,211 @@ def test_new_dispatch_refuses_retired_property_or_unit_without_audit_or_assignme
             entity_type="work_order", entity_id=row.id,
             action="crew_assignment",
         ).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_staff_recall_unstarted_crew_offer_records_distinct_audit_and_restores_queue():
+    db, engine, actors, _props, orders = _seed_queue()
+    try:
+        admin, manager, tenant, _other, crew, outsider = actors
+        row = orders[0]
+        row.status = WorkOrderStatus.ACKNOWLEDGED
+        row.assigned_to_id = None
+        db.commit()
+        assign_work_order(row.id, WorkOrderAssign(crew_user_id=crew.id),
+                          db=db, current_user=admin)
+        for nonstaff in (tenant, crew, outsider):
+            with pytest.raises(HTTPException) as forbidden:
+                recall_work_order_assignment(row.id, WorkOrderRecall(reason="Dispatch no longer required"),
+                                             db=db, current_user=nonstaff)
+            assert forbidden.value.status_code == 403
+        with pytest.raises(HTTPException) as empty_reason:
+            recall_work_order_assignment(row.id, WorkOrderRecall(reason="     "),
+                                         db=db, current_user=manager)
+        assert empty_reason.value.status_code == 422
+        assert row.assignment_response == "pending"
+        recalled = recall_work_order_assignment(
+            row.id, WorkOrderRecall(reason="Move crew to a higher priority repair"),
+            db=db, current_user=manager,
+        )
+        assert recalled.status == WorkOrderStatus.ACKNOWLEDGED
+        assert recalled.assigned_to_id is None and recalled.assigned_by_id is None
+        assert recalled.assignment_response == "recalled"
+        assert recalled.assignment_responded_at is not None
+        assert work_order_queue_summary(db=db, current_user=manager)["recalled_assignment"] == 1
+        assert [result.id for result in _queue(db, manager, assignment_response="recalled")] == [row.id]
+        with pytest.raises(HTTPException) as stale_crew:
+            accept_work_order_assignment(row.id, db=db, current_user=crew)
+        assert stale_crew.value.status_code == 403
+        with pytest.raises(HTTPException) as repeated:
+            recall_work_order_assignment(row.id, WorkOrderRecall(reason="Repeated staff recall"),
+                                         db=db, current_user=manager)
+        assert repeated.value.status_code == 409
+        events = db.query(AuditLog).filter_by(
+            entity_type="work_order", entity_id=row.id,
+            action="crew_assignment_recalled",
+        ).all()
+        assert len(events) == 1
+        assert json.loads(events[0].new_value)["reason"] == "Move crew to a higher priority repair"
+        assert json.loads(events[0].old_value)["assigned_to_id"] == crew.id
+        assigned = assign_work_order(row.id, WorkOrderAssign(crew_user_id=crew.id),
+                                     db=db, current_user=manager)
+        assert assigned.assignment_response == "pending"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_staff_recall_deny_started_and_revoked_manager_scope():
+    db, engine, actors, props, orders = _seed_queue()
+    try:
+        admin, manager, _tenant, _other, crew, _outsider = actors
+        row = orders[0]
+        row.status = WorkOrderStatus.ASSIGNED
+        row.assignment_response = "accepted"
+        db.commit()
+        manager_assignment = db.query(PropertyAssignment).filter_by(
+            property_id=props[0].id, user_id=manager.id,
+        ).one()
+        manager_assignment.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException) as revoked:
+            recall_work_order_assignment(row.id, WorkOrderRecall(reason="Manager is no longer assigned"),
+                                         db=db, current_user=manager)
+        assert revoked.value.status_code == 403
+        row.status = WorkOrderStatus.IN_PROGRESS
+        db.commit()
+        with pytest.raises(HTTPException) as started:
+            recall_work_order_assignment(row.id, WorkOrderRecall(reason="Attempted after start"),
+                                         db=db, current_user=admin)
+        assert started.value.status_code == 409
+        assert row.assigned_to_id == crew.id
+        assert db.query(AuditLog).filter_by(entity_type="work_order", entity_id=row.id,
+                                            action="crew_assignment_recalled").count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_dispatch_accept_and_start_recheck_active_property_unit_after_offer():
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, _manager, _tenant, _other, crew, _foreign = actors
+        row = orders[0]
+        row.status = WorkOrderStatus.ACKNOWLEDGED
+        row.assigned_to_id = None
+        db.commit()
+        assign_work_order(row.id, WorkOrderAssign(crew_user_id=crew.id),
+                          db=db, current_user=admin)
+        prop = properties[0]
+        unit = db.get(Unit, row.unit_id)
+        for state in ("property_inactive", "unit_inactive", "property_deleted", "unit_deleted"):
+            prop.is_active, prop.deleted_at = True, None
+            unit.is_active, unit.deleted_at = True, None
+            if state == "property_inactive":
+                prop.is_active = False
+            elif state == "unit_inactive":
+                unit.is_active = False
+            elif state == "property_deleted":
+                prop.deleted_at = datetime.utcnow()
+            else:
+                unit.deleted_at = datetime.utcnow()
+            db.commit()
+            with pytest.raises(HTTPException) as blocked:
+                accept_work_order_assignment(row.id, db=db, current_user=crew)
+            assert blocked.value.status_code == 409
+            assert row.assignment_response == "pending"
+        prop.is_active, prop.deleted_at = True, None
+        unit.is_active, unit.deleted_at = True, None
+        db.commit()
+        accepted = accept_work_order_assignment(row.id, db=db, current_user=crew)
+        assert accepted.assignment_response == "accepted"
+        prop.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException) as blocked_start:
+            start_work_order(row.id, db=db, current_user=crew)
+        assert blocked_start.value.status_code == 409
+        assert row.status == WorkOrderStatus.ASSIGNED
+        prop.is_active = True
+        db.commit()
+        assert start_work_order(row.id, db=db, current_user=crew).status == WorkOrderStatus.IN_PROGRESS
+        assert db.query(AuditLog).filter_by(entity_type="work_order", entity_id=row.id,
+                                            action="crew_assignment_accepted").count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_only_accepted_current_crew_can_set_future_audited_arrival_eta():
+    db, engine, actors, _properties, orders = _seed_queue()
+    try:
+        admin, manager, tenant, _other, crew, outsider = actors
+        row = orders[0]
+        row.status = WorkOrderStatus.ACKNOWLEDGED
+        row.assigned_to_id = None
+        db.commit()
+        assign_work_order(row.id, WorkOrderAssign(crew_user_id=crew.id),
+                          db=db, current_user=manager)
+        eta = datetime.now(timezone.utc) + timedelta(hours=12)
+        with pytest.raises(HTTPException) as pending:
+            update_crew_eta(row.id, WorkOrderEta(eta_at=eta), db=db, current_user=crew)
+        assert pending.value.status_code == 409
+        accept_work_order_assignment(row.id, db=db, current_user=crew)
+        for bad_actor in (admin, manager, tenant, outsider):
+            with pytest.raises(HTTPException) as blocked:
+                update_crew_eta(row.id, WorkOrderEta(eta_at=eta), db=db, current_user=bad_actor)
+            assert blocked.value.status_code == 403
+        for invalid in (datetime.utcnow(), datetime.now(timezone.utc) - timedelta(days=1),
+                        datetime.now(timezone.utc) + timedelta(days=31)):
+            with pytest.raises(HTTPException) as blocked:
+                update_crew_eta(row.id, WorkOrderEta(eta_at=invalid), db=db, current_user=crew)
+            assert blocked.value.status_code == 422
+        recorded = update_crew_eta(row.id, WorkOrderEta(eta_at=eta), db=db, current_user=crew)
+        assert recorded.crew_eta_at == eta.astimezone(timezone.utc).replace(tzinfo=None)
+        update_crew_eta(row.id, WorkOrderEta(eta_at=eta), db=db, current_user=crew)
+        assert db.query(AuditLog).filter_by(
+            entity_type="work_order", entity_id=row.id, action="crew_eta_updated",
+        ).count() == 1
+        assert start_work_order(row.id, db=db, current_user=crew).status == WorkOrderStatus.IN_PROGRESS
+        with pytest.raises(HTTPException):
+            update_crew_eta(row.id, WorkOrderEta(eta_at=eta + timedelta(hours=1)),
+                            db=db, current_user=crew)
+        assert row.crew_eta_at is not None
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_staff_recall_clears_eta_with_previously_promised_time_in_audit():
+    db, engine, actors, _props, orders = _seed_queue()
+    try:
+        admin, manager, _tenant, _other, crew, _outsider = actors
+        row = orders[0]
+        row.status = WorkOrderStatus.ACKNOWLEDGED
+        row.assigned_to_id = None
+        db.commit()
+        assign_work_order(row.id, WorkOrderAssign(crew_user_id=crew.id),
+                          db=db, current_user=admin)
+        accept_work_order_assignment(row.id, db=db, current_user=crew)
+        estimate = datetime.now(timezone.utc) + timedelta(hours=8)
+        update_crew_eta(row.id, WorkOrderEta(eta_at=estimate), db=db, current_user=crew)
+        previous = estimate.astimezone(timezone.utc).replace(tzinfo=None).isoformat() + "Z"
+        recalled = recall_work_order_assignment(
+            row.id, WorkOrderRecall(reason="Urgent crew reallocation"),
+            db=db, current_user=manager,
+        )
+        assert recalled.crew_eta_at is None
+        audit = db.query(AuditLog).filter_by(
+            entity_type="work_order", entity_id=row.id, action="crew_assignment_recalled",
+        ).one()
+        assert json.loads(audit.old_value)["crew_eta_at"] == previous
+        assert json.loads(audit.new_value)["crew_eta_at"] is None
+        restarted = assign_work_order(row.id, WorkOrderAssign(crew_user_id=crew.id),
+                                      db=db, current_user=manager)
+        assert restarted.crew_eta_at is None
+        assert restarted.assignment_response == "pending"
     finally:
         db.close()
         engine.dispose()

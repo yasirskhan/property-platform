@@ -24,7 +24,7 @@
 # ============================================================
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Annotated, List, Literal
 
@@ -58,6 +58,8 @@ from app.schemas.work_order import (
     WorkOrderUpdateFields,
     WorkOrderAssign,
     WorkOrderReject,
+    WorkOrderRecall,
+    WorkOrderEta,
     WorkOrderVendorAssign,
     WorkOrderVendorOut,
     WorkOrderComplete,
@@ -120,6 +122,18 @@ def _get_property_for_work_order(db: Session, wo: WorkOrder) -> Property:
     prop = db.query(Property).filter(Property.id == unit.property_id).first()
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
+    return prop
+
+
+def _require_active_dispatch_location(db: Session, wo: WorkOrder) -> Property:
+    """Fail closed when property/unit retires between dispatch and crew start."""
+    prop = _get_property_for_work_order(db, wo)
+    if (not prop.is_active or prop.deleted_at is not None
+            or db.query(Unit.id).filter(
+                Unit.id == wo.unit_id, Unit.property_id == prop.id,
+                Unit.is_active.is_(True), Unit.deleted_at.is_(None),
+            ).first() is None):
+        raise HTTPException(status_code=409, detail="Cannot dispatch or start at inactive property or unit")
     return prop
 
 
@@ -353,7 +367,7 @@ def list_work_orders(
     status: WorkOrderStatus | None = None,
     priority: WorkOrderPriority | None = None,
     category: WorkOrderCategory | None = None,
-    assignment_response: Literal["pending", "accepted", "rejected", "legacy"] | None = None,
+    assignment_response: Literal["pending", "accepted", "rejected", "recalled", "legacy"] | None = None,
     property_id: Annotated[int | None, Query(ge=1)] = None,
     search: Annotated[str | None, Query(min_length=2, max_length=80)] = None,
     limit: Annotated[int | None, Query(ge=1, le=200)] = None,
@@ -392,7 +406,7 @@ def list_work_orders(
                 Property.name.icontains(phrase, autoescape=True),
                 Unit.unit_number.icontains(phrase, autoescape=True),
             ))
-    if assignment_response in ("pending", "rejected"):
+    if assignment_response in ("pending", "rejected", "recalled"):
         urgency = case(
             (WorkOrder.priority == WorkOrderPriority.EMERGENCY, 0),
             (WorkOrder.priority == WorkOrderPriority.HIGH, 1),
@@ -450,6 +464,7 @@ def work_order_queue_summary(
         "awaiting_assignment": count(visible.filter(WorkOrder.status == WorkOrderStatus.ACKNOWLEDGED, WorkOrder.assigned_to_id.is_(None))),
         "pending_crew_response": count(visible.filter(WorkOrder.status == WorkOrderStatus.ASSIGNED, WorkOrder.assignment_response == "pending")),
         "declined_assignment": count(visible.filter(WorkOrder.status == WorkOrderStatus.ACKNOWLEDGED, WorkOrder.assignment_response == "rejected")),
+        "recalled_assignment": count(visible.filter(WorkOrder.status == WorkOrderStatus.ACKNOWLEDGED, WorkOrder.assignment_response == "recalled")),
         "in_progress": count(visible.filter(WorkOrder.status == WorkOrderStatus.IN_PROGRESS)),
         "ready_to_close": count(visible.filter(WorkOrder.status == WorkOrderStatus.COMPLETED)),
     }
@@ -790,14 +805,8 @@ def assign_work_order(
     if (not crew or crew.role != UserRole.CREW or not crew.is_active
             or crew.deleted_at is not None):
         raise HTTPException(status_code=400, detail="Invalid or inactive crew member")
-    prop = _get_property_for_work_order(db, wo)
-    # Historical orders remain readable, but a new crew offer must never
-    # dispatch work to retired property inventory.
-    if not prop.is_active or prop.deleted_at is not None or db.query(Unit.id).filter(
-        Unit.id == wo.unit_id, Unit.property_id == prop.id,
-        Unit.is_active.is_(True), Unit.deleted_at.is_(None),
-    ).first() is None:
-        raise HTTPException(status_code=409, detail="Cannot dispatch to inactive property or unit")
+    # Both original offers and later crew execution revalidate live inventory.
+    prop = _require_active_dispatch_location(db, wo)
     if crew.organization_id != prop.organization_id:
         raise HTTPException(status_code=403, detail="Crew member is not in this organization")
 
@@ -818,11 +827,13 @@ def assign_work_order(
 
     old = wo.status
     previous_crew_id = wo.assigned_to_id
+    previous_eta = wo.crew_eta_at.isoformat() + "Z" if wo.crew_eta_at is not None else None
     wo.assigned_to_id = crew.id
     wo.assigned_at = datetime.utcnow()
     wo.assigned_by_id = current_user.id
     wo.assignment_response = "pending"
     wo.assignment_responded_at = None
+    wo.crew_eta_at = None
     wo.status = WorkOrderStatus.ASSIGNED
 
     _log_update(
@@ -833,8 +844,8 @@ def assign_work_order(
     append_audit_log(
         db, user_id=current_user.id, organization_id=current_user.organization_id,
         entity_type="work_order", entity_id=wo.id, action="crew_assignment",
-        old_value={"assigned_to_id": previous_crew_id},
-        new_value={"assigned_to_id": crew.id, "assignment_response": "pending"},
+        old_value={"assigned_to_id": previous_crew_id, "crew_eta_at": previous_eta},
+        new_value={"assigned_to_id": crew.id, "assignment_response": "pending", "crew_eta_at": None},
     )
     db.commit()
     db.refresh(wo)
@@ -872,6 +883,7 @@ def accept_work_order_assignment(
         return wo
     if wo.assignment_response != "pending":
         raise HTTPException(status_code=409, detail="This assignment is not awaiting acceptance")
+    _require_active_dispatch_location(db, wo)
     wo.assignment_response = "accepted"
     wo.assignment_responded_at = datetime.utcnow()
     _log_update(db, wo, current_user, message="Crew accepted assignment")
@@ -901,11 +913,13 @@ def reject_work_order_assignment(
         raise HTTPException(status_code=422, detail="Provide a 5-1000 character rejection reason")
     prior_status = wo.status
     previous_crew = wo.assigned_to_id
+    previous_eta = wo.crew_eta_at.isoformat() + "Z" if wo.crew_eta_at is not None else None
     wo.assigned_to_id = None
     wo.assigned_at = None
     wo.assigned_by_id = None
     wo.assignment_response = "rejected"
     wo.assignment_responded_at = datetime.utcnow()
+    wo.crew_eta_at = None
     wo.status = WorkOrderStatus.ACKNOWLEDGED
     _log_update(
         db, wo, current_user,
@@ -916,8 +930,93 @@ def reject_work_order_assignment(
     append_audit_log(
         db, user_id=current_user.id, organization_id=current_user.organization_id,
         entity_type="work_order", entity_id=wo.id, action="crew_assignment_rejected",
-        old_value={"assigned_to_id": previous_crew, "response": "pending"},
-        new_value={"assigned_to_id": None, "response": "rejected", "reason": reason},
+        old_value={"assigned_to_id": previous_crew, "response": "pending", "crew_eta_at": previous_eta},
+        new_value={"assigned_to_id": None, "response": "rejected", "reason": reason, "crew_eta_at": None},
+    )
+    db.commit()
+    db.refresh(wo)
+    return wo
+
+
+# ------------------------------------------------------------
+# STAFF RECALL OF UNSTARTED CREW OFFER
+# ------------------------------------------------------------
+@router.post("/{wo_id}/recall", response_model=WorkOrderOut)
+def recall_work_order_assignment(
+    wo_id: int,
+    payload: WorkOrderRecall,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Withdraw unstarted dispatch without cancelling the work order or blaming crew."""
+    _require_role(current_user, UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER)
+    wo = db.query(WorkOrder).filter(WorkOrder.id == wo_id).with_for_update().first()
+    if wo is None:
+        raise HTTPException(status_code=404, detail="Work order not found")
+    _check_access(db, current_user, wo)
+    if (wo.status != WorkOrderStatus.ASSIGNED or wo.assigned_to_id is None
+            or wo.assignment_response not in (None, "pending", "accepted")):
+        raise HTTPException(status_code=409, detail="Only an unstarted assigned crew dispatch can be recalled")
+    reason = payload.reason.strip()
+    if not 5 <= len(reason) <= 1000:
+        raise HTTPException(status_code=422, detail="Provide a 5-1000 character recall reason")
+    previous_crew = wo.assigned_to_id
+    previous_response = wo.assignment_response
+    wo.assigned_to_id = None
+    wo.assigned_at = None
+    wo.assigned_by_id = None
+    wo.assignment_response = "recalled"
+    wo.assignment_responded_at = datetime.utcnow()
+    previous_eta = wo.crew_eta_at.isoformat() + "Z" if wo.crew_eta_at is not None else None
+    wo.crew_eta_at = None
+    wo.status = WorkOrderStatus.ACKNOWLEDGED
+    _log_update(
+        db, wo, current_user, from_status=WorkOrderStatus.ASSIGNED,
+        to_status=wo.status, message="Staff recalled crew assignment: " + reason,
+        audit_reason=reason,
+    )
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=current_user.organization_id,
+        entity_type="work_order", entity_id=wo.id, action="crew_assignment_recalled",
+        old_value={"assigned_to_id": previous_crew, "response": previous_response, "crew_eta_at": previous_eta},
+        new_value={"assigned_to_id": None, "response": "recalled", "reason": reason, "crew_eta_at": None},
+    )
+    db.commit()
+    db.refresh(wo)
+    return wo
+
+
+# ------------------------------------------------------------
+# CREW ARRIVAL ETA AFTER ACCEPTANCE
+# ------------------------------------------------------------
+@router.post("/{wo_id}/eta", response_model=WorkOrderOut)
+def update_crew_eta(
+    wo_id: int,
+    payload: WorkOrderEta,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    wo = _crew_assignment_for_decision(db, wo_id, current_user)
+    if wo.assignment_response != "accepted":
+        raise HTTPException(status_code=409, detail="Accept assignment before setting arrival ETA")
+    _require_active_dispatch_location(db, wo)
+    if payload.eta_at.tzinfo is None or payload.eta_at.utcoffset() is None:
+        raise HTTPException(status_code=422, detail="Arrival ETA requires a timezone offset")
+    utc = datetime.now(timezone.utc)
+    provided = payload.eta_at.astimezone(timezone.utc)
+    if not utc < provided <= utc + timedelta(days=30):
+        raise HTTPException(status_code=422, detail="Arrival ETA must be future and within 30 days")
+    normalized = provided.replace(tzinfo=None)
+    if wo.crew_eta_at == normalized:
+        return wo
+    previous = wo.crew_eta_at.isoformat() + "Z" if wo.crew_eta_at is not None else None
+    wo.crew_eta_at = normalized
+    _log_update(db, wo, current_user, message="Crew updated estimated arrival (UTC): " + normalized.isoformat() + "Z")
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=current_user.organization_id,
+        entity_type="work_order", entity_id=wo.id, action="crew_eta_updated",
+        old_value={"crew_eta_at": previous},
+        new_value={"crew_eta_at": normalized.isoformat() + "Z"},
     )
     db.commit()
     db.refresh(wo)
@@ -950,6 +1049,7 @@ def start_work_order(
         raise HTTPException(status_code=409, detail="Crew must accept the assignment before starting")
     if wo.assignment_response not in (None, "accepted"):
         raise HTTPException(status_code=409, detail="Only accepted or historical assignments can start")
+    _require_active_dispatch_location(db, wo)
 
     old = wo.status
     wo.status = WorkOrderStatus.IN_PROGRESS

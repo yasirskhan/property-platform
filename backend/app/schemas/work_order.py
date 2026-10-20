@@ -66,6 +66,16 @@ class WorkOrderReject(BaseModel):
     reason: str = Field(..., min_length=5, max_length=1000)
 
 
+class WorkOrderEta(BaseModel):
+    """Arrival estimate submitted only by the currently accepted crew."""
+    eta_at: datetime
+
+
+class WorkOrderRecall(BaseModel):
+    """Staff withdrawal of an unstarted crew offer (never a crew rejection)."""
+    reason: str = Field(..., min_length=5, max_length=1000)
+
+
 class WorkOrderAssign(BaseModel):
     """Payload to assign a work order to a crew member."""
     crew_user_id: int
@@ -105,6 +115,7 @@ class WorkOrderOut(BaseModel):
     assigned_by_id: Optional[int] = None
     assignment_response: Optional[str] = None
     assignment_responded_at: Optional[datetime] = None
+    crew_eta_at: Optional[datetime] = None
 
     title: str
     description: str

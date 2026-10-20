@@ -9,7 +9,7 @@ const STATUSES = ["submitted", "acknowledged", "assigned", "in_progress", "compl
 const PRIORITIES = ["low", "medium", "high", "emergency"];
 const CATEGORIES = ["plumbing", "electrical", "hvac", "appliance", "general", "pest", "cleaning", "landscaping", "other"];
 
-type QueueSummary = { open: number; emergency_open: number; awaiting_assignment: number; pending_crew_response: number; declined_assignment: number; in_progress: number; ready_to_close: number };
+type QueueSummary = { open: number; emergency_open: number; awaiting_assignment: number; pending_crew_response: number; declined_assignment: number; recalled_assignment: number; in_progress: number; ready_to_close: number };
 
 type WorkOrder = {
   id: number;
@@ -180,6 +180,7 @@ export default function WorkOrderQueuePage() {
               ["Awaiting assignment", summary.awaiting_assignment],
               ["Pending crew decision", summary.pending_crew_response],
               ["Declined assignments", summary.declined_assignment],
+              ["Recalled assignments", summary.recalled_assignment],
               ["In progress", summary.in_progress],
               ["Ready to close", summary.ready_to_close],
             ].map(([label, value]) => (
@@ -257,6 +258,7 @@ export default function WorkOrderQueuePage() {
               <option value="pending">Awaiting acceptance</option>
               <option value="accepted">Accepted</option>
               <option value="rejected">Rejected</option>
+              <option value="recalled">Recalled by staff</option>
               <option value="legacy">Historical without response</option>
             </select>
           </label>

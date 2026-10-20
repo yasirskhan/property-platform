@@ -1,3 +1,21 @@
+## 2026-10-20 | Crew arrival ETA after acceptance — DETACHED / CI GATED
+
+Approved crew portal requirement: current property-authorized crew must first accept assignment, then may record/update a timezone-aware, future arrival ETA (bounded to 30 days) on an unstarted active-property/unit job. Timestamp is normalized to UTC on write and visible to authorized work-order viewers, with before/after append-only audit, activity and same-timestamp idempotency. A new/recalled/rejected dispatch clears the active ETA, preserving prior audit. New additive migration a6c8d0e24519 has guarded downgrade and SQLite/PostgreSQL/bootstrap checks; role, invalid ETA, status transition, browser save tests included. This feature does not provide an automatic tenant alert, ETA SLA promise, on-call rotation or GPS tracking. Prepared descendant, NOT published or verified until predecessor and successor six-job CI pass.
+
+---
+
+## 2026-10-20 | Revalidate active inventory at crew acceptance/start — DETACHED
+
+Regression closes the gap when a property or unit becomes inactive or soft-deleted AFTER an offer was made: active crew cannot accept or start new work until location is active again. Existing historic view and rejecting stale offers remain available; no financial posting or tenant consent is altered. Tests cover four retirement flags, accept, start, restoration and immutable audit count. Prepared descendant of the unverified staff recall candidate; hosted all-six CI required.
+
+---
+
+## 2026-10-20 | Staff recall of unstarted dispatch — DETACHED / CI GATED
+
+Authorized admin, owner or current-property manager can recall an unstarted crew offer (pending, accepted or historical NULL) with a required explanation. Row-lock serializes against crew accept/reject/start; recall returns the order to acknowledged, clears assignment and leaves distinct "recalled" response rather than falsely attributing a crew rejection. Activity and append-only old/new audit preserve actor, previous crew/response and reason in one transaction. Recalled work has scoped queue filter/summary, staff UI and browser/backend tests; tenant/crew/foreign/revoked manager cannot recall; started work is immutable to this operation. No funds, consent or recurring schedule are changed. Prepared successor of dispatch commit 4186419abd9213522b027d66af5311036ef3e4f3, not published or verified until predecessor and successor six-job CI pass.
+
+---
+
 ## Phase 5 operational recovery and crew decisions (2026-10-20)
 
 Preventive execution becomes transferable without rewriting immutable creator attribution. The per-schedule execution operator is scoped to the actual organization/property and validated on each daily sweep; staff have read-only execution health and an audited recovery action. Migration `c4b7e2f9a601` and browser/backend regressions await exact hosted CI verification.

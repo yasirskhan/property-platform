@@ -10,7 +10,7 @@ import pytest
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = BACKEND_ROOT / "tests" / "fixtures" / "pre_alembic_1d77_schema.sql"
-EXPECTED_HEAD = "e1b9c7d2a540"
+EXPECTED_HEAD = "a6c8d0e24519"
 EXPECTED_MODEL_TABLES = 204
 
 
@@ -69,6 +69,7 @@ def test_fresh_database_bootstrap_creates_current_schema_and_stamps_head(
         assert "source_inspection_id" in columns
         assert columns["assignment_response"][3] == 0
         assert columns["assignment_responded_at"][3] == 0
+        assert columns["crew_eta_at"][3] == 0
         assert columns["source_inspection_id"][3] == 0
         assert any(
             row[3] == "source_inspection_id"

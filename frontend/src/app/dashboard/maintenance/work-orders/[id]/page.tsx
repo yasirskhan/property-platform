@@ -31,7 +31,8 @@ type WorkOrder = {
   permission_to_enter: boolean;
   entry_notes: string | null;
   assigned_to_id: number | null;
-  assignment_response?: "pending" | "accepted" | "rejected" | null;
+  assignment_response?: "pending" | "accepted" | "rejected" | "recalled" | null;
+  crew_eta_at?: string | null;
   resolution_notes: string | null;
   created_at: string;
   updated_at: string;
@@ -44,6 +45,7 @@ export default function WorkOrderDetailPage() {
   const [order, setOrder] = useState<WorkOrder | null>(null);
   const [viewer, setViewer] = useState<{ id: number; role: string } | null>(null);
   const [completionNotes, setCompletionNotes] = useState("");
+  const [etaDraft, setEtaDraft] = useState("");
   const [crew, setCrew] = useState<{ id: number; name: string }[]>([]);
   const [crewId, setCrewId] = useState("");
   const [crewLoading, setCrewLoading] = useState(false);
@@ -55,6 +57,8 @@ export default function WorkOrderDetailPage() {
   const [notice, setNotice] = useState("");
   const [rejectRequested, setRejectRequested] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [recallRequested, setRecallRequested] = useState(false);
+  const [recallReason, setRecallReason] = useState("");
   const [cancelRequested, setCancelRequested] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
 
@@ -158,7 +162,7 @@ export default function WorkOrderDetailPage() {
     }
   }
 
-  async function advanceStatus(action: "acknowledge" | "accept" | "reject" | "start" | "complete" | "close" | "cancel") {
+  async function advanceStatus(action: "acknowledge" | "accept" | "reject" | "recall" | "start" | "complete" | "close" | "cancel") {
     if (!order || saving) return;
     setSaving(true);
     setError("");
@@ -167,12 +171,14 @@ export default function WorkOrderDetailPage() {
       const data = action === "complete"
         ? { resolution_notes: completionNotes.trim() || null }
         : action === "cancel" ? { reason: cancelReason.trim() }
+        : action === "recall" ? { reason: recallReason.trim() }
         : action === "reject" ? { reason: rejectReason.trim() } : undefined;
       const persisted = await apiPost("/work-orders/" + order.id + "/" + action, data) as WorkOrder;
       const expected = {
         acknowledge: "acknowledged",
         accept: "assigned",
         reject: "acknowledged",
+        recall: "acknowledged",
         start: "in_progress",
         complete: "completed",
         close: "closed",
@@ -191,12 +197,14 @@ export default function WorkOrderDetailPage() {
       } : previous);
       if (action === "complete") setCompletionNotes("");
       if (action === "reject") { setRejectRequested(false); setRejectReason(""); }
+      if (action === "recall") { setRecallRequested(false); setRecallReason(""); }
       if (action === "cancel") {
         setCancelRequested(false);
         setCancelReason("");
       }
       setNotice("Work order " + (action === "acknowledge" ? "acknowledged" :
         action === "accept" ? "assignment accepted" : action === "reject" ? "assignment rejected for reassignment" :
+        action === "recall" ? "crew assignment recalled for reassignment" :
         action === "start" ? "started" : action === "complete" ? "completed" :
         action === "cancel" ? "cancelled" : "closed") + ".");
       // Fetch the authoritative activity log opportunistically, never as a
@@ -209,6 +217,38 @@ export default function WorkOrderDetailPage() {
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to update the work order.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveArrivalEta() {
+    if (!order || saving) return;
+    const local = new Date(etaDraft);
+    if (!etaDraft || Number.isNaN(local.getTime()) || local.getTime() <= Date.now()) {
+      setError("Choose a future arrival date and time.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const updated = await apiPost("/work-orders/" + order.id + "/eta", {
+        eta_at: local.toISOString(),
+      }) as WorkOrder;
+      if (!updated || updated.id !== order.id || !updated.crew_eta_at)
+        throw new Error("Unexpected crew arrival ETA response.");
+      setOrder((previous) => previous ? { ...previous, crew_eta_at: updated.crew_eta_at } : previous);
+      setEtaDraft("");
+      setNotice("Crew arrival ETA saved.");
+      try {
+        const fresh = await apiGet("/work-orders/" + order.id) as WorkOrder;
+        if (fresh.id === order.id && Array.isArray(fresh.updates)) setOrder(fresh);
+      } catch {
+        // The successful ETA POST is authoritative even if activity reload fails.
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to record arrival ETA.");
     } finally {
       setSaving(false);
     }
@@ -266,6 +306,7 @@ export default function WorkOrderDetailPage() {
               </span>
             </div>
             <p className="mt-4 whitespace-pre-wrap text-sm text-slate-800">{order.description}</p>
+            {order.crew_eta_at && <p className="mt-2 text-sm font-semibold">Crew arrival estimate: {new Date(order.crew_eta_at + "Z").toLocaleString()}</p>}
             <p className="mt-4 text-xs text-slate-500">Submitted {new Date(order.created_at).toLocaleString()}</p>
             <p className="mt-2 text-xs text-slate-600">
               Request source: {order.request_origin === "staff" ? "Staff request" : order.request_origin === "tenant" ? "Tenant request" : "Historical source not verified"}
@@ -356,10 +397,50 @@ export default function WorkOrderDetailPage() {
               {order.status === "assigned" && order.assignment_response === "pending"
                 && ["ADMIN", "OWNER", "MANAGER"].includes(String(viewer?.role || "").toUpperCase())
                 && <p className="text-sm">Awaiting crew acceptance. Reassignment is available before work starts.</p>}
+              {order.status === "assigned" && ["ADMIN", "OWNER", "MANAGER"].includes(String(viewer?.role || "").toUpperCase())
+                && (
+                  recallRequested ? (
+                    <div className="w-full space-y-2 rounded-lg border p-3">
+                      <p className="text-sm">Recall the unstarted crew assignment; the work order stays open for reassignment.</p>
+                      <label className="block text-sm">Reason for recalling assignment
+                        <textarea aria-label="Reason for recalling assignment" required minLength={5} maxLength={1000}
+                          value={recallReason} disabled={saving} rows={2}
+                          onChange={(event) => setRecallReason(event.target.value)}
+                          className="mt-1 block w-full rounded-lg border p-2" />
+                      </label>
+                      <button disabled={saving || recallReason.trim().length < 5}
+                        onClick={() => void advanceStatus("recall")}
+                        className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
+                        Confirm assignment recall
+                      </button>
+                      <button disabled={saving} onClick={() => { setRecallRequested(false); setRecallReason(""); }}
+                        className="ml-2 rounded-lg border px-3 py-2 text-sm">Keep crew assignment</button>
+                    </div>
+                  ) : (
+                    <button disabled={saving} onClick={() => setRecallRequested(true)}
+                      className="rounded-lg border px-4 py-2 text-sm disabled:opacity-50">
+                      Recall assignment
+                    </button>
+                  )
+                )}
               {viewer?.role?.toUpperCase() === "CREW" && order.assigned_to_id === viewer.id
                 && order.status === "assigned" && order.assignment_response !== "pending" && (
                   <button disabled={saving} onClick={() => void advanceStatus("start")}
                     className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50">Start work</button>
+                )}
+              {viewer?.role?.toUpperCase() === "CREW" && order.assigned_to_id === viewer.id
+                && order.status === "assigned" && order.assignment_response === "accepted" && (
+                  <div className="w-full space-y-2 rounded-lg border p-3">
+                    <label className="block text-sm">Crew arrival ETA
+                      <input type="datetime-local" aria-label="Crew arrival ETA" value={etaDraft}
+                        onChange={(event) => setEtaDraft(event.target.value)}
+                        disabled={saving} className="mt-1 block rounded-lg border p-2" />
+                    </label>
+                    <button disabled={saving || !etaDraft} onClick={() => void saveArrivalEta()}
+                      className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
+                      Save arrival ETA
+                    </button>
+                  </div>
                 )}
               {viewer?.role?.toUpperCase() === "CREW" && order.assigned_to_id === viewer.id
                 && order.status === "in_progress" && (
