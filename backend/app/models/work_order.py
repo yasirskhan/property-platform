@@ -233,3 +233,22 @@ _SQLITE_TIME_DELETE = DDL("""
 
 for guard in (_POSTGRES_TIME_FUNCTION, _POSTGRES_TIME_TRIGGER, _SQLITE_TIME_UPDATE, _SQLITE_TIME_DELETE):
     event.listen(WorkOrderTimeEntry.__table__, "after_create", guard)
+
+
+class MaintenanceOnCallShift(Base):
+    """Property-level on-call primary crew; schedule alone never dispatches."""
+    __tablename__ = "maintenance_on_call_shifts"
+    __table_args__ = (
+        CheckConstraint("ends_at > starts_at", name="ck_on_call_shift_order"),
+    )
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="RESTRICT"), nullable=False, index=True)
+    crew_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    starts_at = Column(DateTime, nullable=False)
+    ends_at = Column(DateTime, nullable=False)
+    created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    cancelled_at = Column(DateTime, nullable=True)
+    cancelled_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    cancellation_reason = Column(String(1000), nullable=True)

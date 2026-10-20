@@ -100,6 +100,33 @@ class PendingCrewTimeCorrectionOut(BaseModel):
     created_at: datetime
 
 
+class MaintenanceOnCallShiftCreate(BaseModel):
+    crew_user_id: int = Field(..., ge=1)
+    starts_at: datetime
+    ends_at: datetime
+
+
+class MaintenanceOnCallShiftCancel(BaseModel):
+    reason: str = Field(..., min_length=5, max_length=1000)
+
+
+class MaintenanceOnCallShiftOut(BaseModel):
+    id: int
+    organization_id: int
+    property_id: int
+    crew_user_id: int
+    starts_at: datetime
+    ends_at: datetime
+    created_by_user_id: Optional[int] = None
+    created_at: datetime
+    cancelled_at: Optional[datetime] = None
+    cancelled_by_user_id: Optional[int] = None
+    cancellation_reason: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 class MaintenanceVendorPreferencesUpdate(BaseModel):
     vendor_ids: List[int] = Field(..., max_length=3)
 

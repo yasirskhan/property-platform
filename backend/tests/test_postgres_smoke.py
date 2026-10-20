@@ -10,8 +10,8 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import DBAPIError
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_HEAD = "d3f7c0a198be"
-EXPECTED_MODEL_TABLES = 207
+EXPECTED_HEAD = "a0c7d4e19f32"
+EXPECTED_MODEL_TABLES = 208
 
 
 @pytest.mark.integration
@@ -61,6 +61,9 @@ def test_postgres_fresh_bootstrap_when_ci_database_is_available() -> None:
         assert cols["assignment_response"]["nullable"] is True
         assert cols["assignment_responded_at"]["nullable"] is True
         assert cols["crew_eta_at"]["nullable"] is True
+        assert "maintenance_on_call_shifts" in tables
+        assert any(fk["referred_table"] == "users" and fk["constrained_columns"] == ["crew_user_id"]
+                   for fk in inspect(engine).get_foreign_keys("maintenance_on_call_shifts"))
         assert "maintenance_preferred_vendors" in tables
         assert any(fk["referred_table"] == "vendors"
                    and fk["constrained_columns"] == ["vendor_id"]
