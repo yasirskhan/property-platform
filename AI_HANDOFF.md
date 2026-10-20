@@ -1,3 +1,11 @@
+# 2026-10-20 | PREVENTIVE REPLAY INTEGRITY + DUE PREVIEW — CI GATED
+
+Published base `0ea3c66fd04e27ffb083c63d706530a65e360686` protects replay of previously generated preventive work orders: every occurrence revalidates actual Unit→Property→Organization against its schedule rather than returning a possibly corrupted historical reference. Hosted CI `39371007887` is required to pass all six jobs at exact SHA. Prepared descendant `2d61d17587860de9f6c58e936e6f02616e5e3d6b` strengthens fail-closed latest-occurrence checks (including mismatched occurrence organization, same-organization other-unit links and no fallback to an older clean occurrence) and adds staff-only, read-only bounded backlog preview `GET /api/maintenance/preventive/schedules/{id}/due-preview`, staff preview panel and authenticated E2E. The preview checks current actor, org and active unit/property, returns at most 120 dates (default 12), respects paused schedule and end date, rejects future execution preview, creates no work orders and posts no financial transactions.
+
+Do NOT promote this descendant until base CI succeeds, live HEAD equals expected parent and CAS nonforce advance succeeds. Then verify all six jobs on successor SHA and update register/handoff. Full dispatch, inventory and purchasing are not complete. Do not change main or Zargul.
+
+---
+
 # 2026-10-20 | PREVENTIVE OCCURRENCE HISTORY PAGING — DETACHED / CI GATED
 
 Prepared successor `f231f3a83f361ae5c1c51ab4b0b59278761bcd21`: staff UI uses existing role/property-scoped occurrence list API with bounded offset paging and deduplication; backend regression covers chronology, authorization and page boundaries. This follows pause-only auditable schedule settings, end-date cutoffs, historical archived schedule access. Published base `e8ca6888903b517427e6e6902e77ef3fd041206f` passed CI `39366507342` all six jobs. Before publishing inspect exact live HEAD then non-force expected-SHA CAS; successor CI required. Full dispatch, inventory and purchasing are not delivered.

@@ -531,3 +531,7 @@ Historical schedules and occurrence work-order references remain readable by cur
 ## Phase 5 preventive occurrence history paging (2026-10-20; detached)
 
 Staff can load older recurring work-order occurrences in bounded authorized pages, with deduplication and chronological ordering. The history API already enforced unit/property/org scope; backend tests cover pagination and tenant denial. Exact successor six-job CI remains mandatory. Purchase orders, inventory and full dispatch still remain open.
+
+## Phase 5 preventive due preview (prepared; CI gate)
+
+Staff may preview bounded due dates of a current active preventive schedule without creating work orders or financial entries. Pending preview never authorizes entry, vendor dispatch or tenant billing. Corrupted occurrence replay must not reveal other organization's work. All-six exact-SHA CI pending; inventory and purchasing still outstanding.

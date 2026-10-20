@@ -860,3 +860,5 @@ access boundary.
 | Phase 5 retired preventive history retention | capability | /dashboard/maintenance/preventive | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 detached, CI gated | Read-only schedules/occurrences for archived units with live org/manager assignment checks; creation, modification and generation stay blocked |
 
 | Phase 5 preventive occurrence history pagination | capability | /dashboard/maintenance/preventive | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 detached, CI gated | Authorized paginated occurrence history in staff UI; stable due-date ordering, load-older and deduplication, tenant and cross-org denial unchanged |
+
+| Phase 5 preventive due backlog preview | capability | /dashboard/maintenance/preventive | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 prepared, CI gated | Staff-scoped bounded read-only schedule due-date preview, pause/end cutoff, no work order or finance writes, backend/browser regressions |

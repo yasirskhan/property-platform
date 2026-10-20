@@ -559,3 +559,7 @@ Read-only authorized schedule lists/details and occurrence history remain access
 ## Paged preventive occurrence history (detached; hosted CI gate)
 
 The staff preventive schedules page retrieves past occurrence/work-order links in bounded role-scoped pages of up to 100 with stable descending order and ID deduplication. The existing backend authorization remains mandatory for every page, including archived inventory only for authorized managers/admins; tests verify pagination, history integrity and tenant denial. This does not authorize automatic dispatch or financial posting.
+
+## Preventive occurrence replay integrity and due-preview (2026-10-20; CI gated)
+
+Published work-order replay path refuses to reveal schedule mismatched or foreign-property/organization data. Prepared regression extensions refuse corrupt occurrence organization and later corrupted occurrences without falling back to older history. Read-only role-scoped `due-preview` evaluates pending dates (max 120), active state and end cutoff, without persistence or dispatch. Responsive staff page exposes a preview before manual generation. Must verify full six-job CI at exact publish SHA.
