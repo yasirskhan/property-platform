@@ -216,6 +216,8 @@ def preview_due(db: Session, actor: User, schedule_id: int, *,
         raise HTTPException(status_code=422, detail="Cannot preview future execution")
     if limit < 1 or limit > 120:
         raise HTTPException(status_code=422, detail="Invalid preview limit")
+    if row.interval_days < 1 or row.interval_days > 3650:
+        raise HTTPException(status_code=409, detail="Schedule interval integrity violation")
     due_dates: list[date] = []
     due = row.next_due_date
     if row.active:

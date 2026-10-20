@@ -177,6 +177,11 @@ def test_preview_due_is_scoped_read_only_bounded_and_end_date_aware():
         with pytest.raises(HTTPException) as future:
             pm.preview_due(db, admin, row.id, as_of=date.today() + timedelta(days=1))
         assert future.value.status_code == 422
+        row.interval_days = 0
+        db.commit()
+        with pytest.raises(HTTPException) as invalid:
+            pm.preview_due(db, admin, row.id, as_of=date.today())
+        assert invalid.value.status_code == 409
     finally:
         db.close()
         engine.dispose()
