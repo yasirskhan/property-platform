@@ -78,6 +78,26 @@ def edit_settings(schedule_id: int, payload: ScheduleSettings,
     )
 
 
+class DuePreviewOut(BaseModel):
+    schedule_id: int
+    as_of: date
+    next_due_date: date
+    active: bool
+    due_dates: list[date]
+    has_more: bool
+
+
+@router.get("/schedules/{schedule_id}/due-preview", response_model=DuePreviewOut)
+def due_preview(schedule_id: int,
+                as_of: Annotated[date | None, Query()] = None,
+                limit: Annotated[int, Query(ge=1, le=120)] = 12,
+                db: Session = Depends(get_db),
+                current_user: User = Depends(get_current_user)):
+    return service.preview_due(
+        db, current_user, schedule_id, as_of=as_of or date.today(), limit=limit,
+    )
+
+
 @router.post("/schedules/{schedule_id}/generate", response_model=GeneratedOut)
 def generate(schedule_id: int, as_of: Annotated[date | None, Query()] = None,
              db: Session = Depends(get_db),

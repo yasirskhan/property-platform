@@ -208,6 +208,35 @@ def _last_valid_occurrence(db: Session, schedule: Schedule, as_of: date):
     return order
 
 
+def preview_due(db: Session, actor: User, schedule_id: int, *,
+                as_of: date, limit: int = 12) -> dict:
+    """Read-only, authorized, bounded preview of due dates; never create orders."""
+    row = _schedule(db, actor, schedule_id)
+    if as_of > date.today():
+        raise HTTPException(status_code=422, detail="Cannot preview future execution")
+    if limit < 1 or limit > 120:
+        raise HTTPException(status_code=422, detail="Invalid preview limit")
+    due_dates: list[date] = []
+    due = row.next_due_date
+    if row.active:
+        for _ in range(limit):
+            if due > as_of or (row.end_date is not None and due > row.end_date):
+                break
+            due_dates.append(due)
+            due += timedelta(days=row.interval_days)
+    return {
+        "schedule_id": row.id,
+        "as_of": as_of,
+        "next_due_date": row.next_due_date,
+        "active": row.active,
+        "due_dates": due_dates,
+        "has_more": (
+            row.active and due <= as_of
+            and (row.end_date is None or due <= row.end_date)
+        ),
+    }
+
+
 def generate_due(db: Session, actor: User, schedule_id: int, *, as_of: date):
     """Generate ONE due occurrence under row lock; retries return the same order."""
     row = _schedule(db, actor, schedule_id)

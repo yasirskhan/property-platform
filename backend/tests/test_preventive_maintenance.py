@@ -143,6 +143,45 @@ def test_corrupted_latest_occurrence_cannot_fall_back_to_older_clean_order():
         engine.dispose()
 
 
+def test_preview_due_is_scoped_read_only_bounded_and_end_date_aware():
+    db, engine, actors, properties, units = seeded()
+    try:
+        admin, manager, tenant, outsider = actors
+        row = pm.create_schedule(
+            db, admin, unit_id=units[0].id,
+            title="Check gutters", description="Inspect rooftop drainage channels",
+            interval_days=1, next_due_date=date.today(),
+            end_date=date.today() + timedelta(days=1),
+        )
+        # Advance as-of is prohibited; preview only shows actions due as of now.
+        row.next_due_date = date.today() - timedelta(days=3)
+        db.commit()
+        result = pm.preview_due(db, manager, row.id, as_of=date.today(), limit=2)
+        assert result["due_dates"] == [
+            date.today() - timedelta(days=3),
+            date.today() - timedelta(days=2),
+        ]
+        assert result["has_more"] is True
+        result = pm.preview_due(db, admin, row.id, as_of=date.today(), limit=12)
+        assert result["due_dates"] == [
+            date.today() - timedelta(days=n) for n in (3, 2, 1, 0)
+        ]
+        assert result["has_more"] is False
+        assert db.query(WorkOrder).count() == 0
+        assert db.query(PreventiveMaintenanceOccurrence).count() == 0
+        pm.set_active(db, admin, row.id, False)
+        assert pm.preview_due(db, manager, row.id, as_of=date.today())["due_dates"] == []
+        for actor in (tenant, outsider):
+            with pytest.raises(HTTPException):
+                pm.preview_due(db, actor, row.id, as_of=date.today())
+        with pytest.raises(HTTPException) as future:
+            pm.preview_due(db, admin, row.id, as_of=date.today() + timedelta(days=1))
+        assert future.value.status_code == 422
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_preventive_schedule_due_work_order_exactly_once_and_no_tenant_financial_or_entry_rights():
     db, engine, actors, _, units = seeded()
     try:
