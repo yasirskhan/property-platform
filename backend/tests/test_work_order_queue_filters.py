@@ -11,15 +11,15 @@ import init_db  # noqa: F401 - import complete model registry
 from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
-from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
-from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, accept_work_order_assignment, reject_work_order_assignment, recall_work_order_assignment, update_crew_eta, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
+from app.models.work_order import WorkOrderTimeEntry, WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
+from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, accept_work_order_assignment, reject_work_order_assignment, recall_work_order_assignment, update_crew_eta, create_work_order_time_entry, list_work_order_time_entries, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
 from app.models.audit_log import AuditLog
 from app.models.unit_inspection import UnitInspectionRecord
 from app.services import unit_inspections
 from app.routers.properties import check_property_access, visible_properties_query
 from app.routers.users import assign_user_to_property, list_assignments, remove_assignment, update_user, deactivate_user
 from app.models.lease import Lease, LeaseStatus
-from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderReject, WorkOrderRecall, WorkOrderEta, WorkOrderCreate, WorkOrderComment, WorkOrderCancel
+from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderReject, WorkOrderRecall, WorkOrderEta, WorkOrderTimeCreate, WorkOrderCreate, WorkOrderComment, WorkOrderCancel
 from app.schemas.user import UserUpdate
 from app.core import auth as auth_logic
 from app.core.security import create_access_token, create_two_factor_challenge_token
@@ -1739,6 +1739,55 @@ def test_staff_recall_clears_eta_with_previously_promised_time_in_audit():
                                       db=db, current_user=manager)
         assert restarted.crew_eta_at is None
         assert restarted.assignment_response == "pending"
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_crew_time_entries_are_authorized_nonoverlapping_and_audited():
+    db, engine, actors, _props, orders = _seed_queue()
+    try:
+        admin, manager, tenant, _other, crew, outsider = actors
+        row = orders[0]
+        row.status = WorkOrderStatus.IN_PROGRESS
+        row.assigned_to_id = crew.id
+        db.commit()
+        start = (datetime.now(timezone.utc) - timedelta(hours=3)).replace(second=0, microsecond=0)
+        end = start + timedelta(hours=1)
+        payload = WorkOrderTimeCreate(started_at=start, ended_at=end, notes="Replaced faulty part")
+        for actor in (admin, manager, tenant, outsider):
+            with pytest.raises(HTTPException) as unauthorized:
+                create_work_order_time_entry(row.id, payload, db=db, current_user=actor)
+            assert unauthorized.value.status_code == 403
+        logged = create_work_order_time_entry(row.id, payload, db=db, current_user=crew)
+        assert logged.duration_minutes == 60
+        replay = create_work_order_time_entry(row.id, payload, db=db, current_user=crew)
+        assert replay.id == logged.id
+        assert len(list_work_order_time_entries(row.id, db=db, current_user=manager)) == 1
+        with pytest.raises(HTTPException) as private:
+            list_work_order_time_entries(row.id, db=db, current_user=tenant)
+        assert private.value.status_code == 403
+        with pytest.raises(HTTPException) as collision:
+            create_work_order_time_entry(row.id, WorkOrderTimeCreate(
+                started_at=start + timedelta(minutes=30), ended_at=end + timedelta(minutes=30),
+            ), db=db, current_user=crew)
+        assert collision.value.status_code == 409
+        with pytest.raises(HTTPException) as future:
+            create_work_order_time_entry(row.id, WorkOrderTimeCreate(
+                started_at=start + timedelta(days=2), ended_at=end + timedelta(days=2),
+            ), db=db, current_user=crew)
+        assert future.value.status_code == 422
+        assert db.query(WorkOrderTimeEntry).count() == 1
+        assert db.query(AuditLog).filter_by(
+            entity_type="work_order", entity_id=row.id, action="crew_time_recorded",
+        ).count() == 1
+        row.status = WorkOrderStatus.COMPLETED
+        db.commit()
+        with pytest.raises(HTTPException) as closed:
+            create_work_order_time_entry(row.id, WorkOrderTimeCreate(
+                started_at=end, ended_at=end + timedelta(minutes=30),
+            ), db=db, current_user=crew)
+        assert closed.value.status_code == 409
     finally:
         db.close()
         engine.dispose()

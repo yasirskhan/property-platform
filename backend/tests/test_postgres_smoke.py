@@ -10,8 +10,8 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import DBAPIError
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_HEAD = "a6c8d0e24519"
-EXPECTED_MODEL_TABLES = 204
+EXPECTED_HEAD = "f4b82c1a9d60"
+EXPECTED_MODEL_TABLES = 205
 
 
 @pytest.mark.integration
@@ -61,6 +61,14 @@ def test_postgres_fresh_bootstrap_when_ci_database_is_available() -> None:
         assert cols["assignment_response"]["nullable"] is True
         assert cols["assignment_responded_at"]["nullable"] is True
         assert cols["crew_eta_at"]["nullable"] is True
+        assert "work_order_time_entries" in tables
+        assert next(c for c in inspect(engine).get_columns("work_order_time_entries") if c["name"] == "duration_minutes")["nullable"] is False
+        with engine.connect() as conn:
+            triggers = set(conn.execute(text(
+                "SELECT tgname FROM pg_trigger WHERE tgrelid = 'work_order_time_entries'::regclass "
+                "AND NOT tgisinternal"
+            )).scalars())
+        assert "crew_time_immutable" in triggers
         assert cols["tenant_id"]["nullable"] is True
         source_fks = inspect(engine).get_foreign_keys("work_orders")
         assert any(

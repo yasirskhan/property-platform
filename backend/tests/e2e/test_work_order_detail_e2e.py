@@ -277,6 +277,17 @@ def test_crew_accepts_and_rejects_dispatch_with_audited_reassignment() -> None:
             pw.expect(crew_page.get_by_text("Crew arrival ETA saved.", exact=True)).to_be_visible(timeout=15_000)
             crew_page.get_by_role("button", name="Start work").click()
             pw.expect(crew_page.get_by_text("Work order started.", exact=True)).to_be_visible(timeout=15_000)
+            start_time = crew_page.evaluate(
+                "() => { const d = new Date(Date.now()-5400000); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16); }"
+            )
+            end_time = crew_page.evaluate(
+                "() => { const d = new Date(Date.now()-3600000); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16); }"
+            )
+            crew_page.get_by_label("Work start time").fill(start_time)
+            crew_page.get_by_label("Work end time").fill(end_time)
+            crew_page.get_by_label("Time entry notes").fill("Repaired the maintenance issue")
+            crew_page.get_by_role("button", name="Save work time").click()
+            pw.expect(crew_page.get_by_text("Time entry saved.", exact=True)).to_be_visible(timeout=15_000)
 
             crew_page.goto(BASE_URL + "/dashboard/maintenance/work-orders/" + str(second),
                            wait_until="domcontentloaded")

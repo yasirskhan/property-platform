@@ -45,6 +45,7 @@ from app.services.report_delivery import ReportDeliveryError
 from app.models.work_order import (
     WorkOrder,
     WorkOrderUpdate,
+    WorkOrderTimeEntry,
     WorkOrderStatus,
     WorkOrderPriority,
     WorkOrderCategory,
@@ -60,6 +61,8 @@ from app.schemas.work_order import (
     WorkOrderReject,
     WorkOrderRecall,
     WorkOrderEta,
+    WorkOrderTimeCreate,
+    WorkOrderTimeOut,
     WorkOrderVendorAssign,
     WorkOrderVendorOut,
     WorkOrderComplete,
@@ -1058,6 +1061,85 @@ def start_work_order(
     db.commit()
     db.refresh(wo)
     return wo
+
+
+# ------------------------------------------------------------
+# TIME LOGS: IMMUTABLE BY API, NEVER MONEY OR APPROVED PAYROLL
+# ------------------------------------------------------------
+def _require_crew_time_access(db: Session, wo: WorkOrder, user: User) -> None:
+    if user.role not in (UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER, UserRole.CREW):
+        raise HTTPException(status_code=403, detail="Crew time records are staff-only")
+    _check_access(db, user, wo)
+
+
+@router.get("/{wo_id}/time-entries", response_model=List[WorkOrderTimeOut])
+def list_work_order_time_entries(
+    wo_id: int,
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+    offset: Annotated[int, Query(ge=0, le=100000)] = 0,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    wo = db.query(WorkOrder).filter(WorkOrder.id == wo_id).first()
+    if wo is None:
+        raise HTTPException(status_code=404, detail="Work order not found")
+    _require_crew_time_access(db, wo, current_user)
+    return db.query(WorkOrderTimeEntry).filter(
+        WorkOrderTimeEntry.work_order_id == wo.id,
+    ).order_by(WorkOrderTimeEntry.started_at.asc(), WorkOrderTimeEntry.id.asc()).offset(offset).limit(limit).all()
+
+
+@router.post("/{wo_id}/time-entries", response_model=WorkOrderTimeOut, status_code=status.HTTP_201_CREATED)
+def create_work_order_time_entry(
+    wo_id: int,
+    payload: WorkOrderTimeCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role != UserRole.CREW:
+        raise HTTPException(status_code=403, detail="Only assigned crew can log their own hours")
+    wo = db.query(WorkOrder).filter(WorkOrder.id == wo_id).with_for_update().first()
+    if wo is None:
+        raise HTTPException(status_code=404, detail="Work order not found")
+    _check_access(db, current_user, wo)
+    if wo.assigned_to_id != current_user.id or wo.status != WorkOrderStatus.IN_PROGRESS:
+        raise HTTPException(status_code=409, detail="Crew time requires currently assigned in-progress work")
+    if (payload.started_at.tzinfo is None or payload.started_at.utcoffset() is None
+            or payload.ended_at.tzinfo is None or payload.ended_at.utcoffset() is None):
+        raise HTTPException(status_code=422, detail="Crew time requires timezone-aware timestamps")
+    start = payload.started_at.astimezone(timezone.utc).replace(tzinfo=None)
+    end = payload.ended_at.astimezone(timezone.utc).replace(tzinfo=None)
+    delta = (end - start).total_seconds()
+    if delta < 60 or delta > 86400 or delta % 60 != 0 or end > datetime.utcnow():
+        raise HTTPException(status_code=422, detail="Record 1-1440 past whole minutes with start before end")
+    note = payload.notes.strip() if payload.notes is not None else None
+    overlap = db.query(WorkOrderTimeEntry).filter(
+        WorkOrderTimeEntry.work_order_id == wo.id,
+        WorkOrderTimeEntry.crew_user_id == current_user.id,
+        WorkOrderTimeEntry.started_at < end,
+        WorkOrderTimeEntry.ended_at > start,
+    ).first()
+    if overlap is not None:
+        if overlap.started_at == start and overlap.ended_at == end and overlap.notes == note:
+            return overlap
+        raise HTTPException(status_code=409, detail="This time interval overlaps another crew entry")
+    row = WorkOrderTimeEntry(
+        work_order_id=wo.id, crew_user_id=current_user.id,
+        started_at=start, ended_at=end, duration_minutes=int(delta // 60), notes=note,
+    )
+    db.add(row)
+    db.flush()
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=current_user.organization_id,
+        entity_type="work_order", entity_id=wo.id, action="crew_time_recorded",
+        new_value={"time_entry_id": row.id, "crew_user_id": current_user.id,
+                   "started_at": start.isoformat() + "Z",
+                   "ended_at": end.isoformat() + "Z",
+                   "duration_minutes": row.duration_minutes},
+    )
+    db.commit()
+    db.refresh(row)
+    return row
 
 
 # ------------------------------------------------------------

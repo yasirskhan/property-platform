@@ -66,6 +66,26 @@ class WorkOrderReject(BaseModel):
     reason: str = Field(..., min_length=5, max_length=1000)
 
 
+class WorkOrderTimeCreate(BaseModel):
+    started_at: datetime
+    ended_at: datetime
+    notes: Optional[str] = Field(default=None, max_length=500)
+
+
+class WorkOrderTimeOut(BaseModel):
+    id: int
+    work_order_id: int
+    crew_user_id: int
+    started_at: datetime
+    ended_at: datetime
+    duration_minutes: int
+    notes: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class WorkOrderEta(BaseModel):
     """Arrival estimate submitted only by the currently accepted crew."""
     eta_at: datetime

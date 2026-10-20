@@ -18,6 +18,9 @@ from sqlalchemy import (
     Boolean,
     Numeric,
     Text,
+    CheckConstraint,
+    DDL,
+    event,
     Enum as SqlEnum,
 )
 from sqlalchemy.orm import relationship
@@ -154,3 +157,56 @@ class WorkOrderUpdate(Base):
 
     def __repr__(self):
         return f"<WorkOrderUpdate wo={self.work_order_id} by={self.user_id}>"
+
+class WorkOrderTimeEntry(Base):
+    """Staff-only work-time evidence; not a payroll approval or tenant charge."""
+    __tablename__ = "work_order_time_entries"
+    __table_args__ = (
+        CheckConstraint("duration_minutes BETWEEN 1 AND 1440", name="ck_crew_time_minutes"),
+        CheckConstraint("ended_at > started_at", name="ck_crew_time_order"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    work_order_id = Column(Integer, ForeignKey("work_orders.id", ondelete="RESTRICT"), nullable=False, index=True)
+    crew_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    started_at = Column(DateTime, nullable=False)
+    ended_at = Column(DateTime, nullable=False)
+    duration_minutes = Column(Integer, nullable=False)
+    notes = Column(String(500), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+def _reject_crew_time_mutation(*_args, **_kwargs) -> None:
+    raise RuntimeError("work_order_time_entries is append-only")
+
+
+event.listen(WorkOrderTimeEntry, "before_update", _reject_crew_time_mutation, propagate=True)
+event.listen(WorkOrderTimeEntry, "before_delete", _reject_crew_time_mutation, propagate=True)
+
+_POSTGRES_TIME_FUNCTION = DDL("""
+    CREATE OR REPLACE FUNCTION prevent_crew_time_mutation()
+    RETURNS trigger AS $$
+    BEGIN
+        RAISE EXCEPTION 'work_order_time_entries is append-only';
+    END;
+    $$ LANGUAGE plpgsql;
+""").execute_if(dialect="postgresql")
+
+_POSTGRES_TIME_TRIGGER = DDL("""
+    CREATE TRIGGER crew_time_immutable
+    BEFORE UPDATE OR DELETE ON work_order_time_entries
+    FOR EACH ROW EXECUTE FUNCTION prevent_crew_time_mutation();
+""").execute_if(dialect="postgresql")
+
+_SQLITE_TIME_UPDATE = DDL("""
+    CREATE TRIGGER crew_time_no_update BEFORE UPDATE ON work_order_time_entries
+    BEGIN SELECT RAISE(ABORT, 'work_order_time_entries is append-only'); END;
+""").execute_if(dialect="sqlite")
+
+_SQLITE_TIME_DELETE = DDL("""
+    CREATE TRIGGER crew_time_no_delete BEFORE DELETE ON work_order_time_entries
+    BEGIN SELECT RAISE(ABORT, 'work_order_time_entries is append-only'); END;
+""").execute_if(dialect="sqlite")
+
+for guard in (_POSTGRES_TIME_FUNCTION, _POSTGRES_TIME_TRIGGER, _SQLITE_TIME_UPDATE, _SQLITE_TIME_DELETE):
+    event.listen(WorkOrderTimeEntry.__table__, "after_create", guard)

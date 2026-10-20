@@ -1,3 +1,15 @@
+## 2026-10-20 | Crew time evidence immutability — DETACHED / CI GATED
+
+Extended the new time-entry workflow with ORM before-update/delete rejection and database-enforced append-only triggers on PostgreSQL and SQLite, installed for both fresh Base.metadata bootstraps and Alembic upgrades. Existing populated time logs cannot be downgraded away. SQLite and PostgreSQL smoke tests assert trigger presence. Crew entries remain separate from payroll and tenant charges; completed time history is preserved and correction workflow is still pending. Prepared descendant is not published or CI verified.
+
+---
+
+## 2026-10-20 | Crew completed time interval records — DETACHED / CI GATED
+
+Delivered candidate end-to-end crew time evidence workflow: active assigned crew can add completed timezone-aware start/end periods while a work order is in progress, with bounded 1–1440 whole-minute intervals, overlap denial, identical replay idempotency and work-order row lock. Role/property/organization checks deny tenant/foreign visibility; admin/owner/manager have paged read-only history. Records use a dedicated FK-bound table with duration and chronology constraints and immutable old/new audit reference (not payroll, invoices, expenses or tenant charges); no POST endpoints to edit/delete a recorded interval. Staff detail view shows history and crew input controls; backend and browser tests cover saving and safeguards. Migration f4b82c1a9d60 is additive with guarded downgrade and model/bootstrap parity. Ongoing time-clock shifts, approvals and money posting remain out of scope. This descendant is detached and must pass hosted six-job CI after its predecessors.
+
+---
+
 ## 2026-10-20 | ETA reset audit safety — PREPARED / CI GATED
 
 When staff reassign, recall or crew decline and the live ETA is cleared, the audit captures the old UTC timestamp and new NULL value, instead of silently losing historical arrival commitments. Backend regression verifies recall of a previously ETA-bearing accepted assignment, preserved old/new audit and safe new pending offer. This is a detached continuation of the unverified crew ETA candidate; publication and six-job CI remain mandatory.

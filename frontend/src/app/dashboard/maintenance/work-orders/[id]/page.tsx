@@ -39,6 +39,14 @@ type WorkOrder = {
   updates: WorkOrderUpdate[];
 };
 
+type CrewTimeEntry = {
+  id: number;
+  started_at: string;
+  ended_at: string;
+  duration_minutes: number;
+  notes?: string | null;
+};
+
 export default function WorkOrderDetailPage() {
   const params = useParams<{ id: string }>();
   const orderId = Number(params.id);
@@ -46,6 +54,10 @@ export default function WorkOrderDetailPage() {
   const [viewer, setViewer] = useState<{ id: number; role: string } | null>(null);
   const [completionNotes, setCompletionNotes] = useState("");
   const [etaDraft, setEtaDraft] = useState("");
+  const [timeStart, setTimeStart] = useState("");
+  const [timeEnd, setTimeEnd] = useState("");
+  const [timeNotes, setTimeNotes] = useState("");
+  const [timeEntries, setTimeEntries] = useState<CrewTimeEntry[] | null>(null);
   const [crew, setCrew] = useState<{ id: number; name: string }[]>([]);
   const [crewId, setCrewId] = useState("");
   const [crewLoading, setCrewLoading] = useState(false);
@@ -126,6 +138,20 @@ export default function WorkOrderDetailPage() {
       .finally(() => { if (active) setCrewLoading(false); });
     return () => { active = false; };
   }, [viewer?.role, order?.property_id]);
+
+  useEffect(() => {
+    if (!order || !viewer || !["ADMIN", "OWNER", "MANAGER", "CREW"].includes(String(viewer.role).toUpperCase())) {
+      setTimeEntries(null);
+      return;
+    }
+    let active = true;
+    apiGet("/work-orders/" + order.id + "/time-entries")
+      .then((result: CrewTimeEntry[]) => {
+        if (active) setTimeEntries(Array.isArray(result) ? result : null);
+      })
+      .catch(() => { if (active) setTimeEntries(null); });
+    return () => { active = false; };
+  }, [order?.id, viewer?.id, viewer?.role]);
 
   async function assignCrew() {
     if (!order || saving) return;
@@ -249,6 +275,40 @@ export default function WorkOrderDetailPage() {
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to record arrival ETA.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveCrewTime() {
+    if (!order || saving || !timeStart || !timeEnd) return;
+    const start = new Date(timeStart), end = new Date(timeEnd);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start >= end
+        || end.getTime() > Date.now()) {
+      setError("Choose a completed, valid start and end time.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const row = await apiPost("/work-orders/" + order.id + "/time-entries", {
+        started_at: start.toISOString(), ended_at: end.toISOString(),
+        notes: timeNotes.trim() || null,
+      }) as CrewTimeEntry;
+      if (!row || !Number.isSafeInteger(row.id) || row.duration_minutes < 1)
+        throw new Error("Unexpected crew time response.");
+      setTimeEntries((previous) => {
+        if (previous === null) return [row];
+        if (previous.some((item) => item.id === row.id)) return previous;
+        return [...previous, row].sort((a, b) => a.started_at.localeCompare(b.started_at));
+      });
+      setTimeStart("");
+      setTimeEnd("");
+      setTimeNotes("");
+      setNotice("Time entry saved.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to record crew time.");
     } finally {
       setSaving(false);
     }
@@ -497,6 +557,46 @@ export default function WorkOrderDetailPage() {
                 )}
             </div>
           </section>
+          {viewer && ["ADMIN", "OWNER", "MANAGER", "CREW"].includes(String(viewer.role).toUpperCase()) && (
+            <section aria-label="Crew time records" className="rounded-xl border bg-white p-5">
+              <h2 className="font-semibold">Crew time tracking</h2>
+              <p className="mt-1 text-xs text-slate-500">Hours are historical evidence only, not approved payroll or tenant charges.</p>
+              {timeEntries === null ? <p className="mt-2 text-sm text-slate-500">Crew hours unavailable.</p>
+                : timeEntries.length === 0 ? <p className="mt-2 text-sm text-slate-500">No time entries recorded.</p>
+                : <ul className="mt-3 space-y-2">
+                    {timeEntries.map((entry) => <li key={entry.id} className="rounded-lg border p-3 text-sm">
+                      {new Date(entry.started_at + "Z").toLocaleString()} to {new Date(entry.ended_at + "Z").toLocaleString()}
+                      · {entry.duration_minutes} minutes
+                      {entry.notes && <p className="mt-1 whitespace-pre-wrap">{entry.notes}</p>}
+                    </li>)}
+                  </ul>}
+              {viewer.role?.toUpperCase() === "CREW" && order.assigned_to_id === viewer.id
+                && order.status === "in_progress" && (
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <label className="text-sm">Work start time
+                      <input type="datetime-local" aria-label="Work start time" value={timeStart}
+                        onChange={(event) => setTimeStart(event.target.value)}
+                        disabled={saving} className="mt-1 block w-full rounded-lg border p-2" />
+                    </label>
+                    <label className="text-sm">Work end time
+                      <input type="datetime-local" aria-label="Work end time" value={timeEnd}
+                        onChange={(event) => setTimeEnd(event.target.value)}
+                        disabled={saving} className="mt-1 block w-full rounded-lg border p-2" />
+                    </label>
+                    <label className="text-sm md:col-span-2">Work description (optional)
+                      <textarea aria-label="Time entry notes" value={timeNotes} maxLength={500}
+                        rows={2} disabled={saving} onChange={(event) => setTimeNotes(event.target.value)}
+                        className="mt-1 block w-full rounded-lg border p-2" />
+                    </label>
+                    <button type="button" disabled={saving || !timeStart || !timeEnd}
+                      onClick={() => void saveCrewTime()}
+                      className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50">
+                      Save work time
+                    </button>
+                  </div>
+                )}
+            </section>
+          )}
           <section className="rounded-xl border bg-white p-5">
             <h2 className="font-semibold">Recorded activity</h2>
             <p className="mt-1 text-xs text-slate-500">Only activity for this authorized work order is shown.</p>

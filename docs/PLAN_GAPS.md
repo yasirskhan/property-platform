@@ -1,3 +1,9 @@
+## 2026-10-20 | Crew completed time interval records — DETACHED / CI GATED
+
+Delivered candidate end-to-end crew time evidence workflow: active assigned crew can add completed timezone-aware start/end periods while a work order is in progress, with bounded 1–1440 whole-minute intervals, overlap denial, identical replay idempotency and work-order row lock. Role/property/organization checks deny tenant/foreign visibility; admin/owner/manager have paged read-only history. Records use a dedicated FK-bound table with duration and chronology constraints and immutable old/new audit reference (not payroll, invoices, expenses or tenant charges); no POST endpoints to edit/delete a recorded interval. Staff detail view shows history and crew input controls; backend and browser tests cover saving and safeguards. Migration f4b82c1a9d60 is additive with guarded downgrade and model/bootstrap parity. Ongoing time-clock shifts, approvals and money posting remain out of scope. This descendant is detached and must pass hosted six-job CI after its predecessors.
+
+---
+
 ## 2026-10-20 | Crew arrival ETA after acceptance — DETACHED / CI GATED
 
 Approved crew portal requirement: current property-authorized crew must first accept assignment, then may record/update a timezone-aware, future arrival ETA (bounded to 30 days) on an unstarted active-property/unit job. Timestamp is normalized to UTC on write and visible to authorized work-order viewers, with before/after append-only audit, activity and same-timestamp idempotency. A new/recalled/rejected dispatch clears the active ETA, preserving prior audit. New additive migration a6c8d0e24519 has guarded downgrade and SQLite/PostgreSQL/bootstrap checks; role, invalid ETA, status transition, browser save tests included. This feature does not provide an automatic tenant alert, ETA SLA promise, on-call rotation or GPS tracking. Prepared descendant, NOT published or verified until predecessor and successor six-job CI pass.
