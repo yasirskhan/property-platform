@@ -77,6 +77,7 @@ from app.schemas.work_order import (
     MaintenanceOnCallShiftCancel,
     MaintenanceOnCallShiftOut,
     MaintenanceOnCallCalendarOut,
+    MaintenanceOnCallPropertyChoiceOut,
     MaintenanceVendorPreferencesUpdate,
     MaintenanceVendorPreferenceOut,
     MaintenanceVendorCandidateOut,
@@ -734,11 +735,10 @@ def list_maintenance_on_call_shifts(
                MaintenanceOnCallShift.id.desc()).offset(offset).limit(limit).all()
 
 
-@router.post("/{wo_id}/on-call-shifts", response_model=MaintenanceOnCallShiftOut, status_code=201)
-def schedule_maintenance_on_call_shift(
-    wo_id: int, payload: MaintenanceOnCallShiftCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+def _create_property_on_call_shift(
+    prop: Property, payload: MaintenanceOnCallShiftCreate,
+    db: Session, current_user: User,
+    source_work_order: WorkOrder | None = None,
 ):
     if payload.starts_at.tzinfo is None or payload.starts_at.utcoffset() is None or (
         payload.ends_at.tzinfo is None or payload.ends_at.utcoffset() is None
@@ -749,7 +749,6 @@ def schedule_maintenance_on_call_shift(
     now = datetime.utcnow()
     if start <= now or start > now + timedelta(days=366) or end <= start or end - start > timedelta(hours=72):
         raise HTTPException(status_code=422, detail="Future start within 366 days and 1-72 hour shift required")
-    wo, prop = _maintenance_vendor_scope(db, wo_id, current_user, write=True)
     candidate = db.query(User).filter(
         User.id == payload.crew_user_id,
         User.organization_id == prop.organization_id,
@@ -784,19 +783,31 @@ def schedule_maintenance_on_call_shift(
     )
     db.add(shift)
     db.flush()
-    db.add(WorkOrderUpdate(
-        work_order_id=wo.id, user_id=current_user.id,
-        message=f"Property on-call shift #{shift.id} scheduled",
-    ))
+    if source_work_order is not None:
+        db.add(WorkOrderUpdate(
+            work_order_id=source_work_order.id, user_id=current_user.id,
+            message=f"Property on-call shift #{shift.id} scheduled",
+        ))
     append_audit_log(
         db, user_id=current_user.id, organization_id=prop.organization_id,
         entity_type="maintenance_on_call_shift", entity_id=shift.id, action="scheduled",
         new_value={"property_id": prop.id, "crew_user_id": payload.crew_user_id,
-                   "starts_at": start, "ends_at": end, "source_work_order_id": wo.id},
+                   "starts_at": start, "ends_at": end, "source_work_order_id": source_work_order.id if source_work_order is not None else None},
     )
     db.commit()
     db.refresh(shift)
     return shift
+
+
+
+@router.post("/{wo_id}/on-call-shifts", response_model=MaintenanceOnCallShiftOut, status_code=201)
+def schedule_maintenance_on_call_shift(
+    wo_id: int, payload: MaintenanceOnCallShiftCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    wo, prop = _maintenance_vendor_scope(db, wo_id, current_user, write=True)
+    return _create_property_on_call_shift(prop, payload, db, current_user, source_work_order=wo)
 
 
 @router.post("/{wo_id}/on-call-shifts/{shift_id}/cancel", response_model=MaintenanceOnCallShiftOut)

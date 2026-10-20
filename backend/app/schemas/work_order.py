@@ -100,6 +100,17 @@ class PendingCrewTimeCorrectionOut(BaseModel):
     created_at: datetime
 
 
+class MaintenanceOnCallCrewChoiceOut(BaseModel):
+    id: int
+    name: str
+
+
+class MaintenanceOnCallPropertyChoiceOut(BaseModel):
+    property_id: int
+    property_name: str
+    crew: List[MaintenanceOnCallCrewChoiceOut]
+
+
 class MaintenanceOnCallCalendarOut(BaseModel):
     id: int
     property_id: int
