@@ -47,6 +47,17 @@ type CrewTimeEntry = {
   notes?: string | null;
 };
 
+type CrewTimeCorrection = {
+  id: number;
+  time_entry_id: number;
+  proposed_started_at: string;
+  proposed_ended_at: string;
+  duration_minutes: number;
+  reason: string;
+  status: "pending" | "approved" | "denied";
+  review_reason?: string | null;
+};
+
 export default function WorkOrderDetailPage() {
   const params = useParams<{ id: string }>();
   const orderId = Number(params.id);
@@ -58,6 +69,12 @@ export default function WorkOrderDetailPage() {
   const [timeEnd, setTimeEnd] = useState("");
   const [timeNotes, setTimeNotes] = useState("");
   const [timeEntries, setTimeEntries] = useState<CrewTimeEntry[] | null>(null);
+  const [timeCorrections, setTimeCorrections] = useState<CrewTimeCorrection[]>([]);
+  const [correctionEntry, setCorrectionEntry] = useState<number | null>(null);
+  const [correctionStart, setCorrectionStart] = useState("");
+  const [correctionEnd, setCorrectionEnd] = useState("");
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [reviewReasons, setReviewReasons] = useState<Record<number, string>>({});
   const [crew, setCrew] = useState<{ id: number; name: string }[]>([]);
   const [crewId, setCrewId] = useState("");
   const [crewLoading, setCrewLoading] = useState(false);
@@ -145,6 +162,11 @@ export default function WorkOrderDetailPage() {
       return;
     }
     let active = true;
+    setTimeCorrections([]);
+    apiGet("/work-orders/" + order.id + "/time-corrections")
+      .then((result: CrewTimeCorrection[]) => {
+        if (active) setTimeCorrections(Array.isArray(result) ? result : []);
+      }).catch(() => { if (active) setTimeCorrections([]); });
     apiGet("/work-orders/" + order.id + "/time-entries")
       .then((result: CrewTimeEntry[]) => {
         if (active) setTimeEntries(Array.isArray(result) ? result : null);
@@ -312,6 +334,49 @@ export default function WorkOrderDetailPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+
+  async function requestTimeCorrection() {
+    if (!order || saving || correctionEntry === null) return;
+    const start = new Date(correctionStart), end = new Date(correctionEnd);
+    if (!correctionStart || !correctionEnd || Number.isNaN(start.getTime()) ||
+        Number.isNaN(end.getTime()) || start >= end || end.getTime() > Date.now()
+        || correctionReason.trim().length < 5) {
+      setError("Provide valid past times and a correction reason of at least 5 characters.");
+      return;
+    }
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const result = await apiPost(
+        "/work-orders/" + order.id + "/time-entries/" + correctionEntry + "/corrections",
+        { started_at: start.toISOString(), ended_at: end.toISOString(), reason: correctionReason.trim() },
+      ) as CrewTimeCorrection;
+      if (!result || !Number.isSafeInteger(result.id) || result.status !== "pending")
+        throw new Error("Unexpected time correction response.");
+      setTimeCorrections((items) => items.some((item) => item.id === result.id) ? items : [...items, result]);
+      setCorrectionEntry(null); setCorrectionStart(""); setCorrectionEnd(""); setCorrectionReason("");
+      setNotice("Correction requested for independent review. Original evidence remains unchanged.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Time correction failed."); }
+    finally { setSaving(false); }
+  }
+
+  async function reviewTimeCorrection(id: number, approve: boolean) {
+    if (!order || saving) return;
+    const reason = (reviewReasons[id] || "").trim();
+    if (reason.length < 5) { setError("Review reason must be at least 5 characters."); return; }
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const result = await apiPost("/work-orders/" + order.id + "/time-corrections/" + id + "/decision", {
+        approve, reason,
+      }) as CrewTimeCorrection;
+      if (!result || result.id !== id || result.status !== (approve ? "approved" : "denied"))
+        throw new Error("Unexpected correction review response.");
+      setTimeCorrections((items) => items.map((item) => item.id === id ? result : item));
+      setReviewReasons((items) => { const next = { ...items }; delete next[id]; return next; });
+      setNotice("Time correction " + result.status + ". Original time evidence remains intact.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to review time correction."); }
+    finally { setSaving(false); }
   }
 
   async function submitComment(event: FormEvent<HTMLFormElement>) {
@@ -568,8 +633,70 @@ export default function WorkOrderDetailPage() {
                       {new Date(entry.started_at + "Z").toLocaleString()} to {new Date(entry.ended_at + "Z").toLocaleString()}
                       · {entry.duration_minutes} minutes
                       {entry.notes && <p className="mt-1 whitespace-pre-wrap">{entry.notes}</p>}
+                      {(() => {
+                        const approved = timeCorrections.filter((item) =>
+                          item.time_entry_id === entry.id && item.status === "approved").at(-1);
+                        return approved ? <p className="mt-1 font-medium text-emerald-800">
+                          Reviewed correction: {approved.duration_minutes} minutes
+                        </p> : null;
+                      })()}
+                      {viewer.role?.toUpperCase() === "CREW" && order.assigned_to_id === viewer.id && (
+                        <button type="button" disabled={saving} onClick={() => {
+                          setCorrectionEntry(entry.id); setCorrectionStart(""); setCorrectionEnd(""); setCorrectionReason("");
+                        }} className="mt-2 rounded border px-2 py-1 text-xs">Request time correction</button>
+                      )}
                     </li>)}
                   </ul>}
+              {correctionEntry !== null && viewer.role?.toUpperCase() === "CREW" && (
+                <div className="mt-4 space-y-2 rounded-lg border p-3">
+                  <h3 className="font-medium">Correct time entry #{correctionEntry}</h3>
+                  <label className="block text-sm">Corrected start
+                    <input aria-label="Corrected start" type="datetime-local" value={correctionStart}
+                      onChange={(event) => setCorrectionStart(event.target.value)}
+                      className="mt-1 block rounded border p-2" disabled={saving} />
+                  </label>
+                  <label className="block text-sm">Corrected end
+                    <input aria-label="Corrected end" type="datetime-local" value={correctionEnd}
+                      onChange={(event) => setCorrectionEnd(event.target.value)}
+                      className="mt-1 block rounded border p-2" disabled={saving} />
+                  </label>
+                  <label className="block text-sm">Correction reason
+                    <textarea aria-label="Time correction reason" maxLength={1000}
+                      value={correctionReason} onChange={(event) => setCorrectionReason(event.target.value)}
+                      className="mt-1 w-full rounded border p-2" disabled={saving} />
+                  </label>
+                  <button type="button" disabled={saving || correctionReason.trim().length < 5}
+                    onClick={() => void requestTimeCorrection()}
+                    className="rounded bg-slate-900 px-3 py-2 text-sm text-white">Submit correction request</button>
+                  <button type="button" disabled={saving} onClick={() => setCorrectionEntry(null)}
+                    className="ml-2 rounded border px-3 py-2 text-sm">Cancel</button>
+                </div>
+              )}
+              {timeCorrections.length > 0 && (
+                <div className="mt-4 space-y-3" aria-label="Time correction reviews">
+                  <h3 className="font-semibold">Correction review history</h3>
+                  {timeCorrections.map((item) => <div key={item.id} className="rounded-lg border p-3 text-sm">
+                    <p>Entry #{item.time_entry_id} — {item.status} — proposed {item.duration_minutes} minutes</p>
+                    <p className="mt-1 whitespace-pre-wrap">Reason: {item.reason}</p>
+                    {item.review_reason && <p className="mt-1">Decision: {item.review_reason}</p>}
+                    {item.status === "pending" && ["ADMIN", "OWNER", "MANAGER"].includes(viewer.role?.toUpperCase() || "") && (
+                      <div className="mt-2 space-y-2">
+                        <textarea aria-label={"Review reason for correction " + item.id}
+                          maxLength={1000} value={reviewReasons[item.id] || ""}
+                          onChange={(event) => setReviewReasons((items) => ({ ...items, [item.id]: event.target.value }))}
+                          className="w-full rounded border p-2" placeholder="Required approval or denial reason"
+                          disabled={saving} />
+                        <button type="button" disabled={saving || (reviewReasons[item.id] || "").trim().length < 5}
+                          onClick={() => void reviewTimeCorrection(item.id, true)}
+                          className="rounded bg-slate-900 px-3 py-2 text-white">Approve correction</button>
+                        <button type="button" disabled={saving || (reviewReasons[item.id] || "").trim().length < 5}
+                          onClick={() => void reviewTimeCorrection(item.id, false)}
+                          className="ml-2 rounded border px-3 py-2">Deny correction</button>
+                      </div>
+                    )}
+                  </div>)}
+                </div>
+              )}
               {viewer.role?.toUpperCase() === "CREW" && order.assigned_to_id === viewer.id
                 && order.status === "in_progress" && (
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
