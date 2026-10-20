@@ -674,6 +674,10 @@ def _maintenance_vendor_scope(db: Session, wo_id: int, actor: User, *, write: bo
     prop = prop.with_for_update().first() if write else prop.first()
     if prop is None:
         raise HTTPException(status_code=404, detail="Property not found")
+    if write:
+        # Recheck any manager property-assignment revocation after taking the
+        # property lock, before mutating shared dispatch preferences.
+        _check_access(db, actor, row)
     if write and (not prop.is_active or prop.deleted_at is not None
                   or db.query(Unit.id).filter(
                       Unit.id == row.unit_id, Unit.property_id == prop.id,
@@ -796,7 +800,7 @@ def replace_maintenance_preferred_vendors(
             Vendor.organization_id == prop.organization_id,
             Vendor.is_active.is_(True), Vendor.deleted_at.is_(None),
             or_(Vendor.trade.is_(None), func.lower(func.trim(Vendor.trade)) == trade),
-        ).all()
+        ).order_by(Vendor.id.asc()).with_for_update().all()
         if {v.id for v in eligible} != set(ids):
             raise HTTPException(status_code=404, detail="One or more vendor companies are not eligible")
     rows = db.query(MaintenancePreferredVendor).filter(
