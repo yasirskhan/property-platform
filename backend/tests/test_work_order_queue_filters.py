@@ -12,7 +12,7 @@ from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
 from app.models.work_order import WorkOrderTimeCorrection, WorkOrderTimeEntry, WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
-from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, accept_work_order_assignment, reject_work_order_assignment, recall_work_order_assignment, update_crew_eta, create_work_order_time_entry, list_work_order_time_entries, get_work_order_time_ledger, request_work_order_time_correction, list_work_order_time_corrections, review_work_order_time_correction, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
+from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, accept_work_order_assignment, reject_work_order_assignment, recall_work_order_assignment, update_crew_eta, create_work_order_time_entry, list_work_order_time_entries, get_work_order_time_ledger, pending_crew_time_corrections, request_work_order_time_correction, list_work_order_time_corrections, review_work_order_time_correction, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
 from app.models.audit_log import AuditLog
 from app.models.unit_inspection import UnitInspectionRecord
 from app.services import unit_inspections
@@ -1921,6 +1921,63 @@ def test_time_summary_is_empty_without_original_evidence():
         assert empty.reviewed_minutes == 0
         with pytest.raises(HTTPException):
             get_work_order_time_ledger(orders[0].id, db=db, current_user=tenant)
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_pending_time_review_inbox_scopes_property_org_staff_and_decisions():
+    db, engine, actors, props, orders = _seed_queue()
+    try:
+        admin, manager, tenant, _, crew, outsider = actors
+        first, _, off_property, foreign = orders
+        first.status = WorkOrderStatus.IN_PROGRESS
+        db.commit()
+        start = (datetime.now(timezone.utc) - timedelta(hours=4)).replace(second=0, microsecond=0)
+        original = create_work_order_time_entry(
+            first.id, WorkOrderTimeCreate(
+                started_at=start, ended_at=start + timedelta(hours=1)),
+            db=db, current_user=crew)
+        pending = request_work_order_time_correction(
+            first.id, original.id, WorkOrderTimeCorrectionCreate(
+                started_at=start, ended_at=start + timedelta(minutes=75),
+                reason="Rechecked actual repair time"), db=db, current_user=crew)
+        # Same org but a property not assigned to this manager.
+        for hidden in (off_property, foreign):
+            evidence = WorkOrderTimeEntry(
+                work_order_id=hidden.id, crew_user_id=crew.id,
+                started_at=start, ended_at=start + timedelta(minutes=30),
+                duration_minutes=30,
+            )
+            db.add(evidence)
+            db.flush()
+            db.add(WorkOrderTimeCorrection(
+                work_order_id=hidden.id, time_entry_id=evidence.id,
+                requested_by_user_id=crew.id,
+                proposed_started_at=start,
+                proposed_ended_at=start + timedelta(minutes=45),
+                duration_minutes=45, reason="Should remain scoped", status="pending",
+            ))
+        db.commit()
+        admin_rows = pending_crew_time_corrections(limit=50, offset=0, db=db, current_user=admin)
+        assert {r.work_order_id for r in admin_rows} == {first.id, off_property.id}
+        assert [r.work_order_id for r in pending_crew_time_corrections(
+            limit=10, offset=0, db=db, current_user=manager)] == [first.id]
+        assert pending_crew_time_corrections(limit=1, offset=0, db=db, current_user=admin)
+        assert len(pending_crew_time_corrections(limit=1, offset=1, db=db, current_user=admin)) == 1
+        for actor in (tenant, crew):
+            with pytest.raises(HTTPException) as denied:
+                pending_crew_time_corrections(limit=10, offset=0, db=db, current_user=actor)
+            assert denied.value.status_code == 403
+        review_work_order_time_correction(first.id, pending.id,
+            WorkOrderTimeCorrectionDecision(approve=True, reason="Time checked with technician"),
+            db=db, current_user=manager)
+        assert pending_crew_time_corrections(limit=10, offset=0, db=db, current_user=manager) == []
+        manager_assignment = db.query(PropertyAssignment).filter_by(
+            property_id=props[0].id, user_id=manager.id).one()
+        manager_assignment.is_active = False
+        db.commit()
+        assert pending_crew_time_corrections(limit=10, offset=0, db=db, current_user=manager) == []
     finally:
         db.close()
         engine.dispose()
