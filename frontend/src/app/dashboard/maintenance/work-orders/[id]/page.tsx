@@ -39,6 +39,14 @@ type WorkOrder = {
   updates: WorkOrderUpdate[];
 };
 
+type OnCallShift = {
+  id: number;
+  crew_user_id: number;
+  starts_at: string;
+  ends_at: string;
+  cancelled_at?: string | null;
+  cancellation_reason?: string | null;
+};
 type VendorCandidate = { vendor_id: number; company_name: string; trade: string | null; insurance_status: string };
 type PreferredVendor = { vendor_id: number; rank: number; company_name: string; trade: string; insurance_status: string };
 
@@ -89,6 +97,12 @@ export default function WorkOrderDetailPage() {
   const [correctionReason, setCorrectionReason] = useState("");
   const [reviewReasons, setReviewReasons] = useState<Record<number, string>>({});
   const [crew, setCrew] = useState<{ id: number; name: string }[]>([]);
+  const [onCallShifts, setOnCallShifts] = useState<OnCallShift[] | null>(null);
+  const [onCallCrewId, setOnCallCrewId] = useState("");
+  const [onCallStart, setOnCallStart] = useState("");
+  const [onCallEnd, setOnCallEnd] = useState("");
+  const [onCallCancelId, setOnCallCancelId] = useState<number | null>(null);
+  const [onCallCancelReason, setOnCallCancelReason] = useState("");
   const [vendorCandidates, setVendorCandidates] = useState<VendorCandidate[] | null>(null);
   const [preferredVendors, setPreferredVendors] = useState<PreferredVendor[] | null>(null);
   const [preferredVendorDraft, setPreferredVendorDraft] = useState(["", "", ""]);
@@ -218,6 +232,64 @@ export default function WorkOrderDetailPage() {
     }).catch(() => { if (active) { setVendorCandidates(null); setPreferredVendors(null); } });
     return () => { active = false; };
   }, [order?.id, order?.category, viewer?.role]);
+
+  useEffect(() => {
+    if (!order || !viewer || !["ADMIN", "OWNER", "MANAGER"].includes(String(viewer.role).toUpperCase())) {
+      setOnCallShifts(null); return;
+    }
+    let active = true;
+    setOnCallShifts(null);
+    apiGet("/work-orders/" + order.id + "/on-call-shifts?limit=100&offset=0")
+      .then((rows: OnCallShift[]) => {
+        if (!Array.isArray(rows)) throw new Error("Unexpected on-call shifts.");
+        if (active) setOnCallShifts(rows);
+      }).catch(() => { if (active) setOnCallShifts(null); });
+    return () => { active = false; };
+  }, [order?.id, viewer?.id, viewer?.role]);
+
+  async function scheduleOnCall() {
+    if (!order || saving) return;
+    const selected = Number(onCallCrewId);
+    const starts = new Date(onCallStart), ends = new Date(onCallEnd);
+    if (!Number.isSafeInteger(selected) || !crew.some((person) => person.id === selected)
+        || !onCallStart || !onCallEnd || Number.isNaN(starts.getTime()) || Number.isNaN(ends.getTime())
+        || starts <= new Date() || ends <= starts) {
+      setError("Choose an available property crew member and a valid future shift.");
+      return;
+    }
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const shift = await apiPost("/work-orders/" + order.id + "/on-call-shifts", {
+        crew_user_id: selected, starts_at: starts.toISOString(), ends_at: ends.toISOString(),
+      }) as OnCallShift;
+      if (!shift || !Number.isSafeInteger(shift.id) || shift.crew_user_id !== selected)
+        throw new Error("Unexpected on-call schedule response.");
+      setOnCallShifts((old) => old ? [shift, ...old.filter((row) => row.id !== shift.id)] : [shift]);
+      setOnCallStart(""); setOnCallEnd(""); setOnCallCrewId("");
+      setNotice("Property on-call shift scheduled. No automatic dispatch was performed.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not schedule on-call crew.");
+    } finally { setSaving(false); }
+  }
+
+  async function cancelOnCall(shiftId: number) {
+    if (!order || saving || onCallCancelReason.trim().length < 5) {
+      setError("An on-call cancellation reason of at least five characters is required."); return;
+    }
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const row = await apiPost("/work-orders/" + order.id + "/on-call-shifts/" + shiftId + "/cancel", {
+        reason: onCallCancelReason.trim(),
+      }) as OnCallShift;
+      if (!row || row.id !== shiftId || !row.cancelled_at)
+        throw new Error("Unexpected on-call cancellation response.");
+      setOnCallShifts((old) => old?.map((shift) => shift.id === row.id ? row : shift) || []);
+      setOnCallCancelId(null); setOnCallCancelReason("");
+      setNotice("On-call shift cancelled with audit history retained.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to cancel on-call shift.");
+    } finally { setSaving(false); }
+  }
 
   async function savePreferredVendors() {
     if (!order || saving || vendorCandidates === null) return;
@@ -692,6 +764,68 @@ export default function WorkOrderDetailPage() {
                 )}
             </div>
           </section>
+          {viewer && ["ADMIN", "OWNER", "MANAGER"].includes(String(viewer.role).toUpperCase()) && (
+            <section aria-label="Property on-call crew shifts" className="rounded-xl border bg-white p-5">
+              <h2 className="font-semibold">Property on-call crew shifts</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Set a primary on-call crew shift for this property, with no overlapping active shifts.
+                A schedule does not dispatch anyone or approve a payment.
+              </p>
+              {onCallShifts === null ? <p className="mt-2 text-sm text-slate-500">On-call schedule unavailable.</p> : (
+                <>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <label className="text-sm">On-call crew
+                      <select aria-label="On-call crew member" className="mt-1 block w-full rounded border p-2"
+                        value={onCallCrewId} onChange={(e) => setOnCallCrewId(e.target.value)} disabled={saving}>
+                        <option value="">Select eligible crew</option>
+                        {crew.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
+                      </select>
+                    </label>
+                    <label className="text-sm">Shift start
+                      <input aria-label="On-call shift start" type="datetime-local"
+                        className="mt-1 block w-full rounded border p-2"
+                        value={onCallStart} onChange={(e) => setOnCallStart(e.target.value)} disabled={saving}/>
+                    </label>
+                    <label className="text-sm">Shift end
+                      <input aria-label="On-call shift end" type="datetime-local"
+                        className="mt-1 block w-full rounded border p-2"
+                        value={onCallEnd} onChange={(e) => setOnCallEnd(e.target.value)} disabled={saving}/>
+                    </label>
+                  </div>
+                  <button type="button" className="mt-3 rounded bg-slate-900 px-4 py-2 text-sm text-white"
+                    disabled={saving || !onCallCrewId || !onCallStart || !onCallEnd}
+                    onClick={() => void scheduleOnCall()}>Schedule on-call crew</button>
+                  {onCallShifts.length === 0
+                    ? <p className="mt-3 text-sm text-slate-500">No on-call shifts scheduled for this property.</p>
+                    : <ul className="mt-3 divide-y">{onCallShifts.map((shift) => (
+                      <li key={shift.id} className="py-3 text-sm">
+                        <p>Shift #{shift.id} · {crew.find((person) => person.id === shift.crew_user_id)?.name || `Crew #${shift.crew_user_id}`}
+                          {" · "}{new Date(shift.starts_at + "Z").toLocaleString()} – {new Date(shift.ends_at + "Z").toLocaleString()}
+                        </p>
+                        {shift.cancelled_at ? <p className="text-slate-500">Cancelled: {shift.cancellation_reason}</p>
+                        : <div className="mt-2">
+                            {onCallCancelId === shift.id ? (
+                              <div className="space-y-2">
+                                <textarea aria-label="On-call cancellation reason" className="w-full rounded border p-2"
+                                  maxLength={1000} value={onCallCancelReason} disabled={saving}
+                                  onChange={(e) => setOnCallCancelReason(e.target.value)} />
+                                <button type="button" onClick={() => void cancelOnCall(shift.id)}
+                                  disabled={saving || onCallCancelReason.trim().length < 5}
+                                  className="rounded bg-slate-900 px-3 py-2 text-white">Confirm shift cancellation</button>
+                                <button type="button" className="ml-2 rounded border px-3 py-2"
+                                  disabled={saving} onClick={() => {setOnCallCancelId(null);setOnCallCancelReason("");}}>Keep shift</button>
+                              </div>
+                            ) : <button type="button" className="rounded border px-3 py-2"
+                                  disabled={saving} onClick={() => {setOnCallCancelId(shift.id);setOnCallCancelReason("");}}>
+                                  Cancel shift
+                                </button>}
+                          </div>}
+                      </li>
+                    ))}</ul>}
+                </>
+              )}
+            </section>
+          )}
           {viewer && ["ADMIN", "OWNER", "MANAGER"].includes(String(viewer.role).toUpperCase()) && (
             <section aria-label="Property preferred maintenance vendors" className="rounded-xl border bg-white p-5">
               <h2 className="font-semibold">Preferred maintenance vendors</h2>
