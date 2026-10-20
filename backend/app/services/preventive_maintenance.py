@@ -133,7 +133,20 @@ def list_occurrences(db: Session, actor: User, schedule_id: int,
                      *, limit: int = 100, offset: int = 0):
     """Authorized durable evidence for every generated occurrence."""
     _schedule(db, actor, schedule_id)
-    return db.query(Occurrence).filter(
+    schedule = _schedule(db, actor, schedule_id)
+    # Join through the real work-order unit/property, not untrusted historical
+    # label columns: a corrupted occurrence must never expose foreign work IDs.
+    return db.query(Occurrence).join(
+        WorkOrder, WorkOrder.id == Occurrence.work_order_id,
+    ).join(
+        Unit, Unit.id == WorkOrder.unit_id,
+    ).join(
+        Property, Property.id == Unit.property_id,
+    ).filter(
         Occurrence.organization_id == actor.organization_id,
         Occurrence.schedule_id == schedule_id,
+        WorkOrder.unit_id == schedule.unit_id,
+        WorkOrder.property_id == schedule.property_id,
+        Property.id == schedule.property_id,
+        Property.organization_id == actor.organization_id,
     ).order_by(Occurrence.due_date.desc(), Occurrence.id.desc()).offset(offset).limit(limit).all()
