@@ -56,6 +56,31 @@ def seeded():
     return db, engine, (admin, manager, tenant, outsider), (prop, hidden, foreign_prop), (unit, other_unit, foreign_unit)
 
 
+def test_replay_never_returns_corrupted_cross_property_work_order():
+    db, engine, actors, properties, units = seeded()
+    try:
+        admin = actors[0]
+        schedule = pm.create_schedule(
+            db, admin, unit_id=units[0].id,
+            title="Check ventilation", description="Check air handling controls thoroughly",
+            interval_days=30, next_due_date=date.today(),
+        )
+        order, created = pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        assert created
+        other_unit = units[2]  # Another organization's property.
+        order.unit_id = other_unit.id
+        order.property_id = properties[2].id
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        assert exc.value.status_code == 409
+        assert db.query(WorkOrder).count() == 1
+        assert pm.list_occurrences(db, admin, schedule.id) == []
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_preventive_schedule_due_work_order_exactly_once_and_no_tenant_financial_or_entry_rights():
     db, engine, actors, _, units = seeded()
     try:

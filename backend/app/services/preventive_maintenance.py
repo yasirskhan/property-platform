@@ -182,6 +182,29 @@ def update_settings(db: Session, actor: User, schedule_id: int, *,
     return row
 
 
+def _last_valid_occurrence(db: Session, schedule: Schedule, as_of: date):
+    """Never return a foreign or mismatched work order through a replay path.
+
+    The schedule, occurrence and actual Unit->Property association must
+    agree before a previously generated order is disclosed.
+    """
+    return db.query(WorkOrder).join(
+        Occurrence, Occurrence.work_order_id == WorkOrder.id,
+    ).join(
+        Unit, Unit.id == WorkOrder.unit_id,
+    ).join(
+        Property, Property.id == Unit.property_id,
+    ).filter(
+        Occurrence.schedule_id == schedule.id,
+        Occurrence.organization_id == schedule.organization_id,
+        Occurrence.due_date <= as_of,
+        WorkOrder.unit_id == schedule.unit_id,
+        WorkOrder.property_id == schedule.property_id,
+        Property.id == schedule.property_id,
+        Property.organization_id == schedule.organization_id,
+    ).order_by(Occurrence.due_date.desc(), Occurrence.id.desc()).first()
+
+
 def generate_due(db: Session, actor: User, schedule_id: int, *, as_of: date):
     """Generate ONE due occurrence under row lock; retries return the same order."""
     row = _schedule(db, actor, schedule_id)
@@ -195,25 +218,22 @@ def generate_due(db: Session, actor: User, schedule_id: int, *, as_of: date):
         raise HTTPException(status_code=409, detail="Schedule is paused")
     _scope(db, actor, row.unit_id)  # Revalidate under the lock before any write.
     if row.end_date is not None and row.next_due_date > row.end_date:
-        previous = db.query(Occurrence).filter(
-            Occurrence.schedule_id == row.id,
-            Occurrence.due_date <= as_of,
-        ).order_by(Occurrence.due_date.desc()).first()
-        if previous:
-            return db.query(WorkOrder).filter(
-                WorkOrder.id == previous.work_order_id,
-            ).one(), False
+        previous = _last_valid_occurrence(db, row, as_of)
+        if previous is not None:
+            return previous, False
         raise HTTPException(status_code=409, detail="Schedule end date reached")
     if row.next_due_date > as_of:
-        previous = db.query(Occurrence).filter(Occurrence.schedule_id == row.id,
-            Occurrence.due_date <= as_of).order_by(Occurrence.due_date.desc()).first()
-        if previous:
-            return db.query(WorkOrder).filter(WorkOrder.id == previous.work_order_id).one(), False
+        previous = _last_valid_occurrence(db, row, as_of)
+        if previous is not None:
+            return previous, False
         raise HTTPException(status_code=409, detail="No occurrence is due")
     due = row.next_due_date
     existing = db.query(Occurrence).filter_by(schedule_id=row.id, due_date=due).first()
     if existing:
-        return db.query(WorkOrder).filter(WorkOrder.id == existing.work_order_id).one(), False
+        previous = _last_valid_occurrence(db, row, as_of)
+        if previous is None or previous.id != existing.work_order_id:
+            raise HTTPException(status_code=409, detail="Occurrence link integrity violation")
+        return previous, False
     unit = _scope(db, actor, row.unit_id)
     wo = WorkOrder(
         property_id=unit.property_id, unit_id=unit.id, tenant_id=None,
