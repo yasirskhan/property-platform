@@ -1,5 +1,5 @@
 """Staff-authorized preventive maintenance with durable, idempotent manual due generation."""
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -73,7 +73,7 @@ def set_active(db: Session, actor: User, schedule_id: int, active: bool):
     old = row.active
     if old != active:
         row.active = active
-        row.updated_at = __import__("datetime").datetime.utcnow()
+        row.updated_at = datetime.utcnow()
         append_audit_log(db, entity_type="preventive_maintenance_schedule", entity_id=row.id,
             organization_id=actor.organization_id, user_id=actor.id, action="active_changed",
             old_value={"active":old}, new_value={"active":active})
@@ -89,7 +89,7 @@ def generate_due(db: Session, actor: User, schedule_id: int, *, as_of: date):
     if not row.active:
         raise HTTPException(status_code=409, detail="Schedule is paused")
     # Lock the parent schedule to serialize two concurrent workers using PostgreSQL.
-    row = db.query(Schedule).filter(Schedule.id == row.id).with_for_update().one()
+    row = db.query(Schedule).populate_existing().filter(Schedule.id == row.id).with_for_update().one()
     if not row.active:
         raise HTTPException(status_code=409, detail="Schedule is paused")
     _scope(db, actor, row.unit_id)  # Revalidate under the lock before any write.
@@ -116,7 +116,7 @@ def generate_due(db: Session, actor: User, schedule_id: int, *, as_of: date):
     db.add(Occurrence(organization_id=actor.organization_id, schedule_id=row.id,
         due_date=due, work_order_id=wo.id))
     row.next_due_date = due + timedelta(days=row.interval_days)
-    row.updated_at = __import__("datetime").datetime.utcnow()
+    row.updated_at = datetime.utcnow()
     append_audit_log(db, entity_type="preventive_maintenance_occurrence", entity_id=row.id,
         organization_id=actor.organization_id, user_id=actor.id, action="generated",
         new_value={"schedule_id":row.id, "due_date":due.isoformat(), "work_order_id":wo.id})
