@@ -37,6 +37,9 @@ def test_staff_creates_preventive_schedule_and_one_tenantless_due_work_order():
             )).to_be_visible(timeout=15_000)
             card = page.locator("article").filter(has_text="E2E HVAC scheduled filter check").first
             pw.expect(card).to_contain_text("Active")
+            card.get_by_role("button", name="Preview due backlog").click()
+            pw.expect(card.get_by_role("heading", name="Due backlog preview — no work orders created")).to_be_visible(timeout=15_000)
+            pw.expect(card).to_contain_text(date.today().isoformat())
             card.get_by_role("button", name="Generate due work order").click()
             pw.expect(page.get_by_role("status").filter(
                 has_text="generated without a tenant or automatic charge"
