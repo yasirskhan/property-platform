@@ -341,11 +341,14 @@ def test_crew_accepts_and_rejects_dispatch_with_audited_reassignment() -> None:
                 "On-call shift scheduled for the selected property. No automatic dispatch was performed.",
                 exact=True,
             )).to_be_visible(timeout=15_000)
+            # One shift can span two UTC calendar-day cards, yielding two
+            # equivalent controls. Operate on the first displayed instance
+            # and verify the resulting single persisted cancellation.
             admin.get_by_role("button", name="Cancel coverage").first.click()
-            pw.expect(admin.get_by_role("button", name="Confirm cancellation")).to_be_disabled()
-            admin.get_by_label(re.compile(r"On-call calendar cancellation reason")).fill(
+            pw.expect(admin.get_by_role("button", name="Confirm cancellation").first).to_be_disabled()
+            admin.get_by_label(re.compile(r"On-call calendar cancellation reason")).first.fill(
                 "Coverage transferred to replacement staff")
-            admin.get_by_role("button", name="Confirm cancellation").click()
+            admin.get_by_role("button", name="Confirm cancellation").first.click()
             pw.expect(admin.get_by_text(
                 "On-call shift cancelled with reason and audit history preserved.", exact=True,
             )).to_be_visible(timeout=15_000)
