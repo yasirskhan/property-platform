@@ -718,7 +718,7 @@ def list_maintenance_vendor_candidates(
     available = db.query(Vendor).filter(
         Vendor.organization_id == current_user.organization_id,
         Vendor.is_active.is_(True), Vendor.deleted_at.is_(None),
-        or_(Vendor.trade.is_(None), func.lower(Vendor.trade) == trade),
+        or_(Vendor.trade.is_(None), func.lower(func.trim(Vendor.trade)) == trade),
     ).order_by(Vendor.company_name.asc(), Vendor.id.asc()).limit(201).all()
     if len(available) > 200:
         raise HTTPException(status_code=422, detail="Vendor list exceeds bounded selection capacity")
@@ -755,7 +755,7 @@ def replace_maintenance_preferred_vendors(
             Vendor.id.in_(ids),
             Vendor.organization_id == prop.organization_id,
             Vendor.is_active.is_(True), Vendor.deleted_at.is_(None),
-            or_(Vendor.trade.is_(None), func.lower(Vendor.trade) == trade),
+            or_(Vendor.trade.is_(None), func.lower(func.trim(Vendor.trade)) == trade),
         ).all()
         if {v.id for v in eligible} != set(ids):
             raise HTTPException(status_code=404, detail="One or more vendor companies are not eligible")

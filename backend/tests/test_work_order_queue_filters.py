@@ -2044,6 +2044,10 @@ def test_ranked_property_trade_vendor_preferences_scoped_and_audited():
         assert list_maintenance_preferred_vendors(order.id, db=db, current_user=admin) == []
         eligible_ids = {v.vendor_id for v in list_maintenance_vendor_candidates(order.id, db=db, current_user=manager)}
         assert eligible_ids == {plumber_a.id, plumber_b.id, general.id}
+        plumber_a.trade = " PLUMBING "
+        db.commit()
+        assert plumber_a.id in {v.vendor_id for v in list_maintenance_vendor_candidates(
+            order.id, db=db, current_user=manager)}
         for actor in (tenant, crew, foreign):
             with pytest.raises(HTTPException):
                 list_maintenance_preferred_vendors(order.id, db=db, current_user=actor)
