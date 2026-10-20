@@ -297,6 +297,34 @@ def test_crew_accepts_and_rejects_dispatch_with_audited_reassignment() -> None:
                 "On-call shift cancelled with audit history retained.", exact=True
             )).to_be_visible(timeout=15_000)
 
+            # A manager can also create/cancel coverage from the calendar
+            # without needing an unrelated work order for the property.
+            admin.goto(BASE_URL + "/dashboard/maintenance/on-call", wait_until="domcontentloaded")
+            pw.expect(admin.get_by_role("heading", name="Maintenance on-call calendar")).to_be_visible(timeout=15_000)
+            admin.get_by_label("On-call calendar property").select_option("900001")
+            admin.get_by_label("On-call calendar crew").select_option(str(crew_id))
+            calendar_start = admin.evaluate(
+                "() => { const d = new Date(Date.now()+96*3600000); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16); }"
+            )
+            calendar_end = admin.evaluate(
+                "() => { const d = new Date(Date.now()+100*3600000); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16); }"
+            )
+            admin.get_by_label("On-call calendar shift start").fill(calendar_start)
+            admin.get_by_label("On-call calendar shift end").fill(calendar_end)
+            admin.get_by_role("button", name="Schedule coverage").click()
+            pw.expect(admin.get_by_text(
+                "On-call shift scheduled for the selected property. No automatic dispatch was performed.",
+                exact=True,
+            )).to_be_visible(timeout=15_000)
+            admin.get_by_role("button", name="Cancel coverage").first.click()
+            pw.expect(admin.get_by_role("button", name="Confirm cancellation")).to_be_disabled()
+            admin.get_by_label(re.compile(r"On-call calendar cancellation reason")).fill(
+                "Coverage transferred to replacement staff")
+            admin.get_by_role("button", name="Confirm cancellation").click()
+            pw.expect(admin.get_by_text(
+                "On-call shift cancelled with reason and audit history preserved.", exact=True,
+            )).to_be_visible(timeout=15_000)
+
             crew_page.goto(BASE_URL + "/login", wait_until="domcontentloaded")
             crew_page.locator('input[type="email"]').fill(email)
             crew_page.locator('input[type="password"]').fill(password)
