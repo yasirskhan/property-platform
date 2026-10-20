@@ -12,7 +12,7 @@ from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
 from app.models.work_order import WorkOrderTimeCorrection, WorkOrderTimeEntry, WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
-from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, accept_work_order_assignment, reject_work_order_assignment, recall_work_order_assignment, update_crew_eta, create_work_order_time_entry, list_work_order_time_entries, request_work_order_time_correction, list_work_order_time_corrections, review_work_order_time_correction, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
+from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, accept_work_order_assignment, reject_work_order_assignment, recall_work_order_assignment, update_crew_eta, create_work_order_time_entry, list_work_order_time_entries, get_work_order_time_ledger, request_work_order_time_correction, list_work_order_time_corrections, review_work_order_time_correction, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
 from app.models.audit_log import AuditLog
 from app.models.unit_inspection import UnitInspectionRecord
 from app.services import unit_inspections
@@ -1872,3 +1872,55 @@ def test_crew_time_correction_conflict_denial_and_revoked_manager():
         assert denied.status == "denied"
     finally:
         db.close(); engine.dispose()
+
+
+def test_time_summary_retains_original_minutes_after_separate_review():
+    db, engine, actors, _, orders = _seed_queue()
+    try:
+        admin, manager, tenant, _, crew, foreign = actors
+        wo = orders[0]
+        wo.status = WorkOrderStatus.IN_PROGRESS
+        db.commit()
+        start = (datetime.now(timezone.utc) - timedelta(hours=5)).replace(second=0, microsecond=0)
+        original = create_work_order_time_entry(wo.id, WorkOrderTimeCreate(
+            started_at=start, ended_at=start + timedelta(hours=1)),
+            db=db, current_user=crew)
+        raw = get_work_order_time_ledger(wo.id, db=db, current_user=admin)
+        assert (raw.recorded_entries, raw.recorded_minutes, raw.reviewed_minutes) == (1, 60, 60)
+        correction = request_work_order_time_correction(
+            wo.id, original.id, WorkOrderTimeCorrectionCreate(
+                started_at=start, ended_at=start + timedelta(minutes=90),
+                reason="Actual repair included further cleanup"),
+            db=db, current_user=crew)
+        assert get_work_order_time_ledger(
+            wo.id, db=db, current_user=manager).pending_corrections == 1
+        review_work_order_time_correction(
+            wo.id, correction.id, WorkOrderTimeCorrectionDecision(
+                approve=True, reason="Manager verified completion time"),
+            db=db, current_user=manager)
+        ledger = get_work_order_time_ledger(wo.id, db=db, current_user=crew)
+        assert (ledger.recorded_minutes, ledger.reviewed_minutes) == (60, 90)
+        assert (ledger.approved_entries, ledger.pending_corrections) == (1, 0)
+        assert ledger.payroll_approved is False
+        assert db.get(WorkOrderTimeEntry, original.id).duration_minutes == 60
+        for actor in (tenant, foreign):
+            with pytest.raises(HTTPException) as denied:
+                get_work_order_time_ledger(wo.id, db=db, current_user=actor)
+            assert denied.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_time_summary_is_empty_without_original_evidence():
+    db, engine, actors, _, orders = _seed_queue()
+    try:
+        admin, _, tenant, _, _, _ = actors
+        empty = get_work_order_time_ledger(orders[0].id, db=db, current_user=admin)
+        assert empty.recorded_entries == 0
+        assert empty.reviewed_minutes == 0
+        with pytest.raises(HTTPException):
+            get_work_order_time_ledger(orders[0].id, db=db, current_user=tenant)
+    finally:
+        db.close()
+        engine.dispose()
