@@ -169,6 +169,18 @@ class MaintenanceVendorCandidateOut(BaseModel):
     insurance_status: str = 'MISSING'
 
 
+class MaintenanceDispatchReadinessOut(BaseModel):
+    """Operator guidance, not evidence of message delivery or dispatch completion."""
+    work_order_id: int
+    can_offer: bool
+    crew_user_id: Optional[int] = None
+    crew_name: Optional[str] = None
+    on_call_shift_id: Optional[int] = None
+    shift_ends_at: Optional[datetime] = None
+    preferred_vendors: List[MaintenanceVendorPreferenceOut] = Field(default_factory=list)
+    message: str
+
+
 class WorkOrderTimeLedgerOut(BaseModel):
     recorded_entries: int
     recorded_minutes: int

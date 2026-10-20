@@ -12,7 +12,7 @@ from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
 from app.models.work_order import MaintenanceOnCallShift, WorkOrderTimeCorrection, WorkOrderTimeEntry, WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
-from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, accept_work_order_assignment, reject_work_order_assignment, recall_work_order_assignment, update_crew_eta, create_work_order_time_entry, list_work_order_time_entries, get_work_order_time_ledger, pending_crew_time_corrections, list_maintenance_preferred_vendors, replace_maintenance_preferred_vendors, list_maintenance_vendor_candidates, list_maintenance_on_call_shifts, list_maintenance_on_call_calendar, list_on_call_property_roster, schedule_on_call_shift_by_property, cancel_on_call_shift_by_property, schedule_maintenance_on_call_shift, cancel_maintenance_on_call_shift, request_work_order_time_correction, list_work_order_time_corrections, review_work_order_time_correction, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
+from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, accept_work_order_assignment, reject_work_order_assignment, recall_work_order_assignment, update_crew_eta, create_work_order_time_entry, list_work_order_time_entries, get_work_order_time_ledger, pending_crew_time_corrections, list_maintenance_preferred_vendors, replace_maintenance_preferred_vendors, list_maintenance_vendor_candidates, list_maintenance_on_call_shifts, list_maintenance_on_call_calendar, list_on_call_property_roster, maintenance_dispatch_readiness, offer_current_on_call_crew, schedule_on_call_shift_by_property, cancel_on_call_shift_by_property, schedule_maintenance_on_call_shift, cancel_maintenance_on_call_shift, request_work_order_time_correction, list_work_order_time_corrections, review_work_order_time_correction, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
 from app.models.audit_log import AuditLog
 from app.models.vendor import Vendor, MaintenancePreferredVendor
 from app.models.vendor_insurance import VendorInsurance
@@ -2428,6 +2428,165 @@ def test_direct_on_call_calendar_roster_and_schedule_respects_live_manager_prope
             schedule_on_call_shift_by_property(
                 first_prop.id, proposed, db=db, current_user=manager)
         assert revoked.value.status_code == 403
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_on_call_dispatch_readiness_and_explicit_offer_is_atomic_and_scoped():
+    db, engine, actors, props, orders = _seed_queue()
+    try:
+        admin, manager, tenant, _other, crew, foreign = actors
+        order = orders[1]
+        order.status = WorkOrderStatus.ACKNOWLEDGED
+        now = datetime.utcnow()
+        shift = MaintenanceOnCallShift(
+            organization_id=admin.organization_id, property_id=props[0].id,
+            crew_user_id=crew.id,
+            starts_at=now - timedelta(minutes=20),
+            ends_at=now + timedelta(minutes=40),
+            created_by_user_id=admin.id,
+        )
+        db.add(shift)
+        db.commit()
+        for unauthorized in (tenant, crew, foreign):
+            with pytest.raises(HTTPException):
+                maintenance_dispatch_readiness(order.id, db=db, current_user=unauthorized)
+            with pytest.raises(HTTPException):
+                offer_current_on_call_crew(order.id, db=db, current_user=unauthorized)
+        ready = maintenance_dispatch_readiness(order.id, db=db, current_user=manager)
+        assert ready.can_offer
+        assert ready.on_call_shift_id == shift.id
+        assert ready.crew_user_id == crew.id
+        assert ready.crew_name
+        assert db.query(AuditLog).filter_by(
+            entity_type="work_order", entity_id=order.id,
+            action="on_call_offer_selected").count() == 0
+        assigned = offer_current_on_call_crew(order.id, db=db, current_user=manager)
+        assert assigned.status == WorkOrderStatus.ASSIGNED
+        assert assigned.assigned_to_id == crew.id
+        assert assigned.assignment_response == "pending"
+        assert db.query(AuditLog).filter_by(
+            entity_type="work_order", entity_id=order.id,
+            action="on_call_offer_selected").count() == 1
+        assert db.query(AuditLog).filter_by(
+            entity_type="work_order", entity_id=order.id,
+            action="crew_assignment").count() == 1
+        # Do not reset a pending response or duplicate audits through a retry.
+        with pytest.raises(HTTPException) as duplicate:
+            offer_current_on_call_crew(order.id, db=db, current_user=manager)
+        assert duplicate.value.status_code == 409
+        assert db.query(AuditLog).filter_by(
+            entity_type="work_order", entity_id=order.id,
+            action="on_call_offer_selected").count() == 1
+        crew_assignment = db.query(PropertyAssignment).filter_by(
+            property_id=props[0].id, user_id=crew.id).one()
+        crew_assignment.is_active = False
+        db.commit()
+        stale = maintenance_dispatch_readiness(order.id, db=db, current_user=admin)
+        assert stale.crew_user_id is None
+        assert not stale.can_offer
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_on_call_offer_requires_live_coverage_and_does_not_contact_vendors():
+    db, engine, actors, props, orders = _seed_queue()
+    try:
+        admin, manager, tenant, _other, crew, foreign = actors
+        order = orders[1]
+        order.status = WorkOrderStatus.ACKNOWLEDGED
+        vendor = Vendor(
+            organization_id=admin.organization_id,
+            company_name="Fallback Electrical", trade=None, is_active=True,
+        )
+        db.add(vendor)
+        db.flush()
+        db.add(MaintenancePreferredVendor(
+            organization_id=admin.organization_id, property_id=props[0].id,
+            trade=order.category.value, rank=1, vendor_id=vendor.id,
+            updated_by_user_id=admin.id,
+        ))
+        db.commit()
+        no_coverage = maintenance_dispatch_readiness(order.id, db=db, current_user=manager)
+        assert not no_coverage.can_offer
+        assert no_coverage.crew_user_id is None
+        assert [v.vendor_id for v in no_coverage.preferred_vendors] == [vendor.id]
+        with pytest.raises(HTTPException) as missing:
+            offer_current_on_call_crew(order.id, db=db, current_user=admin)
+        assert missing.value.status_code == 409
+        assert order.assigned_to_id is None
+        assert db.query(AuditLog).filter_by(
+            entity_type="work_order", entity_id=order.id,
+            action="on_call_offer_selected").count() == 0
+
+        now = datetime.utcnow()
+        shift = MaintenanceOnCallShift(
+            organization_id=admin.organization_id, property_id=props[0].id,
+            crew_user_id=crew.id,
+            starts_at=now-timedelta(minutes=10),
+            ends_at=now+timedelta(hours=2),
+            created_by_user_id=admin.id,
+        )
+        db.add(shift); db.commit()
+        assert maintenance_dispatch_readiness(order.id, db=db, current_user=admin).can_offer
+        shift.cancelled_at = datetime.utcnow()
+        shift.cancellation_reason = "Crew no longer on duty"
+        db.commit()
+        assert not maintenance_dispatch_readiness(order.id, db=db, current_user=admin).can_offer
+        with pytest.raises(HTTPException):
+            offer_current_on_call_crew(order.id, db=db, current_user=admin)
+        shift.cancelled_at = None
+        db.commit()
+        prop = props[0]
+        prop.is_active = False
+        db.commit()
+        assert not maintenance_dispatch_readiness(order.id, db=db, current_user=admin).can_offer
+        with pytest.raises(HTTPException) as retired:
+            offer_current_on_call_crew(order.id, db=db, current_user=admin)
+        assert retired.value.status_code == 409
+        prop.is_active = True
+        assignment = db.query(PropertyAssignment).filter_by(
+            property_id=prop.id, user_id=manager.id).one()
+        assignment.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException) as revoked:
+            offer_current_on_call_crew(order.id, db=db, current_user=manager)
+        assert revoked.value.status_code == 403
+        assert db.query(AuditLog).filter_by(
+            entity_type="work_order", entity_id=order.id,
+            action="on_call_offer_selected").count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_on_call_dispatch_fails_closed_on_conflicting_current_shifts():
+    db, engine, actors, props, orders = _seed_queue()
+    try:
+        admin, manager, _tenant, _other, crew, _foreign = actors
+        orders[1].status = WorkOrderStatus.ACKNOWLEDGED
+        now = datetime.utcnow()
+        for offset in (0, 1):
+            db.add(MaintenanceOnCallShift(
+                organization_id=admin.organization_id,
+                property_id=props[0].id, crew_user_id=crew.id,
+                starts_at=now-timedelta(minutes=30-offset),
+                ends_at=now+timedelta(minutes=30+offset),
+                created_by_user_id=admin.id,
+            ))
+        db.commit()
+        with pytest.raises(HTTPException) as conflict:
+            maintenance_dispatch_readiness(orders[1].id, db=db, current_user=admin)
+        assert conflict.value.status_code == 409
+        with pytest.raises(HTTPException) as conflict:
+            offer_current_on_call_crew(orders[1].id, db=db, current_user=manager)
+        assert conflict.value.status_code == 409
+        assert orders[1].assigned_to_id is None
+        assert db.query(AuditLog).filter_by(
+            entity_type="work_order", entity_id=orders[1].id,
+            action="on_call_offer_selected").count() == 0
     finally:
         db.close()
         engine.dispose()

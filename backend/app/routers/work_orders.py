@@ -78,6 +78,7 @@ from app.schemas.work_order import (
     MaintenanceOnCallShiftOut,
     MaintenanceOnCallCalendarOut,
     MaintenanceOnCallPropertyChoiceOut,
+    MaintenanceDispatchReadinessOut,
     MaintenanceVendorPreferencesUpdate,
     MaintenanceVendorPreferenceOut,
     MaintenanceVendorCandidateOut,
@@ -1162,6 +1163,144 @@ def replace_maintenance_preferred_vendors(
     return _maintenance_vendor_choices(
         db, organization_id=prop.organization_id,
         property_id=prop.id, trade=trade,
+    )
+
+
+
+# ------------------------------------------------------------
+# LIVE ON-CALL CREW: ADVISORY READINESS AND EXPLICIT IN-APP OFFER
+# ------------------------------------------------------------
+def _eligible_current_on_call(db: Session, prop: Property, now: datetime):
+    """Use actual current coverage and recheck live crew and property assignment.
+
+    Only a signed-in staff action creates an offer. A shift alone neither
+    dispatches a person nor confirms delivery of an external notification.
+    """
+    matches = (
+        db.query(MaintenanceOnCallShift, User)
+        .join(User, User.id == MaintenanceOnCallShift.crew_user_id)
+        .join(PropertyAssignment, and_(
+            PropertyAssignment.property_id == MaintenanceOnCallShift.property_id,
+            PropertyAssignment.user_id == MaintenanceOnCallShift.crew_user_id,
+        ))
+        .filter(
+            MaintenanceOnCallShift.organization_id == prop.organization_id,
+            MaintenanceOnCallShift.property_id == prop.id,
+            MaintenanceOnCallShift.cancelled_at.is_(None),
+            MaintenanceOnCallShift.starts_at <= now,
+            MaintenanceOnCallShift.ends_at > now,
+            User.organization_id == prop.organization_id,
+            User.role == UserRole.CREW,
+            User.is_active.is_(True),
+            User.deleted_at.is_(None),
+            PropertyAssignment.role == UserRole.CREW,
+            PropertyAssignment.is_active.is_(True),
+            PropertyAssignment.deleted_at.is_(None),
+        )
+        .distinct()
+        .order_by(MaintenanceOnCallShift.id.asc())
+        .limit(2).all()
+    )
+    if len(matches) > 1:
+        # Malformed overlapping coverage must never select a random recipient.
+        raise HTTPException(status_code=409, detail="Conflicting current on-call shifts require manager resolution")
+    return matches[0] if matches else None
+
+
+@router.get("/{wo_id}/dispatch-readiness", response_model=MaintenanceDispatchReadinessOut)
+def maintenance_dispatch_readiness(
+    wo_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Current, scoped and read-only. No notifications, offers or money movement."""
+    wo, prop = _maintenance_vendor_scope(db, wo_id, current_user)
+    active = (
+        prop.is_active and prop.deleted_at is None
+        and db.query(Unit.id).filter(
+            Unit.id == wo.unit_id, Unit.property_id == prop.id,
+            Unit.is_active.is_(True), Unit.deleted_at.is_(None),
+        ).first() is not None
+    )
+    vendors = _maintenance_vendor_choices(
+        db, organization_id=prop.organization_id,
+        property_id=prop.id, trade=wo.category.value,
+    ) if active else []
+    match = _eligible_current_on_call(db, prop, datetime.utcnow()) if active else None
+    shift, crew = match if match is not None else (None, None)
+    can_offer = bool(
+        active and match is not None and (
+            wo.status == WorkOrderStatus.ACKNOWLEDGED
+            or (wo.status == WorkOrderStatus.ASSIGNED and wo.assigned_to_id == crew.id)
+        )
+    )
+    if not active:
+        message = "Inactive property or unit. Restore access before dispatch."
+    elif wo.status == WorkOrderStatus.SUBMITTED:
+        message = "Acknowledge this work order before offering an assignment."
+    elif wo.status not in (WorkOrderStatus.ACKNOWLEDGED, WorkOrderStatus.ASSIGNED):
+        message = "This work order cannot receive a new assignment."
+    elif wo.status == WorkOrderStatus.ASSIGNED and match is not None and wo.assigned_to_id == crew.id:
+        message = "The currently on-call crew already has this in-app assignment."
+    elif wo.status == WorkOrderStatus.ASSIGNED:
+        message = "Recall the existing offer before assigning another crew member."
+    elif match is None:
+        message = "No eligible crew is currently on call. Review the preferred vendors or schedule coverage."
+    else:
+        message = "Eligible on-call crew found. An authorized manager may offer this assignment in-app."
+    return MaintenanceDispatchReadinessOut(
+        work_order_id=wo.id, can_offer=can_offer,
+        crew_user_id=crew.id if crew is not None else None,
+        crew_name=((crew.first_name + " " + crew.last_name).strip() if crew is not None else None),
+        on_call_shift_id=shift.id if shift is not None else None,
+        shift_ends_at=shift.ends_at if shift is not None else None,
+        preferred_vendors=vendors,
+        message=message,
+    )
+
+
+@router.post("/{wo_id}/offer-on-call", response_model=WorkOrderOut)
+def offer_current_on_call_crew(
+    wo_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Operator-confirmed assignment, not automated messaging or delivery.
+
+    Lock the property first, as schedule/cancellation do, then the work order.
+    Re-resolve coverage under the property lock to avoid offering a cancelled
+    or no-longer-active shift. Reuse the existing crew-offer transaction for
+    full audit and acceptance/rejection semantics.
+    """
+    wo, prop = _maintenance_vendor_scope(db, wo_id, current_user, write=True)
+    wo = db.query(WorkOrder).filter(WorkOrder.id == wo.id).with_for_update().first()
+    _check_access(db, current_user, wo)
+    if wo.status == WorkOrderStatus.ASSIGNED and wo.assigned_to_id is not None:
+        # Exact retry must not overwrite the response, ETA or create audit rows.
+        # A different intended crew requires an explicit recall first.
+        raise HTTPException(status_code=409, detail="Existing crew assignment must be recalled before another offer")
+    if wo.status != WorkOrderStatus.ACKNOWLEDGED:
+        raise HTTPException(status_code=409, detail="Acknowledge the work order before offering on-call crew")
+    _require_active_dispatch_location(db, wo)
+    match = _eligible_current_on_call(db, prop, datetime.utcnow())
+    if match is None:
+        raise HTTPException(status_code=409, detail="No active and eligible on-call crew for this property")
+    shift, crew = match
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=prop.organization_id,
+        entity_type="work_order", entity_id=wo.id, action="on_call_offer_selected",
+        old_value={"assigned_to_id": wo.assigned_to_id},
+        new_value={
+            "crew_user_id": crew.id, "on_call_shift_id": shift.id,
+            "source": "explicit_in_app_offer",
+            "external_delivery_confirmed": False,
+        },
+    )
+    # Commits the selection evidence and crew assignment together. Failure
+    # before commit is rolled back by the request-scoped session.
+    return assign_work_order(
+        wo_id, WorkOrderAssign(crew_user_id=crew.id),
+        db=db, current_user=current_user,
     )
 
 

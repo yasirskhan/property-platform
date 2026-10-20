@@ -47,6 +47,16 @@ type OnCallShift = {
   cancelled_at?: string | null;
   cancellation_reason?: string | null;
 };
+type DispatchReadiness = {
+  work_order_id: number;
+  can_offer: boolean;
+  crew_user_id: number | null;
+  crew_name: string | null;
+  on_call_shift_id: number | null;
+  shift_ends_at: string | null;
+  message: string;
+  preferred_vendors: PreferredVendor[];
+};
 type VendorCandidate = { vendor_id: number; company_name: string; trade: string | null; insurance_status: string };
 type PreferredVendor = { vendor_id: number; rank: number; company_name: string; trade: string; insurance_status: string };
 
@@ -98,6 +108,7 @@ export default function WorkOrderDetailPage() {
   const [reviewReasons, setReviewReasons] = useState<Record<number, string>>({});
   const [crew, setCrew] = useState<{ id: number; name: string }[]>([]);
   const [onCallShifts, setOnCallShifts] = useState<OnCallShift[] | null>(null);
+  const [dispatchReadiness, setDispatchReadiness] = useState<DispatchReadiness | null>(null);
   const [onCallCrewId, setOnCallCrewId] = useState("");
   const [onCallStart, setOnCallStart] = useState("");
   const [onCallEnd, setOnCallEnd] = useState("");
@@ -246,6 +257,37 @@ export default function WorkOrderDetailPage() {
       }).catch(() => { if (active) setOnCallShifts(null); });
     return () => { active = false; };
   }, [order?.id, viewer?.id, viewer?.role]);
+
+  useEffect(() => {
+    if (!order || !viewer || !["ADMIN", "OWNER", "MANAGER"].includes(String(viewer.role).toUpperCase())) {
+      setDispatchReadiness(null); return;
+    }
+    let active = true;
+    setDispatchReadiness(null);
+    apiGet("/work-orders/" + order.id + "/dispatch-readiness")
+      .then((row: DispatchReadiness) => {
+        if (!row || row.work_order_id !== order.id || typeof row.message !== "string")
+          throw new Error("Invalid dispatch readiness response.");
+        if (active) setDispatchReadiness(row);
+      }).catch(() => { if (active) setDispatchReadiness(null); });
+    return () => { active = false; };
+  }, [order?.id, order?.status, order?.assigned_to_id, viewer?.role, onCallShifts]);
+
+  async function offerOnCallCrew() {
+    if (!order || !dispatchReadiness?.can_offer || saving) return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const result = await apiPost("/work-orders/" + order.id + "/offer-on-call") as WorkOrder;
+      if (result.id !== order.id || result.assigned_to_id !== dispatchReadiness.crew_user_id
+          || result.assignment_response !== "pending")
+        throw new Error("Unexpected on-call offer response.");
+      setNotice("On-call crew offer recorded in-app. No external SMS, email or call delivery is confirmed.");
+      await reload();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to offer to current on-call crew.");
+      await reload();
+    } finally { setSaving(false); }
+  }
 
   async function scheduleOnCall() {
     if (!order || saving) return;
@@ -771,6 +813,30 @@ export default function WorkOrderDetailPage() {
                 Set a primary on-call crew shift for this property, with no overlapping active shifts.
                 A schedule does not dispatch anyone or approve a payment.
               </p>
+
+              <div className="mt-3 rounded-lg border p-3" aria-label="Current on-call dispatch readiness">
+                <h3 className="text-sm font-semibold">Current dispatch readiness</h3>
+                {dispatchReadiness ? (
+                  <>
+                    <p className="mt-1 text-sm">{dispatchReadiness.message}</p>
+                    {dispatchReadiness.crew_name && <p className="mt-1 text-xs text-slate-600">
+                      Current on-call: {dispatchReadiness.crew_name}
+                      {dispatchReadiness.shift_ends_at ? " (until " + new Date(dispatchReadiness.shift_ends_at + "Z").toLocaleString() + ")" : ""}
+                    </p>}
+                    {dispatchReadiness.can_offer && order.status === "acknowledged" && (
+                      <button type="button" disabled={saving} onClick={() => void offerOnCallCrew()}
+                        className="mt-3 rounded bg-slate-900 px-3 py-2 text-sm text-white disabled:opacity-50">
+                        Offer to current on-call crew (in-app only)
+                      </button>
+                    )}
+                    {!dispatchReadiness.crew_user_id && dispatchReadiness.preferred_vendors.length > 0 && (
+                      <p className="mt-2 text-xs text-slate-600">
+                        Review ranked preferred vendors below for manual follow-up. No vendor has been contacted.
+                      </p>
+                    )}
+                  </>
+                ) : <p className="mt-1 text-sm text-slate-500">Dispatch readiness unavailable. Refresh before assigning.</p>}
+              </div>
               {onCallShifts === null ? <p className="mt-2 text-sm text-slate-500">On-call schedule unavailable.</p> : (
                 <>
                   <div className="mt-3 grid gap-3 sm:grid-cols-3">
