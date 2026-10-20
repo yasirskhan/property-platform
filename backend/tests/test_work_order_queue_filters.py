@@ -2144,3 +2144,46 @@ def test_preferred_vendor_settings_fail_closed_when_property_retired_or_manager_
     finally:
         db.close()
         engine.dispose()
+
+
+
+def test_preferred_vendor_ranks_are_shared_by_property_and_trade_not_work_order():
+    db, engine, actors, props, orders = _seed_queue()
+    try:
+        admin, manager, tenant, _, crew, foreign = actors
+        original = orders[0]
+        sibling = WorkOrder(
+            property_id=original.property_id, unit_id=original.unit_id,
+            tenant_id=tenant.id, title="Another plumbing repair",
+            description="Same property and trade shares dispatch preferences",
+            category=WorkOrderCategory.PLUMBING, priority=WorkOrderPriority.MEDIUM,
+            status=WorkOrderStatus.SUBMITTED,
+        )
+        general = orders[1]
+        db.add(sibling)
+        first = Vendor(organization_id=admin.organization_id, company_name="Best Pipe", trade="plumbing", is_active=True)
+        second = Vendor(organization_id=admin.organization_id, company_name="Water Help", trade="plumbing", is_active=True)
+        db.add_all([first, second])
+        db.commit()
+        replace_maintenance_preferred_vendors(original.id,
+            MaintenanceVendorPreferencesUpdate(vendor_ids=[first.id, second.id]),
+            db=db, current_user=admin)
+        assert [r.vendor_id for r in list_maintenance_preferred_vendors(
+            sibling.id, db=db, current_user=manager)] == [first.id, second.id]
+        assert list_maintenance_preferred_vendors(general.id, db=db, current_user=admin) == []
+        replace_maintenance_preferred_vendors(sibling.id,
+            MaintenanceVendorPreferencesUpdate(vendor_ids=[second.id, first.id]),
+            db=db, current_user=manager)
+        assert [r.vendor_id for r in list_maintenance_preferred_vendors(
+            original.id, db=db, current_user=admin)] == [second.id, first.id]
+        audits = db.query(AuditLog).filter_by(
+            entity_type="maintenance_vendor_preferences", entity_id=props[0].id,
+            action="ranked_vendor_preferences_updated",
+        ).order_by(AuditLog.id.asc()).all()
+        assert len(audits) == 2
+        assert json.loads(audits[-1].old_value)["vendor_ids"] == [first.id, second.id]
+        assert json.loads(audits[-1].new_value)["vendor_ids"] == [second.id, first.id]
+        assert db.query(MaintenancePreferredVendor).count() == 2
+    finally:
+        db.close()
+        engine.dispose()
