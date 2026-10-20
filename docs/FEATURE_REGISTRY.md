@@ -856,3 +856,5 @@ access boundary.
 | Phase 5 preventive schedule settings edits | capability | /dashboard/maintenance/preventive | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 detached, six-job CI gated | Admin/manager may edit title/instructions/interval only after pause, with row lock, assignment reauthorization and immutable before/after audit; existing due date and generated orders are preserved; staff UI + E2E |
 
 | Phase 5 preventive schedule pause-edit and optional cutoff | capability | /dashboard/maintenance/preventive | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 detached, six-job CI gated | Authorized pause-only interval/title/instructions/end-date edits with audit and row lock; bounded due sweep, old work orders preserved; no dispatch or billing |
+
+| Phase 5 retired preventive history retention | capability | /dashboard/maintenance/preventive | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 detached, CI gated | Read-only schedules/occurrences for archived units with live org/manager assignment checks; creation, modification and generation stay blocked |

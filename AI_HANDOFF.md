@@ -1,3 +1,9 @@
+# 2026-10-20 | RETIRED PREVENTIVE HISTORY — DETACHED / CI GATED
+
+Prepared `4b9ed1da70d034aa11182ae1d52e6c3bb9736857` adds read-only access to archived preventive schedule records and occurrences for currently authorized organization staff, including live manager property assignments; denies tenant/foreign/revoked roles and never permits generation or edits on retired inventory. Backend regressions included. This is a descendant of the pause-only settings and optional end-date implementation. Parent published `e8ca6888903b517427e6e6902e77ef3fd041206f` has hosted CI `39366507342` pending full six-job pass. Before advancing branch: verify exact SHA/all six, inspect live HEAD for concurrency and promote only with nonforce expected-SHA CAS; successor needs six-job CI and forward fixes. Full dispatch, mobile inspections, purchasing, and inventory remain open.
+
+---
+
 # 2026-10-19 | PHASE 5 SCHEDULE EDIT AND END-DATE — DETACHED / CI GATED
 
 Prepared descendant `6511752d2cf037f408d7d72c38cbd5d562ecb40d`: authorized pause-only edits of title, instructions, interval and optional end date; append-only before/after audit, row locks, UI and regressions. Migration `7c2e6f0a9b31` adds nullable end_date; worker stops after last eligible due, preserves prior work orders and replay, never dispatches or bills. Parent `e8ca6888903b517427e6e6902e77ef3fd041206f` CI `39366507342` must pass all six before safe expected-head nonforce promotion and successor CI. Dispatch, inspections, inventory, purchasing remain unfinished.

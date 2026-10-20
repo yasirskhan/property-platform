@@ -551,3 +551,7 @@ Staff can pause a recurring maintenance schedule, edit task/instructions/interva
 ## Paused schedule edits and bounded end-date controls (detached; CI gated)
 
 An authorized staff member can pause a preventive maintenance schedule, edit task, instructions, interval and optional end date, then resume. PostgreSQL schedule-row locking, current actor/property assignment checks and append-only before/after audit protect concurrent generation. An end date limits all later occurrences and daily sweeps, but preserves old orders and safe replay. No automatic dispatch, entry permission or tenant charges. Requires exact six-job hosted CI.
+
+## Retired-property preventive history retention (detached; CI gated)
+
+Read-only authorized schedule lists/details and occurrence history remain accessible after a unit/property is retired. Real Unit→Property→Organization alignment and live manager assignment are enforced, so no foreign or revoked access is introduced. Creation, pausing/resuming, editing and work generation still require active inventory; no due order can be generated from a retired unit. Backend regression covers history retention, denied generation, revocation and foreign/tenant denial. Requires exact six-job hosted CI.

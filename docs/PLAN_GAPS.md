@@ -523,3 +523,7 @@ Schedules can be paused and their task title, description and repeat interval ch
 ## Phase 5 bounded preventive schedule lifecycle (2026-10-19; detached)
 
 Staff can pause a schedule, then edit its title, instructions, interval and optional end date. Active edits are rejected, and row locks serialize updates with generation. End dates stop due generation and daily catch-up after the last eligible occurrence without rewriting prior work orders; replay remains idempotent, no tenant rights or charges. Full six-job CI still required. Dispatch, inspection approvals, inventory and purchasing remain open.
+
+## Phase 5 retired maintenance schedule evidence (2026-10-20; detached)
+
+Historical schedules and occurrence work-order references remain readable by current organization-authorized staff even when property or unit is inactive; manager assignments must remain currently valid. Such inventory cannot be used for new recurrence, activation changes, or schedule settings edits. The feature requires six-job hosted CI; automatic dispatch, on-call policy, mobile inspection approval, purchasing and inventory are still unfinished.
