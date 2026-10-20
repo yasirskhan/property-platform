@@ -1,3 +1,9 @@
+## 2026-10-20 | Phase 5 pending crew-time approval inbox — DETACHED / CI GATED
+
+Follow-on to published 4d0315216abde01ca7be74db5724e1deed0fa982 (crew original/reviewed time summary; hosted CI 39455507549). Adds a staff-only pending time correction inbox on the maintenance work orders page and GET /work-orders/time-corrections/pending, sorted oldest-first with bounded paging. The API joins actual Unit to Property and enforces organization and manager's live property assignment; crew/tenant and cross-organization access are denied. Cross-work-order or wrong-crew correction references are excluded. Each request links to the work order's existing independent approve/deny workflow. Backend regression and authenticated browser test cover scoping and discovery. No payroll, tenant billing or accounting posting. Only publish after predecessor all-six green, exact-head nonforce CAS and successor CI.
+
+---
+
 ## 2026-10-20 | Phase 5: reviewed crew-time summary — CI GATED
 
 Predecessor 2f4418a5d07bdfd4c0e27d0fff59c72d2d621d3c passed six required hosted CI jobs in run 39450921066. Current successor provides a bounded and role-scoped read-only original-versus-reviewed time summary for each work order. Original recorded minutes never change when management approves a time correction; the summary separately counts latest approved corrections and pending reviews. Role and organization checks deny tenant, foreign and revoked property personnel. This is operational evidence, not payroll approval or a tenant charge. The staff UI refreshes counts after entries, correction requests and decisions, with backend and authenticated browser regressions. New successor must pass exact-SHA six-job CI before VERIFIED. Further Phase 5 inventory, purchase approvals, inspections and dispatch automation are unfinished.
