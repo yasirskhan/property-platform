@@ -24,7 +24,7 @@
 # ============================================================
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Annotated, List, Literal
 
@@ -36,6 +36,7 @@ from app.core.database import get_db
 from app.models.property import Property, Unit, PropertyAssignment
 from app.models.user import User, UserRole
 from app.models.vendor import Vendor, MaintenancePreferredVendor
+from app.models.vendor_insurance import VendorInsurance
 from app.models.audit_log import AuditLog
 from app.routers.vendors import _access as _vendor_menu_access
 from app.services.menu_resolver import permission_allows_user
@@ -682,6 +683,39 @@ def _maintenance_vendor_scope(db: Session, wo_id: int, actor: User, *, write: bo
     return row, prop
 
 
+def _maintenance_vendor_insurance_statuses(
+    db: Session, organization_id: int, vendor_ids: list[int],
+) -> dict[int, str]:
+    """Return coarse readiness only; never expose carrier, policy IDs or amounts."""
+    if not vendor_ids:
+        return {}
+    policies = db.query(VendorInsurance).filter(
+        VendorInsurance.organization_id == organization_id,
+        VendorInsurance.vendor_id.in_(vendor_ids),
+        VendorInsurance.is_active.is_(True),
+        VendorInsurance.deleted_at.is_(None),
+    ).limit(5001).all()
+    if len(policies) > 5000:
+        raise HTTPException(status_code=422, detail="Too many insurance records for vendor selection")
+    today = date.today()
+    warning_end = today + timedelta(days=min(30, (date.max - today).days))
+    severity = {"EXPIRED": 0, "EXPIRING_30_DAYS": 1, "UPCOMING": 2, "CURRENT": 3}
+    labels: dict[int, str] = {}
+    for policy in policies:
+        if policy.expiration_date < today:
+            state = "EXPIRED"
+        elif policy.effective_date is not None and policy.effective_date > today:
+            state = "UPCOMING"
+        elif policy.expiration_date <= warning_end:
+            state = "EXPIRING_30_DAYS"
+        else:
+            state = "CURRENT"
+        earlier = labels.get(policy.vendor_id)
+        if earlier is None or severity[state] < severity[earlier]:
+            labels[policy.vendor_id] = state
+    return labels
+
+
 def _maintenance_vendor_choices(db: Session, *, organization_id: int, property_id: int,
                                 trade: str) -> list[MaintenanceVendorPreferenceOut]:
     records = (
@@ -699,8 +733,11 @@ def _maintenance_vendor_choices(db: Session, *, organization_id: int, property_i
     )
     if len(records) > 3:
         raise HTTPException(status_code=409, detail="Invalid preferred vendor rank configuration")
+    statuses = _maintenance_vendor_insurance_statuses(
+        db, organization_id, [vendor.id for _preference, vendor in records])
     return [MaintenanceVendorPreferenceOut(
         vendor_id=v.id, rank=p.rank, company_name=v.company_name, trade=trade,
+        insurance_status=statuses.get(v.id, "MISSING"),
     ) for p, v in records]
 
 
@@ -722,8 +759,11 @@ def list_maintenance_vendor_candidates(
     ).order_by(Vendor.company_name.asc(), Vendor.id.asc()).limit(201).all()
     if len(available) > 200:
         raise HTTPException(status_code=422, detail="Vendor list exceeds bounded selection capacity")
+    statuses = _maintenance_vendor_insurance_statuses(
+        db, current_user.organization_id, [vendor.id for vendor in available])
     return [MaintenanceVendorCandidateOut(
         vendor_id=v.id, company_name=v.company_name, trade=v.trade,
+        insurance_status=statuses.get(v.id, "MISSING"),
     ) for v in available]
 
 

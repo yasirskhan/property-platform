@@ -109,12 +109,14 @@ class MaintenanceVendorPreferenceOut(BaseModel):
     rank: int
     company_name: str
     trade: str
+    insurance_status: str = 'MISSING'
 
 
 class MaintenanceVendorCandidateOut(BaseModel):
     vendor_id: int
     company_name: str
     trade: Optional[str] = None
+    insurance_status: str = 'MISSING'
 
 
 class WorkOrderTimeLedgerOut(BaseModel):
