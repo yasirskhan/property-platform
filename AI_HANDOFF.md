@@ -1,3 +1,9 @@
+## 2026-10-20 | Preferred-vendor insurance-state visibility — DETACHED / NOT VERIFIED
+
+Latest preferred-vendor successor now displays only coarse insurance readiness statuses on authorized candidate and ranked preference cards, while keeping underlying insurance policy numbers, carrier information, coverage amounts and certificates private. Conservative precedence: expired, expiring, upcoming, current; missing when none. It also trims and normalizes vendor trade to match maintenance categories. Backend tests cover statuses and safe property/trade ranking; frontend offers three ranked selects plus compliance warning. No new migration for this label enhancement; preferred-vendor table revision d3f7c0a198be requires fresh/PostgreSQL/SQLite parity at 207 tables. Do not promote until parent approval-inbox CI 39463404881 is all-six green at exact 8a27379a40520b2665e3049c7fccce88610faa20; inspect live branch HEAD, nonforce CAS, then verify six successor jobs before VERIFIED. Phase 5 remains incomplete: on-call, automatic dispatch, inspections, procurement, inventory and accounting.
+
+---
+
 ## 2026-10-20 | Preferred vendors normalized-trade follow-up — DETACHED / CI GATED
 
 Latest detached candidate includes whitespace/case-normalized vendor trade matching (e.g., " PLUMBING " matches plumbing), an explicit notice to verify insurance/compliance/contracts before real dispatch, and a regression proving ranked companies are shared by all same-property/same-trade work orders but not unrelated properties/categories. Candidate descends from published 8a27379a40520b2665e3049c7fccce88610faa20, CI 39463404881 must finish all six SUCCESS before promotion. No automatic dispatch, notifications, financial posting, or tenant charges. Before publishing inspect live branch HEAD and use force=false expected-SHA CAS; subsequent six-job CI required.
