@@ -519,3 +519,7 @@ Prepared signed-in staff schedule page, per-schedule activity history, duplicate
 ## Phase 5 paused preventive schedule edits (2026-10-19; detached)
 
 Schedules can be paused and their task title, description and repeat interval changed. Editing an active schedule returns 409. The due date and previously generated work orders remain unchanged; all effective changes are audited with before/after values and must pass live role/organization/property-assignment authorization. PostgreSQL row lock protects concurrency with generation; there is no silent financial or tenant effect. Hosted six-job CI remains required, and dispatch/inspections/inventory/purchasing are unfinished.
+
+## Phase 5 bounded preventive schedule lifecycle (2026-10-19; detached)
+
+Staff can pause a schedule, then edit its title, instructions, interval and optional end date. Active edits are rejected, and row locks serialize updates with generation. End dates stop due generation and daily catch-up after the last eligible occurrence without rewriting prior work orders; replay remains idempotent, no tenant rights or charges. Full six-job CI still required. Dispatch, inspection approvals, inventory and purchasing remain open.

@@ -854,3 +854,5 @@ access boundary.
 | Phase 5 preventive staff dashboard and daily due worker | capability | /dashboard/maintenance/preventive | core | yes | Scoped ADMIN/MANAGER | no | 🔧 detached; CI gated | Staff schedule creation, pause/resume, due generation, occurrence history, browser test; durable daily cron and catch-up with creator reauthorization; no dispatch or financial posting |
 
 | Phase 5 preventive schedule settings edits | capability | /dashboard/maintenance/preventive | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 detached, six-job CI gated | Admin/manager may edit title/instructions/interval only after pause, with row lock, assignment reauthorization and immutable before/after audit; existing due date and generated orders are preserved; staff UI + E2E |
+
+| Phase 5 preventive schedule pause-edit and optional cutoff | capability | /dashboard/maintenance/preventive | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 detached, six-job CI gated | Authorized pause-only interval/title/instructions/end-date edits with audit and row lock; bounded due sweep, old work orders preserved; no dispatch or billing |

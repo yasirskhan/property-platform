@@ -1,3 +1,9 @@
+# 2026-10-19 | PHASE 5 SCHEDULE EDIT AND END-DATE — DETACHED / CI GATED
+
+Prepared descendant `6511752d2cf037f408d7d72c38cbd5d562ecb40d`: authorized pause-only edits of title, instructions, interval and optional end date; append-only before/after audit, row locks, UI and regressions. Migration `7c2e6f0a9b31` adds nullable end_date; worker stops after last eligible due, preserves prior work orders and replay, never dispatches or bills. Parent `e8ca6888903b517427e6e6902e77ef3fd041206f` CI `39366507342` must pass all six before safe expected-head nonforce promotion and successor CI. Dispatch, inspections, inventory, purchasing remain unfinished.
+
+---
+
 # 2026-10-19 | PHASE 5 PAUSED-SCHEDULE SETTINGS — DETACHED / SIX-JOB CI GATED
 
 Published source `e8ca6888903b517427e6e6902e77ef3fd041206f` repairs exact Playwright unit locator after failed E2E at `eb240286e9f29e24eb7595d97592868e71c52469` (other five jobs passed). Hosted CI run `39366507342` must pass all six at that exact SHA before publishing successors.

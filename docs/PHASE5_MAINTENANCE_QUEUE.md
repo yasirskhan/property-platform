@@ -547,3 +547,7 @@ Adds a customer staff UI and daily idempotent JobRun/Arq cron sweep (17:40 UTC) 
 ## Phase 5 paused schedule settings workflow (detached; CI gated)
 
 Staff can pause a recurring maintenance schedule, edit task/instructions/interval using PATCH /api/maintenance/preventive/schedules/{id}/settings and resume. The edit requires an authorized current actor and row lock; invalid/empty input rejects, active schedules reject, and changes are recorded in append-only old/new audit. Due date and historical work orders are never rewritten. UI and regressions validate the flow; exact-SHA hosted six-job verification is mandatory before claiming delivery.
+
+## Paused schedule edits and bounded end-date controls (detached; CI gated)
+
+An authorized staff member can pause a preventive maintenance schedule, edit task, instructions, interval and optional end date, then resume. PostgreSQL schedule-row locking, current actor/property assignment checks and append-only before/after audit protect concurrent generation. An end date limits all later occurrences and daily sweeps, but preserves old orders and safe replay. No automatic dispatch, entry permission or tenant charges. Requires exact six-job hosted CI.
