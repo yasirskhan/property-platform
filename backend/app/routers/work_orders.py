@@ -24,7 +24,7 @@
 # ============================================================
 
 import json
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from typing import Annotated, List, Literal
 
@@ -76,6 +76,7 @@ from app.schemas.work_order import (
     MaintenanceOnCallShiftCreate,
     MaintenanceOnCallShiftCancel,
     MaintenanceOnCallShiftOut,
+    MaintenanceOnCallCalendarOut,
     MaintenanceVendorPreferencesUpdate,
     MaintenanceVendorPreferenceOut,
     MaintenanceVendorCandidateOut,
@@ -659,6 +660,64 @@ def set_work_order_vendor(
 # ------------------------------------------------------------
 # PROPERTY ON-CALL PRIMARY CREW: SCHEDULE ONLY, NEVER AUTO-DISPATCH
 # ------------------------------------------------------------
+@router.get("/on-call-calendar", response_model=List[MaintenanceOnCallCalendarOut])
+def list_maintenance_on_call_calendar(
+    start: date | None = None,
+    days: Annotated[int, Query(ge=1, le=31)] = 7,
+    include_cancelled: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if (current_user.organization_id is None or not current_user.is_active
+            or current_user.deleted_at is not None
+            or current_user.role not in (UserRole.ADMIN, UserRole.OWNER,
+                                         UserRole.MANAGER, UserRole.CREW)):
+        raise HTTPException(status_code=403, detail="Maintenance calendar access denied")
+    today = datetime.utcnow().date()
+    first_date = start or today
+    if first_date < today - timedelta(days=366) or first_date > today + timedelta(days=366):
+        raise HTTPException(status_code=422, detail="Calendar start must be within one year")
+    begins = datetime.combine(first_date, time.min)
+    ends = begins + timedelta(days=days)
+    q = (
+        db.query(MaintenanceOnCallShift, Property, User)
+        .join(Property, Property.id == MaintenanceOnCallShift.property_id)
+        .join(User, User.id == MaintenanceOnCallShift.crew_user_id)
+        .filter(
+            MaintenanceOnCallShift.organization_id == current_user.organization_id,
+            Property.organization_id == current_user.organization_id,
+            User.organization_id == current_user.organization_id,
+            MaintenanceOnCallShift.starts_at < ends,
+            MaintenanceOnCallShift.ends_at > begins,
+        )
+    )
+    if not include_cancelled:
+        q = q.filter(MaintenanceOnCallShift.cancelled_at.is_(None))
+    if current_user.role in (UserRole.MANAGER, UserRole.CREW):
+        q = q.join(PropertyAssignment,
+                   PropertyAssignment.property_id == Property.id).filter(
+            PropertyAssignment.user_id == current_user.id,
+            PropertyAssignment.is_active.is_(True),
+            PropertyAssignment.deleted_at.is_(None),
+            PropertyAssignment.role == current_user.role,
+        )
+        if current_user.role == UserRole.CREW:
+            q = q.filter(MaintenanceOnCallShift.crew_user_id == current_user.id)
+    records = q.order_by(
+        MaintenanceOnCallShift.starts_at.asc(),
+        MaintenanceOnCallShift.id.asc(),
+    ).limit(501).all()
+    if len(records) > 500:
+        raise HTTPException(status_code=422, detail="Too many shifts; narrow the date range")
+    return [MaintenanceOnCallCalendarOut(
+        id=shift.id, property_id=prop.id, property_name=prop.name,
+        crew_user_id=assigned.id,
+        crew_name=(assigned.first_name + " " + assigned.last_name).strip(),
+        starts_at=shift.starts_at, ends_at=shift.ends_at,
+        cancelled_at=shift.cancelled_at, cancellation_reason=shift.cancellation_reason,
+    ) for shift, prop, assigned in records]
+
+
 @router.get("/{wo_id}/on-call-shifts", response_model=List[MaintenanceOnCallShiftOut])
 def list_maintenance_on_call_shifts(
     wo_id: int,

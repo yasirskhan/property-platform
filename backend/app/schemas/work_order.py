@@ -100,6 +100,18 @@ class PendingCrewTimeCorrectionOut(BaseModel):
     created_at: datetime
 
 
+class MaintenanceOnCallCalendarOut(BaseModel):
+    id: int
+    property_id: int
+    property_name: str
+    crew_user_id: int
+    crew_name: str
+    starts_at: datetime
+    ends_at: datetime
+    cancelled_at: Optional[datetime] = None
+    cancellation_reason: Optional[str] = None
+
+
 class MaintenanceOnCallShiftCreate(BaseModel):
     crew_user_id: int = Field(..., ge=1)
     starts_at: datetime
