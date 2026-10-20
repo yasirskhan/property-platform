@@ -280,6 +280,14 @@ def test_crew_accepts_and_rejects_dispatch_with_audited_reassignment() -> None:
             pw.expect(admin.get_by_text(
                 "Property on-call shift scheduled. No automatic dispatch was performed.", exact=True
             )).to_be_visible(timeout=15_000)
+            admin.goto(BASE_URL + "/dashboard/maintenance/on-call", wait_until="domcontentloaded")
+            pw.expect(admin.get_by_role("heading", name="Maintenance on-call calendar")).to_be_visible(timeout=15_000)
+            pw.expect(admin.get_by_role("region", name="Seven-day on-call coverage").get_by_text(
+                "Maintenance Crew", exact=True
+            )).to_be_visible(timeout=15_000)
+            admin.goto(BASE_URL + "/dashboard/maintenance/work-orders/" + str(first),
+                       wait_until="domcontentloaded")
+            oncall = admin.get_by_role("region", name="Property on-call crew shifts")
             pw.expect(oncall.get_by_role("button", name="Cancel shift")).to_be_visible(timeout=15_000)
             oncall.get_by_role("button", name="Cancel shift").click()
             pw.expect(oncall.get_by_role("button", name="Confirm shift cancellation")).to_be_disabled()
