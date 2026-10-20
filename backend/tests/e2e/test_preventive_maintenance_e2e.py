@@ -50,6 +50,16 @@ def test_staff_creates_preventive_schedule_and_one_tenantless_due_work_order():
             card.get_by_role("button", name="Pause", exact=True).click()
             pw.expect(card).to_contain_text("Paused", timeout=15_000)
             pw.expect(card.get_by_role("button", name="Generate due work order")).to_be_disabled()
+            card.get_by_role("button", name="Edit paused schedule").click()
+            card.get_by_label(re.compile(r"Edit preventive title")).fill("E2E revised filter schedule")
+            card.get_by_label(re.compile(r"Edit preventive instructions")).fill("Inspect safety filters and ventilation thoroughly")
+            card.get_by_label(re.compile(r"Edit preventive interval")).fill("45")
+            card.get_by_role("button", name="Save schedule changes").click()
+            pw.expect(page.get_by_role("status").filter(
+                has_text="settings updated and audited"
+            )).to_be_visible(timeout=15_000)
+            pw.expect(card).to_contain_text("Every 45 days")
+            pw.expect(card.get_by_role("link", name=re.compile(r"Work order #[0-9]+"))).to_be_visible()
             card.get_by_role("button", name="Resume").click()
             pw.expect(card).to_contain_text("Active", timeout=15_000)
         finally:

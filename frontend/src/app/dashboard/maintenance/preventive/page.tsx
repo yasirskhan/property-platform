@@ -35,6 +35,10 @@ export default function PreventiveMaintenancePage() {
   const [historyId, setHistoryId] = useState<number | null>(null);
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [historyError, setHistoryError] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editInterval, setEditInterval] = useState("30");
 
   async function loadMore() {
     if (loadingMore || !hasMore) return;
@@ -132,6 +136,42 @@ export default function PreventiveMaintenancePage() {
       setNotice(updated.active ? "Schedule resumed." : "Schedule paused.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Cannot change schedule.");
+    } finally { setBusyId(null); }
+  }
+
+  function startEditing(row: Schedule) {
+    if (row.active) {
+      setError("Pause this schedule before changing its settings.");
+      return;
+    }
+    setEditingId(row.id);
+    setEditTitle(row.title);
+    setEditDescription(row.description);
+    setEditInterval(String(row.interval_days));
+    setError(""); setNotice("");
+  }
+
+  async function saveSettings(event: FormEvent<HTMLFormElement>, row: Schedule) {
+    event.preventDefault();
+    if (row.active || editingId !== row.id) {
+      setError("Pause this schedule before editing.");
+      return;
+    }
+    setBusyId(row.id); setError(""); setNotice("");
+    try {
+      const updated = await apiPatch(
+        `/api/maintenance/preventive/schedules/${row.id}/settings`, {
+          title: editTitle.trim(), description: editDescription.trim(),
+          interval_days: Number(editInterval),
+        },
+      ) as Schedule;
+      if (updated.id !== row.id || updated.active)
+        throw new Error("Unexpected schedule update response.");
+      setSchedules((previous) => previous.map((item) => item.id === row.id ? updated : item));
+      setEditingId(null);
+      setNotice("Paused schedule settings updated and audited. Existing occurrences are unchanged.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Schedule edit failed.");
     } finally { setBusyId(null); }
   }
 
@@ -253,11 +293,51 @@ export default function PreventiveMaintenancePage() {
             className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
             Generate due work order
           </button>
+          <button type="button" disabled={busyId !== null || row.active}
+            onClick={() => startEditing(row)}
+            className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
+            Edit paused schedule
+          </button>
           <button disabled={busyId !== null} onClick={() => void showHistory(row.id)}
             className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
             Occurrence history
           </button>
         </div>
+        {editingId === row.id && !row.active && <form
+          onSubmit={(event) => void saveSettings(event, row)}
+          className="space-y-3 rounded-lg border bg-slate-50 p-4">
+          <p className="text-sm font-semibold">Edit paused schedule #{row.id}</p>
+          <label className="block text-sm">Task title
+            <input required minLength={3} maxLength={255} value={editTitle}
+              aria-label={`Edit preventive title ${row.id}`}
+              onChange={(event) => setEditTitle(event.target.value)}
+              className="mt-1 w-full rounded-lg border p-2" />
+          </label>
+          <label className="block text-sm">Instructions
+            <textarea required minLength={10} maxLength={2000} value={editDescription}
+              aria-label={`Edit preventive instructions ${row.id}`}
+              onChange={(event) => setEditDescription(event.target.value)}
+              className="mt-1 w-full rounded-lg border p-2" />
+          </label>
+          <label className="block text-sm">Repeat every (days)
+            <input type="number" min={1} max={3650} required value={editInterval}
+              aria-label={`Edit preventive interval ${row.id}`}
+              onChange={(event) => setEditInterval(event.target.value)}
+              className="mt-1 w-full rounded-lg border p-2" />
+          </label>
+          <p className="text-xs text-slate-600">Next due date remains {row.next_due_date}.
+            Previously generated work orders are never rewritten.</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="submit" disabled={busyId !== null}
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50">
+              Save schedule changes
+            </button>
+            <button type="button" disabled={busyId !== null}
+              onClick={() => setEditingId(null)} className="rounded-lg border px-4 py-2 text-sm">
+              Cancel editing
+            </button>
+          </div>
+        </form>}
         {historyId === row.id && <div className="space-y-2 border-t pt-3">
           {historyError && <p role="alert" className="text-sm text-red-700">{historyError}</p>}
           {!historyError && occurrences.length === 0 && <p className="text-sm">No work orders generated yet.</p>}
