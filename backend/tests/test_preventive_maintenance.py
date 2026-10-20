@@ -102,6 +102,72 @@ def test_preventive_schedule_due_work_order_exactly_once_and_no_tenant_financial
         engine.dispose()
 
 
+def test_schedule_settings_pause_only_atomic_audit_and_preserve_due():
+    db, engine, actors, props, units = seeded()
+    try:
+        admin, manager, tenant, outsider = actors
+        schedule = pm.create_schedule(db, admin, unit_id=units[0].id,
+            title="Check filters", description="Inspect HVAC ventilation and filters",
+            interval_days=30, next_due_date=date.today())
+        with pytest.raises(HTTPException) as exc:
+            pm.update_settings(db, admin, schedule.id, interval_days=45)
+        assert exc.value.status_code == 409
+        pm.set_active(db, manager, schedule.id, False)
+        original_due = schedule.next_due_date
+        edited = pm.update_settings(db, manager, schedule.id,
+            title="Review HVAC", description="Inspect air handlers and filters",
+            interval_days=45)
+        assert edited.title == "Review HVAC"
+        assert edited.next_due_date == original_due
+        assert edited.active is False
+        audit = db.query(AuditLog).filter_by(
+            entity_type="preventive_maintenance_schedule", entity_id=schedule.id,
+            action="settings_changed").one()
+        assert audit.user_id == manager.id
+        assert json.loads(audit.old_value)["interval_days"] == 30
+        assert json.loads(audit.new_value)["interval_days"] == 45
+        pm.update_settings(db, manager, schedule.id, interval_days=45)
+        assert db.query(AuditLog).filter_by(action="settings_changed").count() == 1
+        for actor in (tenant, outsider):
+            with pytest.raises(HTTPException):
+                pm.update_settings(db, actor, schedule.id, interval_days=60)
+        for args in ({}, {"title": " "}, {"interval_days": 0}):
+            with pytest.raises(HTTPException) as invalid:
+                pm.update_settings(db, admin, schedule.id, **args)
+            assert invalid.value.status_code == 422
+        pm.set_active(db, admin, schedule.id, True)
+        wo, new = pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        assert new is True
+        assert wo.tenant_id is None and wo.total_cost is None
+        db.refresh(schedule)
+        assert schedule.next_due_date == original_due + timedelta(days=45)
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_schedule_settings_revoked_manager_cannot_edit():
+    db, engine, actors, props, units = seeded()
+    try:
+        admin, manager, tenant, outsider = actors
+        schedule = pm.create_schedule(db, admin, unit_id=units[0].id,
+            title="Review alarms", description="Inspect smoke alarms and safety signage",
+            interval_days=30, next_due_date=date.today())
+        pm.set_active(db, admin, schedule.id, False)
+        assignment = db.query(PropertyAssignment).filter_by(
+            user_id=manager.id, property_id=props[0].id).one()
+        assignment.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException):
+            pm.update_settings(db, manager, schedule.id, title="Unauthorized")
+        db.refresh(schedule)
+        assert schedule.title == "Review alarms"
+        assert db.query(AuditLog).filter_by(action="settings_changed").count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_preventive_history_omits_corrupted_cross_org_work_order_binding():
     db, engine, actors, props, units = seeded()
     try:

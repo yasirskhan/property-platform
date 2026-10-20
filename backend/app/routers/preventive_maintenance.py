@@ -33,6 +33,13 @@ class ScheduleOut(BaseModel):
 class ActiveUpdate(BaseModel):
     active: bool
 
+class ScheduleSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: str | None = Field(default=None, min_length=3, max_length=255)
+    description: str | None = Field(default=None, min_length=10, max_length=2000)
+    interval_days: int | None = Field(default=None, ge=1, le=3650)
+
+
 class GeneratedOut(BaseModel):
     work_order_id: int
     newly_created: bool
@@ -58,6 +65,15 @@ def change_active(schedule_id: int, payload: ActiveUpdate,
                   db: Session = Depends(get_db),
                   current_user: User = Depends(get_current_user)):
     return service.set_active(db, current_user, schedule_id, payload.active)
+
+@router.patch("/schedules/{schedule_id}/settings", response_model=ScheduleOut)
+def edit_settings(schedule_id: int, payload: ScheduleSettings,
+                  db: Session = Depends(get_db),
+                  current_user: User = Depends(get_current_user)):
+    return service.update_settings(
+        db, current_user, schedule_id, **payload.model_dump(exclude_none=True),
+    )
+
 
 @router.post("/schedules/{schedule_id}/generate", response_model=GeneratedOut)
 def generate(schedule_id: int, as_of: Annotated[date | None, Query()] = None,

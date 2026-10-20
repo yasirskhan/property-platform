@@ -94,6 +94,54 @@ def set_active(db: Session, actor: User, schedule_id: int, active: bool):
         db.refresh(row)
     return row
 
+
+def update_settings(db: Session, actor: User, schedule_id: int, *,
+                    title: str | None = None, description: str | None = None,
+                    interval_days: int | None = None):
+    """Update a paused schedule without rewriting due dates or old work orders."""
+    scoped = _schedule(db, actor, schedule_id)
+    row = db.query(Schedule).populate_existing().filter(
+        Schedule.id == scoped.id, Schedule.organization_id == actor.organization_id,
+    ).with_for_update().one()
+    _scope(db, actor, row.unit_id)
+    if row.active:
+        raise HTTPException(status_code=409, detail="Pause schedule before editing")
+    requested = {}
+    if title is not None:
+        title = title.strip()
+        if not 3 <= len(title) <= 255:
+            raise HTTPException(status_code=422, detail="Invalid title")
+        requested["title"] = title
+    if description is not None:
+        description = description.strip()
+        if not 10 <= len(description) <= 2000:
+            raise HTTPException(status_code=422, detail="Invalid description")
+        requested["description"] = description
+    if interval_days is not None:
+        if not 1 <= interval_days <= 3650:
+            raise HTTPException(status_code=422, detail="Invalid interval")
+        requested["interval_days"] = interval_days
+    if not requested:
+        raise HTTPException(status_code=422, detail="Provide a setting to edit")
+    changes = {key: (getattr(row, key), value) for key, value in requested.items()
+               if getattr(row, key) != value}
+    if not changes:
+        return row
+    for key, (_, value) in changes.items():
+        setattr(row, key, value)
+    row.updated_at = datetime.utcnow()
+    append_audit_log(
+        db, entity_type="preventive_maintenance_schedule", entity_id=row.id,
+        organization_id=actor.organization_id, user_id=actor.id,
+        action="settings_changed",
+        old_value={key: old for key, (old, _) in changes.items()},
+        new_value={key: new for key, (_, new) in changes.items()},
+    )
+    db.commit()
+    db.refresh(row)
+    return row
+
+
 def generate_due(db: Session, actor: User, schedule_id: int, *, as_of: date):
     """Generate ONE due occurrence under row lock; retries return the same order."""
     row = _schedule(db, actor, schedule_id)
